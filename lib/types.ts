@@ -10,16 +10,6 @@ export interface Material {
   brand: string
 }
 
-export interface MaterialType {
-  id: string
-  name: string
-}
-
-export interface MaterialBrand {
-  id: string
-  name: string
-}
-
 export interface Location {
   address: string
   coordinates: {
@@ -43,6 +33,7 @@ export interface DateTime {
 
 export interface FormData {
   formId: string
+  serviceType: string
   brigade: Brigade
   materials: Material[]
   location: Location
@@ -50,30 +41,8 @@ export interface FormData {
   dateTime: DateTime
 }
 
-// Tipos iniciales predefinidos
-export const INITIAL_MATERIAL_TYPES = [
-  "Panel Solar",
-  "Inversor",
-  "Batería",
-  "Cable DC",
-  "Cable AC",
-  "Estructura de Montaje",
-  "Tornillería",
-  "Regulador de Carga",
-  "Medidor Bidireccional",
-  "Protecciones Eléctricas",
-]
-
-// Marcas iniciales predefinidas
-export const INITIAL_MATERIAL_BRANDS = [
-  "Canadian Solar",
-  "Jinko Solar",
-  "Trina Solar",
-  "SMA",
-  "Fronius",
-  "Huawei",
-  "Tesla",
-  "LG Chem",
-  "Victron Energy",
-  "Schneider Electric",
+export const SERVICE_TYPES = [
+  { value: "inversion", label: "Inversión" },
+  { value: "mantenimiento", label: "Mantenimiento" },
+  { value: "averia", label: "Avería" },
 ]

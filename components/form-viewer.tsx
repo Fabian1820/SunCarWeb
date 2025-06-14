@@ -5,8 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-import { Users, Package, MapPin, Camera, Calendar, Clock, Navigation, ZoomIn } from "lucide-react"
-import { MATERIAL_TYPES } from "@/lib/types"
+import { Users, Package, MapPin, Camera, Calendar, Clock, Navigation, ZoomIn, Sun } from "lucide-react"
+import { SERVICE_TYPES } from "@/lib/types"
 
 interface FormViewerProps {
   formData: any
@@ -15,8 +15,8 @@ interface FormViewerProps {
 export function FormViewer({ formData }: FormViewerProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null)
 
-  const getMaterialLabel = (type: string) => {
-    return MATERIAL_TYPES.find((m) => m.value === type)?.label || type
+  const getServiceTypeLabel = (value: string) => {
+    return SERVICE_TYPES.find((type) => type.value === value)?.label || value
   }
 
   const formatDateTime = () => {
@@ -48,6 +48,23 @@ export function FormViewer({ formData }: FormViewerProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Tipo de Servicio */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Sun className="h-5 w-5 text-orange-500" />
+              <span>Tipo de Servicio</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-3">
+              <Badge className="bg-orange-100 text-orange-800 text-base px-3 py-1">
+                {getServiceTypeLabel(formData.serviceType)}
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Brigada */}
         <Card>
           <CardHeader>
@@ -114,9 +131,9 @@ export function FormViewer({ formData }: FormViewerProps) {
                   <Package className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900">{getMaterialLabel(material.type)}</p>
+                  <p className="font-medium text-gray-900">{material.name}</p>
                   <p className="text-sm text-gray-600">
-                    {material.quantity} {material.unit}
+                    {material.type} • {material.brand}
                   </p>
                 </div>
               </div>

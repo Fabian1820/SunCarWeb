@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,16 +8,23 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { ArrowLeft, Package, Plus, Search, Loader2 } from "lucide-react"
+import { ArrowLeft, Package, Plus, Search } from "lucide-react"
 import { MaterialsTable } from "@/components/materials-table"
 import { MaterialForm } from "@/components/material-form"
-import type { Material, MaterialType, MaterialBrand } from "@/lib/types"
+import type { Material } from "@/lib/types"
 
 export default function MaterialesPage() {
-  const [materials, setMaterials] = useState<Material[]>([])
-  const [materialTypes, setMaterialTypes] = useState<MaterialType[]>([])
-  const [materialBrands, setMaterialBrands] = useState<MaterialBrand[]>([])
-  const [loading, setLoading] = useState(true)
+  const [materials, setMaterials] = useState<Material[]>([
+    { id: "1", name: "Panel Solar 450W", type: "Panel Solar", brand: "Canadian Solar" },
+    { id: "2", name: "Inversor 5kW", type: "Inversor", brand: "Fronius" },
+    { id: "3", name: "Batería Litio 100Ah", type: "Batería", brand: "Tesla" },
+    { id: "4", name: "Cable DC 4mm", type: "Cable", brand: "Prysmian" },
+    { id: "5", name: "Cable AC 6mm", type: "Cable", brand: "Procables" },
+    { id: "6", name: "Estructura Aluminio", type: "Estructura", brand: "Schletter" },
+    { id: "7", name: "Tornillos Inox M8", type: "Tornillería", brand: "Hilti" },
+    { id: "8", name: "Regulador MPPT 60A", type: "Regulador", brand: "Victron" },
+  ])
+
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [filterBrand, setFilterBrand] = useState("all")
@@ -25,106 +32,24 @@ export default function MaterialesPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
-    setLoading(true)
-    try {
-      const [materialsRes, typesRes, brandsRes] = await Promise.all([
-        fetch("/api/materials"),
-        fetch("/api/material-types"),
-        fetch("/api/material-brands"),
-      ])
-
-      const [materialsData, typesData, brandsData] = await Promise.all([
-        materialsRes.json(),
-        typesRes.json(),
-        brandsRes.json(),
-      ])
-
-      if (materialsData.success) setMaterials(materialsData.data)
-      if (typesData.success) setMaterialTypes(typesData.data)
-      if (brandsData.success) setMaterialBrands(brandsData.data)
-    } catch (error) {
-      console.error("Error loading data:", error)
-      alert("Error al cargar los datos")
-    } finally {
-      setLoading(false)
+  const addMaterial = (material: Omit<Material, "id">) => {
+    const newMaterial: Material = {
+      ...material,
+      id: Date.now().toString(),
     }
+    setMaterials([...materials, newMaterial])
+    setIsAddDialogOpen(false)
   }
 
-  const addMaterial = async (material: Omit<Material, "id">) => {
-    try {
-      const response = await fetch("/api/materials", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(material),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setMaterials([...materials, data.data])
-        setIsAddDialogOpen(false)
-        alert("Material agregado exitosamente")
-      } else {
-        alert(data.error || "Error al agregar material")
-      }
-    } catch (error) {
-      console.error("Error adding material:", error)
-      alert("Error al agregar material")
-    }
+  const updateMaterial = (updatedMaterial: Material) => {
+    setMaterials(materials.map((m) => (m.id === updatedMaterial.id ? updatedMaterial : m)))
+    setIsEditDialogOpen(false)
+    setEditingMaterial(null)
   }
 
-  const updateMaterial = async (updatedMaterial: Material) => {
-    try {
-      const response = await fetch(`/api/materials/${updatedMaterial.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: updatedMaterial.name,
-          type: updatedMaterial.type,
-          brand: updatedMaterial.brand,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setMaterials(materials.map((m) => (m.id === updatedMaterial.id ? updatedMaterial : m)))
-        setIsEditDialogOpen(false)
-        setEditingMaterial(null)
-        alert("Material actualizado exitosamente")
-      } else {
-        alert(data.error || "Error al actualizar material")
-      }
-    } catch (error) {
-      console.error("Error updating material:", error)
-      alert("Error al actualizar material")
-    }
-  }
-
-  const deleteMaterial = async (id: string) => {
-    if (!confirm("¿Estás seguro de que deseas eliminar este material?")) return
-
-    try {
-      const response = await fetch(`/api/materials/${id}`, {
-        method: "DELETE",
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setMaterials(materials.filter((m) => m.id !== id))
-        alert("Material eliminado exitosamente")
-      } else {
-        alert(data.error || "Error al eliminar material")
-      }
-    } catch (error) {
-      console.error("Error deleting material:", error)
-      alert("Error al eliminar material")
+  const deleteMaterial = (id: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar este material?")) {
+      setMaterials(materials.filter((m) => m.id !== id))
     }
   }
 
@@ -138,29 +63,18 @@ export default function MaterialesPage() {
       material.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       material.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       material.brand.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesType = filterType === "all" || material.type === filterType
-    const matchesBrand = filterBrand === "all" || material.brand === filterBrand
-    return matchesSearch && matchesType && matchesBrand
+    const matchesTypeFilter = filterType === "all" || material.type === filterType
+    const matchesBrandFilter = filterBrand === "all" || material.brand === filterBrand
+    return matchesSearch && matchesTypeFilter && matchesBrandFilter
   })
 
-  const uniqueTypes = Array.from(new Set(materials.map((m) => m.type)))
-  const uniqueBrands = Array.from(new Set(materials.map((m) => m.brand)))
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando materiales...</p>
-        </div>
-      </div>
-    )
-  }
+  const materialTypes = Array.from(new Set(materials.map((m) => m.type)))
+  const materialBrands = Array.from(new Set(materials.map((m) => m.brand)))
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-orange-100">
+      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
@@ -194,10 +108,8 @@ export default function MaterialesPage() {
                 <MaterialForm
                   onSubmit={addMaterial}
                   onCancel={() => setIsAddDialogOpen(false)}
-                  materialTypes={materialTypes}
-                  materialBrands={materialBrands}
-                  onTypeAdded={(newType) => setMaterialTypes([...materialTypes, newType])}
-                  onBrandAdded={(newBrand) => setMaterialBrands([...materialBrands, newBrand])}
+                  existingTypes={materialTypes}
+                  existingBrands={materialBrands}
                 />
               </DialogContent>
             </Dialog>
@@ -205,7 +117,7 @@ export default function MaterialesPage() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters and Search */}
         <Card className="border-0 shadow-md mb-6">
           <CardHeader>
@@ -213,8 +125,8 @@ export default function MaterialesPage() {
             <CardDescription>Encuentra materiales específicos en tu catálogo</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
+            <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex-1">
                 <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
                   Buscar Material
                 </Label>
@@ -229,8 +141,8 @@ export default function MaterialesPage() {
                   />
                 </div>
               </div>
-              <div>
-                <Label htmlFor="filter-type" className="text-sm font-medium text-gray-700 mb-2 block">
+              <div className="lg:w-48">
+                <Label htmlFor="type-filter" className="text-sm font-medium text-gray-700 mb-2 block">
                   Filtrar por Tipo
                 </Label>
                 <Select value={filterType} onValueChange={setFilterType}>
@@ -239,7 +151,7 @@ export default function MaterialesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los tipos</SelectItem>
-                    {uniqueTypes.map((type) => (
+                    {materialTypes.map((type) => (
                       <SelectItem key={type} value={type}>
                         {type}
                       </SelectItem>
@@ -247,8 +159,8 @@ export default function MaterialesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="filter-brand" className="text-sm font-medium text-gray-700 mb-2 block">
+              <div className="lg:w-48">
+                <Label htmlFor="brand-filter" className="text-sm font-medium text-gray-700 mb-2 block">
                   Filtrar por Marca
                 </Label>
                 <Select value={filterBrand} onValueChange={setFilterBrand}>
@@ -257,7 +169,7 @@ export default function MaterialesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las marcas</SelectItem>
-                    {uniqueBrands.map((brand) => (
+                    {materialBrands.map((brand) => (
                       <SelectItem key={brand} value={brand}>
                         {brand}
                       </SelectItem>
@@ -296,10 +208,8 @@ export default function MaterialesPage() {
                   setIsEditDialogOpen(false)
                   setEditingMaterial(null)
                 }}
-                materialTypes={materialTypes}
-                materialBrands={materialBrands}
-                onTypeAdded={(newType) => setMaterialTypes([...materialTypes, newType])}
-                onBrandAdded={(newBrand) => setMaterialBrands([...materialBrands, newBrand])}
+                existingTypes={materialTypes}
+                existingBrands={materialBrands}
                 isEditing
               />
             )}

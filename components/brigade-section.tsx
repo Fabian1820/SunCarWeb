@@ -3,16 +3,17 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Plus, Minus, Users, ChevronRight } from "lucide-react"
+import { Plus, Minus, Users, ChevronRight, ChevronLeft } from "lucide-react"
 import type { FormData } from "@/lib/types"
 
 interface BrigadeSectionProps {
   formData: FormData
   setFormData: (data: FormData) => void
   onNext: () => void
+  onPrev?: () => void
 }
 
-export function BrigadeSection({ formData, setFormData, onNext }: BrigadeSectionProps) {
+export function BrigadeSection({ formData, setFormData, onNext, onPrev }: BrigadeSectionProps) {
   const addMember = () => {
     setFormData({
       ...formData,
@@ -145,11 +146,17 @@ export function BrigadeSection({ formData, setFormData, onNext }: BrigadeSection
         )}
       </div>
 
-      <div className="flex justify-end pt-6 border-t">
+      <div className="flex justify-between pt-6 border-t">
+        {onPrev && (
+          <Button onClick={onPrev} variant="outline">
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Anterior: Tipo de Servicio
+          </Button>
+        )}
         <Button
           onClick={onNext}
           disabled={!isValid}
-          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+          className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 ml-auto"
         >
           Siguiente: Materiales
           <ChevronRight className="ml-2 h-4 w-4" />

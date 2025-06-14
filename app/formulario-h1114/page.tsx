@@ -11,11 +11,13 @@ import { MaterialsSection } from "@/components/materials-section"
 import { LocationSection } from "@/components/location-section"
 import { PhotosSection } from "@/components/photos-section"
 import { DateTimeSection } from "@/components/datetime-section"
+import { ServiceTypeSection } from "@/components/service-type-section"
 import type { FormData } from "@/lib/types"
 
 export default function FormularioH1114() {
   const [formData, setFormData] = useState<FormData>({
     formId: `H1114-${Date.now()}`,
+    serviceType: "",
     brigade: {
       leader: "",
       members: [""],
@@ -34,7 +36,7 @@ export default function FormularioH1114() {
   })
 
   const [currentStep, setCurrentStep] = useState(1)
-  const totalSteps = 5
+  const totalSteps = 6
 
   const handleSave = () => {
     console.log("Guardando formulario:", formData)
@@ -43,17 +45,18 @@ export default function FormularioH1114() {
   }
 
   const steps = [
-    { number: 1, title: "Brigada", icon: Users, completed: formData.brigade.leader !== "" },
-    { number: 2, title: "Materiales", icon: Package, completed: formData.materials.length > 0 },
-    { number: 3, title: "Ubicación", icon: MapPin, completed: formData.location.address !== "" },
-    { number: 4, title: "Fotos", icon: Camera, completed: formData.photos.length > 0 },
-    { number: 5, title: "Fecha/Hora", icon: Calendar, completed: formData.dateTime.date !== "" },
+    { number: 1, title: "Tipo de Servicio", icon: Sun, completed: formData.serviceType !== "" },
+    { number: 2, title: "Brigada", icon: Users, completed: formData.brigade.leader !== "" },
+    { number: 3, title: "Materiales", icon: Package, completed: formData.materials.length > 0 },
+    { number: 4, title: "Ubicación", icon: MapPin, completed: formData.location.address !== "" },
+    { number: 5, title: "Fotos", icon: Camera, completed: formData.photos.length > 0 },
+    { number: 6, title: "Fecha/Hora", icon: Calendar, completed: formData.dateTime.date !== "" },
   ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-orange-100">
+      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-4">
@@ -84,7 +87,7 @@ export default function FormularioH1114() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Progress Sidebar */}
           <div className="lg:col-span-1">
@@ -138,10 +141,10 @@ export default function FormularioH1114() {
             <Card className="border-0 shadow-md">
               <CardContent className="p-8">
                 {currentStep === 1 && (
-                  <BrigadeSection formData={formData} setFormData={setFormData} onNext={() => setCurrentStep(2)} />
+                  <ServiceTypeSection formData={formData} setFormData={setFormData} onNext={() => setCurrentStep(2)} />
                 )}
                 {currentStep === 2 && (
-                  <MaterialsSection
+                  <BrigadeSection
                     formData={formData}
                     setFormData={setFormData}
                     onNext={() => setCurrentStep(3)}
@@ -149,7 +152,7 @@ export default function FormularioH1114() {
                   />
                 )}
                 {currentStep === 3 && (
-                  <LocationSection
+                  <MaterialsSection
                     formData={formData}
                     setFormData={setFormData}
                     onNext={() => setCurrentStep(4)}
@@ -157,7 +160,7 @@ export default function FormularioH1114() {
                   />
                 )}
                 {currentStep === 4 && (
-                  <PhotosSection
+                  <LocationSection
                     formData={formData}
                     setFormData={setFormData}
                     onNext={() => setCurrentStep(5)}
@@ -165,10 +168,18 @@ export default function FormularioH1114() {
                   />
                 )}
                 {currentStep === 5 && (
+                  <PhotosSection
+                    formData={formData}
+                    setFormData={setFormData}
+                    onNext={() => setCurrentStep(6)}
+                    onPrev={() => setCurrentStep(4)}
+                  />
+                )}
+                {currentStep === 6 && (
                   <DateTimeSection
                     formData={formData}
                     setFormData={setFormData}
-                    onPrev={() => setCurrentStep(4)}
+                    onPrev={() => setCurrentStep(5)}
                     onSave={handleSave}
                   />
                 )}

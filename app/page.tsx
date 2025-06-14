@@ -14,9 +14,9 @@ export default function Dashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const recentForms = [
-    { id: "H1114-001", brigade: "Brigada Alpha", location: "Zona Norte", status: "Completado", date: "2024-01-15" },
-    { id: "H1114-002", brigade: "Brigada Beta", location: "Zona Sur", status: "En Proceso", date: "2024-01-16" },
-    { id: "H1114-003", brigade: "Brigada Gamma", location: "Zona Este", status: "Pendiente", date: "2024-01-17" },
+    { id: "H1114-001", brigade: "Brigada Alpha", location: "Zona Norte", status: "Revisado", date: "2024-01-15" },
+    { id: "H1114-002", brigade: "Brigada Beta", location: "Zona Sur", status: "No Revisado", date: "2024-01-16" },
+    { id: "H1114-003", brigade: "Brigada Gamma", location: "Zona Este", status: "No Revisado", date: "2024-01-17" },
   ]
 
   const stats = [
@@ -30,14 +30,15 @@ export default function Dashboard() {
   const formsData = {
     "H1114-001": {
       formId: "H1114-001",
+      serviceType: "inversion",
       brigade: {
         leader: "Carlos Rodríguez",
         members: ["Ana García", "Luis Martínez", "Pedro Sánchez"],
       },
       materials: [
-        { id: "1", type: "panel-solar", quantity: 12, unit: "unidades" },
-        { id: "2", type: "inversor", quantity: 2, unit: "unidades" },
-        { id: "3", type: "cable-dc", quantity: 50, unit: "metros" },
+        { id: "1", name: "Panel Solar 450W", type: "Panel Solar", brand: "Canadian Solar" },
+        { id: "2", name: "Inversor 5kW", type: "Inversor", brand: "Fronius" },
+        { id: "3", name: "Cable DC 4mm", type: "Cable", brand: "Prysmian" },
       ],
       location: {
         address: "Calle 123 #45-67, Bogotá, Colombia",
@@ -56,13 +57,14 @@ export default function Dashboard() {
     },
     "H1114-002": {
       formId: "H1114-002",
+      serviceType: "mantenimiento",
       brigade: {
         leader: "María López",
         members: ["Juan Pérez", "Sofia Herrera"],
       },
       materials: [
-        { id: "1", type: "panel-solar", quantity: 8, unit: "unidades" },
-        { id: "2", type: "bateria", quantity: 4, unit: "unidades" },
+        { id: "1", name: "Panel Solar 400W", type: "Panel Solar", brand: "Jinko Solar" },
+        { id: "2", name: "Batería Litio 100Ah", type: "Batería", brand: "Tesla" },
       ],
       location: {
         address: "Carrera 45 #12-34, Medellín, Colombia",
@@ -85,7 +87,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-orange-100">
+      <header className="fixed-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-3">
@@ -107,7 +109,7 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {stats.map((stat, index) => (
@@ -155,14 +157,10 @@ export default function Dashboard() {
                   </div>
                   <div className="flex items-center space-x-3">
                     <Badge
-                      variant={
-                        form.status === "Completado"
-                          ? "default"
-                          : form.status === "En Proceso"
-                            ? "secondary"
-                            : "outline"
+                      variant={form.status === "Revisado" ? "default" : "outline"}
+                      className={
+                        form.status === "Revisado" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
                       }
-                      className={form.status === "Completado" ? "bg-green-100 text-green-800" : ""}
                     >
                       {form.status}
                     </Badge>
@@ -176,13 +174,15 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="p-6 text-center">
-              <Users className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Brigadas</h3>
-              <p className="text-sm text-gray-600">Administrar equipos de trabajo y asignaciones</p>
-            </CardContent>
-          </Card>
+          <Link href="/brigadas">
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-6 text-center">
+                <Users className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Brigadas</h3>
+                <p className="text-sm text-gray-600">Administrar equipos de trabajo y asignaciones</p>
+              </CardContent>
+            </Card>
+          </Link>
 
           <Link href="/materiales">
             <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">

@@ -4,10 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Package, Plus, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import type { FormData, Material } from "@/lib/types"
-import { MATERIAL_TYPES } from "@/lib/types"
 
 interface MaterialsSectionProps {
   formData: FormData
@@ -18,19 +16,18 @@ interface MaterialsSectionProps {
 
 export function MaterialsSection({ formData, setFormData, onNext, onPrev }: MaterialsSectionProps) {
   const [newMaterial, setNewMaterial] = useState({
+    name: "",
     type: "",
-    quantity: 1,
-    unit: "",
+    brand: "",
   })
 
   const addMaterial = () => {
-    if (newMaterial.type && newMaterial.quantity > 0) {
-      const materialType = MATERIAL_TYPES.find((m) => m.value === newMaterial.type)
+    if (newMaterial.name.trim() && newMaterial.type && newMaterial.brand) {
       const material: Material = {
         id: Date.now().toString(),
+        name: newMaterial.name.trim(),
         type: newMaterial.type,
-        quantity: newMaterial.quantity,
-        unit: materialType?.unit || "unidades",
+        brand: newMaterial.brand,
       }
 
       setFormData({
@@ -38,7 +35,7 @@ export function MaterialsSection({ formData, setFormData, onNext, onPrev }: Mate
         materials: [...formData.materials, material],
       })
 
-      setNewMaterial({ type: "", quantity: 1, unit: "" })
+      setNewMaterial({ name: "", type: "", brand: "" })
     }
   }
 
@@ -47,19 +44,6 @@ export function MaterialsSection({ formData, setFormData, onNext, onPrev }: Mate
       ...formData,
       materials: formData.materials.filter((m) => m.id !== id),
     })
-  }
-
-  const updateMaterialType = (type: string) => {
-    const materialType = MATERIAL_TYPES.find((m) => m.value === type)
-    setNewMaterial({
-      ...newMaterial,
-      type,
-      unit: materialType?.unit || "unidades",
-    })
-  }
-
-  const getMaterialLabel = (type: string) => {
-    return MATERIAL_TYPES.find((m) => m.value === type)?.label || type
   }
 
   const isValid = formData.materials.length > 0
@@ -79,34 +63,40 @@ export function MaterialsSection({ formData, setFormData, onNext, onPrev }: Mate
       {/* Agregar Material */}
       <div className="bg-green-50 p-6 rounded-lg border border-green-200">
         <h3 className="text-lg font-semibold text-green-900 mb-4">Agregar Material</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <Label htmlFor="material-type" className="text-sm font-medium text-gray-700 mb-2 block">
-              Tipo de Material
-            </Label>
-            <Select value={newMaterial.type} onValueChange={updateMaterialType}>
-              <SelectTrigger className="bg-white border-green-300">
-                <SelectValue placeholder="Seleccionar material" />
-              </SelectTrigger>
-              <SelectContent>
-                {MATERIAL_TYPES.map((material) => (
-                  <SelectItem key={material.value} value={material.value}>
-                    {material.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="quantity" className="text-sm font-medium text-gray-700 mb-2 block">
-              Cantidad
+            <Label htmlFor="material-name" className="text-sm font-medium text-gray-700 mb-2 block">
+              Nombre del Material
             </Label>
             <Input
-              id="quantity"
-              type="number"
-              min="1"
-              value={newMaterial.quantity}
-              onChange={(e) => setNewMaterial({ ...newMaterial, quantity: Number.parseInt(e.target.value) || 1 })}
+              id="material-name"
+              value={newMaterial.name}
+              onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
+              placeholder="Ej: Panel Solar 450W"
+              className="bg-white border-green-300"
+            />
+          </div>
+          <div>
+            <Label htmlFor="material-type" className="text-sm font-medium text-gray-700 mb-2 block">
+              Tipo
+            </Label>
+            <Input
+              id="material-type"
+              value={newMaterial.type}
+              onChange={(e) => setNewMaterial({ ...newMaterial, type: e.target.value })}
+              placeholder="Ej: Panel Solar"
+              className="bg-white border-green-300"
+            />
+          </div>
+          <div>
+            <Label htmlFor="material-brand" className="text-sm font-medium text-gray-700 mb-2 block">
+              Marca
+            </Label>
+            <Input
+              id="material-brand"
+              value={newMaterial.brand}
+              onChange={(e) => setNewMaterial({ ...newMaterial, brand: e.target.value })}
+              placeholder="Ej: Canadian Solar"
               className="bg-white border-green-300"
             />
           </div>
@@ -114,7 +104,7 @@ export function MaterialsSection({ formData, setFormData, onNext, onPrev }: Mate
             <Button
               type="button"
               onClick={addMaterial}
-              disabled={!newMaterial.type}
+              disabled={!newMaterial.name.trim() || !newMaterial.type || !newMaterial.brand}
               className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -122,11 +112,6 @@ export function MaterialsSection({ formData, setFormData, onNext, onPrev }: Mate
             </Button>
           </div>
         </div>
-        {newMaterial.unit && (
-          <p className="text-sm text-green-700 mt-2">
-            Unidad de medida: <strong>{newMaterial.unit}</strong>
-          </p>
-        )}
       </div>
 
       {/* Lista de Materiales */}
@@ -144,9 +129,9 @@ export function MaterialsSection({ formData, setFormData, onNext, onPrev }: Mate
                     <Package className="h-5 w-5 text-gray-600" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{getMaterialLabel(material.type)}</p>
+                    <p className="font-semibold text-gray-900">{material.name}</p>
                     <p className="text-sm text-gray-600">
-                      {material.quantity} {material.unit}
+                      {material.type} • {material.brand}
                     </p>
                   </div>
                 </div>
