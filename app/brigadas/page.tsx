@@ -240,55 +240,55 @@ export default function BrigadasPage() {
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Brigadas</p>
-                  <p className="text-3xl font-bold text-gray-900">{brigades.length}</p>
-                </div>
-                <Users className="h-8 w-8 text-blue-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/*<div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">*/}
+        {/*  <Card className="border-0 shadow-md">*/}
+        {/*    <CardContent className="p-6">*/}
+        {/*      <div className="flex items-center justify-between">*/}
+        {/*        <div>*/}
+        {/*          <p className="text-sm font-medium text-gray-600">Total Brigadas</p>*/}
+        {/*          <p className="text-3xl font-bold text-gray-900">{brigades.length}</p>*/}
+        {/*        </div>*/}
+        {/*        <Users className="h-8 w-8 text-blue-600" />*/}
+        {/*      </div>*/}
+        {/*    </CardContent>*/}
+        {/*  </Card>*/}
 
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Brigadas Activas</p>
-                  <p className="text-3xl font-bold text-gray-900">{activeBrigades}</p>
-                </div>
-                <Users className="h-8 w-8 text-green-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/*  <Card className="border-0 shadow-md">*/}
+        {/*    <CardContent className="p-6">*/}
+        {/*      <div className="flex items-center justify-between">*/}
+        {/*        <div>*/}
+        {/*          <p className="text-sm font-medium text-gray-600">Brigadas Activas</p>*/}
+        {/*          <p className="text-3xl font-bold text-gray-900">{activeBrigades}</p>*/}
+        {/*        </div>*/}
+        {/*        <Users className="h-8 w-8 text-green-600" />*/}
+        {/*      </div>*/}
+        {/*    </CardContent>*/}
+        {/*  </Card>*/}
 
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Personal</p>
-                  <p className="text-3xl font-bold text-gray-900">{totalWorkers}</p>
-                </div>
-                <UserPlus className="h-8 w-8 text-purple-600" />
-              </div>
-            </CardContent>
-          </Card>
+        {/*  <Card className="border-0 shadow-md">*/}
+        {/*    <CardContent className="p-6">*/}
+        {/*      <div className="flex items-center justify-between">*/}
+        {/*        <div>*/}
+        {/*          <p className="text-sm font-medium text-gray-600">Total Personal</p>*/}
+        {/*          <p className="text-3xl font-bold text-gray-900">{totalWorkers}</p>*/}
+        {/*        </div>*/}
+        {/*        <UserPlus className="h-8 w-8 text-purple-600" />*/}
+        {/*      </div>*/}
+        {/*    </CardContent>*/}
+        {/*  </Card>*/}
 
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Jefes de Brigada</p>
-                  <p className="text-3xl font-bold text-gray-900">{brigades.length}</p>
-                </div>
-                <Crown className="h-8 w-8 text-orange-600" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        {/*  <Card className="border-0 shadow-md">*/}
+        {/*    <CardContent className="p-6">*/}
+        {/*      <div className="flex items-center justify-between">*/}
+        {/*        <div>*/}
+        {/*          <p className="text-sm font-medium text-gray-600">Jefes de Brigada</p>*/}
+        {/*          <p className="text-3xl font-bold text-gray-900">{brigades.length}</p>*/}
+        {/*        </div>*/}
+        {/*        <Crown className="h-8 w-8 text-orange-600" />*/}
+        {/*      </div>*/}
+        {/*    </CardContent>*/}
+        {/*  </Card>*/}
+        {/*</div>*/}
 
         {/* Filters and Search */}
         <Card className="border-0 shadow-md mb-6">

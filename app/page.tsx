@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Sun, FileText, Users, MapPin, Calendar, Package } from "lucide-react"
+import { Sun, FileText, Users, /*MapPin,*/ Calendar, Package } from "lucide-react"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FormViewer } from "@/components/form-viewer"
@@ -19,12 +19,12 @@ export default function Dashboard() {
     { id: "H1114-003", brigade: "Brigada Gamma", location: "Zona Este", status: "No Revisado", date: "2024-01-17" },
   ]
 
-  const stats = [
-    { title: "Formularios Completados", value: "24", icon: FileText, color: "text-green-600" },
-    { title: "Brigadas Activas", value: "8", icon: Users, color: "text-blue-600" },
-    { title: "Instalaciones del Mes", value: "156", icon: Sun, color: "text-orange-600" },
-    { title: "Ubicaciones Cubiertas", value: "42", icon: MapPin, color: "text-purple-600" },
-  ]
+  // const stats = [
+  //   { title: "Formularios Completados", value: "24", icon: FileText, color: "text-green-600" },
+  //   { title: "Brigadas Activas", value: "8", icon: Users, color: "text-blue-600" },
+  //   { title: "Instalaciones del Mes", value: "156", icon: Sun, color: "text-orange-600" },
+  //   { title: "Ubicaciones Cubiertas", value: "42", icon: MapPin, color: "text-purple-600" },
+  // ]
 
   // Datos simulados de formularios completos
   const formsData = {
@@ -111,21 +111,21 @@ export default function Dashboard() {
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="border-0 shadow-md hover:shadow-lg transition-shadow">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">{stat.title}</p>
-                    <p className="text-3xl font-bold text-gray-900">{stat.value}</p>
-                  </div>
-                  <stat.icon className={`h-8 w-8 ${stat.color}`} />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {/*<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">*/}
+        {/*  {stats.map((stat, index) => (*/}
+        {/*    <Card key={index} className="border-0 shadow-md hover:shadow-lg transition-shadow">*/}
+        {/*      <CardContent className="p-6">*/}
+        {/*        <div className="flex items-center justify-between">*/}
+        {/*          <div>*/}
+        {/*            <p className="text-sm font-medium text-gray-600">{stat.title}</p>*/}
+        {/*            <p className="text-3xl font-bold text-gray-900">{stat.value}</p>*/}
+        {/*          </div>*/}
+        {/*          <stat.icon className={`h-8 w-8 ${stat.color}`} />*/}
+        {/*        </div>*/}
+        {/*      </CardContent>*/}
+        {/*    </Card>*/}
+        {/*  ))}*/}
+        {/*</div>*/}
 
         {/* Recent Forms */}
         <Card className="border-0 shadow-md">
@@ -194,13 +194,13 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="p-6 text-center">
-              <MapPin className="h-12 w-12 text-purple-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Mapa de Instalaciones</h3>
-              <p className="text-sm text-gray-600">Visualizar ubicaciones de trabajos realizados</p>
-            </CardContent>
-          </Card>
+          {/*<Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">*/}
+          {/*  <CardContent className="p-6 text-center">*/}
+          {/*    <MapPin className="h-12 w-12 text-purple-500 mx-auto mb-4" />*/}
+          {/*    <h3 className="text-lg font-semibold text-gray-900 mb-2">Mapa de Instalaciones</h3>*/}
+          {/*    <p className="text-sm text-gray-600">Visualizar ubicaciones de trabajos realizados</p>*/}
+          {/*  </CardContent>*/}
+          {/*</Card>*/}
         </div>
       </main>
 
