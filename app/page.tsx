@@ -95,15 +95,15 @@ export default function Dashboard() {
                 <Sun className="h-8 w-8 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">SolarTech Admin</h1>
+                <h1 className="text-2xl font-bold text-gray-900">SunCar Admin</h1>
                 <p className="text-sm text-gray-600">Sistema de Gestión de Instalaciones</p>
               </div>
             </div>
             <Link href="/formulario-h1114">
-              <Button className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600">
-                <FileText className="mr-2 h-4 w-4" />
-                Nuevo Formulario H-1114
-              </Button>
+              {/*<Button className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600">*/}
+              {/*  <FileText className="mr-2 h-4 w-4" />*/}
+              {/*  Nuevo Formulario H-1114*/}
+              {/*</Button>*/}
             </Link>
           </div>
         </div>
