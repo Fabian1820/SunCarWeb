@@ -5,7 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Sun, Users, Package, MapPin, Camera, Calendar, Save } from "lucide-react"
+import { ArrowLeft, Sun, Users, Package, MapPin, Camera, Calendar, Save, FileText } from "lucide-react"
 import { BrigadeSection } from "@/components/brigade-section"
 import { MaterialsSection } from "@/components/materials-section"
 import { LocationSection } from "@/components/location-section"
@@ -13,6 +13,7 @@ import { PhotosSection } from "@/components/photos-section"
 import { DateTimeSection } from "@/components/datetime-section"
 import { ServiceTypeSection } from "@/components/service-type-section"
 import type { FormData } from "@/lib/types"
+import { DescriptionSection } from "@/components/description-section"
 
 export default function FormularioH1114() {
   const [formData, setFormData] = useState<FormData>({
@@ -36,13 +37,15 @@ export default function FormularioH1114() {
   })
 
   const [currentStep, setCurrentStep] = useState(1)
-  const totalSteps = 6
+  const totalSteps = 7
 
   const handleSave = () => {
     console.log("Guardando formulario:", formData)
     // Aquí implementarías la lógica para guardar en la base de datos
     alert("Formulario guardado exitosamente")
   }
+
+  const needsDescription = formData.serviceType === "mantenimiento" || formData.serviceType === "averia"
 
   const steps = [
     { number: 1, title: "Tipo de Servicio", icon: Sun, completed: formData.serviceType !== "" },
@@ -51,6 +54,12 @@ export default function FormularioH1114() {
     { number: 4, title: "Ubicación", icon: MapPin, completed: formData.location.address !== "" },
     { number: 5, title: "Fotos", icon: Camera, completed: formData.photos.length > 0 },
     { number: 6, title: "Fecha/Hora", icon: Calendar, completed: formData.dateTime.date !== "" },
+    {
+      number: 7,
+      title: "Descripción",
+      icon: FileText,
+      completed: !needsDescription || (formData.description && formData.description.trim() !== ""),
+    },
   ]
 
   return (
@@ -179,7 +188,16 @@ export default function FormularioH1114() {
                   <DateTimeSection
                     formData={formData}
                     setFormData={setFormData}
+                    onNext={needsDescription ? () => setCurrentStep(7) : undefined}
                     onPrev={() => setCurrentStep(5)}
+                    onSave={needsDescription ? undefined : handleSave}
+                  />
+                )}
+                {currentStep === 7 && (
+                  <DescriptionSection
+                    formData={formData}
+                    setFormData={setFormData}
+                    onPrev={() => setCurrentStep(6)}
                     onSave={handleSave}
                   />
                 )}

@@ -38,8 +38,8 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
             <tr key={material.id} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-3">
-                  <div className="bg-green-100 p-2 rounded-lg">
-                    <Package className="h-4 w-4 text-green-600" />
+                  <div className="bg-amber-100 p-2 rounded-lg">
+                    <Package className="h-4 w-4 text-amber-700" />
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{material.name}</p>

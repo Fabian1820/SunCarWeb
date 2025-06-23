@@ -1,7 +1,6 @@
 "use client"
 
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Sun, FileText, Users, FileCheck, Calendar, Package } from "lucide-react"
@@ -18,13 +17,6 @@ export default function Dashboard() {
     { id: "H1114-002", brigade: "Brigada Beta", location: "Zona Sur", status: "No Revisado", date: "2024-01-16" },
     { id: "H1114-003", brigade: "Brigada Gamma", location: "Zona Este", status: "No Revisado", date: "2024-01-17" },
   ]
-
-  // const stats = [
-  //   { title: "Formularios Completados", value: "24", icon: FileText, color: "text-green-600" },
-  //   { title: "Brigadas Activas", value: "8", icon: Users, color: "text-blue-600" },
-  //   { title: "Instalaciones del Mes", value: "156", icon: Sun, color: "text-orange-600" },
-  //   { title: "Ubicaciones Cubiertas", value: "42", icon: MapPin, color: "text-purple-600" },
-  // ]
 
   // Datos simulados de formularios completos
   const formsData = {
@@ -73,6 +65,7 @@ export default function Dashboard() {
       },
       photos: [{ id: "1", preview: "/placeholder.svg?height=300&width=400", description: "Trabajo en progreso" }],
       dateTime: { date: "2024-01-16", time: "09:15" },
+      description: "Mantenimiento preventivo de paneles solares, limpieza y revisión de conexiones eléctricas.",
     },
   }
 
@@ -99,34 +92,11 @@ export default function Dashboard() {
                 <p className="text-sm text-gray-600">Sistema de Gestión de Instalaciones</p>
               </div>
             </div>
-            <Link href="/formulario-h1114">
-              {/*<Button className="bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600">*/}
-              {/*  <FileText className="mr-2 h-4 w-4" />*/}
-              {/*  Nuevo Formulario H-1114*/}
-              {/*</Button>*/}
-            </Link>
           </div>
         </div>
       </header>
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
-        {/*<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">*/}
-        {/*  {stats.map((stat, index) => (*/}
-        {/*    <Card key={index} className="border-0 shadow-md hover:shadow-lg transition-shadow">*/}
-        {/*      <CardContent className="p-6">*/}
-        {/*        <div className="flex items-center justify-between">*/}
-        {/*          <div>*/}
-        {/*            <p className="text-sm font-medium text-gray-600">{stat.title}</p>*/}
-        {/*            <p className="text-3xl font-bold text-gray-900">{stat.value}</p>*/}
-        {/*          </div>*/}
-        {/*          <stat.icon className={`h-8 w-8 ${stat.color}`} />*/}
-        {/*        </div>*/}
-        {/*      </CardContent>*/}
-        {/*    </Card>*/}
-        {/*  ))}*/}
-        {/*</div>*/}
-
         {/* Recent Forms */}
         <Card className="border-0 shadow-md">
           <CardHeader>
@@ -145,7 +115,13 @@ export default function Dashboard() {
                   onClick={() => openFormDialog(form.id)}
                 >
                   <div className="flex items-center space-x-4">
-                    <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-2 rounded-lg">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        form.status === "Revisado"
+                          ? "bg-gradient-to-r from-green-500 to-green-600"
+                          : "bg-gradient-to-r from-gray-400 to-gray-500"
+                      }`}
+                    >
                       <FileText className="h-4 w-4 text-white" />
                     </div>
                     <div>
@@ -159,7 +135,9 @@ export default function Dashboard() {
                     <Badge
                       variant={form.status === "Revisado" ? "default" : "outline"}
                       className={
-                        form.status === "Revisado" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                        form.status === "Revisado"
+                          ? "bg-green-100 text-green-800 border-green-200"
+                          : "bg-green-50 text-green-700 border-green-200"
                       }
                     >
                       {form.status}
@@ -187,19 +165,22 @@ export default function Dashboard() {
           <Link href="/materiales">
             <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
-                <Package className="h-12 w-12 text-amber-600 mx-auto mb-4" />
+                <Package className="h-12 w-12 text-amber-700 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Materiales</h3>
                 <p className="text-sm text-gray-600">Administrar catálogo de materiales y componentes</p>
               </CardContent>
             </Card>
           </Link>
-          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="p-6 text-center">
-              <FileCheck className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Reportes</h3>
-              <p className="text-sm text-gray-600">Administrar historial de reportes</p>
-            </CardContent>
-          </Card>
+
+          <Link href="/reportes">
+            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+              <CardContent className="p-6 text-center">
+                <FileCheck className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Reportes</h3>
+                <p className="text-sm text-gray-600">Administrar historial de reportes</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </main>
 
@@ -207,7 +188,7 @@ export default function Dashboard() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalles del Formulario {selectedForm?.formId}</DialogTitle>
+            <DialogTitle>Detalles del Reporte {selectedForm?.formId}</DialogTitle>
           </DialogHeader>
           {selectedForm && <FormViewer formData={selectedForm} />}
         </DialogContent>

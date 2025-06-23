@@ -39,6 +39,7 @@ export interface FormData {
   location: Location
   photos: Photo[]
   dateTime: DateTime
+  description?: string // Nuevo campo para mantenimiento y avería
 }
 
 export const SERVICE_TYPES = [

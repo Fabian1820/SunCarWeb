@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
-import { Users, Package, MapPin, Camera, Calendar, Clock, Navigation, ZoomIn, Sun } from "lucide-react"
+import { Users, Package, MapPin, Camera, Calendar, Clock, Navigation, ZoomIn, Sun, FileText } from "lucide-react"
 import { SERVICE_TYPES } from "@/lib/types"
 
 interface FormViewerProps {
@@ -34,13 +34,15 @@ export function FormViewer({ formData }: FormViewerProps) {
     return "No especificada"
   }
 
+  const needsDescription = formData.serviceType === "mantenimiento" || formData.serviceType === "averia"
+
   return (
     <div className="space-y-6">
       {/* Header Info */}
-      <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-4 rounded-lg border border-orange-200">
+      <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Formulario {formData.formId}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Reporte {formData.formId}</h3>
             <p className="text-sm text-gray-600">Registro de instalación de paneles solares</p>
           </div>
           <Badge className="bg-green-100 text-green-800">Completado</Badge>
@@ -116,7 +118,7 @@ export function FormViewer({ formData }: FormViewerProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <Package className="h-5 w-5 text-green-500" />
+            <Package className="h-5 w-5 text-amber-700" />
             <span>Materiales Utilizados</span>
           </CardTitle>
         </CardHeader>
@@ -125,10 +127,10 @@ export function FormViewer({ formData }: FormViewerProps) {
             {formData.materials.map((material: any) => (
               <div
                 key={material.id}
-                className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                className="flex items-center space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200"
               >
-                <div className="bg-green-100 p-2 rounded-lg">
-                  <Package className="h-4 w-4 text-green-600" />
+                <div className="bg-amber-100 p-2 rounded-lg">
+                  <Package className="h-4 w-4 text-amber-700" />
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">{material.name}</p>
@@ -141,6 +143,23 @@ export function FormViewer({ formData }: FormViewerProps) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Descripción (solo para mantenimiento y avería) */}
+      {needsDescription && formData.description && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <FileText className="h-5 w-5 text-green-500" />
+              <span>Descripción del Trabajo</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+              <p className="text-gray-900">{formData.description}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Ubicación */}
       <Card>
