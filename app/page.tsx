@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Sun, FileText, Users, /*MapPin,*/ Calendar, Package } from "lucide-react"
+import { Sun, FileText, Users, FileCheck, Calendar, Package } from "lucide-react"
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FormViewer } from "@/components/form-viewer"
@@ -132,9 +132,9 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
               <Calendar className="h-5 w-5 text-orange-500" />
-              <span>Formularios Recientes</span>
+              <span>Reportes Recientes</span>
             </CardTitle>
-            <CardDescription>Últimos formularios H-1114 registrados en el sistema</CardDescription>
+            <CardDescription>Últimos reportes H-1114 registrados en el sistema</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -187,20 +187,19 @@ export default function Dashboard() {
           <Link href="/materiales">
             <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
               <CardContent className="p-6 text-center">
-                <Package className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <Package className="h-12 w-12 text-amber-600 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Materiales</h3>
                 <p className="text-sm text-gray-600">Administrar catálogo de materiales y componentes</p>
               </CardContent>
             </Card>
           </Link>
-
-          {/*<Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">*/}
-          {/*  <CardContent className="p-6 text-center">*/}
-          {/*    <MapPin className="h-12 w-12 text-purple-500 mx-auto mb-4" />*/}
-          {/*    <h3 className="text-lg font-semibold text-gray-900 mb-2">Mapa de Instalaciones</h3>*/}
-          {/*    <p className="text-sm text-gray-600">Visualizar ubicaciones de trabajos realizados</p>*/}
-          {/*  </CardContent>*/}
-          {/*</Card>*/}
+          <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+            <CardContent className="p-6 text-center">
+              <FileCheck className="h-12 w-12 text-green-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Reportes</h3>
+              <p className="text-sm text-gray-600">Administrar historial de reportes</p>
+            </CardContent>
+          </Card>
         </div>
       </main>
 

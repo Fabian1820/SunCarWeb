@@ -71,7 +71,7 @@ export default function FormularioH1114() {
                   <Sun className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Formulario H-1114</h1>
+                  <h1 className="text-xl font-bold text-gray-900">Reporte H-1114</h1>
                   <p className="text-sm text-gray-600">ID: {formData.formId}</p>
                 </div>
               </div>
@@ -81,7 +81,7 @@ export default function FormularioH1114() {
               className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
             >
               <Save className="mr-2 h-4 w-4" />
-              Guardar Formulario
+              Guardar Reporte
             </Button>
           </div>
         </div>
@@ -93,7 +93,7 @@ export default function FormularioH1114() {
           <div className="lg:col-span-1">
             <Card className="border-0 shadow-md sticky top-8">
               <CardHeader>
-                <CardTitle className="text-lg">Progreso del Formulario</CardTitle>
+                <CardTitle className="text-lg">Progreso del Reporte</CardTitle>
                 <CardDescription>
                   Paso {currentStep} de {totalSteps}
                 </CardDescription>

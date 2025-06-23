@@ -85,7 +85,7 @@ export default function MaterialesPage() {
                 </Button>
               </Link>
               <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-green-500 to-green-600 p-2 rounded-lg">
+                <div className="bg-gradient-to-r from-red-600 to-red-700 p-2 rounded-lg">
                   <Package className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -96,7 +96,7 @@ export default function MaterialesPage() {
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700">
+                <Button className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700">
                   <Plus className="mr-2 h-4 w-4" />
                   Agregar Material
                 </Button>
