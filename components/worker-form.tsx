@@ -18,9 +18,7 @@ interface WorkerFormProps {
 export function WorkerForm({ onSubmit, onCancel, brigades }: WorkerFormProps) {
   const [formData, setFormData] = useState({
     name: "",
-    phone: "",
-    email: "",
-    role: "",
+    ci: "",
     brigadeId: "",
   })
 
@@ -33,11 +31,11 @@ export function WorkerForm({ onSubmit, onCancel, brigades }: WorkerFormProps) {
       newErrors.name = "El nombre es requerido"
     }
 
-    if (!formData.role) {
-      newErrors.role = "Selecciona un rol"
+    if (!formData.ci.trim()) {
+      newErrors.ci = "El CI es requerido"
     }
 
-    if (formData.role === "trabajador" && !formData.brigadeId) {
+    if (!formData.brigadeId) {
       newErrors.brigadeId = "Selecciona una brigada para el trabajador"
     }
 
@@ -64,80 +62,44 @@ export function WorkerForm({ onSubmit, onCancel, brigades }: WorkerFormProps) {
             id="worker-name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Nombre completo de la persona"
+            placeholder="Nombre completo del trabajador"
             className={errors.name ? "border-red-300" : ""}
           />
           {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
         </div>
-
         <div>
-          <Label htmlFor="worker-role" className="text-sm font-medium text-gray-700 mb-2 block">
-            Rol *
+          <Label htmlFor="worker-ci" className="text-sm font-medium text-gray-700 mb-2 block">
+            Carnet de Identidad (CI) *
+          </Label>
+          <Input
+            id="worker-ci"
+            value={formData.ci}
+            onChange={(e) => setFormData({ ...formData, ci: e.target.value })}
+            placeholder="CI del trabajador"
+            className={errors.ci ? "border-red-300" : ""}
+          />
+          {errors.ci && <p className="text-red-600 text-sm mt-1">{errors.ci}</p>}
+        </div>
+        <div>
+          <Label htmlFor="brigade-select" className="text-sm font-medium text-gray-700 mb-2 block">
+            Brigada *
           </Label>
           <Select
-            value={formData.role}
-            onValueChange={(value) => setFormData({ ...formData, role: value, brigadeId: "" })}
+            value={formData.brigadeId}
+            onValueChange={(value) => setFormData({ ...formData, brigadeId: value })}
           >
-            <SelectTrigger className={errors.role ? "border-red-300" : ""}>
-              <SelectValue placeholder="Seleccionar rol" />
+            <SelectTrigger className={errors.brigadeId ? "border-red-300" : ""}>
+              <SelectValue placeholder="Seleccionar brigada" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="jefe">Jefe de Brigada (crear nueva brigada)</SelectItem>
-              <SelectItem value="trabajador">Trabajador (agregar a brigada existente)</SelectItem>
+              {brigades.map((brigade) => (
+                <SelectItem key={brigade.id} value={brigade.id}>
+                  Jefe: {brigade.leader.name} (CI: {brigade.leader.ci})
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          {errors.role && <p className="text-red-600 text-sm mt-1">{errors.role}</p>}
-        </div>
-
-        {formData.role === "trabajador" && (
-          <div>
-            <Label htmlFor="brigade-select" className="text-sm font-medium text-gray-700 mb-2 block">
-              Brigada *
-            </Label>
-            <Select
-              value={formData.brigadeId}
-              onValueChange={(value) => setFormData({ ...formData, brigadeId: value })}
-            >
-              <SelectTrigger className={errors.brigadeId ? "border-red-300" : ""}>
-                <SelectValue placeholder="Seleccionar brigada" />
-              </SelectTrigger>
-              <SelectContent>
-                {brigades
-                  .filter((b) => b.isActive)
-                  .map((brigade) => (
-                    <SelectItem key={brigade.id} value={brigade.id}>
-                      {brigade.name} - {brigade.leader.name}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {errors.brigadeId && <p className="text-red-600 text-sm mt-1">{errors.brigadeId}</p>}
-          </div>
-        )}
-
-        <div>
-          <Label htmlFor="worker-phone" className="text-sm font-medium text-gray-700 mb-2 block">
-            Teléfono
-          </Label>
-          <Input
-            id="worker-phone"
-            value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            placeholder="300-123-4567"
-          />
-        </div>
-
-        <div>
-          <Label htmlFor="worker-email" className="text-sm font-medium text-gray-700 mb-2 block">
-            Email
-          </Label>
-          <Input
-            id="worker-email"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            placeholder="persona@empresa.com"
-          />
+          {errors.brigadeId && <p className="text-red-600 text-sm mt-1">{errors.brigadeId}</p>}
         </div>
       </div>
 
@@ -151,7 +113,7 @@ export function WorkerForm({ onSubmit, onCancel, brigades }: WorkerFormProps) {
           className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
         >
           <Save className="mr-2 h-4 w-4" />
-          {formData.role === "jefe" ? "Crear Brigada" : "Agregar a Brigada"}
+          Agregar a Brigada
         </Button>
       </div>
     </form>

@@ -1,6 +1,47 @@
+// Tipos que coinciden con el backend FastAPI
+export interface Trabajador {
+  id: string
+  nombre: string
+  CI: string // Carnet de identidad
+  rol: "jefe" | "trabajador"
+  telefono?: string
+  email?: string
+}
+
+export interface Brigada {
+  lider_ci: string // CI del líder (identificador principal)
+  lider: Trabajador
+  integrantes: Trabajador[] // Lista de trabajadores (no incluye al líder)
+}
+
+// Tipos para las peticiones al backend
+export interface BrigadaRequest {
+  lider: {
+    nombre: string
+    CI: string
+    telefono?: string
+    email?: string
+  }
+  integrantes: Array<{
+    nombre: string
+    CI: string
+    telefono?: string
+    email?: string
+  }>
+}
+
+export interface TeamMember {
+  nombre: string
+  CI: string
+  telefono?: string
+  email?: string
+}
+
+// Tipos para el frontend (mantener compatibilidad)
 export interface Worker {
   id: string
   name: string
+  ci: string
   role: "jefe" | "trabajador"
   phone?: string
   email?: string
@@ -8,20 +49,18 @@ export interface Worker {
 
 export interface Brigade {
   id: string
-  name: string
   leader: Worker
   members: Worker[]
-  createdAt: string
-  isActive: boolean
 }
 
 export interface BrigadeFormData {
-  name: string
   leaderName: string
+  leaderCi: string
   leaderPhone?: string
   leaderEmail?: string
   members: Array<{
     name: string
+    ci: string
     phone?: string
     email?: string
   }>

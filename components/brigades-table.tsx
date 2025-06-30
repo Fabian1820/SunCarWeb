@@ -12,11 +12,10 @@ interface BrigadesTableProps {
   brigades: Brigade[]
   onEdit: (brigade: Brigade) => void
   onDelete: (id: string) => void
-  onToggleStatus: (id: string) => void
   onRemoveWorker: (brigadeId: string, workerId: string) => void
 }
 
-export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRemoveWorker }: BrigadesTableProps) {
+export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: BrigadesTableProps) {
   const [selectedBrigade, setSelectedBrigade] = useState<Brigade | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
 
@@ -41,11 +40,8 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRe
         <table className="w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Brigada</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Jefe</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-900">Jefe (Nombre y CI)</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Miembros</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha Creación</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
             </tr>
           </thead>
@@ -55,25 +51,11 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRe
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-3">
                     <div className="bg-blue-100 p-2 rounded-lg">
-                      <Users className="h-4 w-4 text-blue-600" />
+                      <Crown className="h-4 w-4 text-orange-500" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{brigade.name}</p>
-                      <p className="text-sm text-gray-600">ID: {brigade.id}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-4 px-4">
-                  <div className="flex items-center space-x-2">
-                    <Crown className="h-4 w-4 text-orange-500" />
-                    <div>
-                      <p className="font-medium text-gray-900">{brigade.leader.name}</p>
-                      {brigade.leader.phone && (
-                        <p className="text-sm text-gray-600 flex items-center">
-                          <Phone className="h-3 w-3 mr-1" />
-                          {brigade.leader.phone}
-                        </p>
-                      )}
+                      <p className="font-semibold text-gray-900">{brigade.leader.name}</p>
+                      <p className="text-sm text-gray-600">CI: {brigade.leader.ci}</p>
                     </div>
                   </div>
                 </td>
@@ -93,27 +75,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRe
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge className={brigade.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
-                    {brigade.isActive ? "Activa" : "Inactiva"}
-                  </Badge>
-                </td>
-                <td className="py-4 px-4">
-                  <span className="text-gray-700">{new Date(brigade.createdAt).toLocaleDateString("es-CO")}</span>
-                </td>
-                <td className="py-4 px-4">
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onToggleStatus(brigade.id)}
-                      className={
-                        brigade.isActive
-                          ? "border-red-300 text-red-700 hover:bg-red-50"
-                          : "border-green-300 text-green-700 hover:bg-green-50"
-                      }
-                    >
-                      <Power className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -142,7 +104,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRe
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Detalles de {selectedBrigade?.name}</DialogTitle>
+            <DialogTitle>Detalles de la Brigada</DialogTitle>
           </DialogHeader>
           {selectedBrigade && (
             <div className="space-y-6">
@@ -157,6 +119,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRe
                 <CardContent>
                   <div className="space-y-2">
                     <p className="font-semibold text-gray-900">{selectedBrigade.leader.name}</p>
+                    <p className="text-sm text-gray-600">CI: {selectedBrigade.leader.ci}</p>
                     {selectedBrigade.leader.phone && (
                       <p className="text-sm text-gray-600 flex items-center">
                         <Phone className="h-4 w-4 mr-2" />
@@ -188,6 +151,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onToggleStatus, onRe
                         <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
                             <p className="font-medium text-gray-900">{member.name}</p>
+                            <p className="text-sm text-gray-600">CI: {member.ci}</p>
                             <div className="flex items-center space-x-4 text-sm text-gray-600">
                               {member.phone && (
                                 <span className="flex items-center">

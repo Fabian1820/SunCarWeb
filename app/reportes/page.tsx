@@ -130,12 +130,12 @@ export default function ReportesPage() {
                 </div>
               </div>
             </div>
-            <Link href="/formulario-h1114">
-              <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Reporte
-              </Button>
-            </Link>
+            {/*<Link href="/formulario-h1114">*/}
+            {/*  <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700">*/}
+            {/*    <Plus className="mr-2 h-4 w-4" />*/}
+            {/*    Nuevo Reporte*/}
+            {/*  </Button>*/}
+            {/*</Link>*/}
           </div>
         </div>
       </header>

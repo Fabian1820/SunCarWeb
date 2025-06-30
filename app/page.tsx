@@ -84,8 +84,8 @@ export default function Dashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center space-x-3">
-              <div className="bg-gradient-to-r from-orange-500 to-yellow-500 p-2 rounded-lg">
-                <Sun className="h-8 w-8 text-white" />
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">SunCar Admin</h1>
@@ -101,7 +101,7 @@ export default function Dashboard() {
         <Card className="border-0 shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5 text-orange-500" />
+              <FileCheck className="h-5 w-5 text-green-500" />
               <span>Reportes Recientes</span>
             </CardTitle>
             <CardDescription>Últimos reportes H-1114 registrados en el sistema</CardDescription>
@@ -122,7 +122,7 @@ export default function Dashboard() {
                           : "bg-gradient-to-r from-gray-400 to-gray-500"
                       }`}
                     >
-                      <FileText className="h-4 w-4 text-white" />
+                      <FileCheck className="h-4 w-4 text-white" />
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">{form.id}</p>
