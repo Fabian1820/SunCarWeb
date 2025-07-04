@@ -11,10 +11,10 @@ import type {
 // Convertir de Backend a Frontend
 export function convertTrabajadorToWorker(trabajador: Trabajador): Worker {
   return {
-    id: trabajador.id,
+    id: trabajador.id || trabajador.CI, // Usar CI como fallback si no hay ID
     name: trabajador.nombre,
     ci: trabajador.CI,
-    role: trabajador.rol,
+    role: trabajador.tiene_contraseña ? "jefe" : "trabajador",
     phone: trabajador.telefono,
     email: trabajador.email,
   }
@@ -22,7 +22,7 @@ export function convertTrabajadorToWorker(trabajador: Trabajador): Worker {
 
 export function convertBrigadaToFrontend(brigada: BackendBrigada): FrontendBrigade {
   return {
-    id: brigada.lider_ci, // Usar el CI del líder como ID
+    id: brigada.id || '', // Usar solo el id real de la brigada, nunca undefined
     leader: convertTrabajadorToWorker(brigada.lider),
     members: brigada.integrantes.map(convertTrabajadorToWorker),
   }
@@ -34,7 +34,7 @@ export function convertWorkerToTrabajador(worker: Worker): Trabajador {
     id: worker.id,
     nombre: worker.name,
     CI: worker.ci,
-    rol: worker.role,
+    tiene_contraseña: worker.role === "jefe",
     telefono: worker.phone,
     email: worker.email,
   }

@@ -5,17 +5,19 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Save, X, Plus } from "lucide-react"
-import type { Material } from "@/lib/types"
+import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import type { Material, MaterialFormData } from "@/lib/material-types"
+import { useMaterials } from "@/hooks/use-materials"
 
 interface MaterialFormProps {
   initialData?: Material
-  onSubmit: (material: Material | Omit<Material, "id">) => void
+  onSubmit?: (material: Material | Omit<Material, "id">) => void
   onCancel: () => void
-  existingTypes: string[]
-  existingBrands: string[]
+  existingCategories: string[]
+  existingUnits: string[]
   isEditing?: boolean
 }
 
@@ -23,75 +25,113 @@ export function MaterialForm({
   initialData,
   onSubmit,
   onCancel,
-  existingTypes,
-  existingBrands,
+  existingCategories,
+  existingUnits,
   isEditing = false,
 }: MaterialFormProps) {
-  const [formData, setFormData] = useState({
-    name: initialData?.name || "",
-    type: initialData?.type || "",
-    brand: initialData?.brand || "",
+  const { createCategory, addMaterialToProduct, createProduct, materials, categories, catalogs, refetch } = useMaterials()
+  const [formData, setFormData] = useState<MaterialFormData>({
+    codigo: initialData?.codigo.toString() || "",
+    categoria: initialData?.categoria || "",
+    descripcion: initialData?.descripcion || "",
+    um: initialData?.um || "",
   })
-
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isAddTypeDialogOpen, setIsAddTypeDialogOpen] = useState(false)
-  const [isAddBrandDialogOpen, setIsAddBrandDialogOpen] = useState(false)
-  const [newType, setNewType] = useState("")
-  const [newBrand, setNewBrand] = useState("")
-  const [localTypes, setLocalTypes] = useState(existingTypes)
-  const [localBrands, setLocalBrands] = useState(existingBrands)
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [success, setSuccess] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
+  const [isAddUnitDialogOpen, setIsAddUnitDialogOpen] = useState(false)
+  const [newCategory, setNewCategory] = useState("")
+  const [newUnit, setNewUnit] = useState("")
+  const [localCategories, setLocalCategories] = useState(existingCategories)
+  const [localUnits, setLocalUnits] = useState(existingUnits)
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = "El nombre es requerido"
+    if (!formData.codigo.trim()) {
+      newErrors.codigo = "El código es requerido"
+    } else if (isNaN(Number(formData.codigo))) {
+      newErrors.codigo = "El código debe ser un número"
     }
-
-    if (!formData.type) {
-      newErrors.type = "Selecciona un tipo de material"
+    if (!formData.categoria) {
+      newErrors.categoria = "Selecciona una categoría"
     }
-
-    if (!formData.brand) {
-      newErrors.brand = "Selecciona una marca"
+    if (!formData.descripcion.trim()) {
+      newErrors.descripcion = "La descripción es requerida"
     }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    if (!formData.um) {
+      newErrors.um = "Selecciona una unidad de medida"
+    }
+    setError(null)
+    return Object.keys(newErrors).length === 0 ? null : newErrors
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!validateForm()) return
-
-    if (isEditing && initialData) {
-      onSubmit({
-        ...initialData,
-        ...formData,
+    setSuccess(null)
+    setError(null)
+    const errors = validateForm()
+    if (errors) {
+      setError("Por favor completa todos los campos correctamente.")
+      return
+    }
+    setIsSubmitting(true)
+    try {
+      // Buscar si la categoría ya existe en los catálogos
+      let producto = catalogs.find(c => c.categoria === formData.categoria)
+      if (!producto) {
+        // Crear la categoría (producto vacío)
+        await createCategory(formData.categoria)
+        await refetch() // Refresca los datos para obtener el nuevo producto
+        // Buscar el producto recién creado
+        producto = catalogs.find(c => c.categoria === formData.categoria)
+        if (!producto) {
+          setError("No se pudo encontrar la categoría recién creada. Intenta nuevamente.")
+          setIsSubmitting(false)
+          return
+        }
+      }
+      // Agregar el material a la categoría existente o recién creada
+      await addMaterialToProduct(producto.id, {
+        codigo: formData.codigo,
+        descripcion: formData.descripcion,
+        um: formData.um
       })
-    } else {
-      onSubmit(formData)
+      setSuccess("Material agregado correctamente a la categoría.")
+      setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
+    } catch (err: any) {
+      setError(err.message || "Error al guardar el material")
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
-  const addNewType = () => {
-    if (newType.trim() && !localTypes.includes(newType.trim())) {
-      const updatedTypes = [...localTypes, newType.trim()]
-      setLocalTypes(updatedTypes)
-      setFormData({ ...formData, type: newType.trim() })
-      setNewType("")
-      setIsAddTypeDialogOpen(false)
+  const addNewCategory = async () => {
+    if (newCategory.trim() && !localCategories.includes(newCategory.trim())) {
+      setIsCreatingCategory(true)
+      try {
+        await createCategory(newCategory.trim())
+        await refetch()
+        setLocalCategories([...localCategories, newCategory.trim()])
+        setFormData({ ...formData, categoria: newCategory.trim() })
+        setNewCategory("")
+        setIsAddCategoryDialogOpen(false)
+      } catch (err: any) {
+        setError(err.message || "Error al crear la categoría")
+      } finally {
+        setIsCreatingCategory(false)
+      }
     }
   }
 
-  const addNewBrand = () => {
-    if (newBrand.trim() && !localBrands.includes(newBrand.trim())) {
-      const updatedBrands = [...localBrands, newBrand.trim()]
-      setLocalBrands(updatedBrands)
-      setFormData({ ...formData, brand: newBrand.trim() })
-      setNewBrand("")
-      setIsAddBrandDialogOpen(false)
+  const addNewUnit = () => {
+    if (newUnit.trim() && !localUnits.includes(newUnit.trim())) {
+      const updatedUnits = [...localUnits, newUnit.trim()]
+      setLocalUnits(updatedUnits)
+      setFormData({ ...formData, um: newUnit.trim() })
+      setNewUnit("")
+      setIsAddUnitDialogOpen(false)
     }
   }
 
@@ -100,132 +140,166 @@ export function MaterialForm({
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="material-name" className="text-sm font-medium text-gray-700 mb-2 block">
-              Nombre del Material *
+            <Label htmlFor="material-codigo" className="text-sm font-medium text-gray-700 mb-2 block">
+              Código del Material *
             </Label>
             <Input
-              id="material-name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Ej: Panel Solar 450W"
-              className={errors.name ? "border-red-300" : ""}
+              id="material-codigo"
+              value={formData.codigo}
+              onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+              placeholder="Ej: 5401090096"
+              className={error && !formData.codigo ? "border-red-300" : ""}
             />
-            {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
           </div>
-
           <div>
-            <Label htmlFor="material-type" className="text-sm font-medium text-gray-700 mb-2 block">
-              Tipo de Material *
+            <Label htmlFor="material-categoria" className="text-sm font-medium text-gray-700 mb-2 block">
+              Categoría *
             </Label>
             <div className="flex space-x-2">
-              <Select value={formData.type} onValueChange={(value) => setFormData({ ...formData, type: value })}>
-                <SelectTrigger className={`flex-1 ${errors.type ? "border-red-300" : ""}`}>
-                  <SelectValue placeholder="Seleccionar tipo" />
+              <Select value={formData.categoria} onValueChange={(value) => setFormData({ ...formData, categoria: value })}>
+                <SelectTrigger className={`flex-1 ${error && !formData.categoria ? "border-red-300" : ""}`}>
+                  <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  {localTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
+                  {localCategories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Dialog open={isAddTypeDialogOpen} onOpenChange={setIsAddTypeDialogOpen}>
+              <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="icon">
+                  <Button type="button" variant="outline" size="sm">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Agregar Nuevo Tipo</DialogTitle>
+                    <DialogTitle>Agregar Nueva Categoría</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <Input
-                      value={newType}
-                      onChange={(e) => setNewType(e.target.value)}
-                      placeholder="Nombre del nuevo tipo"
-                      onKeyPress={(e) => e.key === "Enter" && addNewType()}
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setIsAddTypeDialogOpen(false)}>
+                    <div>
+                      <Label htmlFor="new-category" className="text-sm font-medium text-gray-700 mb-2 block">
+                        Nombre de la Categoría
+                      </Label>
+                      <Input
+                        id="new-category"
+                        value={newCategory}
+                        onChange={(e) => setNewCategory(e.target.value)}
+                        placeholder="Ej: ESTRUCTURAS"
+                        disabled={isCreatingCategory}
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                      <Button type="button" variant="outline" onClick={() => setIsAddCategoryDialogOpen(false)} disabled={isCreatingCategory}>
                         Cancelar
                       </Button>
-                      <Button type="button" onClick={addNewType}>
-                        Agregar
+                      <Button type="button" onClick={addNewCategory} disabled={isCreatingCategory || !newCategory.trim()}>
+                        {isCreatingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                        Agregar Categoría
                       </Button>
                     </div>
                   </div>
                 </DialogContent>
               </Dialog>
             </div>
-            {errors.type && <p className="text-red-600 text-sm mt-1">{errors.type}</p>}
           </div>
-
           <div>
-            <Label htmlFor="material-brand" className="text-sm font-medium text-gray-700 mb-2 block">
-              Marca *
+            <Label htmlFor="material-descripcion" className="text-sm font-medium text-gray-700 mb-2 block">
+              Descripción del Material *
+            </Label>
+            <Textarea
+              id="material-descripcion"
+              value={formData.descripcion}
+              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              placeholder="Ej: Estructura para montaje de módulo fotovoltáico..."
+              className={error && !formData.descripcion ? "border-red-300" : ""}
+              rows={3}
+            />
+          </div>
+          <div>
+            <Label htmlFor="material-um" className="text-sm font-medium text-gray-700 mb-2 block">
+              Unidad de Medida *
             </Label>
             <div className="flex space-x-2">
-              <Select value={formData.brand} onValueChange={(value) => setFormData({ ...formData, brand: value })}>
-                <SelectTrigger className={`flex-1 ${errors.brand ? "border-red-300" : ""}`}>
-                  <SelectValue placeholder="Seleccionar marca" />
+              <Select value={formData.um} onValueChange={(value) => setFormData({ ...formData, um: value })}>
+                <SelectTrigger className={`flex-1 ${error && !formData.um ? "border-red-300" : ""}`}>
+                  <SelectValue placeholder="Seleccionar unidad" />
                 </SelectTrigger>
                 <SelectContent>
-                  {localBrands.map((brand) => (
-                    <SelectItem key={brand} value={brand}>
-                      {brand}
+                  {localUnits.map((unit) => (
+                    <SelectItem key={unit} value={unit}>
+                      {unit}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Dialog open={isAddBrandDialogOpen} onOpenChange={setIsAddBrandDialogOpen}>
+              <Dialog open={isAddUnitDialogOpen} onOpenChange={setIsAddUnitDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="icon">
+                  <Button type="button" variant="outline" size="sm">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Agregar Nueva Marca</DialogTitle>
+                    <DialogTitle>Agregar Nueva Unidad de Medida</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
-                    <Input
-                      value={newBrand}
-                      onChange={(e) => setNewBrand(e.target.value)}
-                      placeholder="Nombre de la nueva marca"
-                      onKeyPress={(e) => e.key === "Enter" && addNewBrand()}
-                    />
-                    <div className="flex justify-end space-x-2">
-                      <Button type="button" variant="outline" onClick={() => setIsAddBrandDialogOpen(false)}>
+                    <div>
+                      <Label htmlFor="new-unit" className="text-sm font-medium text-gray-700 mb-2 block">
+                        Unidad de Medida
+                      </Label>
+                      <Input
+                        id="new-unit"
+                        value={newUnit}
+                        onChange={(e) => setNewUnit(e.target.value)}
+                        placeholder="Ej: u, m, kg, etc."
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                      <Button type="button" variant="outline" onClick={() => setIsAddUnitDialogOpen(false)}>
                         Cancelar
                       </Button>
-                      <Button type="button" onClick={addNewBrand}>
-                        Agregar
+                      <Button type="button" onClick={addNewUnit} disabled={!newUnit.trim()}>
+                        <Plus className="h-4 w-4" />
+                        Agregar Unidad
                       </Button>
                     </div>
                   </div>
                 </DialogContent>
               </Dialog>
             </div>
-            {errors.brand && <p className="text-red-600 text-sm mt-1">{errors.brand}</p>}
           </div>
         </div>
-
+        {error && (
+          <div className="flex items-center text-red-600 mt-2">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div className="flex items-center text-green-600 mt-2">
+            <CheckCircle2 className="h-4 w-4 mr-2" />
+            <span>{success}</span>
+          </div>
+        )}
         <div className="flex justify-end space-x-3 pt-6 border-t">
-          <Button type="button" variant="outline" onClick={onCancel}>
+          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             <X className="mr-2 h-4 w-4" />
             Cancelar
           </Button>
           <Button
             type="submit"
             className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+            disabled={isSubmitting}
           >
-            <Save className="mr-2 h-4 w-4" />
-            {isEditing ? "Actualizar" : "Agregar"} Material
+            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {isEditing ? "Actualizar" : "Guardar"} Material
           </Button>
         </div>
       </form>
     </>
   )
 }
+

@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Edit, Trash2, Package } from "lucide-react"
-import type { Material } from "@/lib/types"
+import type { Material } from "@/lib/material-types"
 
 interface MaterialsTableProps {
   materials: Material[]
@@ -27,9 +27,10 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Marca</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Código</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Categoría</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Material</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Unidad</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
@@ -42,19 +43,24 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                     <Package className="h-4 w-4 text-amber-700" />
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{material.name}</p>
+                    <p className="font-semibold text-gray-900">{material.codigo}</p>
                     <p className="text-sm text-gray-600">ID: {material.id}</p>
                   </div>
                 </div>
               </td>
               <td className="py-4 px-4">
                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  {material.type}
+                  {material.categoria}
                 </Badge>
               </td>
               <td className="py-4 px-4">
-                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                  {material.brand}
+                <div className="max-w-md">
+                  <p className="text-sm text-gray-900 leading-relaxed">{material.descripcion}</p>
+                </div>
+              </td>
+              <td className="py-4 px-4">
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                  {material.um}
                 </Badge>
               </td>
               <td className="py-4 px-4">
@@ -63,7 +69,9 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                     variant="outline"
                     size="sm"
                     onClick={() => onEdit(material)}
-                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    disabled
+                    className="border-gray-300 text-gray-400 hover:bg-gray-50 opacity-50 cursor-not-allowed"
+                    title="Función deshabilitada en MVP"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -71,7 +79,9 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                     variant="outline"
                     size="sm"
                     onClick={() => onDelete(material.id)}
-                    className="border-red-300 text-red-700 hover:bg-red-50"
+                    disabled
+                    className="border-gray-300 text-gray-400 hover:bg-gray-50 opacity-50 cursor-not-allowed"
+                    title="Función deshabilitada en MVP"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

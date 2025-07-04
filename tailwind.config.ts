@@ -66,6 +66,20 @@ const config: Config = {
           800: "#92400e",
           900: "#78350f",
         },
+        // Suncar business palette
+        suncar: {
+          primary: '#D09752',         // Naranja principal
+          darkblue: '#0A2A5B',        // Azul oscuro
+          tertiary: '#F07F2D',        // Naranja secundario
+          yellow: '#FDD835',          // Amarillo brillante
+          textdark: '#0A2A5B',        // Texto principal oscuro
+          textlight: '#FFFFFF',       // Texto claro
+          backgrounddark: '#121212',  // Fondo oscuro
+          backgroundlight: '#FFFFFF', // Fondo claro
+          surfacedark: '#1E1E1E',     // Superficie oscura
+          surfacelight: '#F1EFEF',    // Superficie clara
+          error: '#FF0000',           // Error (rojo)
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -14,6 +14,11 @@ import { WorkerForm } from "@/components/worker-form"
 import { useBrigadas } from "@/hooks/use-brigadas"
 import { convertBrigadaToFrontend, convertBrigadeFormDataToRequest, convertWorkerToTeamMember } from "@/lib/utils/brigada-converters"
 import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
+import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
+import { TrabajadoresTable } from '@/components/trabajadores-table'
+import { TrabajadorService } from '@/lib/api-services'
+import { AsignarBrigadaForm } from '@/components/forms/AsignarBrigadaForm'
+import { ConvertirJefeForm } from '@/components/forms/ConvertirJefeForm'
 
 export default function BrigadasPage() {
   const {
@@ -28,21 +33,45 @@ export default function BrigadasPage() {
     addTrabajador,
     removeTrabajador,
     clearError,
+    loadBrigadas,
   } = useBrigadas()
 
-  // Convertir brigadas del backend al formato del frontend
-  const brigades = backendBrigades.map(convertBrigadaToFrontend)
+  const { brigadas: brigadasTrabajadores, trabajadores, refetch } = useBrigadasTrabajadores()
+
+  // Convertir brigadas del backend al formato del frontend, usando solo el id real de MongoDB
+  const brigades = backendBrigades.map(convertBrigadaToFrontend);
 
   const [isAddBrigadeDialogOpen, setIsAddBrigadeDialogOpen] = useState(false)
   const [isAddWorkerDialogOpen, setIsAddWorkerDialogOpen] = useState(false)
   const [isEditBrigadeDialogOpen, setIsEditBrigadeDialogOpen] = useState(false)
   const [editingBrigade, setEditingBrigade] = useState<Brigade | null>(null)
+  const [isAssignBrigadeDialogOpen, setIsAssignBrigadeDialogOpen] = useState(false)
+  const [isConvertJefeDialogOpen, setIsConvertJefeDialogOpen] = useState(false)
+  const [selectedTrabajador, setSelectedTrabajador] = useState<any>(null)
+  const [loadingAction, setLoadingAction] = useState(false)
+  const [feedback, setFeedback] = useState<string | null>(null)
 
-  const handleCreateBrigada = async (formData: BrigadeFormData) => {
-    const brigadaRequest = convertBrigadeFormDataToRequest(formData)
-    const success = await createBrigada(brigadaRequest)
-    if (success) {
-      setIsAddBrigadeDialogOpen(false)
+  // Filtro de trabajadores igual que brigadas
+  const [workerSearch, setWorkerSearch] = useState('');
+  const [workerType, setWorkerType] = useState<'todos' | 'jefes' | 'trabajadores'>('todos');
+  const filteredTrabajadores = trabajadores.filter(w =>
+    (workerType === 'todos' ? true : workerType === 'jefes' ? w.tiene_contraseña : !w.tiene_contraseña)
+    && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
+  );
+
+  const handleCreateBrigada = async (data: BrigadeFormData) => {
+    setLoadingAction(true);
+    setFeedback(null);
+    try {
+      const brigadaRequest = convertBrigadeFormDataToRequest(data);
+      await createBrigada(brigadaRequest);
+      setFeedback('Brigada creada correctamente');
+      setIsAddBrigadeDialogOpen(false);
+      refetch();
+    } catch (e) {
+      setFeedback('Error al crear brigada');
+    } finally {
+      setLoadingAction(false);
     }
   }
 
@@ -58,35 +87,123 @@ export default function BrigadasPage() {
   }
 
   const handleDeleteBrigada = async (id: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar esta brigada?")) {
-      await deleteBrigada(id)
-    }
+    // Función inhabilitada para MVP
+    console.log('Función de eliminar brigada inhabilitada para MVP')
   }
 
-  const handleAddWorker = async (workerData: any) => {
-    const { name, ci, brigadeId } = workerData
-    const teamMember = convertWorkerToTeamMember({ name, ci })
-    const success = await addTrabajador(brigadeId, teamMember)
-    if (success) {
-      setIsAddWorkerDialogOpen(false)
+  const handleAddWorker = async (data: { ci: string; name: string; password?: string; brigadeId?: string; integrantes?: string[]; mode: 'trabajador_asignar' | 'jefe_brigada' | 'asignar_brigada' | 'jefe' | 'trabajador' }) => {
+    setLoadingAction(true);
+    setFeedback(null);
+    try {
+      if (data.mode === 'trabajador_asignar' && data.brigadeId) {
+        // Crear trabajador y asignar a brigada
+        try {
+          await TrabajadorService.crearTrabajador(data.ci, data.name);
+        } catch (e: any) {
+          setFeedback('Error al crear trabajador: ' + (e.message || 'Error desconocido'));
+          setIsAddWorkerDialogOpen(false);
+          setLoadingAction(false);
+          await Promise.all([refetch(), loadBrigadas()]);
+          return;
+        }
+        try {
+          await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name);
+          setFeedback('Trabajador creado y asignado a brigada correctamente');
+        } catch (e: any) {
+          setFeedback('Trabajador creado pero error al asignar a brigada: ' + (e.message || 'Error desconocido'));
+        }
+        setIsAddWorkerDialogOpen(false);
+        await Promise.all([refetch(), loadBrigadas()]);
+        return;
+      } else if (data.mode === 'jefe_brigada' && data.password && data.integrantes) {
+        // Crear jefe y brigada con integrantes
+        const integrantesArr = data.integrantes.map(ci => ({ CI: ci }));
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr);
+        setFeedback('Jefe y brigada creada correctamente');
+        setIsAddWorkerDialogOpen(false);
+        // Refrescar tanto trabajadores como brigadas
+        await Promise.all([refetch(), loadBrigadas()]);
+        return; // Salir para evitar el refetch() general
+      } else if (data.mode === 'asignar_brigada' && data.password && data.brigadeId) {
+        await TrabajadorService.crearTrabajadorYAsignarBrigada(data.ci, data.name, data.password, data.brigadeId);
+        setFeedback('Trabajador jefe creado y asignado a brigada correctamente');
+        setIsAddWorkerDialogOpen(false);
+      } else if (data.mode === 'jefe' && data.password) {
+        await TrabajadorService.crearTrabajador(data.ci, data.name, data.password);
+        setFeedback('Jefe de brigada creado correctamente');
+        setIsAddWorkerDialogOpen(false);
+      } else if (data.mode === 'trabajador') {
+        await TrabajadorService.crearTrabajador(data.ci, data.name);
+        setFeedback('Trabajador creado correctamente');
+        setIsAddWorkerDialogOpen(false);
+      } else {
+        setFeedback('Datos inválidos');
+        setLoadingAction(false);
+        return;
+      }
+      refetch();
+    } catch (e: any) {
+      setFeedback(`Error al crear trabajador: ${e.message || 'Error desconocido'}`);
+    } finally {
+      setLoadingAction(false);
     }
-  }
+  };
 
   const handleRemoveWorker = async (brigadeId: string, workerId: string) => {
-    if (confirm("¿Estás seguro de que deseas remover este trabajador de la brigada?")) {
-      // Encontrar el trabajador para obtener su CI
-      const brigade = brigades.find(b => b.id === brigadeId)
-      const worker = brigade?.members.find(w => w.id === workerId)
-      if (worker) {
-        await removeTrabajador(brigadeId, worker.ci)
-      }
-    }
+    // Función inhabilitada para MVP
+    console.log('Función de remover trabajador inhabilitada para MVP')
   }
 
   const openEditDialog = (brigade: Brigade) => {
-    setEditingBrigade(brigade)
-    setIsEditBrigadeDialogOpen(true)
+    // Función inhabilitada para MVP
+    console.log('Función de editar brigada inhabilitada para MVP')
   }
+
+  // Handler para asignar brigada a trabajador existente
+  const handleAsignarBrigada = async (data: { brigadaId: string }) => {
+    setLoadingAction(true)
+    setFeedback(null)
+    try {
+      const result = await TrabajadorService.asignarTrabajadorABrigada(
+        data.brigadaId,
+        selectedTrabajador.CI,
+        selectedTrabajador.nombre
+      );
+      if (result === true) {
+        setFeedback('Brigada asignada correctamente');
+        setIsAssignBrigadeDialogOpen(false);
+        await Promise.all([refetch(), loadBrigadas()]);
+      } else {
+        setFeedback('Error: ' + JSON.stringify(result));
+        console.error('Respuesta inesperada al asignar trabajador a brigada:', result);
+      }
+    } catch (e: any) {
+      setFeedback(e.message || 'Error al asignar brigada');
+      console.error('Error al asignar trabajador a brigada:', e);
+    } finally {
+      setLoadingAction(false);
+    }
+  }
+
+  // Handler para convertir trabajador a jefe de brigada
+  const handleConvertirJefe = async (data: { contrasena: string, integrantes: string[] }) => {
+    setLoadingAction(true)
+    setFeedback(null)
+    try {
+      const integrantesArr = data.integrantes.map(ci => ({ CI: ci }))
+      await TrabajadorService.convertirTrabajadorAJefe(selectedTrabajador.CI, data.contrasena, integrantesArr)
+      setFeedback('Trabajador convertido en jefe de brigada correctamente')
+      setIsConvertJefeDialogOpen(false)
+      await Promise.all([refetch(), loadBrigadas()]);
+    } catch (e: any) {
+      setFeedback(e.message || 'Error al convertir trabajador')
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  if (loading) return <div>Cargando...</div>
+  if (error) return <div>Error: {error}</div>
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -114,7 +231,10 @@ export default function BrigadasPage() {
             <div className="flex gap-2">
               <Dialog open={isAddWorkerDialogOpen} onOpenChange={setIsAddWorkerDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-50">
+                  <Button 
+                    variant="outline" 
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                  >
                     <UserPlus className="mr-2 h-4 w-4" />
                     Nuevo Trabajador
                   </Button>
@@ -127,12 +247,15 @@ export default function BrigadasPage() {
                     onSubmit={handleAddWorker}
                     onCancel={() => setIsAddWorkerDialogOpen(false)}
                     brigades={brigades}
+                    workers={trabajadores}
                   />
                 </DialogContent>
               </Dialog>
               <Dialog open={isAddBrigadeDialogOpen} onOpenChange={setIsAddBrigadeDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
+                  <Button 
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                  >
                     <Plus className="mr-2 h-4 w-4" />
                     Nueva Brigada
                   </Button>
@@ -148,6 +271,7 @@ export default function BrigadasPage() {
                       }
                     }} 
                     onCancel={() => setIsAddBrigadeDialogOpen(false)} 
+                    existingWorkers={trabajadores}
                   />
                 </DialogContent>
               </Dialog>
@@ -157,6 +281,24 @@ export default function BrigadasPage() {
       </header>
 
       <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* MVP Banner */}
+        <Card className="mb-6 border-orange-200 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center space-x-3">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Users className="h-5 w-5 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-orange-900">Modo MVP</h3>
+                <p className="text-sm text-orange-800">
+                  Puedes ver los formularios de creación pero las funciones de crear, editar y eliminar brigadas están deshabilitadas para esta versión. 
+                  Solo se permite visualizar y buscar brigadas existentes.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Error Alert */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">
@@ -212,12 +354,12 @@ export default function BrigadasPage() {
                 <p className="text-gray-600">Cargando brigadas...</p>
               </div>
             ) : (
-              <BrigadesTable
+            <BrigadesTable
                 brigades={brigades}
-                onEdit={openEditDialog}
+              onEdit={openEditDialog}
                 onDelete={handleDeleteBrigada}
                 onRemoveWorker={handleRemoveWorker}
-              />
+            />
             )}
           </CardContent>
         </Card>
@@ -243,6 +385,103 @@ export default function BrigadasPage() {
                 isEditing
               />
             )}
+          </DialogContent>
+        </Dialog>
+
+        <h2 className="text-xl font-bold mt-8 mb-2">Trabajadores</h2>
+        <Card className="mb-8">
+          <CardContent className="p-6">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1">
+                <Label htmlFor="worker-search" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Buscar por nombre o CI de trabajador
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="worker-search"
+                    placeholder="Buscar por nombre o CI..."
+                    value={workerSearch}
+                    onChange={(e) => setWorkerSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col justify-end">
+                <Label htmlFor="worker-type" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Tipo
+                </Label>
+                <select
+                  id="worker-type"
+                  className="border px-2 py-2 rounded w-48"
+                  value={workerType}
+                  onChange={e => setWorkerType(e.target.value as any)}
+                >
+                  <option value="todos">Todos</option>
+                  <option value="jefes">Solo jefes de brigada</option>
+                  <option value="trabajadores">Solo trabajadores</option>
+                </select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Lista de Trabajadores
+              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            </CardTitle>
+            <CardDescription>
+              Mostrando {filteredTrabajadores.length} trabajadores
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TrabajadoresTable
+              trabajadores={filteredTrabajadores}
+              brigadas={brigadasTrabajadores}
+              onAdd={() => setIsAddWorkerDialogOpen(true)}
+              onAddJefe={() => setIsAddWorkerDialogOpen(true)}
+              onAssignBrigada={trabajador => { setSelectedTrabajador(trabajador); setIsAssignBrigadeDialogOpen(true); }}
+              onConvertJefe={trabajador => { setSelectedTrabajador(trabajador); setIsConvertJefeDialogOpen(true); }}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Modal para asignar brigada */}
+        <Dialog open={isAssignBrigadeDialogOpen} onOpenChange={setIsAssignBrigadeDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Asignar Brigada a Trabajador</DialogTitle>
+            </DialogHeader>
+            {selectedTrabajador && (
+              <AsignarBrigadaForm
+                onSubmit={handleAsignarBrigada}
+                onCancel={() => setIsAssignBrigadeDialogOpen(false)}
+                loading={loadingAction}
+                brigadas={brigades}
+                trabajador={selectedTrabajador}
+              />
+            )}
+            {feedback && <div className="text-green-600 mt-2">{feedback}</div>}
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal para convertir trabajador a jefe */}
+        <Dialog open={isConvertJefeDialogOpen} onOpenChange={setIsConvertJefeDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Convertir en Jefe de Brigada</DialogTitle>
+            </DialogHeader>
+            {selectedTrabajador && (
+              <ConvertirJefeForm
+                onSubmit={handleConvertirJefe}
+                onCancel={() => setIsConvertJefeDialogOpen(false)}
+                loading={loadingAction}
+                trabajador={selectedTrabajador}
+                trabajadores={trabajadores}
+              />
+            )}
+            {feedback && <div className="text-green-600 mt-2">{feedback}</div>}
           </DialogContent>
         </Dialog>
       </main>

@@ -1,17 +1,19 @@
 // Tipos que coinciden con el backend FastAPI
 export interface Trabajador {
   id: string
-  nombre: string
   CI: string // Carnet de identidad
-  rol: "jefe" | "trabajador"
+  nombre: string
+  tiene_contraseña: boolean
   telefono?: string
   email?: string
 }
 
 export interface Brigada {
-  lider_ci: string // CI del líder (identificador principal)
-  lider: Trabajador
-  integrantes: Trabajador[] // Lista de trabajadores (no incluye al líder)
+  _id?: string; // id real de MongoDB
+  id?: string; // id alternativo si el backend lo devuelve así
+  lider_ci: string; // CI del líder (identificador principal)
+  lider: Trabajador;
+  integrantes: Trabajador[]; // Lista de trabajadores (no incluye al líder)
 }
 
 // Tipos para las peticiones al backend
@@ -49,6 +51,7 @@ export interface Worker {
 
 export interface Brigade {
   id: string
+  _id?: string // Para compatibilidad con el backend y evitar errores de linter
   leader: Worker
   members: Worker[]
 }

@@ -47,7 +47,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
           </thead>
           <tbody>
             {brigades.map((brigade) => (
-              <tr key={brigade.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={brigade.id || brigade.leader.ci} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-3">
                     <div className="bg-blue-100 p-2 rounded-lg">
@@ -80,7 +80,9 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
                       variant="outline"
                       size="sm"
                       onClick={() => onEdit(brigade)}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50 opacity-50 cursor-not-allowed"
+                      disabled
+                      title="Editar brigada (Próximamente)"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -88,7 +90,9 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
                       variant="outline"
                       size="sm"
                       onClick={() => onDelete(brigade.id)}
-                      className="border-red-300 text-red-700 hover:bg-red-50"
+                      className="border-red-300 text-red-700 hover:bg-red-50 opacity-50 cursor-not-allowed"
+                      disabled
+                      title="Eliminar brigada (Próximamente)"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -148,7 +152,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
                   {selectedBrigade.members.length > 0 ? (
                     <div className="space-y-3">
                       {selectedBrigade.members.map((member) => (
-                        <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div key={member.id || member.ci} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                           <div>
                             <p className="font-medium text-gray-900">{member.name}</p>
                             <p className="text-sm text-gray-600">CI: {member.ci}</p>
@@ -171,7 +175,9 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
                             variant="outline"
                             size="sm"
                             onClick={() => onRemoveWorker(selectedBrigade.id, member.id)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
+                            className="border-red-300 text-red-700 hover:bg-red-50 opacity-50 cursor-not-allowed"
+                            disabled
+                            title="Remover trabajador (Próximamente)"
                           >
                             <UserMinus className="h-4 w-4" />
                           </Button>
