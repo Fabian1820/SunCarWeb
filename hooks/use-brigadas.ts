@@ -28,7 +28,10 @@ export function useBrigadas(): UseBrigadasReturn {
     setError(null)
     try {
       const data = await BrigadaService.getBrigadas(searchTerm)
-      setBrigadas(data)
+      console.log('Backend response for brigadas:', data)
+      console.log('Type of data:', typeof data)
+      console.log('Is array:', Array.isArray(data))
+      setBrigadas(Array.isArray(data) ? data : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar las brigadas')
       console.error('Error loading brigadas:', err)

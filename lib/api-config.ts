@@ -32,7 +32,10 @@ export async function apiRequest<T>(
       throw new Error(errorData.detail || `HTTP error! status: ${response.status}`)
     }
     
-    return await response.json()
+    const data = await response.json()
+    console.log('API Response data:', data)
+    console.log('API Response type:', typeof data)
+    return data
   } catch (error) {
     console.error('API Request Error:', error)
     throw error

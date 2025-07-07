@@ -39,7 +39,7 @@ export default function BrigadasPage() {
   const { brigadas: brigadasTrabajadores, trabajadores, refetch } = useBrigadasTrabajadores()
 
   // Convertir brigadas del backend al formato del frontend, usando solo el id real de MongoDB
-  const brigades = backendBrigades.map(convertBrigadaToFrontend);
+  const brigades = Array.isArray(backendBrigades) ? backendBrigades.map(convertBrigadaToFrontend) : [];
 
   const [isAddBrigadeDialogOpen, setIsAddBrigadeDialogOpen] = useState(false)
   const [isAddWorkerDialogOpen, setIsAddWorkerDialogOpen] = useState(false)
@@ -54,10 +54,10 @@ export default function BrigadasPage() {
   // Filtro de trabajadores igual que brigadas
   const [workerSearch, setWorkerSearch] = useState('');
   const [workerType, setWorkerType] = useState<'todos' | 'jefes' | 'trabajadores'>('todos');
-  const filteredTrabajadores = trabajadores.filter(w =>
+  const filteredTrabajadores = Array.isArray(trabajadores) ? trabajadores.filter(w =>
     (workerType === 'todos' ? true : workerType === 'jefes' ? w.tiene_contraseña : !w.tiene_contraseña)
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
-  );
+  ) : [];
 
   const handleCreateBrigada = async (data: BrigadeFormData) => {
     setLoadingAction(true);
@@ -174,7 +174,7 @@ export default function BrigadasPage() {
         setIsAssignBrigadeDialogOpen(false);
         await Promise.all([refetch(), loadBrigadas()]);
       } else {
-        setFeedback('Error: ' + JSON.stringify(result));
+        setFeedback('Error al asignar brigada: respuesta inesperada del servidor');
         console.error('Respuesta inesperada al asignar trabajador a brigada:', result);
       }
     } catch (e: any) {

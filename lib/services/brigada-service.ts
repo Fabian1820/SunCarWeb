@@ -5,12 +5,17 @@ export class BrigadaService {
   // Obtener todas las brigadas
   static async getBrigadas(search?: string): Promise<Brigada[]> {
     const endpoint = search ? `/brigadas?search=${encodeURIComponent(search)}` : '/brigadas'
-    return apiRequest<Brigada[]>(endpoint)
+    console.log('Calling endpoint:', endpoint)
+    const response = await apiRequest<any>(endpoint)
+    console.log('BrigadaService response:', response)
+    // Extraer el campo 'data' de la respuesta del backend
+    return response.data || []
   }
 
   // Obtener una brigada específica por CI del líder
   static async getBrigada(liderCi: string): Promise<Brigada> {
-    return apiRequest<Brigada>(`/brigadas/${liderCi}`)
+    const response = await apiRequest<any>(`/brigadas/${liderCi}`)
+    return response.data
   }
 
   // Crear una nueva brigada

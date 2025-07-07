@@ -177,8 +177,8 @@ export default function MaterialesPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas las categorías</SelectItem>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
+                    {categories.map((category, idx) => (
+                      <SelectItem key={category || idx} value={category}>
                         {category}
                       </SelectItem>
                     ))}

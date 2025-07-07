@@ -17,8 +17,13 @@ export function useBrigadasTrabajadores() {
         TrabajadorService.getAllTrabajadores(),
       ]);
       
-      setBrigadas(b);
-      setTrabajadores(t);
+      console.log('Backend response for brigadas (useBrigadasTrabajadores):', b);
+      console.log('Backend response for trabajadores:', t);
+      console.log('Type of brigadas:', typeof b, 'Is array:', Array.isArray(b));
+      console.log('Type of trabajadores:', typeof t, 'Is array:', Array.isArray(t));
+      
+      setBrigadas(Array.isArray(b) ? b : []);
+      setTrabajadores(Array.isArray(t) ? t : []);
     } catch (e: any) {
       setError(e.message || 'Error al cargar datos');
     } finally {

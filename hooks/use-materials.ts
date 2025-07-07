@@ -21,6 +21,7 @@ export function useMaterials(): UseMaterialsReturn {
   const [catalogs, setCatalogs] = useState<BackendCatalogoProductos[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [rawCategories, setRawCategories] = useState<{ id: string, categoria: string }[]>([])
 
   const fetchData = async () => {
     try {
@@ -32,7 +33,8 @@ export function useMaterials(): UseMaterialsReturn {
         MaterialService.getAllCatalogs()
       ])
       setMaterials(materialsData)
-      setCategories(categoriesData)
+      setRawCategories(categoriesData)
+      setCategories(categoriesData.map(c => c.categoria))
       setCatalogs(catalogsData)
     } catch (err) {
       console.error('Error fetching materials:', err)

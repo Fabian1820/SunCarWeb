@@ -83,7 +83,7 @@ export function MaterialForm({
       if (!producto) {
         // Crear la categoría (producto vacío)
         await createCategory(formData.categoria)
-        await refetch() // Refresca los datos para obtener el nuevo producto
+        await refetch() // Refresca los datos para obtener el nuevo producto y materiales
         // Buscar el producto recién creado
         producto = catalogs.find(c => c.categoria === formData.categoria)
         if (!producto) {
@@ -100,6 +100,7 @@ export function MaterialForm({
       })
       setSuccess("Material agregado correctamente a la categoría.")
       setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
+      await refetch() // Refresca la tabla de materiales y categorías
     } catch (err: any) {
       setError(err.message || "Error al guardar el material")
     } finally {
@@ -112,9 +113,9 @@ export function MaterialForm({
       setIsCreatingCategory(true)
       try {
         await createCategory(newCategory.trim())
-        await refetch()
+        await refetch() // Refresca materiales y categorías
         setLocalCategories([...localCategories, newCategory.trim()])
-        setFormData({ ...formData, categoria: newCategory.trim() })
+        setFormData({ ...formData, categoria: newCategory.trim() }) // Preselecciona la nueva categoría
         setNewCategory("")
         setIsAddCategoryDialogOpen(false)
       } catch (err: any) {
@@ -161,8 +162,8 @@ export function MaterialForm({
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
                 <SelectContent>
-                  {localCategories.map((category) => (
-                    <SelectItem key={category} value={category}>
+                  {localCategories.map((category, idx) => (
+                    <SelectItem key={category || idx} value={category}>
                       {category}
                     </SelectItem>
                   ))}
