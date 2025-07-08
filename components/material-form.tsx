@@ -16,6 +16,7 @@ interface MaterialFormProps {
   initialData?: Material
   onSubmit?: (material: Material | Omit<Material, "id">) => void
   onCancel: () => void
+  onClose?: () => void
   existingCategories: string[]
   existingUnits: string[]
   isEditing?: boolean
@@ -25,6 +26,7 @@ export function MaterialForm({
   initialData,
   onSubmit,
   onCancel,
+  onClose,
   existingCategories,
   existingUnits,
   isEditing = false,
@@ -83,7 +85,7 @@ export function MaterialForm({
       if (!producto) {
         // Crear la categoría (producto vacío)
         await createCategory(formData.categoria)
-        await refetch() // Refresca los datos para obtener el nuevo producto y materiales
+        await refetch() // Refresca los datos para obtener el nuevo producto
         // Buscar el producto recién creado
         producto = catalogs.find(c => c.categoria === formData.categoria)
         if (!producto) {
@@ -100,7 +102,7 @@ export function MaterialForm({
       })
       setSuccess("Material agregado correctamente a la categoría.")
       setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
-      await refetch() // Refresca la tabla de materiales y categorías
+      if (onClose) onClose();
     } catch (err: any) {
       setError(err.message || "Error al guardar el material")
     } finally {
@@ -113,9 +115,9 @@ export function MaterialForm({
       setIsCreatingCategory(true)
       try {
         await createCategory(newCategory.trim())
-        await refetch() // Refresca materiales y categorías
+        await refetch()
         setLocalCategories([...localCategories, newCategory.trim()])
-        setFormData({ ...formData, categoria: newCategory.trim() }) // Preselecciona la nueva categoría
+        setFormData({ ...formData, categoria: newCategory.trim() })
         setNewCategory("")
         setIsAddCategoryDialogOpen(false)
       } catch (err: any) {
@@ -285,18 +287,13 @@ export function MaterialForm({
             <span>{success}</span>
           </div>
         )}
-        <div className="flex justify-end space-x-3 pt-6 border-t">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            <X className="mr-2 h-4 w-4" />
+        <div className="flex justify-end space-x-3">
+          <Button type="button" variant="outline" onClick={onClose || onCancel} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-            {isEditing ? "Actualizar" : "Guardar"} Material
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Guardar
           </Button>
         </div>
       </form>

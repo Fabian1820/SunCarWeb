@@ -1,10 +1,16 @@
 import { useState } from 'react';
 import type { Trabajador, Brigada } from '@/lib/api-types';
 import { Button } from '@/components/ui/button';
-import { Plus, UserCog, UserPlus, Users, Crown, Eye, Power, Mail, Phone } from 'lucide-react';
+import { Plus, UserCog, UserPlus, Users, Crown, Eye, Power, Mail, Phone, Clock, List } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { useEffect } from 'react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface TrabajadoresTableProps {
   trabajadores: Trabajador[];
@@ -18,6 +24,91 @@ interface TrabajadoresTableProps {
 export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, onAssignBrigada, onConvertJefe }: TrabajadoresTableProps) {
   const [selectedWorker, setSelectedWorker] = useState<Trabajador | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  // NUEVO: Estados para horas trabajadas individuales
+  const [isHorasDialogOpen, setIsHorasDialogOpen] = useState(false);
+  const [horasWorker, setHorasWorker] = useState<Trabajador | null>(null);
+  const [horasData, setHorasData] = useState<any>(null);
+  const [horasLoading, setHorasLoading] = useState(false);
+  const [horasError, setHorasError] = useState<string | null>(null);
+  const [fechaInicio, setFechaInicio] = useState<string>("");
+  const [fechaFin, setFechaFin] = useState<string>("");
+  const [salario, setSalario] = useState<string>("");
+  const [salarioTotal, setSalarioTotal] = useState<number | null>(null);
+
+  // NUEVO: Estados para horas de todos
+  const [isHorasTodosDialogOpen, setIsHorasTodosDialogOpen] = useState(false);
+  const [horasTodosData, setHorasTodosData] = useState<any>(null);
+  const [horasTodosLoading, setHorasTodosLoading] = useState(false);
+  const [horasTodosError, setHorasTodosError] = useState<string | null>(null);
+  const [fechaTodosInicio, setFechaTodosInicio] = useState<string>("");
+  const [fechaTodosFin, setFechaTodosFin] = useState<string>("");
+
+  // Por defecto: mes actual
+  useEffect(() => {
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    setFechaInicio(first.toISOString().split('T')[0]);
+    setFechaFin(last.toISOString().split('T')[0]);
+    setFechaTodosInicio(first.toISOString().split('T')[0]);
+    setFechaTodosFin(last.toISOString().split('T')[0]);
+  }, []);
+
+  // Handler para abrir modal de horas de un trabajador
+  const openHorasDialog = (worker: Trabajador) => {
+    setHorasWorker(worker);
+    setHorasData(null);
+    setHorasError(null);
+    setSalario("");
+    setSalarioTotal(null);
+    setIsHorasDialogOpen(true);
+  };
+
+  // Handler para consultar horas de un trabajador
+  const fetchHorasTrabajador = async () => {
+    if (!horasWorker || !fechaInicio || !fechaFin) return;
+    setHorasLoading(true);
+    setHorasError(null);
+    setHorasData(null);
+    try {
+      const data = await (await import('@/lib/api-services')).TrabajadorService.getHorasTrabajadas(horasWorker.CI, fechaInicio, fechaFin);
+      setHorasData(data);
+    } catch (e: any) {
+      setHorasError(e.message || 'Error al obtener horas');
+    } finally {
+      setHorasLoading(false);
+    }
+  };
+
+  // Handler para calcular salario
+  const calcularSalario = () => {
+    if (!horasData || !salario) return;
+    const total = parseFloat(salario) * (horasData.total_horas || 0);
+    setSalarioTotal(total);
+  };
+
+  // Handler para abrir modal de horas de todos
+  const openHorasTodosDialog = () => {
+    setHorasTodosData(null);
+    setHorasTodosError(null);
+    setIsHorasTodosDialogOpen(true);
+  };
+
+  // Handler para consultar horas de todos
+  const fetchHorasTodos = async () => {
+    if (!fechaTodosInicio || !fechaTodosFin) return;
+    setHorasTodosLoading(true);
+    setHorasTodosError(null);
+    setHorasTodosData(null);
+    try {
+      const data = await (await import('@/lib/api-services')).TrabajadorService.getHorasTrabajadasTodos(fechaTodosInicio, fechaTodosFin);
+      setHorasTodosData(data);
+    } catch (e: any) {
+      setHorasTodosError(e.message || 'Error al obtener horas');
+    } finally {
+      setHorasTodosLoading(false);
+    }
+  };
 
   const openDetailDialog = (worker: Trabajador) => {
     setSelectedWorker(worker);
@@ -44,6 +135,17 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
               <th className="text-left py-3 px-4 font-semibold text-gray-900">CI</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Rol</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-green-300 text-green-700 hover:bg-green-50"
+                  onClick={openHorasTodosDialog}
+                  title="Calcular horas de todos"
+                >
+                  <List className="h-5 w-5" />
+                </Button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -101,6 +203,16 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
                         <Crown className="h-4 w-4" />
                       </Button>
                     )}
+                    {/* NUEVO: Botón calcular horas */}
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => openHorasDialog(worker)}
+                      className="border-green-300 text-green-700 hover:bg-green-50"
+                      title="Calcular horas trabajadas"
+                    >
+                      <Clock className="h-5 w-5" />
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -149,6 +261,97 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
               </Card>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Horas trabajadas de un trabajador */}
+      <Dialog open={isHorasDialogOpen} onOpenChange={setIsHorasDialogOpen}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>Horas trabajadas de {horasWorker?.nombre}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Label>Fecha inicio</Label>
+                <Input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <Label>Fecha fin</Label>
+                <Input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={fetchHorasTrabajador} disabled={horasLoading}>
+                  {horasLoading ? 'Consultando...' : 'Consultar'}
+                </Button>
+              </div>
+            </div>
+            {horasError && <div className="text-red-600">{horasError}</div>}
+            {horasData && (
+              <div className="space-y-2">
+                <div className="font-semibold">Total de horas: {horasData.total_horas}</div>
+                <div className="flex gap-2 items-end">
+                  <div>
+                    <Label>Salario por hora</Label>
+                    <Input type="number" min="0" value={salario} onChange={e => setSalario(e.target.value)} placeholder="Monto" />
+                  </div>
+                  <Button onClick={calcularSalario} disabled={!salario || !horasData.total_horas}>Calcular salario</Button>
+                </div>
+                {salarioTotal !== null && (
+                  <div className="text-green-700 font-bold">Salario total: {salarioTotal.toFixed(2)}</div>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Horas trabajadas de todos los trabajadores */}
+      <Dialog open={isHorasTodosDialogOpen} onOpenChange={setIsHorasTodosDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Horas trabajadas de todos los trabajadores</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <Label>Fecha inicio</Label>
+                <Input type="date" value={fechaTodosInicio} onChange={e => setFechaTodosInicio(e.target.value)} />
+              </div>
+              <div className="flex-1">
+                <Label>Fecha fin</Label>
+                <Input type="date" value={fechaTodosFin} onChange={e => setFechaTodosFin(e.target.value)} />
+              </div>
+              <div className="flex items-end">
+                <Button onClick={fetchHorasTodos} disabled={horasTodosLoading}>
+                  {horasTodosLoading ? 'Consultando...' : 'Consultar'}
+                </Button>
+              </div>
+            </div>
+            {horasTodosError && <div className="text-red-600">{horasTodosError}</div>}
+            {horasTodosData && (
+              <div>
+                <table className="w-full border mt-2">
+                  <thead>
+                    <tr>
+                      <th className="text-left py-2 px-2">CI</th>
+                      <th className="text-left py-2 px-2">Nombre</th>
+                      <th className="text-left py-2 px-2">Total horas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {horasTodosData.trabajadores.map((t: any) => (
+                      <tr key={t.ci}>
+                        <td className="py-1 px-2">{t.ci}</td>
+                        <td className="py-1 px-2">{t.nombre}</td>
+                        <td className="py-1 px-2">{t.total_horas}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

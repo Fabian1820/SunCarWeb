@@ -50,11 +50,11 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header Info */}
-      <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200 flex justify-center items-center">
+      {/* Encabezado genérico con franja verde */}
+      <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200 flex justify-center items-center mb-4">
         <h3 className="text-2xl font-bold text-gray-900 text-center">Reporte H-1114</h3>
       </div>
-
+      {/* El resto de la vista ampliada */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Tipo de Servicio */}
         <Card>
@@ -116,6 +116,10 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
             <div>
               <p className="text-sm font-medium text-gray-700">Cliente:</p>
               <p className="text-gray-900">{formData.cliente?.numero || "-"}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700">Dirección:</p>
+              <p className="text-gray-900">{clienteCompleto?.direccion || "No especificado"}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-gray-700">Fecha:</p>
