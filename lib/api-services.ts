@@ -271,6 +271,22 @@ export class TrabajadorService {
     console.log('asignarTrabajadorABrigada response:', response);
     return response.success === true;
   }
+
+  static async getHorasTrabajadas(ci: string, fecha_inicio: string, fecha_fin: string) {
+    const url = `${API_BASE_URL}/trabajadores/horas-trabajadas/${ci}?fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`;
+    const res = await fetch(url, { headers: API_HEADERS });
+    if (!res.ok) throw new Error('Error al obtener horas trabajadas del trabajador');
+    const response = await res.json();
+    return response.data;
+  }
+
+  static async getHorasTrabajadasTodos(fecha_inicio: string, fecha_fin: string) {
+    const url = `${API_BASE_URL}/trabajadores/horas-trabajadas-todos?fecha_inicio=${fecha_inicio}&fecha_fin=${fecha_fin}`;
+    const res = await fetch(url, { headers: API_HEADERS });
+    if (!res.ok) throw new Error('Error al obtener horas trabajadas de todos los trabajadores');
+    const response = await res.json();
+    return response.data;
+  }
 }
 
 // Servicio para reportes

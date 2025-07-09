@@ -4,78 +4,54 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Sun, FileText, Users, FileCheck, Calendar, Package } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { FormViewer } from "@/components/form-viewer"
+import { ReporteService } from "@/lib/api-services"
+import { Loader } from "@/components/ui/loader"
+import { Wrench, Zap } from "lucide-react"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 
 export default function Dashboard() {
   const [selectedForm, setSelectedForm] = useState<any>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [recentReports, setRecentReports] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [clients, setClients] = useState<any[]>([])
 
-  const recentForms = [
-    { id: "H1114-001", brigade: "Brigada Alpha", location: "Zona Norte", status: "Revisado", date: "2024-01-15" },
-    { id: "H1114-002", brigade: "Brigada Beta", location: "Zona Sur", status: "No Revisado", date: "2024-01-16" },
-    { id: "H1114-003", brigade: "Brigada Gamma", location: "Zona Este", status: "No Revisado", date: "2024-01-17" },
-  ]
+  useEffect(() => {
+    // Obtener los reportes más recientes del backend
+    const fetchRecentReports = async () => {
+      setLoading(true)
+      try {
+        const data = await ReporteService.getReportes();
+        // Ordenar por fecha descendente y tomar los 3 más recientes
+        const sorted = Array.isArray(data)
+          ? [...data].sort((a, b) => new Date(b.fecha_hora?.fecha || b.dateTime?.date || b.fecha_creacion || 0).getTime() - new Date(a.fecha_hora?.fecha || a.dateTime?.date || a.fecha_creacion || 0).getTime())
+          : [];
+        setRecentReports(sorted.slice(0, 3));
+        // Obtener clientes únicos de los reportes
+        const uniqueClientIds = [...new Set(sorted.slice(0, 3).map(r => r.cliente?.numero).filter(Boolean))];
+        if (uniqueClientIds.length > 0) {
+          // Simular fetch de clientes (en gestión de reportes se usa ClienteService.getClientes)
+          const allClients = await (await import("@/lib/api-services")).ClienteService.getClientes();
+          setClients(allClients);
+        }
+      } catch (e) {
+        setRecentReports([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRecentReports();
+  }, []);
 
-  // Datos simulados de formularios completos
-  const formsData = {
-    "H1114-001": {
-      formId: "H1114-001",
-      serviceType: "inversion",
-      brigade: {
-        leader: "Carlos Rodríguez",
-        members: ["Ana García", "Luis Martínez", "Pedro Sánchez"],
-      },
-      materials: [
-        { id: "1", name: "Panel Solar 450W", type: "Panel Solar", brand: "Canadian Solar" },
-        { id: "2", name: "Inversor 5kW", type: "Inversor", brand: "Fronius" },
-        { id: "3", name: "Cable DC 4mm", type: "Cable", brand: "Prysmian" },
-      ],
-      location: {
-        address: "Calle 123 #45-67, Bogotá, Colombia",
-        coordinates: { lat: 4.6097, lng: -74.0817 },
-        distanceFromHQ: 15.5,
-      },
-      photos: [
-        {
-          id: "1",
-          preview: "/placeholder.svg?height=300&width=400",
-          description: "Instalación de paneles en el techo",
-        },
-        { id: "2", preview: "/placeholder.svg?height=300&width=400", description: "Conexiones eléctricas completadas" },
-      ],
-      dateTime: { date: "2024-01-15", time: "14:30" },
-    },
-    "H1114-002": {
-      formId: "H1114-002",
-      serviceType: "mantenimiento",
-      brigade: {
-        leader: "María López",
-        members: ["Juan Pérez", "Sofia Herrera"],
-      },
-      materials: [
-        { id: "1", name: "Panel Solar 400W", type: "Panel Solar", brand: "Jinko Solar" },
-        { id: "2", name: "Batería Litio 100Ah", type: "Batería", brand: "Tesla" },
-      ],
-      location: {
-        address: "Carrera 45 #12-34, Medellín, Colombia",
-        coordinates: { lat: 6.2442, lng: -75.5812 },
-        distanceFromHQ: 240.8,
-      },
-      photos: [{ id: "1", preview: "/placeholder.svg?height=300&width=400", description: "Trabajo en progreso" }],
-      dateTime: { date: "2024-01-16", time: "09:15" },
-      description: "Mantenimiento preventivo de paneles solares, limpieza y revisión de conexiones eléctricas.",
-    },
+  const openFormDialog = (form: any) => {
+    setSelectedForm(form)
+    setIsDialogOpen(true)
   }
 
-  const openFormDialog = (formId: string) => {
-    const formData = formsData[formId as keyof typeof formsData]
-    if (formData) {
-      setSelectedForm(formData)
-      setIsDialogOpen(true)
-    }
-  }
+  const getClienteByNumero = (numero: string | number) => clients.find(c => String(c.numero) === String(numero));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -108,44 +84,48 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentForms.map((form) => (
-                <div
-                  key={form.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                  onClick={() => openFormDialog(form.id)}
-                >
-                  <div className="flex items-center space-x-4">
+              {loading ? (
+                <Loader label="Cargando reportes recientes..." />
+              ) : recentReports.length === 0 ? (
+                <div className="text-gray-500 text-center py-4">No hay reportes recientes.</div>
+              ) : (
+                recentReports.map((report) => {
+                  let Icon = FileCheck;
+                  let iconColor = "text-green-500";
+                  if (report.tipo_reporte === "inversion") {
+                    Icon = Sun;
+                    iconColor = "text-blue-500";
+                  } else if (report.tipo_reporte === "mantenimiento") {
+                    Icon = Wrench;
+                    iconColor = "text-yellow-600";
+                  } else if (report.tipo_reporte === "averia") {
+                    Icon = Zap;
+                    iconColor = "text-red-500";
+                  }
+                  return (
                     <div
-                      className={`p-2 rounded-lg ${
-                        form.status === "Revisado"
-                          ? "bg-gradient-to-r from-green-500 to-green-600"
-                          : "bg-gradient-to-r from-gray-400 to-gray-500"
-                      }`}
+                      key={report._id || report.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => openFormDialog(report)}
                     >
-                      <FileCheck className="h-4 w-4 text-white" />
+                      <div className="flex items-center space-x-4">
+                        <div className="p-2 rounded-lg bg-white border border-gray-200">
+                          <Icon className={`h-4 w-4 ${iconColor}`} />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{report.cliente?.numero || "-"}</p>
+                          <p className="text-sm text-gray-600">
+                            {getClienteByNumero(report.cliente?.numero)?.direccion || "Sin dirección"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm text-gray-500">{report.fecha_hora?.fecha || report.dateTime?.date || report.fecha_creacion || "-"}</span>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{form.id}</p>
-                      <p className="text-sm text-gray-600">
-                        {form.brigade} • {form.location}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <Badge
-                      variant={form.status === "Revisado" ? "default" : "outline"}
-                      className={
-                        form.status === "Revisado"
-                          ? "bg-green-100 text-green-800 border-green-200"
-                          : "bg-green-50 text-green-700 border-green-200"
-                      }
-                    >
-                      {form.status}
-                    </Badge>
-                    <span className="text-sm text-gray-500">{form.date}</span>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
@@ -187,10 +167,12 @@ export default function Dashboard() {
       {/* Form Viewer Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalles del Reporte {selectedForm?.formId}</DialogTitle>
-          </DialogHeader>
-          {selectedForm && <FormViewer formData={selectedForm} />}
+          {/* DialogTitle oculto para accesibilidad */}
+          <VisuallyHidden asChild>
+            <DialogTitle>Reporte H-1114</DialogTitle>
+          </VisuallyHidden>
+          {/* El encabezado visual se muestra solo dentro de FormViewer */}
+          {selectedForm && <FormViewer formData={selectedForm} clienteCompleto={getClienteByNumero(selectedForm.cliente?.numero)} />}
         </DialogContent>
       </Dialog>
     </div>

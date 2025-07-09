@@ -56,6 +56,11 @@ export default function MaterialesPage() {
   // Obtener unidades únicas de los materiales
   const units = Array.from(new Set(materials.map(m => m.um))).sort()
 
+  const handleCloseModal = () => {
+    refetch();
+    setIsAddDialogOpen(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
@@ -120,7 +125,8 @@ export default function MaterialesPage() {
                 </DialogHeader>
                 <MaterialForm
                   onSubmit={addMaterial}
-                  onCancel={() => setIsAddDialogOpen(false)}
+                  onCancel={handleCloseModal}
+                  onClose={handleCloseModal}
                   existingCategories={categories}
                   existingUnits={units}
                 />
