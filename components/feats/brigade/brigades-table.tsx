@@ -1,10 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/shared/atom/button"
+import { Badge } from "@/components/shared/atom/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
 

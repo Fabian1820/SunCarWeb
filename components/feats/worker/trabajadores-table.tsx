@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import type { Trabajador, Brigada } from '@/lib/api-types';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/shared/atom/button';
 import { Plus, UserCog, UserPlus, Users, Crown, Eye, Power, Mail, Phone, Clock, List } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Calendar } from '@/components/ui/calendar';
-import { DialogFooter, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
+import { Badge } from '@/components/shared/atom/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/shared/molecule/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/shared/molecule/dialog';
+import { Label } from '@/components/shared/atom/label';
+import { Input } from '@/components/shared/molecule/input';
+import { Calendar } from '@/components/shared/molecule/calendar';
+import { DialogFooter, DialogTrigger, DialogDescription } from '@/components/shared/molecule/dialog';
 import { useEffect } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/shared/molecule/tooltip';
 
 interface TrabajadoresTableProps {
   trabajadores: Trabajador[];

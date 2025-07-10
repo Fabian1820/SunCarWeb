@@ -1,8 +1,8 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/shared/atom/button"
+import { Label } from "@/components/shared/atom/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Sun, ChevronRight } from "lucide-react"
 import type { FormData } from "@/lib/types"
 import { SERVICE_TYPES } from "@/lib/types"

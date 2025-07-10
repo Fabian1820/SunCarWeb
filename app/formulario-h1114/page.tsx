@@ -2,18 +2,18 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/shared/atom/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Badge } from "@/components/shared/atom/badge"
 import { ArrowLeft, Sun, Users, Package, MapPin, Camera, Calendar, Save, FileText } from "lucide-react"
-import { BrigadeSection } from "@/components/brigade-section"
-import { MaterialsSection } from "@/components/materials-section"
-import { LocationSection } from "@/components/location-section"
-import { PhotosSection } from "@/components/photos-section"
-import { DateTimeSection } from "@/components/datetime-section"
-import { ServiceTypeSection } from "@/components/service-type-section"
+import { BrigadeSection } from "@/components/feats/brigade/brigade-section"
+import { MaterialsSection } from "@/components/feats/materials/materials-section"
+import { LocationSection } from "@/components/shared/organism/location-section"
+import { PhotosSection } from "@/components/feats/reports/photos-section"
+import { DateTimeSection } from "@/components/shared/molecule/datetime-section"
+import { ServiceTypeSection } from "@/components/feats/reports/service-type-section"
 import type { FormData } from "@/lib/types"
-import { DescriptionSection } from "@/components/description-section"
+import { DescriptionSection } from "@/components/shared/molecule/description-section"
 
 export default function FormularioH1114() {
   const [formData, setFormData] = useState<FormData>({

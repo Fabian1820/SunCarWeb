@@ -1,8 +1,8 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/shared/atom/button"
+import { Label } from "@/components/shared/atom/label"
+import { Textarea } from "@/components/shared/molecule/textarea"
 import { FileText, ArrowLeft, ArrowRight } from "lucide-react"
 import type { FormData } from "@/lib/types"
 

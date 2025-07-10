@@ -2,23 +2,23 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Button } from "@/components/shared/atom/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Input } from "@/components/shared/molecule/input"
+import { Label } from "@/components/shared/atom/label"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { ArrowLeft, Users, Plus, Search, UserPlus, Crown, Loader2 } from "lucide-react"
-import { BrigadesTable } from "@/components/brigades-table"
-import { BrigadeForm } from "@/components/brigade-form"
-import { WorkerForm } from "@/components/worker-form"
+import { BrigadesTable } from "@/components/feats/brigade/brigades-table"
+import { BrigadeForm } from "@/components/feats/brigade/brigade-form"
+import { WorkerForm } from "@/components/feats/worker/worker-form"
 import { useBrigadas } from "@/hooks/use-brigadas"
 import { convertBrigadaToFrontend, convertBrigadeFormDataToRequest, convertWorkerToTeamMember } from "@/lib/utils/brigada-converters"
 import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
-import { TrabajadoresTable } from '@/components/trabajadores-table'
+import { TrabajadoresTable } from '@/components/feats/worker/trabajadores-table'
 import { TrabajadorService } from '@/lib/api-services'
-import { AsignarBrigadaForm } from '@/components/forms/AsignarBrigadaForm'
-import { ConvertirJefeForm } from '@/components/forms/ConvertirJefeForm'
+import { AsignarBrigadaForm } from '@/components/feats/brigade/AsignarBrigadaForm'
+import { ConvertirJefeForm } from '@/components/feats/brigade/ConvertirJefeForm'
 
 export default function BrigadasPage() {
   const {

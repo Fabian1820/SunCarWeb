@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button } from "@/components/shared/atom/button"
+import { Input } from "@/components/shared/molecule/input"
+import { Label } from "@/components/shared/atom/label"
 import { MapPin, Search, Navigation, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import type { FormData } from "@/lib/types"
 

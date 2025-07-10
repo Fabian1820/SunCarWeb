@@ -9,9 +9,9 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
-import { Separator } from "@/components/ui/separator"
-import { Sheet, SheetContent } from "@/components/ui/sheet"
-import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/shared/molecule/separator"
+import { Sheet, SheetContent } from "@/components/shared/molecule/sheet"
+import { Skeleton } from "@/components/shared/molecule/skeleton"
 import {
   Tooltip,
   TooltipContent,

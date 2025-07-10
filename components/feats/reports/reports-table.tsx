@@ -1,7 +1,7 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/shared/atom/button"
+import { Badge } from "@/components/shared/atom/badge"
 import {Eye, FileText, Calendar, MapPin, Users, FileCheck, Wrench, Zap, Sun} from "lucide-react"
 import type { FormData } from "@/lib/types"
 

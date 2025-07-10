@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Badge } from "@/components/shared/atom/badge"
+import { Button } from "@/components/shared/atom/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { Users, Package, MapPin, Camera, Calendar, Clock, Navigation, ZoomIn, Sun, FileText } from "lucide-react"
 import { SERVICE_TYPES } from "@/lib/types"
 

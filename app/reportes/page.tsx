@@ -2,18 +2,18 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/shared/atom/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Input } from "@/components/shared/molecule/input"
+import { Label } from "@/components/shared/atom/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { ArrowLeft, FileCheck, Search, Calendar, Plus, Eye, List, User } from "lucide-react"
-import { ReportsTable } from "@/components/reports-table"
+import { ReportsTable } from "@/components/feats/reports/reports-table"
 import type { FormData } from "@/lib/types"
-import { FormViewer } from "@/components/form-viewer"
+import { FormViewer } from "@/components/feats/reports/form-viewer"
 import { ClienteService, ReporteService } from "@/lib/api-services"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/shared/molecule/tabs"
 
 export default function ReportesPage() {
   const [tab, setTab] = useState<'reportes' | 'clientes'>('reportes')
