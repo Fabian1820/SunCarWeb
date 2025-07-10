@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/shared/atom/button';
 
 export function TrabajadorForm({ onSubmit, onCancel, loading }: {
   onSubmit: (data: { ci: string, nombre: string }) => void,

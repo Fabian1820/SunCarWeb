@@ -232,6 +232,30 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
               <p className="text-gray-900">{clienteCompleto?.longitud || "No especificado"}</p>
             </div>
           </div>
+          {/* Mapa OpenStreetMap */}
+          {clienteCompleto?.latitud && clienteCompleto?.longitud && (
+            <div className="mt-4">
+              <iframe
+                title="Mapa de ubicación"
+                width="100%"
+                height="300"
+                style={{ border: 0, borderRadius: '12px' }}
+                loading="lazy"
+                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(clienteCompleto.longitud)-0.005}%2C${parseFloat(clienteCompleto.latitud)-0.003}%2C${parseFloat(clienteCompleto.longitud)+0.005}%2C${parseFloat(clienteCompleto.latitud)+0.003}&layer=mapnik&marker=${clienteCompleto.latitud}%2C${clienteCompleto.longitud}`}
+                allowFullScreen
+              ></iframe>
+              <div className="text-xs text-center mt-2">
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${clienteCompleto.latitud}&mlon=${clienteCompleto.longitud}#map=18/${clienteCompleto.latitud}/${clienteCompleto.longitud}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline"
+                >
+                  Ver en OpenStreetMap
+                </a>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
