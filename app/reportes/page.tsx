@@ -27,6 +27,9 @@ export default function ReportesPage() {
   const [selectedClientReports, setSelectedClientReports] = useState<any[] | null>(null)
   const [selectedClient, setSelectedClient] = useState<any | null>(null)
   const [loadingClientReports, setLoadingClientReports] = useState(false)
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null)
+  const [selectedReportData, setSelectedReportData] = useState<any | null>(null)
+  const [loadingReportDetails, setLoadingReportDetails] = useState(false)
 
   // Cargar reportes
   const fetchReports = async () => {
@@ -89,9 +92,22 @@ export default function ReportesPage() {
   ]
 
   // Acción para ver detalles de reporte
-  const handleViewReport = (report: any) => {
-    setSelectedReport(report)
+  const handleViewReport = async (report: any) => {
+    setSelectedReportId(report._id || report.id)
     setIsViewDialogOpen(true)
+    setLoadingReportDetails(true)
+    setSelectedReportData(null)
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL
+      const res = await fetch(`${baseUrl}/reportes/${report._id || report.id}`)
+      if (!res.ok) throw new Error('Error al obtener detalles del reporte')
+      const data = await res.json()
+      setSelectedReportData(data)
+    } catch (e) {
+      setSelectedReportData(null)
+    } finally {
+      setLoadingReportDetails(false)
+    }
   }
 
   // Acción para ver reportes de un cliente
@@ -211,6 +227,7 @@ export default function ReportesPage() {
                       Ver
                     </Button>
                   )}
+                  loading={loading}
                 />
               </CardContent>
             </Card>
@@ -220,11 +237,15 @@ export default function ReportesPage() {
                 <DialogHeader>
                   <DialogTitle>Detalles del Reporte</DialogTitle>
                 </DialogHeader>
-                {selectedReport && (
+                {loadingReportDetails ? (
+                  <div className="text-center py-8">Cargando detalles...</div>
+                ) : selectedReportData ? (
                   <FormViewer
-                    formData={selectedReport}
-                    clienteCompleto={getClienteByNumero(selectedReport.cliente?.numero)}
+                    formData={selectedReportData}
+                    clienteCompleto={getClienteByNumero(selectedReportData.cliente?.numero)}
                   />
+                ) : (
+                  <div className="text-center py-8 text-red-500">No se pudieron cargar los detalles del reporte.</div>
                 )}
               </DialogContent>
             </Dialog>
@@ -278,6 +299,7 @@ export default function ReportesPage() {
                       Ver reportes
                     </Button>
                   )}
+                  loading={loading}
                 />
               </CardContent>
             </Card>
@@ -305,6 +327,7 @@ export default function ReportesPage() {
                         Ver
                       </Button>
                     )}
+                    loading={loadingClientReports}
                   />
                 )}
               </DialogContent>
@@ -315,11 +338,15 @@ export default function ReportesPage() {
                 <DialogHeader>
                   <DialogTitle>Detalles del Reporte</DialogTitle>
                 </DialogHeader>
-                {selectedReport && (
+                {loadingReportDetails ? (
+                  <div className="text-center py-8">Cargando detalles...</div>
+                ) : selectedReportData ? (
                   <FormViewer
-                    formData={selectedReport}
-                    clienteCompleto={getClienteByNumero(selectedReport.cliente?.numero)}
+                    formData={selectedReportData}
+                    clienteCompleto={getClienteByNumero(selectedReportData.cliente?.numero)}
                   />
+                ) : (
+                  <div className="text-center py-8 text-red-500">No se pudieron cargar los detalles del reporte.</div>
                 )}
               </DialogContent>
             </Dialog>
