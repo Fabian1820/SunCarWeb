@@ -7,6 +7,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/mo
 import { Dialog, DialogContent, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { Users, Package, MapPin, Camera, Calendar, Clock, Navigation, ZoomIn, Sun, FileText } from "lucide-react"
 import { SERVICE_TYPES } from "@/lib/types"
+import { MapContainer, TileLayer, Marker } from "react-leaflet"
+import "leaflet/dist/leaflet.css"
+import L from "leaflet"
+
+const customMarker = new L.Icon({
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+  iconSize: [32, 48],
+  iconAnchor: [16, 48],
+  popupAnchor: [0, -48],
+  shadowSize: [41, 41],
+  shadowAnchor: [13, 41],
+})
 
 interface FormViewerProps {
   formData: any
@@ -47,6 +61,18 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
     }
     return () => { document.body.style.overflow = ""; };
   }, [selectedPhoto]);
+
+  function SatMap({ lat, lng }: { lat: number, lng: number }) {
+    return (
+      <MapContainer center={[lat, lng]} zoom={18} style={{ height: 300, borderRadius: 12 }} scrollWheelZoom={false}>
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution='&copy; <a href="https://www.esri.com/en-us/home">Esri</a>'
+        />
+        <Marker position={[lat, lng]} icon={customMarker} />
+      </MapContainer>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -222,28 +248,11 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
             <p className="text-sm font-medium text-gray-700 mb-2">Dirección:</p>
             <p className="text-gray-900">{clienteCompleto?.direccion || "No especificado"}</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-sm font-medium text-gray-700">Latitud:</p>
-              <p className="text-gray-900">{clienteCompleto?.latitud || "No especificado"}</p>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-700">Longitud:</p>
-              <p className="text-gray-900">{clienteCompleto?.longitud || "No especificado"}</p>
-            </div>
-          </div>
+          
           {/* Mapa OpenStreetMap */}
           {clienteCompleto?.latitud && clienteCompleto?.longitud && (
             <div className="mt-4">
-              <iframe
-                title="Mapa de ubicación"
-                width="100%"
-                height="300"
-                style={{ border: 0, borderRadius: '12px' }}
-                loading="lazy"
-                src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(clienteCompleto.longitud)-0.005}%2C${parseFloat(clienteCompleto.latitud)-0.003}%2C${parseFloat(clienteCompleto.longitud)+0.005}%2C${parseFloat(clienteCompleto.latitud)+0.003}&layer=mapnik&marker=${clienteCompleto.latitud}%2C${clienteCompleto.longitud}`}
-                allowFullScreen
-              ></iframe>
+              <SatMap lat={parseFloat(clienteCompleto.latitud)} lng={parseFloat(clienteCompleto.longitud)} />
               <div className="text-xs text-center mt-2">
                 <a
                   href={`https://www.openstreetmap.org/?mlat=${clienteCompleto.latitud}&mlon=${clienteCompleto.longitud}#map=18/${clienteCompleto.latitud}/${clienteCompleto.longitud}`}
