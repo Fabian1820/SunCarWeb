@@ -16,7 +16,7 @@ import { convertBrigadaToFrontend, convertBrigadeFormDataToRequest, convertWorke
 import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { TrabajadoresTable } from '@/components/feats/worker/trabajadores-table'
-import { TrabajadorService } from '@/lib/api-services'
+import { BrigadaService, TrabajadorService } from '@/lib/api-services'
 import { AsignarBrigadaForm } from '@/components/feats/brigade/AsignarBrigadaForm'
 import { ConvertirJefeForm } from '@/components/feats/brigade/ConvertirJefeForm'
 
@@ -86,10 +86,20 @@ export default function BrigadasPage() {
     }
   }
 
+  // Handler para eliminar brigada
   const handleDeleteBrigada = async (id: string) => {
-    // Función inhabilitada para MVP
-    console.log('Función de eliminar brigada inhabilitada para MVP')
-  }
+    setLoadingAction(true);
+    setFeedback(null);
+    try {
+      await BrigadaService.eliminarBrigada(id);
+      setFeedback('Brigada eliminada correctamente');
+      await Promise.all([refetch(), loadBrigadas()]);
+    } catch (e: any) {
+      setFeedback('Error al eliminar brigada: ' + (e.message || 'Error desconocido'));
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
   const handleAddWorker = async (data: { ci: string; name: string; password?: string; brigadeId?: string; integrantes?: string[]; mode: 'trabajador_asignar' | 'jefe_brigada' | 'asignar_brigada' | 'jefe' | 'trabajador' }) => {
     setLoadingAction(true);
@@ -149,10 +159,35 @@ export default function BrigadasPage() {
     }
   };
 
+  // Handler para eliminar trabajador de brigada
   const handleRemoveWorker = async (brigadeId: string, workerId: string) => {
-    // Función inhabilitada para MVP
-    console.log('Función de remover trabajador inhabilitada para MVP')
-  }
+    setLoadingAction(true);
+    setFeedback(null);
+    try {
+      await BrigadaService.eliminarTrabajadorDeBrigada(brigadeId, workerId);
+      setFeedback('Trabajador removido de la brigada correctamente');
+      await Promise.all([refetch(), loadBrigadas()]);
+    } catch (e: any) {
+      setFeedback('Error al remover trabajador de brigada: ' + (e.message || 'Error desconocido'));
+    } finally {
+      setLoadingAction(false);
+    }
+  };
+
+  // Handler para editar trabajador
+  const handleEditWorker = async (ci: string, nombre: string, nuevoCi?: string) => {
+    setLoadingAction(true);
+    setFeedback(null);
+    try {
+      await TrabajadorService.actualizarTrabajador(ci, nombre, nuevoCi);
+      setFeedback('Trabajador actualizado correctamente');
+      await Promise.all([refetch(), loadBrigadas()]);
+    } catch (e: any) {
+      setFeedback('Error al actualizar trabajador: ' + (e.message || 'Error desconocido'));
+    } finally {
+      setLoadingAction(false);
+    }
+  };
 
   const openEditDialog = (brigade: Brigade) => {
     // Función inhabilitada para MVP
@@ -359,6 +394,7 @@ export default function BrigadasPage() {
               onEdit={openEditDialog}
                 onDelete={handleDeleteBrigada}
                 onRemoveWorker={handleRemoveWorker}
+                onRefresh={async () => { await Promise.all([refetch(), loadBrigadas()]); }}
             />
             )}
           </CardContent>
@@ -443,6 +479,9 @@ export default function BrigadasPage() {
               onAddJefe={() => setIsAddWorkerDialogOpen(true)}
               onAssignBrigada={trabajador => { setSelectedTrabajador(trabajador); setIsAssignBrigadeDialogOpen(true); }}
               onConvertJefe={trabajador => { setSelectedTrabajador(trabajador); setIsConvertJefeDialogOpen(true); }}
+              onEdit={async (trabajador) => { await handleEditWorker(trabajador.CI, trabajador.nombre); }}
+              onDelete={async (trabajador) => { await TrabajadorService.eliminarTrabajador(trabajador.CI); setFeedback('Trabajador eliminado correctamente'); await Promise.all([refetch(), loadBrigadas()]); }}
+              onRefresh={async () => { await Promise.all([refetch(), loadBrigadas()]); }}
             />
           </CardContent>
         </Card>

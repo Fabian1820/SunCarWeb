@@ -22,7 +22,7 @@ export function convertTrabajadorToWorker(trabajador: Trabajador): Worker {
 
 export function convertBrigadaToFrontend(brigada: BackendBrigada): FrontendBrigade {
   return {
-    id: brigada.id || '', // Usar solo el id real de la brigada, nunca undefined
+    id: brigada.id || '', // El id es el CI del líder, fallback a string vacío si no existe
     leader: convertTrabajadorToWorker(brigada.lider),
     members: brigada.integrantes.map(convertTrabajadorToWorker),
   }

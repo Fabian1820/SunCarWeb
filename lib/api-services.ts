@@ -108,6 +108,34 @@ export class BrigadaService {
     if (!res.ok) throw new Error('Error al buscar brigadas');
     return await res.json();
   }
+
+  // Eliminar brigada
+  static async eliminarBrigada(brigadaId: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/brigadas/${brigadaId}`, {
+      method: 'DELETE',
+      headers: API_HEADERS,
+    });
+    if (!res.ok) {
+      const errorBody = await res.json();
+      throw new Error(errorBody.message || 'Error al eliminar brigada');
+    }
+    const response = await res.json();
+    return response.success === true;
+  }
+
+  // Eliminar trabajador de brigada (endpoint alternativo)
+  static async eliminarTrabajadorDeBrigada(brigadaId: string, trabajadorCi: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/brigadas/${brigadaId}/trabajadores/${trabajadorCi}`, {
+      method: 'DELETE',
+      headers: API_HEADERS,
+    });
+    if (!res.ok) {
+      const errorBody = await res.json();
+      throw new Error(errorBody.message || 'Error al eliminar trabajador de brigada');
+    }
+    const response = await res.json();
+    return response.success === true;
+  }
 }
 
 export class TrabajadorService {
@@ -269,6 +297,54 @@ export class TrabajadorService {
     }
     const response = await res.json();
     console.log('asignarTrabajadorABrigada response:', response);
+    return response.success === true;
+  }
+
+  // Eliminar trabajador
+  static async eliminarTrabajador(ci: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/trabajadores/${ci}`, {
+      method: 'DELETE',
+      headers: API_HEADERS,
+    });
+    if (!res.ok) {
+      const errorBody = await res.json();
+      throw new Error(errorBody.detail || 'Error al eliminar trabajador');
+    }
+    const response = await res.json();
+    return response.success === true;
+  }
+
+  // Actualizar datos del trabajador
+  static async actualizarTrabajador(ci: string, nombre: string, nuevoCi?: string): Promise<boolean> {
+    const body: any = { nombre };
+    if (nuevoCi) {
+      body.nuevo_ci = nuevoCi;
+    }
+    
+    const res = await fetch(`${API_BASE_URL}/trabajadores/${ci}`, {
+      method: 'PUT',
+      headers: API_HEADERS,
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const errorBody = await res.json();
+      throw new Error(errorBody.detail || 'Error al actualizar trabajador');
+    }
+    const response = await res.json();
+    return response.success === true;
+  }
+
+  // Eliminar trabajador de brigada
+  static async eliminarTrabajadorDeBrigada(ci: string, brigadaId: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/trabajadores/${ci}/brigada/${brigadaId}`, {
+      method: 'DELETE',
+      headers: API_HEADERS,
+    });
+    if (!res.ok) {
+      const errorBody = await res.json();
+      throw new Error(errorBody.detail || 'Error al eliminar trabajador de brigada');
+    }
+    const response = await res.json();
     return response.success === true;
   }
 

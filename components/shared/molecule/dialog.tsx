@@ -5,6 +5,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/shared/atom/button"
 
 const Dialog = DialogPrimitive.Root
 
@@ -107,6 +108,126 @@ const DialogDescription = React.forwardRef<
   />
 ))
 DialogDescription.displayName = DialogPrimitive.Description.displayName
+
+// Componente de confirmación de eliminación
+interface ConfirmDeleteDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  message: string
+  onConfirm: () => void
+  onCancel?: () => void
+  confirmText?: string
+  cancelText?: string
+  isLoading?: boolean
+}
+
+export function ConfirmDeleteDialog({
+  open,
+  onOpenChange,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmText = "Eliminar",
+  cancelText = "Cancelar",
+  isLoading = false
+}: ConfirmDeleteDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-red-600">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <p className="text-gray-600">{message}</p>
+        </div>
+        <DialogFooter className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              onCancel?.()
+              onOpenChange(false)
+            }}
+            disabled={isLoading}
+          >
+            {cancelText}
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={() => {
+              onConfirm()
+              onOpenChange(false)
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? "Eliminando..." : confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// Componente de confirmación de edición
+interface ConfirmEditDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  message: string
+  onConfirm: () => void
+  onCancel?: () => void
+  confirmText?: string
+  cancelText?: string
+  isLoading?: boolean
+}
+
+export function ConfirmEditDialog({
+  open,
+  onOpenChange,
+  title,
+  message,
+  onConfirm,
+  onCancel,
+  confirmText = "Guardar",
+  cancelText = "Cancelar",
+  isLoading = false
+}: ConfirmEditDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-blue-600">{title}</DialogTitle>
+        </DialogHeader>
+        <div className="py-4">
+          <p className="text-gray-600">{message}</p>
+        </div>
+        <DialogFooter className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              onCancel?.()
+              onOpenChange(false)
+            }}
+            disabled={isLoading}
+          >
+            {cancelText}
+          </Button>
+          <Button
+            variant="default"
+            onClick={() => {
+              onConfirm()
+              onOpenChange(false)
+            }}
+            disabled={isLoading}
+          >
+            {isLoading ? "Guardando..." : confirmText}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 export {
   Dialog,

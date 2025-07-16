@@ -4,24 +4,89 @@ import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
+import { BrigadaService, TrabajadorService } from "@/lib/api-services"
+import { useToast } from "@/hooks/use-toast"
 
 interface BrigadesTableProps {
   brigades: Brigade[]
   onEdit: (brigade: Brigade) => void
   onDelete: (id: string) => void
   onRemoveWorker: (brigadeId: string, workerId: string) => void
+  onRefresh: () => void
 }
 
-export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: BrigadesTableProps) {
+export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRefresh }: BrigadesTableProps) {
   const [selectedBrigade, setSelectedBrigade] = useState<Brigade | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [isDeleteBrigadeDialogOpen, setIsDeleteBrigadeDialogOpen] = useState(false)
+  const [isDeleteWorkerDialogOpen, setIsDeleteWorkerDialogOpen] = useState(false)
+  const [workerToDelete, setWorkerToDelete] = useState<{ brigadeId: string, workerId: string, workerName: string } | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   const openDetailDialog = (brigade: Brigade) => {
     setSelectedBrigade(brigade)
     setIsDetailDialogOpen(true)
+  }
+
+  const handleDeleteBrigade = async () => {
+    if (!selectedBrigade) return
+    
+    setIsLoading(true)
+    try {
+      await BrigadaService.eliminarBrigada(selectedBrigade.id)
+      toast({
+        title: "Brigada eliminada",
+        description: "La brigada ha sido eliminada exitosamente.",
+        variant: "default",
+      })
+      onRefresh()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al eliminar la brigada",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleRemoveWorker = async () => {
+    if (!workerToDelete) return
+    
+    setIsLoading(true)
+    try {
+      // Cambiar a BrigadaService y asegurar orden correcto de parámetros
+      await BrigadaService.eliminarTrabajadorDeBrigada(workerToDelete.brigadeId, workerToDelete.workerId)
+      toast({
+        title: "Trabajador removido",
+        description: "El trabajador ha sido removido de la brigada exitosamente.",
+        variant: "default",
+      })
+      onRefresh()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al remover el trabajador de la brigada",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const openDeleteBrigadeDialog = (brigade: Brigade) => {
+    setSelectedBrigade(brigade)
+    setIsDeleteBrigadeDialogOpen(true)
+  }
+
+  const openDeleteWorkerDialog = (brigadeId: string, workerId: string, workerName: string) => {
+    setWorkerToDelete({ brigadeId, workerId, workerName })
+    setIsDeleteWorkerDialogOpen(true)
   }
 
   if (brigades.length === 0) {
@@ -89,10 +154,8 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onDelete(brigade.id)}
-                      className="border-red-300 text-red-700 hover:bg-red-50 opacity-50 cursor-not-allowed"
-                      disabled
-                      title="Eliminar brigada (Próximamente)"
+                      onClick={() => openDeleteBrigadeDialog(brigade)}
+                      className="border-red-300 text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -174,10 +237,8 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => onRemoveWorker(selectedBrigade.id, member.id)}
-                            className="border-red-300 text-red-700 hover:bg-red-50 opacity-50 cursor-not-allowed"
-                            disabled
-                            title="Remover trabajador (Próximamente)"
+                            onClick={() => openDeleteWorkerDialog(selectedBrigade.id, member.ci, member.name)}
+                            className="border-red-300 text-red-700 hover:bg-red-50"
                           >
                             <UserMinus className="h-4 w-4" />
                           </Button>
@@ -193,6 +254,27 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker }: Br
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Brigade Dialog */}
+      <ConfirmDeleteDialog
+        open={isDeleteBrigadeDialogOpen}
+        onOpenChange={setIsDeleteBrigadeDialogOpen}
+        title="Eliminar Brigada"
+        message={`¿Estás seguro de que quieres eliminar la brigada liderada por ${selectedBrigade?.leader.name}? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteBrigade}
+        isLoading={isLoading}
+      />
+
+      {/* Confirm Delete Worker Dialog */}
+      <ConfirmDeleteDialog
+        open={isDeleteWorkerDialogOpen}
+        onOpenChange={setIsDeleteWorkerDialogOpen}
+        title="Remover Trabajador"
+        message={`¿Estás seguro de que quieres remover a ${workerToDelete?.workerName} de la brigada? El trabajador permanecerá en la base de datos.`}
+        onConfirm={handleRemoveWorker}
+        confirmText="Remover"
+        isLoading={isLoading}
+      />
     </>
   )
 }
