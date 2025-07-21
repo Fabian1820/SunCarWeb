@@ -279,21 +279,21 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {formData.adjuntos?.fotos_inicio?.map((foto: string, idx: number) => (
-                <div key={"inicio-"+idx} className="flex flex-col items-center cursor-pointer" onClick={() => { setSelectedPhoto(foto.startsWith("data:") ? foto : `data:image/jpeg;base64,${foto}`); setSelectedPhotoLabel("Inicio"); }}>
-                  <img src={foto.startsWith("data:") ? foto : `data:image/jpeg;base64,${foto}`} alt="Foto inicio" className="rounded-lg max-h-48 object-contain transition-transform hover:scale-105" />
+              {formData.adjuntos?.fotos_inicio?.filter((foto: string) => !!foto).map((foto: string, idx: number) => (
+                <div key={"inicio-"+idx} className="flex flex-col items-center cursor-pointer" onClick={() => { setSelectedPhoto(foto); setSelectedPhotoLabel("Inicio"); }}>
+                  <img src={foto} alt={`Foto inicio ${idx + 1}`} className="rounded-lg max-h-48 object-contain transition-transform hover:scale-105" />
                   <span className="text-xs text-gray-500 mt-1">Inicio</span>
                 </div>
               ))}
-              {formData.adjuntos?.fotos_fin?.map((foto: string, idx: number) => (
-                <div key={"fin-"+idx} className="flex flex-col items-center cursor-pointer" onClick={() => { setSelectedPhoto(foto.startsWith("data:") ? foto : `data:image/jpeg;base64,${foto}`); setSelectedPhotoLabel("Fin"); }}>
-                  <img src={foto.startsWith("data:") ? foto : `data:image/jpeg;base64,${foto}`} alt="Foto fin" className="rounded-lg max-h-48 object-contain transition-transform hover:scale-105" />
+              {formData.adjuntos?.fotos_fin?.filter((foto: string) => !!foto).map((foto: string, idx: number) => (
+                <div key={"fin-"+idx} className="flex flex-col items-center cursor-pointer" onClick={() => { setSelectedPhoto(foto); setSelectedPhotoLabel("Fin"); }}>
+                  <img src={foto} alt={`Foto fin ${idx + 1}`} className="rounded-lg max-h-48 object-contain transition-transform hover:scale-105" />
                   <span className="text-xs text-gray-500 mt-1">Fin</span>
                 </div>
               ))}
             </div>
             {/* Modal para foto ampliada */}
-            {selectedPhoto && (
+            {typeof window !== 'undefined' && selectedPhoto && (
               <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-80" style={{ top: 0, left: 0 }} onClick={() => setSelectedPhoto(null)}>
                 <div className="relative flex flex-col items-center justify-center bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4" style={{ minHeight: '300px' }} onClick={e => e.stopPropagation()}>
                   <button className="absolute top-4 right-4 bg-gray-100 hover:bg-gray-200 rounded-full p-2 shadow-lg z-10" onClick={() => setSelectedPhoto(null)}>
@@ -306,6 +306,18 @@ export function FormViewer({ formData, clienteCompleto }: FormViewerProps) {
             )}
           </CardContent>
         </Card>
+      )}
+      {/* Firma del Cliente */}
+      {formData.adjuntos?.firma_cliente && !!formData.adjuntos.firma_cliente && (
+        <div className="rounded-xl bg-white border border-gray-200 shadow p-6 flex flex-col items-center my-4">
+          <div className="text-lg font-bold text-gray-800 mb-2">Firma del Cliente</div>
+          <img
+            src={formData.adjuntos.firma_cliente}
+            alt="Firma del cliente"
+            className="rounded-lg max-h-56 max-w-full object-contain border-2 border-gray-300 bg-white shadow-xl p-4"
+            style={{ background: '#fff' }}
+          />
+        </div>
       )}
     </div>
   )
