@@ -22,7 +22,7 @@ const customMarker = new L.Icon({
   shadowAnchor: [13, 41],
 })
 
-interface FormViewerProps {
+export interface FormViewerProps {
   formData: any
   clienteCompleto?: any
 }

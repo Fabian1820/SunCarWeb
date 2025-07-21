@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/s
 import { ArrowLeft, FileCheck, Search, Calendar, Plus, Eye, List, User, Sun, Wrench, AlertTriangle, MapPin } from "lucide-react"
 import { ReportsTable } from "@/components/feats/reports/reports-table"
 import type { FormData } from "@/lib/types"
-import { FormViewer } from "@/components/feats/reports/form-viewer"
+import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
 import { ClienteService, ReporteService } from "@/lib/api-services"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/shared/molecule/tabs"
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart";
