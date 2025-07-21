@@ -19,7 +19,7 @@ import { useBrigadasTrabajadores } from "@/hooks/use-brigadas-trabajadores"
 import { useMaterials } from "@/hooks/use-materials"
 import { useToast } from "@/hooks/use-toast"
 import { LocationSection } from "@/components/shared/organism/location-section"
-import { MapPicker } from "@/components/shared/organism/MapPicker"
+import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 
 export default function ReportesPage() {
   const [tab, setTab] = useState<'reportes' | 'clientes'>('reportes')
@@ -425,9 +425,12 @@ export default function ReportesPage() {
           setTimeout(() => {
             const form = document.getElementById('create-client-form') as HTMLFormElement | null
             if (form) {
-              (form.elements.namedItem('nombre') as HTMLInputElement).value = ''
-              (form.elements.namedItem('numero') as HTMLInputElement).value = ''
-              (form.elements.namedItem('direccion') as HTMLInputElement).value = ''
+              const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement | null;
+              if (nombreInput) nombreInput.value = '';
+              const numeroInput = form.elements.namedItem('numero') as HTMLInputElement | null;
+              if (numeroInput) numeroInput.value = '';
+              const direccionInput = form.elements.namedItem('direccion') as HTMLInputElement | null;
+              if (direccionInput) direccionInput.value = '';
             }
           }, 0)
         }
@@ -474,9 +477,12 @@ export default function ReportesPage() {
                 // Limpiar los valores de los inputs del formulario manualmente
                 const form = document.getElementById('create-client-form') as HTMLFormElement | null
                 if (form) {
-                  (form.elements.namedItem('nombre') as HTMLInputElement).value = ''
-                  (form.elements.namedItem('numero') as HTMLInputElement).value = ''
-                  (form.elements.namedItem('direccion') as HTMLInputElement).value = ''
+                  const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement | null;
+                  if (nombreInput) nombreInput.value = '';
+                  const numeroInput = form.elements.namedItem('numero') as HTMLInputElement | null;
+                  if (numeroInput) numeroInput.value = '';
+                  const direccionInput = form.elements.namedItem('direccion') as HTMLInputElement | null;
+                  if (direccionInput) direccionInput.value = '';
                 }
               }, 1200)
             } catch (err: any) {
@@ -526,7 +532,7 @@ export default function ReportesPage() {
               <MapPicker
                 initialLat={clientLatLng.lat ? parseFloat(clientLatLng.lat) : 23.1136}
                 initialLng={clientLatLng.lng ? parseFloat(clientLatLng.lng) : -82.3666}
-                onSelect={(lat, lng) => {
+                onSelect={(lat: number, lng: number) => {
                   setClientLatLng({ lat: String(lat), lng: String(lng) })
                 }}
               />
@@ -813,7 +819,7 @@ function CreateReportForm({ clients }: { clients: any[] }) {
         <Label className="font-semibold">Brigada</Label>
         <div>
           <Label>Jefe de Brigada</Label>
-          <select className="w-full border rounded p-2 mt-1" value={jefeBrigada} onChange={e => setJefeBrigada(e.target.value)}>
+          <select className="w-full border rounded p-2 mt-1" value={jefeBrigada} onChange={e => setJefeBrigada(e.target.value)} title="Selecciona un jefe de brigada">
             <option value="">Selecciona un jefe...</option>
             {trabajadores.filter(w => w.tiene_contraseña).map(w => (
               <option key={w.CI} value={w.CI}>{w.nombre} ({w.CI})</option>
@@ -886,7 +892,7 @@ function CreateReportForm({ clients }: { clients: any[] }) {
               <select className="w-full border rounded p-2 mt-1" value={tipoMaterial} onChange={e => {
                 setTipoMaterial(e.target.value)
                 setMaterialSeleccionado("")
-              }}>
+              }} title="Selecciona un tipo de material">
                 <option value="">Selecciona un tipo...</option>
                 {categories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -900,6 +906,7 @@ function CreateReportForm({ clients }: { clients: any[] }) {
                 value={materialSeleccionado}
                 onChange={e => setMaterialSeleccionado(e.target.value)}
                 disabled={!tipoMaterial}
+                title="Selecciona un material"
               >
                 <option value="">{tipoMaterial ? "Selecciona un material..." : "Selecciona un tipo primero"}</option>
                 {materials.filter(m => m.categoria === tipoMaterial).map(m => (
@@ -976,7 +983,7 @@ function CreateReportForm({ clients }: { clients: any[] }) {
               <MapPicker
                 initialLat={clienteNuevo.latitud ? parseFloat(clienteNuevo.latitud) : 23.1136}
                 initialLng={clienteNuevo.longitud ? parseFloat(clienteNuevo.longitud) : -82.3666}
-                onSelect={(lat, lng) => {
+                onSelect={(lat: number, lng: number) => {
                   setClienteNuevo(c => ({ ...c, latitud: String(lat), longitud: String(lng) }))
                 }}
               />
@@ -992,7 +999,7 @@ function CreateReportForm({ clients }: { clients: any[] }) {
       {(tipoReporte === "mantenimiento" || tipoReporte === "averia") && (
         <div className="space-y-4 bg-green-50 p-4 rounded-lg border border-green-200">
           <Label className="font-semibold">Selecciona un cliente existente</Label>
-          <select className="w-full border rounded p-2 mt-1" value={clienteExistente} onChange={e => setClienteExistente(e.target.value)}>
+          <select className="w-full border rounded p-2 mt-1" value={clienteExistente} onChange={e => setClienteExistente(e.target.value)} title="Selecciona un cliente existente">
             <option value="">Selecciona un cliente...</option>
             {clients.map((c) => (
               <option key={c.numero} value={c.numero}>{c.nombre} ({c.numero})</option>

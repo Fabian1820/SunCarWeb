@@ -14,7 +14,7 @@ const customMarker = new L.Icon({
   shadowAnchor: [13, 41],
 });
 
-interface MapPickerProps {
+export interface MapPickerProps {
   initialLat?: number;
   initialLng?: number;
   onSelect: (lat: number, lng: number) => void;
