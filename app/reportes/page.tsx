@@ -85,6 +85,7 @@ export default function ReportesPage() {
   }, [tab, filterType, searchTerm])
   // Refrescar tablas al recibir eventos
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const refreshReports = () => fetchReports()
     const refreshClients = () => fetchClients()
     window.addEventListener("refreshReportsTable", refreshReports)
