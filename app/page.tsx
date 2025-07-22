@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { Sun, FileText, Users, FileCheck, Calendar, Package } from "lucide-react"
+import { Sun, FileText, Users, FileCheck, Calendar, Package, User } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
@@ -34,7 +34,7 @@ export default function Dashboard() {
         const uniqueClientIds = [...new Set(sorted.slice(0, 3).map(r => r.cliente?.numero).filter(Boolean))];
         if (uniqueClientIds.length > 0) {
           // Simular fetch de clientes (en gestión de reportes se usa ClienteService.getClientes)
-          const allClients = await (await import("@/lib/api-services")).ClienteService.getClientes();
+          const allClients = await (await import("@/lib/api-services")).ClienteService.getClientes() as any[];
           setClients(allClients);
         }
       } catch (e) {
@@ -131,36 +131,49 @@ export default function Dashboard() {
         </Card>
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Link href="/brigadas">
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-6 text-center">
-                <Users className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Brigadas</h3>
-                <p className="text-sm text-gray-600">Administrar equipos de trabajo y asignaciones</p>
-              </CardContent>
-            </Card>
-          </Link>
+        <div className="mt-8">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">Módulos del sistema</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Link href="/brigadas">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <Users className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Brigadas</h3>
+                  <p className="text-sm text-gray-600">Administrar equipos de trabajo y asignaciones</p>
+                </CardContent>
+              </Card>
+            </Link>
 
-          <Link href="/materiales">
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-6 text-center">
-                <Package className="h-12 w-12 text-amber-700 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Materiales</h3>
-                <p className="text-sm text-gray-600">Administrar catálogo de materiales y componentes</p>
-              </CardContent>
-            </Card>
-          </Link>
+            <Link href="/materiales">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <Package className="h-12 w-12 text-amber-700 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Materiales</h3>
+                  <p className="text-sm text-gray-600">Administrar catálogo de materiales y componentes</p>
+                </CardContent>
+              </Card>
+            </Link>
 
-          <Link href="/reportes">
-            <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
-              <CardContent className="p-6 text-center">
-                <FileCheck className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Reportes</h3>
-                <p className="text-sm text-gray-600">Administrar historial de reportes</p>
-              </CardContent>
-            </Card>
-          </Link>
+            <Link href="/reportes">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <FileCheck className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Reportes</h3>
+                  <p className="text-sm text-gray-600">Administrar historial de reportes</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/clientes">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <User className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Clientes</h3>
+                  <p className="text-sm text-gray-600">Administrar información y reportes de clientes</p>
+                </CardContent>
+              </Card>
+            </Link>
+          </div>
         </div>
       </main>
 
