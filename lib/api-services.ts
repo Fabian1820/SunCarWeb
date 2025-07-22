@@ -363,6 +363,25 @@ export class TrabajadorService {
     const response = await res.json();
     return response.data;
   }
+
+  static async eliminarContrasenaTrabajador(ci: string): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/trabajadores/${ci}/contrasena`, {
+      method: 'DELETE',
+      headers: API_HEADERS,
+    });
+    if (!res.ok) {
+      let errorMsg = 'Error al eliminar la contraseña del trabajador';
+      try {
+        const errorBody = await res.json();
+        errorMsg = errorBody.detail || errorBody.message || JSON.stringify(errorBody);
+      } catch (e) {
+        // Si no es JSON, ignora
+      }
+      throw new Error(errorMsg);
+    }
+    const response = await res.json();
+    return response.success === true;
+  }
 }
 
 // Servicio para reportes

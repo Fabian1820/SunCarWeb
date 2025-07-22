@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Trabajador, Brigada } from '@/lib/api-types';
 import { Button } from '@/components/shared/atom/button';
-import { Plus, UserCog, UserPlus, Users, Crown, Eye, Power, Mail, Phone, Clock, List, Edit, Trash2 } from 'lucide-react';
+import { Plus, UserCog, UserPlus, Users, Crown, Eye, Power, Mail, Phone, Clock, List, Edit, Trash2, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/shared/atom/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/shared/molecule/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog, ConfirmEditDialog } from '@/components/shared/molecule/dialog';
@@ -193,6 +193,32 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
     setIsDetailDialogOpen(true);
   };
 
+  const [isRemovePasswordLoading, setIsRemovePasswordLoading] = useState<string | null>(null);
+  const [confirmRemovePassword, setConfirmRemovePassword] = useState<Trabajador | null>(null);
+
+  // Handler para eliminar contraseña de jefe
+  const handleRemovePassword = async (worker: Trabajador) => {
+    setIsRemovePasswordLoading(worker.CI);
+    try {
+      await TrabajadorService.eliminarContrasenaTrabajador(worker.CI);
+      toast({
+        title: 'Contraseña eliminada',
+        description: `El trabajador ${worker.nombre} ahora es trabajador normal.`,
+        variant: 'default',
+      });
+      onRefresh();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo eliminar la contraseña',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRemovePasswordLoading(null);
+      setConfirmRemovePassword(null);
+    }
+  };
+
   if (trabajadores.length === 0) {
     return (
       <div className="text-center py-12">
@@ -278,6 +304,22 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
                     >
                       <Users className="h-4 w-4" />
                     </Button>
+                    {worker.tiene_contraseña && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConfirmRemovePassword(worker)}
+                        className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                        title="Eliminar contraseña (convertir en trabajador normal)"
+                        disabled={isRemovePasswordLoading === worker.CI}
+                      >
+                        {isRemovePasswordLoading === worker.CI ? (
+                          <span className="animate-spin"><KeyRound className="h-4 w-4" /></span>
+                        ) : (
+                          <KeyRound className="h-4 w-4" />
+                        )}
+                      </Button>
+                    )}
                     {!worker.tiene_contraseña && (
                       <Button
                         variant="outline"
@@ -474,6 +516,31 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
           </div>
         </DialogContent>
       </Dialog>
+
+      {confirmRemovePassword && (
+        <Dialog open={!!confirmRemovePassword} onOpenChange={() => setConfirmRemovePassword(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar eliminación de contraseña</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p>¿Estás seguro de que quieres eliminar la contraseña de <span className="font-semibold">{confirmRemovePassword.nombre}</span> (CI: {confirmRemovePassword.CI})? Esta acción convertirá al jefe en trabajador normal.</p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setConfirmRemovePassword(null)} disabled={isRemovePasswordLoading === confirmRemovePassword.CI}>
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleRemovePassword(confirmRemovePassword)}
+                disabled={isRemovePasswordLoading === confirmRemovePassword.CI}
+              >
+                {isRemovePasswordLoading === confirmRemovePassword.CI ? 'Eliminando...' : 'Eliminar contraseña'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 } 
