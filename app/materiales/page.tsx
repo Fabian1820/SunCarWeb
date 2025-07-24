@@ -15,7 +15,7 @@ import { useMaterials } from "@/hooks/use-materials"
 import type { Material } from "@/lib/material-types"
 
 export default function MaterialesPage() {
-  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialFromProduct, editMaterialInProduct } = useMaterials()
+  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct } = useMaterials()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -49,17 +49,25 @@ export default function MaterialesPage() {
     }
   }
 
-  const deleteMaterial = async (id: string) => {
-    const material = materials.find(m => m.id === id)
-    if (!material) return
-    const producto = catalogs.find(c => c.categoria === material.categoria)
-    if (!producto) return window.alert('No se encontró el producto para este material')
+  const deleteMaterial = async (codigo: string) => {
+    const material = materials.find(m => String(m.codigo) === codigo)
+    if (!material || !material.codigo) {
+      window.alert('No se encontró el material o el código es inválido.')
+      return
+    }
+    // Log detallado
+    console.log('[DEBUG] Eliminar material', {
+      materialCodigo: material.codigo,
+      materialCodigoTipo: typeof material.codigo,
+      material
+    })
     if (!window.confirm('¿Estás seguro de que deseas eliminar este material?')) return
     try {
-      await deleteMaterialFromProduct(producto.id, String(material.codigo))
-      window.alert('Material eliminado exitosamente')
+      const ok = await deleteMaterialByCodigo(String(material.codigo))
+      window.alert('Material eliminado exitosamente (ok=' + ok + ')')
     } catch (err: any) {
-      window.alert(err.message || 'Error al eliminar material')
+      window.alert('Error al eliminar material: ' + (err.message || err))
+      console.error('[UI] Error al eliminar material:', err)
     }
   }
 

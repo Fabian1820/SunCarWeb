@@ -77,7 +77,7 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onDelete(material.id)}
+                    onClick={() => onDelete(String(material.codigo))}
                     className="border-red-300 text-red-700 hover:bg-red-50"
                     title="Eliminar material"
                   >

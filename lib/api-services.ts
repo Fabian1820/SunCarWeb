@@ -80,17 +80,27 @@ export class MaterialService {
   }
 
   // Eliminar un material de un producto
-  static async deleteMaterialFromProduct(productoId: string, materialCodigo: string): Promise<boolean> {
-    const response = await fetch(`${API_BASE_URL}/productos/${productoId}/materiales/${materialCodigo}`, {
+  static async deleteMaterialByCodigo(materialCodigo: string): Promise<boolean> {
+    console.log('[MaterialService] Intentando eliminar material por código:', { materialCodigo });
+    const response = await fetch(`${API_BASE_URL}/productos/materiales/${materialCodigo}`, {
       method: 'DELETE',
       headers: API_HEADERS,
     });
-    if (!response.ok) {
-      const errorBody = await response.json().catch(() => ({}));
-      throw new Error(errorBody.message || errorBody.detail || 'Error al eliminar material');
+    let result = null;
+    try {
+      result = await response.clone().json();
+    } catch (e) {
+      console.error('[MaterialService] Error parseando JSON de respuesta:', e);
     }
-    const result = await response.json();
-    return result.success === true;
+    if (!response.ok) {
+      console.error('[MaterialService] Respuesta no OK al eliminar material:', { status: response.status, result });
+      throw new Error((result && (result.message || result.detail)) || 'Error al eliminar material');
+    }
+    console.log('[MaterialService] Respuesta al eliminar material:', result);
+    if (!result || result.success !== true) {
+      throw new Error((result && (result.message || result.detail)) || 'El backend no confirmó la eliminación del material');
+    }
+    return true;
   }
 
   // Editar un material de un producto
