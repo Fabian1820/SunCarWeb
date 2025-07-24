@@ -13,6 +13,8 @@ interface UseMaterialsReturn {
   createCategory: (categoria: string) => Promise<string>
   createProduct: (categoria: string, materiales?: any[]) => Promise<string>
   addMaterialToProduct: (productoId: string, material: { codigo: string, descripcion: string, um: string }) => Promise<boolean>
+  deleteMaterialFromProduct: (productoId: string, materialCodigo: string) => Promise<boolean>
+  editMaterialInProduct: (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string }) => Promise<boolean>
 }
 
 export function useMaterials(): UseMaterialsReturn {
@@ -67,6 +69,18 @@ export function useMaterials(): UseMaterialsReturn {
     return ok
   }
 
+  const deleteMaterialFromProduct = async (productoId: string, materialCodigo: string) => {
+    const ok = await MaterialService.deleteMaterialFromProduct(productoId, materialCodigo)
+    await fetchData()
+    return ok
+  }
+
+  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string }) => {
+    const ok = await MaterialService.editMaterialInProduct(productoId, materialCodigo, data)
+    await fetchData()
+    return ok
+  }
+
   return {
     materials,
     categories,
@@ -76,6 +90,8 @@ export function useMaterials(): UseMaterialsReturn {
     refetch: fetchData,
     createCategory,
     createProduct,
-    addMaterialToProduct
+    addMaterialToProduct,
+    deleteMaterialFromProduct,
+    editMaterialInProduct
   }
 } 

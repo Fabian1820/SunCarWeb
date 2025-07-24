@@ -80,31 +80,45 @@ export function MaterialForm({
     }
     setIsSubmitting(true)
     try {
-      // Buscar si la categoría ya existe en los catálogos
-      let producto = catalogs.find(c => c.categoria === formData.categoria)
-      if (!producto) {
-        // Crear la categoría (producto vacío)
-        await createCategory(formData.categoria)
-        await refetch() // Refresca los datos para obtener el nuevo producto
-        // Buscar el producto recién creado
-        producto = catalogs.find(c => c.categoria === formData.categoria)
+      if (isEditing && onSubmit) {
+        // Edición: delegar al padre
+        await onSubmit({
+          ...formData,
+          codigo: Number(formData.codigo),
+          categoria: formData.categoria,
+          descripcion: formData.descripcion,
+          um: formData.um
+        })
+        setSuccess("Material actualizado correctamente.")
+        if (onClose) onClose();
+      } else {
+        // Alta normal
+        // Buscar si la categoría ya existe en los catálogos
+        let producto = catalogs.find(c => c.categoria === formData.categoria)
         if (!producto) {
-          setError("No se pudo encontrar la categoría recién creada. Intenta nuevamente.")
-          setIsSubmitting(false)
-          return
+          // Crear la categoría (producto vacío)
+          await createCategory(formData.categoria)
+          await refetch() // Refresca los datos para obtener el nuevo producto
+          // Buscar el producto recién creado
+          producto = catalogs.find(c => c.categoria === formData.categoria)
+          if (!producto) {
+            setError("No se pudo encontrar la categoría recién creada. Intenta nuevamente.")
+            setIsSubmitting(false)
+            return
+          }
         }
+        // Agregar el material a la categoría existente o recién creada
+        await addMaterialToProduct(producto.id, {
+          codigo: formData.codigo,
+          descripcion: formData.descripcion,
+          um: formData.um
+        })
+        setSuccess("Material agregado correctamente a la categoría.")
+        setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
+        if (onClose) onClose();
       }
-      // Agregar el material a la categoría existente o recién creada
-      await addMaterialToProduct(producto.id, {
-        codigo: formData.codigo,
-        descripcion: formData.descripcion,
-        um: formData.um
-      })
-      setSuccess("Material agregado correctamente a la categoría.")
-      setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
-      if (onClose) onClose();
     } catch (err: any) {
-      setError(err.message || "Error al guardar el material")
+      setError(err.message || (isEditing ? "Error al actualizar el material" : "Error al guardar el material"))
     } finally {
       setIsSubmitting(false)
     }

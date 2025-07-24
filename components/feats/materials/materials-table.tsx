@@ -69,9 +69,8 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                     variant="outline"
                     size="sm"
                     onClick={() => onEdit(material)}
-                    disabled
-                    className="border-gray-300 text-gray-400 hover:bg-gray-50 opacity-50 cursor-not-allowed"
-                    title="Función deshabilitada en MVP"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    title="Editar material"
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
@@ -79,9 +78,8 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                     variant="outline"
                     size="sm"
                     onClick={() => onDelete(material.id)}
-                    disabled
-                    className="border-gray-300 text-gray-400 hover:bg-gray-50 opacity-50 cursor-not-allowed"
-                    title="Función deshabilitada en MVP"
+                    className="border-red-300 text-red-700 hover:bg-red-50"
+                    title="Eliminar material"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

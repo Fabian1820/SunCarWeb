@@ -79,6 +79,35 @@ export class MaterialService {
     return result.success === true;
   }
 
+  // Eliminar un material de un producto
+  static async deleteMaterialFromProduct(productoId: string, materialCodigo: string): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/productos/${productoId}/materiales/${materialCodigo}`, {
+      method: 'DELETE',
+      headers: API_HEADERS,
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.message || errorBody.detail || 'Error al eliminar material');
+    }
+    const result = await response.json();
+    return result.success === true;
+  }
+
+  // Editar un material de un producto
+  static async editMaterialInProduct(productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string }): Promise<boolean> {
+    const response = await fetch(`${API_BASE_URL}/productos/${productoId}/materiales/${materialCodigo}`, {
+      method: 'PUT',
+      headers: API_HEADERS,
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.message || errorBody.detail || 'Error al editar material');
+    }
+    const result = await response.json();
+    return result.success === true;
+  }
+
   // Obtener todos los catálogos/productos completos
   static async getAllCatalogs(): Promise<BackendCatalogoProductos[]> {
     const response = await fetch(`${API_BASE_URL}/productos/`, {

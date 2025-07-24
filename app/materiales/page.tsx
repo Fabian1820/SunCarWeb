@@ -15,7 +15,7 @@ import { useMaterials } from "@/hooks/use-materials"
 import type { Material } from "@/lib/material-types"
 
 export default function MaterialesPage() {
-  const { materials, categories, loading, error, refetch } = useMaterials()
+  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialFromProduct, editMaterialInProduct } = useMaterials()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -28,16 +28,39 @@ export default function MaterialesPage() {
     setIsAddDialogOpen(false)
   }
 
-  const updateMaterial = (updatedMaterial: Material | Omit<Material, "id">) => {
-    // Función deshabilitada en MVP
-    console.log('Actualizar material (deshabilitado en MVP):', updatedMaterial)
-    setIsEditDialogOpen(false)
-    setEditingMaterial(null)
+  const updateMaterial = async (updatedMaterial: Material | Omit<Material, "id">) => {
+    // updatedMaterial puede ser MaterialFormData o Material
+    const codigo = (updatedMaterial as any).codigo
+    const categoria = (updatedMaterial as any).categoria
+    const descripcion = (updatedMaterial as any).descripcion
+    const um = (updatedMaterial as any).um
+    // Buscar producto y material original
+    const producto = catalogs.find(c => c.categoria === categoria)
+    if (!producto) return window.alert('No se encontró el producto para este material')
+    const originalMaterial = materials.find(m => m.codigo.toString() === codigo.toString() && m.categoria === categoria)
+    const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
+    try {
+      await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um })
+      window.alert('Material actualizado exitosamente')
+      setIsEditDialogOpen(false)
+      setEditingMaterial(null)
+    } catch (err: any) {
+      window.alert(err.message || 'Error al actualizar material')
+    }
   }
 
-  const deleteMaterial = (id: string) => {
-    // Función deshabilitada en MVP
-    console.log('Eliminar material (deshabilitado en MVP):', id)
+  const deleteMaterial = async (id: string) => {
+    const material = materials.find(m => m.id === id)
+    if (!material) return
+    const producto = catalogs.find(c => c.categoria === material.categoria)
+    if (!producto) return window.alert('No se encontró el producto para este material')
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este material?')) return
+    try {
+      await deleteMaterialFromProduct(producto.id, String(material.codigo))
+      window.alert('Material eliminado exitosamente')
+    } catch (err: any) {
+      window.alert(err.message || 'Error al eliminar material')
+    }
   }
 
   const openEditDialog = (material: Material) => {
