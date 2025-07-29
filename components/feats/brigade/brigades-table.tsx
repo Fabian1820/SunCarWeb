@@ -5,11 +5,12 @@ import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power, Calendar } from "lucide-react"
+import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power, Calendar, FileText } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
 import { BrigadaService, TrabajadorService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import { DialogTrigger } from "@/components/shared/molecule/dialog"
+import { API_BASE_URL } from "@/lib/api-config"
 
 interface BrigadesTableProps {
   brigades: Brigade[]
@@ -34,6 +35,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
   const [isLoadingReport, setIsLoadingReport] = useState(false)
   const [reportError, setReportError] = useState<string | null>(null)
   const [reportResults, setReportResults] = useState<any>(null)
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
   const fromInputRef = useRef<HTMLInputElement>(null)
   const toInputRef = useRef<HTMLInputElement>(null)
 
@@ -140,6 +142,56 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
       setReportError(err.message || 'Error desconocido')
     } finally {
       setIsLoadingReport(false)
+    }
+  }
+
+  // Función para generar PDF
+  async function handleGeneratePDF() {
+    if (!dateRange.from || !dateRange.to) {
+      setReportError('Debe seleccionar un rango de fechas para generar el PDF')
+      return
+    }
+
+    setIsGeneratingPDF(true)
+    setReportError(null)
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/pdf/nomina-pagos-prueba`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al generar el PDF')
+      }
+
+      // Crear blob y descargar el PDF
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `nomina_pagos_${dateRange.from}_${dateRange.to}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+      toast({
+        title: "PDF generado",
+        description: "El PDF de nómina de pagos ha sido generado y descargado exitosamente.",
+        variant: "default",
+      })
+    } catch (err: any) {
+      setReportError(err.message || 'Error al generar el PDF')
+      toast({
+        title: "Error",
+        description: err.message || "Error al generar el PDF",
+        variant: "destructive",
+      })
+    } finally {
+      setIsGeneratingPDF(false)
     }
   }
 
@@ -403,6 +455,15 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
               <Button type="button" variant="outline" onClick={closeReportDialog}>Cancelar</Button>
               <Button type="submit" className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white" disabled={isLoadingReport}>
                 {isLoadingReport ? 'Calculando...' : 'Calcular'}
+              </Button>
+              <Button 
+                type="button" 
+                className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white" 
+                disabled={isGeneratingPDF || !dateRange.from || !dateRange.to}
+                onClick={handleGeneratePDF}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                {isGeneratingPDF ? 'Generando PDF...' : 'Generar PDF'}
               </Button>
             </div>
           </form>
