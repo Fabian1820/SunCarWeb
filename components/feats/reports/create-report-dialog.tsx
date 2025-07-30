@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 
 export function CreateReportDialog({ open, onOpenChange, clients }: { open: boolean, onOpenChange: (v: boolean) => void, clients: any[] }) {
+  console.log('CreateReportDialog - clients recibidos:', clients)
   const [tipoReporte, setTipoReporte] = useState<string>("")
   const [clienteNuevo, setClienteNuevo] = useState({ nombre: "", numero: "", direccion: "", latitud: "", longitud: "" })
   const [clienteExistente, setClienteExistente] = useState("")
@@ -414,10 +415,17 @@ export function CreateReportDialog({ open, onOpenChange, clients }: { open: bool
                     title="Selecciona un cliente existente"
                   >
                     <option value="">Selecciona un cliente...</option>
-                    {clients.map((c) => (
-                      <option key={c.numero} value={c.numero}>{c.nombre} ({c.numero})</option>
-                    ))}
+                    {clients.length === 0 ? (
+                      <option value="" disabled>No hay clientes disponibles</option>
+                    ) : (
+                      clients.map((c) => (
+                        <option key={c.numero} value={c.numero}>{c.nombre} ({c.numero})</option>
+                      ))
+                    )}
                   </select>
+                  {clients.length === 0 && (
+                    <p className="text-sm text-orange-600 mt-1">No hay clientes cargados. Ve a la sección de Clientes para crear algunos.</p>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -476,10 +484,17 @@ export function CreateReportDialog({ open, onOpenChange, clients }: { open: bool
               <Label className="font-semibold">Selecciona un cliente existente</Label>
               <select className="w-full border rounded p-2 mt-1" value={clienteExistente} onChange={e => setClienteExistente(e.target.value)} title="Selecciona un cliente existente">
                 <option value="">Selecciona un cliente...</option>
-                {clients.map((c) => (
-                  <option key={c.numero} value={c.numero}>{c.nombre} ({c.numero})</option>
-                ))}
+                {clients.length === 0 ? (
+                  <option value="" disabled>No hay clientes disponibles</option>
+                ) : (
+                  clients.map((c) => (
+                    <option key={c.numero} value={c.numero}>{c.nombre} ({c.numero})</option>
+                  ))
+                )}
               </select>
+              {clients.length === 0 && (
+                <p className="text-sm text-orange-600 mt-1">No hay clientes cargados. Ve a la sección de Clientes para crear algunos.</p>
+              )}
             </div>
           )}
 

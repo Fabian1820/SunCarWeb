@@ -30,20 +30,25 @@ export default function Dashboard() {
           ? [...data].sort((a, b) => new Date(b.fecha_hora?.fecha || b.dateTime?.date || b.fecha_creacion || 0).getTime() - new Date(a.fecha_hora?.fecha || a.dateTime?.date || a.fecha_creacion || 0).getTime())
           : [];
         setRecentReports(sorted.slice(0, 3));
-        // Obtener clientes únicos de los reportes
-        const uniqueClientIds = [...new Set(sorted.slice(0, 3).map(r => r.cliente?.numero).filter(Boolean))];
-        if (uniqueClientIds.length > 0) {
-          // Simular fetch de clientes (en gestión de reportes se usa ClienteService.getClientes)
-          const allClients = await (await import("@/lib/api-services")).ClienteService.getClientes() as any[];
-          setClients(allClients);
-        }
       } catch (e) {
         setRecentReports([]);
       } finally {
         setLoading(false);
       }
     };
+
+    // Cargar clientes siempre
+    const fetchClients = async () => {
+      try {
+        const allClients = await (await import("@/lib/api-services")).ClienteService.getClientes() as any[];
+        setClients(allClients);
+      } catch (e) {
+        setClients([]);
+      }
+    };
+
     fetchRecentReports();
+    fetchClients();
   }, []);
 
   const openFormDialog = (form: any) => {
