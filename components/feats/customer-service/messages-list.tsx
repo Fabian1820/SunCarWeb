@@ -127,10 +127,19 @@ export default function MessagesList({
     setFiltros(newFiltros)
     
     const apiFilters: any = {}
-    if (newFiltros.estado) apiFilters.estado = newFiltros.estado as any
-    if (newFiltros.tipo) apiFilters.tipo = newFiltros.tipo as any
-    if (newFiltros.prioridad) apiFilters.prioridad = newFiltros.prioridad as any
-    if (newFiltros.busqueda) apiFilters.cliente_numero = newFiltros.busqueda
+    // Solo agregar filtros si no son los valores "todos"
+    if (newFiltros.estado && newFiltros.estado !== 'todos_estados') {
+      apiFilters.estado = newFiltros.estado as any
+    }
+    if (newFiltros.tipo && newFiltros.tipo !== 'todos_tipos') {
+      apiFilters.tipo = newFiltros.tipo as any
+    }
+    if (newFiltros.prioridad && newFiltros.prioridad !== 'todas_prioridades') {
+      apiFilters.prioridad = newFiltros.prioridad as any
+    }
+    if (newFiltros.busqueda) {
+      apiFilters.cliente_numero = newFiltros.busqueda
+    }
     
     onFilterChange(apiFilters)
   }
@@ -184,7 +193,7 @@ export default function MessagesList({
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los estados</SelectItem>
+                <SelectItem value="todos_estados">Todos los estados</SelectItem>
                 <SelectItem value="nuevo">Nuevo</SelectItem>
                 <SelectItem value="en_proceso">En Proceso</SelectItem>
                 <SelectItem value="respondido">Respondido</SelectItem>
@@ -197,7 +206,7 @@ export default function MessagesList({
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todos los tipos</SelectItem>
+                <SelectItem value="todos_tipos">Todos los tipos</SelectItem>
                 <SelectItem value="queja">Queja</SelectItem>
                 <SelectItem value="consulta">Consulta</SelectItem>
                 <SelectItem value="sugerencia">Sugerencia</SelectItem>
@@ -210,7 +219,7 @@ export default function MessagesList({
                 <SelectValue placeholder="Prioridad" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas las prioridades</SelectItem>
+                <SelectItem value="todas_prioridades">Todas las prioridades</SelectItem>
                 <SelectItem value="baja">Baja</SelectItem>
                 <SelectItem value="media">Media</SelectItem>
                 <SelectItem value="alta">Alta</SelectItem>
