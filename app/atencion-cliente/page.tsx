@@ -1,0 +1,241 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Badge } from "@/components/shared/atom/badge"
+import { Button } from "@/components/shared/atom/button"
+import { ArrowLeft, MessageCircle, TrendingUp, Clock, CheckCircle, AlertTriangle } from "lucide-react"
+import MessagesList from "@/components/feats/customer-service/messages-list"
+import MessageDetail from "@/components/feats/customer-service/message-detail"
+import { useAtencionCliente } from "@/hooks/use-atencion-cliente"
+import { toast } from "sonner"
+import type { MensajeCliente } from "@/lib/api-types"
+
+export default function AtencionClientePage() {
+  const [selectedMessage, setSelectedMessage] = useState<MensajeCliente | null>(null)
+  const {
+    mensajes,
+    loading,
+    error,
+    estadisticas,
+    actualizarEstado,
+    actualizarPrioridad,
+    crearRespuesta,
+    filtrarMensajes
+  } = useAtencionCliente()
+
+  const handleSelectMessage = (mensaje: MensajeCliente) => {
+    setSelectedMessage(mensaje)
+  }
+
+  const handleUpdateStatus = async (estado: 'nuevo' | 'en_proceso' | 'respondido' | 'cerrado') => {
+    if (!selectedMessage) return
+    
+    try {
+      await actualizarEstado(selectedMessage._id, estado)
+      toast.success('Estado actualizado correctamente')
+      
+      const updatedMessage = { ...selectedMessage, estado }
+      setSelectedMessage(updatedMessage)
+    } catch (error) {
+      toast.error('Error al actualizar el estado')
+      console.error('Error actualizando estado:', error)
+    }
+  }
+
+  const handleUpdatePriority = async (prioridad: 'baja' | 'media' | 'alta' | 'urgente') => {
+    if (!selectedMessage) return
+    
+    try {
+      await actualizarPrioridad(selectedMessage._id, prioridad)
+      toast.success('Prioridad actualizada correctamente')
+      
+      const updatedMessage = { ...selectedMessage, prioridad }
+      setSelectedMessage(updatedMessage)
+    } catch (error) {
+      toast.error('Error al actualizar la prioridad')
+      console.error('Error actualizando prioridad:', error)
+    }
+  }
+
+  const handleSendResponse = async (contenido: string, esPublica: boolean) => {
+    if (!selectedMessage) return
+    
+    try {
+      await crearRespuesta(selectedMessage._id, contenido, "12345678", "Administrador", esPublica)
+      toast.success('Respuesta enviada correctamente')
+      
+      if (esPublica && selectedMessage.estado === 'nuevo') {
+        await actualizarEstado(selectedMessage._id, 'respondido')
+      }
+    } catch (error) {
+      toast.error('Error al enviar la respuesta')
+      console.error('Error enviando respuesta:', error)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+        <header className="fixed-header">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-6">
+              <div className="flex items-center space-x-3">
+                <Link href="/">
+                  <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Volver al Dashboard</span>
+                  </Button>
+                </Link>
+                <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
+                  <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
+                </div>
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Atención al Cliente</h1>
+                  <p className="text-sm text-gray-600">Sistema de gestión de mensajes de clientes</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <AlertTriangle className="h-6 w-6 text-red-500" />
+                <div>
+                  <h3 className="font-semibold text-red-800">Error al cargar los datos</h3>
+                  <p className="text-red-600 text-sm mt-1">{error}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+      <header className="fixed-header">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <div className="flex items-center space-x-3">
+              <Link href="/">
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Volver al Dashboard</span>
+                </Button>
+              </Link>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Atención al Cliente</h1>
+                <p className="text-sm text-gray-600">Sistema de gestión de mensajes de clientes</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Estadísticas */}
+        {estadisticas && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total</p>
+                    <p className="text-2xl font-bold text-gray-900">{estadisticas.total}</p>
+                  </div>
+                  <MessageCircle className="h-8 w-8 text-blue-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Nuevos</p>
+                    <p className="text-2xl font-bold text-blue-600">{estadisticas.nuevos}</p>
+                  </div>
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
+                    <TrendingUp className="h-4 w-4" />
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">En Proceso</p>
+                    <p className="text-2xl font-bold text-yellow-600">{estadisticas.en_proceso}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-yellow-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Respondidos</p>
+                    <p className="text-2xl font-bold text-green-600">{estadisticas.respondidos}</p>
+                  </div>
+                  <CheckCircle className="h-8 w-8 text-green-500" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-md">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Cerrados</p>
+                    <p className="text-2xl font-bold text-gray-600">{estadisticas.cerrados}</p>
+                  </div>
+                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-gray-600" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Panel principal dividido */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-[calc(100vh-280px)]">
+          {/* Lista de mensajes */}
+          <div className="lg:col-span-2">
+            <MessagesList
+              mensajes={mensajes}
+              loading={loading}
+              onSelectMessage={handleSelectMessage}
+              selectedMessageId={selectedMessage?._id}
+              onFilterChange={filtrarMensajes}
+            />
+          </div>
+
+          {/* Detalle del mensaje */}
+          <div className="lg:col-span-3">
+            <MessageDetail
+              mensaje={selectedMessage}
+              loading={loading}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdatePriority={handleUpdatePriority}
+              onSendResponse={handleSendResponse}
+            />
+          </div>
+        </div>
+      </main>
+    </div>
+  )
+}

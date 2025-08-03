@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { Sun, FileText, Users, FileCheck, Calendar, Package, User } from "lucide-react"
+import { Sun, FileText, Users, FileCheck, Calendar, Package, User, MessageCircle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
@@ -170,6 +170,16 @@ export default function Dashboard() {
                   <User className="h-12 w-12 text-orange-500 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Clientes</h3>
                   <p className="text-sm text-gray-600">Administrar información y reportes de clientes</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/atencion-cliente">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <MessageCircle className="h-12 w-12 text-purple-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Atención al Cliente</h3>
+                  <p className="text-sm text-gray-600">Gestionar mensajes y respuestas de clientes</p>
                 </CardContent>
               </Card>
             </Link>

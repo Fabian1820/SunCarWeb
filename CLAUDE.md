@@ -1,0 +1,112 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Development Commands
+
+### Core Development
+- `npm run dev` - Start development server
+- `npm run build` - Build production version
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+
+### Notes
+- TypeScript and ESLint errors are ignored during builds (configured in next.config.mjs)
+- Images are unoptimized for deployment flexibility
+
+## Architecture Overview
+
+### Technology Stack
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript with strict mode
+- **Styling**: Tailwind CSS with custom SunCar brand colors
+- **UI Components**: Radix UI primitives with custom shadcn/ui implementations
+- **State Management**: React hooks with custom API services
+- **Maps**: Leaflet/React-Leaflet for location picking
+- **Forms**: React Hook Form with Zod validation
+
+### Project Structure
+```
+app/                    # Next.js App Router pages
+├── brigadas/          # Brigade management
+├── clientes/          # Client management  
+├── materiales/        # Materials catalog
+├── reportes/          # Reports and forms
+└── formulario-h1114/  # Specific form type
+
+components/
+├── shared/            # Reusable UI components
+│   ├── atom/         # Basic components (buttons, inputs, etc.)
+│   ├── molecule/     # Compound components (cards, dialogs, etc.)
+│   └── organism/     # Complex components (maps, location pickers)
+└── feats/            # Feature-specific components
+    ├── brigade/      # Brigade management components
+    ├── materials/    # Material management components
+    ├── reports/      # Report components
+    └── worker/       # Worker management components
+
+lib/                   # Core utilities and services
+├── api-services.ts   # API client methods (MaterialService, BrigadaService, etc.)
+├── api-types.ts      # API type definitions and converters
+├── api-config.ts     # API configuration and base URL
+└── services/         # Domain-specific services
+```
+
+### API Integration
+- **Backend**: FastAPI running on `http://localhost:8000/api`
+- **Services**: Organized by domain (MaterialService, BrigadaService, TrabajadorService, ReporteService, ClienteService)
+- **Types**: Backend/Frontend type conversion handled in `api-types.ts`
+- **Config**: API base URL and headers centralized in `api-config.ts`
+
+### Key Features
+1. **Brigade Management**: Full CRUD for work brigades with leader/worker hierarchy
+2. **Material Catalog**: Product categories and materials with inventory tracking
+3. **Report System**: H1114 forms with PDF generation and photo attachments
+4. **Worker Management**: Employee records with role-based permissions
+5. **Location Services**: Interactive maps for address/coordinate selection
+6. **Client Management**: Customer database integration
+
+### Component Architecture
+- **Atomic Design**: Components organized by complexity (atom → molecule → organism)
+- **Feature-based**: Domain components grouped by business feature
+- **Radix Primitives**: Accessible, unstyled components as foundation
+- **Custom Theming**: SunCar brand colors defined in tailwind.config.ts
+
+### State Management Patterns
+- **Custom Hooks**: Feature-specific hooks (use-brigadas.ts, use-materials.ts)
+- **React Query Pattern**: Loading states and error handling in API services
+- **Form State**: React Hook Form for complex forms with validation
+
+### Environment Configuration
+- Create `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api`
+- Backend must be running on localhost:8000 for development
+- Refer to BRIGADAS_SETUP.md for detailed backend setup
+
+#### Backend URL Configuration
+The application uses environment variables to configure the backend API URL:
+
+1. **Environment Variable**: `NEXT_PUBLIC_API_URL` in `.env.local`
+   - Development: `http://localhost:8000/api`
+   - Production: Set to your production API endpoint
+
+2. **Configuration Flow**:
+   - `lib/api-config.ts` exports `API_BASE_URL` constant
+   - Uses `process.env.NEXT_PUBLIC_API_URL` with fallback to localhost
+   - All API services import and use this centralized configuration
+
+3. **Usage Pattern**:
+   - `apiRequest()` helper function in `api-config.ts` handles all HTTP requests
+   - Services in `lib/api-services.ts` use this helper for consistent API calls
+   - Components consume services through custom hooks (use-brigadas.ts, use-materials.ts, etc.)
+
+4. **API Services Using Backend URL**:
+   - MaterialService - Material catalog operations
+   - BrigadaService - Brigade management operations  
+   - TrabajadorService - Worker management operations
+   - ReporteService - Report generation and management
+   - ClienteService - Client database operations
+
+### Testing and Quality
+- No specific test framework configured - check package.json for any additions
+- ESLint configured but errors ignored during builds
+- TypeScript strict mode enabled

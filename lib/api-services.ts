@@ -1,7 +1,7 @@
 import { API_BASE_URL, API_HEADERS } from './api-config'
 import { BackendCatalogoProductos, BackendCategoria, transformBackendToFrontend, transformCategories } from './api-types'
 import type { Material } from './material-types'
-import type { Trabajador as ApiTrabajador, Brigada as ApiBrigada } from './api-types'
+import type { Trabajador as ApiTrabajador, Brigada as ApiBrigada, MensajeCliente, RespuestaMensaje } from './api-types'
 import { apiRequest } from './api-config'
 
 // Servicio para materiales
@@ -476,5 +476,98 @@ export class ClienteService {
     if (params.direccion) search.append('direccion', params.direccion)
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ''}`
     return apiRequest(endpoint)
+  }
+}
+
+// Servicio para atención al cliente
+export class AtencionClienteService {
+  // Obtener todos los mensajes con filtros opcionales
+  static async getMensajes(params: {
+    estado?: 'nuevo' | 'en_proceso' | 'respondido' | 'cerrado'
+    tipo?: 'queja' | 'consulta' | 'sugerencia' | 'reclamo'
+    prioridad?: 'baja' | 'media' | 'alta' | 'urgente'
+    cliente_numero?: string
+    fecha_inicio?: string
+    fecha_fin?: string
+  } = {}): Promise<MensajeCliente[]> {
+    const search = new URLSearchParams()
+    if (params.estado) search.append('estado', params.estado)
+    if (params.tipo) search.append('tipo', params.tipo)
+    if (params.prioridad) search.append('prioridad', params.prioridad)
+    if (params.cliente_numero) search.append('cliente_numero', params.cliente_numero)
+    if (params.fecha_inicio) search.append('fecha_inicio', params.fecha_inicio)
+    if (params.fecha_fin) search.append('fecha_fin', params.fecha_fin)
+    const endpoint = `/atencion-cliente/mensajes${search.toString() ? `?${search.toString()}` : ''}`
+    return apiRequest(endpoint)
+  }
+
+  // Obtener un mensaje específico con sus respuestas
+  static async getMensaje(mensajeId: string): Promise<MensajeCliente> {
+    const endpoint = `/atencion-cliente/mensajes/${mensajeId}`
+    return apiRequest(endpoint)
+  }
+
+  // Actualizar el estado de un mensaje
+  static async actualizarEstadoMensaje(mensajeId: string, estado: 'nuevo' | 'en_proceso' | 'respondido' | 'cerrado'): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/atencion-cliente/mensajes/${mensajeId}/estado`, {
+      method: 'PUT',
+      headers: API_HEADERS,
+      body: JSON.stringify({ estado }),
+    })
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}))
+      throw new Error(errorBody.message || errorBody.detail || 'Error al actualizar estado del mensaje')
+    }
+    const response = await res.json()
+    return response.success === true
+  }
+
+  // Crear una respuesta a un mensaje
+  static async crearRespuesta(mensajeId: string, contenido: string, autorCi: string, autorNombre: string, esPublica: boolean = true): Promise<string> {
+    const res = await fetch(`${API_BASE_URL}/atencion-cliente/mensajes/${mensajeId}/respuestas`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify({
+        contenido,
+        autor: autorCi,
+        autor_nombre: autorNombre,
+        es_publica: esPublica
+      }),
+    })
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}))
+      throw new Error(errorBody.message || errorBody.detail || 'Error al crear respuesta')
+    }
+    const response = await res.json()
+    return response.respuesta_id || response.id || 'success'
+  }
+
+  // Obtener estadísticas de mensajes
+  static async getEstadisticas(): Promise<{
+    total: number
+    nuevos: number
+    en_proceso: number
+    respondidos: number
+    cerrados: number
+    por_tipo: Record<string, number>
+    por_prioridad: Record<string, number>
+  }> {
+    const endpoint = `/atencion-cliente/estadisticas`
+    return apiRequest(endpoint)
+  }
+
+  // Marcar mensaje como prioridad
+  static async actualizarPrioridad(mensajeId: string, prioridad: 'baja' | 'media' | 'alta' | 'urgente'): Promise<boolean> {
+    const res = await fetch(`${API_BASE_URL}/atencion-cliente/mensajes/${mensajeId}/prioridad`, {
+      method: 'PUT',
+      headers: API_HEADERS,
+      body: JSON.stringify({ prioridad }),
+    })
+    if (!res.ok) {
+      const errorBody = await res.json().catch(() => ({}))
+      throw new Error(errorBody.message || errorBody.detail || 'Error al actualizar prioridad del mensaje')
+    }
+    const response = await res.json()
+    return response.success === true
   }
 } 
