@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
-import { AtencionClienteService } from '@/lib/api-services'
+// TEMPORALMENTE USANDO DATOS MOCK - Para usar API real, cambiar la siguiente línea:
+// import { AtencionClienteService as ServiceToUse } from '@/lib/api-services'
+import { AtencionClienteMockService as ServiceToUse } from '@/lib/mock-services/atencion-cliente-mock'
 import type { MensajeCliente } from '@/lib/api-types'
 
 interface UseAtencionClienteReturn {
@@ -48,8 +50,8 @@ export function useAtencionCliente(filtrosIniciales?: {
       setLoading(true)
       setError(null)
       const [mensajesData, estadisticasData] = await Promise.all([
-        AtencionClienteService.getMensajes(filtros),
-        AtencionClienteService.getEstadisticas()
+        ServiceToUse.getMensajes(filtros),
+        ServiceToUse.getEstadisticas()
       ])
       setMensajes(mensajesData)
       setEstadisticas(estadisticasData)
@@ -66,7 +68,7 @@ export function useAtencionCliente(filtrosIniciales?: {
   }, [])
 
   const actualizarEstado = async (mensajeId: string, estado: 'nuevo' | 'en_proceso' | 'respondido' | 'cerrado') => {
-    const success = await AtencionClienteService.actualizarEstadoMensaje(mensajeId, estado)
+    const success = await ServiceToUse.actualizarEstadoMensaje(mensajeId, estado)
     if (success) {
       await fetchData()
     }
@@ -74,7 +76,7 @@ export function useAtencionCliente(filtrosIniciales?: {
   }
 
   const actualizarPrioridad = async (mensajeId: string, prioridad: 'baja' | 'media' | 'alta' | 'urgente') => {
-    const success = await AtencionClienteService.actualizarPrioridad(mensajeId, prioridad)
+    const success = await ServiceToUse.actualizarPrioridad(mensajeId, prioridad)
     if (success) {
       await fetchData()
     }
@@ -82,7 +84,7 @@ export function useAtencionCliente(filtrosIniciales?: {
   }
 
   const crearRespuesta = async (mensajeId: string, contenido: string, autorCi: string, autorNombre: string, esPublica: boolean = true) => {
-    const respuestaId = await AtencionClienteService.crearRespuesta(mensajeId, contenido, autorCi, autorNombre, esPublica)
+    const respuestaId = await ServiceToUse.crearRespuesta(mensajeId, contenido, autorCi, autorNombre, esPublica)
     await fetchData()
     return respuestaId
   }
