@@ -26,6 +26,7 @@ export default function ReportesPage() {
   const [reports, setReports] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingClients, setLoadingClients] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [selectedReport, setSelectedReport] = useState<any | null>(null)
@@ -34,6 +35,21 @@ export default function ReportesPage() {
   const [selectedReportData, setSelectedReportData] = useState<any | null>(null)
   const [loadingReportDetails, setLoadingReportDetails] = useState(false)
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+
+  // Cargar clientes
+  const fetchClients = async () => {
+    setLoadingClients(true)
+    try {
+      const data = await ClienteService.getClientes()
+      console.log('Clientes cargados:', data)
+      setClients(Array.isArray(data) ? data : [])
+    } catch (e: any) {
+      console.error('Error cargando clientes:', e)
+      setClients([])
+    } finally {
+      setLoadingClients(false)
+    }
+  }
 
   // Cargar reportes
   const fetchReports = async () => {
@@ -53,15 +69,19 @@ export default function ReportesPage() {
 
   useEffect(() => {
     fetchReports()
+    fetchClients()
     // eslint-disable-next-line
   }, [filterType, searchTerm])
   // Refrescar tablas al recibir eventos
   useEffect(() => {
     if (typeof window === "undefined") return;
     const refreshReports = () => fetchReports()
+    const refreshClients = () => fetchClients()
     window.addEventListener("refreshReportsTable", refreshReports)
+    window.addEventListener("refreshClientsTable", refreshClients)
     return () => {
       window.removeEventListener("refreshReportsTable", refreshReports)
+      window.removeEventListener("refreshClientsTable", refreshClients)
     }
   }, [])
 
