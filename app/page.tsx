@@ -180,11 +180,21 @@ export default function Dashboard() {
             </Link>
 
             <Link href="/atencion-cliente">
-              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer relative">
                 <CardContent className="p-6 text-center">
                   <MessageCircle className="h-12 w-12 text-purple-500 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Atención al Cliente</h3>
                   <p className="text-sm text-gray-600">Gestionar mensajes y respuestas de clientes</p>
+                  
+                  {/* Indicador de desarrollo */}
+                  <div className="absolute -top-2 -right-2">
+                    <div className="relative">
+                      <Badge className="bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs px-3 py-1 rounded-full shadow-lg animate-pulse">
+                        ✨ En desarollo
+                      </Badge>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-30 animate-ping"></div>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </Link>

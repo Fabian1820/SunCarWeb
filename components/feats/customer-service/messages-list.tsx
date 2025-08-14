@@ -19,7 +19,8 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  Search
+  Search,
+  X
 } from "lucide-react"
 import type { MensajeCliente } from "@/lib/api-types"
 import { formatDistanceToNow } from "date-fns"
@@ -51,6 +52,7 @@ export default function MessagesList({
     tipo: '',
     prioridad: ''
   })
+  const [searchTerm, setSearchTerm] = useState('')
 
   const getTipoIcon = (tipo: string) => {
     switch (tipo) {
@@ -144,6 +146,46 @@ export default function MessagesList({
     onFilterChange(apiFilters)
   }
 
+  const handleSearch = () => {
+    const newFiltros = { ...filtros, busqueda: searchTerm }
+    setFiltros(newFiltros)
+    
+    const apiFilters: any = {}
+    if (newFiltros.estado && newFiltros.estado !== 'todos_estados') {
+      apiFilters.estado = newFiltros.estado as any
+    }
+    if (newFiltros.tipo && newFiltros.tipo !== 'todos_tipos') {
+      apiFilters.tipo = newFiltros.tipo as any
+    }
+    if (newFiltros.prioridad && newFiltros.prioridad !== 'todas_prioridades') {
+      apiFilters.prioridad = newFiltros.prioridad as any
+    }
+    if (searchTerm.trim()) {
+      apiFilters.cliente_numero = searchTerm.trim()
+    }
+    
+    onFilterChange(apiFilters)
+  }
+
+  const clearSearch = () => {
+    setSearchTerm('')
+    const newFiltros = { ...filtros, busqueda: '' }
+    setFiltros(newFiltros)
+    
+    const apiFilters: any = {}
+    if (newFiltros.estado && newFiltros.estado !== 'todos_estados') {
+      apiFilters.estado = newFiltros.estado as any
+    }
+    if (newFiltros.tipo && newFiltros.tipo !== 'todos_tipos') {
+      apiFilters.tipo = newFiltros.tipo as any
+    }
+    if (newFiltros.prioridad && newFiltros.prioridad !== 'todas_prioridades') {
+      apiFilters.prioridad = newFiltros.prioridad as any
+    }
+    
+    onFilterChange(apiFilters)
+  }
+
   const mensajesFiltrados = mensajes.filter(mensaje => {
     if (filtros.busqueda && !mensaje.cliente_numero.toLowerCase().includes(filtros.busqueda.toLowerCase()) &&
         !mensaje.cliente_nombre.toLowerCase().includes(filtros.busqueda.toLowerCase()) &&
@@ -177,17 +219,37 @@ export default function MessagesList({
         </CardTitle>
         
         <div className="space-y-3">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Buscar por cliente, número o asunto..."
-              value={filtros.busqueda}
-              onChange={(e) => handleFilterChange('busqueda', e.target.value)}
-              className="pl-10"
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar por cliente, número o asunto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                className="pl-10"
+              />
+            </div>
+            <Button 
+              onClick={handleSearch}
+              disabled={!searchTerm.trim()}
+              variant="outline"
+              className="px-4 transition-all duration-200 hover:bg-blue-50 hover:border-blue-300"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+            {filtros.busqueda && (
+              <Button 
+                onClick={clearSearch}
+                variant="outline"
+                className="px-3 text-gray-500 hover:text-red-600 hover:border-red-300"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            )}
           </div>
           
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Select value={filtros.estado} onValueChange={(value) => handleFilterChange('estado', value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Estado" />
@@ -242,74 +304,54 @@ export default function MessagesList({
               {mensajesFiltrados.map((mensaje) => (
                 <div
                   key={mensaje._id}
-                  className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                  className={`p-4 rounded-lg border cursor-pointer transition-all duration-300 ease-in-out transform hover:scale-[1.02] hover:shadow-lg ${
                     selectedMessageId === mensaje._id
-                      ? 'bg-blue-50 border-blue-200 shadow-sm'
+                      ? 'bg-blue-50 border-blue-200 shadow-md scale-[1.01]'
                       : 'bg-white border-gray-200 hover:bg-gray-50'
                   }`}
                   onClick={() => onSelectMessage(mensaje)}
                 >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-3 gap-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
                       {getTipoIcon(mensaje.tipo)}
-                      <span className="font-semibold text-gray-900">{mensaje.asunto}</span>
+                      <span className="font-semibold text-gray-900 truncate">{mensaje.asunto}</span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      {getEstadoIcon(mensaje.estado)}
-                      <Badge variant="outline" className={getPrioridadColor(mensaje.prioridad)}>
-                        {getPrioridadLabel(mensaje.prioridad)}
-                      </Badge>
-                    </div>
+                    <Badge variant="outline" className={`${getPrioridadColor(mensaje.prioridad)} flex-shrink-0 self-start sm:ml-2`}>
+                      {getPrioridadLabel(mensaje.prioridad)}
+                    </Badge>
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-gray-600 mb-2">
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span>{mensaje.cliente_nombre} (#{mensaje.cliente_numero})</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-600 mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{mensaje.cliente_nombre}</span>
                     </div>
-                    {mensaje.cliente_telefono && (
-                      <div className="flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{mensaje.cliente_telefono}</span>
-                      </div>
-                    )}
-                    {mensaje.cliente_email && (
-                      <div className="flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        <span>{mensaje.cliente_email}</span>
-                      </div>
-                    )}
+                    <span className="text-gray-400 hidden sm:inline">•</span>
+                    <Badge variant="outline" className="flex-shrink-0 self-start">
+                      {getEstadoLabel(mensaje.estado)}
+                    </Badge>
                   </div>
 
                   <p className="text-sm text-gray-700 mb-3 line-clamp-2">
                     {mensaje.mensaje}
                   </p>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline">
-                        {getTipoLabel(mensaje.tipo)}
-                      </Badge>
-                      <Badge variant="outline">
-                        {getEstadoLabel(mensaje.estado)}
-                      </Badge>
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-2 text-xs text-gray-500">
                       <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(mensaje.fecha_creacion), {
-                        addSuffix: true,
-                        locale: es
-                      })}
-                    </div>
-                  </div>
-
-                  {mensaje.respuestas && mensaje.respuestas.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-100">
-                      <span className="text-xs text-gray-500">
-                        {mensaje.respuestas.length} respuesta{mensaje.respuestas.length > 1 ? 's' : ''}
+                      <span className="truncate">
+                        {formatDistanceToNow(new Date(mensaje.fecha_creacion), {
+                          addSuffix: true,
+                          locale: es
+                        })}
                       </span>
                     </div>
-                  )}
+                    {mensaje.respuestas && mensaje.respuestas.length > 0 && (
+                      <span className="text-xs text-blue-600 font-medium flex-shrink-0">
+                        {mensaje.respuestas.length} respuesta{mensaje.respuestas.length > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
