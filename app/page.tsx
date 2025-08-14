@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { Sun, FileText, Users, FileCheck, Calendar, Package, User, MessageCircle } from "lucide-react"
+import { Sun, FileText, Users, FileCheck, Calendar, Package, User, MessageCircle, UserPlus } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
@@ -145,6 +145,16 @@ export default function Dashboard() {
                   <Users className="h-12 w-12 text-blue-500 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Brigadas</h3>
                   <p className="text-sm text-gray-600">Administrar equipos de trabajo y asignaciones</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/trabajadores">
+              <Card className="border-0 shadow-md hover:shadow-lg transition-shadow cursor-pointer">
+                <CardContent className="p-6 text-center">
+                  <UserPlus className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Trabajadores</h3>
+                  <p className="text-sm text-gray-600">Administrar personal y asignaciones de personal</p>
                 </CardContent>
               </Card>
             </Link>
