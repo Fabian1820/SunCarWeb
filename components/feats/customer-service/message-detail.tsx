@@ -266,47 +266,56 @@ export default function MessageDetail({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-4 p-4 bg-gray-50 rounded-lg">
-          <div>
-            <h4 className="font-semibold text-sm text-gray-700 mb-2">Información del Cliente</h4>
-            <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border border-gray-100">
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+              <User className="h-4 w-4 text-blue-500" />
+              Información del Cliente
+            </h4>
+            <div className="space-y-2 pl-6">
               <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-gray-400" />
-                <span>{mensaje.cliente_nombre}</span>
+                <span className="font-medium text-gray-700">{mensaje.cliente_nombre}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-400">Número:</span>
-                <span>{mensaje.cliente_numero}</span>
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="text-gray-500">Cliente #:</span>
+                <span className="font-mono bg-white px-2 py-1 rounded text-xs">{mensaje.cliente_numero}</span>
               </div>
               {mensaje.cliente_telefono && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <span>{mensaje.cliente_telefono}</span>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Phone className="h-3 w-3 text-green-500" />
+                  <a href={`tel:${mensaje.cliente_telefono}`} className="hover:text-blue-600 transition-colors">
+                    {mensaje.cliente_telefono}
+                  </a>
                 </div>
               )}
               {mensaje.cliente_email && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span>{mensaje.cliente_email}</span>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Mail className="h-3 w-3 text-blue-500" />
+                  <a href={`mailto:${mensaje.cliente_email}`} className="hover:text-blue-600 transition-colors truncate">
+                    {mensaje.cliente_email}
+                  </a>
                 </div>
               )}
             </div>
           </div>
           
-          <div>
-            <h4 className="font-semibold text-sm text-gray-700 mb-2">Información del Mensaje</h4>
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-gray-400" />
+          <div className="space-y-3">
+            <h4 className="font-semibold text-sm text-gray-700 mb-2 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-orange-500" />
+              Información del Mensaje
+            </h4>
+            <div className="space-y-2 pl-6">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <span className="text-gray-500">Creado:</span>
                 <span>{format(new Date(mensaje.fecha_creacion), "PPP", { locale: es })}</span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Clock className="h-4 w-4 text-gray-400" />
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Clock className="h-3 w-3 text-blue-500" />
                 <span>{formatDistanceToNow(new Date(mensaje.fecha_creacion), { addSuffix: true, locale: es })}</span>
               </div>
               {mensaje.fecha_actualizacion && (
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">Actualizado:</span>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span className="text-gray-500">Actualizado:</span>
                   <span>{formatDistanceToNow(new Date(mensaje.fecha_actualizacion), { addSuffix: true, locale: es })}</span>
                 </div>
               )}
@@ -328,76 +337,131 @@ export default function MessageDetail({
             <div>
               <h4 className="font-semibold text-gray-700 mb-2">Respuestas ({mensaje.respuestas.length})</h4>
               <div className="space-y-3">
-                {mensaje.respuestas.map((respuesta) => (
-                  <div
-                    key={respuesta._id}
-                    className={`p-4 rounded-lg ${
-                      respuesta.es_publica ? 'bg-blue-50 border-l-4 border-blue-200' : 'bg-yellow-50 border-l-4 border-yellow-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback>
-                            {respuesta.autor_nombre.split(' ').map(name => name[0]).join('').toUpperCase().slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium text-sm">{respuesta.autor_nombre}</span>
-                        <Badge variant="outline" className={respuesta.es_publica ? 'text-blue-700' : 'text-yellow-700'}>
-                          {respuesta.es_publica ? 'Pública' : 'Interna'}
-                        </Badge>
+                {mensaje.respuestas.map((respuestaItem, index) => (
+                  <div key={respuestaItem._id}>
+                    <div
+                      className={`p-4 rounded-lg transition-all duration-300 ease-in-out ${
+                        respuestaItem.es_publica ? 'bg-blue-50 border-l-4 border-blue-200 hover:bg-blue-100' : 'bg-yellow-50 border-l-4 border-yellow-200 hover:bg-yellow-100'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Avatar className="h-6 w-6 flex-shrink-0">
+                            <AvatarFallback>
+                              {respuestaItem.autor_nombre.split(' ').map(name => name[0]).join('').toUpperCase().slice(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium text-sm truncate">{respuestaItem.autor_nombre}</span>
+                          <Badge variant="outline" className={`${respuestaItem.es_publica ? 'text-blue-700' : 'text-yellow-700'} flex-shrink-0`}>
+                            <span className="hidden sm:inline">{respuestaItem.es_publica ? 'Pública' : 'Interna'}</span>
+                            <span className="sm:hidden">{respuestaItem.es_publica ? 'Pub' : 'Int'}</span>
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-gray-500 flex-shrink-0">
+                          {formatDistanceToNow(new Date(respuestaItem.fecha_respuesta), { addSuffix: true, locale: es })}
+                        </span>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {formatDistanceToNow(new Date(respuesta.fecha_respuesta), { addSuffix: true, locale: es })}
-                      </span>
+                      <p className="text-gray-700 whitespace-pre-wrap">{respuestaItem.contenido}</p>
                     </div>
-                    <p className="text-gray-700 whitespace-pre-wrap">{respuesta.contenido}</p>
+                    
+                    {index === mensaje.respuestas.length - 1 && (
+                      <div className="mt-6 pt-4 border-t border-gray-200">
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                            <MessageCircle className="h-4 w-4 text-blue-500" />
+                            Responder
+                          </h4>
+                          <Textarea
+                            placeholder="Escribe tu respuesta..."
+                            value={respuesta}
+                            onChange={(e) => setRespuesta(e.target.value)}
+                            rows={4}
+                            className="resize-none transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                          />
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                              <Select value={esPublica ? "publica" : "interna"} onValueChange={(value) => setEsPublica(value === "publica")}>
+                                <SelectTrigger className="w-full sm:w-32">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="publica">Pública</SelectItem>
+                                  <SelectItem value="interna">Interna</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <span className="text-xs text-gray-500 text-center sm:text-left">
+                                {esPublica ? 'Visible para el cliente' : 'Solo para uso interno'}
+                              </span>
+                            </div>
+                            <Button 
+                              onClick={handleSendResponse}
+                              disabled={!respuesta.trim() || enviandoRespuesta}
+                              className="flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 w-full sm:w-auto"
+                            >
+                              {enviandoRespuesta ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                              <span className="hidden sm:inline">Enviar Respuesta</span>
+                              <span className="sm:hidden">Enviar</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
-        </div>
-
-        <Separator className="my-4" />
-
-        <div className="space-y-3">
-          <h4 className="font-semibold text-gray-700">Enviar Respuesta</h4>
-          <Textarea
-            placeholder="Escribe tu respuesta..."
-            value={respuesta}
-            onChange={(e) => setRespuesta(e.target.value)}
-            rows={4}
-            className="resize-none"
-          />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Select value={esPublica ? "publica" : "interna"} onValueChange={(value) => setEsPublica(value === "publica")}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="publica">Pública</SelectItem>
-                  <SelectItem value="interna">Interna</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-xs text-gray-500">
-                {esPublica ? 'Visible para el cliente' : 'Solo para uso interno'}
-              </span>
+          
+          {(!mensaje.respuestas || mensaje.respuestas.length === 0) && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="space-y-3">
+                <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-blue-500" />
+                  Primera Respuesta
+                </h4>
+                <Textarea
+                  placeholder="Escribe tu respuesta..."
+                  value={respuesta}
+                  onChange={(e) => setRespuesta(e.target.value)}
+                  rows={4}
+                  className="resize-none transition-all duration-200 focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Select value={esPublica ? "publica" : "interna"} onValueChange={(value) => setEsPublica(value === "publica")}>
+                      <SelectTrigger className="w-full sm:w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="publica">Pública</SelectItem>
+                        <SelectItem value="interna">Interna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-xs text-gray-500 text-center sm:text-left">
+                      {esPublica ? 'Visible para el cliente' : 'Solo para uso interno'}
+                    </span>
+                  </div>
+                  <Button 
+                    onClick={handleSendResponse}
+                    disabled={!respuesta.trim() || enviandoRespuesta}
+                    className="flex items-center justify-center gap-2 transition-all duration-200 hover:scale-105 w-full sm:w-auto"
+                  >
+                    {enviandoRespuesta ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Enviar Respuesta</span>
+                    <span className="sm:hidden">Enviar</span>
+                  </Button>
+                </div>
+              </div>
             </div>
-            <Button 
-              onClick={handleSendResponse}
-              disabled={!respuesta.trim() || enviandoRespuesta}
-              className="flex items-center gap-2"
-            >
-              {enviandoRespuesta ? (
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-              Enviar Respuesta
-            </Button>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>

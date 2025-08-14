@@ -121,20 +121,21 @@ export default function AtencionClientePage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <header className="fixed-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
             <div className="flex items-center space-x-3">
               <Link href="/">
                 <Button variant="ghost" size="sm" className="flex items-center space-x-2">
                   <ArrowLeft className="h-4 w-4" />
-                  <span>Volver al Dashboard</span>
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Atención al Cliente</h1>
-                <p className="text-sm text-gray-600">Sistema de gestión de mensajes de clientes</p>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">Atención al Cliente</h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Sistema de gestión de mensajes de clientes</p>
               </div>
             </div>
           </div>
@@ -144,66 +145,66 @@ export default function AtencionClientePage() {
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Estadísticas */}
         {estadisticas && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 mb-6">
             <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total</p>
-                    <p className="text-2xl font-bold text-gray-900">{estadisticas.total}</p>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm font-medium text-gray-600">Total</p>
+                    <p className="text-lg md:text-2xl font-bold text-gray-900">{estadisticas.total}</p>
                   </div>
-                  <MessageCircle className="h-8 w-8 text-blue-500" />
+                  <MessageCircle className="h-6 w-6 md:h-8 md:w-8 text-blue-500 flex-shrink-0" />
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Nuevos</p>
-                    <p className="text-2xl font-bold text-blue-600">{estadisticas.nuevos}</p>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm font-medium text-gray-600">Nuevos</p>
+                    <p className="text-lg md:text-2xl font-bold text-blue-600">{estadisticas.nuevos}</p>
                   </div>
-                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200">
-                    <TrendingUp className="h-4 w-4" />
+                  <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 flex-shrink-0">
+                    <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">En Proceso</p>
-                    <p className="text-2xl font-bold text-yellow-600">{estadisticas.en_proceso}</p>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm font-medium text-gray-600">En Proceso</p>
+                    <p className="text-lg md:text-2xl font-bold text-yellow-600">{estadisticas.en_proceso}</p>
                   </div>
-                  <Clock className="h-8 w-8 text-yellow-500" />
+                  <Clock className="h-6 w-6 md:h-8 md:w-8 text-yellow-500 flex-shrink-0" />
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Respondidos</p>
-                    <p className="text-2xl font-bold text-green-600">{estadisticas.respondidos}</p>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm font-medium text-gray-600">Respondidos</p>
+                    <p className="text-lg md:text-2xl font-bold text-green-600">{estadisticas.respondidos}</p>
                   </div>
-                  <CheckCircle className="h-8 w-8 text-green-500" />
+                  <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-green-500 flex-shrink-0" />
                 </div>
               </CardContent>
             </Card>
 
             <Card className="border-0 shadow-md">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Cerrados</p>
-                    <p className="text-2xl font-bold text-gray-600">{estadisticas.cerrados}</p>
+              <CardContent className="p-3 md:p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs md:text-sm font-medium text-gray-600">Cerrados</p>
+                    <p className="text-lg md:text-2xl font-bold text-gray-600">{estadisticas.cerrados}</p>
                   </div>
-                  <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
-                    <CheckCircle className="h-5 w-5 text-gray-600" />
+                  <div className="h-6 w-6 md:h-8 md:w-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="h-4 w-4 md:h-5 md:w-5 text-gray-600" />
                   </div>
                 </div>
               </CardContent>
@@ -212,9 +213,9 @@ export default function AtencionClientePage() {
         )}
 
         {/* Panel principal dividido */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 h-[calc(100vh-280px)]">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 lg:gap-6 min-h-[calc(100vh-320px)] lg:h-[calc(100vh-280px)]">
           {/* Lista de mensajes */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 order-1">
             <MessagesList
               mensajes={mensajes}
               loading={loading}
@@ -225,7 +226,7 @@ export default function AtencionClientePage() {
           </div>
 
           {/* Detalle del mensaje */}
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-3 order-2">
             <MessageDetail
               mensaje={selectedMessage}
               loading={loading}
