@@ -13,6 +13,7 @@ import { MaterialsTable } from "@/components/feats/materials/materials-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
 import { useMaterials } from "@/hooks/use-materials"
 import type { Material } from "@/lib/material-types"
+import { PageLoader } from "@/components/shared/atom/page-loader"
 
 export default function MaterialesPage() {
   const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct } = useMaterials()
@@ -93,14 +94,7 @@ export default function MaterialesPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-amber-600 mx-auto mb-4" />
-          <p className="text-gray-600">Cargando materiales...</p>
-        </div>
-      </div>
-    )
+    return <PageLoader moduleName="Materiales" text="Cargando catálogo de materiales..." />
   }
 
   if (error) {
@@ -124,28 +118,32 @@ export default function MaterialesPage() {
       {/* Header */}
       <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
               <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver al Dashboard
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-amber-700 to-amber-800 p-2 rounded-lg">
-                  <Package className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Gestión de Materiales</h1>
-                  <p className="text-sm text-gray-600">Administrar catálogo de materiales y equipos</p>
-                </div>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Gestión de Materiales
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                    Recursos
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar catálogo de materiales y equipos</p>
               </div>
             </div>
             
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-amber-700 to-amber-800 hover:from-amber-800 hover:to-amber-900">
+                <Button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800">
                   <Plus className="mr-2 h-4 w-4" />
                   Agregar Material
                 </Button>
@@ -167,27 +165,10 @@ export default function MaterialesPage() {
         </div>
       </header>
 
-      <main className="pt-24 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* MVP Banner */}
-        <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center space-x-3">
-            <AlertCircle className="h-5 w-5 text-blue-600" />
-            <div>
-              <h3 className="text-sm font-medium text-blue-900">Modo MVP</h3>
-              <p className="text-sm text-blue-700">
-                Las funciones de edición, eliminación y creación están deshabilitadas para esta versión de demostración.
-              </p>
-            </div>
-          </div>
-        </div>
-
+      <main className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
         {/* Filters and Search */}
-        <Card className="border-0 shadow-md mb-6">
-          <CardHeader>
-            <CardTitle>Filtros y Búsqueda</CardTitle>
-            <CardDescription>Encuentra materiales específicos en tu catálogo</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
+                    <CardContent className="pt-6">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1">
                 <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
@@ -227,7 +208,7 @@ export default function MaterialesPage() {
         </Card>
 
         {/* Materials Table */}
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
           <CardHeader>
             <CardTitle>Catálogo de Materiales</CardTitle>
             <CardDescription>

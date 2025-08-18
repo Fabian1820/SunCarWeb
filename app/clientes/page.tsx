@@ -7,19 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { FileCheck, Search, Eye, Wrench, User, MapPin } from "lucide-react"
-import { ReportsTable } from "@/components/feats/reports/reports-table"
-import { ClienteService, ReporteService } from "@/lib/api-services"
-import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart";
+import { Search, User, MapPin, ArrowLeft } from "lucide-react"
+import { ClienteService } from "@/lib/api-services"
+import { ClientsTable } from "@/components/feats/customer-service/clients-table"
+import { PageLoader } from "@/components/shared/atom/page-loader"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [selectedClientReports, setSelectedClientReports] = useState<any[] | null>(null)
-  const [selectedClient, setSelectedClient] = useState<any | null>(null)
-  const [loadingClientReports, setLoadingClientReports] = useState(false)
+
   const [isCreateClientDialogOpen, setIsCreateClientDialogOpen] = useState(false)
   const [clientFormLoading, setClientFormLoading] = useState(false)
   const [clientFormError, setClientFormError] = useState<string | null>(null)
@@ -32,8 +31,7 @@ export default function ClientesPage() {
   const [editClientFormError, setEditClientFormError] = useState<string | null>(null)
   const [editClientFormSuccess, setEditClientFormSuccess] = useState<string | null>(null)
   const [editClientLatLng, setEditClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
-  const [showClientLocation, setShowClientLocation] = useState(false)
-  const [clientLocation, setClientLocation] = useState<{ lat: number, lng: number } | null>(null)
+
 
   // Cargar clientes
   const fetchClients = async () => {
@@ -50,8 +48,27 @@ export default function ClientesPage() {
     }
   }
 
+  // Cargar datos iniciales
+  const loadInitialData = async () => {
+    setInitialLoading(true)
+    try {
+      await fetchClients()
+    } catch (e: any) {
+      console.error('Error cargando datos iniciales:', e)
+    } finally {
+      setInitialLoading(false)
+    }
+  }
+
   useEffect(() => {
-    fetchClients()
+    loadInitialData()
+    // eslint-disable-next-line
+  }, [])
+
+  useEffect(() => {
+    if (!initialLoading) {
+      fetchClients()
+    }
     // eslint-disable-next-line
   }, [searchTerm])
 
@@ -64,76 +81,7 @@ export default function ClientesPage() {
     }
   }, [])
 
-  // Columnas para clientes
-  const clientColumns = [
-    { key: "numero", label: "Número" },
-    { key: "nombre", label: "Nombre" },
-    { key: "direccion", label: "Dirección" },
-    {
-      key: "acciones",
-      label: "Acciones",
-      render: (row: any) => (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleViewClientReports(row)}
-            className="border-blue-300 text-blue-700 hover:bg-blue-50"
-          >
-            <FileCheck className="h-4 w-4 mr-2" />
-            Ver reportes
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleEditClient(row)}
-            className="border-orange-300 text-orange-700 hover:bg-orange-50"
-          >
-            <Wrench className="h-4 w-4 mr-2" />
-            Editar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (row.latitud && row.longitud) {
-                setClientLocation({ lat: parseFloat(row.latitud), lng: parseFloat(row.longitud) })
-                setShowClientLocation(true)
-              }
-            }}
-            className="border-purple-300 text-purple-700 hover:bg-purple-50"
-            disabled={!row.latitud || !row.longitud}
-          >
-            <MapPin className="h-4 w-4 mr-2" />
-            Ver ubicación
-          </Button>
-        </div>
-      )
-    }
-  ]
 
-  // Columnas para reportes (para el modal de reportes de cliente)
-  const reportColumns = [
-    { key: "tipo_reporte", label: "Tipo de Servicio" },
-    { key: "cliente", label: "Cliente", render: (row: any) => row.cliente?.numero || "-" },
-    { key: "brigada", label: "Líder", render: (row: any) => row.brigada?.lider?.nombre || "-" },
-    { key: "fecha_hora", label: "Fecha", render: (row: any) => row.fecha_hora?.fecha || "-" },
-    { key: "descripcion", label: "Descripción", render: (row: any) => row.descripcion ? row.descripcion.slice(0, 40) + (row.descripcion.length > 40 ? '...' : '') : "-" },
-  ]
-
-  // Acción para ver reportes de un cliente
-  const handleViewClientReports = async (client: any) => {
-    setSelectedClient(client)
-    setLoadingClientReports(true)
-    try {
-      const data = await ReporteService.getReportesPorCliente(client.numero)
-      setSelectedClientReports(Array.isArray(data) ? data : [])
-    } catch (e: any) {
-      setSelectedClientReports([])
-    } finally {
-      setLoadingClientReports(false)
-    }
-  }
 
   // Acción para editar cliente
   const handleEditClient = (client: any) => {
@@ -144,32 +92,56 @@ export default function ClientesPage() {
     setEditClientFormSuccess(null)
   }
 
+  // Acción para eliminar cliente
+  const handleDeleteClient = (client: any) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar al cliente ${client.nombre}?`)) {
+      // Implementar eliminación de cliente
+      console.log('Eliminar cliente:', client)
+    }
+  }
+
+  // Acción para ver ubicación del cliente
+  const handleViewClientLocation = (client: any) => {
+    // Esta funcionalidad se maneja dentro del componente ClientsTable
+    console.log('Ver ubicación del cliente:', client)
+  }
+
+  // Mostrar loader mientras se cargan los datos iniciales
+  if (initialLoading) {
+    return <PageLoader moduleName="Clientes" text="Cargando lista de clientes..." />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
               <Link href="/">
-                <Button variant="ghost" size="sm">
-                  Volver al Dashboard
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-orange-500 to-orange-600 p-2 rounded-lg">
-                  <User className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Gestión de Clientes</h1>
-                  <p className="text-sm text-gray-600">Visualiza y administra clientes</p>
-                </div>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Gestión de Clientes
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    Servicio
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Visualiza y administra clientes</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button
                 variant="default"
                 size="sm"
-                className="bg-orange-500 hover:bg-orange-600 text-white font-semibold shadow-md"
+                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md"
                 onClick={() => setIsCreateClientDialogOpen(true)}
               >
                 <User className="h-4 w-4 mr-2" />
@@ -179,13 +151,9 @@ export default function ClientesPage() {
           </div>
         </div>
       </header>
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="border-0 shadow-md mb-6">
-          <CardHeader>
-            <CardTitle>Buscar Cliente</CardTitle>
-            <CardDescription>Busca clientes por nombre</CardDescription>
-          </CardHeader>
-          <CardContent>
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-8">
+        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="search-client" className="text-sm font-medium text-gray-700 mb-2 block">
@@ -205,43 +173,23 @@ export default function ClientesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
           <CardHeader>
             <CardTitle>Clientes</CardTitle>
             <CardDescription>
               Mostrando {clients.length} clientes
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <ReportsTable
-              data={clients}
-              columns={clientColumns}
-              getRowId={(row) => row._id || row.numero}
-              loading={loading}
-            />
-          </CardContent>
-        </Card>
-        {/* Modal de reportes de cliente */}
-        <Dialog open={!!selectedClientReports} onOpenChange={v => { if (!v) { setSelectedClientReports(null); setSelectedClient(null); } }}>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Reportes de {selectedClient?.nombre || selectedClient?.numero}</DialogTitle>
-            </DialogHeader>
-            {loadingClientReports ? (
-              <div className="text-center py-8">Cargando reportes...</div>
-            ) : (
-              <>
-                <ClientReportsChart reports={selectedClientReports || []} />
-                <ReportsTable
-                  data={selectedClientReports || []}
-                  columns={reportColumns}
-                  getRowId={(row) => row._id || row.id}
-                  loading={loadingClientReports}
-                />
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+                      <CardContent>
+              <ClientsTable
+                clients={clients}
+                onEdit={handleEditClient}
+                onDelete={handleDeleteClient}
+                onViewLocation={handleViewClientLocation}
+                loading={loading}
+              />
+            </CardContent>
+          </Card>
         {/* Modal de creación de cliente */}
         <Dialog open={isCreateClientDialogOpen} onOpenChange={v => {
           setIsCreateClientDialogOpen(v)
@@ -356,7 +304,7 @@ export default function ClientesPage() {
               {clientFormSuccess && <div className="text-green-600 text-sm pt-2">{clientFormSuccess}</div>}
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateClientDialogOpen(false)} disabled={clientFormLoading}>Cancelar</Button>
-                <Button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white" disabled={clientFormLoading}>{clientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
+                <Button type="submit" className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={clientFormLoading}>{clientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
               </div>
             </form>
             {/* Modal de mapa para seleccionar ubicación */}
@@ -493,7 +441,7 @@ export default function ClientesPage() {
               {editClientFormSuccess && <div className="text-green-600 text-sm pt-2">{editClientFormSuccess}</div>}
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsEditClientDialogOpen(false)} disabled={editClientFormLoading}>Cancelar</Button>
-                <Button type="submit" className="bg-orange-600 hover:bg-orange-700 text-white" disabled={editClientFormLoading}>{editClientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
+                <Button type="submit" className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={editClientFormLoading}>{editClientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
               </div>
             </form>
             {/* Modal de mapa para seleccionar ubicación (reutiliza showMapModalClient y setShowMapModalClient) */}
@@ -519,27 +467,7 @@ export default function ClientesPage() {
             </Dialog>
           </DialogContent>
         </Dialog>
-        {/* Modal para ver ubicación del cliente */}
-        <Dialog open={showClientLocation} onOpenChange={setShowClientLocation}>
-          <DialogContent className="max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Ubicación del cliente</DialogTitle>
-            </DialogHeader>
-            {clientLocation ? (
-              <MapPicker
-                initialLat={clientLocation.lat}
-                initialLng={clientLocation.lng}
-              />
-            ) : (
-              <div className="text-gray-500">No hay ubicación registrada para este cliente.</div>
-            )}
-            <div className="flex justify-end pt-4">
-              <Button type="button" variant="outline" onClick={() => setShowClientLocation(false)}>
-                Cerrar
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+
       </main>
     </div>
   )

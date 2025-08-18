@@ -15,10 +15,12 @@ import { convertBrigadaToFrontend, convertBrigadeFormDataToRequest } from "@/lib
 import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { BrigadaService } from '@/lib/api-services'
+import { PageLoader } from "@/components/shared/atom/page-loader"
 
 export default function BrigadasPage() {
   const {
     brigadas: backendBrigades,
+    filteredBrigadas: backendFilteredBrigades,
     loading,
     error,
     searchTerm,
@@ -32,10 +34,13 @@ export default function BrigadasPage() {
     loadBrigadas,
   } = useBrigadas()
 
-  const { refetch } = useBrigadasTrabajadores()
+  const { refetch, trabajadores } = useBrigadasTrabajadores()
+
+  // Debug: Log trabajadores disponibles
+  console.log('Trabajadores disponibles en brigadas page:', trabajadores)
 
   // Convertir brigadas del backend al formato del frontend, usando solo el id real de MongoDB
-  const brigades = Array.isArray(backendBrigades) ? backendBrigades.map(convertBrigadaToFrontend) : [];
+  const brigades = Array.isArray(backendFilteredBrigades) ? backendFilteredBrigades.map(convertBrigadaToFrontend) : [];
 
   const [isAddBrigadeDialogOpen, setIsAddBrigadeDialogOpen] = useState(false)
   const [isEditBrigadeDialogOpen, setIsEditBrigadeDialogOpen] = useState(false)
@@ -44,16 +49,19 @@ export default function BrigadasPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
 
   const handleCreateBrigada = async (data: BrigadeFormData) => {
+    console.log('handleCreateBrigada called with data:', data);
     setLoadingAction(true);
     setFeedback(null);
     try {
       const brigadaRequest = convertBrigadeFormDataToRequest(data);
+      console.log('Converted brigada request:', brigadaRequest);
       await createBrigada(brigadaRequest);
       setFeedback('Brigada creada correctamente');
       setIsAddBrigadeDialogOpen(false);
       refetch();
     } catch (e) {
-      setFeedback('Error al crear brigada');
+      console.error('Error in handleCreateBrigada:', e);
+      setFeedback('Error al crear brigada: ' + (e instanceof Error ? e.message : 'Error desconocido'));
     } finally {
       setLoadingAction(false);
     }
@@ -107,7 +115,7 @@ export default function BrigadasPage() {
   }
 
 
-  if (loading) return <div>Cargando...</div>
+  if (loading) return <PageLoader moduleName="Brigadas" text="Cargando brigadas..." />
   if (error) return <div>Error: {error}</div>
 
   return (
@@ -115,29 +123,33 @@ export default function BrigadasPage() {
       {/* Header */}
       <header className="fixed-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
               <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver al Dashboard
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-2 rounded-lg">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Gestión de Brigadas</h1>
-                  <p className="text-sm text-gray-600">Administrar equipos de trabajo y asignaciones</p>
-                </div>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Gestión de Brigadas
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    Equipos
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar equipos de trabajo y asignaciones</p>
               </div>
             </div>
             <div className="flex gap-2">
               <Dialog open={isAddBrigadeDialogOpen} onOpenChange={setIsAddBrigadeDialogOpen}>
                 <DialogTrigger asChild>
                   <Button 
-                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Nueva Brigada
@@ -154,8 +166,12 @@ export default function BrigadasPage() {
                       }
                     }} 
                     onCancel={() => setIsAddBrigadeDialogOpen(false)} 
-                    existingWorkers={[]}
+                    existingWorkers={trabajadores || []}
                   />
+                  {/* Debug info */}
+                  <div className="text-xs text-gray-500 mt-2">
+                    Trabajadores disponibles: {trabajadores?.length || 0}
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>
@@ -164,24 +180,6 @@ export default function BrigadasPage() {
       </header>
 
       <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* MVP Banner */}
-        <Card className="mb-6 border-orange-200 bg-orange-50">
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Users className="h-5 w-5 text-orange-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-orange-900">Modo MVP</h3>
-                <p className="text-sm text-orange-800">
-                  Puedes ver los formularios de creación pero las funciones de crear, editar y eliminar brigadas están deshabilitadas para esta versión. 
-                  Solo se permite visualizar y buscar brigadas existentes.
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Error Alert */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">
@@ -197,7 +195,7 @@ export default function BrigadasPage() {
         )}
 
         {/* Search */}
-        <Card className="mb-8">
+        <Card className="mb-8 border-l-4 border-l-blue-600">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
@@ -220,7 +218,7 @@ export default function BrigadasPage() {
         </Card>
 
         {/* Brigades Table */}
-        <Card>
+        <Card className="border-l-4 border-l-blue-600">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Lista de Brigadas

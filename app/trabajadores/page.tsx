@@ -16,14 +16,13 @@ import { AsignarBrigadaForm } from '@/components/feats/brigade/AsignarBrigadaFor
 import { ConvertirJefeForm } from '@/components/feats/brigade/ConvertirJefeForm'
 import { convertBrigadaToFrontend } from "@/lib/utils/brigada-converters"
 import { useBrigadas } from "@/hooks/use-brigadas"
+import { PageLoader } from "@/components/shared/atom/page-loader"
 
 export default function TrabajadoresPage() {
-  const { brigadas: brigadasTrabajadores, trabajadores, refetch } = useBrigadasTrabajadores()
-  const { brigadas: backendBrigades, loadBrigadas } = useBrigadas()
+  const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
+  const { brigadas: backendBrigades, loading: loadingBrigadas, loadBrigadas } = useBrigadas()
 
-  // Convertir brigadas del backend al formato del frontend
-  const brigades = Array.isArray(backendBrigades) ? backendBrigades.map(convertBrigadaToFrontend) : [];
-
+  // Todos los hooks deben estar al inicio, antes de cualquier lógica condicional
   const [isAddWorkerDialogOpen, setIsAddWorkerDialogOpen] = useState(false)
   const [isAssignBrigadeDialogOpen, setIsAssignBrigadeDialogOpen] = useState(false)
   const [isConvertJefeDialogOpen, setIsConvertJefeDialogOpen] = useState(false)
@@ -34,6 +33,18 @@ export default function TrabajadoresPage() {
   // Filtro de trabajadores
   const [workerSearch, setWorkerSearch] = useState('');
   const [workerType, setWorkerType] = useState<'todos' | 'jefes' | 'trabajadores'>('todos');
+
+  // Convertir brigadas del backend al formato del frontend
+  const brigades = Array.isArray(backendBrigades) ? backendBrigades.map(convertBrigadaToFrontend) : [];
+
+  // Mostrar loader mientras se cargan los datos iniciales
+  if (loadingTrabajadores || loadingBrigadas) {
+    return <PageLoader moduleName="Trabajadores" text="Cargando trabajadores..." />
+  }
+
+  if (errorTrabajadores) {
+    return <div>Error: {errorTrabajadores}</div>
+  }
   const filteredTrabajadores = Array.isArray(trabajadores) ? trabajadores.filter(w =>
     (workerType === 'todos' ? true : workerType === 'jefes' ? w.tiene_contraseña : !w.tiene_contraseña)
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
@@ -160,29 +171,33 @@ export default function TrabajadoresPage() {
       {/* Header */}
       <header className="fixed-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
               <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver al Dashboard
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-green-500 to-green-600 p-2 rounded-lg">
-                  <UserPlus className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Gestión de Trabajadores</h1>
-                  <p className="text-sm text-gray-600">Administrar personal y asignaciones</p>
-                </div>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Gestión de Trabajadores
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    Personal
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar personal y asignaciones</p>
               </div>
             </div>
             <div className="flex gap-2">
               <Dialog open={isAddWorkerDialogOpen} onOpenChange={setIsAddWorkerDialogOpen}>
                 <DialogTrigger asChild>
                   <Button 
-                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
                   >
                     <UserPlus className="mr-2 h-4 w-4" />
                     Nuevo Trabajador
@@ -205,7 +220,7 @@ export default function TrabajadoresPage() {
         </div>
       </header>
 
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="pt-32 pb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Feedback Alert */}
         {feedback && (
           <Card className="mb-6 border-green-200 bg-green-50">
@@ -221,7 +236,7 @@ export default function TrabajadoresPage() {
         )}
 
         {/* Search */}
-        <Card className="mb-8">
+        <Card className="mb-8 border-l-4 border-l-blue-600">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
@@ -259,7 +274,7 @@ export default function TrabajadoresPage() {
         </Card>
 
         {/* Workers Table */}
-        <Card>
+        <Card className="border-l-4 border-l-blue-600">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               Lista de Trabajadores
@@ -321,6 +336,7 @@ export default function TrabajadoresPage() {
             {feedback && <div className="text-green-600 mt-2">{feedback}</div>}
           </DialogContent>
         </Dialog>
+        
       </main>
     </div>
   )

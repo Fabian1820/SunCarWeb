@@ -242,12 +242,13 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
               <th className="text-left py-3 px-4 font-semibold text-gray-900">
                 <Button
                   variant="outline"
-                  size="icon"
+                  size="sm"
                   className="border-green-300 text-green-700 hover:bg-green-50"
                   onClick={openHorasTodosDialog}
-                  title="Calcular horas de todos"
+                  title="Calcular horas trabjadas de todos los trabajadores"
                 >
-                  <List className="h-5 w-5" />
+                  <Clock className="h-5 w-5" />
+                  Calcular Horas
                 </Button>
               </th>
             </tr>

@@ -21,12 +21,14 @@ import { useToast } from "@/hooks/use-toast"
 import { LocationSection } from "@/components/shared/organism/location-section"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { CreateReportDialog } from "@/components/feats/reports/create-report-dialog"
+import { PageLoader } from "@/components/shared/atom/page-loader"
 
 export default function ReportesPage() {
   const [reports, setReports] = useState<any[]>([])
   const [clients, setClients] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingClients, setLoadingClients] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [selectedReport, setSelectedReport] = useState<any | null>(null)
@@ -67,9 +69,27 @@ export default function ReportesPage() {
     }
   }
 
+  // Cargar datos iniciales
+  const loadInitialData = async () => {
+    setInitialLoading(true)
+    try {
+      await Promise.all([fetchReports(), fetchClients()])
+    } catch (e: any) {
+      console.error('Error cargando datos iniciales:', e)
+    } finally {
+      setInitialLoading(false)
+    }
+  }
+
   useEffect(() => {
-    fetchReports()
-    fetchClients()
+    loadInitialData()
+    // eslint-disable-next-line
+  }, [])
+
+  useEffect(() => {
+    if (!initialLoading) {
+      fetchReports()
+    }
     // eslint-disable-next-line
   }, [filterType, searchTerm])
   // Refrescar tablas al recibir eventos
@@ -116,33 +136,42 @@ export default function ReportesPage() {
   // Busca el cliente completo por número (comparando como string)
   const getClienteByNumero = (numero: string | number) => clients.find(c => String(c.numero) === String(numero));
 
+  // Mostrar loader mientras se cargan los datos iniciales
+  if (initialLoading) {
+    return <PageLoader moduleName="Reportes" text="Cargando reportes..." />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
               <Link href="/">
-                <Button variant="ghost" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Volver al Dashboard
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-green-500 to-green-600 p-2 rounded-lg">
-                  <FileCheck className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-gray-900">Gestión de Reportes</h1>
-                  <p className="text-sm text-gray-600">Visualiza reportes</p>
-                </div>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Gestión de Reportes
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                    Documentación
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Visualiza reportes</p>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button
                 variant="default"
                 size="sm"
-                className="bg-green-500 hover:bg-green-600 text-white font-semibold shadow-md"
+                className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold shadow-md"
                 onClick={() => setIsCreateDialogOpen(true)}
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -153,12 +182,8 @@ export default function ReportesPage() {
         </div>
       </header>
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card className="border-0 shadow-md mb-6">
-          <CardHeader>
-            <CardTitle>Filtros y Búsqueda</CardTitle>
-            <CardDescription>Filtra por tipo de servicio o busca por cliente, líder o descripción</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
+          <CardContent className="pt-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
@@ -194,7 +219,7 @@ export default function ReportesPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
           <CardHeader>
             <CardTitle>Historial de Reportes</CardTitle>
             <CardDescription>
@@ -211,7 +236,7 @@ export default function ReportesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => handleViewReport(row)}
-                  className="border-green-300 text-green-700 hover:bg-green-50"
+                  className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
                 >
                   <Eye className="h-4 w-4 mr-2" />
                   Ver

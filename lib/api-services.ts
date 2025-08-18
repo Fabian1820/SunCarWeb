@@ -142,6 +142,30 @@ export class BrigadaService {
     console.log('Extracted data:', data);
     return data;
   }
+
+  // Crear una nueva brigada
+  static async createBrigada(brigadaData: any): Promise<string> {
+    console.log('Calling createBrigada with:', brigadaData);
+    const res = await fetch(`${API_BASE_URL}/brigadas`, {
+      method: 'POST',
+      headers: API_HEADERS,
+      body: JSON.stringify(brigadaData),
+    });
+    if (!res.ok) {
+      let errorMsg = 'Error al crear brigada';
+      try {
+        const errorBody = await res.json();
+        errorMsg = errorBody.detail || errorBody.message || JSON.stringify(errorBody);
+        console.error('Backend error body:', errorBody);
+      } catch (e) {
+        // Si no es JSON, ignora
+      }
+      throw new Error(errorMsg);
+    }
+    const response = await res.json();
+    console.log('createBrigada response:', response);
+    return response.brigada_id || response.id || 'success';
+  }
   static async buscarBrigadas(nombre: string): Promise<ApiBrigada[]> {
     const res = await fetch(`${API_BASE_URL}/brigadas/buscar?nombre=${encodeURIComponent(nombre)}`, { headers: API_HEADERS });
     if (!res.ok) throw new Error('Error al buscar brigadas');

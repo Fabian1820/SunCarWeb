@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { BrigadaService } from '@/lib/services/brigada-service'
 import type { Brigada, BrigadaRequest, TeamMember } from '@/lib/brigade-types'
 
 interface UseBrigadasReturn {
   brigadas: Brigada[]
+  filteredBrigadas: Brigada[]
   loading: boolean
   error: string | null
   searchTerm: string
@@ -27,7 +28,7 @@ export function useBrigadas(): UseBrigadasReturn {
     setLoading(true)
     setError(null)
     try {
-      const data = await BrigadaService.getBrigadas(searchTerm)
+      const data = await BrigadaService.getBrigadas()
       console.log('Backend response for brigadas:', data)
       console.log('Type of data:', typeof data)
       console.log('Is array:', Array.isArray(data))
@@ -38,7 +39,37 @@ export function useBrigadas(): UseBrigadasReturn {
     } finally {
       setLoading(false)
     }
-  }, [searchTerm])
+  }, [])
+
+  // Filtrar brigadas localmente basado en searchTerm
+  const filteredBrigadas = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return brigadas
+    }
+    
+    const searchLower = searchTerm.toLowerCase()
+    return brigadas.filter(brigada => {
+      // Buscar en el nombre del líder
+      if (brigada.lider?.nombre?.toLowerCase().includes(searchLower)) {
+        return true
+      }
+      
+      // Buscar en el CI del líder
+      if (brigada.lider?.CI?.toLowerCase().includes(searchLower)) {
+        return true
+      }
+      
+      // Buscar en los nombres de los integrantes
+      if (brigada.integrantes?.some((trabajador: any) => 
+        trabajador.nombre?.toLowerCase().includes(searchLower) ||
+        trabajador.CI?.toLowerCase().includes(searchLower)
+      )) {
+        return true
+      }
+      
+      return false
+    })
+  }, [brigadas, searchTerm])
 
   const createBrigada = useCallback(async (data: BrigadaRequest): Promise<boolean> => {
     setLoading(true)
@@ -124,13 +155,14 @@ export function useBrigadas(): UseBrigadasReturn {
     setError(null)
   }, [])
 
-  // Cargar brigadas al montar el componente y cuando cambie el searchTerm
+  // Cargar brigadas solo al montar el componente
   useEffect(() => {
     loadBrigadas()
   }, [loadBrigadas])
 
   return {
     brigadas,
+    filteredBrigadas,
     loading,
     error,
     searchTerm,

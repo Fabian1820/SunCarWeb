@@ -207,18 +207,6 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 
   return (
     <>
-      {/* Botón general para todas las brigadas */}
-      <div className="flex justify-end mb-4">
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-green-400 text-green-700 hover:bg-green-50"
-          onClick={() => openReportDialog(null)}
-          title="Calcular materiales usados de todas las brigadas"
-        >
-          <Calendar className="h-5 w-5" />
-        </Button>
-      </div>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -226,6 +214,18 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Jefe (Nombre y CI)</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Miembros</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+              <th className="text-right py-3 px-4 font-semibold text-gray-900">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-green-400 text-green-700 hover:bg-green-50"
+                  onClick={() => openReportDialog(null)}
+                  title="Calcular materiales usados de todas las brigadas"
+                >
+                  <Calendar className="h-4 w-4 mr-1" />
+                  Calcular Materiales
+                </Button>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -288,6 +288,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                     </Button>
                   </div>
                 </td>
+                <td className="py-4 px-4"></td>
               </tr>
             ))}
           </tbody>
