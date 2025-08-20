@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { InitialLoaderProvider } from "@/components/shared/atom/initial-loader-provider"
+import { AuthProvider } from "@/contexts/auth-context"
+import { AuthGuard } from "@/components/auth/auth-guard"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -20,9 +22,13 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={inter.className}>
-        <InitialLoaderProvider>
-          {children}
-        </InitialLoaderProvider>
+        <AuthProvider>
+          <InitialLoaderProvider>
+            <AuthGuard>
+              {children}
+            </AuthGuard>
+          </InitialLoaderProvider>
+        </AuthProvider>
       </body>
     </html>
   )

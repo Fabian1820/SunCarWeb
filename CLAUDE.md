@@ -5,14 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Core Development
-- `npm run dev` - Start development server
+- `npm run dev` - Start development server at http://localhost:3000
 - `npm run build` - Build production version
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
 
+### Package Manager Support  
+- `npm install` or `pnpm install` - Install dependencies (both package managers supported)
+
 ### Notes
 - TypeScript and ESLint errors are ignored during builds (configured in next.config.mjs)
 - Images are unoptimized for deployment flexibility
+- Uses React 19 and Next.js 15 with App Router
 
 ## Architecture Overview
 
@@ -28,10 +32,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### Project Structure
 ```
 app/                    # Next.js App Router pages
+├── atencion-cliente/  # Customer service module
 ├── brigadas/          # Brigade management
 ├── clientes/          # Client management  
 ├── materiales/        # Materials catalog
 ├── reportes/          # Reports and forms
+├── trabajadores/      # Worker management
 └── formulario-h1114/  # Specific form type
 
 components/
@@ -41,6 +47,7 @@ components/
 │   └── organism/     # Complex components (maps, location pickers)
 └── feats/            # Feature-specific components
     ├── brigade/      # Brigade management components
+    ├── customer-service/ # Customer service components
     ├── materials/    # Material management components
     ├── reports/      # Report components
     └── worker/       # Worker management components
@@ -65,6 +72,7 @@ lib/                   # Core utilities and services
 4. **Worker Management**: Employee records with role-based permissions
 5. **Location Services**: Interactive maps for address/coordinate selection
 6. **Client Management**: Customer database integration
+7. **Customer Service**: Message management system with mock data support
 
 ### Component Architecture
 - **Atomic Design**: Components organized by complexity (atom → molecule → organism)
@@ -105,6 +113,41 @@ The application uses environment variables to configure the backend API URL:
    - TrabajadorService - Worker management operations
    - ReporteService - Report generation and management
    - ClienteService - Client database operations
+   - AtencionClienteService - Customer service message management
+
+### Mock Data and Development Support
+- **Mock Data**: Located in `lib/mock-data/` for development and testing
+- **Mock Services**: Available in `lib/mock-services/` for modules still in development
+- **Customer Service Module**: Uses mock data (`lib/mock-data/customer-service.ts`) with mock service implementation
+
+### Authentication System
+The application implements a complete authentication system with bearer token management:
+
+1. **Authentication Context** (`contexts/auth-context.tsx`):
+   - Manages authentication state and token storage
+   - Provides login/logout functionality with API integration
+   - Stores JWT token in localStorage as 'suncar-token'
+   - Automatically includes bearer token in API requests
+
+2. **Login Endpoint Integration**:
+   - POST `/api/auth/login-token` with credentials: `{ "usuario": "admin", "contrasena": "admin123" }`
+   - Success response: `{ "success": true, "message": "Login exitoso", "token": "suncar-token-2025" }`
+   - Error response: `{ "success": false, "message": "Credenciales incorrectas", "token": null }`
+
+3. **Global API Authentication**:
+   - All API calls automatically include `Authorization: Bearer <token>` header
+   - Centralized through `apiRequest()` function in `lib/api-config.ts`
+   - Automatic token retrieval from localStorage for client-side requests
+
+4. **Authentication Components**:
+   - `AuthGuard`: Protects routes, shows login form if not authenticated
+   - `LoginForm`: Handles user login with error display and loading states
+   - Full integration with existing UI components and styling
+
+5. **API Services Migration**:
+   - All services (MaterialService, BrigadaService, TrabajadorService, etc.) use centralized `apiRequest()`
+   - Consistent error handling and logging across all API calls
+   - Environment variable support for different deployment targets (localhost, Railway, Vercel)
 
 ### Testing and Quality
 - No specific test framework configured - check package.json for any additions
