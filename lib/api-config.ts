@@ -1,5 +1,40 @@
 // Configuración de la API
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
+// Función para obtener la URL de la API de forma robusta
+function getApiBaseUrl(): string {
+  // Detectar entorno
+  const isProduction = process.env.NODE_ENV === 'production'
+  const isBrowser = typeof window !== 'undefined'
+  
+  // Log para debugging
+  console.log('Environment detection:', {
+    NODE_ENV: process.env.NODE_ENV,
+    isProduction,
+    isBrowser,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL
+  })
+  
+  // Prioridad: 1. Variable de entorno, 2. Localhost por defecto
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  
+  if (envUrl) {
+    console.log('✅ Using API URL from environment:', envUrl)
+    return envUrl
+  }
+  
+  // Fallback para desarrollo local
+  const defaultUrl = 'http://localhost:8000/api'
+  console.warn('⚠️ Using default API URL (no environment variable found):', defaultUrl)
+  return defaultUrl
+}
+
+// Exportar la URL base
+export const API_BASE_URL = getApiBaseUrl()
+
+// Log inicial para verificar configuración
+console.log('🔧 API Configuration loaded:', {
+  API_BASE_URL,
+  timestamp: new Date().toISOString()
+})
 
 // Headers comunes para las peticiones
 export const API_HEADERS = {

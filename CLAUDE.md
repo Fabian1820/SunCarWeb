@@ -86,16 +86,31 @@ lib/                   # Core utilities and services
 - **Form State**: React Hook Form for complex forms with validation
 
 ### Environment Configuration
-- Create `.env.local` with `NEXT_PUBLIC_API_URL=http://localhost:8000/api`
-- Backend must be running on localhost:8000 for development
-- Refer to BRIGADAS_SETUP.md for detailed backend setup
+**IMPORTANTE**: Las variables de entorno son críticas para el funcionamiento en despliegues.
+
+#### Configuración de Variables de Entorno
+1. **Desarrollo Local**:
+   - Copia `.env.example` a `.env.local`
+   - Configura `NEXT_PUBLIC_API_URL=http://localhost:8000/api` para desarrollo local
+   - El archivo `.env.local` tiene mayor prioridad que `.env`
+
+2. **Despliegues (Railway, Vercel, etc.)**:
+   - Configura `NEXT_PUBLIC_API_URL` en las variables de entorno del despliegue
+   - Railway: Settings > Environment Variables
+   - Vercel: Settings > Environment Variables
+   - Ejemplo: `NEXT_PUBLIC_API_URL=https://sun-car-backend.vercel.app/api`
+
+3. **Jerarquía de Prioridad**:
+   - Variables de despliegue (Railway/Vercel) > `.env.local` > `.env` > fallback a localhost
+
+4. **Debugging Variables de Entorno**:
+   - Revisa la consola del navegador para logs de configuración API
+   - Busca mensajes como: `🔧 API Configuration loaded`
+   - Si ves `⚠️ Using default API URL` significa que no se encontró la variable de entorno
+   - Verifica que la variable empiece con `NEXT_PUBLIC_` para ser accesible en el cliente
 
 #### Backend URL Configuration
-The application uses environment variables to configure the backend API URL:
-
-1. **Environment Variable**: `NEXT_PUBLIC_API_URL` in `.env.local`
-   - Development: `http://localhost:8000/api`
-   - Production: Set to your production API endpoint
+La aplicación usa variables de entorno para configurar la URL del backend API:
 
 2. **Configuration Flow**:
    - `lib/api-config.ts` exports `API_BASE_URL` constant
