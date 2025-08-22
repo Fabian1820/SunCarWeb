@@ -7,21 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/mo
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import {
-  FileCheck,
-  Search,
-  Eye,
-  Wrench,
-  User,
-  MapPin,
-  ArrowLeft,
-  Building2,
-  Phone,
-  Mail,
-  Map,
-  Edit,
-  Trash2
-} from "lucide-react"
+import {FileCheck, Search, Eye, Wrench, User, MapPin, ArrowLeft, Building2, Phone, Mail, Map, Edit} from "lucide-react"
 import { ReportsTable } from "@/components/feats/reports/reports-table"
 import { ClienteService, ReporteService } from "@/lib/api-services"
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart"
@@ -121,41 +107,41 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-2">
                     <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(client)}
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                        title="Editar cliente"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewClientReports(client)}
+                      className="border-esmerald-300 text-emerald-600 hover:bg-esmerald-50"
+                      title="Ver reportes del cliente"
+                    >
+                      <FileCheck className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onEdit(client)}
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                      title="Editar cliente"
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onDelete(client)}
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                        title="Eliminar cliente"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewClientLocation(client)}
-                        className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                        disabled={!client.latitud || !client.longitud}
-                        title={client.latitud && client.longitud ? "Ver ubicación" : "Sin ubicación registrada"}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewClientLocation(client)}
+                      className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                      disabled={!client.latitud || !client.longitud}
+                      title={client.latitud && client.longitud ? "Ver ubicación" : "Sin ubicación registrada"}
                     >
                       <MapPin className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleViewClientReports(client)}
-                      className="border-green-300 text-emerald-600 hover:bg-green-50"
-                      title="Ver reportes del cliente"
+                      onClick={() => onDelete(client)}
+                      className="border-red-300 text-red-700 hover:bg-red-50"
+                      title="Eliminar cliente"
                     >
-                      <FileCheck className="h-4 w-4" />
+                      <Eye className="h-4 w-4" />
                     </Button>
                   </div>
                 </td>

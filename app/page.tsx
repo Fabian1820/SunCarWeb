@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { Sun, FileText, Users, FileCheck, Calendar, Package, User, MessageCircle, UserPlus } from "lucide-react"
+import { Button } from "@/components/shared/atom/button"
+import { Sun, FileText, Users, FileCheck, Calendar, Package, User, MessageCircle, UserPlus, Info } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
@@ -11,10 +12,13 @@ import { ReporteService } from "@/lib/api-services"
 import { Loader } from "@/components/shared/atom/loader"
 import { Wrench, Zap } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
+import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard"
+import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function Dashboard() {
   const [selectedForm, setSelectedForm] = useState<any>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false)
   const [recentReports, setRecentReports] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [clients, setClients] = useState<any[]>([])
@@ -72,6 +76,17 @@ export default function Dashboard() {
                 <h1 className="text-2xl font-bold text-gray-900">Administración de SUNCAR</h1>
                 <p className="text-sm text-gray-600">Sistema de Gestión de Empresarial.</p>
               </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsContactosDialogOpen(true)}
+                className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300"
+              >
+                <Info className="h-4 w-4 text-blue-600" />
+                <span className="text-gray-700">Información</span>
+              </Button>
             </div>
           </div>
         </div>
@@ -232,6 +247,21 @@ export default function Dashboard() {
           {selectedForm && <FormViewer formData={selectedForm} clienteCompleto={getClienteByNumero(selectedForm.cliente?.numero)} />}
         </DialogContent>
       </Dialog>
+
+      {/* Contactos Dialog */}
+      <Dialog open={isContactosDialogOpen} onOpenChange={setIsContactosDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Info className="h-5 w-5 text-blue-600" />
+              <span>Información de Contacto</span>
+            </DialogTitle>
+          </DialogHeader>
+          <ContactosDashboard />
+        </DialogContent>
+      </Dialog>
+
+      <Toaster />
     </div>
   )
 }

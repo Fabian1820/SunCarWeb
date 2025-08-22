@@ -47,7 +47,9 @@ export const API_TIMEOUT = 10000 // 10 segundos
 // Función para obtener el token del localStorage
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('suncar-token')
+  const token = localStorage.getItem('suncar-token')
+  console.log('🔐 Auth token retrieved:', token ? 'Present' : 'Not found')
+  return token
 }
 
 // Función para obtener headers con autenticación
@@ -57,6 +59,9 @@ function getAuthHeaders(): Record<string, string> {
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`
+    console.log('🔐 Authorization header added:', `Bearer ${token.substring(0, 10)}...`)
+  } else {
+    console.warn('⚠️ No auth token found, request will be sent without authorization')
   }
   
   return headers
