@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { ArrowLeft, Package, Plus, Search, AlertCircle, Loader2, RefreshCw } from "lucide-react"
 import { MaterialsTable } from "@/components/feats/materials/materials-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
@@ -22,6 +22,9 @@ export default function MaterialesPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   const addMaterial = (material: Omit<Material, "id">) => {
     // Función deshabilitada en MVP
@@ -56,19 +59,27 @@ export default function MaterialesPage() {
       window.alert('No se encontró el material o el código es inválido.')
       return
     }
-    // Log detallado
-    console.log('[DEBUG] Eliminar material', {
-      materialCodigo: material.codigo,
-      materialCodigoTipo: typeof material.codigo,
-      material
-    })
-    if (!window.confirm('¿Estás seguro de que deseas eliminar este material?')) return
+    setMaterialToDelete(material)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Confirmar eliminación de material
+  const confirmDeleteMaterial = async () => {
+    if (!materialToDelete || !materialToDelete.codigo) return
+    
+    setDeleteLoading(true)
     try {
-      const ok = await deleteMaterialByCodigo(String(material.codigo))
-      window.alert('Material eliminado exitosamente (ok=' + ok + ')')
+      const ok = await deleteMaterialByCodigo(String(materialToDelete.codigo))
+      if (ok) {
+        window.alert('Material eliminado exitosamente')
+      } else {
+        throw new Error('No se pudo eliminar el material')
+      }
     } catch (err: any) {
       window.alert('Error al eliminar material: ' + (err.message || err))
       console.error('[UI] Error al eliminar material:', err)
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -241,6 +252,17 @@ export default function MaterialesPage() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Modal de confirmación de eliminación */}
+        <ConfirmDeleteDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+          title="Eliminar Material"
+          message={`¿Estás seguro de que quieres eliminar el material "${materialToDelete?.descripcion}" (Código: ${materialToDelete?.codigo})? Esta acción no se puede deshacer.`}
+          onConfirm={confirmDeleteMaterial}
+          confirmText="Eliminar Material"
+          isLoading={deleteLoading}
+        />
       </main>
     </div>
   )

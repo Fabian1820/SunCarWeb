@@ -6,7 +6,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { Search, User, MapPin, ArrowLeft } from "lucide-react"
 import { ClienteService } from "@/lib/api-services"
 import { ClientsTable } from "@/components/feats/customer-service/clients-table"
@@ -31,6 +31,9 @@ export default function ClientesPage() {
   const [editClientFormError, setEditClientFormError] = useState<string | null>(null)
   const [editClientFormSuccess, setEditClientFormSuccess] = useState<string | null>(null)
   const [editClientLatLng, setEditClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [clientToDelete, setClientToDelete] = useState<any | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
 
   // Cargar clientes
@@ -94,20 +97,27 @@ export default function ClientesPage() {
 
   // Acción para eliminar cliente
   const handleDeleteClient = (client: any) => {
-    if (window.confirm(`¿Estás seguro de que quieres eliminar al cliente ${client.nombre}?`)) {
-      ;(async () => {
-        try {
-          const res = await ClienteService.eliminarCliente(client.numero)
-          if (!res?.success) {
-            throw new Error(res?.message || 'Error al eliminar el cliente')
-          }
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('refreshClientsTable'))
-          }
-        } catch (e: any) {
-          alert(e?.message || 'No se pudo eliminar el cliente')
-        }
-      })()
+    setClientToDelete(client)
+    setIsDeleteDialogOpen(true)
+  }
+
+  // Confirmar eliminación de cliente
+  const confirmDeleteClient = async () => {
+    if (!clientToDelete) return
+    
+    setDeleteLoading(true)
+    try {
+      const res = await ClienteService.eliminarCliente(clientToDelete.numero)
+      if (!res?.success) {
+        throw new Error(res?.message || 'Error al eliminar el cliente')
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('refreshClientsTable'))
+      }
+    } catch (e: any) {
+      alert(e?.message || 'No se pudo eliminar el cliente')
+    } finally {
+      setDeleteLoading(false)
     }
   }
 
@@ -447,6 +457,16 @@ export default function ClientesPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Modal de confirmación de eliminación */}
+        <ConfirmDeleteDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={setIsDeleteDialogOpen}
+          title="Eliminar Cliente"
+          message={`¿Estás seguro de que quieres eliminar al cliente ${clientToDelete?.nombre}? Esta acción no se puede deshacer.`}
+          onConfirm={confirmDeleteClient}
+          confirmText="Eliminar Cliente"
+          isLoading={deleteLoading}
+        />
       </main>
     </div>
   )
