@@ -319,6 +319,62 @@ export class ClienteService {
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ''}`
     return apiRequest(endpoint)
   }
+
+  // Crear cliente completo (upsert)
+  static async crearCliente(data: {
+    numero: string
+    nombre: string
+    direccion: string
+    latitud?: string
+    longitud?: string
+  }): Promise<{ success: boolean; message?: string; data?: any }> {
+    const response = await apiRequest<{ success: boolean; message?: string; data?: any }>(`/clientes/`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    return response
+  }
+
+  // Crear cliente simple
+  static async crearClienteSimple(data: {
+    numero: string
+    nombre: string
+    direccion: string
+    latitud?: string
+    longitud?: string
+  }): Promise<{ success: boolean; message?: string; data?: any }> {
+    const response = await apiRequest<{ success: boolean; message?: string; data?: any }>(`/clientes/simple`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    return response
+  }
+
+  // Verificar existencia por numero
+  static async verificarCliente(numero: string): Promise<{ success: boolean; message?: string; data?: any }> {
+    const endpoint = `/clientes/${encodeURIComponent(numero)}/verificar`
+    return apiRequest(endpoint)
+  }
+
+  // Actualizar (PATCH) parcialmente por numero
+  static async actualizarCliente(
+    numero: string,
+    data: Partial<{ nombre: string; direccion: string; latitud: string; longitud: string }>
+  ): Promise<{ success: boolean; message?: string }> {
+    const response = await apiRequest<{ success: boolean; message?: string }>(`/clientes/${encodeURIComponent(numero)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    })
+    return response
+  }
+
+  // Eliminar por numero
+  static async eliminarCliente(numero: string): Promise<{ success: boolean; message?: string }> {
+    const response = await apiRequest<{ success: boolean; message?: string }>(`/clientes/${encodeURIComponent(numero)}`, {
+      method: 'DELETE',
+    })
+    return response
+  }
 }
 
 // Servicio para atención al cliente

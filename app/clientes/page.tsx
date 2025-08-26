@@ -95,8 +95,19 @@ export default function ClientesPage() {
   // Acción para eliminar cliente
   const handleDeleteClient = (client: any) => {
     if (window.confirm(`¿Estás seguro de que quieres eliminar al cliente ${client.nombre}?`)) {
-      // Implementar eliminación de cliente
-      console.log('Eliminar cliente:', client)
+      ;(async () => {
+        try {
+          const res = await ClienteService.eliminarCliente(client.numero)
+          if (!res?.success) {
+            throw new Error(res?.message || 'Error al eliminar el cliente')
+          }
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('refreshClientsTable'))
+          }
+        } catch (e: any) {
+          alert(e?.message || 'No se pudo eliminar el cliente')
+        }
+      })()
     }
   }
 
@@ -231,25 +242,9 @@ export default function ClientesPage() {
                 return
               }
               try {
-                let baseUrlCliente = process.env.NEXT_PUBLIC_API_URL || ""
-                if (baseUrlCliente.endsWith("/api")) baseUrlCliente = baseUrlCliente.slice(0, -4)
-                const resCliente = await fetch(baseUrlCliente + "/api/clientes/", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ nombre, numero, direccion, latitud, longitud })
-                })
-                let dataCliente: any = null
-                try {
-                  dataCliente = await resCliente.json()
-                } catch (jsonErr) {
-                  throw new Error("Respuesta inesperada del servidor")
-                }
-                if (!resCliente.ok || !dataCliente.success) {
-                  let errorMsg = dataCliente.message || "Error al crear el cliente"
-                  if (dataCliente.errors && typeof dataCliente.errors === "object") {
-                    errorMsg += ": " + Object.entries(dataCliente.errors).map(([field, msg]) => `${field}: ${msg}`).join("; ")
-                  }
-                  throw new Error(errorMsg)
+                const dataCliente = await ClienteService.crearCliente({ nombre, numero, direccion, latitud, longitud })
+                if (!dataCliente?.success) {
+                  throw new Error(dataCliente?.message || "Error al crear el cliente")
                 }
                 setClientFormSuccess(dataCliente.message || "Cliente creado correctamente")
                 if (typeof window !== "undefined") {
@@ -376,25 +371,9 @@ export default function ClientesPage() {
                 return
               }
               try {
-                let baseUrlCliente = process.env.NEXT_PUBLIC_API_URL || ""
-                if (baseUrlCliente.endsWith("/api")) baseUrlCliente = baseUrlCliente.slice(0, -4)
-                const resCliente = await fetch(baseUrlCliente + `/api/clientes/${editingClient.numero}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(updateBody)
-                })
-                let dataCliente: any = null
-                try {
-                  dataCliente = await resCliente.json()
-                } catch (jsonErr) {
-                  throw new Error("Respuesta inesperada del servidor")
-                }
-                if (!resCliente.ok || !dataCliente.success) {
-                  let errorMsg = dataCliente.message || "Error al actualizar el cliente"
-                  if (dataCliente.errors && typeof dataCliente.errors === "object") {
-                    errorMsg += ": " + Object.entries(dataCliente.errors).map(([field, msg]) => `${field}: ${msg}`).join("; ")
-                  }
-                  throw new Error(errorMsg)
+                const dataCliente = await ClienteService.actualizarCliente(editingClient.numero, updateBody)
+                if (!dataCliente?.success) {
+                  throw new Error(dataCliente?.message || "Error al actualizar el cliente")
                 }
                 setEditClientFormSuccess(dataCliente.message || "Cliente actualizado correctamente")
                 if (typeof window !== "undefined") {
