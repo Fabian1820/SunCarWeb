@@ -121,9 +121,7 @@ export default function ReportesPage() {
     setLoadingReportDetails(true)
     setSelectedReportData(null)
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
-      const apiUrl = backendUrl?.endsWith('/api') ? backendUrl : `${backendUrl}/api`
-      const res = await fetch(`${apiUrl}/reportes/${report._id || report.id}`)
+      const res = await fetch(`/api/reportes/${report._id || report.id}`)
       if (!res.ok) throw new Error('Error al obtener detalles del reporte')
       const data = await res.json()
       setSelectedReportData(data)

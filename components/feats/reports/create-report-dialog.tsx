@@ -126,9 +126,7 @@ export function CreateReportDialog({ open, onOpenChange, clients }: { open: bool
         } else {
           const clienteExistenteObj = clients.find(c => String(c.numero) === String(clienteNuevo.numero))
           if (!clienteExistenteObj) {
-            const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || ""
-            const apiUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`
-            const resCliente = await fetch(apiUrl + "/clientes/", {
+            const resCliente = await fetch("/api/clientes/", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(clienteNuevo)
@@ -183,10 +181,7 @@ export function CreateReportDialog({ open, onOpenChange, clients }: { open: bool
       if (tipoReporte === "mantenimiento") endpoint = "/api/reportes/mantenimiento"
       if (tipoReporte === "averia") endpoint = "/api/reportes/averia"
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || ""
-      const baseUrl = backendUrl.endsWith('/api') ? backendUrl.slice(0, -4) : backendUrl
-
-      const res = await fetch(baseUrl + endpoint, {
+      const res = await fetch(endpoint, {
         method: "POST",
         body: formData
       })

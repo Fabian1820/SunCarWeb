@@ -1,39 +1,14 @@
 // Configuración de la API
-// Función para procesar la URL del backend
-function processBackendUrl(url: string): string {
-  // Si la URL no termina en /api, la agregamos
-  if (!url.endsWith('/api')) {
-    return url + '/api'
-  }
-  return url
-}
-// Función para obtener la URL de la API de forma robusta
+// Función para obtener la URL de la API usando Next.js API Routes como proxy
 function getApiBaseUrl(): string {
-  // Detectar entorno
-  const isProduction = process.env.NODE_ENV === 'production'
-  const isBrowser = typeof window !== 'undefined'
+  // Siempre usar rutas API internas de Next.js como proxy
+  // Estas rutas internamente se comunican con el backend usando NEXT_PUBLIC_BACKEND_URL
+  const internalApiUrl = '/api'
   
-  // Log para debugging
-  console.log('Environment detection:', {
-    NODE_ENV: process.env.NODE_ENV,
-    isProduction,
-    isBrowser,
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL
-  })
+  console.log('✅ Using Next.js API Routes as proxy:', internalApiUrl)
+  console.log('🔧 Backend URL (used by API routes):', process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com')
   
-  // Prioridad: 1. Variable de entorno, 2. Localhost por defecto
-  const envUrl = process.env.NEXT_PUBLIC_BACKEND_URL
-  
-  if (envUrl) {
-    const processedUrl = processBackendUrl(envUrl)
-    console.log('✅ Using API URL from environment:', processedUrl)
-    return processedUrl
-  }
-  
-  // Fallback para desarrollo local
-  const defaultUrl = 'http://localhost:8000/api'
-  console.warn('⚠️ Using default API URL (no environment variable found):', defaultUrl)
-  return defaultUrl
+  return internalApiUrl
 }
 
 // Exportar la URL base
