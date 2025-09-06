@@ -91,14 +91,14 @@ lib/                   # Core utilities and services
 #### Configuración de Variables de Entorno
 1. **Desarrollo Local**:
    - Copia `.env.example` a `.env.local`
-   - Configura `NEXT_PUBLIC_API_URL=http://localhost:8000/api` para desarrollo local
+   - Configura `NEXT_PUBLIC_BACKEND_URL=http://localhost:8000` para desarrollo local
    - El archivo `.env.local` tiene mayor prioridad que `.env`
 
 2. **Despliegues (Railway, Vercel, etc.)**:
-   - Configura `NEXT_PUBLIC_API_URL` en las variables de entorno del despliegue
+   - Configura `NEXT_PUBLIC_BACKEND_URL` en las variables de entorno del despliegue
    - Railway: Settings > Environment Variables
    - Vercel: Settings > Environment Variables
-   - Ejemplo: `NEXT_PUBLIC_API_URL=https://sun-car-backend.vercel.app/api`
+   - Ejemplo: `NEXT_PUBLIC_BACKEND_URL=https://sun-car-backend.vercel.app`
 
 3. **Jerarquía de Prioridad**:
    - Variables de despliegue (Railway/Vercel) > `.env.local` > `.env` > fallback a localhost
@@ -114,7 +114,7 @@ La aplicación usa variables de entorno para configurar la URL del backend API:
 
 2. **Configuration Flow**:
    - `lib/api-config.ts` exports `API_BASE_URL` constant
-   - Uses `process.env.NEXT_PUBLIC_API_URL` with fallback to localhost
+   - Uses `process.env.NEXT_PUBLIC_BACKEND_URL` with fallback to localhost
    - All API services import and use this centralized configuration
 
 3. **Usage Pattern**:

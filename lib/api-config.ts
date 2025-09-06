@@ -1,4 +1,12 @@
 // Configuración de la API
+// Función para procesar la URL del backend
+function processBackendUrl(url: string): string {
+  // Si la URL no termina en /api, la agregamos
+  if (!url.endsWith('/api')) {
+    return url + '/api'
+  }
+  return url
+}
 // Función para obtener la URL de la API de forma robusta
 function getApiBaseUrl(): string {
   // Detectar entorno
@@ -10,15 +18,16 @@ function getApiBaseUrl(): string {
     NODE_ENV: process.env.NODE_ENV,
     isProduction,
     isBrowser,
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL
   })
   
   // Prioridad: 1. Variable de entorno, 2. Localhost por defecto
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  const envUrl = process.env.NEXT_PUBLIC_BACKEND_URL
   
   if (envUrl) {
-    console.log('✅ Using API URL from environment:', envUrl)
-    return envUrl
+    const processedUrl = processBackendUrl(envUrl)
+    console.log('✅ Using API URL from environment:', processedUrl)
+    return processedUrl
   }
   
   // Fallback para desarrollo local
