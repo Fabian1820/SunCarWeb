@@ -1,21 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthToken, getAuthHeaders } from '../utils/auth'
+import { getAuthToken, getAuthHeaders } from '../../utils/auth'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com'
 const API_URL = BACKEND_URL.endsWith('/api') ? BACKEND_URL : `${BACKEND_URL}/api`
 
 export async function GET(request: NextRequest) {
   try {
-    console.log(`🚀 Proxying GET request to: ${API_URL}/brigadas`)
+    console.log(`🚀 Proxying GET request to: ${API_URL}/productos/categorias`)
     
-    // Obtener token dinámico
     const token = await getAuthToken()
-    
-    // Crear AbortController para timeout
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000) // 15 segundos timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
     
-    const response = await fetch(`${API_URL}/brigadas`, {
+    const response = await fetch(`${API_URL}/productos/categorias`, {
       method: 'GET',
       headers: getAuthHeaders(token),
       signal: controller.signal
@@ -50,16 +47,20 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log(`🚀 Proxying POST request to: ${API_URL}/brigadas`, body)
+    console.log(`🚀 Proxying POST request to: ${API_URL}/productos/categorias`, body)
     
-    // Obtener token dinámico
     const token = await getAuthToken()
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
     
-    const response = await fetch(`${API_URL}/brigadas`, {
+    const response = await fetch(`${API_URL}/productos/categorias`, {
       method: 'POST',
       headers: getAuthHeaders(token),
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),
+      signal: controller.signal
     })
+    
+    clearTimeout(timeoutId)
 
     if (!response.ok) {
       const errorText = await response.text()
