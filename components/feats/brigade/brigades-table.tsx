@@ -125,18 +125,16 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
     setReportError(null)
     setReportResults(null)
     try {
+      const { apiRequest } = await import('@/lib/api-config')
       let url = ''
       if (reportBrigadeId) {
-        url = `/api/brigadas/${reportBrigadeId}/materiales-usados?fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
+        url = `/brigadas/${reportBrigadeId}/materiales-usados?fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
         if (category) url += `&categoria=${encodeURIComponent(category)}`
       } else {
-        url = `/api/brigadas/materiales-usados-todas?fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
+        url = `/brigadas/materiales-usados-todas?fecha_inicio=${dateRange.from}&fecha_fin=${dateRange.to}`
         if (category) url += `&categoria=${encodeURIComponent(category)}`
       }
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('Error al obtener el reporte')
-      const data = await res.json()
-      if (!data.success) throw new Error(data.message || 'Error desconocido')
+      const data = await apiRequest(url)
       setReportResults(data.data)
     } catch (err: any) {
       setReportError(err.message || 'Error desconocido')
@@ -156,19 +154,13 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
     setReportError(null)
     
     try {
-      const response = await fetch(`${API_BASE_URL}/pdf/nomina-pagos-prueba`, {
+      const { apiRequest } = await import('@/lib/api-config')
+      const blob = await apiRequest<Blob>('/pdf/nomina-pagos-prueba', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        responseType: 'blob'
       })
 
-      if (!response.ok) {
-        throw new Error('Error al generar el PDF')
-      }
-
-      // Crear blob y descargar el PDF
-      const blob = await response.blob()
+      // Crear url y descargar el PDF
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url

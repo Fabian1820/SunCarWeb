@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { BrigadaService } from '@/lib/services/brigada-service'
+import { BrigadaService } from '@/lib/api-services'
 import type { Brigada, BrigadaRequest, TeamMember } from '@/lib/brigade-types'
 
 interface UseBrigadasReturn {
@@ -28,7 +28,7 @@ export function useBrigadas(): UseBrigadasReturn {
     setLoading(true)
     setError(null)
     try {
-      const data = await BrigadaService.getBrigadas()
+      const data = await BrigadaService.getAllBrigadas()
       console.log('Backend response for brigadas:', data)
       console.log('Type of data:', typeof data)
       console.log('Is array:', Array.isArray(data))

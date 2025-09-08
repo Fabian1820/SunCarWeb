@@ -126,25 +126,12 @@ export function CreateReportDialog({ open, onOpenChange, clients }: { open: bool
         } else {
           const clienteExistenteObj = clients.find(c => String(c.numero) === String(clienteNuevo.numero))
           if (!clienteExistenteObj) {
-            const resCliente = await fetch("/api/clientes/", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+            const { apiRequest } = await import('@/lib/api-config')
+            const dataCliente = await apiRequest('/clientes/', {
+              method: 'POST',
               body: JSON.stringify(clienteNuevo)
             })
-            let dataCliente: any = null
-            try {
-              dataCliente = await resCliente.json()
-            } catch (jsonErr) {
-              throw new Error("Respuesta inesperada del servidor al crear cliente")
-            }
-            if (!resCliente.ok || !dataCliente.success) {
-              let errorMsg = dataCliente.message || "Error al crear el cliente"
-              if (dataCliente.errors && typeof dataCliente.errors === "object") {
-                errorMsg += ": " + Object.entries(dataCliente.errors).map(([field, msg]) => `${field}: ${msg}`).join("; ")
-              }
-              throw new Error(errorMsg)
-            }
-            clienteParaReporte = dataCliente.data
+            clienteParaReporte = dataCliente
           } else {
             clienteParaReporte = clienteExistenteObj
           }
@@ -177,27 +164,15 @@ export function CreateReportDialog({ open, onOpenChange, clients }: { open: bool
         formData.append("descripcion", descripcion)
       }
       let endpoint = ""
-      if (tipoReporte === "inversion") endpoint = "/api/reportes/inversion"
-      if (tipoReporte === "mantenimiento") endpoint = "/api/reportes/mantenimiento"
-      if (tipoReporte === "averia") endpoint = "/api/reportes/averia"
+      if (tipoReporte === "inversion") endpoint = "/reportes/inversion"
+      if (tipoReporte === "mantenimiento") endpoint = "/reportes/mantenimiento"
+      if (tipoReporte === "averia") endpoint = "/reportes/averia"
 
-      const res = await fetch(endpoint, {
-        method: "POST",
+      const { apiRequest } = await import('@/lib/api-config')
+      const data = await apiRequest(endpoint, {
+        method: 'POST',
         body: formData
       })
-      let data: any = null
-      try {
-        data = await res.json()
-      } catch (jsonErr) {
-        throw new Error("Respuesta inesperada del servidor")
-      }
-      if (!res.ok || !data.success) {
-        let errorMsg = data.message || "Error al crear el reporte"
-        if (data.errors && typeof data.errors === "object") {
-          errorMsg += ": " + Object.entries(data.errors).map(([field, msg]) => `${field}: ${msg}`).join("; ")
-        }
-        throw new Error(errorMsg)
-      }
       toast({ title: "Reporte creado", description: data.message, variant: "default" })
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("closeCreateReportModal"))

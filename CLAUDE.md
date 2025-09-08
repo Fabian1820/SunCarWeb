@@ -164,6 +164,57 @@ The application implements a complete authentication system with bearer token ma
    - Consistent error handling and logging across all API calls
    - Environment variable support for different deployment targets (localhost, Railway, Vercel)
 
+### Backend Connectivity Solution
+**CRITICAL**: Direct backend communication pattern established to fix "failed to fetch" and 401 errors.
+
+#### Problem and Solution Summary
+1. **Issue**: Frontend at `https://admin.suncarsrl.com` was unable to connect to backend at `https://api.suncarsrl.com`
+2. **Root Cause**: Complex API Routes proxy system caused webpack compilation errors, leading to fallback to unauthenticated direct calls
+3. **Solution**: Simplified to direct backend communication with automatic authentication through `lib/api-config.ts`
+
+#### Key Implementation Details
+1. **Environment Configuration**:
+   ```bash
+   NEXT_PUBLIC_BACKEND_URL=https://api.suncarsrl.com
+   ```
+
+2. **Authentication Flow** (`lib/api-config.ts`):
+   - Dynamic token acquisition from `/auth/login-token` endpoint
+   - Token caching with 5-minute expiry
+   - Automatic retry with localStorage fallback
+   - Bearer token included in all API requests
+
+3. **Direct Backend Calls**:
+   - All `fetch()` calls replaced with `apiRequest()` function
+   - No API Routes middleware - direct communication only
+   - Consistent error handling and logging
+   - Support for both JSON and blob responses
+
+4. **Fixed Files**:
+   - `app/reportes/page.tsx`: Line 124 dynamic import fix
+   - `components/feats/reports/create-report-dialog.tsx`: Lines 129, 184 replaced with apiRequest
+   - `components/feats/brigade/brigades-table.tsx`: Lines 136, 159 replaced with apiRequest
+   - All services now use centralized `apiRequest()` from `lib/api-config.ts`
+
+#### Additional Fix: Service Duplication Issue
+**Problem**: Some hooks were using duplicate service files that weren't using the correct `apiRequest()` function:
+- `lib/services/brigada-service.ts` (duplicate, causing HTTPS->HTTP redirects)
+- `lib/api-services.ts` (correct unified version)
+
+**Solution**: Consolidated all service calls to use unified services in `lib/api-services.ts`:
+- Updated `hooks/use-brigadas.ts` to use `BrigadaService.getAllBrigadas()` from `@/lib/api-services`
+- Removed duplicate `lib/services/brigada-service.ts` file
+- Ensured all modules use the same service architecture
+
+#### Success Indicators
+- ✅ Contactos, materiales, and clientes working correctly
+- ✅ Brigadas, trabajadores, and reportes connectivity fixed  
+- ✅ No more "failed to fetch" errors
+- ✅ No more HTTPS->HTTP redirect errors
+- ✅ Proper authentication with "suncar-token-2025"
+- ✅ Clean development server startup without proxy errors
+- ✅ Unified service architecture across all modules
+
 ### Testing and Quality
 - No specific test framework configured - check package.json for any additions
 - ESLint configured but errors ignored during builds

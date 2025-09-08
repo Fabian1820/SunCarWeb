@@ -1,14 +1,13 @@
 // Configuración de la API
-// Función para obtener la URL de la API usando Next.js API Routes como proxy
+// Función para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
-  // Siempre usar rutas API internas de Next.js como proxy
-  // Estas rutas internamente se comunican con el backend usando NEXT_PUBLIC_BACKEND_URL
-  const internalApiUrl = '/api'
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com'
+  const apiUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`
   
-  console.log('✅ Using Next.js API Routes as proxy:', internalApiUrl)
-  console.log('🔧 Backend URL (used by API routes):', process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com')
+  console.log('✅ Using direct backend URL:', apiUrl)
+  console.log('🔧 Backend base URL:', backendUrl)
   
-  return internalApiUrl
+  return apiUrl
 }
 
 // Exportar la URL base
@@ -28,24 +27,83 @@ export const API_HEADERS = {
 // Configuración de timeout
 export const API_TIMEOUT = 10000 // 10 segundos
 
-// Función para obtener el token del localStorage
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null
-  const token = localStorage.getItem('suncar-token')
-  console.log('🔐 Auth token retrieved:', token ? 'Present' : 'Not found')
-  return token
+// Cache del token para evitar múltiples requests
+let cachedToken: string | null = null
+let tokenExpiry: number = 0
+
+// Función para obtener token dinámicamente del backend
+async function getAuthToken(): Promise<string> {
+  // Si tenemos un token cacheado y no ha expirado (5 minutos), usarlo
+  if (cachedToken && Date.now() < tokenExpiry) {
+    console.log('🔄 Using cached auth token')
+    return cachedToken
+  }
+
+  // Intentar obtener token del localStorage primero
+  if (typeof window !== 'undefined') {
+    const savedToken = localStorage.getItem('suncar-token')
+    if (savedToken) {
+      console.log('🔐 Using token from localStorage')
+      cachedToken = savedToken
+      tokenExpiry = Date.now() + (5 * 60 * 1000) // Cache por 5 minutos
+      return savedToken
+    }
+  }
+
+  try {
+    console.log('🔐 Requesting new auth token from backend...')
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com'
+    const apiUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`
+    
+    const response = await fetch(`${apiUrl}/auth/login-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        usuario: 'admin',
+        contrasena: 'admin123'
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Auth failed: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    
+    if (!data.success || !data.token) {
+      throw new Error(`Auth failed: ${data.message || 'Invalid response'}`)
+    }
+
+    // Cachear el token por 5 minutos
+    cachedToken = data.token
+    tokenExpiry = Date.now() + (5 * 60 * 1000)
+    
+    // Guardar en localStorage si estamos en el cliente
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('suncar-token', data.token)
+    }
+    
+    console.log('✅ New auth token obtained:', data.token.substring(0, 10) + '...')
+    return data.token
+
+  } catch (error) {
+    console.error('❌ Failed to get auth token:', error)
+    throw error
+  }
 }
 
 // Función para obtener headers con autenticación
-function getAuthHeaders(): Record<string, string> {
-  const token = getAuthToken()
+async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { ...API_HEADERS }
   
-  if (token) {
+  try {
+    const token = await getAuthToken()
     headers['Authorization'] = `Bearer ${token}`
     console.log('🔐 Authorization header added:', `Bearer ${token.substring(0, 10)}...`)
-  } else {
-    console.warn('⚠️ No auth token found, request will be sent without authorization')
+  } catch (error) {
+    console.warn('⚠️ No auth token available, request will be sent without authorization', error)
   }
   
   return headers
@@ -54,16 +112,20 @@ function getAuthHeaders(): Record<string, string> {
 // Función helper para hacer peticiones HTTP con autenticación automática
 export async function apiRequest<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit & { responseType?: 'json' | 'blob' } = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
+  const { responseType = 'json', ...requestOptions } = options
+  
+  // Obtener headers con autenticación de forma asíncrona
+  const authHeaders = await getAuthHeaders()
   
   const config: RequestInit = {
     headers: {
-      ...getAuthHeaders(),
-      ...options.headers,
+      ...authHeaders,
+      ...requestOptions.headers,
     },
-    ...options,
+    ...requestOptions,
   }
 
   try {
@@ -71,7 +133,8 @@ export async function apiRequest<T>(
     console.log('Request config:', { 
       method: config.method || 'GET',
       headers: config.headers,
-      body: config.body ? 'Present' : 'None'
+      body: config.body ? 'Present' : 'None',
+      responseType
     })
 
     const response = await fetch(url, config)
@@ -81,6 +144,12 @@ export async function apiRequest<T>(
       const errorData = await response.json().catch(() => ({}))
       console.error('Error data:', errorData)
       throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`)
+    }
+    
+    if (responseType === 'blob') {
+      const blob = await response.blob()
+      console.log('API Response blob size:', blob.size)
+      return blob as unknown as T
     }
     
     const data = await response.json()

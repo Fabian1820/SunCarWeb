@@ -121,9 +121,9 @@ export default function ReportesPage() {
     setLoadingReportDetails(true)
     setSelectedReportData(null)
     try {
-      const res = await fetch(`/api/reportes/${report._id || report.id}`)
-      if (!res.ok) throw new Error('Error al obtener detalles del reporte')
-      const data = await res.json()
+      // Importar dinámicamente apiRequest para evitar problemas de SSR
+      const { apiRequest } = await import('@/lib/api-config')
+      const data = await apiRequest(`/reportes/${report._id || report.id}`)
       setSelectedReportData(data)
     } catch (e) {
       setSelectedReportData(null)
