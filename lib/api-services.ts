@@ -89,7 +89,7 @@ export class MaterialService {
 export class BrigadaService {
   static async getAllBrigadas(): Promise<ApiBrigada[]> {
     console.log('Calling getAllBrigadas endpoint');
-    const response = await apiRequest<{ data: ApiBrigada[] }>('/brigadas');
+    const response = await apiRequest<{ data: ApiBrigada[] }>('/brigadas/');
     console.log('BrigadaService.getAllBrigadas response:', response);
     console.log('Type of response:', typeof response, 'Is array:', Array.isArray(response));
     // Extraer el campo 'data' de la respuesta del backend
@@ -101,7 +101,7 @@ export class BrigadaService {
   // Crear una nueva brigada
   static async createBrigada(brigadaData: any): Promise<string> {
     console.log('Calling createBrigada with:', brigadaData);
-    const response = await apiRequest<{ brigada_id?: string; id?: string }>('/brigadas', {
+    const response = await apiRequest<{ brigada_id?: string; id?: string }>('/brigadas/', {
       method: 'POST',
       body: JSON.stringify(brigadaData),
     });
@@ -132,7 +132,7 @@ export class BrigadaService {
 export class TrabajadorService {
   static async getAllTrabajadores(): Promise<ApiTrabajador[]> {
     console.log('Calling getAllTrabajadores endpoint');
-    const response = await apiRequest<{ data: ApiTrabajador[] }>('/trabajadores');
+    const response = await apiRequest<{ data: ApiTrabajador[] }>('/trabajadores/');
     console.log('TrabajadorService.getAllTrabajadores response:', response);
     console.log('Type of response:', typeof response, 'Is array:', Array.isArray(response));
     // Extraer el campo 'data' de la respuesta del backend
@@ -145,7 +145,7 @@ export class TrabajadorService {
   }
   static async crearTrabajador(ci: string, nombre: string, contrasena?: string): Promise<string> {
     console.log('Calling crearTrabajador with:', { ci, nombre, contrasena });
-    const response = await apiRequest<{ trabajador_id?: string; brigada_id?: string }>('/trabajadores', {
+    const response = await apiRequest<{ trabajador_id?: string; brigada_id?: string }>('/trabajadores/', {
       method: 'POST',
       body: JSON.stringify({ ci, nombre, contrasena }),
     });

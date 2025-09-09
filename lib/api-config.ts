@@ -117,20 +117,28 @@ export async function apiRequest<T>(
   const url = `${API_BASE_URL}${endpoint}`
   const { responseType = 'json', ...requestOptions } = options
   
-  // Obtener headers con autenticación de forma asíncrona
-  const authHeaders = await getAuthHeaders()
-  
-  const config: RequestInit = {
-    headers: {
-      ...authHeaders,
-      ...requestOptions.headers,
-    },
-    ...requestOptions,
-  }
+  console.log('🚀 Starting API request:', { endpoint, url, API_BASE_URL })
+  console.log('🌍 Environment check:', { 
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
+    NODE_ENV: process.env.NODE_ENV,
+    isBrowser: typeof window !== 'undefined'
+  })
 
   try {
-    console.log(`Making API request to: ${url}`)
-    console.log('Request config:', { 
+    // TEMPORAL: Versión simplificada sin auth para debugging
+    console.log('🔄 Skipping auth for debugging...')
+    
+    const config: RequestInit = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer suncar-token-2025', // Token hardcodeado temporalmente
+        ...requestOptions.headers,
+      },
+      ...requestOptions,
+    }
+
+    console.log(`📡 Making API request to: ${url}`)
+    console.log('📋 Request config:', { 
       method: config.method || 'GET',
       headers: config.headers,
       body: config.body ? 'Present' : 'None',
@@ -138,25 +146,32 @@ export async function apiRequest<T>(
     })
 
     const response = await fetch(url, config)
+    console.log('📨 Response received:', { status: response.status, ok: response.ok, url: response.url })
     
     if (!response.ok) {
-      console.error(`API request failed: ${response.status} ${response.statusText}`)
+      console.error(`❌ API request failed: ${response.status} ${response.statusText}`)
       const errorData = await response.json().catch(() => ({}))
-      console.error('Error data:', errorData)
+      console.error('❌ Error data:', errorData)
       throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`)
     }
     
     if (responseType === 'blob') {
       const blob = await response.blob()
-      console.log('API Response blob size:', blob.size)
+      console.log('📄 API Response blob size:', blob.size)
       return blob as unknown as T
     }
     
     const data = await response.json()
-    console.log('API Response data:', data)
+    console.log('✅ API Response data:', data)
     return data
   } catch (error) {
-    console.error('API Request Error:', error)
+    console.error('💥 API Request Error Details:', {
+      error: error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      url,
+      endpoint,
+      stack: error instanceof Error ? error.stack : undefined
+    })
     throw error
   }
 } 
