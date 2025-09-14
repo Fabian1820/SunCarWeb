@@ -17,7 +17,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/shared/mo
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart";
 import { useBrigadasTrabajadores } from "@/hooks/use-brigadas-trabajadores"
 import { useMaterials } from "@/hooks/use-materials"
-import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
 import { LocationSection } from "@/components/shared/organism/location-section"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { CreateReportDialog } from "@/components/feats/reports/create-report-dialog"
@@ -266,6 +266,7 @@ export default function ReportesPage() {
       </main>
       {/* Modal de creación de reporte */}
       <CreateReportDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} clients={clients} />
+      <Toaster />
     </div>
   )
 }

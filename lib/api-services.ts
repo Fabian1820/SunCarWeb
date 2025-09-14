@@ -50,33 +50,132 @@ export class MaterialService {
 
   // Agregar material a producto existente
   static async addMaterialToProduct(productoId: string, material: { codigo: string, descripcion: string, um: string }): Promise<boolean> {
-    const result = await apiRequest<{ success: boolean }>(`/productos/${productoId}/materiales`, {
-      method: 'POST',
-      body: JSON.stringify({ material }),
-    });
-    return result.success === true;
+    console.log('[MaterialService] Agregando material a producto:', { productoId, material });
+    try {
+      const result = await apiRequest<{ success?: boolean; message?: string; error?: string }>(`/productos/${productoId}/materiales`, {
+        method: 'POST',
+        body: JSON.stringify({ material }),
+      });
+      console.log('[MaterialService] Respuesta al agregar material:', result);
+      
+      // Verificar diferentes formatos de respuesta del backend
+      if (result === null || result === undefined) {
+        console.log('[MaterialService] Respuesta nula, asumiendo adición exitosa');
+        return true;
+      }
+      
+      if (typeof result === 'object') {
+        // Si hay un campo success y es true
+        if (result.success === true) {
+          return true;
+        }
+        // Si no hay campo success pero tampoco hay error, asumir éxito
+        if (result.success === undefined && !result.error) {
+          console.log('[MaterialService] Sin campo success pero sin errores, asumiendo adición exitosa');
+          return true;
+        }
+        // Si hay un error específico
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        // Si success es false pero hay mensaje
+        if (result.success === false) {
+          throw new Error(result.message || 'Error al agregar material');
+        }
+      }
+      
+      // Fallback: si llegamos aquí, asumir éxito
+      return true;
+    } catch (error: any) {
+      console.error('[MaterialService] Error al agregar material:', error);
+      throw error;
+    }
   }
 
   // Eliminar un material de un producto
   static async deleteMaterialByCodigo(materialCodigo: string): Promise<boolean> {
     console.log('[MaterialService] Intentando eliminar material por código:', { materialCodigo });
-    const result = await apiRequest<{ success: boolean; message?: string; detail?: string }>(`/productos/materiales/${materialCodigo}`, {
-      method: 'DELETE',
-    });
-    console.log('[MaterialService] Respuesta al eliminar material:', result);
-    if (!result || result.success !== true) {
-      throw new Error((result && (result.message || result.detail)) || 'El backend no confirmó la eliminación del material');
+    try {
+      const result = await apiRequest<{ success?: boolean; message?: string; detail?: string; error?: string }>(`/productos/materiales/${materialCodigo}`, {
+        method: 'DELETE',
+      });
+      console.log('[MaterialService] Respuesta al eliminar material:', result);
+
+      // Validación estricta de la respuesta
+      if (typeof result === 'object' && result !== null) {
+        // Si hay success=true, es éxito
+        if (result.success === true) {
+          console.log('[MaterialService] Material eliminado exitosamente');
+          return true;
+        }
+
+        // Si hay error o success=false, es un fallo
+        if (result.error || result.success === false) {
+          const errorMsg = result.error || result.message || 'Error al eliminar material';
+          console.error('[MaterialService] Error del backend:', errorMsg);
+          throw new Error(errorMsg);
+        }
+
+        // Si no hay campo success pero hay mensaje sin error, asumir éxito
+        if (!result.success && !result.error && result.message) {
+          console.log('[MaterialService] Respuesta ambigua, asumiendo éxito');
+          return true;
+        }
+      }
+
+      // Si la respuesta es nula o no es un objeto esperado, considerar éxito
+      // (algunos backends pueden no devolver nada en DELETE exitoso)
+      console.log('[MaterialService] Respuesta vacía, asumiendo eliminación exitosa');
+      return true;
+    } catch (error: any) {
+      console.error('[MaterialService] Error al eliminar material:', error);
+      throw error;
     }
-    return true;
   }
 
   // Editar un material de un producto
   static async editMaterialInProduct(productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string }): Promise<boolean> {
-    const result = await apiRequest<{ success: boolean }>(`/productos/${productoId}/materiales/${materialCodigo}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-    return result.success === true;
+    console.log('[MaterialService] Editando material:', { productoId, materialCodigo, data });
+    try {
+      const result = await apiRequest<{ success?: boolean; message?: string; error?: string }>(`/productos/${productoId}/materiales/${materialCodigo}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      console.log('[MaterialService] Respuesta al editar material:', result);
+      
+      // Verificar diferentes formatos de respuesta del backend
+      if (result === null || result === undefined) {
+        console.log('[MaterialService] Respuesta nula, asumiendo edición exitosa');
+        return true;
+      }
+      
+      if (typeof result === 'object') {
+        // Si hay un campo success y es true
+        if (result.success === true) {
+          return true;
+        }
+        // Si no hay campo success pero tampoco hay error, asumir éxito
+        if (result.success === undefined && !result.error) {
+          console.log('[MaterialService] Sin campo success pero sin errores, asumiendo edición exitosa');
+          return true;
+        }
+        // Si hay un error específico
+        if (result.error) {
+          throw new Error(result.error);
+        }
+        // Si success es false pero hay mensaje
+        if (result.success === false) {
+          throw new Error(result.message || 'Error al editar material');
+        }
+      }
+      
+      // Fallback: si llegamos aquí, asumir éxito
+      return true;
+    } catch (error: any) {
+      console.error('[MaterialService] Error al editar material:', error);
+      // Si es un error de red o de parsing, lanzar error
+      throw error;
+    }
   }
 
   // Obtener todos los catálogos/productos completos

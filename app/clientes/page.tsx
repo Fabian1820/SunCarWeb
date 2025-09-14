@@ -12,6 +12,8 @@ import { ClienteService } from "@/lib/api-services"
 import { ClientsTable } from "@/components/feats/customer-service/clients-table"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<any[]>([])
@@ -21,15 +23,12 @@ export default function ClientesPage() {
 
   const [isCreateClientDialogOpen, setIsCreateClientDialogOpen] = useState(false)
   const [clientFormLoading, setClientFormLoading] = useState(false)
-  const [clientFormError, setClientFormError] = useState<string | null>(null)
-  const [clientFormSuccess, setClientFormSuccess] = useState<string | null>(null)
+  const { toast } = useToast()
   const [showMapModalClient, setShowMapModalClient] = useState(false)
   const [clientLatLng, setClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
   const [isEditClientDialogOpen, setIsEditClientDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<any | null>(null)
   const [editClientFormLoading, setEditClientFormLoading] = useState(false)
-  const [editClientFormError, setEditClientFormError] = useState<string | null>(null)
-  const [editClientFormSuccess, setEditClientFormSuccess] = useState<string | null>(null)
   const [editClientLatLng, setEditClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<any | null>(null)
@@ -91,8 +90,6 @@ export default function ClientesPage() {
     setEditingClient(client)
     setEditClientLatLng({ lat: client.latitud || '', lng: client.longitud || '' })
     setIsEditClientDialogOpen(true)
-    setEditClientFormError(null)
-    setEditClientFormSuccess(null)
   }
 
   // Acción para eliminar cliente
@@ -111,11 +108,21 @@ export default function ClientesPage() {
       if (!res?.success) {
         throw new Error(res?.message || 'Error al eliminar el cliente')
       }
+      toast({
+        title: "Éxito",
+        description: 'Cliente eliminado correctamente',
+      });
+      setIsDeleteDialogOpen(false);
+      setClientToDelete(null);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('refreshClientsTable'))
       }
     } catch (e: any) {
-      alert(e?.message || 'No se pudo eliminar el cliente')
+      toast({
+        title: "Error",
+        description: e?.message || 'No se pudo eliminar el cliente',
+        variant: "destructive",
+      });
     } finally {
       setDeleteLoading(false)
     }
@@ -215,8 +222,6 @@ export default function ClientesPage() {
         <Dialog open={isCreateClientDialogOpen} onOpenChange={v => {
           setIsCreateClientDialogOpen(v)
           if (!v) {
-            setClientFormError(null)
-            setClientFormSuccess(null)
             setClientLatLng({ lat: '', lng: '' })
             setTimeout(() => {
               const form = document.getElementById('create-client-form') as HTMLFormElement | null
@@ -238,8 +243,6 @@ export default function ClientesPage() {
             <form id="create-client-form" className="space-y-6" onSubmit={async e => {
               e.preventDefault()
               setClientFormLoading(true)
-              setClientFormError(null)
-              setClientFormSuccess(null)
               const form = e.target as HTMLFormElement
               const nombre = (form.elements.namedItem('nombre') as HTMLInputElement).value.trim()
               const numero = (form.elements.namedItem('numero') as HTMLInputElement).value.trim()
@@ -247,7 +250,11 @@ export default function ClientesPage() {
               const latitud = clientLatLng.lat
               const longitud = clientLatLng.lng
               if (!nombre || !numero || !direccion) {
-                setClientFormError('Completa todos los campos obligatorios')
+                toast({
+                  title: "Error",
+                  description: 'Completa todos los campos obligatorios',
+                  variant: "destructive",
+                });
                 setClientFormLoading(false)
                 return
               }
@@ -256,27 +263,30 @@ export default function ClientesPage() {
                 if (!dataCliente?.success) {
                   throw new Error(dataCliente?.message || "Error al crear el cliente")
                 }
-                setClientFormSuccess(dataCliente.message || "Cliente creado correctamente")
+                toast({
+                  title: "Éxito",
+                  description: dataCliente.message || "Cliente creado correctamente",
+                });
+                setIsCreateClientDialogOpen(false)
+                setClientLatLng({ lat: '', lng: '' })
+                const form = document.getElementById('create-client-form') as HTMLFormElement | null
+                if (form) {
+                  const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement | null;
+                  if (nombreInput) nombreInput.value = '';
+                  const numeroInput = form.elements.namedItem('numero') as HTMLInputElement | null;
+                  if (numeroInput) numeroInput.value = '';
+                  const direccionInput = form.elements.namedItem('direccion') as HTMLInputElement | null;
+                  if (direccionInput) direccionInput.value = '';
+                }
                 if (typeof window !== "undefined") {
                   window.dispatchEvent(new CustomEvent("refreshClientsTable"))
                 }
-                setTimeout(() => {
-                  setIsCreateClientDialogOpen(false)
-                  setClientFormSuccess(null)
-                  setClientFormError(null)
-                  setClientLatLng({ lat: '', lng: '' })
-                  const form = document.getElementById('create-client-form') as HTMLFormElement | null
-                  if (form) {
-                    const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement | null;
-                    if (nombreInput) nombreInput.value = '';
-                    const numeroInput = form.elements.namedItem('numero') as HTMLInputElement | null;
-                    if (numeroInput) numeroInput.value = '';
-                    const direccionInput = form.elements.namedItem('direccion') as HTMLInputElement | null;
-                    if (direccionInput) direccionInput.value = '';
-                  }
-                }, 1200)
               } catch (err: any) {
-                setClientFormError(err.message || "Error al crear el cliente")
+                toast({
+                  title: "Error",
+                  description: err.message || "Error al crear el cliente",
+                  variant: "destructive",
+                });
               } finally {
                 setClientFormLoading(false)
               }
@@ -305,8 +315,6 @@ export default function ClientesPage() {
                   </div>
                 </div>
               </div>
-              {clientFormError && <div className="text-red-600 text-sm pt-2">{clientFormError}</div>}
-              {clientFormSuccess && <div className="text-green-600 text-sm pt-2">{clientFormSuccess}</div>}
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsCreateClientDialogOpen(false)} disabled={clientFormLoading}>Cancelar</Button>
                 <Button type="submit" className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={clientFormLoading}>{clientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
@@ -339,8 +347,6 @@ export default function ClientesPage() {
         <Dialog open={isEditClientDialogOpen} onOpenChange={v => {
           setIsEditClientDialogOpen(v)
           if (!v) {
-            setEditClientFormError(null)
-            setEditClientFormSuccess(null)
             setEditClientLatLng({ lat: '', lng: '' })
             setEditingClient(null)
             setTimeout(() => {
@@ -361,8 +367,6 @@ export default function ClientesPage() {
             <form id="edit-client-form" className="space-y-6" onSubmit={async e => {
               e.preventDefault()
               setEditClientFormLoading(true)
-              setEditClientFormError(null)
-              setEditClientFormSuccess(null)
               if (!editingClient) return
               const form = e.target as HTMLFormElement
               const nombre = (form.elements.namedItem('nombre') as HTMLInputElement).value.trim()
@@ -376,7 +380,11 @@ export default function ClientesPage() {
               if (latitud && latitud !== (editingClient.latitud || '')) updateBody.latitud = latitud
               if (longitud && longitud !== (editingClient.longitud || '')) updateBody.longitud = longitud
               if (Object.keys(updateBody).length === 0) {
-                setEditClientFormError('No hay cambios para guardar')
+                toast({
+                  title: "Advertencia",
+                  description: 'No hay cambios para guardar',
+                  variant: "destructive",
+                });
                 setEditClientFormLoading(false)
                 return
               }
@@ -385,19 +393,22 @@ export default function ClientesPage() {
                 if (!dataCliente?.success) {
                   throw new Error(dataCliente?.message || "Error al actualizar el cliente")
                 }
-                setEditClientFormSuccess(dataCliente.message || "Cliente actualizado correctamente")
+                toast({
+                  title: "Éxito",
+                  description: dataCliente.message || "Cliente actualizado correctamente",
+                });
+                setIsEditClientDialogOpen(false)
+                setEditClientLatLng({ lat: '', lng: '' })
+                setEditingClient(null)
                 if (typeof window !== "undefined") {
                   window.dispatchEvent(new CustomEvent("refreshClientsTable"))
                 }
-                setTimeout(() => {
-                  setIsEditClientDialogOpen(false)
-                  setEditClientFormSuccess(null)
-                  setEditClientFormError(null)
-                  setEditClientLatLng({ lat: '', lng: '' })
-                  setEditingClient(null)
-                }, 1200)
               } catch (err: any) {
-                setEditClientFormError(err.message || "Error al actualizar el cliente")
+                toast({
+                  title: "Error",
+                  description: err.message || "Error al actualizar el cliente",
+                  variant: "destructive",
+                });
               } finally {
                 setEditClientFormLoading(false)
               }
@@ -426,8 +437,6 @@ export default function ClientesPage() {
                   </div>
                 </div>
               </div>
-              {editClientFormError && <div className="text-red-600 text-sm pt-2">{editClientFormError}</div>}
-              {editClientFormSuccess && <div className="text-green-600 text-sm pt-2">{editClientFormSuccess}</div>}
               <div className="flex justify-end gap-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsEditClientDialogOpen(false)} disabled={editClientFormLoading}>Cancelar</Button>
                 <Button type="submit" className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={editClientFormLoading}>{editClientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
@@ -468,6 +477,7 @@ export default function ClientesPage() {
           isLoading={deleteLoading}
         />
       </main>
+      <Toaster />
     </div>
   )
 } 

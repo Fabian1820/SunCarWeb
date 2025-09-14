@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import type { Material, MaterialFormData } from "@/lib/material-types"
 import { useMaterials } from "@/hooks/use-materials"
+import { useToast } from "@/hooks/use-toast"
 
 interface MaterialFormProps {
   initialData?: Material
@@ -32,6 +33,7 @@ export function MaterialForm({
   isEditing = false,
 }: MaterialFormProps) {
   const { createCategory, addMaterialToProduct, createProduct, materials, categories, catalogs, refetch } = useMaterials()
+  const { toast } = useToast()
   const [formData, setFormData] = useState<MaterialFormData>({
     codigo: initialData?.codigo.toString() || "",
     categoria: initialData?.categoria || "",
@@ -82,15 +84,20 @@ export function MaterialForm({
     try {
       if (isEditing && onSubmit) {
         // Edición: delegar al padre
-        await onSubmit({
-          ...formData,
-          codigo: Number(formData.codigo),
-          categoria: formData.categoria,
-          descripcion: formData.descripcion,
-          um: formData.um
-        })
-        setSuccess("Material actualizado correctamente.")
-        if (onClose) onClose();
+        try {
+          await onSubmit({
+            ...formData,
+            codigo: Number(formData.codigo),
+            categoria: formData.categoria,
+            descripcion: formData.descripcion,
+            um: formData.um
+          })
+          // Si llega aquí, la edición fue exitosa
+          if (onClose) onClose();
+        } catch (editError: any) {
+          // El padre ya mostró el toast de error, solo manejar el estado local
+          throw editError;
+        }
       } else {
         // Alta normal
         // Buscar si la categoría ya existe en los catálogos
@@ -98,9 +105,9 @@ export function MaterialForm({
         if (!producto) {
           // Crear la categoría (producto vacío)
           await createCategory(formData.categoria)
-          await refetch() // Refresca los datos para obtener el nuevo producto
-          // Buscar el producto recién creado
-          producto = catalogs.find(c => c.categoria === formData.categoria)
+          // Buscar en los catálogos actualizados (sin refetch completo)
+          const updatedCatalogs = await (await import('@/lib/api-services')).MaterialService.getAllCatalogs();
+          producto = updatedCatalogs.find(c => c.categoria === formData.categoria)
           if (!producto) {
             setError("No se pudo encontrar la categoría recién creada. Intenta nuevamente.")
             setIsSubmitting(false)
@@ -113,12 +120,24 @@ export function MaterialForm({
           descripcion: formData.descripcion,
           um: formData.um
         })
-        setSuccess("Material agregado correctamente a la categoría.")
+        toast({
+          title: "Éxito",
+          description: "Material agregado correctamente a la categoría",
+        });
         setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
         if (onClose) onClose();
       }
     } catch (err: any) {
-      setError(err.message || (isEditing ? "Error al actualizar el material" : "Error al guardar el material"))
+      const errorMessage = err.message || (isEditing ? "Error al actualizar el material" : "Error al guardar el material");
+      setError(errorMessage);
+      // Solo mostrar toast si no es edición (el padre ya maneja los toasts para edición)
+      if (!isEditing) {
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -129,7 +148,7 @@ export function MaterialForm({
       setIsCreatingCategory(true)
       try {
         await createCategory(newCategory.trim())
-        await refetch()
+        // Actualizar solo el estado local sin refetch completo
         setLocalCategories([...localCategories, newCategory.trim()])
         setFormData({ ...formData, categoria: newCategory.trim() })
         setNewCategory("")
@@ -295,7 +314,7 @@ export function MaterialForm({
             <span>{error}</span>
           </div>
         )}
-        {success && (
+        {success && !isEditing && (
           <div className="flex items-center text-green-600 mt-2">
             <CheckCircle2 className="h-4 w-4 mr-2" />
             <span>{success}</span>

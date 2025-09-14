@@ -64,21 +64,49 @@ export function useMaterials(): UseMaterialsReturn {
   }
 
   const addMaterialToProduct = async (productoId: string, material: { codigo: string, descripcion: string, um: string }) => {
-    const ok = await MaterialService.addMaterialToProduct(productoId, material)
-    await fetchData()
-    return ok
+    console.log('[useMaterials] Adding material:', { productoId, material });
+
+    try {
+      const ok = await MaterialService.addMaterialToProduct(productoId, material)
+      console.log('[useMaterials] Add result:', ok);
+      if (!ok) {
+        throw new Error('No se pudo agregar el material');
+      }
+      // No hacer fetchData aquí, será responsabilidad del componente padre
+      return true;
+    } catch (error) {
+      console.error('[useMaterials] Error adding material:', error);
+      throw error;
+    }
   }
 
   const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string }) => {
-    const ok = await MaterialService.editMaterialInProduct(productoId, materialCodigo, data)
-    await fetchData()
-    return ok
+    try {
+      const ok = await MaterialService.editMaterialInProduct(productoId, materialCodigo, data)
+      console.log('[useMaterials] Edit result:', ok);
+      if (!ok) {
+        throw new Error('Error al actualizar el material');
+      }
+      // No hacer actualización optimista, será responsabilidad del componente padre
+      return true;
+    } catch (error) {
+      console.error('[useMaterials] Error editing material:', error);
+      throw error;
+    }
   }
 
   const deleteMaterialByCodigo = async (materialCodigo: string) => {
-    const ok = await MaterialService.deleteMaterialByCodigo(materialCodigo)
-    await fetchData()
-    return ok
+    try {
+      const ok = await MaterialService.deleteMaterialByCodigo(materialCodigo)
+      if (!ok) {
+        throw new Error('Error al eliminar el material');
+      }
+      // No hacer actualización optimista, será responsabilidad del componente padre
+      return true;
+    } catch (error) {
+      console.error('[useMaterials] Error deleting material:', error);
+      throw error;
+    }
   }
 
   return {

@@ -17,6 +17,8 @@ import { ConvertirJefeForm } from '@/components/feats/brigade/ConvertirJefeForm'
 import { convertBrigadaToFrontend } from "@/lib/utils/brigada-converters"
 import { useBrigadas } from "@/hooks/use-brigadas"
 import { PageLoader } from "@/components/shared/atom/page-loader"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function TrabajadoresPage() {
   const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
@@ -28,7 +30,7 @@ export default function TrabajadoresPage() {
   const [isConvertJefeDialogOpen, setIsConvertJefeDialogOpen] = useState(false)
   const [selectedTrabajador, setSelectedTrabajador] = useState<any>(null)
   const [loadingAction, setLoadingAction] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const { toast } = useToast()
 
   // Filtro de trabajadores
   const [workerSearch, setWorkerSearch] = useState('');
@@ -52,14 +54,17 @@ export default function TrabajadoresPage() {
 
   const handleAddWorker = async (data: { ci: string; name: string; password?: string; brigadeId?: string; integrantes?: string[]; mode: 'trabajador_asignar' | 'jefe_brigada' | 'asignar_brigada' | 'jefe' | 'trabajador' }) => {
     setLoadingAction(true);
-    setFeedback(null);
     try {
       if (data.mode === 'trabajador_asignar' && data.brigadeId) {
         // Crear trabajador y asignar a brigada
         try {
           await TrabajadorService.crearTrabajador(data.ci, data.name);
         } catch (e: any) {
-          setFeedback('Error al crear trabajador: ' + (e.message || 'Error desconocido'));
+          toast({
+            title: "Error",
+            description: 'Error al crear trabajador: ' + (e.message || 'Error desconocido'),
+            variant: "destructive",
+          });
           setIsAddWorkerDialogOpen(false);
           setLoadingAction(false);
           await Promise.all([refetch(), loadBrigadas()]);
@@ -67,9 +72,16 @@ export default function TrabajadoresPage() {
         }
         try {
           await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name);
-          setFeedback('Trabajador creado y asignado a brigada correctamente');
+          toast({
+            title: "Éxito",
+            description: 'Trabajador creado y asignado a brigada correctamente',
+          });
         } catch (e: any) {
-          setFeedback('Trabajador creado pero error al asignar a brigada: ' + (e.message || 'Error desconocido'));
+          toast({
+            title: "Advertencia",
+            description: 'Trabajador creado pero error al asignar a brigada: ' + (e.message || 'Error desconocido'),
+            variant: "destructive",
+          });
         }
         setIsAddWorkerDialogOpen(false);
         await Promise.all([refetch(), loadBrigadas()]);
@@ -78,31 +90,51 @@ export default function TrabajadoresPage() {
         // Crear jefe y brigada con integrantes
         const integrantesArr = data.integrantes.map(ci => ({ CI: ci }));
         await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr);
-        setFeedback('Jefe y brigada creada correctamente');
+        toast({
+          title: "Éxito",
+          description: 'Jefe y brigada creada correctamente',
+        });
         setIsAddWorkerDialogOpen(false);
         // Refrescar tanto trabajadores como brigadas
         await Promise.all([refetch(), loadBrigadas()]);
         return; // Salir para evitar el refetch() general
       } else if (data.mode === 'asignar_brigada' && data.password && data.brigadeId) {
         await TrabajadorService.crearTrabajadorYAsignarBrigada(data.ci, data.name, data.password, data.brigadeId);
-        setFeedback('Trabajador jefe creado y asignado a brigada correctamente');
+        toast({
+          title: "Éxito",
+          description: 'Trabajador jefe creado y asignado a brigada correctamente',
+        });
         setIsAddWorkerDialogOpen(false);
       } else if (data.mode === 'jefe' && data.password) {
         await TrabajadorService.crearTrabajador(data.ci, data.name, data.password);
-        setFeedback('Jefe de brigada creado correctamente');
+        toast({
+          title: "Éxito",
+          description: 'Jefe de brigada creado correctamente',
+        });
         setIsAddWorkerDialogOpen(false);
       } else if (data.mode === 'trabajador') {
         await TrabajadorService.crearTrabajador(data.ci, data.name);
-        setFeedback('Trabajador creado correctamente');
+        toast({
+          title: "Éxito",
+          description: 'Trabajador creado correctamente',
+        });
         setIsAddWorkerDialogOpen(false);
       } else {
-        setFeedback('Datos inválidos');
+        toast({
+          title: "Error",
+          description: 'Datos inválidos',
+          variant: "destructive",
+        });
         setLoadingAction(false);
         return;
       }
       refetch();
     } catch (e: any) {
-      setFeedback(`Error al crear trabajador: ${e.message || 'Error desconocido'}`);
+      toast({
+        title: "Error",
+        description: `Error al crear trabajador: ${e.message || 'Error desconocido'}`,
+        variant: "destructive",
+      });
     } finally {
       setLoadingAction(false);
     }
@@ -111,13 +143,19 @@ export default function TrabajadoresPage() {
   // Handler para editar trabajador
   const handleEditWorker = async (ci: string, nombre: string, nuevoCi?: string) => {
     setLoadingAction(true);
-    setFeedback(null);
     try {
       await TrabajadorService.actualizarTrabajador(ci, nombre, nuevoCi);
-      setFeedback('Trabajador actualizado correctamente');
+      toast({
+        title: "Éxito",
+        description: 'Trabajador actualizado correctamente',
+      });
       await Promise.all([refetch(), loadBrigadas()]);
     } catch (e: any) {
-      setFeedback('Error al actualizar trabajador: ' + (e.message || 'Error desconocido'));
+      toast({
+        title: "Error",
+        description: 'Error al actualizar trabajador: ' + (e.message || 'Error desconocido'),
+        variant: "destructive",
+      });
     } finally {
       setLoadingAction(false);
     }
@@ -126,7 +164,6 @@ export default function TrabajadoresPage() {
   // Handler para asignar brigada a trabajador existente
   const handleAsignarBrigada = async (data: { brigadaId: string }) => {
     setLoadingAction(true)
-    setFeedback(null)
     try {
       const result = await TrabajadorService.asignarTrabajadorABrigada(
         data.brigadaId,
@@ -134,15 +171,26 @@ export default function TrabajadoresPage() {
         selectedTrabajador.nombre
       );
       if (result === true) {
-        setFeedback('Brigada asignada correctamente');
+        toast({
+          title: "Éxito",
+          description: 'Brigada asignada correctamente',
+        });
         setIsAssignBrigadeDialogOpen(false);
         await Promise.all([refetch(), loadBrigadas()]);
       } else {
-        setFeedback('Error al asignar brigada: respuesta inesperada del servidor');
+        toast({
+          title: "Error",
+          description: 'Error al asignar brigada: respuesta inesperada del servidor',
+          variant: "destructive",
+        });
         console.error('Respuesta inesperada al asignar trabajador a brigada:', result);
       }
     } catch (e: any) {
-      setFeedback(e.message || 'Error al asignar brigada');
+      toast({
+        title: "Error",
+        description: e.message || 'Error al asignar brigada',
+        variant: "destructive",
+      });
       console.error('Error al asignar trabajador a brigada:', e);
     } finally {
       setLoadingAction(false);
@@ -152,15 +200,21 @@ export default function TrabajadoresPage() {
   // Handler para convertir trabajador a jefe de brigada
   const handleConvertirJefe = async (data: { contrasena: string, integrantes: string[] }) => {
     setLoadingAction(true)
-    setFeedback(null)
     try {
       const integrantesArr = data.integrantes.map(ci => ({ CI: ci }))
       await TrabajadorService.convertirTrabajadorAJefe(selectedTrabajador.CI, data.contrasena, integrantesArr)
-      setFeedback('Trabajador convertido en jefe de brigada correctamente')
+      toast({
+        title: "Éxito",
+        description: 'Trabajador convertido en jefe de brigada correctamente',
+      });
       setIsConvertJefeDialogOpen(false)
       await Promise.all([refetch(), loadBrigadas()]);
     } catch (e: any) {
-      setFeedback(e.message || 'Error al convertir trabajador')
+      toast({
+        title: "Error",
+        description: e.message || 'Error al convertir trabajador',
+        variant: "destructive",
+      });
     } finally {
       setLoadingAction(false)
     }
@@ -221,19 +275,6 @@ export default function TrabajadoresPage() {
       </header>
 
       <main className="pt-32 pb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Feedback Alert */}
-        {feedback && (
-          <Card className="mb-6 border-green-200 bg-green-50">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-green-800">{feedback}</p>
-                <Button variant="ghost" size="sm" onClick={() => setFeedback(null)} className="text-green-600">
-                  ✕
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Search */}
         <Card className="mb-8 border-l-4 border-l-blue-600">
@@ -293,7 +334,22 @@ export default function TrabajadoresPage() {
               onAssignBrigada={trabajador => { setSelectedTrabajador(trabajador); setIsAssignBrigadeDialogOpen(true); }}
               onConvertJefe={trabajador => { setSelectedTrabajador(trabajador); setIsConvertJefeDialogOpen(true); }}
               onEdit={async (trabajador) => { await handleEditWorker(trabajador.CI, trabajador.nombre); }}
-              onDelete={async (trabajador) => { await TrabajadorService.eliminarTrabajador(trabajador.CI); setFeedback('Trabajador eliminado correctamente'); await Promise.all([refetch(), loadBrigadas()]); }}
+              onDelete={async (trabajador) => { 
+                try {
+                  await TrabajadorService.eliminarTrabajador(trabajador.CI); 
+                  toast({
+                    title: "Éxito",
+                    description: 'Trabajador eliminado correctamente',
+                  });
+                  await Promise.all([refetch(), loadBrigadas()]); 
+                } catch (e: any) {
+                  toast({
+                    title: "Error",
+                    description: 'Error al eliminar trabajador: ' + (e.message || 'Error desconocido'),
+                    variant: "destructive",
+                  });
+                }
+              }}
               onRefresh={async () => { await Promise.all([refetch(), loadBrigadas()]); }}
             />
           </CardContent>
@@ -314,7 +370,6 @@ export default function TrabajadoresPage() {
                 trabajador={selectedTrabajador}
               />
             )}
-            {feedback && <div className="text-green-600 mt-2">{feedback}</div>}
           </DialogContent>
         </Dialog>
 
@@ -333,11 +388,11 @@ export default function TrabajadoresPage() {
                 trabajadores={trabajadores}
               />
             )}
-            {feedback && <div className="text-green-600 mt-2">{feedback}</div>}
           </DialogContent>
         </Dialog>
         
       </main>
+      <Toaster />
     </div>
   )
 }

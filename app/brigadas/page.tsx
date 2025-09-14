@@ -16,6 +16,8 @@ import type { Brigade, BrigadeFormData } from "@/lib/brigade-types"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { BrigadaService } from '@/lib/api-services'
 import { PageLoader } from "@/components/shared/atom/page-loader"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function BrigadasPage() {
   const {
@@ -46,22 +48,28 @@ export default function BrigadasPage() {
   const [isEditBrigadeDialogOpen, setIsEditBrigadeDialogOpen] = useState(false)
   const [editingBrigade, setEditingBrigade] = useState<Brigade | null>(null)
   const [loadingAction, setLoadingAction] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
+  const { toast } = useToast()
 
   const handleCreateBrigada = async (data: BrigadeFormData) => {
     console.log('handleCreateBrigada called with data:', data);
     setLoadingAction(true);
-    setFeedback(null);
     try {
       const brigadaRequest = convertBrigadeFormDataToRequest(data);
       console.log('Converted brigada request:', brigadaRequest);
       await createBrigada(brigadaRequest);
-      setFeedback('Brigada creada correctamente');
+      toast({
+        title: "Éxito",
+        description: 'Brigada creada correctamente',
+      });
       setIsAddBrigadeDialogOpen(false);
       refetch();
     } catch (e) {
       console.error('Error in handleCreateBrigada:', e);
-      setFeedback('Error al crear brigada: ' + (e instanceof Error ? e.message : 'Error desconocido'));
+      toast({
+        title: "Error",
+        description: 'Error al crear brigada: ' + (e instanceof Error ? e.message : 'Error desconocido'),
+        variant: "destructive",
+      });
     } finally {
       setLoadingAction(false);
     }
@@ -81,13 +89,19 @@ export default function BrigadasPage() {
   // Handler para eliminar brigada
   const handleDeleteBrigada = async (id: string) => {
     setLoadingAction(true);
-    setFeedback(null);
     try {
       await BrigadaService.eliminarBrigada(id);
-      setFeedback('Brigada eliminada correctamente');
+      toast({
+        title: "Éxito",
+        description: 'Brigada eliminada correctamente',
+      });
       await Promise.all([refetch(), loadBrigadas()]);
     } catch (e: any) {
-      setFeedback('Error al eliminar brigada: ' + (e.message || 'Error desconocido'));
+      toast({
+        title: "Error",
+        description: 'Error al eliminar brigada: ' + (e.message || 'Error desconocido'),
+        variant: "destructive",
+      });
     } finally {
       setLoadingAction(false);
     }
@@ -97,13 +111,19 @@ export default function BrigadasPage() {
   // Handler para eliminar trabajador de brigada
   const handleRemoveWorker = async (brigadeId: string, workerId: string) => {
     setLoadingAction(true);
-    setFeedback(null);
     try {
       await BrigadaService.eliminarTrabajadorDeBrigada(brigadeId, workerId);
-      setFeedback('Trabajador removido de la brigada correctamente');
+      toast({
+        title: "Éxito",
+        description: 'Trabajador removido de la brigada correctamente',
+      });
       await Promise.all([refetch(), loadBrigadas()]);
     } catch (e: any) {
-      setFeedback('Error al remover trabajador de brigada: ' + (e.message || 'Error desconocido'));
+      toast({
+        title: "Error",
+        description: 'Error al remover trabajador de brigada: ' + (e.message || 'Error desconocido'),
+        variant: "destructive",
+      });
     } finally {
       setLoadingAction(false);
     }
@@ -271,6 +291,7 @@ export default function BrigadasPage() {
         </Dialog>
 
       </main>
+      <Toaster />
     </div>
   )
 }

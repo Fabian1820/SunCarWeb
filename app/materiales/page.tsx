@@ -14,9 +14,12 @@ import { MaterialForm } from "@/components/feats/materials/material-form"
 import { useMaterials } from "@/hooks/use-materials"
 import type { Material } from "@/lib/material-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function MaterialesPage() {
   const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct } = useMaterials()
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -26,9 +29,10 @@ export default function MaterialesPage() {
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  const addMaterial = (material: Omit<Material, "id">) => {
-    // Función deshabilitada en MVP
-    console.log('Agregar material (deshabilitado en MVP):', material)
+  const addMaterial = async (material: Omit<Material, "id">) => {
+    // Esta función es llamada desde MaterialForm que ya manejó la creación
+    // Solo necesitamos refrescar la lista
+    await refetch();
     setIsAddDialogOpen(false)
   }
 
@@ -40,23 +44,41 @@ export default function MaterialesPage() {
     const um = (updatedMaterial as any).um
     // Buscar producto y material original
     const producto = catalogs.find(c => c.categoria === categoria)
-    if (!producto) return window.alert('No se encontró el producto para este material')
-    const originalMaterial = materials.find(m => m.codigo.toString() === codigo.toString() && m.categoria === categoria)
+    if (!producto) {
+      toast({
+        title: "Error",
+        description: 'No se encontró el producto para este material',
+        variant: "destructive",
+      });
+      return;
+    }
     const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
     try {
       await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um })
-      window.alert('Material actualizado exitosamente')
+      await refetch(); // Refrescar la lista después de actualizar
+      toast({
+        title: "Éxito",
+        description: 'Material actualizado exitosamente',
+      });
       setIsEditDialogOpen(false)
       setEditingMaterial(null)
     } catch (err: any) {
-      window.alert(err.message || 'Error al actualizar material')
+      toast({
+        title: "Error",
+        description: err.message || 'Error al actualizar material',
+        variant: "destructive",
+      });
     }
   }
 
   const deleteMaterial = async (codigo: string) => {
     const material = materials.find(m => String(m.codigo) === codigo)
     if (!material || !material.codigo) {
-      window.alert('No se encontró el material o el código es inválido.')
+      toast({
+        title: "Error",
+        description: 'No se encontró el material o el código es inválido.',
+        variant: "destructive",
+      });
       return
     }
     setMaterialToDelete(material)
@@ -69,14 +91,20 @@ export default function MaterialesPage() {
     
     setDeleteLoading(true)
     try {
-      const ok = await deleteMaterialByCodigo(String(materialToDelete.codigo))
-      if (ok) {
-        window.alert('Material eliminado exitosamente')
-      } else {
-        throw new Error('No se pudo eliminar el material')
-      }
+      await deleteMaterialByCodigo(String(materialToDelete.codigo))
+      await refetch(); // Refrescar la lista después de eliminar
+      toast({
+        title: "Éxito",
+        description: 'Material eliminado exitosamente',
+      });
+      setIsDeleteDialogOpen(false);
+      setMaterialToDelete(null);
     } catch (err: any) {
-      window.alert('Error al eliminar material: ' + (err.message || err))
+      toast({
+        title: "Error",
+        description: 'Error al eliminar material: ' + (err.message || err),
+        variant: "destructive",
+      });
       console.error('[UI] Error al eliminar material:', err)
     } finally {
       setDeleteLoading(false)
@@ -100,7 +128,6 @@ export default function MaterialesPage() {
   const units = Array.from(new Set(materials.map(m => m.um))).sort()
 
   const handleCloseModal = () => {
-    refetch();
     setIsAddDialogOpen(false);
   };
 
@@ -264,6 +291,7 @@ export default function MaterialesPage() {
           isLoading={deleteLoading}
         />
       </main>
+      <Toaster />
     </div>
   )
 }
