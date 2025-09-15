@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function MaterialesPage() {
-  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct } = useMaterials()
+  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct, createCategory, addMaterialToProduct } = useMaterials()
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -30,10 +30,38 @@ export default function MaterialesPage() {
   const [deleteLoading, setDeleteLoading] = useState(false)
 
   const addMaterial = async (material: Omit<Material, "id">) => {
-    // Esta función es llamada desde MaterialForm que ya manejó la creación
-    // Solo necesitamos refrescar la lista
-    await refetch();
-    setIsAddDialogOpen(false)
+    const categoria = (material as any).categoria
+    const codigo = (material as any).codigo
+    const descripcion = (material as any).descripcion
+    const um = (material as any).um
+
+    try {
+      // Encontrar o crear el producto por categoría
+      let producto = catalogs.find(c => c.categoria === categoria)
+      let productoId: string | undefined = producto?.id as any
+      if (!productoId) {
+        const newId = await createCategory(categoria)
+        productoId = newId
+      }
+      if (!productoId) {
+        throw new Error('No se pudo determinar el producto para la categoría')
+      }
+
+      await addMaterialToProduct(productoId as any, { codigo: String(codigo), descripcion, um }, categoria)
+
+      toast({
+        title: "Éxito",
+        description: 'Material creado exitosamente',
+      })
+
+      setIsAddDialogOpen(false)
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err?.message || 'Error al crear material',
+        variant: "destructive",
+      })
+    }
   }
 
   const updateMaterial = async (updatedMaterial: Material | Omit<Material, "id">) => {
@@ -54,8 +82,7 @@ export default function MaterialesPage() {
     }
     const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
     try {
-      await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um })
-      await refetch(); // Refrescar la lista después de actualizar
+      await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um }, categoria)
       toast({
         title: "Éxito",
         description: 'Material actualizado exitosamente',
@@ -91,8 +118,7 @@ export default function MaterialesPage() {
     
     setDeleteLoading(true)
     try {
-      await deleteMaterialByCodigo(String(materialToDelete.codigo))
-      await refetch(); // Refrescar la lista después de eliminar
+      await deleteMaterialByCodigo(String(materialToDelete.codigo), materialToDelete.categoria)
       toast({
         title: "Éxito",
         description: 'Material eliminado exitosamente',
@@ -123,6 +149,9 @@ export default function MaterialesPage() {
     const matchesCategoryFilter = selectedCategory === "all" || material.categoria === selectedCategory
     return matchesSearch && matchesCategoryFilter
   })
+
+  // Debug: log cuando cambie el estado de materials
+  console.log('[MaterialesPage] Materials count:', materials.length, 'Filtered count:', filteredMaterials.length)
 
   // Obtener unidades únicas de los materiales
   const units = Array.from(new Set(materials.map(m => m.um))).sort()

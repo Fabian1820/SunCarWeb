@@ -44,7 +44,6 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900">{material.codigo}</p>
-                    <p className="text-sm text-gray-600">ID: {material.id}</p>
                   </div>
                 </div>
               </td>

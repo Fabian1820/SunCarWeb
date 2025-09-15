@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import type { Material, MaterialFormData } from "@/lib/material-types"
-import { useMaterials } from "@/hooks/use-materials"
 import { useToast } from "@/hooks/use-toast"
 
 interface MaterialFormProps {
@@ -32,7 +31,6 @@ export function MaterialForm({
   existingUnits,
   isEditing = false,
 }: MaterialFormProps) {
-  const { createCategory, addMaterialToProduct, createProduct, materials, categories, catalogs, refetch } = useMaterials()
   const { toast } = useToast()
   const [formData, setFormData] = useState<MaterialFormData>({
     codigo: initialData?.codigo.toString() || "",
@@ -82,49 +80,16 @@ export function MaterialForm({
     }
     setIsSubmitting(true)
     try {
-      if (isEditing && onSubmit) {
-        // Edición: delegar al padre
-        try {
-          await onSubmit({
-            ...formData,
-            codigo: Number(formData.codigo),
-            categoria: formData.categoria,
-            descripcion: formData.descripcion,
-            um: formData.um
-          })
-          // Si llega aquí, la edición fue exitosa
-          if (onClose) onClose();
-        } catch (editError: any) {
-          // El padre ya mostró el toast de error, solo manejar el estado local
-          throw editError;
-        }
-      } else {
-        // Alta normal
-        // Buscar si la categoría ya existe en los catálogos
-        let producto = catalogs.find(c => c.categoria === formData.categoria)
-        if (!producto) {
-          // Crear la categoría (producto vacío)
-          await createCategory(formData.categoria)
-          // Buscar en los catálogos actualizados (sin refetch completo)
-          const updatedCatalogs = await (await import('@/lib/api-services')).MaterialService.getAllCatalogs();
-          producto = updatedCatalogs.find(c => c.categoria === formData.categoria)
-          if (!producto) {
-            setError("No se pudo encontrar la categoría recién creada. Intenta nuevamente.")
-            setIsSubmitting(false)
-            return
-          }
-        }
-        // Agregar el material a la categoría existente o recién creada
-        await addMaterialToProduct(producto.id, {
-          codigo: formData.codigo,
+      if (onSubmit) {
+        await onSubmit({
+          codigo: Number(formData.codigo),
+          categoria: formData.categoria,
           descripcion: formData.descripcion,
           um: formData.um
-        })
-        toast({
-          title: "Éxito",
-          description: "Material agregado correctamente a la categoría",
-        });
-        setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
+        } as any)
+        if (!isEditing) {
+          setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
+        }
         if (onClose) onClose();
       }
     } catch (err: any) {
@@ -147,8 +112,7 @@ export function MaterialForm({
     if (newCategory.trim() && !localCategories.includes(newCategory.trim())) {
       setIsCreatingCategory(true)
       try {
-        await createCategory(newCategory.trim())
-        // Actualizar solo el estado local sin refetch completo
+        // Solo actualizar localmente; la creación real se maneja en el padre al guardar
         setLocalCategories([...localCategories, newCategory.trim()])
         setFormData({ ...formData, categoria: newCategory.trim() })
         setNewCategory("")

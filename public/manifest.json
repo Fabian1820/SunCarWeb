@@ -1,0 +1,96 @@
+{
+  "name": "SUNCAR Administración",
+  "short_name": "SUNCAR Admin",
+  "description": "Sistema administrativo de SUNCAR para gestión de brigadas, materiales, trabajadores y reportes",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f59e0b",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "lang": "es",
+  "dir": "ltr",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Brigadas",
+      "short_name": "Brigadas",
+      "description": "Gestión de brigadas de trabajo",
+      "url": "/brigadas",
+      "icons": [{ "src": "/icons/brigadas-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Materiales",
+      "short_name": "Materiales",
+      "description": "Catálogo de materiales",
+      "url": "/materiales",
+      "icons": [{ "src": "/icons/materiales-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Reportes",
+      "short_name": "Reportes",
+      "description": "Formularios y reportes",
+      "url": "/reportes",
+      "icons": [{ "src": "/icons/reportes-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Trabajadores",
+      "short_name": "Personal",
+      "description": "Gestión de trabajadores",
+      "url": "/trabajadores",
+      "icons": [{ "src": "/icons/trabajadores-96x96.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
