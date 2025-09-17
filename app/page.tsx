@@ -193,6 +193,15 @@ export default function Dashboard() {
                                 </CardContent>
                             </Card>
                         </Link>
+                        <Link href="/ofertas">
+                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full relative hover:-translate-y-2">
+                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
+                                    <MessageCircle className="h-10 w-10 text-orange-600 mx-auto mb-3" />
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Ofertas</h3>
+                                    <p className="text-sm text-gray-600">Gestión de ofertas y promociones.</p>
+                                </CardContent>
+                            </Card>
+                        </Link>
 
                         {/*<Link href="/formulario-h1114">*/}
                         {/*    <Card*/}
