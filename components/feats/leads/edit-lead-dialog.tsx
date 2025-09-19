@@ -114,10 +114,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
       newErrors.estado = 'El estado es obligatorio'
     }
 
-    // Validar formato de teléfono (básico)
-    if (formData.telefono && !/^[\+]?[0-9\s\-\(\)]{7,}$/.test(formData.telefono)) {
-      newErrors.telefono = 'El formato del teléfono no es válido'
-    }
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
