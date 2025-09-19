@@ -3,7 +3,7 @@ import { BackendCatalogoProductos, BackendCategoria, transformBackendToFrontend,
 import type { Material } from './material-types'
 import type { Trabajador as ApiTrabajador, Brigada as ApiBrigada, MensajeCliente, RespuestaMensaje, Lead, LeadResponse, LeadCreateData, LeadUpdateData } from './api-types'
 // Importar tipos necesarios para ofertas
-import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest } from './api-types';
+import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest } from './api-types';
 // Servicio para materiales
 export class MaterialService {
   // Obtener todos los materiales (todas las categorías con sus materiales)
@@ -612,18 +612,63 @@ export class OfertaService {
 
   // Crear nueva oferta
   static async createOferta(ofertaData: CreateOfertaRequest): Promise<string> {
+    const formData = new FormData();
+
+    // Campos requeridos
+    formData.append('descripcion', ofertaData.descripcion);
+    formData.append('precio', ofertaData.precio.toString());
+
+    // Campos opcionales
+    if (ofertaData.precio_cliente !== undefined && ofertaData.precio_cliente !== null) {
+      formData.append('precio_cliente', ofertaData.precio_cliente.toString());
+    }
+
+    if (ofertaData.imagen) {
+      formData.append('imagen', ofertaData.imagen);
+    }
+
+    // Solo garantías - elementos se gestionan por separado
+    formData.append('garantias', JSON.stringify(ofertaData.garantias || []));
+
     const response = await apiRequest<{ success: boolean; message: string; oferta_id: string }>('/ofertas/', {
       method: 'POST',
-      body: JSON.stringify(ofertaData),
+      body: formData,
+      // No establecer Content-Type para que el navegador lo haga automáticamente con boundary
+      // Los headers de autorización se manejan automáticamente en apiRequest
     });
     return response.oferta_id || 'success';
   }
 
   // Actualizar oferta existente
   static async updateOferta(ofertaId: string, ofertaData: UpdateOfertaRequest): Promise<boolean> {
+    const formData = new FormData();
+
+    // Solo agregar campos que están presentes
+    if (ofertaData.descripcion !== undefined) {
+      formData.append('descripcion', ofertaData.descripcion);
+    }
+
+    if (ofertaData.precio !== undefined) {
+      formData.append('precio', ofertaData.precio.toString());
+    }
+
+    if (ofertaData.precio_cliente !== undefined && ofertaData.precio_cliente !== null) {
+      formData.append('precio_cliente', ofertaData.precio_cliente.toString());
+    }
+
+    if (ofertaData.imagen) {
+      formData.append('imagen', ofertaData.imagen);
+    }
+
+    if (ofertaData.garantias !== undefined) {
+      formData.append('garantias', JSON.stringify(ofertaData.garantias));
+    }
+
     const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}`, {
       method: 'PUT',
-      body: JSON.stringify(ofertaData),
+      body: formData,
+      // No establecer Content-Type para que el navegador lo haga automáticamente con boundary
+      // Los headers de autorización se manejan automáticamente en apiRequest
     });
     return response.success === true;
   }
@@ -633,6 +678,40 @@ export class OfertaService {
     const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}`, {
       method: 'DELETE',
     });
+    return response.success === true;
+  }
+
+  // Agregar elemento a oferta
+  static async addElemento(ofertaId: string, elementoData: CreateElementoRequest): Promise<boolean> {
+    const formData = new FormData();
+
+    // Campos requeridos
+    formData.append('categoria', elementoData.categoria);
+    formData.append('cantidad', elementoData.cantidad.toString());
+
+    // Campos opcionales
+    if (elementoData.descripcion) {
+      formData.append('descripcion', elementoData.descripcion);
+    }
+
+    if (elementoData.foto) {
+      formData.append('foto', elementoData.foto);
+    }
+
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}/elementos`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    return response.success === true;
+  }
+
+  // Eliminar elemento de oferta por índice
+  static async deleteElemento(ofertaId: string, elementoIndex: number): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}/elementos/${elementoIndex}`, {
+      method: 'DELETE',
+    });
+
     return response.success === true;
   }
 }

@@ -22,6 +22,17 @@ import {
   Image as ImageIcon,
   Package
 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/shared/atom/alert-dialog"
 import type { Oferta } from "@/lib/api-types"
 import { Loader } from "@/components/shared/atom/loader"
 
@@ -31,7 +42,11 @@ interface OfertasListProps {
   onCreateNew: () => void
   onViewDetails: (oferta: Oferta) => void
   onEdit: (oferta: Oferta) => void
+  onManageElements: (oferta: Oferta) => void
   onDelete: (ofertaId: string) => void
+  searchTerm?: string
+  minPrice?: number
+  maxPrice?: number
 }
 
 export default function OfertasList({
@@ -40,14 +55,27 @@ export default function OfertasList({
   onCreateNew,
   onViewDetails,
   onEdit,
-  onDelete
+  onManageElements,
+  onDelete,
+  searchTerm = "",
+  minPrice,
+  maxPrice
 }: OfertasListProps) {
-  const [searchTerm, setSearchTerm] = useState("")
+  // Filtrar ofertas por término de búsqueda avanzada y precios
+  const filteredOfertas = ofertas.filter(oferta => {
+    const matchesSearch = !searchTerm ||
+      oferta.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      oferta.garantias?.some(garantia => garantia.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      oferta.elementos?.some(elemento =>
+        elemento.descripcion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        elemento.categoria?.toLowerCase().includes(searchTerm.toLowerCase())
+      )
 
-  // Filtrar ofertas por término de búsqueda
-  const filteredOfertas = ofertas.filter(oferta =>
-    oferta.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+    const matchesMinPrice = !minPrice || oferta.precio >= minPrice
+    const matchesMaxPrice = !maxPrice || oferta.precio <= maxPrice
+
+    return matchesSearch && matchesMinPrice && matchesMaxPrice
+  })
 
   if (loading) {
     return (
@@ -61,22 +89,6 @@ export default function OfertasList({
 
   return (
     <div className="space-y-6">
-      {/* Header con búsqueda y botón crear */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-          <Input
-            placeholder="Buscar ofertas por descripción..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button onClick={onCreateNew} className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Nueva Oferta
-        </Button>
-      </div>
 
       {/* Lista de ofertas */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -118,30 +130,30 @@ export default function OfertasList({
                       </span>
                     </CardDescription>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <MoreHorizontal className="h-4 w-4" />
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50">
+                        <Trash2 className="h-4 w-4" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => onViewDetails(oferta)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ver Detalles
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onEdit(oferta)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Editar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => onDelete(oferta.id)}
-                        className="text-red-600 focus:text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>¿Eliminar oferta?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta acción no se puede deshacer. La oferta "{oferta.descripcion}" será eliminada permanentemente.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => onDelete(oferta.id)}
+                          className="bg-red-600 hover:bg-red-700"
+                        >
+                          Eliminar
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               </CardHeader>
 
@@ -168,49 +180,6 @@ export default function OfertasList({
                   </div>
                 )}
 
-                {/* Garantías */}
-                {oferta.garantias && oferta.garantias.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-gray-700 mb-2">Garantías:</p>
-                    <div className="flex flex-wrap gap-1">
-                      {oferta.garantias.slice(0, 2).map((garantia, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
-                          {garantia}
-                        </Badge>
-                      ))}
-                      {oferta.garantias.length > 2 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{oferta.garantias.length - 2} más
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Elementos */}
-                {oferta.elementos && oferta.elementos.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-sm font-medium text-gray-700 mb-2">
-                      Elementos: {oferta.elementos.length} item{oferta.elementos.length !== 1 ? 's' : ''}
-                    </p>
-                    <div className="text-xs text-gray-600">
-                      {oferta.elementos.slice(0, 2).map((elemento, index) => (
-                        <div key={index} className="flex justify-between">
-                          <span className="truncate">{elemento.descripcion || elemento.categoria}</span>
-                          {elemento.cantidad && (
-                            <span className="ml-2 text-gray-500">x{elemento.cantidad}</span>
-                          )}
-                        </div>
-                      ))}
-                      {oferta.elementos.length > 2 && (
-                        <div className="text-gray-500 italic">
-                          +{oferta.elementos.length - 2} elementos más...
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {/* Botones de acción */}
                 <div className="flex gap-2 pt-2">
                   <Button
@@ -230,6 +199,15 @@ export default function OfertasList({
                   >
                     <Edit className="h-4 w-4 mr-1" />
                     Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onManageElements(oferta)}
+                    className="flex-1"
+                  >
+                    <Package className="h-4 w-4 mr-1" />
+                    Elementos
                   </Button>
                 </div>
               </CardContent>

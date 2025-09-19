@@ -140,16 +140,25 @@ export interface RespuestaMensaje {
 
 // Tipos para el sistema de ofertas
 export interface ElementoOferta {
-  categoria?: string;
-  foto?: string;
-  descripcion?: string;
-  cantidad?: number;
+  categoria: string; // requerido
+  descripcion?: string | null; // opcional
+  cantidad: number; // requerido, mayor a 1
+  foto?: string | null; // URL de la foto almacenada, solo en respuesta
+}
+
+// Tipo para crear elementos (input)
+export interface CreateElementoRequest {
+  categoria: string; // requerido
+  descripcion?: string; // opcional
+  cantidad: number; // requerido, mayor a 1
+  foto?: File | null; // archivo de imagen opcional
 }
 
 export interface Oferta {
   id: string; // solo respuesta del backend
   descripcion: string;
   precio: number;
+  precio_cliente?: number | null; // nuevo campo opcional
   imagen?: string | null;
   garantias: string[];
   elementos: ElementoOferta[];
@@ -159,16 +168,18 @@ export interface OfertaSimplificada {
   id: string; // solo respuesta del backend
   descripcion: string;
   precio: number;
+  precio_cliente?: number | null; // nuevo campo opcional
   imagen?: string | null;
 }
 
-// Tipo para crear/actualizar ofertas (sin id)
+// Tipo para crear ofertas (sin elementos - se gestionan por separado)
 export interface CreateOfertaRequest {
   descripcion: string;
   precio: number;
-  imagen?: string | null;
-  garantias: string[];
-  elementos: ElementoOferta[];
+  precio_cliente?: number | null; // campo opcional
+  imagen?: File | null; // archivo de imagen
+  garantias: string[]; // solo garantías, elementos se agregan por separado
 }
 
+// Tipo para actualizar ofertas (sin elementos - se gestionan por separado)
 export interface UpdateOfertaRequest extends Partial<CreateOfertaRequest> {} 

@@ -41,25 +41,6 @@ export default function OfertaDetailsDialog({
               <Package className="h-5 w-5 text-orange-600" />
               Detalles de la Oferta
             </div>
-            <div className="flex gap-2">
-              {onEdit && (
-                <Button variant="outline" size="sm" onClick={() => onEdit(oferta)}>
-                  <Edit className="h-4 w-4 mr-1" />
-                  Editar
-                </Button>
-              )}
-              {onDelete && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onDelete(oferta.id)}
-                  className="text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
-                >
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Eliminar
-                </Button>
-              )}
-            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -180,25 +161,6 @@ export default function OfertaDetailsDialog({
               </CardContent>
             </Card>
           )}
-
-          {/* Información del sistema */}
-          <Card className="bg-gray-50">
-            <CardHeader>
-              <CardTitle className="text-sm text-gray-600">Información del Sistema</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium text-gray-600">ID de la Oferta:</span>
-                  <p className="text-gray-900 font-mono">{oferta.id}</p>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-600">Precio:</span>
-                  <p className="text-gray-900">${oferta.precio.toLocaleString()}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Botón cerrar */}
           <div className="flex justify-end pt-4 border-t">

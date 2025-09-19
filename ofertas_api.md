@@ -7,35 +7,45 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
 
 ### Modelos
 
-Oferta (completa)
+**OfertaElemento**
+- `categoria`: string (requerido)
+- `descripcion`?: string | null (opcional)
+- `cantidad`: number (requerido, mayor a 1)
+- `foto`?: string | null (URL de la foto almacenada, solo en respuesta)
+
+**Oferta (completa)**
 - `id`: string (solo respuesta)
 - `descripcion`: string
 - `precio`: number
+- `precio_cliente`?: number | null (opcional)
 - `imagen`?: string | null (URL)
 - `garantias`: string[]
-- `elementos`: Array<{ `categoria`?: string, `foto`?: string, `descripcion`?: string, `cantidad`?: number }>
+- `elementos`: OfertaElemento[]
 
-OfertaSimplificada
+**OfertaSimplificada**
 - `id`: string (solo respuesta)
 - `descripcion`: string
 - `precio`: number
+- `precio_cliente`?: number | null (opcional)
 - `imagen`?: string | null (URL)
 
 ### Endpoints
 
-- GET `/simplified` — Listar ofertas simplificadas
+#### Gestión de Ofertas
+
+- **GET** `/simplified` — Listar ofertas simplificadas
   - Respuesta 200:
   ```json
   {
     "success": true,
     "message": "Ofertas simplificadas obtenidas",
     "data": [
-      { "id": "64f7b2...", "descripcion": "Instalación de paneles", "precio": 15000.0, "imagen": "https://.../imagen.jpg" }
+      { "id": "64f7b2...", "descripcion": "Instalación de paneles", "precio": 15000.0, "precio_cliente": 14500.0, "imagen": "https://.../imagen.jpg" }
     ]
   }
   ```
 
-- GET `/` — Listar ofertas completas
+- **GET** `/` — Listar ofertas completas
   - Respuesta 200:
   ```json
   {
@@ -46,6 +56,7 @@ OfertaSimplificada
         "id": "68cac8637c536b55d0a7f12f",
         "descripcion": "Instalación de paneles solares residencial",
         "precio": 15000.0,
+        "precio_cliente": 14500.0,
         "imagen": "https://example.com/imagen-oferta-1.jpg",
         "garantias": ["5 años en paneles", "2 años en instalación"],
         "elementos": [
@@ -56,7 +67,7 @@ OfertaSimplificada
   }
   ```
 
-- GET `/{oferta_id}` — Obtener oferta por id
+- **GET** `/{oferta_id}` — Obtener oferta por id
   - Respuesta 200 (encontrada):
   ```json
   {"success": true, "message": "Oferta encontrada", "data": { /* Oferta */ }}
@@ -66,26 +77,45 @@ OfertaSimplificada
   {"success": false, "message": "Oferta no encontrada", "data": null}
   ```
 
-- POST `/` — Crear oferta
-  - Body:
-  ```json
-  {
-    "descripcion": "string",
-    "precio": 0,
-    "imagen": "https://..." ,
-    "garantias": ["string"],
-    "elementos": [
-      {"categoria": "string", "foto": "url", "descripcion": "string", "cantidad": 1}
-    ]
-  }
+- **POST** `/` — Crear oferta (sin elementos)
+  - Content-Type: `multipart/form-data`
+  - Form data:
+    - `descripcion`: string (requerido)
+    - `precio`: number (requerido)
+    - `precio_cliente`: number (opcional)
+    - `imagen`: file (opcional - archivo de imagen)
+    - `garantias`: string (JSON array, por defecto "[]")
+  - Ejemplo usando curl:
+  ```bash
+  curl -X POST "http://localhost:8000/api/ofertas/" \
+    -H "Authorization: Bearer <TOKEN>" \
+    -F "descripcion=Instalación de paneles" \
+    -F "precio=15000.0" \
+    -F "precio_cliente=14500.0" \
+    -F "imagen=@/path/to/image.jpg" \
+    -F "garantias=[\"5 años en paneles\", \"2 años en instalación\"]"
   ```
   - Respuesta 200:
   ```json
   {"success": true, "message": "Oferta creada", "oferta_id": "..."}
   ```
 
-- PUT `/{oferta_id}` — Actualizar oferta (parcial o total)
-  - Body: objeto parcial con cualquier campo de `Oferta` excepto `id`.
+- **PUT** `/{oferta_id}` — Actualizar oferta (sin elementos)
+  - Content-Type: `multipart/form-data`
+  - Form data (todos opcionales):
+    - `descripcion`: string
+    - `precio`: number
+    - `precio_cliente`: number
+    - `imagen`: file (archivo de imagen)
+    - `garantias`: string (JSON array)
+  - Ejemplo usando curl:
+  ```bash
+  curl -X PUT "http://localhost:8000/api/ofertas/68cac8637c536b55d0a7f12f" \
+    -H "Authorization: Bearer <TOKEN>" \
+    -F "descripcion=Nueva descripción" \
+    -F "precio_cliente=13500.0" \
+    -F "imagen=@/path/to/new-image.jpg"
+  ```
   - Respuesta 200:
   ```json
   {"success": true, "message": "Oferta actualizada"}
@@ -95,7 +125,7 @@ OfertaSimplificada
   {"success": false, "message": "Oferta no encontrada o sin cambios"}
   ```
 
-- DELETE `/{oferta_id}` — Eliminar oferta
+- **DELETE** `/{oferta_id}` — Eliminar oferta
   - Respuesta 200:
   ```json
   {"success": true, "message": "Oferta eliminada"}
@@ -105,16 +135,80 @@ OfertaSimplificada
   {"success": false, "message": "Oferta no encontrada o no eliminada"}
   ```
 
+#### Gestión de Elementos
+
+- **POST** `/{oferta_id}/elementos` — Agregar elemento a oferta
+  - Content-Type: `multipart/form-data`
+  - Form data:
+    - `categoria`: string (requerido)
+    - `cantidad`: number (requerido, mayor a 1)
+    - `descripcion`: string (opcional)
+    - `foto`: file (opcional - archivo de imagen del elemento)
+  - Ejemplo usando curl:
+  ```bash
+  curl -X POST "http://localhost:8000/api/ofertas/68cac8637c536b55d0a7f12f/elementos" \
+    -H "Authorization: Bearer <TOKEN>" \
+    -F "categoria=Panel Solar" \
+    -F "cantidad=10" \
+    -F "descripcion=Panel fotovoltaico 400W monocristalino" \
+    -F "foto=@/path/to/panel.jpg"
+  ```
+  - Respuesta 200:
+  ```json
+  {"success": true, "message": "Elemento agregado a la oferta"}
+  ```
+  - Si la oferta no existe:
+  ```json
+  {"success": false, "message": "Oferta no encontrada"}
+  ```
+
+- **DELETE** `/{oferta_id}/elementos/{elemento_index}` — Eliminar elemento de oferta
+  - `elemento_index`: índice del elemento en el array (empezando desde 0)
+  - Ejemplo usando curl:
+  ```bash
+  curl -X DELETE "http://localhost:8000/api/ofertas/68cac8637c536b55d0a7f12f/elementos/0" \
+    -H "Authorization: Bearer <TOKEN>"
+  ```
+  - Respuesta 200:
+  ```json
+  {"success": true, "message": "Elemento eliminado de la oferta"}
+  ```
+  - Si la oferta no existe o índice inválido:
+  ```json
+  {"success": false, "message": "Oferta no encontrada o índice inválido"}
+  ```
+
 ### Cabeceras
 
 Enviar en todas las llamadas:
 ```
 Authorization: Bearer <TOKEN>
 Accept: application/json
-Content-Type: application/json (en POST/PUT)
+Content-Type: multipart/form-data (en POST/PUT con archivos)
 ```
 
-### Notas
-- `precio` es number (float).
-- Los campos `imagen` y `foto` son opcionales y pueden ser `null`.
-- El `id` se devuelve como string.
+### Notas Importantes
+
+#### Workflow Recomendado
+1. **Crear oferta**: Usar `POST /` para crear la oferta básica (sin elementos)
+2. **Agregar elementos**: Usar `POST /{oferta_id}/elementos` para cada elemento individual
+3. **Modificar oferta**: Usar `PUT /{oferta_id}` para actualizar datos básicos
+4. **Gestionar elementos**: Usar `DELETE /{oferta_id}/elementos/{index}` para eliminar elementos específicos
+
+#### Validaciones
+- `cantidad` en elementos debe ser mayor a 1
+- `categoria` en elementos es campo requerido
+- Los archivos de imagen se almacenan en MinIO bucket "ofertas"
+- `precio` y `precio_cliente` son number (float)
+- El `id` se devuelve como string
+- `precio_cliente` es opcional y puede usarse para precios específicos por cliente
+
+#### Estructura de Elementos
+Los elementos ahora son objetos estructurados con validaciones:
+- **categoria**: Campo obligatorio que define el tipo de elemento
+- **descripcion**: Campo opcional para detalles adicionales
+- **cantidad**: Campo obligatorio, debe ser entero mayor a 1
+- **foto**: Campo opcional multipart file para imagen específica del elemento
+  - En el input: archivo multipart (igual que imagen principal de oferta)
+  - En la respuesta: URL string de la imagen almacenada en MinIO
+  - Independiente de la imagen principal de la oferta

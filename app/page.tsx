@@ -15,7 +15,8 @@ import {
     MessageCircle,
     UserPlus,
     Info,
-    Phone
+    Phone,
+    Tag
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
@@ -196,7 +197,7 @@ export default function Dashboard() {
                         <Link href="/ofertas">
                             <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full relative hover:-translate-y-2">
                                 <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <MessageCircle className="h-10 w-10 text-orange-600 mx-auto mb-3" />
+                                    <Tag className="h-10 w-10 text-orange-600 mx-auto mb-3" />
                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Ofertas</h3>
                                     <p className="text-sm text-gray-600">Gestión de ofertas y promociones.</p>
                                 </CardContent>

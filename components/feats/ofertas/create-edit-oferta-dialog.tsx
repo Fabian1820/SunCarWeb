@@ -11,7 +11,6 @@ import { Badge } from "@/components/shared/atom/badge"
 import {
   Plus,
   X,
-  Trash2,
   DollarSign,
   Image as ImageIcon,
   Package,
@@ -19,7 +18,7 @@ import {
   Save,
   Loader2
 } from "lucide-react"
-import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest, ElementoOferta } from "@/lib/api-types"
+import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
 import { toast } from "sonner"
 
 interface CreateEditOfertaDialogProps {
@@ -39,23 +38,16 @@ export default function CreateEditOfertaDialog({
 }: CreateEditOfertaDialogProps) {
   const isEditMode = !!oferta
 
-  // Estados del formulario
+  // Estados del formulario - solo información básica y garantías
   const [formData, setFormData] = useState<CreateOfertaRequest>({
     descripcion: "",
     precio: 0,
-    imagen: "",
-    garantias: [],
-    elementos: []
+    precio_cliente: null,
+    imagen: null,
+    garantias: []
   })
 
   const [nuevaGarantia, setNuevaGarantia] = useState("")
-  const [nuevoElemento, setNuevoElemento] = useState<ElementoOferta>({
-    categoria: "",
-    foto: "",
-    descripcion: "",
-    cantidad: 1
-  })
-
   const [saving, setSaving] = useState(false)
 
   // Cargar datos cuando se abre en modo edición
@@ -64,18 +56,18 @@ export default function CreateEditOfertaDialog({
       setFormData({
         descripcion: oferta.descripcion,
         precio: oferta.precio,
-        imagen: oferta.imagen || "",
-        garantias: [...oferta.garantias],
-        elementos: [...oferta.elementos]
+        precio_cliente: oferta.precio_cliente || null,
+        imagen: null, // No podemos pre-cargar un File desde URL
+        garantias: [...oferta.garantias]
       })
     } else if (isOpen) {
       // Resetear formulario en modo creación
       setFormData({
         descripcion: "",
         precio: 0,
-        imagen: "",
-        garantias: [],
-        elementos: []
+        precio_cliente: null,
+        imagen: null,
+        garantias: []
       })
     }
   }, [isOpen, oferta])
@@ -92,6 +84,12 @@ export default function CreateEditOfertaDialog({
       return
     }
 
+    // Validación opcional del precio cliente
+    if (formData.precio_cliente !== null && formData.precio_cliente !== undefined && formData.precio_cliente <= 0) {
+      toast.error("El precio cliente debe ser mayor a 0 si se especifica")
+      return
+    }
+
     try {
       setSaving(true)
       const success = await onSave(formData)
@@ -102,6 +100,7 @@ export default function CreateEditOfertaDialog({
       }
     } catch (error) {
       console.error("Error al guardar oferta:", error)
+      toast.error("Error al guardar la oferta. Intenta de nuevo.")
     } finally {
       setSaving(false)
     }
@@ -124,27 +123,6 @@ export default function CreateEditOfertaDialog({
     }))
   }
 
-  const agregarElemento = () => {
-    if (nuevoElemento.descripcion?.trim() || nuevoElemento.categoria?.trim()) {
-      setFormData(prev => ({
-        ...prev,
-        elementos: [...prev.elementos, { ...nuevoElemento }]
-      }))
-      setNuevoElemento({
-        categoria: "",
-        foto: "",
-        descripcion: "",
-        cantidad: 1
-      })
-    }
-  }
-
-  const eliminarElemento = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      elementos: prev.elementos.filter((_, i) => i !== index)
-    }))
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -174,45 +152,72 @@ export default function CreateEditOfertaDialog({
                 />
               </div>
 
-              <div>
-                <Label htmlFor="precio">Precio *</Label>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    id="precio"
-                    type="number"
-                    placeholder="0.00"
-                    value={formData.precio || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, precio: parseFloat(e.target.value) || 0 }))}
-                    className="pl-10"
-                    min="0"
-                    step="0.01"
-                  />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="precio">Precio *</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="precio"
+                      type="number"
+                      placeholder="0.00"
+                      value={formData.precio || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, precio: parseFloat(e.target.value) || 0 }))}
+                      className="pl-10"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="precio-cliente">Precio Cliente (opcional)</Label>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <Input
+                      id="precio-cliente"
+                      type="number"
+                      placeholder="0.00"
+                      value={formData.precio_cliente || ""}
+                      onChange={(e) => setFormData(prev => ({ ...prev, precio_cliente: e.target.value ? parseFloat(e.target.value) : null }))}
+                      className="pl-10"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div>
-                <Label htmlFor="imagen">URL de Imagen</Label>
-                <div className="relative">
-                  <ImageIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    id="imagen"
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    value={formData.imagen || ""}
-                    onChange={(e) => setFormData(prev => ({ ...prev, imagen: e.target.value }))}
-                    className="pl-10"
-                  />
-                </div>
+                <Label htmlFor="imagen">Imagen (archivo)</Label>
+                <Input
+                  id="imagen"
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null
+                    setFormData(prev => ({ ...prev, imagen: file }))
+                  }}
+                />
                 {formData.imagen && (
-                  <div className="mt-2 w-32 h-20 rounded-lg overflow-hidden bg-gray-100">
-                    <img
-                      src={formData.imagen}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none'
-                      }}
-                    />
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Archivo seleccionado: {formData.imagen.name}</p>
+                    <p className="text-xs text-gray-500">Tamaño: {(formData.imagen.size / 1024 / 1024).toFixed(2)} MB</p>
+                  </div>
+                )}
+                {isEditMode && oferta?.imagen && !formData.imagen && (
+                  <div className="mt-2">
+                    <p className="text-sm text-gray-600">Imagen actual:</p>
+                    <div className="w-32 h-20 rounded-lg overflow-hidden bg-gray-100 mt-1">
+                      <img
+                        src={oferta.imagen}
+                        alt="Imagen actual"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -258,92 +263,6 @@ export default function CreateEditOfertaDialog({
             </CardContent>
           </Card>
 
-          {/* Elementos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Elementos de la Oferta
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Formulario para agregar elemento */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <Input
-                  placeholder="Categoría"
-                  value={nuevoElemento.categoria || ""}
-                  onChange={(e) => setNuevoElemento(prev => ({ ...prev, categoria: e.target.value }))}
-                />
-                <Input
-                  placeholder="Descripción"
-                  value={nuevoElemento.descripcion || ""}
-                  onChange={(e) => setNuevoElemento(prev => ({ ...prev, descripcion: e.target.value }))}
-                />
-                <Input
-                  type="number"
-                  placeholder="Cantidad"
-                  value={nuevoElemento.cantidad || ""}
-                  onChange={(e) => setNuevoElemento(prev => ({ ...prev, cantidad: parseInt(e.target.value) || 1 }))}
-                  min="1"
-                />
-                <Button onClick={agregarElemento} size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Agregar
-                </Button>
-              </div>
-
-              <Input
-                placeholder="URL de foto (opcional)"
-                value={nuevoElemento.foto || ""}
-                onChange={(e) => setNuevoElemento(prev => ({ ...prev, foto: e.target.value }))}
-              />
-
-              {/* Lista de elementos */}
-              {formData.elementos.length > 0 && (
-                <div className="space-y-2">
-                  {formData.elementos.map((elemento, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          {elemento.categoria && (
-                            <Badge variant="outline" className="text-xs">
-                              {elemento.categoria}
-                            </Badge>
-                          )}
-                          <span className="font-medium">
-                            {elemento.descripcion || "Sin descripción"}
-                          </span>
-                          {elemento.cantidad && elemento.cantidad > 1 && (
-                            <span className="text-gray-500 text-sm">x{elemento.cantidad}</span>
-                          )}
-                        </div>
-                        {elemento.foto && (
-                          <div className="mt-2 w-16 h-10 rounded overflow-hidden bg-gray-100">
-                            <img
-                              src={elemento.foto}
-                              alt="Elemento"
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => eliminarElemento(index)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Botones de acción */}
           <div className="flex justify-end gap-3 pt-4 border-t">

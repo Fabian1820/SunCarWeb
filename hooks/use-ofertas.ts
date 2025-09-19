@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { OfertaService } from '@/lib/api-services'
-import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest } from '@/lib/api-types'
+import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest } from '@/lib/api-types'
 
 export interface UseOfertasReturn {
   ofertas: Oferta[]
@@ -14,6 +14,9 @@ export interface UseOfertasReturn {
   eliminarOferta: (id: string) => Promise<boolean>
   obtenerOfertaPorId: (id: string) => Promise<Oferta | null>
   recargarOfertas: () => Promise<void>
+  // Nuevos métodos para gestión de elementos
+  agregarElemento: (ofertaId: string, elemento: CreateElementoRequest) => Promise<boolean>
+  eliminarElemento: (ofertaId: string, elementoIndex: number) => Promise<boolean>
 }
 
 export function useOfertas(): UseOfertasReturn {
@@ -114,6 +117,48 @@ export function useOfertas(): UseOfertasReturn {
     await cargarOfertas()
   }
 
+  // Agregar elemento a oferta existente
+  const agregarElemento = async (ofertaId: string, elemento: CreateElementoRequest): Promise<boolean> => {
+    try {
+      setError(null)
+      const success = await OfertaService.addElemento(ofertaId, elemento)
+
+      if (success) {
+        // Recargar ofertas para obtener los elementos actualizados
+        await cargarOfertas()
+        return true
+      } else {
+        setError('No se pudo agregar el elemento')
+        return false
+      }
+    } catch (err: any) {
+      console.error('Error al agregar elemento:', err)
+      setError(err.message || 'Error al agregar el elemento')
+      return false
+    }
+  }
+
+  // Eliminar elemento de oferta existente
+  const eliminarElemento = async (ofertaId: string, elementoIndex: number): Promise<boolean> => {
+    try {
+      setError(null)
+      const success = await OfertaService.deleteElemento(ofertaId, elementoIndex)
+
+      if (success) {
+        // Recargar ofertas para obtener los elementos actualizados
+        await cargarOfertas()
+        return true
+      } else {
+        setError('No se pudo eliminar el elemento')
+        return false
+      }
+    } catch (err: any) {
+      console.error('Error al eliminar elemento:', err)
+      setError(err.message || 'Error al eliminar el elemento')
+      return false
+    }
+  }
+
   // Cargar ofertas al montar el componente
   useEffect(() => {
     cargarOfertas()
@@ -128,6 +173,8 @@ export function useOfertas(): UseOfertasReturn {
     actualizarOferta,
     eliminarOferta,
     obtenerOfertaPorId,
-    recargarOfertas
+    recargarOfertas,
+    agregarElemento,
+    eliminarElemento
   }
 }

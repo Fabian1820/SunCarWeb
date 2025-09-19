@@ -128,11 +128,20 @@ export async function apiRequest<T>(
     // TEMPORAL: Versión simplificada sin auth para debugging
     console.log('🔄 Skipping auth for debugging...')
     
+    // Preparar headers base
+    const baseHeaders: Record<string, string> = {
+      'Authorization': 'Bearer suncar-token-2025', // Token hardcodeado temporalmente
+    }
+
+    // Solo agregar Content-Type si no es FormData
+    if (!(requestOptions.body instanceof FormData)) {
+      baseHeaders['Content-Type'] = 'application/json'
+    }
+
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer suncar-token-2025', // Token hardcodeado temporalmente
-        ...requestOptions.headers,
+        ...baseHeaders,
+        ...(requestOptions.headers || {}),
       },
       ...requestOptions,
     }
@@ -144,6 +153,7 @@ export async function apiRequest<T>(
       body: config.body ? 'Present' : 'None',
       responseType
     })
+    console.log('🔐 Authorization header:', config.headers?.['Authorization'] || 'NOT FOUND')
 
     const response = await fetch(url, config)
     console.log('📨 Response received:', { status: response.status, ok: response.ok, url: response.url })

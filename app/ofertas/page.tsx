@@ -4,15 +4,18 @@ import { useState } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search } from "lucide-react"
 import { useOfertas } from "@/hooks/use-ofertas"
 import { toast } from "sonner"
 import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
+import { Input } from "@/components/shared/molecule/input"
+import { Label } from "@/components/shared/atom/label"
 
 import OfertasList from "@/components/feats/ofertas/ofertas-list"
 import CreateEditOfertaDialog from "@/components/feats/ofertas/create-edit-oferta-dialog"
 import OfertaDetailsDialog from "@/components/feats/ofertas/oferta-details-dialog"
+import ManageElementsDialog from "@/components/feats/ofertas/manage-elements-dialog"
 
 export default function OfertasPage() {
   const {
@@ -28,7 +31,13 @@ export default function OfertasPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [isElementsDialogOpen, setIsElementsDialogOpen] = useState(false)
   const [selectedOferta, setSelectedOferta] = useState<Oferta | null>(null)
+
+  // Estados para filtros
+  const [searchTerm, setSearchTerm] = useState("")
+  const [minPrice, setMinPrice] = useState<number>()
+  const [maxPrice, setMaxPrice] = useState<number>()
 
   // Handlers para diálogos
   const handleCreateNew = () => {
@@ -46,6 +55,11 @@ export default function OfertasPage() {
     setIsDetailsDialogOpen(true)
   }
 
+  const handleManageElements = (oferta: Oferta) => {
+    setSelectedOferta(oferta)
+    setIsElementsDialogOpen(true)
+  }
+
   const handleDelete = async (ofertaId: string) => {
     if (window.confirm("¿Estás seguro de que deseas eliminar esta oferta?")) {
       const success = await eliminarOferta(ofertaId)
@@ -56,14 +70,14 @@ export default function OfertasPage() {
   }
 
   // Handler para crear oferta
-  const handleCreateOferta = async (data: CreateOfertaRequest): Promise<boolean> => {
-    return await crearOferta(data)
+  const handleCreateOferta = async (data: CreateOfertaRequest | UpdateOfertaRequest): Promise<boolean> => {
+    return await crearOferta(data as CreateOfertaRequest)
   }
 
   // Handler para actualizar oferta
-  const handleUpdateOferta = async (data: UpdateOfertaRequest): Promise<boolean> => {
+  const handleUpdateOferta = async (data: CreateOfertaRequest | UpdateOfertaRequest): Promise<boolean> => {
     if (!selectedOferta) return false
-    return await actualizarOferta(selectedOferta.id, data)
+    return await actualizarOferta(selectedOferta.id, data as UpdateOfertaRequest)
   }
 
   // Calcular estadísticas
@@ -147,61 +161,76 @@ export default function OfertasPage() {
                 <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de ofertas y promociones</p>
               </div>
             </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="default"
+                size="sm"
+                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md"
+                onClick={handleCreateNew}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva Oferta
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-8">
-        {/* Estadísticas */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 mb-6">
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-3 md:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Total Ofertas</p>
-                  <p className="text-lg md:text-2xl font-bold text-gray-900">{stats.total}</p>
+        {/* Barra de búsqueda y filtros */}
+        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="search-oferta" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Buscar ofertas
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="search-oferta"
+                    placeholder="Buscar por descripción, garantías o elementos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
-                <Package className="h-6 w-6 md:h-8 md:w-8 text-orange-500 flex-shrink-0" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-3 md:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Precio Promedio</p>
-                  <p className="text-lg md:text-2xl font-bold text-green-600">${stats.precioPromedio.toFixed(0)}</p>
+              <div>
+                <Label htmlFor="min-price" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Precio mínimo
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="min-price"
+                    type="number"
+                    placeholder="0"
+                    value={minPrice || ""}
+                    onChange={(e) => setMinPrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    className="pl-10"
+                  />
                 </div>
-                <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-green-500 flex-shrink-0" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-3 md:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Con Garantías</p>
-                  <p className="text-lg md:text-2xl font-bold text-blue-600">{stats.conGarantias}</p>
+              <div>
+                <Label htmlFor="max-price" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Precio máximo
+                </Label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    id="max-price"
+                    type="number"
+                    placeholder="10000"
+                    value={maxPrice || ""}
+                    onChange={(e) => setMaxPrice(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    className="pl-10"
+                  />
                 </div>
-                <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-blue-500 flex-shrink-0" />
               </div>
-            </CardContent>
-          </Card>
-
-          <Card className="border-0 shadow-md">
-            <CardContent className="p-3 md:p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs md:text-sm font-medium text-gray-600">Con Elementos</p>
-                  <p className="text-lg md:text-2xl font-bold text-purple-600">{stats.conElementos}</p>
-                </div>
-                <Eye className="h-6 w-6 md:h-8 md:w-8 text-purple-500 flex-shrink-0" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Lista de ofertas */}
         <OfertasList
@@ -210,7 +239,11 @@ export default function OfertasPage() {
           onCreateNew={handleCreateNew}
           onViewDetails={handleViewDetails}
           onEdit={handleEdit}
+          onManageElements={handleManageElements}
           onDelete={handleDelete}
+          searchTerm={searchTerm}
+          minPrice={minPrice}
+          maxPrice={maxPrice}
         />
 
         {/* Diálogos */}
@@ -235,6 +268,12 @@ export default function OfertasPage() {
           oferta={selectedOferta}
           onEdit={handleEdit}
           onDelete={handleDelete}
+        />
+
+        <ManageElementsDialog
+          isOpen={isElementsDialogOpen}
+          onClose={() => setIsElementsDialogOpen(false)}
+          oferta={selectedOferta}
         />
       </main>
     </div>
