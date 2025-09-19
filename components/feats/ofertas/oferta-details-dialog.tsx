@@ -50,9 +50,19 @@ export default function OfertaDetailsDialog({
             <CardHeader>
               <CardTitle className="text-xl flex items-center justify-between">
                 <span>{oferta.descripcion}</span>
-                <div className="flex items-center gap-2 text-green-600">
-                  <DollarSign className="h-5 w-5" />
-                  <span className="text-2xl font-bold">${oferta.precio.toLocaleString()}</span>
+                <div className="text-right">
+                  <div className="flex items-center gap-2 text-green-600">
+                    <DollarSign className="h-5 w-5" />
+                    <span className="text-2xl font-bold">{oferta.precio.toLocaleString()}</span>
+                  </div>
+                  {oferta.precio_cliente && (
+                    <div className="flex items-center gap-2 text-blue-600 mt-1">
+                      <span className="text-sm font-medium">Cliente:</span>
+                      <span className="text-lg font-semibold">
+                        {oferta.precio_cliente.toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </CardTitle>
             </CardHeader>
@@ -130,7 +140,7 @@ export default function OfertaDetailsDialog({
                             {elemento.descripcion || "Sin descripción"}
                           </h4>
                         </div>
-                        {elemento.cantidad && elemento.cantidad > 1 && (
+                        {elemento.cantidad && (
                           <Badge variant="secondary" className="ml-2">
                             x{elemento.cantidad}
                           </Badge>

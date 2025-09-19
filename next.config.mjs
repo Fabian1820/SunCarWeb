@@ -11,6 +11,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    // Deshabilitar temporalmente algunas características experimentales
+    serverComponentsExternalPackages: [],
+  },
 }
 
 const pwaConfig = withPWA({
@@ -18,6 +22,7 @@ const pwaConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  buildExcludes: [/middleware-manifest\.json$/],
   runtimeCaching: [
     {
       urlPattern: /^https?.*/,

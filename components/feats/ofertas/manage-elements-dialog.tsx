@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
+import { FileUpload } from "@/components/shared/molecule/file-upload"
 import {
   Plus,
   X,
@@ -18,20 +19,24 @@ import {
 } from "lucide-react"
 import type { Oferta, CreateElementoRequest, ElementoOferta } from "@/lib/api-types"
 import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 import { useOfertas } from "@/hooks/use-ofertas"
 
 interface ManageElementsDialogProps {
   isOpen: boolean
   onClose: () => void
   oferta: Oferta | null
+  onOfertaUpdate?: (ofertaId: string) => void
 }
 
 export default function ManageElementsDialog({
   isOpen,
   onClose,
-  oferta
+  oferta,
+  onOfertaUpdate
 }: ManageElementsDialogProps) {
-  const { agregarElemento, eliminarElemento, recargarOfertas } = useOfertas()
+  const { agregarElemento, eliminarElemento, recargarOfertas, actualizarOfertaLocal } = useOfertas()
+  const { toast: toastNotification } = useToast()
   
   // Estado para el nuevo elemento
   const [nuevoElemento, setNuevoElemento] = useState<CreateElementoRequest>({
@@ -43,6 +48,8 @@ export default function ManageElementsDialog({
 
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [elementToDelete, setElementToDelete] = useState<{index: number, elemento: ElementoOferta} | null>(null)
 
   // Resetear formulario cuando se abre/cierra el diálogo
   useEffect(() => {
@@ -59,17 +66,29 @@ export default function ManageElementsDialog({
   // Agregar nuevo elemento
   const handleAgregarElemento = async () => {
     if (!oferta?.id) {
-      toast.error("No se ha seleccionado una oferta")
+      toastNotification({
+        title: "Error",
+        description: "No se ha seleccionado una oferta",
+        variant: "destructive",
+      })
       return
     }
 
     if (!nuevoElemento.categoria.trim()) {
-      toast.error("La categoría es requerida")
+      toastNotification({
+        title: "Error",
+        description: "La categoría es requerida",
+        variant: "destructive",
+      })
       return
     }
 
-    if (nuevoElemento.cantidad <= 1) {
-      toast.error("La cantidad debe ser mayor a 1")
+    if (nuevoElemento.cantidad < 1) {
+      toastNotification({
+        title: "Error",
+        description: "La cantidad debe ser mayor a 0",
+        variant: "destructive",
+      })
       return
     }
 
@@ -78,47 +97,91 @@ export default function ManageElementsDialog({
       const success = await agregarElemento(oferta.id, nuevoElemento)
 
       if (success) {
-        toast.success("Elemento agregado correctamente")
+        toastNotification({
+          title: "Éxito",
+          description: "Elemento agregado correctamente",
+        })
         setNuevoElemento({
           categoria: "",
           descripcion: "",
           cantidad: 1,
           foto: null
         })
-        // Recargar la oferta para obtener los elementos actualizados
-        await recargarOfertas()
+        // Actualizar la oferta específica en el estado local
+        await actualizarOfertaLocal(oferta.id)
+        // También notificar al componente padre para actualizar su estado
+        if (onOfertaUpdate) {
+          onOfertaUpdate(oferta.id)
+        }
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo agregar el elemento",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       console.error("Error al agregar elemento:", error)
-      toast.error("Error al agregar el elemento")
+      toastNotification({
+        title: "Error",
+        description: "Error al agregar el elemento",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
   }
 
-  // Eliminar elemento
-  const handleEliminarElemento = async (elementoIndex: number) => {
-    if (!oferta?.id) {
-      toast.error("No se ha seleccionado una oferta")
+  // Mostrar confirmación de eliminación
+  const handleShowDeleteConfirm = (elementoIndex: number, elemento: ElementoOferta) => {
+    setElementToDelete({ index: elementoIndex, elemento })
+    setShowDeleteConfirm(true)
+  }
+
+  // Eliminar elemento confirmado
+  const handleConfirmDelete = async () => {
+    if (!oferta?.id || !elementToDelete) {
+      toastNotification({
+        title: "Error",
+        description: "No se ha seleccionado una oferta o elemento",
+        variant: "destructive",
+      })
       return
     }
 
-    if (window.confirm("¿Estás seguro de que deseas eliminar este elemento?")) {
-      try {
-        setLoading(true)
-        const success = await eliminarElemento(oferta.id, elementoIndex)
+    try {
+      setLoading(true)
+      const success = await eliminarElemento(oferta.id, elementToDelete.index)
 
-        if (success) {
-          toast.success("Elemento eliminado correctamente")
-          // Recargar la oferta para obtener los elementos actualizados
-          await recargarOfertas()
+      if (success) {
+        toastNotification({
+          title: "Éxito",
+          description: "Elemento eliminado correctamente",
+        })
+        // Actualizar la oferta específica en el estado local
+        await actualizarOfertaLocal(oferta.id)
+        // También notificar al componente padre para actualizar su estado
+        if (onOfertaUpdate) {
+          onOfertaUpdate(oferta.id)
         }
-      } catch (error) {
-        console.error("Error al eliminar elemento:", error)
-        toast.error("Error al eliminar el elemento")
-      } finally {
-        setLoading(false)
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo eliminar el elemento",
+          variant: "destructive",
+        })
       }
+    } catch (error) {
+      console.error("Error al eliminar elemento:", error)
+      toastNotification({
+        title: "Error",
+        description: "Error al eliminar el elemento",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+      setShowDeleteConfirm(false)
+      setElementToDelete(null)
     }
   }
 
@@ -185,10 +248,10 @@ export default function ManageElementsDialog({
                   <Input
                     id="cantidad"
                     type="number"
-                    placeholder="2"
+                    placeholder="1"
                     value={nuevoElemento.cantidad}
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, cantidad: parseInt(e.target.value) || 1 }))}
-                    min="2"
+                    min="1"
                   />
                 </div>
                 <div className="flex items-end">
@@ -207,24 +270,16 @@ export default function ManageElementsDialog({
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="foto-elemento">Foto del Elemento (opcional)</Label>
-                <Input
-                  id="foto-elemento"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null
-                    setNuevoElemento(prev => ({ ...prev, foto: file }))
-                  }}
-                />
-                {nuevoElemento.foto && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">Archivo seleccionado: {nuevoElemento.foto.name}</p>
-                    <p className="text-xs text-gray-500">Tamaño: {(nuevoElemento.foto.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </div>
-                )}
-              </div>
+              <FileUpload
+                id="foto-elemento"
+                label="Foto del Elemento (opcional)"
+                accept="image/*"
+                value={nuevoElemento.foto}
+                onChange={(file) => setNuevoElemento(prev => ({ ...prev, foto: file }))}
+                maxSizeInMB={10}
+                showPreview={true}
+                disabled={saving}
+              />
             </CardContent>
           </Card>
 
@@ -251,11 +306,11 @@ export default function ManageElementsDialog({
                           <span className="font-medium text-gray-900">
                             {elemento.descripcion || "Sin descripción"}
                           </span>
-                          {elemento.cantidad && elemento.cantidad > 1 && (
-                            <Badge variant="secondary" className="text-xs">
-                              x{elemento.cantidad}
-                            </Badge>
-                          )}
+                           {elemento.cantidad && (
+                             <Badge variant="secondary" className="text-xs">
+                               x{elemento.cantidad}
+                             </Badge>
+                           )}
                         </div>
                         
                         {elemento.foto && (
@@ -278,19 +333,15 @@ export default function ManageElementsDialog({
                         )}
                       </div>
                       
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEliminarElemento(index)}
-                        disabled={loading}
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                      >
-                        {loading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
+                       <Button
+                         variant="ghost"
+                         size="sm"
+                         onClick={() => handleShowDeleteConfirm(index, elemento)}
+                         disabled={loading}
+                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
                     </div>
                   ))}
                 </div>
@@ -313,6 +364,22 @@ export default function ManageElementsDialog({
           </div>
         </div>
       </DialogContent>
+
+      {/* Diálogo de confirmación de eliminación */}
+      <ConfirmDeleteDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="¿Eliminar elemento?"
+        message={`¿Estás seguro de que deseas eliminar el elemento "${elementToDelete?.elemento.descripcion || elementToDelete?.elemento.categoria || 'este elemento'}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setShowDeleteConfirm(false)
+          setElementToDelete(null)
+        }}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        isLoading={loading}
+      />
     </Dialog>
   )
 }

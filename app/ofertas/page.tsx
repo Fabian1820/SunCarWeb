@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Button } from "@/components/shared/atom/button"
 import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search } from "lucide-react"
 import { useOfertas } from "@/hooks/use-ofertas"
 import { toast } from "sonner"
+import { useToast } from "@/hooks/use-toast"
 import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { Input } from "@/components/shared/molecule/input"
@@ -25,8 +26,11 @@ export default function OfertasPage() {
     error,
     crearOferta,
     actualizarOferta,
-    eliminarOferta
+    eliminarOferta,
+    actualizarOfertaLocal
   } = useOfertas()
+  
+  const { toast: toastNotification } = useToast()
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -60,24 +64,107 @@ export default function OfertasPage() {
     setIsElementsDialogOpen(true)
   }
 
+  const handleOfertaUpdate = async (ofertaId: string) => {
+    // Actualizar la oferta específica en el estado local
+    await actualizarOfertaLocal(ofertaId)
+  }
+
+  // Actualizar la oferta seleccionada cuando cambien las ofertas
+  useEffect(() => {
+    if (selectedOferta) {
+      const ofertaActualizada = ofertas.find(o => o.id === selectedOferta.id)
+      if (ofertaActualizada && JSON.stringify(ofertaActualizada) !== JSON.stringify(selectedOferta)) {
+        setSelectedOferta(ofertaActualizada)
+      }
+    }
+  }, [ofertas, selectedOferta?.id])
+
   const handleDelete = async (ofertaId: string) => {
-    if (window.confirm("¿Estás seguro de que deseas eliminar esta oferta?")) {
+    try {
       const success = await eliminarOferta(ofertaId)
       if (success) {
-        toast.success("Oferta eliminada correctamente")
+        toastNotification({
+          title: "Éxito",
+          description: "Oferta eliminada correctamente",
+        })
+        // Cerrar diálogos si están abiertos
+        setIsDetailsDialogOpen(false)
+        setSelectedOferta(null)
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo eliminar la oferta",
+          variant: "destructive",
+        })
       }
+    } catch (error) {
+      toastNotification({
+        title: "Error",
+        description: "Error al eliminar la oferta",
+        variant: "destructive",
+      })
     }
   }
 
   // Handler para crear oferta
   const handleCreateOferta = async (data: CreateOfertaRequest | UpdateOfertaRequest): Promise<boolean> => {
-    return await crearOferta(data as CreateOfertaRequest)
+    try {
+      const success = await crearOferta(data as CreateOfertaRequest)
+      if (success) {
+        toastNotification({
+          title: "Éxito",
+          description: "Oferta creada correctamente",
+        })
+        setIsCreateDialogOpen(false)
+        return true
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo crear la oferta",
+          variant: "destructive",
+        })
+        return false
+      }
+    } catch (error) {
+      toastNotification({
+        title: "Error",
+        description: "Error al crear la oferta",
+        variant: "destructive",
+      })
+      return false
+    }
   }
 
   // Handler para actualizar oferta
   const handleUpdateOferta = async (data: CreateOfertaRequest | UpdateOfertaRequest): Promise<boolean> => {
     if (!selectedOferta) return false
-    return await actualizarOferta(selectedOferta.id, data as UpdateOfertaRequest)
+    
+    try {
+      const success = await actualizarOferta(selectedOferta.id, data as UpdateOfertaRequest)
+      if (success) {
+        toastNotification({
+          title: "Éxito",
+          description: "Oferta actualizada correctamente",
+        })
+        setIsEditDialogOpen(false)
+        setSelectedOferta(null)
+        return true
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo actualizar la oferta",
+          variant: "destructive",
+        })
+        return false
+      }
+    } catch (error) {
+      toastNotification({
+        title: "Error",
+        description: "Error al actualizar la oferta",
+        variant: "destructive",
+      })
+      return false
+    }
   }
 
   // Calcular estadísticas
@@ -274,6 +361,7 @@ export default function OfertasPage() {
           isOpen={isElementsDialogOpen}
           onClose={() => setIsElementsDialogOpen(false)}
           oferta={selectedOferta}
+          onOfertaUpdate={handleOfertaUpdate}
         />
       </main>
     </div>

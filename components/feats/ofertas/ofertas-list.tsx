@@ -123,11 +123,21 @@ export default function OfertasList({
                     <CardTitle className="text-lg font-semibold text-gray-900 truncate">
                       {oferta.descripcion}
                     </CardTitle>
-                    <CardDescription className="mt-1 flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      <span className="text-lg font-bold text-green-600">
-                        ${oferta.precio.toLocaleString()}
-                      </span>
+                    <CardDescription className="mt-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="text-lg font-bold text-green-600">
+                          {oferta.precio.toLocaleString()}
+                        </span>
+                      </div>
+                      {oferta.precio_cliente && (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <span className="text-xs font-medium">Cliente:</span>
+                          <span className="text-sm font-semibold">
+                            {oferta.precio_cliente.toLocaleString()}
+                          </span>
+                        </div>
+                      )}
                     </CardDescription>
                   </div>
                   <AlertDialog>

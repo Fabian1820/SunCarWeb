@@ -17,6 +17,7 @@ export interface UseOfertasReturn {
   // Nuevos métodos para gestión de elementos
   agregarElemento: (ofertaId: string, elemento: CreateElementoRequest) => Promise<boolean>
   eliminarElemento: (ofertaId: string, elementoIndex: number) => Promise<boolean>
+  actualizarOfertaLocal: (ofertaId: string) => Promise<void>
 }
 
 export function useOfertas(): UseOfertasReturn {
@@ -51,7 +52,7 @@ export function useOfertas(): UseOfertasReturn {
       const ofertaId = await OfertaService.createOferta(data)
       console.log('Oferta creada con ID:', ofertaId)
 
-      // Recargar ofertas después de crear
+      // Recargar ofertas después de crear para obtener la nueva oferta con todos sus datos
       await cargarOfertas()
       return true
     } catch (err: any) {
@@ -67,7 +68,7 @@ export function useOfertas(): UseOfertasReturn {
       const success = await OfertaService.updateOferta(id, data)
 
       if (success) {
-        // Recargar ofertas después de actualizar
+        // Recargar ofertas después de actualizar para reflejar los cambios
         await cargarOfertas()
         return true
       } else {
@@ -159,6 +160,20 @@ export function useOfertas(): UseOfertasReturn {
     }
   }
 
+  // Actualizar una oferta específica en el estado local
+  const actualizarOfertaLocal = async (ofertaId: string): Promise<void> => {
+    try {
+      const ofertaActualizada = await OfertaService.getOfertaById(ofertaId)
+      if (ofertaActualizada) {
+        setOfertas(prev => prev.map(oferta => 
+          oferta.id === ofertaId ? ofertaActualizada : oferta
+        ))
+      }
+    } catch (err) {
+      console.error('Error al actualizar oferta local:', err)
+    }
+  }
+
   // Cargar ofertas al montar el componente
   useEffect(() => {
     cargarOfertas()
@@ -175,6 +190,7 @@ export function useOfertas(): UseOfertasReturn {
     obtenerOfertaPorId,
     recargarOfertas,
     agregarElemento,
-    eliminarElemento
+    eliminarElemento,
+    actualizarOfertaLocal
   }
 }

@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/auth-context"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { PWAInstallPrompt } from "@/components/shared/molecule/pwa-install-prompt"
 import { OfflineIndicator } from "@/components/shared/molecule/offline-indicator"
+import { Toaster } from "@/components/shared/molecule/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -80,6 +81,7 @@ export default function RootLayout({
         </AuthProvider>
         <PWAInstallPrompt />
         <OfflineIndicator />
+        <Toaster />
       </body>
     </html>
   )

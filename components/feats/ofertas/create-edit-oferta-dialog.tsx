@@ -8,6 +8,7 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
+import { FileUpload } from "@/components/shared/molecule/file-upload"
 import {
   Plus,
   X,
@@ -188,39 +189,17 @@ export default function CreateEditOfertaDialog({
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="imagen">Imagen (archivo)</Label>
-                <Input
-                  id="imagen"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null
-                    setFormData(prev => ({ ...prev, imagen: file }))
-                  }}
-                />
-                {formData.imagen && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">Archivo seleccionado: {formData.imagen.name}</p>
-                    <p className="text-xs text-gray-500">Tamaño: {(formData.imagen.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </div>
-                )}
-                {isEditMode && oferta?.imagen && !formData.imagen && (
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-600">Imagen actual:</p>
-                    <div className="w-32 h-20 rounded-lg overflow-hidden bg-gray-100 mt-1">
-                      <img
-                        src={oferta.imagen}
-                        alt="Imagen actual"
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none'
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
+              <FileUpload
+                id="imagen"
+                label="Imagen de la oferta"
+                accept="image/*"
+                value={formData.imagen}
+                onChange={(file) => setFormData(prev => ({ ...prev, imagen: file }))}
+                maxSizeInMB={10}
+                showPreview={true}
+                currentImageUrl={isEditMode && oferta?.imagen && !formData.imagen ? oferta.imagen : undefined}
+                disabled={saving}
+              />
             </CardContent>
           </Card>
 
