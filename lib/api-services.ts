@@ -2,7 +2,8 @@ import { apiRequest } from './api-config'
 import { BackendCatalogoProductos, BackendCategoria, transformBackendToFrontend, transformCategories } from './api-types'
 import type { Material } from './material-types'
 import type { Trabajador as ApiTrabajador, Brigada as ApiBrigada, MensajeCliente, RespuestaMensaje, Lead, LeadResponse, LeadCreateData, LeadUpdateData } from './api-types'
-
+// Importar tipos necesarios para ofertas
+import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest } from './api-types';
 // Servicio para materiales
 export class MaterialService {
   // Obtener todos los materiales (todas las categorías con sus materiales)
@@ -589,6 +590,54 @@ export const ContactoService = {
   },
 };
 
+// Servicio para ofertas
+export class OfertaService {
+  // Obtener ofertas simplificadas
+  static async getOfertasSimplificadas(): Promise<OfertaSimplificada[]> {
+    const response = await apiRequest<{ success: boolean; message: string; data: OfertaSimplificada[] }>('/ofertas/simplified');
+    return response.data || [];
+  }
+
+  // Obtener ofertas completas
+  static async getOfertas(): Promise<Oferta[]> {
+    const response = await apiRequest<{ success: boolean; message: string; data: Oferta[] }>('/ofertas/');
+    return response.data || [];
+  }
+
+  // Obtener oferta por ID
+  static async getOfertaById(ofertaId: string): Promise<Oferta | null> {
+    const response = await apiRequest<{ success: boolean; message: string; data: Oferta | null }>(`/ofertas/${ofertaId}`);
+    return response.success ? response.data : null;
+  }
+
+  // Crear nueva oferta
+  static async createOferta(ofertaData: CreateOfertaRequest): Promise<string> {
+    const response = await apiRequest<{ success: boolean; message: string; oferta_id: string }>('/ofertas/', {
+      method: 'POST',
+      body: JSON.stringify(ofertaData),
+    });
+    return response.oferta_id || 'success';
+  }
+
+  // Actualizar oferta existente
+  static async updateOferta(ofertaId: string, ofertaData: UpdateOfertaRequest): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}`, {
+      method: 'PUT',
+      body: JSON.stringify(ofertaData),
+    });
+    return response.success === true;
+  }
+
+  // Eliminar oferta
+  static async deleteOferta(ofertaId: string): Promise<boolean> {
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}`, {
+      method: 'DELETE',
+    });
+    return response.success === true;
+  }
+}
+
+
 // Servicio para Leads
 export class LeadService {
   // Obtener todos los leads con filtros opcionales
@@ -671,4 +720,4 @@ export class LeadService {
     console.log('LeadService.checkLeadExists response:', response)
     return response.exists === true
   }
-} 
+}

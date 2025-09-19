@@ -136,4 +136,39 @@ export interface RespuestaMensaje {
   autor_nombre: string;
   fecha_respuesta: string;
   es_publica: boolean; // si es visible para el cliente
-} 
+}
+
+// Tipos para el sistema de ofertas
+export interface ElementoOferta {
+  categoria?: string;
+  foto?: string;
+  descripcion?: string;
+  cantidad?: number;
+}
+
+export interface Oferta {
+  id: string; // solo respuesta del backend
+  descripcion: string;
+  precio: number;
+  imagen?: string | null;
+  garantias: string[];
+  elementos: ElementoOferta[];
+}
+
+export interface OfertaSimplificada {
+  id: string; // solo respuesta del backend
+  descripcion: string;
+  precio: number;
+  imagen?: string | null;
+}
+
+// Tipo para crear/actualizar ofertas (sin id)
+export interface CreateOfertaRequest {
+  descripcion: string;
+  precio: number;
+  imagen?: string | null;
+  garantias: string[];
+  elementos: ElementoOferta[];
+}
+
+export interface UpdateOfertaRequest extends Partial<CreateOfertaRequest> {} 
