@@ -83,7 +83,7 @@ export default function ManageElementsDialog({
       return
     }
 
-    if (nuevoElemento.cantidad < 1) {
+    if (nuevoElemento.cantidad <= 0) {
       toastNotification({
         title: "Error",
         description: "La cantidad debe ser mayor a 0",
@@ -250,8 +250,9 @@ export default function ManageElementsDialog({
                     type="number"
                     placeholder="1"
                     value={nuevoElemento.cantidad}
-                    onChange={(e) => setNuevoElemento(prev => ({ ...prev, cantidad: parseInt(e.target.value) || 1 }))}
-                    min="1"
+                    onChange={(e) => setNuevoElemento(prev => ({ ...prev, cantidad: parseFloat(e.target.value) || 0 }))}
+                    min="0.01"
+                    step="0.01"
                   />
                 </div>
                 <div className="flex items-end">
