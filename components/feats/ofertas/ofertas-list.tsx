@@ -120,7 +120,7 @@ export default function OfertasList({
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg font-semibold text-gray-900 truncate">
+                    <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
                       {oferta.descripcion}
                     </CardTitle>
                     <CardDescription className="mt-1 space-y-1">
