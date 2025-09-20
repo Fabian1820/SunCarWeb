@@ -15,9 +15,10 @@ import {
   Package,
   Save,
   Loader2,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Edit
 } from "lucide-react"
-import type { Oferta, CreateElementoRequest, ElementoOferta } from "@/lib/api-types"
+import type { Oferta, CreateElementoRequest, ElementoOferta, UpdateElementoRequest } from "@/lib/api-types"
 import { toast } from "sonner"
 import { useToast } from "@/hooks/use-toast"
 import { useOfertas } from "@/hooks/use-ofertas"
@@ -35,9 +36,9 @@ export default function ManageElementsDialog({
   oferta,
   onOfertaUpdate
 }: ManageElementsDialogProps) {
-  const { agregarElemento, eliminarElemento, recargarOfertas, actualizarOfertaLocal } = useOfertas()
+  const { agregarElemento, eliminarElemento, editarElemento, recargarOfertas, actualizarOfertaLocal } = useOfertas()
   const { toast: toastNotification } = useToast()
-  
+
   // Estado para el nuevo elemento
   const [nuevoElemento, setNuevoElemento] = useState<CreateElementoRequest>({
     categoria: "",
@@ -45,6 +46,9 @@ export default function ManageElementsDialog({
     cantidad: 1,
     foto: null
   })
+
+  // Estado para edición de elementos
+  const [elementoEditando, setElementoEditando] = useState<{index: number, elemento: UpdateElementoRequest} | null>(null)
 
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -60,6 +64,7 @@ export default function ManageElementsDialog({
         cantidad: 1,
         foto: null
       })
+      setElementoEditando(null)
     }
   }, [isOpen])
 
@@ -185,6 +190,89 @@ export default function ManageElementsDialog({
     }
   }
 
+  // Iniciar edición de elemento
+  const handleStartEdit = (elementoIndex: number, elemento: ElementoOferta) => {
+    setElementoEditando({
+      index: elementoIndex,
+      elemento: {
+        categoria: elemento.categoria,
+        descripcion: elemento.descripcion || "",
+        cantidad: elemento.cantidad,
+        foto: null // La foto se manejará por separado
+      }
+    })
+  }
+
+  // Cancelar edición
+  const handleCancelEdit = () => {
+    setElementoEditando(null)
+  }
+
+  // Guardar cambios de edición
+  const handleSaveEdit = async () => {
+    if (!oferta?.id || !elementoEditando) {
+      toastNotification({
+        title: "Error",
+        description: "No se ha seleccionado una oferta o elemento",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validaciones
+    if (!elementoEditando.elemento.categoria?.trim()) {
+      toastNotification({
+        title: "Error",
+        description: "La categoría es requerida",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!elementoEditando.elemento.cantidad || elementoEditando.elemento.cantidad <= 0) {
+      toastNotification({
+        title: "Error",
+        description: "La cantidad debe ser mayor a 0",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setSaving(true)
+      const success = await editarElemento(oferta.id, elementoEditando.index, elementoEditando.elemento)
+
+      if (success) {
+        toastNotification({
+          title: "Éxito",
+          description: "Elemento editado correctamente",
+        })
+        setElementoEditando(null)
+        // Actualizar la oferta específica en el estado local
+        await actualizarOfertaLocal(oferta.id)
+        // También notificar al componente padre para actualizar su estado
+        if (onOfertaUpdate) {
+          onOfertaUpdate(oferta.id)
+        }
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo editar el elemento",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error al editar elemento:", error)
+      toastNotification({
+        title: "Error",
+        description: "Error al editar el elemento",
+        variant: "destructive",
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (!oferta) return null
 
   return (
@@ -295,56 +383,160 @@ export default function ManageElementsDialog({
             <CardContent>
               {oferta.elementos && oferta.elementos.length > 0 ? (
                 <div className="space-y-3">
-                  {oferta.elementos.map((elemento, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          {elemento.categoria && (
-                            <Badge variant="outline" className="text-xs">
-                              {elemento.categoria}
-                            </Badge>
-                          )}
-                          <span className="font-medium text-gray-900">
-                            {elemento.descripcion || "Sin descripción"}
-                          </span>
-                           {elemento.cantidad && (
-                             <Badge variant="secondary" className="text-xs">
-                               x{elemento.cantidad}
-                             </Badge>
-                           )}
-                        </div>
-                        
-                        {elemento.foto && (
-                          <div className="mt-2">
-                            <div className="w-20 h-16 rounded overflow-hidden bg-gray-100">
-                              <img
-                                src={elemento.foto}
-                                alt={elemento.descripcion || "Elemento"}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  e.currentTarget.style.display = 'none'
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                                }}
+                  {oferta.elementos.map((elemento, index) => {
+                    // Crear una key más estable basada en las propiedades del elemento
+                    const elementKey = `${elemento.categoria}-${elemento.descripcion || 'no-desc'}-${elemento.cantidad}-${index}`
+                    const isEditing = elementoEditando?.index === index
+
+                    return (
+                    <div key={elementKey} className="p-4 bg-gray-50 rounded-lg border">
+                      {isEditing ? (
+                        // Modo edición
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div>
+                              <Label htmlFor={`edit-categoria-${index}`}>Categoría *</Label>
+                              <Input
+                                id={`edit-categoria-${index}`}
+                                placeholder="Ej: Panel Solar"
+                                value={elementoEditando.elemento.categoria || ""}
+                                onChange={(e) => setElementoEditando(prev => prev ? {
+                                  ...prev,
+                                  elemento: { ...prev.elemento, categoria: e.target.value }
+                                } : null)}
                               />
-                              <div className="hidden flex items-center justify-center h-full bg-gray-100">
-                                <ImageIcon className="h-4 w-4 text-gray-400" />
-                              </div>
+                            </div>
+                            <div>
+                              <Label htmlFor={`edit-descripcion-${index}`}>Descripción</Label>
+                              <Input
+                                id={`edit-descripcion-${index}`}
+                                placeholder="Ej: Panel 400W monocristalino"
+                                value={elementoEditando.elemento.descripcion || ""}
+                                onChange={(e) => setElementoEditando(prev => prev ? {
+                                  ...prev,
+                                  elemento: { ...prev.elemento, descripcion: e.target.value }
+                                } : null)}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor={`edit-cantidad-${index}`}>Cantidad *</Label>
+                              <Input
+                                id={`edit-cantidad-${index}`}
+                                type="number"
+                                placeholder="1"
+                                value={elementoEditando.elemento.cantidad || 0}
+                                onChange={(e) => setElementoEditando(prev => prev ? {
+                                  ...prev,
+                                  elemento: { ...prev.elemento, cantidad: parseFloat(e.target.value) || 0 }
+                                } : null)}
+                                min="0.01"
+                                step="0.01"
+                              />
                             </div>
                           </div>
-                        )}
-                      </div>
-                      
-                       <Button
-                         variant="ghost"
-                         size="sm"
-                         onClick={() => handleShowDeleteConfirm(index, elemento)}
-                         disabled={loading}
-                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                       >
-                         <Trash2 className="h-4 w-4" />
-                       </Button>
+
+                          <FileUpload
+                            id={`edit-foto-${index}`}
+                            label="Nueva Foto del Elemento (opcional)"
+                            accept="image/*"
+                            value={elementoEditando.elemento.foto}
+                            onChange={(file) => setElementoEditando(prev => prev ? {
+                              ...prev,
+                              elemento: { ...prev.elemento, foto: file }
+                            } : null)}
+                            maxSizeInMB={10}
+                            showPreview={true}
+                            disabled={saving}
+                          />
+
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleCancelEdit}
+                              disabled={saving}
+                            >
+                              Cancelar
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleSaveEdit}
+                              disabled={saving || !elementoEditando.elemento.categoria?.trim()}
+                            >
+                              {saving ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Save className="h-4 w-4 mr-2" />
+                              )}
+                              Guardar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        // Modo visualización
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              {elemento.categoria && (
+                                <Badge variant="outline" className="text-xs">
+                                  {elemento.categoria}
+                                </Badge>
+                              )}
+                              <span className="font-medium text-gray-900">
+                                {elemento.descripcion || "Sin descripción"}
+                              </span>
+                               {elemento.cantidad && (
+                                 <Badge variant="secondary" className="text-xs">
+                                   x{elemento.cantidad}
+                                 </Badge>
+                               )}
+                            </div>
+
+                            {elemento.foto && (
+                              <div className="mt-2">
+                                <div className="w-20 h-16 rounded overflow-hidden bg-gray-100">
+                                  <img
+                                    src={elemento.foto}
+                                    alt={elemento.descripcion || "Elemento"}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                    }}
+                                  />
+                                  <div className="hidden flex items-center justify-center h-full bg-gray-100">
+                                    <ImageIcon className="h-4 w-4 text-gray-400" />
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleStartEdit(index, elemento)}
+                              disabled={loading || elementoEditando !== null}
+                              className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleShowDeleteConfirm(index, elemento)}
+                              disabled={loading || elementoEditando !== null}
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">

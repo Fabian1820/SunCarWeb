@@ -154,6 +154,14 @@ export interface CreateElementoRequest {
   foto?: File | null; // archivo de imagen opcional
 }
 
+// Tipo para actualizar elementos (input) - todos los campos opcionales
+export interface UpdateElementoRequest {
+  categoria?: string; // opcional
+  descripcion?: string; // opcional
+  cantidad?: number; // opcional, mayor a 0
+  foto?: File | null; // archivo de imagen opcional
+}
+
 export interface Oferta {
   id: string; // solo respuesta del backend
   descripcion: string;

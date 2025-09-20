@@ -3,7 +3,7 @@ import { BackendCatalogoProductos, BackendCategoria, transformBackendToFrontend,
 import type { Material } from './material-types'
 import type { Trabajador as ApiTrabajador, Brigada as ApiBrigada, MensajeCliente, RespuestaMensaje, Lead, LeadResponse, LeadCreateData, LeadUpdateData } from './api-types'
 // Importar tipos necesarios para ofertas
-import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest } from './api-types';
+import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest, UpdateElementoRequest } from './api-types';
 // Servicio para materiales
 export class MaterialService {
   // Obtener todos los materiales (todas las categorías con sus materiales)
@@ -710,6 +710,35 @@ export class OfertaService {
   static async deleteElemento(ofertaId: string, elementoIndex: number): Promise<boolean> {
     const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}/elementos/${elementoIndex}`, {
       method: 'DELETE',
+    });
+
+    return response.success === true;
+  }
+
+  // Actualizar elemento de oferta por índice
+  static async updateElemento(ofertaId: string, elementoIndex: number, elementoData: UpdateElementoRequest): Promise<boolean> {
+    const formData = new FormData();
+
+    // Solo agregar campos que están presentes
+    if (elementoData.categoria !== undefined) {
+      formData.append('categoria', elementoData.categoria);
+    }
+
+    if (elementoData.descripcion !== undefined) {
+      formData.append('descripcion', elementoData.descripcion);
+    }
+
+    if (elementoData.cantidad !== undefined) {
+      formData.append('cantidad', elementoData.cantidad.toString());
+    }
+
+    if (elementoData.foto) {
+      formData.append('foto', elementoData.foto);
+    }
+
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ofertas/${ofertaId}/elementos/${elementoIndex}`, {
+      method: 'PUT',
+      body: formData,
     });
 
     return response.success === true;

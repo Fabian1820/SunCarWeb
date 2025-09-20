@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { OfertaService } from '@/lib/api-services'
-import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest } from '@/lib/api-types'
+import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest, UpdateElementoRequest } from '@/lib/api-types'
 
 export interface UseOfertasReturn {
   ofertas: Oferta[]
@@ -17,6 +17,7 @@ export interface UseOfertasReturn {
   // Nuevos métodos para gestión de elementos
   agregarElemento: (ofertaId: string, elemento: CreateElementoRequest) => Promise<boolean>
   eliminarElemento: (ofertaId: string, elementoIndex: number) => Promise<boolean>
+  editarElemento: (ofertaId: string, elementoIndex: number, elemento: UpdateElementoRequest) => Promise<boolean>
   actualizarOfertaLocal: (ofertaId: string) => Promise<void>
 }
 
@@ -160,12 +161,33 @@ export function useOfertas(): UseOfertasReturn {
     }
   }
 
+  // Editar elemento de oferta existente
+  const editarElemento = async (ofertaId: string, elementoIndex: number, elemento: UpdateElementoRequest): Promise<boolean> => {
+    try {
+      setError(null)
+      const success = await OfertaService.updateElemento(ofertaId, elementoIndex, elemento)
+
+      if (success) {
+        // Recargar ofertas para obtener los elementos actualizados
+        await cargarOfertas()
+        return true
+      } else {
+        setError('No se pudo editar el elemento')
+        return false
+      }
+    } catch (err: any) {
+      console.error('Error al editar elemento:', err)
+      setError(err.message || 'Error al editar el elemento')
+      return false
+    }
+  }
+
   // Actualizar una oferta específica en el estado local
   const actualizarOfertaLocal = async (ofertaId: string): Promise<void> => {
     try {
       const ofertaActualizada = await OfertaService.getOfertaById(ofertaId)
       if (ofertaActualizada) {
-        setOfertas(prev => prev.map(oferta => 
+        setOfertas(prev => prev.map(oferta =>
           oferta.id === ofertaId ? ofertaActualizada : oferta
         ))
       }
@@ -191,6 +213,7 @@ export function useOfertas(): UseOfertasReturn {
     recargarOfertas,
     agregarElemento,
     eliminarElemento,
+    editarElemento,
     actualizarOfertaLocal
   }
 }

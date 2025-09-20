@@ -10,7 +10,7 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
 **OfertaElemento**
 - `categoria`: string (requerido)
 - `descripcion`?: string | null (opcional)
-- `cantidad`: number (requerido, mayor a 1)
+- `cantidad`: number/float (requerido, mayor a 0, permite decimales)
 - `foto`?: string | null (URL de la foto almacenada, solo en respuesta)
 
 **Oferta (completa)**
@@ -141,7 +141,7 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
   - Content-Type: `multipart/form-data`
   - Form data:
     - `categoria`: string (requerido)
-    - `cantidad`: number (requerido, mayor a 1)
+    - `cantidad`: number/float (requerido, mayor a 0, permite decimales)
     - `descripcion`: string (opcional)
     - `foto`: file (opcional - archivo de imagen del elemento)
   - Ejemplo usando curl:
@@ -149,7 +149,7 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
   curl -X POST "http://localhost:8000/api/ofertas/68cac8637c536b55d0a7f12f/elementos" \
     -H "Authorization: Bearer <TOKEN>" \
     -F "categoria=Panel Solar" \
-    -F "cantidad=10" \
+    -F "cantidad=10.5" \
     -F "descripcion=Panel fotovoltaico 400W monocristalino" \
     -F "foto=@/path/to/panel.jpg"
   ```
@@ -162,8 +162,33 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
   {"success": false, "message": "Oferta no encontrada"}
   ```
 
+- **PUT** `/{oferta_id}/elementos/{elemento_index}` — Actualizar elemento de oferta
+  - `elemento_index`: índice del elemento en el array ordenado por categoría (empezando desde 0)
+  - Content-Type: `multipart/form-data`
+  - Form data (todos opcionales, debe proporcionar al menos uno):
+    - `categoria`: string (nueva categoría del elemento)
+    - `cantidad`: number/float (nueva cantidad, mayor a 0, permite decimales)
+    - `descripcion`: string (nueva descripción del elemento)
+    - `foto`: file (nueva foto del elemento)
+  - Ejemplo usando curl:
+  ```bash
+  curl -X PUT "http://localhost:8000/api/ofertas/68cac8637c536b55d0a7f12f/elementos/0" \
+    -H "Authorization: Bearer <TOKEN>" \
+    -F "categoria=Panel Solar Premium" \
+    -F "cantidad=12.5" \
+    -F "descripcion=Panel fotovoltaico 450W monocristalino premium"
+  ```
+  - Respuesta 200:
+  ```json
+  {"success": true, "message": "Elemento actualizado en la oferta"}
+  ```
+  - Si la oferta no existe o índice inválido:
+  ```json
+  {"success": false, "message": "Oferta no encontrada o índice inválido"}
+  ```
+
 - **DELETE** `/{oferta_id}/elementos/{elemento_index}` — Eliminar elemento de oferta
-  - `elemento_index`: índice del elemento en el array (empezando desde 0)
+  - `elemento_index`: índice del elemento en el array ordenado por categoría (empezando desde 0)
   - Ejemplo usando curl:
   ```bash
   curl -X DELETE "http://localhost:8000/api/ofertas/68cac8637c536b55d0a7f12f/elementos/0" \
@@ -193,10 +218,12 @@ Content-Type: multipart/form-data (en POST/PUT con archivos)
 1. **Crear oferta**: Usar `POST /` para crear la oferta básica (sin elementos)
 2. **Agregar elementos**: Usar `POST /{oferta_id}/elementos` para cada elemento individual
 3. **Modificar oferta**: Usar `PUT /{oferta_id}` para actualizar datos básicos
-4. **Gestionar elementos**: Usar `DELETE /{oferta_id}/elementos/{index}` para eliminar elementos específicos
+4. **Gestionar elementos**:
+  - Usar `PUT /{oferta_id}/elementos/{index}` para editar elementos específicos
+  - Usar `DELETE /{oferta_id}/elementos/{index}` para eliminar elementos específicos
 
 #### Validaciones
-- `cantidad` en elementos debe ser mayor a 1
+- `cantidad` en elementos debe ser mayor a 0 (permite decimales como 1.5, 2.75, etc.)
 - `categoria` en elementos es campo requerido
 - Los archivos de imagen se almacenan en MinIO bucket "ofertas"
 - `precio` y `precio_cliente` son number (float)
@@ -207,8 +234,18 @@ Content-Type: multipart/form-data (en POST/PUT con archivos)
 Los elementos ahora son objetos estructurados con validaciones:
 - **categoria**: Campo obligatorio que define el tipo de elemento
 - **descripcion**: Campo opcional para detalles adicionales
-- **cantidad**: Campo obligatorio, debe ser entero mayor a 1
+- **cantidad**: Campo obligatorio, permite decimales (float) y debe ser mayor a 0
 - **foto**: Campo opcional multipart file para imagen específica del elemento
   - En el input: archivo multipart (igual que imagen principal de oferta)
   - En la respuesta: URL string de la imagen almacenada en MinIO
   - Independiente de la imagen principal de la oferta
+
+#### Ordenamiento de Elementos
+- Los elementos se devuelven **siempre ordenados por categoría** alfabéticamente
+- Los índices en endpoints PUT/DELETE se refieren al orden mostrado (ordenado por categoría)
+- Esto garantiza consistencia entre frontend y backend al manipular elementos por índice
+
+#### Cambios Importantes
+- **ARREGLADO**: Inconsistencia al eliminar elementos cuando están ordenados por categoría
+- **NUEVO**: Endpoint PUT para editar elementos existentes
+- **ACTUALIZADO**: Cantidades ahora permiten valores decimales (float) en lugar de solo enteros
