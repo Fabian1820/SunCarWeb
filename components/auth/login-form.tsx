@@ -114,11 +114,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
-          <div className="mt-6 text-center">
-            <p className="text-sm text-suncar-textdark/50">
-              Usuario: <span className="font-mono">admin</span> | Contraseña: <span className="font-mono">admin123</span>
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>
