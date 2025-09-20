@@ -170,7 +170,7 @@ export default function OfertasList({
               <CardContent className="pt-0">
                 {/* Imagen de la oferta */}
                 {oferta.imagen ? (
-                  <div className="relative w-full h-32 mb-4 rounded-lg overflow-hidden bg-gray-100">
+                  <div className="relative w-full aspect-square mb-4 rounded-lg overflow-hidden bg-gray-100">
                     <img
                       src={oferta.imagen}
                       alt={oferta.descripcion}
@@ -185,7 +185,7 @@ export default function OfertasList({
                     </div>
                   </div>
                 ) : (
-                  <div className="w-full h-32 mb-4 rounded-lg bg-gray-100 flex items-center justify-center">
+                  <div className="w-full aspect-square mb-4 rounded-lg bg-gray-100 flex items-center justify-center">
                     <ImageIcon className="h-8 w-8 text-gray-400" />
                   </div>
                 )}
