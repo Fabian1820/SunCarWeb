@@ -619,8 +619,24 @@ export class OfertaService {
     formData.append('precio', ofertaData.precio.toString());
 
     // Campos opcionales
+    if (ofertaData.descripcion_detallada !== undefined && ofertaData.descripcion_detallada !== null) {
+      formData.append('descripcion_detallada', ofertaData.descripcion_detallada);
+    }
+
     if (ofertaData.precio_cliente !== undefined && ofertaData.precio_cliente !== null) {
       formData.append('precio_cliente', ofertaData.precio_cliente.toString());
+    }
+
+    if (ofertaData.moneda !== undefined && ofertaData.moneda !== null) {
+      formData.append('moneda', ofertaData.moneda);
+    }
+
+    if (ofertaData.financiamiento !== undefined) {
+      formData.append('financiamiento', ofertaData.financiamiento.toString());
+    }
+
+    if (ofertaData.descuentos !== undefined && ofertaData.descuentos !== null) {
+      formData.append('descuentos', ofertaData.descuentos);
     }
 
     if (ofertaData.imagen) {
@@ -648,12 +664,28 @@ export class OfertaService {
       formData.append('descripcion', ofertaData.descripcion);
     }
 
+    if (ofertaData.descripcion_detallada !== undefined && ofertaData.descripcion_detallada !== null) {
+      formData.append('descripcion_detallada', ofertaData.descripcion_detallada);
+    }
+
     if (ofertaData.precio !== undefined) {
       formData.append('precio', ofertaData.precio.toString());
     }
 
     if (ofertaData.precio_cliente !== undefined && ofertaData.precio_cliente !== null) {
       formData.append('precio_cliente', ofertaData.precio_cliente.toString());
+    }
+
+    if (ofertaData.moneda !== undefined && ofertaData.moneda !== null) {
+      formData.append('moneda', ofertaData.moneda);
+    }
+
+    if (ofertaData.financiamiento !== undefined) {
+      formData.append('financiamiento', ofertaData.financiamiento.toString());
+    }
+
+    if (ofertaData.descuentos !== undefined && ofertaData.descuentos !== null) {
+      formData.append('descuentos', ofertaData.descuentos);
     }
 
     if (ofertaData.imagen) {

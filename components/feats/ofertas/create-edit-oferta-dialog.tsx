@@ -9,6 +9,8 @@ import { Textarea } from "@/components/shared/molecule/textarea"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { FileUpload } from "@/components/shared/molecule/file-upload"
+import { Switch } from "@/components/shared/molecule/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import {
   Plus,
   X,
@@ -17,7 +19,10 @@ import {
   Package,
   Shield,
   Save,
-  Loader2
+  Loader2,
+  CreditCard,
+  Percent,
+  FileText
 } from "lucide-react"
 import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
 import { toast } from "sonner"
@@ -43,7 +48,11 @@ export default function CreateEditOfertaDialog({
   const [formData, setFormData] = useState<CreateOfertaRequest>({
     descripcion: "",
     precio: 0,
+    descripcion_detallada: null,
     precio_cliente: null,
+    moneda: "usd",
+    financiamiento: false,
+    descuentos: null,
     imagen: null,
     garantias: []
   })
@@ -57,7 +66,11 @@ export default function CreateEditOfertaDialog({
       setFormData({
         descripcion: oferta.descripcion,
         precio: oferta.precio,
+        descripcion_detallada: oferta.descripcion_detallada || null,
         precio_cliente: oferta.precio_cliente || null,
+        moneda: oferta.moneda || "usd",
+        financiamiento: oferta.financiamiento || false,
+        descuentos: oferta.descuentos || null,
         imagen: null, // No podemos pre-cargar un File desde URL
         garantias: [...oferta.garantias]
       })
@@ -66,7 +79,11 @@ export default function CreateEditOfertaDialog({
       setFormData({
         descripcion: "",
         precio: 0,
+        descripcion_detallada: null,
         precio_cliente: null,
+        moneda: "usd",
+        financiamiento: false,
+        descuentos: null,
         imagen: null,
         garantias: []
       })
@@ -144,12 +161,22 @@ export default function CreateEditOfertaDialog({
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="descripcion">Descripción *</Label>
-                <Textarea
+                <Input
                   id="descripcion"
-                  placeholder="Describe la oferta..."
+                  placeholder="Título o nombre corto de la oferta..."
                   value={formData.descripcion}
                   onChange={(e) => setFormData(prev => ({ ...prev, descripcion: e.target.value }))}
-                  className="min-h-[80px]"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="descripcion-detallada">Descripción Detallada</Label>
+                <Textarea
+                  id="descripcion-detallada"
+                  placeholder="Descripción extendida, especificaciones técnicas, casos de uso..."
+                  value={formData.descripcion_detallada || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, descripcion_detallada: e.target.value || null }))}
+                  className="min-h-[100px]"
                 />
               </div>
 
@@ -187,6 +214,46 @@ export default function CreateEditOfertaDialog({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="moneda">Moneda</Label>
+                  <Select value={formData.moneda || "usd"} onValueChange={(value) => setFormData(prev => ({ ...prev, moneda: value }))}>
+                    <SelectTrigger id="moneda">
+                      <SelectValue placeholder="Seleccionar moneda" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="usd">USD</SelectItem>
+                      <SelectItem value="cup">CUP</SelectItem>
+                      <SelectItem value="mlc">MLC</SelectItem>
+                      <SelectItem value="eur">EUR</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2 pt-7">
+                  <Switch
+                    id="financiamiento"
+                    checked={formData.financiamiento || false}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, financiamiento: checked }))}
+                  />
+                  <Label htmlFor="financiamiento" className="cursor-pointer flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-blue-600" />
+                    Financiamiento disponible
+                  </Label>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="descuentos">Descuentos y Promociones</Label>
+                <Textarea
+                  id="descuentos"
+                  placeholder="Información sobre descuentos, promociones, condiciones de financiamiento..."
+                  value={formData.descuentos || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, descuentos: e.target.value || null }))}
+                  className="min-h-[80px]"
+                />
               </div>
 
               <FileUpload

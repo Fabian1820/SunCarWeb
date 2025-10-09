@@ -42,8 +42,8 @@ export default function ManageElementsDialog({
   // Estado para el nuevo elemento
   const [nuevoElemento, setNuevoElemento] = useState<CreateElementoRequest>({
     categoria: "",
-    descripcion: "",
-    cantidad: 1,
+    descripcion: "", // requerido
+    cantidad: 1, // requerido, mayor a 0
     foto: null
   })
 
@@ -79,10 +79,10 @@ export default function ManageElementsDialog({
       return
     }
 
-    if (!nuevoElemento.categoria.trim()) {
+    if (!nuevoElemento.descripcion.trim()) {
       toastNotification({
         title: "Error",
-        description: "La categoría es requerida",
+        description: "La descripción es requerida",
         variant: "destructive",
       })
       return
@@ -220,10 +220,10 @@ export default function ManageElementsDialog({
     }
 
     // Validaciones
-    if (!elementoEditando.elemento.categoria?.trim()) {
+    if (!elementoEditando.elemento.descripcion?.trim()) {
       toastNotification({
         title: "Error",
-        description: "La categoría es requerida",
+        description: "La descripción es requerida",
         variant: "destructive",
       })
       return
@@ -314,7 +314,7 @@ export default function ManageElementsDialog({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
-                  <Label htmlFor="categoria">Categoría *</Label>
+                  <Label htmlFor="categoria">Categoría</Label>
                   <Input
                     id="categoria"
                     placeholder="Ej: Panel Solar"
@@ -323,7 +323,7 @@ export default function ManageElementsDialog({
                   />
                 </div>
                 <div>
-                  <Label htmlFor="descripcion">Descripción</Label>
+                  <Label htmlFor="descripcion">Descripción *</Label>
                   <Input
                     id="descripcion"
                     placeholder="Ej: Panel 400W monocristalino"
@@ -344,9 +344,9 @@ export default function ManageElementsDialog({
                   />
                 </div>
                 <div className="flex items-end">
-                  <Button 
-                    onClick={handleAgregarElemento} 
-                    disabled={saving || !nuevoElemento.categoria.trim()}
+                  <Button
+                    onClick={handleAgregarElemento}
+                    disabled={saving || !nuevoElemento.descripcion.trim()}
                     className="w-full"
                   >
                     {saving ? (
@@ -395,7 +395,7 @@ export default function ManageElementsDialog({
                         <div className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
-                              <Label htmlFor={`edit-categoria-${index}`}>Categoría *</Label>
+                              <Label htmlFor={`edit-categoria-${index}`}>Categoría</Label>
                               <Input
                                 id={`edit-categoria-${index}`}
                                 placeholder="Ej: Panel Solar"
@@ -407,7 +407,7 @@ export default function ManageElementsDialog({
                               />
                             </div>
                             <div>
-                              <Label htmlFor={`edit-descripcion-${index}`}>Descripción</Label>
+                              <Label htmlFor={`edit-descripcion-${index}`}>Descripción *</Label>
                               <Input
                                 id={`edit-descripcion-${index}`}
                                 placeholder="Ej: Panel 400W monocristalino"
@@ -461,7 +461,7 @@ export default function ManageElementsDialog({
                             <Button
                               size="sm"
                               onClick={handleSaveEdit}
-                              disabled={saving || !elementoEditando.elemento.categoria?.trim()}
+                              disabled={saving || !elementoEditando.elemento.descripcion?.trim()}
                             >
                               {saving ? (
                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />

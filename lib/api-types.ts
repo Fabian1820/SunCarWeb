@@ -140,17 +140,17 @@ export interface RespuestaMensaje {
 
 // Tipos para el sistema de ofertas
 export interface ElementoOferta {
-  categoria: string; // requerido
-  descripcion?: string | null; // opcional
-  cantidad: number; // requerido, mayor a 1
+  categoria?: string | null; // opcional
+  descripcion: string; // requerido
+  cantidad: number; // requerido, mayor a 0, permite decimales
   foto?: string | null; // URL de la foto almacenada, solo en respuesta
 }
 
 // Tipo para crear elementos (input)
 export interface CreateElementoRequest {
-  categoria: string; // requerido
-  descripcion?: string; // opcional
-  cantidad: number; // requerido, mayor a 1
+  categoria?: string; // opcional
+  descripcion: string; // requerido
+  cantidad: number; // requerido, mayor a 0, permite decimales
   foto?: File | null; // archivo de imagen opcional
 }
 
@@ -158,34 +158,46 @@ export interface CreateElementoRequest {
 export interface UpdateElementoRequest {
   categoria?: string; // opcional
   descripcion?: string; // opcional
-  cantidad?: number; // opcional, mayor a 0
+  cantidad?: number; // opcional, mayor a 0, permite decimales
   foto?: File | null; // archivo de imagen opcional
 }
 
 export interface Oferta {
   id: string; // solo respuesta del backend
-  descripcion: string;
-  precio: number;
-  precio_cliente?: number | null; // nuevo campo opcional
-  imagen?: string | null;
-  garantias: string[];
-  elementos: ElementoOferta[];
+  descripcion: string; // requerido
+  descripcion_detallada?: string | null; // opcional - descripción extendida
+  precio: number; // requerido
+  precio_cliente?: number | null; // opcional - precio específico para el cliente
+  imagen?: string | null; // URL, opcional
+  moneda?: string | null; // opcional - moneda de la oferta (ej: "usd", "cup", "mlc")
+  financiamiento?: boolean; // opcional, por defecto false - indica si tiene financiamiento disponible
+  descuentos?: string | null; // opcional - información detallada sobre descuentos aplicables
+  garantias: string[]; // array de strings
+  elementos: ElementoOferta[]; // array de elementos
 }
 
 export interface OfertaSimplificada {
   id: string; // solo respuesta del backend
-  descripcion: string;
-  precio: number;
-  precio_cliente?: number | null; // nuevo campo opcional
-  imagen?: string | null;
+  descripcion: string; // requerido
+  descripcion_detallada?: string | null; // opcional
+  precio: number; // requerido
+  precio_cliente?: number | null; // opcional
+  imagen?: string | null; // URL, opcional
+  moneda?: string | null; // opcional
+  financiamiento?: boolean; // opcional, por defecto false
+  descuentos?: string | null; // opcional
 }
 
 // Tipo para crear ofertas (sin elementos - se gestionan por separado)
 export interface CreateOfertaRequest {
-  descripcion: string;
-  precio: number;
-  precio_cliente?: number | null; // campo opcional
-  imagen?: File | null; // archivo de imagen
+  descripcion: string; // requerido - título o nombre corto
+  precio: number; // requerido - precio base
+  descripcion_detallada?: string | null; // opcional - descripción extendida y detallada
+  precio_cliente?: number | null; // opcional - precio específico para el cliente
+  moneda?: string | null; // opcional - moneda (ej: "usd", "cup", "mlc")
+  financiamiento?: boolean; // opcional - si tiene financiamiento disponible
+  descuentos?: string | null; // opcional - información detallada sobre descuentos
+  imagen?: File | null; // archivo de imagen opcional
   garantias: string[]; // solo garantías, elementos se agregan por separado
 }
 

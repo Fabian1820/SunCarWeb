@@ -11,7 +11,10 @@ import {
   Shield,
   Edit,
   Trash2,
-  X
+  X,
+  FileText,
+  CreditCard,
+  Percent
 } from "lucide-react"
 import type { Oferta } from "@/lib/api-types"
 
@@ -48,25 +51,55 @@ export default function OfertaDetailsDialog({
           {/* Información principal */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-xl flex items-center justify-between">
-                <span>{oferta.descripcion}</span>
-                <div className="text-right">
+              <CardTitle className="text-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <span className="flex-1">{oferta.descripcion}</span>
+                <div className="text-left sm:text-right">
                   <div className="flex items-center gap-2 text-green-600">
                     <DollarSign className="h-5 w-5" />
-                    <span className="text-2xl font-bold">{oferta.precio.toLocaleString()}</span>
+                    <span className="text-2xl font-bold">
+                      {oferta.precio.toLocaleString()} {oferta.moneda?.toUpperCase() || 'USD'}
+                    </span>
                   </div>
                   {oferta.precio_cliente && (
                     <div className="flex items-center gap-2 text-blue-600 mt-1">
                       <span className="text-sm font-medium">Cliente:</span>
                       <span className="text-lg font-semibold">
-                        {oferta.precio_cliente.toLocaleString()}
+                        {oferta.precio_cliente.toLocaleString()} {oferta.moneda?.toUpperCase() || 'USD'}
                       </span>
                     </div>
                   )}
+                  <div className="flex gap-2 mt-2">
+                    {oferta.financiamiento && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        <CreditCard className="h-3 w-3 mr-1" />
+                        Financiamiento
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {oferta.descripcion_detallada && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-start gap-2 mb-2">
+                    <FileText className="h-5 w-5 text-gray-600 mt-0.5" />
+                    <h4 className="font-semibold text-gray-900">Descripción Detallada</h4>
+                  </div>
+                  <p className="text-gray-700 whitespace-pre-wrap">{oferta.descripcion_detallada}</p>
+                </div>
+              )}
+
+              {oferta.descuentos && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <div className="flex items-start gap-2 mb-2">
+                    <Percent className="h-5 w-5 text-green-600 mt-0.5" />
+                    <h4 className="font-semibold text-green-900">Descuentos y Promociones</h4>
+                  </div>
+                  <p className="text-green-700 whitespace-pre-wrap">{oferta.descuentos}</p>
+                </div>
+              )}
+
               {oferta.imagen ? (
                 <div className="w-full max-w-md mx-auto">
                   <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100">

@@ -20,7 +20,9 @@ import {
   Trash2,
   DollarSign,
   Image as ImageIcon,
-  Package
+  Package,
+  CreditCard,
+  Percent
 } from "lucide-react"
 import {
   AlertDialog,
@@ -127,17 +129,31 @@ export default function OfertasList({
                       <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         <span className="text-lg font-bold text-green-600">
-                          {oferta.precio.toLocaleString()}
+                          {oferta.precio.toLocaleString()} {oferta.moneda?.toUpperCase() || 'USD'}
                         </span>
                       </div>
                       {oferta.precio_cliente && (
                         <div className="flex items-center gap-2 text-blue-600">
                           <span className="text-xs font-medium">Cliente:</span>
                           <span className="text-sm font-semibold">
-                            {oferta.precio_cliente.toLocaleString()}
+                            {oferta.precio_cliente.toLocaleString()} {oferta.moneda?.toUpperCase() || 'USD'}
                           </span>
                         </div>
                       )}
+                      <div className="flex gap-1 mt-2">
+                        {oferta.financiamiento && (
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800 text-xs">
+                            <CreditCard className="h-3 w-3 mr-1" />
+                            Financiamiento
+                          </Badge>
+                        )}
+                        {oferta.descuentos && (
+                          <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs">
+                            <Percent className="h-3 w-3 mr-1" />
+                            Descuentos
+                          </Badge>
+                        )}
+                      </div>
                     </CardDescription>
                   </div>
                   <AlertDialog>
