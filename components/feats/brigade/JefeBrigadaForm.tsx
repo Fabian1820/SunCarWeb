@@ -46,7 +46,7 @@ export function JefeBrigadaForm({ onSubmit, onCancel, loading, trabajadores }: {
           value={integrantes}
           onChange={e => setIntegrantes(Array.from(e.target.selectedOptions, o => o.value))}
         >
-          {trabajadores.filter(t => !t.tiene_contraseña).map((t, idx) => (
+          {trabajadores.filter(t => !t.tiene_contraseña && (t.is_brigadista === true || t.is_brigadista === undefined)).map((t, idx) => (
             <option key={t.id || t.CI || idx} value={t.CI}>{t.nombre} ({t.CI})</option>
           ))}
         </select>

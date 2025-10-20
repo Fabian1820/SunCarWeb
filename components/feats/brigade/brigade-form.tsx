@@ -85,7 +85,7 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
               onChange={e => setSelectedJefe(e.target.value)}
             >
               <option value="">Seleccionar jefe</option>
-              {existingWorkers.filter(w => w.tiene_contraseña).map((worker) => (
+              {existingWorkers.filter(w => w.tiene_contraseña && (w.is_brigadista === true || w.is_brigadista === undefined)).map((worker) => (
                 <option key={worker.CI} value={worker.CI}>
                   {worker.nombre} ({worker.CI})
                 </option>
@@ -105,9 +105,9 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
             Seleccionar trabajadores existentes *
           </Label>
           <div className="border rounded p-3 max-h-48 overflow-y-auto">
-            {existingWorkers.filter(w => !w.tiene_contraseña).length > 0 ? (
+            {existingWorkers.filter(w => !w.tiene_contraseña && (w.is_brigadista === true || w.is_brigadista === undefined)).length > 0 ? (
               <div className="grid grid-cols-1 gap-2">
-                {existingWorkers.filter(w => !w.tiene_contraseña).map(w => (
+                {existingWorkers.filter(w => !w.tiene_contraseña && (w.is_brigadista === true || w.is_brigadista === undefined)).map(w => (
                   <label key={w.id || w.CI} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                     <input
                       type="checkbox"
@@ -125,7 +125,7 @@ export function BrigadeForm({ initialData, onSubmit, onCancel, isEditing = false
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No hay trabajadores disponibles para asignar</p>
+              <p className="text-gray-500">No hay trabajadores brigadistas disponibles para asignar</p>
             )}
           </div>
           {errors.selectedIntegrantes && <p className="text-red-600 text-sm mt-1">{errors.selectedIntegrantes}</p>}

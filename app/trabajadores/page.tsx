@@ -6,9 +6,8 @@ import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
-import { ArrowLeft, UserPlus, Search, Loader2 } from "lucide-react"
-import { WorkerForm } from "@/components/feats/worker/worker-form"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { ArrowLeft, Search, Loader2 } from "lucide-react"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { TrabajadoresTable } from '@/components/feats/worker/trabajadores-table'
 import { TrabajadorService } from '@/lib/api-services'
@@ -25,7 +24,6 @@ export default function TrabajadoresPage() {
   const { brigadas: backendBrigades, loading: loadingBrigadas, loadBrigadas } = useBrigadas()
 
   // Todos los hooks deben estar al inicio, antes de cualquier lógica condicional
-  const [isAddWorkerDialogOpen, setIsAddWorkerDialogOpen] = useState(false)
   const [isAssignBrigadeDialogOpen, setIsAssignBrigadeDialogOpen] = useState(false)
   const [isConvertJefeDialogOpen, setIsConvertJefeDialogOpen] = useState(false)
   const [selectedTrabajador, setSelectedTrabajador] = useState<any>(null)
@@ -47,119 +45,13 @@ export default function TrabajadoresPage() {
   if (errorTrabajadores) {
     return <div>Error: {errorTrabajadores}</div>
   }
+  // Filtrar solo brigadistas (is_brigadista = true)
   const filteredTrabajadores = Array.isArray(trabajadores) ? trabajadores.filter(w =>
-    (workerType === 'todos' ? true : workerType === 'jefes' ? w.tiene_contraseña : !w.tiene_contraseña)
+    // Solo mostrar trabajadores que son brigadistas
+    (w.is_brigadista === true || w.is_brigadista === undefined) // Mantener compatibilidad con datos sin el campo
+    && (workerType === 'todos' ? true : workerType === 'jefes' ? w.tiene_contraseña : !w.tiene_contraseña)
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
   ) : [];
-
-  const handleAddWorker = async (data: { ci: string; name: string; password?: string; brigadeId?: string; integrantes?: string[]; mode: 'trabajador_asignar' | 'jefe_brigada' | 'asignar_brigada' | 'jefe' | 'trabajador' }) => {
-    setLoadingAction(true);
-    try {
-      if (data.mode === 'trabajador_asignar' && data.brigadeId) {
-        // Crear trabajador y asignar a brigada
-        try {
-          await TrabajadorService.crearTrabajador(data.ci, data.name);
-        } catch (e: any) {
-          toast({
-            title: "Error",
-            description: 'Error al crear trabajador: ' + (e.message || 'Error desconocido'),
-            variant: "destructive",
-          });
-          setIsAddWorkerDialogOpen(false);
-          setLoadingAction(false);
-          await Promise.all([refetch(), loadBrigadas()]);
-          return;
-        }
-        try {
-          await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name);
-          toast({
-            title: "Éxito",
-            description: 'Trabajador creado y asignado a brigada correctamente',
-          });
-        } catch (e: any) {
-          toast({
-            title: "Advertencia",
-            description: 'Trabajador creado pero error al asignar a brigada: ' + (e.message || 'Error desconocido'),
-            variant: "destructive",
-          });
-        }
-        setIsAddWorkerDialogOpen(false);
-        await Promise.all([refetch(), loadBrigadas()]);
-        return;
-      } else if (data.mode === 'jefe_brigada' && data.password && data.integrantes) {
-        // Crear jefe y brigada con integrantes
-        const integrantesArr = data.integrantes.map(ci => ({ CI: ci }));
-        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr);
-        toast({
-          title: "Éxito",
-          description: 'Jefe y brigada creada correctamente',
-        });
-        setIsAddWorkerDialogOpen(false);
-        // Refrescar tanto trabajadores como brigadas
-        await Promise.all([refetch(), loadBrigadas()]);
-        return; // Salir para evitar el refetch() general
-      } else if (data.mode === 'asignar_brigada' && data.password && data.brigadeId) {
-        await TrabajadorService.crearTrabajadorYAsignarBrigada(data.ci, data.name, data.password, data.brigadeId);
-        toast({
-          title: "Éxito",
-          description: 'Trabajador jefe creado y asignado a brigada correctamente',
-        });
-        setIsAddWorkerDialogOpen(false);
-      } else if (data.mode === 'jefe' && data.password) {
-        await TrabajadorService.crearTrabajador(data.ci, data.name, data.password);
-        toast({
-          title: "Éxito",
-          description: 'Jefe de brigada creado correctamente',
-        });
-        setIsAddWorkerDialogOpen(false);
-      } else if (data.mode === 'trabajador') {
-        await TrabajadorService.crearTrabajador(data.ci, data.name);
-        toast({
-          title: "Éxito",
-          description: 'Trabajador creado correctamente',
-        });
-        setIsAddWorkerDialogOpen(false);
-      } else {
-        toast({
-          title: "Error",
-          description: 'Datos inválidos',
-          variant: "destructive",
-        });
-        setLoadingAction(false);
-        return;
-      }
-      refetch();
-    } catch (e: any) {
-      toast({
-        title: "Error",
-        description: `Error al crear trabajador: ${e.message || 'Error desconocido'}`,
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
-
-  // Handler para editar trabajador
-  const handleEditWorker = async (ci: string, nombre: string, nuevoCi?: string) => {
-    setLoadingAction(true);
-    try {
-      await TrabajadorService.actualizarTrabajador(ci, nombre, nuevoCi);
-      toast({
-        title: "Éxito",
-        description: 'Trabajador actualizado correctamente',
-      });
-      await Promise.all([refetch(), loadBrigadas()]);
-    } catch (e: any) {
-      toast({
-        title: "Error",
-        description: 'Error al actualizar trabajador: ' + (e.message || 'Error desconocido'),
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingAction(false);
-    }
-  };
 
   // Handler para asignar brigada a trabajador existente
   const handleAsignarBrigada = async (data: { brigadaId: string }) => {
@@ -247,29 +139,6 @@ export default function TrabajadoresPage() {
                 <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar personal y asignaciones</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <Dialog open={isAddWorkerDialogOpen} onOpenChange={setIsAddWorkerDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800"
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Nuevo Trabajador
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Agregar Trabajador</DialogTitle>
-                  </DialogHeader>
-                  <WorkerForm
-                    onSubmit={handleAddWorker}
-                    onCancel={() => setIsAddWorkerDialogOpen(false)}
-                    brigades={brigades}
-                    workers={trabajadores}
-                  />
-                </DialogContent>
-              </Dialog>
-            </div>
           </div>
         </div>
       </header>
@@ -329,27 +198,8 @@ export default function TrabajadoresPage() {
             <TrabajadoresTable
               trabajadores={filteredTrabajadores}
               brigadas={brigadasTrabajadores}
-              onAdd={() => setIsAddWorkerDialogOpen(true)}
-              onAddJefe={() => setIsAddWorkerDialogOpen(true)}
               onAssignBrigada={trabajador => { setSelectedTrabajador(trabajador); setIsAssignBrigadeDialogOpen(true); }}
               onConvertJefe={trabajador => { setSelectedTrabajador(trabajador); setIsConvertJefeDialogOpen(true); }}
-              onEdit={async (trabajador) => { await handleEditWorker(trabajador.CI, trabajador.nombre); }}
-              onDelete={async (trabajador) => { 
-                try {
-                  await TrabajadorService.eliminarTrabajador(trabajador.CI); 
-                  toast({
-                    title: "Éxito",
-                    description: 'Trabajador eliminado correctamente',
-                  });
-                  await Promise.all([refetch(), loadBrigadas()]); 
-                } catch (e: any) {
-                  toast({
-                    title: "Error",
-                    description: 'Error al eliminar trabajador: ' + (e.message || 'Error desconocido'),
-                    variant: "destructive",
-                  });
-                }
-              }}
               onRefresh={async () => { await Promise.all([refetch(), loadBrigadas()]); }}
             />
           </CardContent>

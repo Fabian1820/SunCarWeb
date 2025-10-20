@@ -26,6 +26,7 @@ import { ReportsTable } from "@/components/feats/reports/reports-table"
 import { ClienteService, ReporteService } from "@/lib/api-services"
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
+import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog"
 
 interface ClientsTableProps {
   clients: any[]
@@ -41,6 +42,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   const [loadingClientReports, setLoadingClientReports] = useState(false)
   const [showClientLocation, setShowClientLocation] = useState(false)
   const [clientLocation, setClientLocation] = useState<{ lat: number, lng: number } | null>(null)
+  const [showClientDetails, setShowClientDetails] = useState(false)
+  const [clientForDetails, setClientForDetails] = useState<any | null>(null)
 
   // Acción para ver reportes de un cliente
   const handleViewClientReports = async (client: any) => {
@@ -62,6 +65,12 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
       setClientLocation({ lat: parseFloat(client.latitud), lng: parseFloat(client.longitud) })
       setShowClientLocation(true)
     }
+  }
+
+  // Acción para ver detalles completos del cliente
+  const handleViewClientDetails = (client: any) => {
+    setClientForDetails(client)
+    setShowClientDetails(true)
   }
 
   // Columnas para reportes (para el modal de reportes de cliente)
@@ -120,6 +129,15 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleViewClientDetails(client)}
+                      className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                      title="Ver detalles completos"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
                     <Button
                         variant="outline"
                         size="sm"
@@ -208,6 +226,14 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de detalles completos del cliente */}
+      <ClienteDetallesDialog
+        open={showClientDetails}
+        onOpenChange={setShowClientDetails}
+        cliente={clientForDetails}
+        onViewMap={handleViewClientLocation}
+      />
     </>
   )
 }

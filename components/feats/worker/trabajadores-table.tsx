@@ -1,40 +1,28 @@
 import { useState } from 'react';
 import type { Trabajador, Brigada } from '@/lib/api-types';
 import { Button } from '@/components/shared/atom/button';
-import { Plus, UserCog, UserPlus, Users, Crown, Eye, Power, Mail, Phone, Clock, List, Edit, Trash2, KeyRound } from 'lucide-react';
+import { Users, Crown, Clock, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/shared/atom/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/shared/molecule/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog, ConfirmEditDialog } from '@/components/shared/molecule/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/shared/molecule/dialog';
 import { Label } from '@/components/shared/atom/label';
 import { Input } from '@/components/shared/molecule/input';
-import { Calendar } from '@/components/shared/molecule/calendar';
-import { DialogFooter, DialogTrigger, DialogDescription } from '@/components/shared/molecule/dialog';
+import { DialogFooter } from '@/components/shared/molecule/dialog';
 import { useEffect } from 'react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/shared/molecule/tooltip';
 import { TrabajadorService } from '@/lib/api-services';
 import { useToast } from '@/hooks/use-toast';
 
 interface TrabajadoresTableProps {
   trabajadores: Trabajador[];
   brigadas: Brigada[];
-  onAdd: () => void;
-  onAddJefe: () => void;
   onAssignBrigada: (trabajador: Trabajador) => void;
   onConvertJefe: (trabajador: Trabajador) => void;
-  onEdit: (trabajador: Trabajador) => void;
-  onDelete: (trabajador: Trabajador) => void;
   onRefresh: () => void;
 }
 
-export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, onAssignBrigada, onConvertJefe, onEdit, onDelete, onRefresh }: TrabajadoresTableProps) {
+export function TrabajadoresTable({ trabajadores, brigadas, onAssignBrigada, onConvertJefe, onRefresh }: TrabajadoresTableProps) {
   const [selectedWorker, setSelectedWorker] = useState<Trabajador | null>(null);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [workerToEdit, setWorkerToEdit] = useState<Trabajador | null>(null);
-  const [workerToDelete, setWorkerToDelete] = useState<Trabajador | null>(null);
-  const [editForm, setEditForm] = useState({ nombre: '', nuevoCi: '' });
-  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   // NUEVO: Estados para horas trabajadas individuales
@@ -66,71 +54,6 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
     setFechaTodosInicio(first.toISOString().split('T')[0]);
     setFechaTodosFin(last.toISOString().split('T')[0]);
   }, []);
-
-  // Handler para abrir modal de edición
-  const openEditDialog = (worker: Trabajador) => {
-    setWorkerToEdit(worker);
-    setEditForm({ nombre: worker.nombre, nuevoCi: '' });
-    setIsEditDialogOpen(true);
-  };
-
-  // Handler para abrir modal de eliminación
-  const openDeleteDialog = (worker: Trabajador) => {
-    setWorkerToDelete(worker);
-    setIsDeleteDialogOpen(true);
-  };
-
-  // Handler para editar trabajador
-  const handleEditWorker = async () => {
-    if (!workerToEdit) return;
-    
-    setIsLoading(true);
-    try {
-      await TrabajadorService.actualizarTrabajador(
-        workerToEdit.CI, 
-        editForm.nombre, 
-        editForm.nuevoCi || undefined
-      );
-      toast({
-        title: "Trabajador actualizado",
-        description: "Los datos del trabajador han sido actualizados exitosamente.",
-        variant: "default",
-      });
-      onRefresh();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al actualizar el trabajador",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handler para eliminar trabajador
-  const handleDeleteWorker = async () => {
-    if (!workerToDelete) return;
-    
-    setIsLoading(true);
-    try {
-      await TrabajadorService.eliminarTrabajador(workerToDelete.CI);
-      toast({
-        title: "Trabajador eliminado",
-        description: "El trabajador ha sido eliminado exitosamente.",
-        variant: "default",
-      });
-      onRefresh();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Error al eliminar el trabajador",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Handler para abrir modal de horas de un trabajador
   const openHorasDialog = (worker: Trabajador) => {
@@ -281,24 +204,6 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => openEditDialog(worker)}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                      title="Editar trabajador"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openDeleteDialog(worker)}
-                      className="border-red-300 text-red-700 hover:bg-red-50"
-                      title="Eliminar trabajador"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
                       onClick={() => onAssignBrigada(worker)}
                       className="border-blue-300 text-blue-700 hover:bg-blue-50"
                       title="Asignar a brigada"
@@ -379,53 +284,6 @@ export function TrabajadoresTable({ trabajadores, brigadas, onAdd, onAddJefe, on
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Editar Trabajador</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="nombre">Nombre</Label>
-              <Input
-                id="nombre"
-                value={editForm.nombre}
-                onChange={(e) => setEditForm({ ...editForm, nombre: e.target.value })}
-                placeholder="Nombre del trabajador"
-              />
-            </div>
-            <div>
-              <Label htmlFor="nuevoCi">Nuevo CI (opcional)</Label>
-              <Input
-                id="nuevoCi"
-                value={editForm.nuevoCi}
-                onChange={(e) => setEditForm({ ...editForm, nuevoCi: e.target.value })}
-                placeholder="Nuevo CI (dejar vacío para mantener el actual)"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleEditWorker} disabled={isLoading || !editForm.nombre.trim()}>
-              {isLoading ? "Guardando..." : "Guardar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Delete Dialog */}
-      <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar Trabajador"
-        message={`¿Estás seguro de que quieres eliminar a ${workerToDelete?.nombre}? Esta acción no se puede deshacer y eliminará completamente al trabajador de la base de datos.`}
-        onConfirm={handleDeleteWorker}
-        isLoading={isLoading}
-      />
 
       {/* Modal: Horas trabajadas de un trabajador */}
       <Dialog open={isHorasDialogOpen} onOpenChange={setIsHorasDialogOpen}>

@@ -16,7 +16,9 @@ import {
     UserPlus,
     Info,
     Phone,
-    Tag
+    Tag,
+    ClipboardList,
+    Briefcase
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
@@ -200,6 +202,26 @@ export default function Dashboard() {
                                     <Tag className="h-10 w-10 text-orange-600 mx-auto mb-3" />
                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Ofertas</h3>
                                     <p className="text-sm text-gray-600">Gestión de ofertas y promociones.</p>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        <Link href="/ordenes-trabajo">
+                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
+                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
+                                    <ClipboardList className="h-10 w-10 text-purple-600 mx-auto mb-3" />
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Órdenes de Trabajo</h3>
+                                    <p className="text-sm text-gray-600">Crear y gestionar órdenes para brigadas.</p>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        <Link href="/recursos-humanos">
+                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
+                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
+                                    <Briefcase className="h-10 w-10 text-purple-600 mx-auto mb-3" />
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Recursos Humanos</h3>
+                                    <p className="text-sm text-gray-600">Gestión de nómina y estímulos mensuales.</p>
                                 </CardContent>
                             </Card>
                         </Link>

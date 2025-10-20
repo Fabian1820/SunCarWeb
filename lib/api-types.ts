@@ -101,7 +101,8 @@ export interface Trabajador {
   id: string;
   CI: string;
   nombre: string;
-  tiene_contraseña: boolean; // Nuevo campo, true = jefe
+  tiene_contraseña: boolean; // true = jefe de brigada
+  is_brigadista?: boolean; // true = puede ser asignado a brigadas
 }
 
 export interface Brigada {
@@ -202,4 +203,38 @@ export interface CreateOfertaRequest {
 }
 
 // Tipo para actualizar ofertas (sin elementos - se gestionan por separado)
-export interface UpdateOfertaRequest extends Partial<CreateOfertaRequest> {} 
+export interface UpdateOfertaRequest extends Partial<CreateOfertaRequest> {}
+
+// Tipos para Órdenes de Trabajo
+export type TipoReporte = 'inversión' | 'avería' | 'mantenimiento'
+
+export interface OrdenTrabajo {
+  id: string
+  brigada_id: string
+  brigada_nombre?: string // nombre del líder de la brigada para mostrar
+  cliente_numero: string
+  cliente_nombre: string
+  tipo_reporte: TipoReporte
+  fecha_ejecucion: string // formato ISO: YYYY-MM-DD
+  comentarios?: string
+  fecha_creacion: string
+  estado?: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
+}
+
+export interface CreateOrdenTrabajoRequest {
+  brigada_id: string
+  cliente_numero: string
+  tipo_reporte: TipoReporte
+  fecha_ejecucion: string // formato ISO: YYYY-MM-DD
+  comentarios?: string
+}
+
+export interface UpdateOrdenTrabajoRequest extends Partial<CreateOrdenTrabajoRequest> {
+  estado?: 'pendiente' | 'en_proceso' | 'completada' | 'cancelada'
+}
+
+export interface OrdenTrabajoResponse {
+  success: boolean
+  message: string
+  data: OrdenTrabajo | OrdenTrabajo[] | null
+}

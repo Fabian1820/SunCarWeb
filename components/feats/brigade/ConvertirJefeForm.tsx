@@ -56,9 +56,9 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
       <div>
         <label className="block text-sm font-medium mb-1">Integrantes (opcional)</label>
         <div className="border rounded p-3 max-h-48 overflow-y-auto">
-          {trabajadores.filter(t => !t.tiene_contraseña && t.CI !== trabajador.CI).length > 0 ? (
+          {trabajadores.filter(t => !t.tiene_contraseña && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).length > 0 ? (
             <div className="grid grid-cols-1 gap-2">
-              {trabajadores.filter(t => !t.tiene_contraseña && t.CI !== trabajador.CI).map(t => (
+              {trabajadores.filter(t => !t.tiene_contraseña && t.CI !== trabajador.CI && (t.is_brigadista === true || t.is_brigadista === undefined)).map(t => (
                 <label key={t.id || t.CI} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
                   <input
                     type="checkbox"
@@ -81,7 +81,7 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
             </div>
           ) : (
             <p className="text-gray-500 text-sm text-center py-4">
-              No hay trabajadores disponibles para asignar
+              No hay trabajadores brigadistas disponibles para asignar
             </p>
           )}
         </div>

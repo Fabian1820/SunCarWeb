@@ -7,13 +7,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Search, User, MapPin, ArrowLeft } from "lucide-react"
+import { Calendar } from "@/components/shared/molecule/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/molecule/popover"
+import { Search, User, MapPin, ArrowLeft, CalendarIcon } from "lucide-react"
 import { ClienteService } from "@/lib/api-services"
 import { ClientsTable } from "@/components/feats/customer-service/clients-table"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<any[]>([])
@@ -26,10 +31,12 @@ export default function ClientesPage() {
   const { toast } = useToast()
   const [showMapModalClient, setShowMapModalClient] = useState(false)
   const [clientLatLng, setClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
+  const [fechaInstalacion, setFechaInstalacion] = useState<Date | undefined>(undefined)
   const [isEditClientDialogOpen, setIsEditClientDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<any | null>(null)
   const [editClientFormLoading, setEditClientFormLoading] = useState(false)
   const [editClientLatLng, setEditClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
+  const [editFechaInstalacion, setEditFechaInstalacion] = useState<Date | undefined>(undefined)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<any | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -41,8 +48,9 @@ export default function ClientesPage() {
     try {
       const params: any = {}
       if (searchTerm) params.nombre = searchTerm
-      const data = await ClienteService.getClientes(params)
-      setClients(Array.isArray(data) ? data : [])
+      const response = await ClienteService.getClientes(params)
+      // getClientes retorna { data: Cliente[], success: boolean }
+      setClients(Array.isArray(response.data) ? response.data : [])
     } catch (e: any) {
       setClients([])
     } finally {
@@ -89,6 +97,7 @@ export default function ClientesPage() {
   const handleEditClient = (client: any) => {
     setEditingClient(client)
     setEditClientLatLng({ lat: client.latitud || '', lng: client.longitud || '' })
+    setEditFechaInstalacion(client.fecha_instalacion ? new Date(client.fecha_instalacion) : undefined)
     setIsEditClientDialogOpen(true)
   }
 
@@ -247,19 +256,43 @@ export default function ClientesPage() {
               const nombre = (form.elements.namedItem('nombre') as HTMLInputElement).value.trim()
               const numero = (form.elements.namedItem('numero') as HTMLInputElement).value.trim()
               const direccion = (form.elements.namedItem('direccion') as HTMLInputElement).value.trim()
+              const telefono = (form.elements.namedItem('telefono') as HTMLInputElement)?.value.trim()
+              const carnet_identidad = (form.elements.namedItem('carnet_identidad') as HTMLInputElement)?.value.trim()
+              const equipo_instalado = (form.elements.namedItem('equipo_instalado') as HTMLInputElement)?.value.trim()
               const latitud = clientLatLng.lat
               const longitud = clientLatLng.lng
+
               if (!nombre || !numero || !direccion) {
                 toast({
                   title: "Error",
-                  description: 'Completa todos los campos obligatorios',
+                  description: 'Completa todos los campos obligatorios (nombre, número, dirección)',
                   variant: "destructive",
                 });
                 setClientFormLoading(false)
                 return
               }
+
               try {
-                const dataCliente = await ClienteService.crearCliente({ nombre, numero, direccion, latitud, longitud })
+                // Preparar datos del cliente - SOLO campos obligatorios
+                const clienteData: any = {
+                  nombre,
+                  numero,
+                  direccion,
+                }
+
+                // Agregar campos opcionales SOLO si tienen valor
+                if (latitud && latitud.trim()) clienteData.latitud = latitud
+                if (longitud && longitud.trim()) clienteData.longitud = longitud
+                if (telefono && telefono.trim()) clienteData.telefono = telefono
+                if (carnet_identidad && carnet_identidad.trim()) clienteData.carnet_identidad = carnet_identidad
+                if (equipo_instalado && equipo_instalado.trim()) clienteData.equipo_instalado = equipo_instalado
+                if (fechaInstalacion) clienteData.fecha_instalacion = fechaInstalacion.toISOString()
+
+                // Usar endpoint completo si tiene coordenadas, simple si no
+                const dataCliente = (latitud && longitud)
+                  ? await ClienteService.crearCliente(clienteData)
+                  : await ClienteService.crearClienteSimple(clienteData)
+
                 if (!dataCliente?.success) {
                   throw new Error(dataCliente?.message || "Error al crear el cliente")
                 }
@@ -269,15 +302,9 @@ export default function ClientesPage() {
                 });
                 setIsCreateClientDialogOpen(false)
                 setClientLatLng({ lat: '', lng: '' })
+                setFechaInstalacion(undefined)
                 const form = document.getElementById('create-client-form') as HTMLFormElement | null
-                if (form) {
-                  const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement | null;
-                  if (nombreInput) nombreInput.value = '';
-                  const numeroInput = form.elements.namedItem('numero') as HTMLInputElement | null;
-                  if (numeroInput) numeroInput.value = '';
-                  const direccionInput = form.elements.namedItem('direccion') as HTMLInputElement | null;
-                  if (direccionInput) direccionInput.value = '';
-                }
+                if (form) form.reset()
                 if (typeof window !== "undefined") {
                   window.dispatchEvent(new CustomEvent("refreshClientsTable"))
                 }
@@ -293,19 +320,62 @@ export default function ClientesPage() {
             }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="nombre">Nombre</Label>
-                  <Input id="nombre" name="nombre" placeholder="Nombre del cliente" />
+                  <Label htmlFor="nombre">Nombre *</Label>
+                  <Input id="nombre" name="nombre" placeholder="Nombre del cliente" required />
                 </div>
                 <div>
-                  <Label htmlFor="numero">Número</Label>
-                  <Input id="numero" name="numero" placeholder="Número identificador" />
+                  <Label htmlFor="numero">Número *</Label>
+                  <Input id="numero" name="numero" placeholder="Número identificador" required />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="direccion">Dirección</Label>
-                  <Input id="direccion" name="direccion" placeholder="Dirección" />
+                  <Label htmlFor="direccion">Dirección *</Label>
+                  <Input id="direccion" name="direccion" placeholder="Dirección" required />
+                </div>
+                <div>
+                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Input id="telefono" name="telefono" placeholder="555-1234" />
+                </div>
+                <div>
+                  <Label htmlFor="carnet_identidad">Carnet de Identidad</Label>
+                  <Input id="carnet_identidad" name="carnet_identidad" placeholder="12345678901" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label>Ubicación (opcional)</Label>
+                  <Label htmlFor="equipo_instalado">Equipo Instalado</Label>
+                  <Input id="equipo_instalado" name="equipo_instalado" placeholder="Panel Solar 300W + Inversor 2000W" />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Fecha de Instalación</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !fechaInstalacion && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {fechaInstalacion ? (
+                          format(fechaInstalacion, "PPP 'a las' p", { locale: es })
+                        ) : (
+                          <span>Seleccionar fecha (opcional)</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={fechaInstalacion}
+                        onSelect={setFechaInstalacion}
+                        locale={es}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Ubicación (usar mapa para precisión)</Label>
                   <div className="flex gap-2 items-center">
                     <Input value={clientLatLng.lat} placeholder="Latitud" readOnly className="w-32" />
                     <Input value={clientLatLng.lng} placeholder="Longitud" readOnly className="w-32" />
@@ -371,14 +441,36 @@ export default function ClientesPage() {
               const form = e.target as HTMLFormElement
               const nombre = (form.elements.namedItem('nombre') as HTMLInputElement).value.trim()
               const direccion = (form.elements.namedItem('direccion') as HTMLInputElement).value.trim()
+              const telefono = (form.elements.namedItem('telefono') as HTMLInputElement)?.value.trim()
+              const carnet_identidad = (form.elements.namedItem('carnet_identidad') as HTMLInputElement)?.value.trim()
+              const equipo_instalado = (form.elements.namedItem('equipo_instalado') as HTMLInputElement)?.value.trim()
               const latitud = editClientLatLng.lat
               const longitud = editClientLatLng.lng
+
               // Solo enviar campos que cambian
               const updateBody: any = {}
               if (nombre && nombre !== editingClient.nombre) updateBody.nombre = nombre
               if (direccion && direccion !== editingClient.direccion) updateBody.direccion = direccion
-              if (latitud && latitud !== (editingClient.latitud || '')) updateBody.latitud = latitud
-              if (longitud && longitud !== (editingClient.longitud || '')) updateBody.longitud = longitud
+
+              // Para campos opcionales, solo actualizar si hay cambio real
+              const oldTelefono = editingClient.telefono || ''
+              const oldCarnet = editingClient.carnet_identidad || ''
+              const oldEquipo = editingClient.equipo_instalado || ''
+              const oldLatitud = editingClient.latitud || ''
+              const oldLongitud = editingClient.longitud || ''
+              const oldFecha = editingClient.fecha_instalacion ? new Date(editingClient.fecha_instalacion).toISOString() : ''
+
+              if (telefono !== oldTelefono) updateBody.telefono = telefono || undefined
+              if (carnet_identidad !== oldCarnet) updateBody.carnet_identidad = carnet_identidad || undefined
+              if (equipo_instalado !== oldEquipo) updateBody.equipo_instalado = equipo_instalado || undefined
+              if (latitud && latitud !== oldLatitud) updateBody.latitud = latitud
+              if (longitud && longitud !== oldLongitud) updateBody.longitud = longitud
+
+              const newFecha = editFechaInstalacion ? editFechaInstalacion.toISOString() : ''
+              if (newFecha !== oldFecha) {
+                updateBody.fecha_instalacion = newFecha || undefined
+              }
+
               if (Object.keys(updateBody).length === 0) {
                 toast({
                   title: "Advertencia",
@@ -399,6 +491,7 @@ export default function ClientesPage() {
                 });
                 setIsEditClientDialogOpen(false)
                 setEditClientLatLng({ lat: '', lng: '' })
+                setEditFechaInstalacion(undefined)
                 setEditingClient(null)
                 if (typeof window !== "undefined") {
                   window.dispatchEvent(new CustomEvent("refreshClientsTable"))
@@ -415,19 +508,62 @@ export default function ClientesPage() {
             }}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="nombre">Nombre</Label>
-                  <Input id="nombre" name="nombre" placeholder="Nombre del cliente" defaultValue={editingClient?.nombre || ''} />
+                  <Label htmlFor="nombre">Nombre *</Label>
+                  <Input id="nombre" name="nombre" placeholder="Nombre del cliente" defaultValue={editingClient?.nombre || ''} required />
                 </div>
                 <div>
-                  <Label htmlFor="numero">Número</Label>
+                  <Label htmlFor="numero">Número *</Label>
                   <Input id="numero" name="numero" placeholder="Número identificador" value={editingClient?.numero || ''} readOnly className="bg-gray-100" />
                 </div>
                 <div className="md:col-span-2">
-                  <Label htmlFor="direccion">Dirección</Label>
-                  <Input id="direccion" name="direccion" placeholder="Dirección" defaultValue={editingClient?.direccion || ''} />
+                  <Label htmlFor="direccion">Dirección *</Label>
+                  <Input id="direccion" name="direccion" placeholder="Dirección" defaultValue={editingClient?.direccion || ''} required />
+                </div>
+                <div>
+                  <Label htmlFor="telefono">Teléfono</Label>
+                  <Input id="telefono" name="telefono" placeholder="555-1234" defaultValue={editingClient?.telefono || ''} />
+                </div>
+                <div>
+                  <Label htmlFor="carnet_identidad">Carnet de Identidad</Label>
+                  <Input id="carnet_identidad" name="carnet_identidad" placeholder="12345678901" defaultValue={editingClient?.carnet_identidad || ''} />
                 </div>
                 <div className="md:col-span-2">
-                  <Label>Ubicación (opcional)</Label>
+                  <Label htmlFor="equipo_instalado">Equipo Instalado</Label>
+                  <Input id="equipo_instalado" name="equipo_instalado" placeholder="Panel Solar 300W + Inversor 2000W" defaultValue={editingClient?.equipo_instalado || ''} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Fecha de Instalación</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !editFechaInstalacion && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {editFechaInstalacion ? (
+                          format(editFechaInstalacion, "PPP 'a las' p", { locale: es })
+                        ) : (
+                          <span>Seleccionar fecha (opcional)</span>
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={editFechaInstalacion}
+                        onSelect={setEditFechaInstalacion}
+                        locale={es}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Ubicación (usar mapa para precisión)</Label>
                   <div className="flex gap-2 items-center">
                     <Input value={editClientLatLng.lat} placeholder="Latitud" readOnly className="w-32" />
                     <Input value={editClientLatLng.lng} placeholder="Longitud" readOnly className="w-32" />

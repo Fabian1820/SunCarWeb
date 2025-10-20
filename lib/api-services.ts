@@ -4,6 +4,18 @@ import type { Material } from './material-types'
 import type { Trabajador as ApiTrabajador, Brigada as ApiBrigada, MensajeCliente, RespuestaMensaje, Lead, LeadResponse, LeadCreateData, LeadUpdateData } from './api-types'
 // Importar tipos necesarios para ofertas
 import type { Oferta, OfertaSimplificada, CreateOfertaRequest, UpdateOfertaRequest, CreateElementoRequest, UpdateElementoRequest } from './api-types';
+// Importar tipos necesarios para órdenes de trabajo
+import type { OrdenTrabajo, CreateOrdenTrabajoRequest, UpdateOrdenTrabajoRequest, OrdenTrabajoResponse } from './api-types';
+// Importar tipos necesarios para recursos humanos
+import type {
+  TrabajadorRRHH,
+  IngresoMensual,
+  RecursosHumanosResponse,
+  ActualizarTrabajadorRRHHRequest,
+  IngresoMensualRequest,
+  SuccessResponse,
+  CargosResumenResponse
+} from './recursos-humanos-types';
 // Servicio para materiales
 export class MaterialService {
   // Obtener todos los materiales (todas las categorías con sus materiales)
@@ -407,26 +419,34 @@ export class ReporteService {
 // Servicio para clientes
 export class ClienteService {
   // Obtener clientes con filtros opcionales
+  // Retorna: { data: Cliente[], success: boolean, message?: string }
   static async getClientes(params: {
     numero?: string
     nombre?: string
     direccion?: string
-  } = {}) {
+  } = {}): Promise<{ data: any[]; success?: boolean; message?: string }> {
     const search = new URLSearchParams()
     if (params.numero) search.append('numero', params.numero)
     if (params.nombre) search.append('nombre', params.nombre)
     if (params.direccion) search.append('direccion', params.direccion)
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ''}`
-    return apiRequest(endpoint)
+    const result = await apiRequest<any[]>(endpoint)
+    // El endpoint /clientes/ retorna directamente un array de clientes
+    // Lo envolvemos en un objeto { data: [...] } para consistencia
+    return { data: Array.isArray(result) ? result : [], success: true }
   }
 
-  // Crear cliente completo (upsert)
+  // Crear cliente completo (upsert) - requiere latitud y longitud
   static async crearCliente(data: {
     numero: string
     nombre: string
     direccion: string
-    latitud?: string
-    longitud?: string
+    latitud: string
+    longitud: string
+    telefono?: string
+    carnet_identidad?: string
+    equipo_instalado?: string
+    fecha_instalacion?: string
   }): Promise<{ success: boolean; message?: string; data?: any }> {
     const response = await apiRequest<{ success: boolean; message?: string; data?: any }>(`/clientes/`, {
       method: 'POST',
@@ -435,13 +455,17 @@ export class ClienteService {
     return response
   }
 
-  // Crear cliente simple
+  // Crear cliente simple - todos los campos opcionales excepto numero, nombre y direccion
   static async crearClienteSimple(data: {
     numero: string
     nombre: string
     direccion: string
     latitud?: string
     longitud?: string
+    telefono?: string
+    carnet_identidad?: string
+    equipo_instalado?: string
+    fecha_instalacion?: string
   }): Promise<{ success: boolean; message?: string; data?: any }> {
     const response = await apiRequest<{ success: boolean; message?: string; data?: any }>(`/clientes/simple`, {
       method: 'POST',
@@ -459,7 +483,16 @@ export class ClienteService {
   // Actualizar (PATCH) parcialmente por numero
   static async actualizarCliente(
     numero: string,
-    data: Partial<{ nombre: string; direccion: string; latitud: string; longitud: string }>
+    data: Partial<{
+      nombre: string
+      direccion: string
+      latitud: string
+      longitud: string
+      telefono: string
+      carnet_identidad: string
+      equipo_instalado: string
+      fecha_instalacion: string
+    }>
   ): Promise<{ success: boolean; message?: string }> {
     const response = await apiRequest<{ success: boolean; message?: string }>(`/clientes/${encodeURIComponent(numero)}`, {
       method: 'PATCH',
@@ -859,5 +892,223 @@ export class LeadService {
     const response = await apiRequest<{ success: boolean; message: string; exists: boolean }>(`/leads/${leadId}/existe`)
     console.log('LeadService.checkLeadExists response:', response)
     return response.exists === true
+  }
+}
+
+// Servicio para Órdenes de Trabajo
+export class OrdenTrabajoService {
+  // Obtener todas las órdenes de trabajo con filtros opcionales
+  static async getOrdenesTrabajo(params: {
+    brigada_id?: string
+    cliente_numero?: string
+    tipo_reporte?: string
+    estado?: string
+    fecha_inicio?: string
+    fecha_fin?: string
+  } = {}): Promise<OrdenTrabajo[]> {
+    console.log('Calling getOrdenesTrabajo endpoint with params:', params)
+    const search = new URLSearchParams()
+    if (params.brigada_id) search.append('brigada_id', params.brigada_id)
+    if (params.cliente_numero) search.append('cliente_numero', params.cliente_numero)
+    if (params.tipo_reporte) search.append('tipo_reporte', params.tipo_reporte)
+    if (params.estado) search.append('estado', params.estado)
+    if (params.fecha_inicio) search.append('fecha_inicio', params.fecha_inicio)
+    if (params.fecha_fin) search.append('fecha_fin', params.fecha_fin)
+    const endpoint = `/ordenes-trabajo/${search.toString() ? `?${search.toString()}` : ''}`
+    const response = await apiRequest<OrdenTrabajoResponse>(endpoint)
+    console.log('OrdenTrabajoService.getOrdenesTrabajo response:', response)
+    return Array.isArray(response.data) ? response.data : []
+  }
+
+  // Obtener una orden de trabajo por ID
+  static async getOrdenTrabajoById(ordenId: string): Promise<OrdenTrabajo | null> {
+    console.log('Calling getOrdenTrabajoById with ID:', ordenId)
+    const response = await apiRequest<OrdenTrabajoResponse>(`/ordenes-trabajo/${ordenId}`)
+    console.log('OrdenTrabajoService.getOrdenTrabajoById response:', response)
+    if (!response.data || Array.isArray(response.data)) {
+      return null
+    }
+    return response.data
+  }
+
+  // Crear una nueva orden de trabajo
+  static async createOrdenTrabajo(ordenData: CreateOrdenTrabajoRequest): Promise<{ success: boolean; message: string; data?: any }> {
+    console.log('Calling createOrdenTrabajo with:', ordenData)
+    const response = await apiRequest<{ success: boolean; message: string; data?: any }>('/ordenes-trabajo/', {
+      method: 'POST',
+      body: JSON.stringify(ordenData),
+    })
+    console.log('OrdenTrabajoService.createOrdenTrabajo response:', response)
+    return response
+  }
+
+  // Actualizar una orden de trabajo
+  static async updateOrdenTrabajo(ordenId: string, ordenData: UpdateOrdenTrabajoRequest): Promise<{ success: boolean; message: string }> {
+    console.log('Calling updateOrdenTrabajo with ID:', ordenId, 'data:', ordenData)
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ordenes-trabajo/${ordenId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(ordenData),
+    })
+    console.log('OrdenTrabajoService.updateOrdenTrabajo response:', response)
+    return response
+  }
+
+  // Eliminar una orden de trabajo
+  static async deleteOrdenTrabajo(ordenId: string): Promise<{ success: boolean; message: string }> {
+    console.log('Calling deleteOrdenTrabajo with ID:', ordenId)
+    const response = await apiRequest<{ success: boolean; message: string }>(`/ordenes-trabajo/${ordenId}`, {
+      method: 'DELETE',
+    })
+    console.log('OrdenTrabajoService.deleteOrdenTrabajo response:', response)
+    return response
+  }
+
+  // Generar mensaje para compartir orden de trabajo
+  static generateOrdenTrabajoMessage(orden: OrdenTrabajo, clienteNombre: string): string {
+    const tipoReporteMap = {
+      'inversión': 'inversion',
+      'avería': 'averia',
+      'mantenimiento': 'mantenimiento'
+    }
+
+    const tipoReporteUrl = tipoReporteMap[orden.tipo_reporte] || orden.tipo_reporte.toLowerCase()
+    const url = `https://api.suncarsrl.com/app/crear/${tipoReporteUrl}/${orden.cliente_numero}`
+
+    const fechaFormateada = new Date(orden.fecha_ejecucion).toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })
+
+    return `📋 *ORDEN DE TRABAJO*
+
+🔧 Tipo: ${orden.tipo_reporte.toUpperCase()}
+👤 Cliente: ${clienteNombre}
+📍 N° Cliente: ${orden.cliente_numero}
+👷 Brigada: ${orden.brigada_nombre || 'Sin asignar'}
+📅 Fecha de ejecución: ${fechaFormateada}
+${orden.comentarios ? `\n💬 Comentarios:\n${orden.comentarios}\n` : ''}
+🔗 Link de reporte:
+${url}
+
+_Generado por SunCar SRL_`
+  }
+}
+
+// Servicio para Recursos Humanos
+export class RecursosHumanosService {
+  /**
+   * Obtiene la información consolidada de recursos humanos
+   * Incluye todos los trabajadores con sus datos de nómina y el último ingreso mensual
+   */
+  static async getRecursosHumanos(): Promise<RecursosHumanosResponse> {
+    console.log('Calling getRecursosHumanos endpoint')
+    const response = await apiRequest<RecursosHumanosResponse>('/recursos-humanos/')
+    console.log('RecursosHumanosService.getRecursosHumanos response:', response)
+    return response
+  }
+
+  /**
+   * Actualiza los datos de RRHH de un trabajador específico
+   * Todos los campos son opcionales, solo se actualizarán los campos enviados
+   */
+  static async actualizarTrabajadorRRHH(
+    ci: string,
+    data: ActualizarTrabajadorRRHHRequest
+  ): Promise<SuccessResponse> {
+    console.log('Calling actualizarTrabajadorRRHH with CI:', ci, 'data:', data)
+    const response = await apiRequest<SuccessResponse>(`/trabajadores/${ci}/rrhh`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    console.log('RecursosHumanosService.actualizarTrabajadorRRHH response:', response)
+    return response
+  }
+
+  /**
+   * Obtiene el resumen de trabajadores agrupados por cargo
+   * Devuelve estadísticas agregadas por cada cargo
+   */
+  static async getCargosResumen(): Promise<CargosResumenResponse> {
+    console.log('Calling getCargosResumen endpoint')
+    const response = await apiRequest<CargosResumenResponse>('/recursos-humanos/estadisticas-por-cargo')
+    console.log('RecursosHumanosService.getCargosResumen response:', response)
+    return response
+  }
+}
+
+// Servicio para Ingresos Mensuales
+export class IngresoMensualService {
+  /**
+   * Obtiene todos los ingresos mensuales registrados
+   * Ordenados por fecha de creación (más reciente primero)
+   */
+  static async getAllIngresos(): Promise<IngresoMensual[]> {
+    console.log('Calling getAllIngresos endpoint')
+    const response = await apiRequest<IngresoMensual[]>('/ingreso-mensual/')
+    console.log('IngresoMensualService.getAllIngresos response:', response)
+    return Array.isArray(response) ? response : []
+  }
+
+  /**
+   * Obtiene el ingreso mensual más reciente registrado
+   */
+  static async getUltimoIngreso(): Promise<IngresoMensual | null> {
+    console.log('Calling getUltimoIngreso endpoint')
+    const response = await apiRequest<IngresoMensual | null>('/ingreso-mensual/latest')
+    console.log('IngresoMensualService.getUltimoIngreso response:', response)
+    return response
+  }
+
+  /**
+   * Obtiene un ingreso mensual específico por su ID
+   */
+  static async getIngresoById(ingresoId: string): Promise<IngresoMensual> {
+    console.log('Calling getIngresoById with ID:', ingresoId)
+    const response = await apiRequest<IngresoMensual>(`/ingreso-mensual/${ingresoId}`)
+    console.log('IngresoMensualService.getIngresoById response:', response)
+    return response
+  }
+
+  /**
+   * Crea un nuevo registro de ingreso mensual
+   */
+  static async createIngreso(data: IngresoMensualRequest): Promise<SuccessResponse> {
+    console.log('Calling createIngreso with:', data)
+    const response = await apiRequest<SuccessResponse>('/ingreso-mensual/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    console.log('IngresoMensualService.createIngreso response:', response)
+    return response
+  }
+
+  /**
+   * Actualiza un ingreso mensual existente
+   * Todos los campos son opcionales
+   */
+  static async updateIngreso(
+    ingresoId: string,
+    data: Partial<IngresoMensualRequest>
+  ): Promise<SuccessResponse> {
+    console.log('Calling updateIngreso with ID:', ingresoId, 'data:', data)
+    const response = await apiRequest<SuccessResponse>(`/ingreso-mensual/${ingresoId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    console.log('IngresoMensualService.updateIngreso response:', response)
+    return response
+  }
+
+  /**
+   * Elimina un ingreso mensual del sistema
+   */
+  static async deleteIngreso(ingresoId: string): Promise<SuccessResponse> {
+    console.log('Calling deleteIngreso with ID:', ingresoId)
+    const response = await apiRequest<SuccessResponse>(`/ingreso-mensual/${ingresoId}`, {
+      method: 'DELETE',
+    })
+    console.log('IngresoMensualService.deleteIngreso response:', response)
+    return response
   }
 }
