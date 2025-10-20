@@ -1,12 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)",
-      "Bash(git push:*)",
-      "Bash(git pull:*)",
-      "Bash(git commit:*)",
-      "Bash(ls -la \"d:\\SunCar\\SunCarWeb\\app\\trabajadores\"\" 2>/dev/null || echo \"Directory does not exist \")"
+      "Bash(npm run build)",
+      "Bash(npm run lint)",
+      "Bash(cat package.json)"
     ],
-    "deny": []
+    "deny": [],
+    "ask": []
   }
 }

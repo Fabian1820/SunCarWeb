@@ -18,14 +18,13 @@ import {
     Phone,
     Tag,
     ClipboardList,
-    Briefcase
-    Tag,
+    Briefcase,
     BookOpen
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
-import {ReporteService} from "@/lib/api-services"
+import {ReporteService, ClienteService} from "@/lib/api-services"
 import {Loader} from "@/components/shared/atom/loader"
 import {Wrench, Zap} from "lucide-react"
 import {VisuallyHidden} from "@radix-ui/react-visually-hidden"
@@ -61,8 +60,8 @@ export default function Dashboard() {
         // Cargar clientes siempre
         const fetchClients = async () => {
             try {
-                const allClients = await (await import("@/lib/api-services")).ClienteService.getClientes() as any[];
-                setClients(allClients);
+                const response = await ClienteService.getClientes();
+                setClients(response.data || []);
             } catch (e) {
                 setClients([]);
             }
