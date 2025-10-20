@@ -14,7 +14,8 @@ import {
   X,
   FileText,
   CreditCard,
-  Percent
+  Percent,
+  Tag
 } from "lucide-react"
 import type { Oferta } from "@/lib/api-types"
 
@@ -80,6 +81,11 @@ export default function OfertaDetailsDialog({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Tag className="h-4 w-4 text-orange-500" />
+                <span>{oferta.marca?.trim() || "Sin marca"}</span>
+              </div>
+
               {oferta.descripcion_detallada && (
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <div className="flex items-start gap-2 mb-2">

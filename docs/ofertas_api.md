@@ -19,6 +19,7 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
 - `descripcion_detallada`: string | null (opcional) - Descripción extendida y detallada de la oferta
 - `precio`: float (requerido)
 - `precio_cliente`: float | null (opcional) - Precio específico para el cliente
+- `marca`: string | null (opcional) - Marca asociada a la oferta
 - `imagen`: string | null (URL, opcional)
 - `moneda`: string | null (opcional) - Moneda de la oferta (ej: "usd", "cup", "mlc")
 - `financiamiento`: boolean (opcional, por defecto false) - Indica si tiene financiamiento disponible
@@ -32,6 +33,7 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
 - `descripcion_detallada`: string | null (opcional)
 - `precio`: float (requerido)
 - `precio_cliente`: float | null (opcional)
+- `marca`: string | null (opcional)
 - `imagen`: string | null (URL, opcional)
 - `moneda`: string | null (opcional)
 - `financiamiento`: boolean (opcional, por defecto false)
@@ -42,7 +44,7 @@ Autenticación: Bearer Token por header `Authorization: Bearer <TOKEN>`.
 ### Gestión de Ofertas
 
 #### GET `/simplified` — Listar ofertas simplificadas
-Obtiene todas las ofertas en formato simplificado (sin elementos ni garantías).
+Obtiene todas las ofertas en formato simplificado (sin elementos ni garantías). Incluye todos los campos principales excepto garantías y elementos.
 
 **Respuesta 200:**
 ```json
@@ -53,17 +55,20 @@ Obtiene todas las ofertas en formato simplificado (sin elementos ni garantías).
     {
       "id": "64f7b2...",
       "descripcion": "SISTEMA FOTOVOLTAICO 3 kW con paneles de 590 W y 2 Baterías de 2.4 kW",
-      "descripcion_detallada": "SISTEMA FOTOVOLTAICO 3 kW con paneles de 590 W...",
+      "descripcion_detallada": "SISTEMA FOTOVOLTAICO 3 kW con paneles de 590 W y 2 Baterías de 2.4 kW (total 4.8 kWh de almacenamiento). Este sistema cuenta con 6 paneles solares monocristalinos de 590 W...",
       "precio": 5440.0,
       "precio_cliente": null,
+      "marca": "SunCar",
       "imagen": "https://s3.suncarsrl.com:443/ofertas/3b0d3e87.png",
       "moneda": "usd",
       "financiamiento": true,
-      "descuentos": "Descuento del 10% por pago contado..."
+      "descuentos": "Descuento del 10% por pago contado. Financiamiento disponible desde España con intereses bajos."
     }
   ]
 }
 ```
+
+**Nota:** Este endpoint es ideal para listados, catálogos y el sistema recomendador, ya que incluye toda la información relevante sin la carga de elementos y garantías detalladas.
 
 ---
 
@@ -82,6 +87,7 @@ Obtiene todas las ofertas con todos sus detalles, incluyendo elementos y garant�
       "descripcion_detallada": "SISTEMA FOTOVOLTAICO 3 kW con paneles de 590 W y 2 Baterías de 2.4 kW (total 4.8 kWh de almacenamiento)...",
       "precio": 5440.0,
       "precio_cliente": null,
+      "marca": "SunCar",
       "imagen": "https://s3.suncarsrl.com:443/ofertas/3b0d3e87.png",
       "moneda": "usd",
       "financiamiento": true,
@@ -130,6 +136,7 @@ Obtiene una oferta específica por su ID con todos sus detalles.
     "descripcion_detallada": "...",
     "precio": 5440.0,
     "precio_cliente": null,
+    "marca": "SunCar",
     "imagen": "https://...",
     "moneda": "usd",
     "financiamiento": true,
@@ -161,6 +168,7 @@ Crea una nueva oferta (sin elementos). Los elementos deben agregarse posteriorme
 - `precio`: float (requerido) - Precio base de la oferta
 - `descripcion_detallada`: string (opcional) - Descripción extendida y detallada
 - `precio_cliente`: float (opcional) - Precio específico para el cliente
+- `marca`: string (opcional) - Marca asociada a la oferta
 - `moneda`: string (opcional) - Moneda (ej: "usd", "cup", "mlc")
 - `financiamiento`: boolean (opcional) - Si tiene financiamiento disponible
 - `descuentos`: string (opcional) - Información detallada sobre descuentos
@@ -175,6 +183,7 @@ curl -X POST "http://localhost:8000/api/ofertas/" \
   -F "descripcion_detallada=SISTEMA FOTOVOLTAICO 3 kW con paneles de 590 W y 2 Baterías de 2.4 kW (total 4.8 kWh de almacenamiento)..." \
   -F "precio=5440.0" \
   -F "precio_cliente=5200.0" \
+  -F "marca=SunCar" \
   -F "moneda=usd" \
   -F "financiamiento=true" \
   -F "descuentos=Descuento del 10% por pago contado. Financiamiento disponible desde España." \
@@ -206,6 +215,7 @@ Actualiza los datos básicos de una oferta existente (sin modificar elementos).
 - `descripcion_detallada`: string - Nueva descripción detallada
 - `precio`: float - Nuevo precio base
 - `precio_cliente`: float - Nuevo precio específico para cliente
+- `marca`: string - Nueva marca para la oferta
 - `moneda`: string - Nueva moneda
 - `financiamiento`: boolean - Actualizar disponibilidad de financiamiento
 - `descuentos`: string - Nueva información sobre descuentos
@@ -218,6 +228,7 @@ curl -X PUT "http://localhost:8000/api/ofertas/68cda22e33da53b76ba3338e" \
   -H "Authorization: Bearer <TOKEN>" \
   -F "descripcion=SISTEMA FOTOVOLTAICO 3 kW ACTUALIZADO" \
   -F "precio=5200.0" \
+  -F "marca=SunCar Actualizada" \
   -F "descuentos=Descuento del 15% por pago contado hasta fin de mes" \
   -F "imagen=@/path/to/new-image.jpg"
 ```
@@ -415,6 +426,7 @@ Sistema inteligente que analiza el texto del usuario y retorna todas las ofertas
         "descripcion_detallada": "...",
         "precio": 5440.0,
         "precio_cliente": null,
+        "marca": "SunCar",
         "imagen": "https://...",
         "moneda": "usd",
         "financiamiento": true,
@@ -462,6 +474,7 @@ Content-Type: application/json (en /recomendador)
 - `categoria` en elementos es campo requerido
 - Los archivos de imagen se almacenan en MinIO bucket "ofertas"
 - `precio` y `precio_cliente` son floats
+- `marca` es opcional y se maneja como string
 - El `id` se devuelve como string
 - `precio_cliente` es opcional y puede usarse para precios específicos por cliente
 - `moneda` puede ser cualquier string, típicamente: "usd", "cup", "mlc"
@@ -487,6 +500,7 @@ Los elementos son objetos estructurados con validaciones:
 - **descripcion_detallada**: Permite agregar explicaciones largas sobre el sistema, casos de uso, ventajas, especificaciones técnicas detalladas, etc.
 - **descuentos**: Permite explicar en detalle las políticas de descuentos, promociones, condiciones de financiamiento, etc.
 - **moneda**: Especifica la moneda de la oferta para facilitar conversiones y presentación al cliente
+- **marca**: Permite identificar la marca comercial con la que se promociona la oferta
 - **financiamiento**: Indica si la oferta tiene opciones de financiamiento disponibles
 
 ### Sistema Recomendador con IA

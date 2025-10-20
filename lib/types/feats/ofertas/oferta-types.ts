@@ -27,6 +27,7 @@ export interface Oferta {
   descripcion_detallada?: string | null
   precio: number
   precio_cliente?: number | null
+  marca?: string | null
   imagen?: string | null
   moneda?: string | null
   financiamiento?: boolean
@@ -41,6 +42,7 @@ export interface OfertaSimplificada {
   descripcion_detallada?: string | null
   precio: number
   precio_cliente?: number | null
+  marca?: string | null
   imagen?: string | null
   moneda?: string | null
   financiamiento?: boolean
@@ -52,6 +54,7 @@ export interface CreateOfertaRequest {
   precio: number
   descripcion_detallada?: string | null
   precio_cliente?: number | null
+  marca?: string | null
   moneda?: string | null
   financiamiento?: boolean
   descuentos?: string | null

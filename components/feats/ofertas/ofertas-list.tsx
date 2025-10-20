@@ -22,7 +22,8 @@ import {
   Image as ImageIcon,
   Package,
   CreditCard,
-  Percent
+  Percent,
+  Tag
 } from "lucide-react"
 import {
   AlertDialog,
@@ -49,6 +50,7 @@ interface OfertasListProps {
   searchTerm?: string
   minPrice?: number
   maxPrice?: number
+  selectedBrands?: string[]
 }
 
 export default function OfertasList({
@@ -61,7 +63,8 @@ export default function OfertasList({
   onDelete,
   searchTerm = "",
   minPrice,
-  maxPrice
+  maxPrice,
+  selectedBrands = []
 }: OfertasListProps) {
   // Filtrar ofertas por término de búsqueda avanzada y precios
   const filteredOfertas = ofertas.filter(oferta => {
@@ -75,8 +78,10 @@ export default function OfertasList({
 
     const matchesMinPrice = !minPrice || oferta.precio >= minPrice
     const matchesMaxPrice = !maxPrice || oferta.precio <= maxPrice
+    const normalizedMarca = oferta.marca?.trim() || "Sin marca"
+    const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(normalizedMarca)
 
-    return matchesSearch && matchesMinPrice && matchesMaxPrice
+    return matchesSearch && matchesMinPrice && matchesMaxPrice && matchesBrand
   })
 
   if (loading) {
@@ -122,11 +127,15 @@ export default function OfertasList({
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
-                      {oferta.descripcion}
-                    </CardTitle>
-                    <CardDescription className="mt-1 space-y-1">
-                      <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
+                    {oferta.descripcion}
+                  </CardTitle>
+                  <CardDescription className="mt-1 space-y-1">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Tag className="h-4 w-4 text-orange-500" />
+                      <span>{oferta.marca?.trim() || "Sin marca"}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         <span className="text-lg font-bold text-green-600">
                           {oferta.precio.toLocaleString()} {oferta.moneda?.toUpperCase() || 'USD'}

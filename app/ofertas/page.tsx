@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search } from "lucide-react"
+import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search, Tag } from "lucide-react"
 import { useOfertas } from "@/hooks/use-ofertas"
 import { toast } from "sonner"
 import { useToast } from "@/hooks/use-toast"
@@ -42,6 +42,34 @@ export default function OfertasPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [minPrice, setMinPrice] = useState<number>()
   const [maxPrice, setMaxPrice] = useState<number>()
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([])
+
+  const availableBrands = useMemo(() => {
+    const brandSet = new Set<string>()
+    let hasEmptyBrand = false
+
+    ofertas.forEach(oferta => {
+      const marca = oferta.marca?.trim()
+      if (marca) {
+        brandSet.add(marca)
+      } else {
+        hasEmptyBrand = true
+      }
+    })
+
+    const brands = Array.from(brandSet).sort((a, b) => a.localeCompare(b))
+    if (hasEmptyBrand) {
+      brands.push("Sin marca")
+    }
+    return brands
+  }, [ofertas])
+
+  useEffect(() => {
+    setSelectedBrands(prev => {
+      const filtered = prev.filter(brand => availableBrands.includes(brand))
+      return filtered.length === prev.length ? prev : filtered
+    })
+  }, [availableBrands])
 
   // Handlers para diálogos
   const handleCreateNew = () => {
@@ -63,6 +91,14 @@ export default function OfertasPage() {
     setSelectedOferta(oferta)
     setIsElementsDialogOpen(true)
   }
+
+  const toggleBrandFilter = (brand: string) => {
+    setSelectedBrands(prev =>
+      prev.includes(brand) ? prev.filter(item => item !== brand) : [...prev, brand]
+    )
+  }
+
+  const clearBrandFilters = () => setSelectedBrands([])
 
   const handleOfertaUpdate = async (ofertaId: string) => {
     // Actualizar la oferta específica en el estado local
@@ -316,6 +352,37 @@ export default function OfertasPage() {
                 </div>
               </div>
             </div>
+
+            {availableBrands.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Filtrar por marca
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {availableBrands.map((brand) => {
+                    const isActive = selectedBrands.includes(brand)
+                    return (
+                      <Button
+                        key={brand}
+                        type="button"
+                        size="sm"
+                        variant={isActive ? "default" : "outline"}
+                        className={isActive ? "bg-orange-600 hover:bg-orange-700 border-orange-600 text-white" : "border-dashed"}
+                        onClick={() => toggleBrandFilter(brand)}
+                      >
+                        <Tag className="h-3 w-3 mr-1" />
+                        {brand}
+                      </Button>
+                    )
+                  })}
+                  {selectedBrands.length > 0 && (
+                    <Button type="button" size="sm" variant="ghost" onClick={clearBrandFilters}>
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -331,6 +398,7 @@ export default function OfertasPage() {
           searchTerm={searchTerm}
           minPrice={minPrice}
           maxPrice={maxPrice}
+          selectedBrands={selectedBrands}
         />
 
         {/* Diálogos */}

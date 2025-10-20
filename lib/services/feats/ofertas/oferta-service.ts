@@ -41,6 +41,10 @@ export class OfertaService {
       formData.append('precio_cliente', ofertaData.precio_cliente.toString())
     }
 
+    if (ofertaData.marca !== undefined && ofertaData.marca !== null) {
+      formData.append('marca', ofertaData.marca)
+    }
+
     if (ofertaData.moneda !== undefined && ofertaData.moneda !== null) {
       formData.append('moneda', ofertaData.moneda)
     }
@@ -83,6 +87,10 @@ export class OfertaService {
 
     if (ofertaData.precio_cliente !== undefined && ofertaData.precio_cliente !== null) {
       formData.append('precio_cliente', ofertaData.precio_cliente.toString())
+    }
+
+    if (ofertaData.marca !== undefined) {
+      formData.append('marca', ofertaData.marca ?? '')
     }
 
     if (ofertaData.moneda !== undefined && ofertaData.moneda !== null) {

@@ -22,7 +22,8 @@ import {
   Loader2,
   CreditCard,
   Percent,
-  FileText
+  FileText,
+  Tag
 } from "lucide-react"
 import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
 import { toast } from "sonner"
@@ -50,6 +51,7 @@ export default function CreateEditOfertaDialog({
     precio: 0,
     descripcion_detallada: null,
     precio_cliente: null,
+    marca: null,
     moneda: "usd",
     financiamiento: false,
     descuentos: null,
@@ -68,6 +70,7 @@ export default function CreateEditOfertaDialog({
         precio: oferta.precio,
         descripcion_detallada: oferta.descripcion_detallada || null,
         precio_cliente: oferta.precio_cliente || null,
+        marca: oferta.marca || null,
         moneda: oferta.moneda || "usd",
         financiamiento: oferta.financiamiento || false,
         descuentos: oferta.descuentos || null,
@@ -81,6 +84,7 @@ export default function CreateEditOfertaDialog({
         precio: 0,
         descripcion_detallada: null,
         precio_cliente: null,
+        marca: null,
         moneda: "usd",
         financiamiento: false,
         descuentos: null,
@@ -110,7 +114,11 @@ export default function CreateEditOfertaDialog({
 
     try {
       setSaving(true)
-      const success = await onSave(formData)
+      const payload = {
+        ...formData,
+        marca: formData.marca?.trim() || null
+      }
+      const success = await onSave(payload)
 
       if (success) {
         toast.success(isEditMode ? "Oferta actualizada correctamente" : "Oferta creada correctamente")
@@ -178,6 +186,23 @@ export default function CreateEditOfertaDialog({
                   onChange={(e) => setFormData(prev => ({ ...prev, descripcion_detallada: e.target.value || null }))}
                   className="min-h-[100px]"
                 />
+              </div>
+
+              <div>
+                <Label htmlFor="marca">Marca</Label>
+                <div className="relative">
+                  <Tag className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    id="marca"
+                    placeholder="Ej. SunCar"
+                    value={formData.marca ?? ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setFormData(prev => ({ ...prev, marca: value.trim() ? value : null }))
+                    }}
+                    className="pl-9"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
