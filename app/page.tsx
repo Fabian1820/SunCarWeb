@@ -19,6 +19,8 @@ import {
     Tag,
     ClipboardList,
     Briefcase
+    Tag,
+    BookOpen
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
@@ -222,6 +224,16 @@ export default function Dashboard() {
                                     <Briefcase className="h-10 w-10 text-purple-600 mx-auto mb-3" />
                                     <h3 className="text-lg font-semibold text-gray-900 mb-2">Recursos Humanos</h3>
                                     <p className="text-sm text-gray-600">Gestión de nómina y estímulos mensuales.</p>
+                                </CardContent>
+                            </Card>
+                        </Link>
+
+                        <Link href="/blog">
+                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
+                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
+                                    <BookOpen className="h-10 w-10 text-purple-600 mx-auto mb-3" />
+                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Blog</h3>
+                                    <p className="text-sm text-gray-600">Gestión de artículos y noticias.</p>
                                 </CardContent>
                             </Card>
                         </Link>
