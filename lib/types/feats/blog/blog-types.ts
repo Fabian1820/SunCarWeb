@@ -163,3 +163,18 @@ export function isValidSlug(slug: string): boolean {
   if (!slug) return false
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
 }
+
+export function convertFormToRequest(formData: BlogFormData): BlogRequest {
+  return {
+    titulo: formData.titulo,
+    slug: formData.slug,
+    resumen: formData.resumen,
+    contenido: formData.contenido,
+    categoria: formData.categoria,
+    estado: formData.estado,
+    autor: formData.autor,
+    tags: formData.tags,
+    seo_meta_descripcion: formData.seoMetaDescripcion || undefined,
+    fecha_publicacion: formData.fechaPublicacion ? formData.fechaPublicacion.toISOString() : undefined,
+  }
+}
