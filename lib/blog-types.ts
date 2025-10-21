@@ -14,4 +14,7 @@ export {
   getCategoriaColor,
   getEstadoDisplayName,
   getEstadoColor,
+  generateSlugFromTitulo,
+  isValidSlug,
+  convertFormToRequest,
 } from './types/feats/blog/blog-types'

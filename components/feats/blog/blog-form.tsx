@@ -189,16 +189,16 @@ export function BlogForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[65vh] overflow-y-auto px-1">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded p-3 text-red-800 text-sm">
+        <div className="bg-red-50 border border-red-200 rounded-md p-3 text-red-800 text-sm">
           {error}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="md:col-span-2">
-          <Label htmlFor="titulo">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="lg:col-span-2">
+          <Label htmlFor="titulo" className="mb-1.5 block">
             Título <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -207,12 +207,13 @@ export function BlogForm({
             value={formData.titulo}
             onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
             maxLength={150}
+            className="w-full"
           />
           <p className="text-xs text-gray-500 mt-1">{formData.titulo.length}/150 caracteres</p>
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="slug">
+        <div className="lg:col-span-2">
+          <Label htmlFor="slug" className="mb-1.5 block">
             Slug <span className="text-red-500">*</span>
           </Label>
           <Input
@@ -220,6 +221,7 @@ export function BlogForm({
             placeholder="url-amigable-unica"
             value={formData.slug}
             onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase() })}
+            className="w-full"
           />
           {slugValidation.validating && (
             <p className="text-xs text-gray-500 mt-1">Validando disponibilidad...</p>
@@ -235,15 +237,15 @@ export function BlogForm({
           )}
         </div>
 
-        <div>
-          <Label htmlFor="categoria">
+        <div className="w-full">
+          <Label htmlFor="categoria" className="mb-1.5 block">
             Categoría <span className="text-red-500">*</span>
           </Label>
           <Select
             value={formData.categoria}
             onValueChange={(value) => setFormData({ ...formData, categoria: value as Categoria })}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Seleccionar categoría" />
             </SelectTrigger>
             <SelectContent>
@@ -256,15 +258,15 @@ export function BlogForm({
           </Select>
         </div>
 
-        <div>
-          <Label htmlFor="estado">
+        <div className="w-full">
+          <Label htmlFor="estado" className="mb-1.5 block">
             Estado <span className="text-red-500">*</span>
           </Label>
           <Select
             value={formData.estado}
             onValueChange={(value) => setFormData({ ...formData, estado: value as Estado })}
           >
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Seleccionar estado" />
             </SelectTrigger>
             <SelectContent>
@@ -277,18 +279,19 @@ export function BlogForm({
           </Select>
         </div>
 
-        <div>
-          <Label htmlFor="autor">Autor</Label>
+        <div className="w-full">
+          <Label htmlFor="autor" className="mb-1.5 block">Autor</Label>
           <Input
             id="autor"
             placeholder="Nombre del autor"
             value={formData.autor}
             onChange={(e) => setFormData({ ...formData, autor: e.target.value })}
+            className="w-full"
           />
         </div>
 
-        <div>
-          <Label htmlFor="fechaPublicacion">Fecha de Publicación</Label>
+        <div className="w-full">
+          <Label htmlFor="fechaPublicacion" className="mb-1.5 block">Fecha de Publicación</Label>
           <Input
             id="fechaPublicacion"
             type="datetime-local"
@@ -296,11 +299,12 @@ export function BlogForm({
             onChange={(e) =>
               setFormData({ ...formData, fechaPublicacion: e.target.value ? new Date(e.target.value) : null })
             }
+            className="w-full"
           />
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="resumen">
+        <div className="lg:col-span-2">
+          <Label htmlFor="resumen" className="mb-1.5 block">
             Resumen <span className="text-red-500">*</span>
           </Label>
           <Textarea
@@ -310,12 +314,13 @@ export function BlogForm({
             onChange={(e) => setFormData({ ...formData, resumen: e.target.value })}
             maxLength={300}
             rows={3}
+            className="w-full resize-none"
           />
           <p className="text-xs text-gray-500 mt-1">{formData.resumen.length}/300 caracteres</p>
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="contenido">
+        <div className="lg:col-span-2">
+          <Label htmlFor="contenido" className="mb-1.5 block">
             Contenido <span className="text-red-500">*</span>
           </Label>
           <Textarea
@@ -324,11 +329,12 @@ export function BlogForm({
             value={formData.contenido}
             onChange={(e) => setFormData({ ...formData, contenido: e.target.value })}
             rows={8}
+            className="w-full resize-y"
           />
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="seoMetaDescripcion">Meta Descripción SEO</Label>
+        <div className="lg:col-span-2">
+          <Label htmlFor="seoMetaDescripcion" className="mb-1.5 block">Meta Descripción SEO</Label>
           <Textarea
             id="seoMetaDescripcion"
             placeholder="Descripción para motores de búsqueda (máx. 160 caracteres)"
@@ -336,12 +342,13 @@ export function BlogForm({
             onChange={(e) => setFormData({ ...formData, seoMetaDescripcion: e.target.value })}
             maxLength={160}
             rows={2}
+            className="w-full resize-none"
           />
           <p className="text-xs text-gray-500 mt-1">{formData.seoMetaDescripcion.length}/160 caracteres</p>
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="tags">Etiquetas (Tags)</Label>
+        <div className="lg:col-span-2">
+          <Label htmlFor="tags" className="mb-1.5 block">Etiquetas (Tags)</Label>
           <div className="flex gap-2 mb-2">
             <Input
               id="tags"
@@ -354,8 +361,9 @@ export function BlogForm({
                   handleAddTag()
                 }
               }}
+              className="flex-1"
             />
-            <Button type="button" variant="outline" onClick={handleAddTag}>
+            <Button type="button" variant="outline" onClick={handleAddTag} className="shrink-0">
               Agregar
             </Button>
           </div>
@@ -374,8 +382,8 @@ export function BlogForm({
           </div>
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="imagenPrincipal">Imagen Principal</Label>
+        <div className="lg:col-span-2">
+          <Label htmlFor="imagenPrincipal" className="mb-1.5 block">Imagen Principal</Label>
           <Input
             id="imagenPrincipal"
             type="file"
@@ -384,6 +392,7 @@ export function BlogForm({
               const file = e.target.files?.[0]
               if (file) setFormData({ ...formData, imagenPrincipal: file })
             }}
+            className="w-full"
           />
           {initialData?.imagenPrincipal && !formData.imagenPrincipal && (
             <div className="mt-2 flex items-center gap-2 text-sm text-gray-600">
@@ -393,8 +402,8 @@ export function BlogForm({
           )}
         </div>
 
-        <div className="md:col-span-2">
-          <Label htmlFor="imagenesAdicionales">Imágenes Adicionales</Label>
+        <div className="lg:col-span-2">
+          <Label htmlFor="imagenesAdicionales" className="mb-1.5 block">Imágenes Adicionales</Label>
           <Input
             id="imagenesAdicionales"
             type="file"
@@ -404,19 +413,20 @@ export function BlogForm({
               const files = Array.from(e.target.files || [])
               setFormData({ ...formData, imagenesAdicionales: files })
             }}
+            className="w-full"
           />
         </div>
       </div>
 
-      <div className="flex gap-2 justify-end pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>
+      <div className="flex flex-col sm:flex-row gap-2 justify-end pt-4 border-t mt-4">
+        <Button type="button" variant="outline" onClick={onCancel} className="w-full sm:w-auto">
           <X className="h-4 w-4 mr-2" />
           Cancelar
         </Button>
         <Button
           type="submit"
           disabled={isSubmitting || slugValidation.validating || slugValidation.disponible === false}
-          className="bg-purple-600 hover:bg-purple-700"
+          className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           <Save className="h-4 w-4 mr-2" />

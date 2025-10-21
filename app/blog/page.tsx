@@ -294,7 +294,7 @@ export default function BlogPage() {
 
         {/* Create Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle className="flex items-center text-xl">
                 <Plus className="h-5 w-5 mr-2 text-purple-600" />
@@ -317,7 +317,7 @@ export default function BlogPage() {
             if (!open) setEditingBlog(null)
           }}
         >
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle className="flex items-center text-xl">
                 <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
