@@ -143,3 +143,23 @@ export function getEstadoColor(estado: Estado): string {
   }
   return colores[estado]
 }
+
+export function generateSlugFromTitulo(titulo: string): string {
+  if (!titulo) return ''
+
+  const normalized = titulo
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+
+  return normalized
+}
+
+export function isValidSlug(slug: string): boolean {
+  if (!slug) return false
+  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
+}
