@@ -5,6 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { DollarSign, Calendar } from "lucide-react"
+import { IngresoMensualService } from "@/lib/api-services"
 
 interface EstimulosDialogProps {
   montoActual: number
@@ -24,8 +25,10 @@ export function EstimulosDialog({
   const [monto, setMonto] = useState(montoActual.toString())
   const [mes, setMes] = useState(mesActual)
   const [anio, setAnio] = useState(anioActual)
+  const [ingresoEncontrado, setIngresoEncontrado] = useState<any>(null)
+  const [buscando, setBuscando] = useState(false)
 
-  const esActualizacion = ingresoId !== null
+  const esActualizacion = ingresoEncontrado !== null
   const esMismoMesAnio = mes === mesActual && anio === anioActual
 
   useEffect(() => {
@@ -33,6 +36,38 @@ export function EstimulosDialog({
     setMes(mesActual)
     setAnio(anioActual)
   }, [montoActual, mesActual, anioActual])
+
+  // Buscar ingreso cuando cambie mes o año
+  useEffect(() => {
+    const buscarIngreso = async () => {
+      if (!mes || !anio) return
+      
+      setBuscando(true)
+      try {
+        const mesNum = parseInt(mes)
+        const anioNum = parseInt(anio)
+        const ingreso = await IngresoMensualService.searchIngresoByMesAnio(mesNum, anioNum)
+        
+        setIngresoEncontrado(ingreso)
+        
+        // Si encontró un ingreso, cargar su monto
+        if (ingreso) {
+          setMonto(ingreso.monto.toString())
+        } else {
+          // Si no hay ingreso para este mes/año, usar el monto actual
+          setMonto(montoActual.toString())
+        }
+      } catch (error) {
+        console.error('Error al buscar ingreso:', error)
+        setIngresoEncontrado(null)
+        setMonto(montoActual.toString())
+      } finally {
+        setBuscando(false)
+      }
+    }
+
+    buscarIngreso()
+  }, [mes, anio, montoActual])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -141,37 +176,33 @@ export function EstimulosDialog({
             className="pl-8 text-lg"
             placeholder="0.00"
             required
+            disabled={buscando}
           />
         </div>
+        {buscando && (
+          <p className="text-xs text-gray-500 italic">Buscando ingreso existente...</p>
+        )}
       </div>
 
       {/* Información adicional */}
       <div className={`border rounded-lg p-4 ${
-        esActualizacion && esMismoMesAnio
+        esActualizacion
           ? 'bg-blue-50 border-blue-200'
-          : !esActualizacion || !esMismoMesAnio
-          ? 'bg-green-50 border-green-200'
-          : 'bg-purple-50 border-purple-200'
+          : 'bg-green-50 border-green-200'
       }`}>
         <p className={`text-sm ${
-          esActualizacion && esMismoMesAnio
+          esActualizacion
             ? 'text-blue-900'
-            : !esActualizacion || !esMismoMesAnio
-            ? 'text-green-900'
-            : 'text-purple-900'
+            : 'text-green-900'
         }`}>
           <strong>
-            {esActualizacion && esMismoMesAnio
+            {esActualizacion
               ? 'Actualización:'
-              : !esActualizacion || !esMismoMesAnio
-              ? 'Crear nuevo ingreso:'
-              : 'Nota:'}
+              : 'Crear nuevo ingreso:'}
           </strong> {' '}
-          {esActualizacion && esMismoMesAnio
-            ? 'Se actualizará el monto del ingreso mensual actual.'
-            : !esActualizacion || !esMismoMesAnio
-            ? 'Se creará un nuevo registro de ingreso mensual para este período.'
-            : 'Este monto será utilizado para calcular los estímulos de cada trabajador basándose en sus porcentajes fijo y variable configurados.'}
+          {esActualizacion
+            ? `Se actualizará el monto del ingreso mensual existente para ${mes}/${anio}.`
+            : `Se creará un nuevo registro de ingreso mensual para ${mes}/${anio}.`}
         </p>
       </div>
 
@@ -180,12 +211,13 @@ export function EstimulosDialog({
         <Button
           type="submit"
           className={`${
-            esActualizacion && esMismoMesAnio
+            esActualizacion
               ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
               : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800'
           }`}
+          disabled={buscando}
         >
-          {esActualizacion && esMismoMesAnio ? 'Actualizar Monto' : 'Crear Nuevo Ingreso'}
+          {buscando ? 'Cargando...' : esActualizacion ? 'Actualizar Monto' : 'Crear Nuevo Ingreso'}
         </Button>
       </div>
     </form>

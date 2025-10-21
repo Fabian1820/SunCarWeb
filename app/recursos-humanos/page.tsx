@@ -80,9 +80,12 @@ export default function RecursosHumanosPage() {
     const result = await guardarIngresoMensual(monto, mesNum, anioNum, 'CUP')
 
     if (result.success) {
+      // Verificar si es un mensaje de "sin cambios"
+      const esSinCambios = result.message.toLowerCase().includes('no hay cambios')
+      
       toast({
-        title: "Configuración guardada",
-        description: `Monto de estímulos: $${monto.toFixed(2)} para ${mes}/${anio}`,
+        title: esSinCambios ? "Sin cambios" : "Configuración guardada",
+        description: esSinCambios ? result.message : `Monto de estímulos: $${monto.toFixed(2)} para ${mes}/${anio}`,
       })
       setIsEstimulosDialogOpen(false)
     } else {

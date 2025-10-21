@@ -113,6 +113,15 @@ export function useRecursosHumanos() {
       )
 
       if (ingresoExistente?.id) {
+        // Verificar si hay cambios reales antes de actualizar
+        const montoActualizado = ingresoExistente.monto !== monto
+        const monedaActualizada = ingresoExistente.moneda !== moneda
+        
+        if (!montoActualizado && !monedaActualizada) {
+          // No hay cambios, retornar success sin llamar al endpoint
+          return { success: true, message: 'No hay cambios que actualizar' }
+        }
+
         // Actualizar ingreso existente para este mes/año
         await IngresoMensualService.updateIngreso(ingresoExistente.id, {
           monto,

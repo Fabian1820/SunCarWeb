@@ -16,6 +16,15 @@ export class IngresoMensualService {
     return response
   }
 
+  static async searchIngresoByMesAnio(mes: number, anio: number): Promise<IngresoMensual | null> {
+    console.log('Calling searchIngresoByMesAnio with mes:', mes, 'anio:', anio)
+    const response = await apiRequest<IngresoMensual | null>(
+      `/ingreso-mensual/search?mes=${mes}&anio=${anio}`
+    )
+    console.log('IngresoMensualService.searchIngresoByMesAnio response:', response)
+    return response
+  }
+
   static async getIngresoById(ingresoId: string): Promise<IngresoMensual> {
     console.log('Calling getIngresoById with ID:', ingresoId)
     const response = await apiRequest<IngresoMensual>(`/ingreso-mensual/${ingresoId}`)
