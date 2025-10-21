@@ -9,94 +9,114 @@ import type {
 } from '../../../api-types'
 
 export class OrdenTrabajoService {
+  /**
+   * Get all ordenes de trabajo with optional filters
+   * Backend endpoint: GET /api/ordenes-trabajo/
+   * Query params: brigada_lider_ci, cliente_numero
+   */
   static async getOrdenesTrabajo(params: {
-    brigada_id?: string
+    brigada_lider_ci?: string
     cliente_numero?: string
-    tipo_reporte?: string
-    estado?: string
-    fecha_inicio?: string
-    fecha_fin?: string
   } = {}): Promise<OrdenTrabajo[]> {
-    console.log('Calling getOrdenesTrabajo endpoint with params:', params)
+    console.log('🔍 Calling getOrdenesTrabajo endpoint with params:', params)
     const search = new URLSearchParams()
-    if (params.brigada_id) search.append('brigada_id', params.brigada_id)
+    if (params.brigada_lider_ci) search.append('brigada_lider_ci', params.brigada_lider_ci)
     if (params.cliente_numero) search.append('cliente_numero', params.cliente_numero)
-    if (params.tipo_reporte) search.append('tipo_reporte', params.tipo_reporte)
-    if (params.estado) search.append('estado', params.estado)
-    if (params.fecha_inicio) search.append('fecha_inicio', params.fecha_inicio)
-    if (params.fecha_fin) search.append('fecha_fin', params.fecha_fin)
     const endpoint = `/ordenes-trabajo/${search.toString() ? `?${search.toString()}` : ''}`
     const response = await apiRequest<OrdenTrabajoResponse>(endpoint)
-    console.log('OrdenTrabajoService.getOrdenesTrabajo response:', response)
+    console.log('✅ OrdenTrabajoService.getOrdenesTrabajo response:', response)
     return Array.isArray(response.data) ? response.data : []
   }
 
+  /**
+   * Get orden de trabajo by ID
+   * Backend endpoint: GET /api/ordenes-trabajo/{orden_id}
+   */
   static async getOrdenTrabajoById(ordenId: string): Promise<OrdenTrabajo | null> {
-    console.log('Calling getOrdenTrabajoById with ID:', ordenId)
+    console.log('🔍 Calling getOrdenTrabajoById with ID:', ordenId)
     const response = await apiRequest<OrdenTrabajoResponse>(`/ordenes-trabajo/${ordenId}`)
-    console.log('OrdenTrabajoService.getOrdenTrabajoById response:', response)
+    console.log('✅ OrdenTrabajoService.getOrdenTrabajoById response:', response)
     if (!response.data || Array.isArray(response.data)) {
       return null
     }
     return response.data
   }
 
+  /**
+   * Create new orden de trabajo
+   * Backend endpoint: POST /api/ordenes-trabajo/
+   * Required fields: brigada_lider_ci, cliente_numero, tipo_reporte, fecha
+   */
   static async createOrdenTrabajo(
     ordenData: CreateOrdenTrabajoRequest
   ): Promise<{ success: boolean; message: string; data?: any }> {
-    console.log('Calling createOrdenTrabajo with:', ordenData)
+    console.log('📝 Calling createOrdenTrabajo with:', ordenData)
     const response = await apiRequest<{ success: boolean; message: string; data?: any }>('/ordenes-trabajo/', {
       method: 'POST',
       body: JSON.stringify(ordenData),
     })
-    console.log('OrdenTrabajoService.createOrdenTrabajo response:', response)
+    console.log('✅ OrdenTrabajoService.createOrdenTrabajo response:', response)
     return response
   }
 
+  /**
+   * Update orden de trabajo
+   * Backend endpoint: PUT /api/ordenes-trabajo/{orden_id}
+   * All fields are optional in UpdateOrdenTrabajoRequest
+   */
   static async updateOrdenTrabajo(
     ordenId: string,
     ordenData: UpdateOrdenTrabajoRequest
   ): Promise<{ success: boolean; message: string }> {
-    console.log('Calling updateOrdenTrabajo with ID:', ordenId, 'data:', ordenData)
+    console.log('📝 Calling updateOrdenTrabajo with ID:', ordenId, 'data:', ordenData)
     const response = await apiRequest<{ success: boolean; message: string }>(`/ordenes-trabajo/${ordenId}`, {
-      method: 'PATCH',
+      method: 'PUT',
       body: JSON.stringify(ordenData),
     })
-    console.log('OrdenTrabajoService.updateOrdenTrabajo response:', response)
+    console.log('✅ OrdenTrabajoService.updateOrdenTrabajo response:', response)
     return response
   }
 
+  /**
+   * Delete orden de trabajo
+   * Backend endpoint: DELETE /api/ordenes-trabajo/{orden_id}
+   */
   static async deleteOrdenTrabajo(ordenId: string): Promise<{ success: boolean; message: string }> {
-    console.log('Calling deleteOrdenTrabajo with ID:', ordenId)
+    console.log('🗑️ Calling deleteOrdenTrabajo with ID:', ordenId)
     const response = await apiRequest<{ success: boolean; message: string }>(`/ordenes-trabajo/${ordenId}`, {
       method: 'DELETE',
     })
-    console.log('OrdenTrabajoService.deleteOrdenTrabajo response:', response)
+    console.log('✅ OrdenTrabajoService.deleteOrdenTrabajo response:', response)
     return response
   }
 
-  static generateOrdenTrabajoMessage(orden: OrdenTrabajo, clienteNombre: string): string {
-    const tipoReporteMap = {
-      inversión: 'inversion',
-      avería: 'averia',
-      mantenimiento: 'mantenimiento',
-    }
+  /**
+   * Generate WhatsApp message for orden de trabajo
+   * Uses backend tipo_reporte values (inversion, averia, mantenimiento)
+   */
+  static generateOrdenTrabajoMessage(orden: OrdenTrabajo, clienteNombre?: string): string {
+    const url = `https://api.suncarsrl.com/app/crear/${orden.tipo_reporte}/${orden.cliente_numero}`
 
-    const tipoReporteUrl = tipoReporteMap[orden.tipo_reporte] || orden.tipo_reporte.toLowerCase()
-    const url = `https://api.suncarsrl.com/app/crear/${tipoReporteUrl}/${orden.cliente_numero}`
-
-    const fechaFormateada = new Date(orden.fecha_ejecucion).toLocaleDateString('es-ES', {
+    const fechaFormateada = new Date(orden.fecha).toLocaleDateString('es-ES', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     })
 
+    // Get client name from populated cliente object or use parameter
+    const nombreCliente = clienteNombre || (orden.cliente ? `${orden.cliente.nombre} ${orden.cliente.apellido || ''}`.trim() : 'Sin nombre')
+
+    // Get brigada info from populated brigada object
+    const nombreBrigada = orden.brigada
+      ? `${orden.brigada.lider_nombre} ${orden.brigada.lider_apellido}`.trim()
+      : 'Sin asignar'
+
     return `📋 *ORDEN DE TRABAJO*
 
 🔧 Tipo: ${orden.tipo_reporte.toUpperCase()}
-👤 Cliente: ${clienteNombre}
+👤 Cliente: ${nombreCliente}
 📍 N° Cliente: ${orden.cliente_numero}
-👷 Brigada: ${orden.brigada_nombre || 'Sin asignar'}
+👷 Brigada: ${nombreBrigada}
 📅 Fecha de ejecución: ${fechaFormateada}
 ${orden.comentarios ? `\n💬 Comentarios:\n${orden.comentarios}\n` : ''}
 🔗 Link de reporte:

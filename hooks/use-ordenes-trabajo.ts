@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { OrdenTrabajoService } from '@/lib/api-services'
-import { LocalOrdenesTrabajoService } from '@/lib/local-storage-ordenes'
 import type { OrdenTrabajo, CreateOrdenTrabajoRequest, UpdateOrdenTrabajoRequest } from '@/lib/api-types'
 
 interface UseOrdenesTrabajoReturn {
@@ -12,8 +11,8 @@ interface UseOrdenesTrabajoReturn {
   setSearchTerm: (term: string) => void
   filterTipoReporte: string
   setFilterTipoReporte: (tipo: string) => void
-  filterEstado: string
-  setFilterEstado: (estado: string) => void
+  filterBrigada: string
+  setFilterBrigada: (brigada: string) => void
   loadOrdenes: () => Promise<void>
   createOrden: (data: CreateOrdenTrabajoRequest) => Promise<{ success: boolean; data?: any; message?: string }>
   updateOrden: (id: string, data: UpdateOrdenTrabajoRequest) => Promise<boolean>
@@ -27,26 +26,26 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterTipoReporte, setFilterTipoReporte] = useState('')
-  const [filterEstado, setFilterEstado] = useState('')
+  const [filterBrigada, setFilterBrigada] = useState('')
 
   const loadOrdenes = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      // TEMPORAL: Usar localStorage mientras el backend no está implementado
-      const data = LocalOrdenesTrabajoService.getAll()
-      console.log('📦 Órdenes de trabajo desde localStorage:', data)
+      console.log('📦 Cargando órdenes de trabajo desde el backend...')
+      const data = await OrdenTrabajoService.getOrdenesTrabajo()
+      console.log('✅ Órdenes de trabajo cargadas:', data)
       setOrdenes(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar las órdenes de trabajo')
-      console.error('Error loading ordenes de trabajo:', err)
+      console.error('❌ Error loading ordenes de trabajo:', err)
       setOrdenes([])
     } finally {
       setLoading(false)
     }
   }, [])
 
-  // Filtrar órdenes localmente basado en searchTerm, tipo de reporte y estado
+  // Filtrar órdenes localmente basado en searchTerm, tipo de reporte y brigada
   const filteredOrdenes = useMemo(() => {
     let filtered = ordenes
 
@@ -54,10 +53,18 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(orden => {
+        const clienteNombre = orden.cliente
+          ? `${orden.cliente.nombre} ${orden.cliente.apellido || ''}`.toLowerCase()
+          : ''
+        const brigadaNombre = orden.brigada
+          ? `${orden.brigada.lider_nombre} ${orden.brigada.lider_apellido}`.toLowerCase()
+          : ''
+
         return (
-          orden.cliente_nombre?.toLowerCase().includes(searchLower) ||
-          orden.cliente_numero?.toLowerCase().includes(searchLower) ||
-          orden.brigada_nombre?.toLowerCase().includes(searchLower) ||
+          clienteNombre.includes(searchLower) ||
+          orden.cliente_numero.toLowerCase().includes(searchLower) ||
+          brigadaNombre.includes(searchLower) ||
+          orden.brigada_lider_ci.toLowerCase().includes(searchLower) ||
           orden.comentarios?.toLowerCase().includes(searchLower)
         )
       })
@@ -68,26 +75,27 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
       filtered = filtered.filter(orden => orden.tipo_reporte === filterTipoReporte)
     }
 
-    // Filtrar por estado
-    if (filterEstado) {
-      filtered = filtered.filter(orden => orden.estado === filterEstado)
+    // Filtrar por brigada (CI del líder)
+    if (filterBrigada) {
+      filtered = filtered.filter(orden => orden.brigada_lider_ci === filterBrigada)
     }
 
     return filtered
-  }, [ordenes, searchTerm, filterTipoReporte, filterEstado])
+  }, [ordenes, searchTerm, filterTipoReporte, filterBrigada])
 
-  const createOrden = useCallback(async (data: CreateOrdenTrabajoRequest, brigadaNombre?: string, clienteNombre?: string): Promise<{ success: boolean; data?: any; message?: string }> => {
+  const createOrden = useCallback(async (data: CreateOrdenTrabajoRequest): Promise<{ success: boolean; data?: any; message?: string }> => {
     setLoading(true)
     setError(null)
     try {
-      // TEMPORAL: Usar localStorage mientras el backend no está implementado
-      const nuevaOrden = LocalOrdenesTrabajoService.create(data, brigadaNombre, clienteNombre)
+      console.log('📝 Creando orden de trabajo:', data)
+      const response = await OrdenTrabajoService.createOrdenTrabajo(data)
+      console.log('✅ Orden creada:', response)
       await loadOrdenes() // Recargar la lista
-      return { success: true, data: nuevaOrden, message: 'Orden de trabajo creada correctamente' }
+      return response
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al crear la orden de trabajo'
       setError(errorMsg)
-      console.error('Error creating orden de trabajo:', err)
+      console.error('❌ Error creating orden de trabajo:', err)
       return { success: false, message: errorMsg }
     } finally {
       setLoading(false)
@@ -98,16 +106,17 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
     setLoading(true)
     setError(null)
     try {
-      // TEMPORAL: Usar localStorage mientras el backend no está implementado
-      const success = LocalOrdenesTrabajoService.update(id, data)
-      if (success) {
+      console.log('📝 Actualizando orden de trabajo:', id, data)
+      const response = await OrdenTrabajoService.updateOrdenTrabajo(id, data)
+      console.log('✅ Orden actualizada:', response)
+      if (response.success) {
         await loadOrdenes() // Recargar la lista
         return true
       }
-      throw new Error('No se encontró la orden de trabajo')
+      throw new Error(response.message || 'Error al actualizar la orden de trabajo')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar la orden de trabajo')
-      console.error('Error updating orden de trabajo:', err)
+      console.error('❌ Error updating orden de trabajo:', err)
       return false
     } finally {
       setLoading(false)
@@ -118,16 +127,17 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
     setLoading(true)
     setError(null)
     try {
-      // TEMPORAL: Usar localStorage mientras el backend no está implementado
-      const success = LocalOrdenesTrabajoService.delete(id)
-      if (success) {
+      console.log('🗑️ Eliminando orden de trabajo:', id)
+      const response = await OrdenTrabajoService.deleteOrdenTrabajo(id)
+      console.log('✅ Orden eliminada:', response)
+      if (response.success) {
         await loadOrdenes() // Recargar la lista
         return true
       }
-      throw new Error('No se encontró la orden de trabajo')
+      throw new Error(response.message || 'Error al eliminar la orden de trabajo')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al eliminar la orden de trabajo')
-      console.error('Error deleting orden de trabajo:', err)
+      console.error('❌ Error deleting orden de trabajo:', err)
       return false
     } finally {
       setLoading(false)
@@ -152,8 +162,8 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
     setSearchTerm,
     filterTipoReporte,
     setFilterTipoReporte,
-    filterEstado,
-    setFilterEstado,
+    filterBrigada,
+    setFilterBrigada,
     loadOrdenes,
     createOrden,
     updateOrden,

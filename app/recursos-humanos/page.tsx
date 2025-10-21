@@ -13,8 +13,10 @@ import { RecursosHumanosTableFinal } from "@/components/feats/recursos-humanos/r
 import { CargosResumenTable } from "@/components/feats/recursos-humanos/cargos-resumen-table"
 import { EstimulosDialog } from "@/components/feats/recursos-humanos/estimulos-dialog"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import type { CrearTrabajadorRRHHRequest } from "@/lib/recursos-humanos-types"
+import type { ExportOptions } from "@/lib/export-service"
 
 export default function RecursosHumanosPage() {
   const {
@@ -140,6 +142,60 @@ export default function RecursosHumanosPage() {
         description: result.message,
         variant: "destructive",
       })
+    }
+  }
+
+  // Función helper para calcular salario (igual que en la tabla)
+  const calcularSalario = (trabajador: any, montoTotal: number, totalTrabajadores: number): number => {
+    if (!trabajador.salario_fijo || !trabajador.dias_trabajables) return 0
+    
+    const diasTrabajados = trabajador.dias_trabajables - (trabajador.dias_no_trabajados?.length || 0)
+    const salarioProporcional = (trabajador.salario_fijo / trabajador.dias_trabajables) * diasTrabajados
+    const estimuloFijo = salarioProporcional * ((trabajador.porcentaje_fijo_estimulo || 0) / 100)
+    const estimuloVariable = (montoTotal * ((trabajador.porcentaje_variable_estimulo || 0) / 100)) / totalTrabajadores
+    const salarioTotal = salarioProporcional + estimuloFijo + estimuloVariable + (trabajador.alimentacion || 0)
+    
+    return salarioTotal
+  }
+
+  // Preparar opciones de exportación para la vista de trabajadores
+  const getExportOptionsTrabajadores = (): Omit<ExportOptions, 'filename'> => {
+    return {
+      title: 'Nómina Mensual - Vista por Trabajador',
+      subtitle: `Período: ${String(mesActual).padStart(2, '0')}/${anioActual} | Monto Total Estímulos: $${(ultimoIngreso?.monto || 0).toFixed(2)}`,
+      columns: [
+        { header: 'CI', key: 'CI', width: 15 },
+        { header: 'Nombre', key: 'nombre', width: 25 },
+        { header: 'Cargo', key: 'cargo', width: 20 },
+        { header: 'Salario Fijo', key: 'salario_fijo', width: 15 },
+        { header: '% Estímulo Fijo', key: 'porcentaje_fijo_estimulo', width: 15 },
+        { header: '% Estímulo Variable', key: 'porcentaje_variable_estimulo', width: 18 },
+        { header: 'Alimentación', key: 'alimentacion', width: 15 },
+        { header: 'Días Trabajables', key: 'dias_trabajables', width: 15 },
+        { header: 'Días No Trabajados', key: 'dias_no_trabajados_count', width: 18 },
+        { header: 'Salario Total', key: 'salario_total', width: 15 },
+      ],
+      data: trabajadores.map(t => ({
+        ...t,
+        dias_no_trabajados_count: t.dias_no_trabajados?.length || 0,
+        salario_total: calcularSalario(t, ultimoIngreso?.monto || 0, trabajadores.length)
+      }))
+    }
+  }
+
+  // Preparar opciones de exportación para la vista de cargos
+  const getExportOptionsCargos = (): Omit<ExportOptions, 'filename'> => {
+    return {
+      title: 'Resumen de Nómina - Vista por Cargo',
+      subtitle: `Período: ${String(mesActual).padStart(2, '0')}/${anioActual}`,
+      columns: [
+        { header: 'Cargo', key: 'cargo', width: 25 },
+        { header: 'Cantidad de Personas', key: 'cantidad_personas', width: 20 },
+        { header: 'Salario Fijo Promedio', key: 'salario_fijo', width: 20 },
+        { header: '% Estímulo Fijo Promedio', key: 'porcentaje_fijo_estimulo', width: 22 },
+        { header: '% Estímulo Variable Promedio', key: 'porcentaje_variable_estimulo', width: 25 },
+      ],
+      data: cargos
     }
   }
 
@@ -304,25 +360,46 @@ export default function RecursosHumanosPage() {
         {/* Tabla según vista seleccionada */}
         <Card className="border-l-4 border-l-purple-600">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              {vistaActual === 'trabajadores' ? (
-                <>
-                  <List className="h-5 w-5" />
-                  Gestión de Nómina Mensual - Por Trabajador
-                </>
-              ) : (
-                <>
-                  <Briefcase className="h-5 w-5" />
-                  Resumen de Nómina - Por Cargo
-                </>
-              )}
-            </CardTitle>
-            <CardDescription>
-              {vistaActual === 'trabajadores'
-                ? 'Haga click en cualquier campo para editarlo. El salario se calcula automáticamente. Presione Enter para guardar o Esc para cancelar.'
-                : 'Vista consolidada de trabajadores agrupados por cargo con promedios de salarios y estímulos.'
-              }
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  {vistaActual === 'trabajadores' ? (
+                    <>
+                      <List className="h-5 w-5" />
+                      Gestión de Nómina Mensual - Por Trabajador
+                    </>
+                  ) : (
+                    <>
+                      <Briefcase className="h-5 w-5" />
+                      Resumen de Nómina - Por Cargo
+                    </>
+                  )}
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  {vistaActual === 'trabajadores'
+                    ? 'Haga click en cualquier campo para editarlo. El salario se calcula automáticamente. Presione Enter para guardar o Esc para cancelar.'
+                    : 'Vista consolidada de trabajadores agrupados por cargo con promedios de salarios y estímulos.'
+                  }
+                </CardDescription>
+              </div>
+              
+              {/* Botones de exportación */}
+              <div className="flex-shrink-0">
+                {vistaActual === 'trabajadores' ? (
+                  <ExportButtons
+                    exportOptions={getExportOptionsTrabajadores()}
+                    baseFilename={`nomina_trabajadores_${String(mesActual).padStart(2, '0')}_${anioActual}`}
+                    variant="compact"
+                  />
+                ) : (
+                  <ExportButtons
+                    exportOptions={getExportOptionsCargos()}
+                    baseFilename={`nomina_cargos_${String(mesActual).padStart(2, '0')}_${anioActual}`}
+                    variant="compact"
+                  />
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {vistaActual === 'trabajadores' ? (

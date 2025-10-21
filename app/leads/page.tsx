@@ -12,11 +12,13 @@ import { ArrowLeft, UserPlus, Plus, Search, Loader2, Filter, Calendar } from "lu
 import { LeadsTable } from "@/components/feats/leads/leads-table"
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useLeads } from "@/hooks/use-leads"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import type { Lead, LeadCreateData, LeadUpdateData } from "@/lib/api-types"
+import type { ExportOptions } from "@/lib/export-service"
 
 export default function LeadsPage() {
   const {
@@ -108,6 +110,55 @@ export default function LeadsPage() {
   const handleEditLead = (lead: Lead) => {
     setEditingLead(lead)
     setIsEditLeadDialogOpen(true)
+  }
+
+  // Función para formatear el estado de manera legible
+  const formatEstado = (estado: string): string => {
+    const estados: Record<string, string> = {
+      'nuevo': 'Nuevo',
+      'contactado': 'Contactado',
+      'calificado': 'Calificado',
+      'propuesta': 'Propuesta',
+      'negociacion': 'Negociación',
+      'cerrado_ganado': 'Cerrado - Ganado',
+      'cerrado_perdido': 'Cerrado - Perdido',
+      'descartado': 'Descartado'
+    }
+    return estados[estado] || estado
+  }
+
+  // Preparar opciones de exportación para leads
+  const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
+    // Preparar datos para exportación con formato legible
+    const exportData = filteredLeads.map(lead => ({
+      ...lead,
+      fecha_contacto: new Date(lead.fecha_contacto).toLocaleDateString('es-ES'),
+      estado: formatEstado(lead.estado),
+      fuente: lead.fuente || 'N/A',
+      referencia: lead.referencia || 'N/A',
+      direccion: lead.direccion || 'N/A',
+      pais_contacto: lead.pais_contacto || 'N/A',
+      necesidad: lead.necesidad || 'N/A',
+      provincia_montaje: lead.provincia_montaje || 'N/A'
+    }))
+
+    return {
+      title: 'Listado de Leads',
+      subtitle: `Total de leads: ${filteredLeads.length} | Fecha: ${new Date().toLocaleDateString('es-ES')}`,
+      columns: [
+        { header: 'Fecha Contacto', key: 'fecha_contacto', width: 15 },
+        { header: 'Nombre', key: 'nombre', width: 25 },
+        { header: 'Teléfono', key: 'telefono', width: 15 },
+        { header: 'Estado', key: 'estado', width: 18 },
+        { header: 'Fuente', key: 'fuente', width: 15 },
+        { header: 'Referencia', key: 'referencia', width: 20 },
+        { header: 'Dirección', key: 'direccion', width: 30 },
+        { header: 'País', key: 'pais_contacto', width: 15 },
+        { header: 'Necesidad', key: 'necesidad', width: 30 },
+        { header: 'Provincia Montaje', key: 'provincia_montaje', width: 18 },
+      ],
+      data: exportData
+    }
   }
 
   if (loading && leads.length === 0) return <PageLoader moduleName="Leads" text="Cargando leads..." />
@@ -308,13 +359,28 @@ export default function LeadsPage() {
         {/* Leads Table */}
         <Card className="border-l-4 border-l-green-600">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Lista de Leads
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            </CardTitle>
-            <CardDescription>
-              Mostrando {filteredLeads.length} leads
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  Lista de Leads
+                  {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+                </CardTitle>
+                <CardDescription>
+                  Mostrando {filteredLeads.length} leads
+                </CardDescription>
+              </div>
+              
+              {/* Botones de exportación */}
+              {filteredLeads.length > 0 && (
+                <div className="flex-shrink-0">
+                  <ExportButtons
+                    exportOptions={getExportOptions()}
+                    baseFilename="leads"
+                    variant="compact"
+                  />
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             {loading && leads.length === 0 ? (

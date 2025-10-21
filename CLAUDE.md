@@ -28,6 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **State Management**: React hooks with custom API services
 - **Maps**: Leaflet/React-Leaflet for location picking
 - **Forms**: React Hook Form with Zod validation
+- **Export**: jsPDF, jspdf-autotable, xlsx for Excel and PDF exports
 
 ### Project Structure
 ```
@@ -73,6 +74,33 @@ lib/                   # Core utilities and services
 5. **Location Services**: Interactive maps for address/coordinate selection
 6. **Client Management**: Customer database integration
 7. **Customer Service**: Message management system with mock data support
+8. **Export System**: Centralized Excel and PDF export functionality with professional formatting
+
+### Export Functionality
+The application includes a centralized export system for generating Excel and PDF reports:
+
+- **Export Service** (`lib/export-service.ts`): Core functions for Excel and PDF generation
+  - `exportToExcel()`: Generates .xlsx files with professional headers
+  - `exportToPDF()`: Creates formatted PDF with company logo and branding
+  - Automatic formatting for currencies, dates, and percentages
+
+- **Export Buttons Component** (`components/shared/molecule/export-buttons.tsx`): Reusable UI
+  - Dual buttons for Excel (green) and PDF (red) export
+  - Loading states and toast notifications
+  - Compact variant for space-constrained layouts
+
+- **Current Implementation**: Recursos Humanos (HR) module
+  - Two exportable views: By Worker and By Position
+  - Includes calculated salaries and stimuli
+  - Professional headers with company branding
+
+- **Current Implementation**: Leads module
+  - Exports 10 columns with lead information
+  - Respects applied filters (state, source, date range, search)
+  - Formatted states in Spanish and dates in DD/MM/YYYY format
+  - Shows "N/A" for empty fields
+
+- **Usage in Other Modules**: See `docs/EXPORT_FEATURE.md` for integration guide
 
 ### Component Architecture
 - **Atomic Design**: Components organized by complexity (atom → molecule → organism)

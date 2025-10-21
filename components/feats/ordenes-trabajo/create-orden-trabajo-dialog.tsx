@@ -41,7 +41,7 @@ export function CreateOrdenTrabajoDialog({
   const [clienteMode, setClienteMode] = useState<'select' | 'create'>('select')
 
   // Datos del formulario
-  const [brigadaId, setBrigadaId] = useState("")
+  const [brigadaLiderCI, setBrigadaLiderCI] = useState("")
   const [clienteNumero, setClienteNumero] = useState("")
   const [tipoReporte, setTipoReporte] = useState<TipoReporte | "">("")
   const [fechaEjecucion, setFechaEjecucion] = useState<Date>(addDays(new Date(), 1))
@@ -104,7 +104,7 @@ export function CreateOrdenTrabajoDialog({
     e.preventDefault()
 
     // Validaciones
-    if (!brigadaId) {
+    if (!brigadaLiderCI) {
       toast({
         title: "Error",
         description: "Debes seleccionar una brigada",
@@ -190,28 +190,16 @@ export function CreateOrdenTrabajoDialog({
         }
       }
 
-      // Obtener nombre de brigada y cliente para crear la orden
-      const brigadaSeleccionada = brigadas.find(b => (b._id || b.id) === brigadaId)
-      const brigadaNombre = brigadaSeleccionada?.lider?.nombre || 'Sin asignar'
-
-      let clienteNombre = ''
-      if (clienteMode === 'create') {
-        clienteNombre = nuevoClienteNombre
-      } else {
-        const clienteSeleccionado = clientes.find(c => c.numero === finalClienteNumero)
-        clienteNombre = clienteSeleccionado?.nombre || 'Cliente'
-      }
-
-      // Crear la orden de trabajo
+      // Crear la orden de trabajo con la estructura correcta del backend
       const ordenData: CreateOrdenTrabajoRequest = {
-        brigada_id: brigadaId,
+        brigada_lider_ci: brigadaLiderCI,
         cliente_numero: finalClienteNumero,
         tipo_reporte: tipoReporte as TipoReporte,
-        fecha_ejecucion: format(fechaEjecucion, 'yyyy-MM-dd'),
+        fecha: fechaEjecucion.toISOString(),
         comentarios: comentarios || undefined,
       }
 
-      onSuccess({ ordenData, brigadaNombre, clienteNombre })
+      onSuccess({ ordenData })
 
       // Limpiar formulario
       resetForm()
@@ -229,7 +217,7 @@ export function CreateOrdenTrabajoDialog({
   }
 
   const resetForm = () => {
-    setBrigadaId("")
+    setBrigadaLiderCI("")
     setClienteNumero("")
     setTipoReporte("")
     setFechaEjecucion(addDays(new Date(), 1))
@@ -252,16 +240,16 @@ export function CreateOrdenTrabajoDialog({
           <DialogTitle>Crear Nueva Orden de Trabajo</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Selección de brigada */}
+          {/* Selección de brigada - Usa CI del líder como valor */}
           <div>
             <Label htmlFor="brigada">Brigada *</Label>
-            <Select value={brigadaId} onValueChange={setBrigadaId} disabled={loadingData}>
+            <Select value={brigadaLiderCI} onValueChange={setBrigadaLiderCI} disabled={loadingData}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecciona una brigada" />
               </SelectTrigger>
               <SelectContent>
                 {brigadas.map((brigada) => (
-                  <SelectItem key={brigada._id || brigada.id} value={brigada._id || brigada.id || ''}>
+                  <SelectItem key={brigada.lider?.CI || brigada._id || brigada.id} value={brigada.lider?.CI || ''}>
                     {brigada.lider?.nombre || 'Sin líder'} {brigada.integrantes?.length > 0 && `(${brigada.integrantes.length} integrantes)`}
                   </SelectItem>
                 ))}
@@ -438,8 +426,8 @@ export function CreateOrdenTrabajoDialog({
                 <SelectValue placeholder="Selecciona el tipo de reporte" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="inversión">Inversión</SelectItem>
-                <SelectItem value="avería">Avería</SelectItem>
+                <SelectItem value="inversion">Inversión</SelectItem>
+                <SelectItem value="averia">Avería</SelectItem>
                 <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
               </SelectContent>
             </Select>

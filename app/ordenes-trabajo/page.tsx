@@ -28,8 +28,8 @@ export default function OrdenesTrabajoPage() {
     setSearchTerm,
     filterTipoReporte,
     setFilterTipoReporte,
-    filterEstado,
-    setFilterEstado,
+    filterBrigada,
+    setFilterBrigada,
     loadOrdenes,
     createOrden,
     deleteOrden,
@@ -48,10 +48,10 @@ export default function OrdenesTrabajoPage() {
     return <PageLoader moduleName="Órdenes de Trabajo" text="Cargando órdenes de trabajo..." />
   }
 
-  const handleCreateOrden = async (data: { ordenData: CreateOrdenTrabajoRequest; brigadaNombre: string; clienteNombre: string }) => {
-    const { ordenData, brigadaNombre, clienteNombre } = data
+  const handleCreateOrden = async (data: { ordenData: CreateOrdenTrabajoRequest }) => {
+    const { ordenData } = data
     try {
-      const response = await createOrden(ordenData, brigadaNombre, clienteNombre)
+      const response = await createOrden(ordenData)
 
       if (!response.success) {
         throw new Error(response.message || 'Error al crear la orden de trabajo')
@@ -64,7 +64,7 @@ export default function OrdenesTrabajoPage() {
 
       // Generar mensaje usando los datos de la orden creada
       if (response.data) {
-        const message = OrdenTrabajoService.generateOrdenTrabajoMessage(response.data, clienteNombre)
+        const message = OrdenTrabajoService.generateOrdenTrabajoMessage(response.data)
         setMessageToShow(message)
         setIsMessageDialogOpen(true)
       }
@@ -82,7 +82,7 @@ export default function OrdenesTrabajoPage() {
 
   const handleViewMessage = async (orden: OrdenTrabajo) => {
     try {
-      const message = OrdenTrabajoService.generateOrdenTrabajoMessage(orden, orden.cliente_nombre)
+      const message = OrdenTrabajoService.generateOrdenTrabajoMessage(orden)
       setMessageToShow(message)
       setIsMessageDialogOpen(true)
     } catch (error) {
@@ -200,26 +200,23 @@ export default function OrdenesTrabajoPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos los tipos</SelectItem>
-                    <SelectItem value="inversión">Inversión</SelectItem>
-                    <SelectItem value="avería">Avería</SelectItem>
+                    <SelectItem value="inversion">Inversión</SelectItem>
+                    <SelectItem value="averia">Avería</SelectItem>
                     <SelectItem value="mantenimiento">Mantenimiento</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
-                <Label htmlFor="filterEstado" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Estado
+                <Label htmlFor="filterBrigada" className="text-sm font-medium text-gray-700 mb-2 block">
+                  Brigada
                 </Label>
-                <Select value={filterEstado || "todos"} onValueChange={(value) => setFilterEstado(value === "todos" ? "" : value)}>
-                  <SelectTrigger id="filterEstado">
-                    <SelectValue placeholder="Todos los estados" />
+                <Select value={filterBrigada || "todas"} onValueChange={(value) => setFilterBrigada(value === "todas" ? "" : value)}>
+                  <SelectTrigger id="filterBrigada">
+                    <SelectValue placeholder="Todas las brigadas" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="pendiente">Pendiente</SelectItem>
-                    <SelectItem value="en_proceso">En Proceso</SelectItem>
-                    <SelectItem value="completada">Completada</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                    <SelectItem value="todas">Todas las brigadas</SelectItem>
+                    {/* TODO: Cargar brigadas dinámicamente */}
                   </SelectContent>
                 </Select>
               </div>
