@@ -6,7 +6,9 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Loader2 } from "lucide-react"
-import type { LeadCreateData } from "@/lib/api-types"
+import type { ElementoPersonalizado, LeadCreateData, OfertaEmbebida } from "@/lib/api-types"
+import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
+import { OfertasEmbebidasFields } from "./ofertas-embebidas-fields"
 
 interface CreateLeadDialogProps {
   onSubmit: (data: LeadCreateData) => Promise<void>
@@ -77,13 +79,19 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     fecha_contacto: getCurrentDateDDMMYYYY(), // Fecha actual en formato DD/MM/YYYY
     nombre: '',
     telefono: '',
+    telefono_adicional: '',
     estado: 'nuevo',
     fuente: '',
     referencia: '',
     direccion: '',
     pais_contacto: '',
-    necesidad: '',
-    provincia_montaje: ''
+    comentario: '',
+    provincia_montaje: '',
+    comercial: '',
+    ofertas: [],
+    elementos_personalizados: [],
+    metodo_pago: '',
+    moneda: '',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -108,6 +116,37 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
         [field]: ''
       }))
     }
+  }
+
+  const handleOfertasChange = (items: OfertaEmbebida[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      ofertas: items,
+    }))
+  }
+
+  const handleElementosChange = (items: ElementoPersonalizado[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      elementos_personalizados: items,
+    }))
+  }
+
+  const sanitizeLeadData = (data: LeadCreateData): LeadCreateData => {
+    const cleaned: Record<string, unknown> = { ...data }
+
+    Object.entries(cleaned).forEach(([key, value]) => {
+      if (typeof value === 'string' && value.trim() === '') {
+        delete cleaned[key]
+        return
+      }
+
+      if (Array.isArray(value) && value.length === 0) {
+        delete cleaned[key]
+      }
+    })
+
+    return cleaned as LeadCreateData
   }
 
   const validateForm = (): boolean => {
@@ -140,14 +179,14 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     }
 
     try {
-      await onSubmit(formData)
+      await onSubmit(sanitizeLeadData(formData))
     } catch (error) {
       console.error('Error al crear lead:', error)
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Fecha de Contacto */}
         <div>
@@ -200,6 +239,19 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
           )}
         </div>
 
+        {/* Teléfono adicional */}
+        <div>
+          <Label htmlFor="telefono_adicional">
+            Teléfono adicional
+          </Label>
+          <Input
+            id="telefono_adicional"
+            placeholder="+1234567890"
+            value={formData.telefono_adicional || ''}
+            onChange={(e) => handleInputChange('telefono_adicional', e.target.value)}
+          />
+        </div>
+
         {/* Estado */}
         <div>
           <Label htmlFor="estado">
@@ -245,6 +297,39 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
           />
         </div>
 
+        {/* Comercial */}
+        <div>
+          <Label htmlFor="comercial">Comercial asignado</Label>
+          <Input
+            id="comercial"
+            placeholder="Nombre de la persona que atiende"
+            value={formData.comercial || ''}
+            onChange={(e) => handleInputChange('comercial', e.target.value)}
+          />
+        </div>
+
+        {/* Método de pago */}
+        <div>
+          <Label htmlFor="metodo_pago">Método de pago</Label>
+          <Input
+            id="metodo_pago"
+            placeholder="Transferencia, efectivo..."
+            value={formData.metodo_pago || ''}
+            onChange={(e) => handleInputChange('metodo_pago', e.target.value)}
+          />
+        </div>
+
+        {/* Moneda */}
+        <div>
+          <Label htmlFor="moneda">Moneda</Label>
+          <Input
+            id="moneda"
+            placeholder="USD, CUP, MLC..."
+            value={formData.moneda || ''}
+            onChange={(e) => handleInputChange('moneda', e.target.value)}
+          />
+        </div>
+
         {/* País de Contacto */}
         <div>
           <Label htmlFor="pais_contacto">País de Contacto</Label>
@@ -285,15 +370,27 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
         />
       </div>
 
-      {/* Necesidad */}
+      {/* Comentario */}
       <div>
-        <Label htmlFor="necesidad">Necesidad</Label>
+        <Label htmlFor="comentario">Comentario</Label>
         <Textarea
-          id="necesidad"
-          placeholder="Describe la necesidad específica del cliente..."
-          value={formData.necesidad}
-          onChange={(e) => handleInputChange('necesidad', e.target.value)}
+          id="comentario"
+          placeholder="Notas generales sobre el lead, necesidades o contexto..."
+          value={formData.comentario || ''}
+          onChange={(e) => handleInputChange('comentario', e.target.value)}
           rows={3}
+        />
+      </div>
+
+      <div className="space-y-6">
+        <OfertasEmbebidasFields
+          value={formData.ofertas || []}
+          onChange={handleOfertasChange}
+        />
+
+        <ElementosPersonalizadosFields
+          value={formData.elementos_personalizados || []}
+          onChange={handleElementosChange}
         />
       </div>
 

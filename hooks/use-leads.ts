@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { LeadService } from '@/lib/api-services'
-import type { Lead, LeadCreateData, LeadUpdateData } from '@/lib/api-types'
+import type { Lead, LeadCreateData, LeadUpdateData, LeadConversionRequest, Cliente } from '@/lib/api-types'
 
 interface LeadFilters {
   searchTerm: string
@@ -24,6 +24,11 @@ interface UseLeadsReturn {
   createLead: (data: LeadCreateData) => Promise<boolean>
   updateLead: (id: string, data: LeadUpdateData) => Promise<boolean>
   deleteLead: (id: string) => Promise<boolean>
+  convertLead: (id: string, data: LeadConversionRequest) => Promise<Cliente>
+  uploadLeadComprobante: (
+    id: string,
+    payload: { file: File; metodo_pago?: string; moneda?: string }
+  ) => Promise<{ comprobante_pago_url: string; metodo_pago?: string; moneda?: string }>
   clearError: () => void
 }
 
@@ -94,10 +99,17 @@ export function useLeads(): UseLeadsReturn {
         return (
           lead.nombre?.toLowerCase().includes(searchLower) ||
           lead.telefono?.toLowerCase().includes(searchLower) ||
+          lead.telefono_adicional?.toLowerCase().includes(searchLower) ||
           lead.estado?.toLowerCase().includes(searchLower) ||
           lead.fuente?.toLowerCase().includes(searchLower) ||
+          lead.referencia?.toLowerCase().includes(searchLower) ||
           lead.direccion?.toLowerCase().includes(searchLower) ||
-          lead.pais_contacto?.toLowerCase().includes(searchLower)
+          lead.pais_contacto?.toLowerCase().includes(searchLower) ||
+          lead.provincia_montaje?.toLowerCase().includes(searchLower) ||
+          lead.comercial?.toLowerCase().includes(searchLower) ||
+          lead.comentario?.toLowerCase().includes(searchLower) ||
+          lead.metodo_pago?.toLowerCase().includes(searchLower) ||
+          lead.moneda?.toLowerCase().includes(searchLower)
         )
       })
     }
@@ -187,6 +199,57 @@ export function useLeads(): UseLeadsReturn {
     }
   }, [loadLeads])
 
+  const convertLead = useCallback(async (id: string, data: LeadConversionRequest): Promise<Cliente> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const cliente = await LeadService.convertLeadToCliente(id, data)
+      await loadLeads()
+      return cliente
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al convertir el lead'
+      setError(message)
+      console.error('Error converting lead:', err)
+      throw err instanceof Error ? err : new Error(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [loadLeads])
+
+  const uploadLeadComprobante = useCallback(
+    async (
+      id: string,
+      payload: { file: File; metodo_pago?: string; moneda?: string }
+    ): Promise<{ comprobante_pago_url: string; metodo_pago?: string; moneda?: string }> => {
+      setLoading(true)
+      setError(null)
+      try {
+        const result = await LeadService.uploadComprobante(id, payload)
+        setLeads((prev) =>
+          prev.map((lead) =>
+            lead.id === id
+              ? {
+                  ...lead,
+                  comprobante_pago_url: result.comprobante_pago_url,
+                  metodo_pago: result.metodo_pago ?? lead.metodo_pago,
+                  moneda: result.moneda ?? lead.moneda,
+                }
+              : lead
+          )
+        )
+        return result
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Error al subir el comprobante'
+        setError(message)
+        console.error('Error uploading lead comprobante:', err)
+        throw err instanceof Error ? err : new Error(message)
+      } finally {
+        setLoading(false)
+      }
+    },
+    []
+  )
+
   const clearError = useCallback(() => {
     setError(null)
   }, [])
@@ -210,6 +273,8 @@ export function useLeads(): UseLeadsReturn {
     createLead,
     updateLead,
     deleteLead,
+    convertLead,
+    uploadLeadComprobante,
     clearError,
   }
 }

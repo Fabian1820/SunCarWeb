@@ -3,50 +3,42 @@
 import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
 import {
   FileCheck,
-  Search,
   Eye,
-  Wrench,
-  User,
   MapPin,
-  ArrowLeft,
   Building2,
   Phone,
-  Mail,
-  Map,
   Edit,
   Trash2
 } from "lucide-react"
 import { ReportsTable } from "@/components/feats/reports/reports-table"
-import { ClienteService, ReporteService } from "@/lib/api-services"
+import { ReporteService } from "@/lib/api-services"
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog"
+import type { Cliente } from "@/lib/api-types"
 
 interface ClientsTableProps {
-  clients: any[]
-  onEdit: (client: any) => void
-  onDelete: (client: any) => void
-  onViewLocation: (client: any) => void
+  clients: Cliente[]
+  onEdit: (client: Cliente) => void
+  onDelete: (client: Cliente) => void
+  onViewLocation: (client: Cliente) => void
   loading?: boolean
 }
 
 export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loading = false }: ClientsTableProps) {
   const [selectedClientReports, setSelectedClientReports] = useState<any[] | null>(null)
-  const [selectedClient, setSelectedClient] = useState<any | null>(null)
+  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null)
   const [loadingClientReports, setLoadingClientReports] = useState(false)
   const [showClientLocation, setShowClientLocation] = useState(false)
   const [clientLocation, setClientLocation] = useState<{ lat: number, lng: number } | null>(null)
   const [showClientDetails, setShowClientDetails] = useState(false)
-  const [clientForDetails, setClientForDetails] = useState<any | null>(null)
+  const [clientForDetails, setClientForDetails] = useState<Cliente | null>(null)
 
   // Acción para ver reportes de un cliente
-  const handleViewClientReports = async (client: any) => {
+  const handleViewClientReports = async (client: Cliente) => {
     setSelectedClient(client)
     setLoadingClientReports(true)
     try {
@@ -60,15 +52,19 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   }
 
   // Acción para ver ubicación del cliente
-  const handleViewClientLocation = (client: any) => {
-    if (client.latitud && client.longitud) {
-      setClientLocation({ lat: parseFloat(client.latitud), lng: parseFloat(client.longitud) })
-      setShowClientLocation(true)
+  const handleViewClientLocation = (client: Cliente) => {
+    if (client.latitud !== undefined && client.longitud !== undefined && client.latitud !== null && client.longitud !== null) {
+      const lat = typeof client.latitud === 'number' ? client.latitud : parseFloat(client.latitud)
+      const lng = typeof client.longitud === 'number' ? client.longitud : parseFloat(client.longitud)
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        setClientLocation({ lat, lng })
+        setShowClientLocation(true)
+      }
     }
   }
 
   // Acción para ver detalles completos del cliente
-  const handleViewClientDetails = (client: any) => {
+  const handleViewClientDetails = (client: Cliente) => {
     setClientForDetails(client)
     setShowClientDetails(true)
   }
@@ -99,8 +95,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Número</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Dirección</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-900">Contacto</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-900">Seguimiento</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
             </tr>
           </thead>
@@ -114,17 +110,52 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">{client.nombre}</p>
+                      <Badge variant="outline" className="bg-gray-50 mt-1">
+                        {client.numero}
+                      </Badge>
                     </div>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge variant="outline" className="bg-gray-50">
-                    {client.numero}
-                  </Badge>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center text-sm text-gray-700 gap-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <span>{client.telefono || 'Sin teléfono'}</span>
+                    </div>
+                    {client.telefono_adicional && (
+                      <div className="text-xs text-gray-500 pl-6">
+                        Secundario: {client.telefono_adicional}
+                      </div>
+                    )}
+                    {client.direccion && (
+                      <div className="text-xs text-gray-500 pl-6 truncate max-w-xs">
+                        {client.direccion}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="max-w-xs">
-                    <p className="text-sm text-gray-600 truncate">{client.direccion}</p>
+                  <div className="flex flex-col gap-1">
+                    {client.estado && (
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 w-fit">
+                        {client.estado}
+                      </Badge>
+                    )}
+                    {client.comercial && (
+                      <div className="text-xs text-gray-600">
+                        Comercial: {client.comercial}
+                      </div>
+                    )}
+                    {client.fuente && (
+                      <div className="text-xs text-gray-500">
+                        Fuente: {client.fuente}
+                      </div>
+                    )}
+                    {client.fecha_contacto && (
+                      <div className="text-xs text-gray-400">
+                        Contacto: {client.fecha_contacto}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="py-4 px-4">

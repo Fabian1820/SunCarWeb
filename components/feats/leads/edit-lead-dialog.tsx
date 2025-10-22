@@ -7,7 +7,9 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Loader2 } from "lucide-react"
-import type { Lead, LeadUpdateData } from "@/lib/api-types"
+import type { ElementoPersonalizado, Lead, LeadUpdateData, OfertaEmbebida } from "@/lib/api-types"
+import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
+import { OfertasEmbebidasFields } from "./ofertas-embebidas-fields"
 
 interface EditLeadDialogProps {
   open: boolean
@@ -20,6 +22,8 @@ interface EditLeadDialogProps {
 export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }: EditLeadDialogProps) {
   const [formData, setFormData] = useState<LeadUpdateData>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [ofertas, setOfertas] = useState<OfertaEmbebida[]>([])
+  const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>([])
 
   const fuentesDisponibles = [
     'página web',
@@ -64,20 +68,53 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
   ]
 
   // Inicializar el formulario con los datos del lead cuando cambie el lead o se abra el dialog
+  const convertDateToInput = (value?: string): string => {
+    if (!value) return ""
+    if (value.match(/^\d{4}-\d{2}-\d{2}$/)) return value
+    if (value.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      const [day, month, year] = value.split("/")
+      return `${year}-${month}-${day}`
+    }
+    const parsed = new Date(value)
+    if (!Number.isNaN(parsed.getTime())) {
+      const month = String(parsed.getMonth() + 1).padStart(2, "0")
+      const day = String(parsed.getDate()).padStart(2, "0")
+      return `${parsed.getFullYear()}-${month}-${day}`
+    }
+    return ""
+  }
+
+  const convertDateFromInput = (value: string): string => {
+    if (!value) return ""
+    if (value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = value.split("-")
+      return `${day}/${month}/${year}`
+    }
+    return value
+  }
+
   useEffect(() => {
     if (lead && open) {
       setFormData({
-        fecha_contacto: lead.fecha_contacto,
+        fecha_contacto: convertDateToInput(lead.fecha_contacto),
         nombre: lead.nombre,
         telefono: lead.telefono,
+        telefono_adicional: lead.telefono_adicional || '',
         estado: lead.estado,
         fuente: lead.fuente || '',
         referencia: lead.referencia || '',
         direccion: lead.direccion || '',
         pais_contacto: lead.pais_contacto || '',
-        necesidad: lead.necesidad || '',
-        provincia_montaje: lead.provincia_montaje || ''
+        comentario: lead.comentario || '',
+        provincia_montaje: lead.provincia_montaje || '',
+        comercial: lead.comercial || '',
+        metodo_pago: lead.metodo_pago || '',
+        moneda: lead.moneda || '',
       })
+      setOfertas(lead.ofertas ? JSON.parse(JSON.stringify(lead.ofertas)) : [])
+      setElementosPersonalizados(
+        lead.elementos_personalizados ? JSON.parse(JSON.stringify(lead.elementos_personalizados)) : []
+      )
       setErrors({})
     }
   }, [lead, open])
@@ -128,15 +165,34 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
 
     // Solo enviar campos que han cambiado
     const changedData: LeadUpdateData = {}
-    Object.keys(formData).forEach(key => {
+    Object.entries(formData).forEach(([key, value]) => {
       const field = key as keyof LeadUpdateData
-      const currentValue = formData[field]
-      const originalValue = lead[field]
 
-      if (currentValue !== originalValue) {
-        changedData[field] = currentValue
+      if (field === 'fecha_contacto') {
+        const originalDate = convertDateToInput(lead.fecha_contacto)
+        if (value !== originalDate) {
+          changedData.fecha_contacto = convertDateFromInput(value || '')
+        }
+        return
+      }
+
+      const originalValue = lead[field]
+      if (value !== originalValue) {
+        changedData[field] = value
       }
     })
+
+    const originalOfertas = lead.ofertas ?? []
+    const hasOfertasChanged = JSON.stringify(originalOfertas) !== JSON.stringify(ofertas)
+    if (hasOfertasChanged) {
+      changedData.ofertas = ofertas
+    }
+
+    const originalElementos = lead.elementos_personalizados ?? []
+    const hasElementosChanged = JSON.stringify(originalElementos) !== JSON.stringify(elementosPersonalizados)
+    if (hasElementosChanged) {
+      changedData.elementos_personalizados = elementosPersonalizados
+    }
 
     // Si no hay cambios, no enviar nada
     if (Object.keys(changedData).length === 0) {
@@ -154,6 +210,8 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
   const handleCancel = () => {
     setFormData({})
     setErrors({})
+    setOfertas([])
+    setElementosPersonalizados([])
     onOpenChange(false)
   }
 
@@ -217,6 +275,19 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
               )}
             </div>
 
+            {/* Teléfono adicional */}
+            <div>
+              <Label htmlFor="telefono_adicional">
+                Teléfono adicional
+              </Label>
+              <Input
+                id="telefono_adicional"
+                placeholder="+1234567890"
+                value={formData.telefono_adicional || ''}
+                onChange={(e) => handleInputChange('telefono_adicional', e.target.value)}
+              />
+            </div>
+
             {/* Estado */}
             <div>
               <Label htmlFor="estado">
@@ -262,6 +333,39 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
               />
             </div>
 
+            {/* Comercial */}
+            <div>
+              <Label htmlFor="comercial">Comercial asignado</Label>
+              <Input
+                id="comercial"
+                placeholder="Nombre de la persona que atiende"
+                value={formData.comercial || ''}
+                onChange={(e) => handleInputChange('comercial', e.target.value)}
+              />
+            </div>
+
+            {/* Método de pago */}
+            <div>
+              <Label htmlFor="metodo_pago">Método de pago</Label>
+              <Input
+                id="metodo_pago"
+                placeholder="Transferencia, efectivo..."
+                value={formData.metodo_pago || ''}
+                onChange={(e) => handleInputChange('metodo_pago', e.target.value)}
+              />
+            </div>
+
+            {/* Moneda */}
+            <div>
+              <Label htmlFor="moneda">Moneda</Label>
+              <Input
+                id="moneda"
+                placeholder="USD, CUP, MLC..."
+                value={formData.moneda || ''}
+                onChange={(e) => handleInputChange('moneda', e.target.value)}
+              />
+            </div>
+
             {/* País de Contacto */}
             <div>
               <Label htmlFor="pais_contacto">País de Contacto</Label>
@@ -302,15 +406,27 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
             />
           </div>
 
-          {/* Necesidad */}
+          {/* Comentario */}
           <div>
-            <Label htmlFor="necesidad">Necesidad</Label>
+            <Label htmlFor="comentario">Comentario</Label>
             <Textarea
-              id="necesidad"
-              placeholder="Describe la necesidad específica del cliente..."
-              value={formData.necesidad || ''}
-              onChange={(e) => handleInputChange('necesidad', e.target.value)}
+              id="comentario"
+              placeholder="Notas generales sobre el lead, necesidades o contexto..."
+              value={formData.comentario || ''}
+              onChange={(e) => handleInputChange('comentario', e.target.value)}
               rows={3}
+            />
+          </div>
+
+          <div className="space-y-6">
+            <OfertasEmbebidasFields
+              value={ofertas}
+              onChange={setOfertas}
+            />
+
+            <ElementosPersonalizadosFields
+              value={elementosPersonalizados}
+              onChange={setElementosPersonalizados}
             />
           </div>
 

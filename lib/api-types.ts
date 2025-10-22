@@ -9,7 +9,21 @@ export type {
 } from './types/feats/materials/material-types'
 export { transformBackendToFrontend, transformCategories } from './types/feats/materials/material-types'
 
-export type { Lead, LeadResponse, LeadCreateData, LeadUpdateData } from './types/feats/leads/lead-types'
+export type {
+  Lead,
+  LeadResponse,
+  LeadCreateData,
+  LeadUpdateData,
+  LeadConversionRequest,
+} from './types/feats/leads/lead-types'
+
+export type {
+  Cliente,
+  ClienteResponse,
+  ClienteCreateData,
+  ClienteSimpleCreateData,
+  ClienteUpdateData,
+} from './types/feats/customer/cliente-types'
 
 export type { Trabajador, Brigada } from './types/feats/brigade/brigade-types'
 

@@ -3,24 +3,66 @@
 import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
+import { Label } from "@/components/shared/atom/label"
+import { Input } from "@/components/shared/molecule/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Edit, Trash2, Phone, Mail, Eye, Calendar, MapPin, Building } from "lucide-react"
-import type { Lead } from "@/lib/api-types"
-import { useToast } from "@/hooks/use-toast"
+import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog"
+import { downloadFile } from "@/lib/utils/download-file"
+import {
+  Edit,
+  Trash2,
+  Phone,
+  PhoneForwarded,
+  Eye,
+  Calendar,
+  MapPin,
+  Building,
+  UserPlus,
+  UserCheck,
+  Package,
+  ListChecks,
+  Loader2,
+  UploadCloud,
+  Download,
+  CreditCard,
+} from "lucide-react"
+import type { Lead, LeadConversionRequest } from "@/lib/api-types"
 
 interface LeadsTableProps {
   leads: Lead[]
   onEdit: (lead: Lead) => void
   onDelete: (id: string) => void
+  onConvert: (lead: Lead, data: LeadConversionRequest) => Promise<void>
+  onUploadComprobante: (
+    lead: Lead,
+    payload: { file: File; metodo_pago?: string; moneda?: string }
+  ) => Promise<void>
+  onDownloadComprobante?: (lead: Lead) => Promise<void>
   loading?: boolean
+  disableActions?: boolean
 }
 
-export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps) {
+export function LeadsTable({
+  leads,
+  onEdit,
+  onDelete,
+  onConvert,
+  onUploadComprobante,
+  onDownloadComprobante,
+  loading,
+  disableActions,
+}: LeadsTableProps) {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [leadToDelete, setLeadToDelete] = useState<Lead | null>(null)
-  const { toast } = useToast()
+  const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false)
+  const [leadToConvert, setLeadToConvert] = useState<Lead | null>(null)
+  const [conversionData, setConversionData] = useState<LeadConversionRequest>({ numero: '' })
+  const [conversionErrors, setConversionErrors] = useState<Record<string, string>>({})
+  const [conversionLoading, setConversionLoading] = useState(false)
+  const [isComprobanteDialogOpen, setIsComprobanteDialogOpen] = useState(false)
+  const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(null)
 
   const openDetailDialog = (lead: Lead) => {
     setSelectedLead(lead)
@@ -37,6 +79,146 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
       onDelete(leadToDelete.id)
       setIsDeleteDialogOpen(false)
       setLeadToDelete(null)
+    }
+  }
+
+  const resetConversionState = () => {
+    setConversionData({ numero: '', metodo_pago: '', moneda: '' })
+    setConversionErrors({})
+    setConversionLoading(false)
+  }
+
+  const openConvertDialog = (lead: Lead) => {
+    setLeadToConvert(lead)
+    setConversionData({
+      numero: '',
+      metodo_pago: lead.metodo_pago || '',
+      moneda: lead.moneda || '',
+    })
+    setConversionErrors({})
+    setConversionLoading(false)
+    setIsConvertDialogOpen(true)
+  }
+
+  const closeConvertDialog = () => {
+    setIsConvertDialogOpen(false)
+    setLeadToConvert(null)
+    resetConversionState()
+  }
+
+  const openComprobanteDialog = (lead: Lead) => {
+    setLeadForComprobante(lead)
+    setIsComprobanteDialogOpen(true)
+  }
+
+  const handleComprobanteDialogOpenChange = (open: boolean) => {
+    setIsComprobanteDialogOpen(open)
+    if (!open) {
+      setLeadForComprobante(null)
+    }
+  }
+
+  const handleComprobanteSubmit = async (payload: {
+    file: File
+    metodo_pago?: string
+    moneda?: string
+  }) => {
+    if (!leadForComprobante) {
+      throw new Error('No se encontró el lead seleccionado')
+    }
+    await onUploadComprobante(leadForComprobante, payload)
+  }
+
+  const handleDownloadComprobante = async (lead: Lead) => {
+    if (!lead.comprobante_pago_url) {
+      return
+    }
+
+    try {
+      if (onDownloadComprobante) {
+        await onDownloadComprobante(lead)
+        return
+      }
+
+      await downloadFile(lead.comprobante_pago_url, `comprobante-lead-${lead.nombre || lead.id || 'archivo'}`)
+    } catch (error) {
+      console.error('Error downloading comprobante for lead', lead.id, error)
+    }
+  }
+
+  const handleConversionInputChange = (field: keyof LeadConversionRequest, value: string) => {
+    setConversionData((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+
+    if (conversionErrors[field]) {
+      setConversionErrors((prev) => {
+        const { [field]: _, ...rest } = prev
+        return rest
+      })
+    }
+  }
+
+  const buildConversionPayload = (): LeadConversionRequest => {
+    const payload: LeadConversionRequest = {
+      numero: conversionData.numero.trim(),
+    }
+
+    if (conversionData.fecha_montaje && conversionData.fecha_montaje.trim()) {
+      payload.fecha_montaje = conversionData.fecha_montaje
+    }
+
+    if (conversionData.latitud !== undefined && `${conversionData.latitud}`.trim() !== '') {
+      payload.latitud = conversionData.latitud
+    }
+
+    if (conversionData.longitud !== undefined && `${conversionData.longitud}`.trim() !== '') {
+      payload.longitud = conversionData.longitud
+    }
+
+    if (conversionData.carnet_identidad && conversionData.carnet_identidad.trim()) {
+      payload.carnet_identidad = conversionData.carnet_identidad.trim()
+    }
+
+    if (conversionData.fecha_instalacion && conversionData.fecha_instalacion.trim()) {
+      payload.fecha_instalacion = conversionData.fecha_instalacion
+    }
+
+    if (conversionData.metodo_pago && conversionData.metodo_pago.trim()) {
+      payload.metodo_pago = conversionData.metodo_pago.trim()
+    }
+
+    if (conversionData.moneda && conversionData.moneda.trim()) {
+      payload.moneda = conversionData.moneda.trim()
+    }
+
+    return payload
+  }
+
+  const handleConfirmConversion = async () => {
+    if (!leadToConvert) return
+
+    const errors: Record<string, string> = {}
+    if (!conversionData.numero || !conversionData.numero.trim()) {
+      errors.numero = 'El número de cliente es obligatorio'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setConversionErrors(errors)
+      return
+    }
+
+    setConversionLoading(true)
+    try {
+      await onConvert(leadToConvert, buildConversionPayload())
+      closeConvertDialog()
+    } catch (error) {
+      setConversionErrors({
+        general: error instanceof Error ? error.message : 'No se pudo convertir el lead',
+      })
+    } finally {
+      setConversionLoading(false)
     }
   }
 
@@ -70,6 +252,17 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
     }
 
     return dateString
+  }
+
+  const formatCurrency = (value?: number, currency = 'USD') => {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
+      return null
+    }
+    try {
+      return value.toLocaleString(undefined, { style: 'currency', currency })
+    } catch {
+      return `${value} ${currency}`
+    }
   }
 
   if (loading && leads.length === 0) {
@@ -115,7 +308,7 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Fecha
                 </th>
-                <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
+                <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px] w-[200px]">
                   Acciones
                 </th>
               </tr>
@@ -137,6 +330,12 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                     <div className="text-sm text-gray-900 truncate">
                       {lead.telefono}
                     </div>
+                    {lead.telefono_adicional && (
+                      <div className="text-xs text-gray-500 flex items-center mt-1">
+                        <PhoneForwarded className="h-3 w-3 mr-1 text-gray-400" />
+                        <span className="truncate">{lead.telefono_adicional}</span>
+                      </div>
+                    )}
                     {lead.pais_contacto && (
                       <div className="text-xs text-gray-500 flex items-center mt-1">
                         <MapPin className="h-3 w-3 mr-1 text-gray-400" />
@@ -149,6 +348,12 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                       <Badge className={`${getEstadoBadge(lead.estado)} text-xs truncate max-w-[90px] inline-block`}>
                         {lead.estado}
                       </Badge>
+                      {lead.comercial && (
+                        <div className="text-xs text-gray-500 flex items-center mt-1">
+                          <UserCheck className="h-3 w-3 mr-1 text-gray-400" />
+                          <span className="truncate">{lead.comercial}</span>
+                        </div>
+                      )}
                     </div>
                   </td>
                   <td className="px-2 py-3 whitespace-nowrap min-w-[110px]">
@@ -167,14 +372,45 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                       <span className="truncate">{formatDate(lead.fecha_contacto)}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
+                  <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium min-w-[200px] w-[200px]">
                     <div className="flex items-center justify-end space-x-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openComprobanteDialog(lead)}
+                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                        title="Agregar comprobante"
+                        disabled={disableActions || loading || !lead.id}
+                      >
+                        <UploadCloud className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleDownloadComprobante(lead)}
+                        className="text-sky-600 hover:text-sky-800 h-7 w-7 p-0"
+                        title={lead.comprobante_pago_url ? "Descargar comprobante" : "Sin comprobante registrado"}
+                        disabled={disableActions || !lead.comprobante_pago_url}
+                      >
+                        <Download className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openConvertDialog(lead)}
+                        className="text-emerald-600 hover:text-emerald-800 h-7 w-7 p-0"
+                        title="Convertir a cliente"
+                        disabled={disableActions || loading}
+                      >
+                        <UserPlus className="h-3 w-3" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => openDetailDialog(lead)}
                         className="text-blue-600 hover:text-blue-800 h-7 w-7 p-0"
                         title="Ver detalles"
+                        disabled={disableActions}
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
@@ -184,6 +420,7 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                         onClick={() => onEdit(lead)}
                         className="text-orange-600 hover:text-orange-800 h-7 w-7 p-0"
                         title="Editar"
+                        disabled={disableActions}
                       >
                         <Edit className="h-3 w-3" />
                       </Button>
@@ -193,6 +430,7 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                         onClick={() => handleDeleteClick(lead)}
                         className="text-red-600 hover:text-red-800 h-7 w-7 p-0"
                         title="Eliminar"
+                        disabled={disableActions}
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -218,13 +456,19 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                   <h3 className="text-sm font-medium text-gray-500 mb-2">Información Personal</h3>
                   <div className="space-y-2">
                     <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                      <UserCheck className="h-4 w-4 mr-2 text-gray-400" />
                       <span className="text-sm">{selectedLead.nombre}</span>
                     </div>
                     <div className="flex items-center">
                       <Phone className="h-4 w-4 mr-2 text-gray-400" />
                       <span className="text-sm">{selectedLead.telefono}</span>
                     </div>
+                    {selectedLead.telefono_adicional && (
+                      <div className="flex items-center">
+                        <PhoneForwarded className="h-4 w-4 mr-2 text-gray-400" />
+                        <span className="text-sm">{selectedLead.telefono_adicional}</span>
+                      </div>
+                    )}
                     {selectedLead.direccion && (
                       <div className="flex items-start">
                         <MapPin className="h-4 w-4 mr-2 text-gray-400 mt-0.5" />
@@ -252,6 +496,12 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                         {selectedLead.estado}
                       </Badge>
                     </div>
+                    {selectedLead.comercial && (
+                      <div className="text-sm text-gray-700 flex items-center">
+                        <UserCheck className="h-4 w-4 mr-2 text-gray-400" />
+                        <span>Comercial: {selectedLead.comercial}</span>
+                      </div>
+                    )}
                     {selectedLead.fuente && (
                       <div className="text-sm">
                         <span className="text-gray-500">Fuente:</span> {selectedLead.fuente}
@@ -266,11 +516,50 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                 </div>
               </div>
 
-              {selectedLead.necesidad && (
+              {(selectedLead.metodo_pago || selectedLead.moneda || selectedLead.comprobante_pago_url) && (
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-emerald-100 rounded-lg">
+                      <CreditCard className="h-5 w-5 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <p className="text-sm font-medium text-gray-500">Detalle de pago</p>
+                      {selectedLead.metodo_pago && (
+                        <p className="text-sm text-gray-700">
+                          Método: <span className="font-semibold text-gray-900">{selectedLead.metodo_pago}</span>
+                        </p>
+                      )}
+                      {selectedLead.moneda && (
+                        <p className="text-sm text-gray-700">
+                          Moneda: <span className="font-semibold text-gray-900">{selectedLead.moneda}</span>
+                        </p>
+                      )}
+                      <div>
+                        {selectedLead.comprobante_pago_url ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2 text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+                            onClick={() => void handleDownloadComprobante(selectedLead)}
+                          >
+                            <Download className="h-4 w-4" />
+                            Descargar comprobante
+                          </Button>
+                        ) : (
+                          <p className="text-xs text-gray-500">Aún no se ha subido un comprobante.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedLead.comentario && (
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2">Necesidad</h3>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2">Comentario</h3>
                   <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-md">
-                    {selectedLead.necesidad}
+                    {selectedLead.comentario}
                   </p>
                 </div>
               )}
@@ -284,10 +573,232 @@ export function LeadsTable({ leads, onEdit, onDelete, loading }: LeadsTableProps
                   </div>
                 </div>
               )}
+
+              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <Package className="h-4 w-4 text-orange-500" />
+                    Ofertas asociadas
+                  </h3>
+                  <div className="space-y-3">
+                    {selectedLead.ofertas.map((oferta, index) => (
+                      <div key={`oferta-${selectedLead.id}-${index}`} className="border border-orange-100 rounded-lg p-3 bg-orange-50">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm font-semibold text-gray-900">{oferta.descripcion}</span>
+                          <Badge variant="outline" className="text-xs">
+                            Cantidad: {oferta.cantidad}
+                          </Badge>
+                        </div>
+                        {formatCurrency(oferta.precio, oferta.moneda || 'USD') && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            Precio base: {formatCurrency(oferta.precio, oferta.moneda || 'USD')}
+                          </div>
+                        )}
+                        {formatCurrency(oferta.precio_cliente, oferta.moneda || 'USD') && (
+                          <div className="text-xs text-gray-600">
+                            Precio cliente: {formatCurrency(oferta.precio_cliente, oferta.moneda || 'USD')}
+                          </div>
+                        )}
+                        {oferta.descuentos && (
+                          <div className="text-xs text-gray-600">
+                            Descuentos: {oferta.descuentos}
+                          </div>
+                        )}
+                        {oferta.garantias && oferta.garantias.length > 0 && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            Garantías: {oferta.garantias.join(', ')}
+                          </div>
+                        )}
+                        {oferta.descripcion_detallada && (
+                          <p className="text-xs text-gray-600 mt-2">
+                            {oferta.descripcion_detallada}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {selectedLead.elementos_personalizados && selectedLead.elementos_personalizados.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
+                    <ListChecks className="h-4 w-4 text-green-600" />
+                    Elementos personalizados
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedLead.elementos_personalizados.map((elemento, index) => (
+                      <div key={`elemento-${selectedLead.id}-${index}`} className="flex items-center justify-between border border-gray-200 rounded-md px-3 py-2 bg-white">
+                        <span className="text-sm text-gray-700">{elemento.descripcion}</span>
+                        <Badge variant="outline" className="text-xs bg-gray-50">
+                          {elemento.cantidad}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Convert Lead Dialog */}
+      <Dialog
+        open={isConvertDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeConvertDialog()
+          } else {
+            setIsConvertDialogOpen(true)
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Convertir lead a cliente</DialogTitle>
+          </DialogHeader>
+          {leadToConvert && (
+            <div className="space-y-5">
+              <div className="text-sm text-gray-600">
+                Completa los datos necesarios para crear el cliente a partir del lead{" "}
+                <span className="font-semibold text-gray-900">{leadToConvert.nombre}</span>. Los datos del lead se copiarán automáticamente.
+              </div>
+
+              {conversionErrors.general && (
+                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                  {conversionErrors.general}
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="numero_cliente">Número de cliente *</Label>
+                  <Input
+                    id="numero_cliente"
+                    placeholder="CLI-2024-001"
+                    value={conversionData.numero}
+                    onChange={(event) => handleConversionInputChange('numero', event.target.value)}
+                    className={conversionErrors.numero ? 'border-red-500' : ''}
+                    autoFocus
+                  />
+                  {conversionErrors.numero && (
+                    <p className="text-xs text-red-600 mt-1">{conversionErrors.numero}</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="metodo_pago_conversion">Método de pago (opcional)</Label>
+                    <Input
+                      id="metodo_pago_conversion"
+                      placeholder="Transferencia, efectivo..."
+                      value={conversionData.metodo_pago || ''}
+                      onChange={(event) => handleConversionInputChange('metodo_pago', event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="moneda_conversion">Moneda (opcional)</Label>
+                    <Input
+                      id="moneda_conversion"
+                      placeholder="USD, CUP, MLC..."
+                      value={conversionData.moneda || ''}
+                      onChange={(event) => handleConversionInputChange('moneda', event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="fecha_montaje">Fecha de montaje</Label>
+                    <Input
+                      id="fecha_montaje"
+                      type="date"
+                      value={conversionData.fecha_montaje || ''}
+                      onChange={(event) => handleConversionInputChange('fecha_montaje', event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fecha_instalacion">Fecha de instalación</Label>
+                    <Input
+                      id="fecha_instalacion"
+                      type="datetime-local"
+                      value={conversionData.fecha_instalacion || ''}
+                      onChange={(event) => handleConversionInputChange('fecha_instalacion', event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <Label htmlFor="latitud">Latitud</Label>
+                    <Input
+                      id="latitud"
+                      placeholder="Ej: 23.1136"
+                      value={conversionData.latitud ? String(conversionData.latitud) : ''}
+                      onChange={(event) => handleConversionInputChange('latitud', event.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="longitud">Longitud</Label>
+                    <Input
+                      id="longitud"
+                      placeholder="Ej: -82.3666"
+                      value={conversionData.longitud ? String(conversionData.longitud) : ''}
+                      onChange={(event) => handleConversionInputChange('longitud', event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="carnet_identidad">Carnet de identidad</Label>
+                  <Input
+                    id="carnet_identidad"
+                    placeholder="Documento opcional"
+                    value={conversionData.carnet_identidad || ''}
+                    onChange={(event) => handleConversionInputChange('carnet_identidad', event.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={closeConvertDialog}
+                  disabled={conversionLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white"
+                  onClick={handleConfirmConversion}
+                  disabled={conversionLoading}
+                >
+                  {conversionLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Convirtiendo...
+                    </>
+                  ) : (
+                    'Convertir a cliente'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <UploadComprobanteDialog
+        open={isComprobanteDialogOpen}
+        onOpenChange={handleComprobanteDialogOpenChange}
+        entityLabel={leadForComprobante?.nombre || leadForComprobante?.telefono || leadForComprobante?.id || 'lead'}
+        defaultMetodoPago={leadForComprobante?.metodo_pago}
+        defaultMoneda={leadForComprobante?.moneda}
+        onSubmit={handleComprobanteSubmit}
+      />
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDeleteDialog

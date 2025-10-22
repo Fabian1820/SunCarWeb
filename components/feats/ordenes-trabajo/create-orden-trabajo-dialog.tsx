@@ -149,27 +149,31 @@ export function CreateOrdenTrabajoDialog({
           }
 
           // Agregar campos opcionales SOLO si tienen valor
-          if (nuevoClienteLatLng.lat && nuevoClienteLatLng.lat.trim()) clienteData.latitud = nuevoClienteLatLng.lat
-          if (nuevoClienteLatLng.lng && nuevoClienteLatLng.lng.trim()) clienteData.longitud = nuevoClienteLatLng.lng
+          if (nuevoClienteLatLng.lat && nuevoClienteLatLng.lat.trim()) clienteData.latitud = nuevoClienteLatLng.lat.trim()
+          if (nuevoClienteLatLng.lng && nuevoClienteLatLng.lng.trim()) clienteData.longitud = nuevoClienteLatLng.lng.trim()
           if (nuevoClienteTelefono && nuevoClienteTelefono.trim()) clienteData.telefono = nuevoClienteTelefono
           if (nuevoClienteCI && nuevoClienteCI.trim()) clienteData.carnet_identidad = nuevoClienteCI
-          if (nuevoClienteEquipo && nuevoClienteEquipo.trim()) clienteData.equipo_instalado = nuevoClienteEquipo
+          if (nuevoClienteEquipo && nuevoClienteEquipo.trim()) {
+            clienteData.elementos_personalizados = [
+              {
+                descripcion: nuevoClienteEquipo.trim(),
+                cantidad: 1,
+              },
+            ]
+          }
           if (nuevoClienteFechaInstalacion) clienteData.fecha_instalacion = nuevoClienteFechaInstalacion.toISOString()
 
-          // Si tiene latitud y longitud, usar endpoint completo, sino usar simple
-          const clienteResponse = (nuevoClienteLatLng.lat && nuevoClienteLatLng.lng)
-            ? await ClienteService.crearCliente(clienteData)
-            : await ClienteService.crearClienteSimple(clienteData)
+          const clienteResponse = await ClienteService.crearCliente(clienteData)
 
           if (!clienteResponse.success) {
             throw new Error(clienteResponse.message || "Error al crear el cliente")
           }
 
           console.log('✅ Cliente creado en el backend:', clienteResponse.data)
-        } catch (err: any) {
+        } catch (err: unknown) {
           toast({
             title: "Error al crear cliente",
-            description: err.message || "No se pudo crear el cliente en el backend",
+            description: err instanceof Error ? err.message : "No se pudo crear el cliente en el backend",
             variant: "destructive",
           })
           setLoading(false)
@@ -197,12 +201,13 @@ export function CreateOrdenTrabajoDialog({
           throw new Error(verifyResponse.message || 'No se encontró el cliente proporcionado')
         }
         finalClienteNumero = verifyResponse.data.numero
-      } catch (verificationError: any) {
+      } catch (verificationError: unknown) {
         toast({
           title: "Cliente no válido",
           description:
-            verificationError?.message ||
-            "No se pudo validar el identificador del cliente. Verifica el número o teléfono ingresado.",
+            verificationError instanceof Error
+              ? verificationError.message
+              : "No se pudo validar el identificador del cliente. Verifica el número o teléfono ingresado.",
           variant: "destructive",
         })
         setLoading(false)

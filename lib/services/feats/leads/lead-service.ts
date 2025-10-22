@@ -1,5 +1,12 @@
 import { apiRequest } from '../../../api-config'
-import type { Lead, LeadResponse, LeadCreateData, LeadUpdateData } from '../../../api-types'
+import type {
+  Lead,
+  LeadResponse,
+  LeadCreateData,
+  LeadUpdateData,
+  LeadConversionRequest,
+  Cliente,
+} from '../../../api-types'
 
 export class LeadService {
   static async getLeads(params: {
@@ -76,5 +83,66 @@ export class LeadService {
     )
     console.log('LeadService.checkLeadExists response:', response)
     return response.exists === true
+  }
+
+  static async uploadComprobante(
+    leadId: string,
+    {
+      file,
+      metodo_pago,
+      moneda,
+    }: { file: File; metodo_pago?: string; moneda?: string }
+  ): Promise<{ comprobante_pago_url: string; metodo_pago?: string; moneda?: string }> {
+    console.log('Calling uploadComprobante for lead:', leadId, 'metadata:', { metodo_pago, moneda })
+    const formData = new FormData()
+    formData.append('comprobante', file)
+    if (metodo_pago) formData.append('metodo_pago', metodo_pago)
+    if (moneda) formData.append('moneda', moneda)
+
+    const response = await apiRequest<{
+      success: boolean
+      message: string
+      data?: {
+        comprobante_url?: string
+        comprobante_pago_url?: string
+        metodo_pago?: string
+        moneda?: string
+      }
+    }>(`/leads/${encodeURIComponent(leadId)}/comprobante`, {
+      method: 'POST',
+      body: formData,
+    })
+    console.log('LeadService.uploadComprobante response:', response)
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Error al subir el comprobante del lead')
+    }
+
+    const { comprobante_url, comprobante_pago_url, metodo_pago: metodo, moneda: currency } = response.data
+    const url = comprobante_pago_url || comprobante_url
+    if (!url) {
+      throw new Error('El backend no retornó la URL del comprobante')
+    }
+
+    return {
+      comprobante_pago_url: url,
+      metodo_pago: metodo,
+      moneda: currency,
+    }
+  }
+
+  static async convertLeadToCliente(leadId: string, payload: LeadConversionRequest): Promise<Cliente> {
+    console.log('Calling convertLeadToCliente with ID:', leadId, 'payload:', payload)
+    const response = await apiRequest<{ success: boolean; message: string; data: Cliente }>(
+      `/leads/${leadId}/convertir-a-cliente`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    )
+    console.log('LeadService.convertLeadToCliente response:', response)
+    if (!response.success || !response.data) {
+      throw new Error(response.message || 'Error al convertir el lead en cliente')
+    }
+    return response.data
   }
 }

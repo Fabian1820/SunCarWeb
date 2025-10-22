@@ -8,7 +8,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { ArrowLeft, UserPlus, Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
+import { ArrowLeft, Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
 import { LeadsTable } from "@/components/feats/leads/leads-table"
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
@@ -17,8 +17,9 @@ import { useLeads } from "@/hooks/use-leads"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
-import type { Lead, LeadCreateData, LeadUpdateData } from "@/lib/api-types"
+import type { Lead, LeadCreateData, LeadUpdateData, LeadConversionRequest } from "@/lib/api-types"
 import type { ExportOptions } from "@/lib/export-service"
+import { downloadFile } from "@/lib/utils/download-file"
 
 export default function LeadsPage() {
   const {
@@ -34,8 +35,9 @@ export default function LeadsPage() {
     createLead,
     updateLead,
     deleteLead,
+    convertLead,
+    uploadLeadComprobante,
     clearError,
-    loadLeads,
   } = useLeads()
 
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false)
@@ -67,6 +69,14 @@ export default function LeadsPage() {
   }
 
   const handleUpdateLead = async (leadId: string, data: LeadUpdateData) => {
+    if (!leadId) {
+      toast({
+        title: "Error",
+        description: "No se puede actualizar un lead sin identificador.",
+        variant: "destructive",
+      })
+      return
+    }
     setLoadingAction(true)
     try {
       await updateLead(leadId, data)
@@ -96,10 +106,10 @@ export default function LeadsPage() {
         title: "Éxito",
         description: 'Lead eliminado correctamente',
       })
-    } catch (e: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error",
-        description: 'Error al eliminar lead: ' + (e.message || 'Error desconocido'),
+        description: 'Error al eliminar lead: ' + (error instanceof Error ? error.message : 'Error desconocido'),
         variant: "destructive",
       })
     } finally {
@@ -107,9 +117,100 @@ export default function LeadsPage() {
     }
   }
 
+  const handleUploadLeadComprobante = async (
+    lead: Lead,
+    payload: { file: File; metodo_pago?: string; moneda?: string }
+  ) => {
+    if (!lead.id) {
+      const message = "No se puede subir un comprobante sin ID de lead."
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      })
+      throw new Error(message)
+    }
+
+    setLoadingAction(true)
+    try {
+      const result = await uploadLeadComprobante(lead.id, payload)
+      toast({
+        title: "Comprobante actualizado",
+        description: result.metodo_pago
+          ? `Método: ${result.metodo_pago}${result.moneda ? ` • Moneda: ${result.moneda}` : ''}`
+          : 'Comprobante subido correctamente',
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'No se pudo subir el comprobante'
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      })
+      throw error instanceof Error ? error : new Error(message)
+    } finally {
+      setLoadingAction(false)
+    }
+  }
+
+  const handleDownloadLeadComprobante = async (lead: Lead) => {
+    if (!lead.comprobante_pago_url) {
+      toast({
+        title: "Sin comprobante",
+        description: "Este lead aún no tiene un comprobante asociado.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      await downloadFile(lead.comprobante_pago_url, `comprobante-lead-${lead.nombre || lead.id || 'archivo'}`)
+      toast({
+        title: "Descarga iniciada",
+        description: "Revisa tu carpeta de descargas para ver el comprobante.",
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'No se pudo descargar el comprobante'
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleEditLead = (lead: Lead) => {
     setEditingLead(lead)
     setIsEditLeadDialogOpen(true)
+  }
+
+  const handleConvertLead = async (lead: Lead, data: LeadConversionRequest) => {
+    if (!lead.id) {
+      toast({
+        title: "Error",
+        description: "No se puede convertir un lead sin identificador.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setLoadingAction(true)
+    try {
+      const cliente = await convertLead(lead.id, data)
+      toast({
+        title: "Lead convertido",
+        description: `Se creó el cliente ${cliente.numero || 'sin número asignado'} a partir del lead.`,
+      })
+    } catch (e) {
+      console.error('Error converting lead:', e)
+      toast({
+        title: "Error",
+        description: 'No se pudo convertir el lead: ' + (e instanceof Error ? e.message : 'Error desconocido'),
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingAction(false)
+    }
   }
 
   // Función para formatear el estado de manera legible
@@ -127,20 +228,46 @@ export default function LeadsPage() {
     return estados[estado] || estado
   }
 
+  const formatFecha = (valor?: string): string => {
+    if (!valor) return 'N/A'
+    if (valor.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      return valor
+    }
+    const fecha = new Date(valor)
+    if (!Number.isNaN(fecha.getTime())) {
+      return fecha.toLocaleDateString('es-ES')
+    }
+    return valor
+  }
+
   // Preparar opciones de exportación para leads
   const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
     // Preparar datos para exportación con formato legible
-    const exportData = filteredLeads.map(lead => ({
-      ...lead,
-      fecha_contacto: new Date(lead.fecha_contacto).toLocaleDateString('es-ES'),
-      estado: formatEstado(lead.estado),
-      fuente: lead.fuente || 'N/A',
-      referencia: lead.referencia || 'N/A',
-      direccion: lead.direccion || 'N/A',
-      pais_contacto: lead.pais_contacto || 'N/A',
-      necesidad: lead.necesidad || 'N/A',
-      provincia_montaje: lead.provincia_montaje || 'N/A'
-    }))
+    const exportData = filteredLeads.map(lead => {
+      const ofertasResumen = (lead.ofertas || [])
+        .map(oferta => `${oferta.descripcion} (x${oferta.cantidad})`)
+        .join(' | ')
+
+      const elementosResumen = (lead.elementos_personalizados || [])
+        .map(elemento => `${elemento.descripcion} (x${elemento.cantidad})`)
+        .join(' | ')
+
+      return {
+        ...lead,
+        fecha_contacto: formatFecha(lead.fecha_contacto),
+        estado: formatEstado(lead.estado),
+        fuente: lead.fuente || 'N/A',
+        referencia: lead.referencia || 'N/A',
+        direccion: lead.direccion || 'N/A',
+        pais_contacto: lead.pais_contacto || 'N/A',
+        telefono_adicional: lead.telefono_adicional || 'N/A',
+        comentario: lead.comentario || 'N/A',
+        comercial: lead.comercial || 'N/A',
+        provincia_montaje: lead.provincia_montaje || 'N/A',
+        ofertas_resumen: ofertasResumen || 'N/A',
+        elementos_resumen: elementosResumen || 'N/A'
+      }
+    })
 
     return {
       title: 'Listado de Leads',
@@ -149,13 +276,17 @@ export default function LeadsPage() {
         { header: 'Fecha Contacto', key: 'fecha_contacto', width: 15 },
         { header: 'Nombre', key: 'nombre', width: 25 },
         { header: 'Teléfono', key: 'telefono', width: 15 },
+        { header: 'Teléfono adicional', key: 'telefono_adicional', width: 18 },
         { header: 'Estado', key: 'estado', width: 18 },
+        { header: 'Comercial', key: 'comercial', width: 20 },
         { header: 'Fuente', key: 'fuente', width: 15 },
         { header: 'Referencia', key: 'referencia', width: 20 },
         { header: 'Dirección', key: 'direccion', width: 30 },
         { header: 'País', key: 'pais_contacto', width: 15 },
-        { header: 'Necesidad', key: 'necesidad', width: 30 },
+        { header: 'Comentario', key: 'comentario', width: 30 },
         { header: 'Provincia Montaje', key: 'provincia_montaje', width: 18 },
+        { header: 'Ofertas', key: 'ofertas_resumen', width: 40 },
+        { header: 'Elementos personalizados', key: 'elementos_resumen', width: 35 },
       ],
       data: exportData
     }
@@ -393,7 +524,11 @@ export default function LeadsPage() {
                 leads={filteredLeads}
                 onEdit={handleEditLead}
                 onDelete={handleDeleteLead}
+                onConvert={handleConvertLead}
+                onUploadComprobante={handleUploadLeadComprobante}
+                onDownloadComprobante={handleDownloadLeadComprobante}
                 loading={loading}
+                disableActions={loadingAction}
               />
             )}
           </CardContent>
@@ -405,7 +540,7 @@ export default function LeadsPage() {
             open={isEditLeadDialogOpen}
             onOpenChange={setIsEditLeadDialogOpen}
             lead={editingLead}
-            onSubmit={(data) => handleUpdateLead(editingLead.id!, data)}
+            onSubmit={(data) => handleUpdateLead(editingLead.id || '', data)}
             isLoading={loadingAction}
           />
         )}
