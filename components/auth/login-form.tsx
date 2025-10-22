@@ -14,8 +14,8 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ onLogin }: LoginFormProps) {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
+  const [ci, setCi] = useState("")
+  const [adminPass, setAdminPass] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
@@ -26,7 +26,7 @@ export function LoginForm({ onLogin }: LoginFormProps) {
     setError("")
 
     try {
-      const result = await login(username, password)
+      const result = await login(ci, adminPass)
       
       if (result.success) {
         onLogin(true)
@@ -66,35 +66,35 @@ export function LoginForm({ onLogin }: LoginFormProps) {
             SunCar Admin
           </CardTitle>
           <CardDescription className="text-suncar-textdark/70">
-            Ingrese sus credenciales para acceder al sistema
+            Ingrese sus credenciales administrativas para acceder
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-suncar-textdark font-medium">
-                Usuario
+              <Label htmlFor="ci" className="text-suncar-textdark font-medium">
+                Cédula de Identidad
               </Label>
               <Input
-                id="username"
+                id="ci"
                 type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ingrese su usuario"
+                value={ci}
+                onChange={(e) => setCi(e.target.value)}
+                placeholder="Ingrese su CI"
                 required
                 disabled={isLoading}
                 className="border-suncar-primary/30 focus:border-suncar-primary focus:ring-suncar-primary/20"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-suncar-textdark font-medium">
-                Contraseña
+              <Label htmlFor="adminPass" className="text-suncar-textdark font-medium">
+                Contraseña Administrativa
               </Label>
               <Input
-                id="password"
+                id="adminPass"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={adminPass}
+                onChange={(e) => setAdminPass(e.target.value)}
                 placeholder="Ingrese su contraseña"
                 required
                 disabled={isLoading}

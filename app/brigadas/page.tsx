@@ -18,8 +18,17 @@ import { BrigadaService } from '@/lib/api-services'
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { RouteGuard } from "@/components/auth/route-guard"
 
 export default function BrigadasPage() {
+  return (
+    <RouteGuard requiredModule="brigadas">
+      <BrigadasPageContent />
+    </RouteGuard>
+  )
+}
+
+function BrigadasPageContent() {
   const {
     brigadas: backendBrigades,
     filteredBrigadas: backendFilteredBrigades,

@@ -58,6 +58,19 @@ export class ClienteService {
     return apiRequest(endpoint)
   }
 
+  static async verificarClientePorIdentificador(
+    identifier: string
+  ): Promise<{ success: boolean; message?: string; data?: { numero?: string; nombre?: string } | null }> {
+    const response = await apiRequest<{ success: boolean; message?: string; data?: { numero?: string; nombre?: string } | null }>(
+      `/clientes/verificar`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ identifier }),
+      }
+    )
+    return response
+  }
+
   static async actualizarCliente(
     numero: string,
     data: Partial<{

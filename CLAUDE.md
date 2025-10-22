@@ -163,34 +163,50 @@ La aplicación usa variables de entorno para configurar la URL del backend API:
 - **Mock Services**: Available in `lib/mock-services/` for modules still in development
 - **Customer Service Module**: Uses mock data (`lib/mock-data/customer-service.ts`) with mock service implementation
 
-### Authentication System
-The application implements a complete authentication system with bearer token management:
+### Authentication and Permissions System
+The application implements a complete JWT-based authentication system with role-based permissions:
 
 1. **Authentication Context** (`contexts/auth-context.tsx`):
-   - Manages authentication state and token storage
-   - Provides login/logout functionality with API integration
-   - Stores JWT token in localStorage as 'suncar-token'
-   - Automatically includes bearer token in API requests
+   - Manages authentication state, token, and user data storage
+   - Provides login/logout functionality with backend JWT integration
+   - Stores JWT token in localStorage as 'auth_token' and user data as 'user_data'
+   - Automatically includes bearer token in all API requests
+   - Implements `hasPermission(module)` for role-based access control
 
 2. **Login Endpoint Integration**:
-   - POST `/api/auth/login-token` with credentials: `{ "usuario": "admin", "contrasena": "admin123" }`
-   - Success response: `{ "success": true, "message": "Login exitoso", "token": "suncar-token-2025" }`
-   - Error response: `{ "success": false, "message": "Credenciales incorrectas", "token": null }`
+   - POST `/api/auth/login-admin` with credentials: `{ "ci": "12345678", "adminPass": "contraseña" }`
+   - Success response: `{ "success": true, "message": "Autenticación exitosa", "token": "jwt_token", "user": { "ci": "...", "nombre": "...", "rol": "..." } }`
+   - Uses bcrypt password hashing on backend
+   - Full JWT authentication as documented in `docs/AUTH_README.md`
 
-3. **Global API Authentication**:
+3. **Role-Based Permissions Matrix**:
+   - **Director General / Subdirector(a)** → All modules
+   - **Especialista en Gestión Económica / RR.HH.** → `recursos-humanos`
+   - **Especialista/Técnico en Gestión Comercial** → `leads`, `clientes`, `ofertas`, `materiales`
+   - **Especialista en Redes y Sistemas** → `blog`
+   - **Jefe de Operaciones** → `brigadas`, `trabajadores`, `materiales`, `clientes`, `ordenes-trabajo`
+
+4. **Global API Authentication**:
    - All API calls automatically include `Authorization: Bearer <token>` header
    - Centralized through `apiRequest()` function in `lib/api-config.ts`
    - Automatic token retrieval from localStorage for client-side requests
 
-4. **Authentication Components**:
-   - `AuthGuard`: Protects routes, shows login form if not authenticated
-   - `LoginForm`: Handles user login with error display and loading states
+5. **Authentication Components**:
+   - `AuthGuard`: Global guard that protects entire app, shows login if not authenticated
+   - `RouteGuard`: Protects individual routes based on required module permissions
+   - `LoginForm`: Handles admin login with CI and adminPass fields
+   - `UserMenu`: Displays user info (name, CI, role) and logout button
    - Full integration with existing UI components and styling
 
-5. **API Services Migration**:
-   - All services (MaterialService, BrigadaService, TrabajadorService, etc.) use centralized `apiRequest()`
-   - Consistent error handling and logging across all API calls
-   - Environment variable support for different deployment targets (localhost, Railway, Vercel)
+6. **Dashboard Permission Filtering**:
+   - Main dashboard (`app/page.tsx`) dynamically filters visible modules based on user role
+   - Uses `hasPermission()` to show only authorized modules
+   - Shows "No permissions" message if user has no module access
+
+7. **Documentation**:
+   - `docs/AUTH_README.md` - Backend JWT authentication system
+   - `docs/PERMISSIONS_SYSTEM.md` - Frontend permissions implementation guide
+   - Complete integration guide for protecting new routes and modules
 
 ### Backend Connectivity Solution
 **CRITICAL**: Direct backend communication pattern established to fix "failed to fetch" and 401 errors.

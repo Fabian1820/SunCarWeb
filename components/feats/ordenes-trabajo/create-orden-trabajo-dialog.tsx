@@ -125,7 +125,7 @@ export function CreateOrdenTrabajoDialog({
     setLoading(true)
 
     try {
-      let finalClienteNumero = clienteNumero
+      let finalClienteNumero = clienteNumero.trim()
 
       // Si el modo es crear, primero crear el cliente en el backend
       if (clienteMode === 'create') {
@@ -176,7 +176,7 @@ export function CreateOrdenTrabajoDialog({
           return
         }
 
-        finalClienteNumero = nuevoClienteNumero
+        finalClienteNumero = nuevoClienteNumero.trim()
       } else {
         // Modo seleccionar
         if (!finalClienteNumero) {
@@ -188,6 +188,25 @@ export function CreateOrdenTrabajoDialog({
           setLoading(false)
           return
         }
+      }
+
+      // Validar/normalizar el identificador del cliente contra el backend
+      try {
+        const verifyResponse = await ClienteService.verificarClientePorIdentificador(finalClienteNumero)
+        if (!verifyResponse.success || !verifyResponse.data?.numero) {
+          throw new Error(verifyResponse.message || 'No se encontró el cliente proporcionado')
+        }
+        finalClienteNumero = verifyResponse.data.numero
+      } catch (verificationError: any) {
+        toast({
+          title: "Cliente no válido",
+          description:
+            verificationError?.message ||
+            "No se pudo validar el identificador del cliente. Verifica el número o teléfono ingresado.",
+          variant: "destructive",
+        })
+        setLoading(false)
+        return
       }
 
       // Crear la orden de trabajo con la estructura correcta del backend

@@ -30,14 +30,104 @@ import {Wrench, Zap} from "lucide-react"
 import {VisuallyHidden} from "@radix-ui/react-visually-hidden"
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard"
 import {Toaster} from "@/components/shared/molecule/toaster"
+import { useAuth } from "@/contexts/auth-context"
+import { UserMenu } from "@/components/auth/user-menu"
 
 export default function Dashboard() {
+    const { hasPermission, user } = useAuth()
     const [selectedForm, setSelectedForm] = useState<any>(null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false)
     const [recentReports, setRecentReports] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<any[]>([])
+
+    // Definir todos los módulos con sus configuraciones
+    const allModules = [
+        {
+            id: 'brigadas',
+            href: '/brigadas',
+            icon: Users,
+            title: 'Gestionar Brigadas',
+            description: 'Administrar equipos de trabajo y asignaciones.',
+            color: 'blue-600',
+        },
+        {
+            id: 'trabajadores',
+            href: '/trabajadores',
+            icon: UserPlus,
+            title: 'Gestionar Trabajadores',
+            description: 'Administrar personal y asignaciones.',
+            color: 'blue-600',
+        },
+        {
+            id: 'leads',
+            href: '/leads',
+            icon: Phone,
+            title: 'Gestionar Leads',
+            description: 'Administrar leads y oportunidades de venta.',
+            color: 'green-600',
+        },
+        {
+            id: 'materiales',
+            href: '/materiales',
+            icon: Package,
+            title: 'Gestionar Materiales',
+            description: 'Administrar catálogo de materiales.',
+            color: 'emerald-600',
+        },
+        {
+            id: 'reportes',
+            href: '/reportes',
+            icon: FileCheck,
+            title: 'Gestionar Reportes',
+            description: 'Administrar historial de reportes.',
+            color: 'emerald-600',
+        },
+        {
+            id: 'clientes',
+            href: '/clientes',
+            icon: User,
+            title: 'Gestionar Clientes',
+            description: 'Administrar información y reportes de clientes.',
+            color: 'orange-600',
+        },
+        {
+            id: 'ofertas',
+            href: '/ofertas',
+            icon: Tag,
+            title: 'Ofertas',
+            description: 'Gestión de ofertas y promociones.',
+            color: 'orange-600',
+        },
+        {
+            id: 'ordenes-trabajo',
+            href: '/ordenes-trabajo',
+            icon: ClipboardList,
+            title: 'Órdenes de Trabajo',
+            description: 'Crear y gestionar órdenes para brigadas.',
+            color: 'purple-600',
+        },
+        {
+            id: 'recursos-humanos',
+            href: '/recursos-humanos',
+            icon: Briefcase,
+            title: 'Recursos Humanos',
+            description: 'Gestión de nómina y estímulos mensuales.',
+            color: 'purple-600',
+        },
+        {
+            id: 'blog',
+            href: '/blog',
+            icon: BookOpen,
+            title: 'Blog',
+            description: 'Gestión de artículos y noticias.',
+            color: 'purple-600',
+        },
+    ]
+
+    // Filtrar módulos según permisos del usuario
+    const availableModules = allModules.filter(module => hasPermission(module.id))
 
     useEffect(() => {
         // Obtener los reportes más recientes del backend
@@ -118,6 +208,7 @@ export default function Dashboard() {
                                 <Info className="h-4 w-4 text-blue-600"/>
                                 <span className="text-gray-700">Información</span>
                             </Button>
+                            <UserMenu />
                         </div>
                     </div>
                 </div>
@@ -126,128 +217,36 @@ export default function Dashboard() {
             <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Full width layout for modules */}
                 <div className="flex flex-col">
-                    <h2 className="text-xl font-bold text-gray-900 mb-6 text-center">Módulos del Sistema</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {/* Row 1 - Azul para Brigadas y Trabajadores */}
-                        <Link href="/brigadas">
-                            <Card
-                                className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <Users className="h-10 w-10 text-blue-600 mx-auto mb-3"/>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Brigadas</h3>
-                                    <p className="text-sm text-gray-600">Administrar equipos de trabajo y
-                                        asignaciones.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/trabajadores">
-                            <Card
-                                className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <UserPlus className="h-10 w-10 text-blue-600 mx-auto mb-3"/>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Trabajadores</h3>
-                                    <p className="text-sm text-gray-600">Administrar personal y asignaciones.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/leads">
-                            <Card
-                                className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <Phone className="h-10 w-10 text-green-600 mx-auto mb-3"/>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Leads</h3>
-                                    <p className="text-sm text-gray-600">Administrar leads y oportunidades de venta.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/* Row 2 - Verde para Materiales y Reportes */}
-                        <Link href="/materiales">
-                            <Card
-                                className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <Package className="h-10 w-10 text-emerald-600 mx-auto mb-3"/>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Materiales</h3>
-                                    <p className="text-sm text-gray-600">Administrar catálogo de materiales.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/reportes">
-                            <Card
-                                className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <FileCheck className="h-10 w-10 text-emerald-600 mx-auto mb-3"/>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Reportes</h3>
-                                    <p className="text-sm text-gray-600">Administrar historial de reportes.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/clientes">
-                            <Card
-                                className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <User className="h-10 w-10 text-orange-600 mx-auto mb-3"/>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Gestionar Clientes</h3>
-                                    <p className="text-sm text-gray-600">Administrar información y reportes de
-                                        clientes.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                        <Link href="/ofertas">
-                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full relative hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <Tag className="h-10 w-10 text-orange-600 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Ofertas</h3>
-                                    <p className="text-sm text-gray-600">Gestión de ofertas y promociones.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/ordenes-trabajo">
-                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <ClipboardList className="h-10 w-10 text-purple-600 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Órdenes de Trabajo</h3>
-                                    <p className="text-sm text-gray-600">Crear y gestionar órdenes para brigadas.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/recursos-humanos">
-                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <Briefcase className="h-10 w-10 text-purple-600 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Recursos Humanos</h3>
-                                    <p className="text-sm text-gray-600">Gestión de nómina y estímulos mensuales.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        <Link href="/blog">
-                            <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                    <BookOpen className="h-10 w-10 text-purple-600 mx-auto mb-3" />
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Blog</h3>
-                                    <p className="text-sm text-gray-600">Gestión de artículos y noticias.</p>
-                                </CardContent>
-                            </Card>
-                        </Link>
-
-                        {/*<Link href="/formulario-h1114">*/}
-                        {/*    <Card*/}
-                        {/*        className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">*/}
-                        {/*        <CardContent className="p-6 text-center flex flex-col justify-center h-full">*/}
-                        {/*            <FileText className="h-10 w-10 text-purple-600 mx-auto mb-3"/>*/}
-                        {/*            <h3 className="text-lg font-semibold text-gray-900 mb-2">Formulario H-1114</h3>*/}
-                        {/*            <p className="text-sm text-gray-600">Generar formularios H-1114 específicos.</p>*/}
-                        {/*        </CardContent>*/}
-                        {/*    </Card>*/}
-                        {/*</Link>*/}
+                    <div className="mb-6">
+                        <h2 className="text-xl font-bold text-gray-900 text-center">Módulos del Sistema</h2>
+                        {user && (
+                            <p className="text-center text-sm text-gray-600 mt-2">
+                                Bienvenido, <span className="font-semibold">{user.nombre}</span> - {user.rol}
+                            </p>
+                        )}
                     </div>
+                    
+                    {availableModules.length === 0 ? (
+                        <div className="text-center py-12">
+                            <p className="text-gray-600">No tienes permisos asignados para ningún módulo.</p>
+                            <p className="text-sm text-gray-500 mt-2">Contacta al administrador del sistema.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {availableModules.map((module) => (
+                                <Link key={module.id} href={module.href}>
+                                    <Card
+                                        className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
+                                        <CardContent className="p-6 text-center flex flex-col justify-center h-full">
+                                            <module.icon className={`h-10 w-10 text-${module.color} mx-auto mb-3`}/>
+                                            <h3 className="text-lg font-semibold text-gray-900 mb-2">{module.title}</h3>
+                                            <p className="text-sm text-gray-600">{module.description}</p>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            ))}
+                        </div>
+                    )}
                 </div>
 
 
