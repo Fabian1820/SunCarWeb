@@ -7,9 +7,9 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Loader2 } from "lucide-react"
-import type { ElementoPersonalizado, Lead, LeadUpdateData, OfertaEmbebida } from "@/lib/api-types"
+import type { ElementoPersonalizado, Lead, LeadUpdateData, OfertaAsignacion, OfertaEmbebida } from "@/lib/api-types"
 import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
-import { OfertasEmbebidasFields } from "./ofertas-embebidas-fields"
+import { OfertasAsignacionFields } from "./ofertas-asignacion-fields"
 
 interface EditLeadDialogProps {
   open: boolean
@@ -22,8 +22,19 @@ interface EditLeadDialogProps {
 export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }: EditLeadDialogProps) {
   const [formData, setFormData] = useState<LeadUpdateData>({})
   const [errors, setErrors] = useState<Record<string, string>>({})
-  const [ofertas, setOfertas] = useState<OfertaEmbebida[]>([])
+  const [ofertas, setOfertas] = useState<OfertaAsignacion[]>([])
   const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>([])
+
+  // Función para convertir ofertas embebidas a asignaciones
+  const convertOfertasToAsignaciones = (ofertasEmbebidas: OfertaEmbebida[] | undefined): OfertaAsignacion[] => {
+    if (!ofertasEmbebidas || ofertasEmbebidas.length === 0) return []
+    return ofertasEmbebidas
+      .filter(oferta => oferta.id) // Solo ofertas con ID
+      .map(oferta => ({
+        oferta_id: oferta.id!,
+        cantidad: oferta.cantidad || 1
+      }))
+  }
 
   const fuentesDisponibles = [
     'página web',
@@ -111,7 +122,8 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         metodo_pago: lead.metodo_pago || '',
         moneda: lead.moneda || '',
       })
-      setOfertas(lead.ofertas ? JSON.parse(JSON.stringify(lead.ofertas)) : [])
+      // Convertir ofertas embebidas a asignaciones para editar
+      setOfertas(convertOfertasToAsignaciones(lead.ofertas))
       setElementosPersonalizados(
         lead.elementos_personalizados ? JSON.parse(JSON.stringify(lead.elementos_personalizados)) : []
       )
@@ -182,7 +194,8 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
       }
     })
 
-    const originalOfertas = lead.ofertas ?? []
+    // Comparar ofertas: convertir las originales a asignaciones y comparar
+    const originalOfertas = convertOfertasToAsignaciones(lead.ofertas)
     const hasOfertasChanged = JSON.stringify(originalOfertas) !== JSON.stringify(ofertas)
     if (hasOfertasChanged) {
       changedData.ofertas = ofertas
@@ -419,7 +432,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
           </div>
 
           <div className="space-y-6">
-            <OfertasEmbebidasFields
+            <OfertasAsignacionFields
               value={ofertas}
               onChange={setOfertas}
             />

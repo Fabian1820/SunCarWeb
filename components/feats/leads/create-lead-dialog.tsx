@@ -6,9 +6,9 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Loader2 } from "lucide-react"
-import type { ElementoPersonalizado, LeadCreateData, OfertaEmbebida } from "@/lib/api-types"
+import type { ElementoPersonalizado, LeadCreateData, OfertaAsignacion } from "@/lib/api-types"
 import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
-import { OfertasEmbebidasFields } from "./ofertas-embebidas-fields"
+import { OfertasAsignacionFields } from "./ofertas-asignacion-fields"
 
 interface CreateLeadDialogProps {
   onSubmit: (data: LeadCreateData) => Promise<void>
@@ -118,7 +118,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     }
   }
 
-  const handleOfertasChange = (items: OfertaEmbebida[]) => {
+  const handleOfertasChange = (items: OfertaAsignacion[]) => {
     setFormData((prev) => ({
       ...prev,
       ofertas: items,
@@ -383,7 +383,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
       </div>
 
       <div className="space-y-6">
-        <OfertasEmbebidasFields
+        <OfertasAsignacionFields
           value={formData.ofertas || []}
           onChange={handleOfertasChange}
         />

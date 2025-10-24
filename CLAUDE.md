@@ -72,9 +72,79 @@ lib/                   # Core utilities and services
 3. **Report System**: H1114 forms with PDF generation and photo attachments
 4. **Worker Management**: Employee records with role-based permissions
 5. **Location Services**: Interactive maps for address/coordinate selection
-6. **Client Management**: Customer database integration
-7. **Customer Service**: Message management system with mock data support
-8. **Export System**: Centralized Excel and PDF export functionality with professional formatting
+6. **Client Management**: Customer database integration with offers and custom elements
+7. **Lead Management**: Lead tracking with conversion to clients
+8. **Customer Service**: Message management system with mock data support
+9. **Export System**: Centralized Excel and PDF export functionality with professional formatting
+
+### Offers System (Leads & Clients)
+
+The application implements a sophisticated offer assignment system that maintains historical snapshots:
+
+#### Architecture
+
+**Two Types of Offer Interfaces:**
+1. **`OfertaAsignacion`** - Used when CREATING/UPDATING leads or clients
+   - Contains only: `oferta_id` (string) + `cantidad` (number)
+   - Sent to backend during POST/PATCH operations
+   - Backend looks up the full offer by ID and embeds it
+
+2. **`OfertaEmbebida`** - Returned when READING leads or clients
+   - Contains complete offer snapshot with all details
+   - Includes: id, descripcion, precio, marca, garantias, elementos, cantidad, etc.
+   - Preserves exact offer state at moment of assignment
+
+#### Benefits
+- **Historical Accuracy**: If an offer's price changes, existing leads/clients retain original pricing
+- **Consistency**: Backend is single source of truth for offer data
+- **Simplicity**: Frontend only needs to send IDs, not full offer objects
+- **Data Integrity**: No duplicate or stale offer data in leads/clients
+
+#### Components
+- **`OfertasAsignacionFields`** (`components/feats/leads/ofertas-asignacion-fields.tsx`)
+  - Used in create/edit forms for leads and clients
+  - Allows selecting offers from catalog + setting quantity
+  - Outputs `OfertaAsignacion[]` for API submission
+
+- **Display Components** (tables, detail views)
+  - Show `OfertaEmbebida[]` received from backend
+  - Display full offer details as read-only information
+
+#### Implementation Pattern
+```typescript
+// When editing a lead/client:
+1. Backend returns: Lead with ofertas: OfertaEmbebida[]
+2. Convert to assignments: ofertas.map(o => ({ oferta_id: o.id, cantidad: o.cantidad }))
+3. User edits using OfertasAsignacionFields
+4. Submit: PATCH /leads/{id} with ofertas: OfertaAsignacion[]
+5. Backend processes IDs, embeds full offers, returns updated Lead
+```
+
+#### Type Definitions
+```typescript
+// lib/types/feats/leads/lead-types.ts
+interface OfertaAsignacion {
+  oferta_id: string  // Required
+  cantidad: number   // Must be > 0
+}
+
+interface OfertaEmbebida {
+  id?: string
+  descripcion: string
+  precio: number
+  cantidad: number
+  // ... many more fields
+}
+
+// LeadCreateData & ClienteCreateData use OfertaAsignacion[]
+// Lead & Cliente interfaces use OfertaEmbebida[]
+```
+
+#### Important Notes
+- Same pattern applies to both Leads and Clients modules
+- Elementos personalizados use simple objects (no ID lookup needed)
+- Conversion function `convertOfertasToAsignaciones()` used in edit flows
+- Backend endpoints documented in `docs/leads copy.md` and `docs/CLIENTES copy.md`
 
 ### Export Functionality
 The application includes a centralized export system for generating Excel and PDF reports:

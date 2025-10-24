@@ -1,4 +1,4 @@
-import type { ElementoPersonalizado, OfertaEmbebida } from '../leads/lead-types'
+import type { ElementoPersonalizado, OfertaEmbebida, OfertaAsignacion } from '../leads/lead-types'
 
 export interface Cliente {
   numero: string
@@ -48,7 +48,7 @@ export interface ClienteCreateData {
   comentario?: string
   provincia_montaje?: string
   comercial?: string
-  ofertas?: OfertaEmbebida[]
+  ofertas?: OfertaAsignacion[]  // Al crear: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[]
   latitud?: number | string
   longitud?: number | string

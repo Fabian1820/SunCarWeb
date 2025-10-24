@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/mol
 import { Search, User, MapPin, ArrowLeft, CalendarIcon } from "lucide-react"
 import { ClienteService } from "@/lib/api-services"
 import { ElementosPersonalizadosFields } from "@/components/feats/leads/elementos-personalizados-fields"
-import { OfertasEmbebidasFields } from "@/components/feats/leads/ofertas-embebidas-fields"
+import { OfertasAsignacionFields } from "@/components/feats/leads/ofertas-asignacion-fields"
 import { ClientsTable } from "@/components/feats/customer-service/clients-table"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
@@ -27,6 +27,7 @@ import type {
   ClienteCreateData,
   ClienteUpdateData,
   ElementoPersonalizado,
+  OfertaAsignacion,
   OfertaEmbebida,
 } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
@@ -51,14 +52,25 @@ export default function ClientesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [createOfertas, setCreateOfertas] = useState<OfertaEmbebida[]>([])
+  const [createOfertas, setCreateOfertas] = useState<OfertaAsignacion[]>([])
   const [createElementos, setCreateElementos] = useState<ElementoPersonalizado[]>([])
-  const [editOfertas, setEditOfertas] = useState<OfertaEmbebida[]>([])
+  const [editOfertas, setEditOfertas] = useState<OfertaAsignacion[]>([])
   const [editElementos, setEditElementos] = useState<ElementoPersonalizado[]>([])
   const [fechaContacto, setFechaContacto] = useState<string>("")
   const [editFechaContacto, setEditFechaContacto] = useState<string>("")
   const [fechaMontaje, setFechaMontaje] = useState<string>("")
   const [editFechaMontaje, setEditFechaMontaje] = useState<string>("")
+
+  // Función para convertir ofertas embebidas a asignaciones
+  const convertOfertasToAsignaciones = (ofertasEmbebidas: OfertaEmbebida[] | undefined): OfertaAsignacion[] => {
+    if (!ofertasEmbebidas || ofertasEmbebidas.length === 0) return []
+    return ofertasEmbebidas
+      .filter(oferta => oferta.id) // Solo ofertas con ID
+      .map(oferta => ({
+        oferta_id: oferta.id!,
+        cantidad: oferta.cantidad || 1
+      }))
+  }
 
   const normalizeDateForInput = (value?: string): string => {
     if (!value) return ''
@@ -137,7 +149,8 @@ export default function ClientesPage() {
     setEditFechaInstalacion(client.fecha_instalacion ? new Date(client.fecha_instalacion) : undefined)
     setEditFechaContacto(normalizeDateForInput(client.fecha_contacto))
     setEditFechaMontaje(normalizeDateForInput(client.fecha_montaje))
-    setEditOfertas(client.ofertas ? JSON.parse(JSON.stringify(client.ofertas)) : [])
+    // Convertir ofertas embebidas a asignaciones para editar
+    setEditOfertas(convertOfertasToAsignaciones(client.ofertas))
     setEditElementos(client.elementos_personalizados ? JSON.parse(JSON.stringify(client.elementos_personalizados)) : [])
     setIsEditClientDialogOpen(true)
   }
@@ -527,7 +540,7 @@ export default function ClientesPage() {
               </div>
 
               <div className="space-y-6">
-                <OfertasEmbebidasFields
+                <OfertasAsignacionFields
                   value={createOfertas}
                   onChange={setCreateOfertas}
                 />
@@ -697,7 +710,8 @@ export default function ClientesPage() {
                 updateBody.fecha_instalacion = newFechaInstalacion || undefined
               }
 
-              const ofertasChanged = JSON.stringify(editingClient.ofertas || []) !== JSON.stringify(editOfertas)
+              // Comparar ofertas: convertir las originales a asignaciones y comparar
+              const ofertasChanged = JSON.stringify(convertOfertasToAsignaciones(editingClient.ofertas)) !== JSON.stringify(editOfertas)
               if (ofertasChanged) {
                 updateBody.ofertas = editOfertas
               }
@@ -746,8 +760,8 @@ export default function ClientesPage() {
                 setEditClientFormLoading(false)
               }
             }}>
-              <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
+              <div className="space-y-4">
                 <div>
                   <Label htmlFor="edit-nombre">Nombre *</Label>
                   <Input id="edit-nombre" name="nombre" placeholder="Nombre del cliente" defaultValue={editingClient?.nombre || ''} required />
@@ -756,7 +770,7 @@ export default function ClientesPage() {
                   <Label htmlFor="edit-numero">Número</Label>
                   <Input id="edit-numero" name="numero" value={editingClient?.numero || ''} readOnly className="bg-gray-100" />
                 </div>
-                <div className="md:col-span-2">
+                <div>
                   <Label htmlFor="edit-direccion">Dirección *</Label>
                   <Input id="edit-direccion" name="direccion" placeholder="Dirección" defaultValue={editingClient?.direccion || ''} required />
                 </div>
@@ -804,9 +818,6 @@ export default function ClientesPage() {
                   <Label htmlFor="edit-carnet-identidad">Carnet de Identidad</Label>
                   <Input id="edit-carnet-identidad" name="carnet_identidad" placeholder="12345678901" defaultValue={editingClient?.carnet_identidad || ''} />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="edit-fecha-contacto">Fecha de contacto</Label>
                   <Input
@@ -840,17 +851,15 @@ export default function ClientesPage() {
                 />
               </div>
 
-              <div className="space-y-6">
-                <OfertasEmbebidasFields
-                  value={editOfertas}
-                  onChange={setEditOfertas}
-                />
+              <OfertasAsignacionFields
+                value={editOfertas}
+                onChange={setEditOfertas}
+              />
 
-                <ElementosPersonalizadosFields
-                  value={editElementos}
-                  onChange={setEditElementos}
-                />
-              </div>
+              <ElementosPersonalizadosFields
+                value={editElementos}
+                onChange={setEditElementos}
+              />
 
               <div>
                 <Label>Fecha de Instalación</Label>
@@ -886,17 +895,19 @@ export default function ClientesPage() {
 
               <div>
                 <Label>Ubicación (usar mapa para precisión)</Label>
-                <div className="flex gap-2 items-center">
-                  <Input value={editClientLatLng.lat} placeholder="Latitud" readOnly className="w-32" />
-                  <Input value={editClientLatLng.lng} placeholder="Longitud" readOnly className="w-32" />
-                  <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(true)}>
-                    <MapPin className="h-4 w-4 mr-1" /> Seleccionar en mapa
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input value={editClientLatLng.lat} placeholder="Latitud" readOnly className="flex-1" />
+                    <Input value={editClientLatLng.lng} placeholder="Longitud" readOnly className="flex-1" />
+                  </div>
+                  <Button type="button" className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(true)}>
+                    <MapPin className="h-4 w-4 mr-2" /> Seleccionar en mapa
                   </Button>
                 </div>
               </div>
-              <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-white pb-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditClientDialogOpen(false)} disabled={editClientFormLoading}>Cancelar</Button>
-                <Button type="submit" className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={editClientFormLoading}>{editClientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 sticky bottom-0 bg-white pb-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditClientDialogOpen(false)} disabled={editClientFormLoading} className="w-full sm:w-auto">Cancelar</Button>
+                <Button type="submit" className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={editClientFormLoading}>{editClientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
               </div>
               </div>
             </form>
