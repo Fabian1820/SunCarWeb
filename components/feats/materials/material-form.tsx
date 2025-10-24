@@ -8,7 +8,9 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
-import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Switch } from "@/components/shared/molecule/switch"
+import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle, Package } from "lucide-react"
+import { FileUpload } from "@/components/shared/molecule/file-upload"
 import type { Material, MaterialFormData } from "@/lib/material-types"
 import { useToast } from "@/hooks/use-toast"
 
@@ -37,6 +39,7 @@ export function MaterialForm({
     categoria: initialData?.categoria || "",
     descripcion: initialData?.descripcion || "",
     um: initialData?.um || "",
+    precio: initialData?.precio || 0,
   })
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,6 +51,10 @@ export function MaterialForm({
   const [newUnit, setNewUnit] = useState("")
   const [localCategories, setLocalCategories] = useState(existingCategories)
   const [localUnits, setLocalUnits] = useState(existingUnits)
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [isNewCategory, setIsNewCategory] = useState(false)
+  const [categoryPhoto, setCategoryPhoto] = useState<File | null>(null)
+  const [categoryVendible, setCategoryVendible] = useState(true)
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -81,14 +88,25 @@ export function MaterialForm({
     setIsSubmitting(true)
     try {
       if (onSubmit) {
-        await onSubmit({
+        const materialData = {
           codigo: Number(formData.codigo),
           categoria: formData.categoria,
           descripcion: formData.descripcion,
-          um: formData.um
-        } as any)
+          um: formData.um,
+          precio: formData.precio,
+          // Datos adicionales para nueva categoría
+          ...(isNewCategory && {
+            isNewCategory: true,
+            categoryPhoto: categoryPhoto,
+            categoryVendible: categoryVendible
+          })
+        }
+        await onSubmit(materialData as any)
         if (!isEditing) {
-          setFormData({ codigo: "", categoria: "", descripcion: "", um: "" })
+          setFormData({ codigo: "", categoria: "", descripcion: "", um: "", precio: 0 })
+          setIsNewCategory(false)
+          setCategoryPhoto(null)
+          setCategoryVendible(true)
         }
         if (onClose) onClose();
       }
@@ -117,6 +135,7 @@ export function MaterialForm({
         setFormData({ ...formData, categoria: newCategory.trim() })
         setNewCategory("")
         setIsAddCategoryDialogOpen(false)
+        setIsNewCategory(true) // Marcar como nueva categoría
       } catch (err: any) {
         setError(err.message || "Error al crear la categoría")
       } finally {
@@ -156,7 +175,11 @@ export function MaterialForm({
               Categoría *
             </Label>
             <div className="flex space-x-2">
-              <Select value={formData.categoria} onValueChange={(value) => setFormData({ ...formData, categoria: value })}>
+              <Select value={formData.categoria} onValueChange={(value) => {
+                setFormData({ ...formData, categoria: value })
+                // Detectar si es una categoría existente o nueva
+                setIsNewCategory(!localCategories.includes(value))
+              }}>
                 <SelectTrigger className={`flex-1 ${error && !formData.categoria ? "border-red-300" : ""}`}>
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
@@ -271,6 +294,68 @@ export function MaterialForm({
               </Dialog>
             </div>
           </div>
+          <div>
+            <Label htmlFor="material-precio" className="text-sm font-medium text-gray-700 mb-2 block">
+              Precio (opcional)
+            </Label>
+            <Input
+              id="material-precio"
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.precio || ""}
+              onChange={(e) => setFormData({ ...formData, precio: parseFloat(e.target.value) || 0 })}
+              placeholder="0.00"
+            />
+          </div>
+          <FileUpload
+            id="material-photo"
+            label="Foto del Material (opcional)"
+            accept="image/*"
+            value={photo}
+            onChange={setPhoto}
+            maxSizeInMB={10}
+            showPreview={true}
+            disabled={isSubmitting}
+          />
+
+          {/* Campos adicionales para nueva categoría */}
+          {isNewCategory && (
+            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-blue-600" />
+                <h3 className="text-lg font-semibold text-blue-900">Configuración de Nueva Categoría</h3>
+              </div>
+              <p className="text-sm text-blue-700">
+                Como estás creando una nueva categoría, puedes configurar sus propiedades adicionales:
+              </p>
+              
+              <div className="space-y-4">
+                <FileUpload
+                  id="category-photo"
+                  label="Foto de la Categoría (opcional)"
+                  accept="image/*"
+                  value={categoryPhoto}
+                  onChange={setCategoryPhoto}
+                  maxSizeInMB={10}
+                  showPreview={true}
+                  disabled={isSubmitting}
+                />
+
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="category-vendible"
+                    checked={categoryVendible}
+                    onCheckedChange={setCategoryVendible}
+                    disabled={isSubmitting}
+                  />
+                  <Label htmlFor="category-vendible" className="cursor-pointer">
+                    Esta categoría es vendible
+                  </Label>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         {error && (
           <div className="flex items-center text-red-600 mt-2">

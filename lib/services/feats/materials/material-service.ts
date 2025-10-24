@@ -2,7 +2,13 @@
 
 import { apiRequest } from '../../../api-config'
 import type { BackendCatalogoProductos } from '../../../api-types'
-import type { Material } from '../../../material-types'
+import type { 
+  Material, 
+  CreateCategoryRequest, 
+  CreateMaterialRequest, 
+  UpdateCategoryRequest,
+  AddMaterialToCategoryRequest 
+} from '../../../material-types'
 
 export class MaterialService {
   static async getAllMaterials(): Promise<Material[]> {
@@ -168,6 +174,88 @@ export class MaterialService {
 
   static async getAllCatalogs(): Promise<BackendCatalogoProductos[]> {
     const result = await apiRequest<{ data: BackendCatalogoProductos[] }>('/productos/')
+    return result.data
+  }
+
+  // New methods for category management with photos
+  static async createCategoryWithPhoto(data: CreateCategoryRequest): Promise<string> {
+    const formData = new FormData()
+    formData.append('categoria', data.categoria)
+    formData.append('esVendible', String(data.esVendible ?? true))
+    
+    if (data.foto) {
+      formData.append('foto', data.foto)
+    }
+    
+    if (data.materiales && data.materiales.length > 0) {
+      formData.append('materiales', JSON.stringify(data.materiales))
+    }
+
+    const result = await apiRequest<any>('/productos/', {
+      method: 'POST',
+      body: formData,
+      headers: {} // Let the browser set Content-Type for FormData
+    })
+    return result.producto_id || result.id || result.data?.id || 'success'
+  }
+
+  static async updateCategoryWithPhoto(productoId: string, data: UpdateCategoryRequest): Promise<boolean> {
+    const formData = new FormData()
+    
+    if (data.categoria) {
+      formData.append('categoria', data.categoria)
+    }
+    
+    if (data.esVendible !== undefined) {
+      formData.append('esVendible', String(data.esVendible))
+    }
+    
+    if (data.foto) {
+      formData.append('foto', data.foto)
+    }
+
+    const result = await apiRequest<{ success?: boolean; message?: string; error?: string }>(
+      `/productos/${productoId}`,
+      {
+        method: 'PUT',
+        body: formData,
+        headers: {} // Let the browser set Content-Type for FormData
+      }
+    )
+
+    if (result?.success === false || result?.error) {
+      throw new Error(result.error || result.message || 'Error al actualizar categoría')
+    }
+
+    return true
+  }
+
+  static async addMaterialToCategoryWithPhoto(
+    productoId: string, 
+    data: AddMaterialToCategoryRequest
+  ): Promise<boolean> {
+    const result = await apiRequest<{ success?: boolean; message?: string; error?: string }>(
+      `/productos/${productoId}/materiales`,
+      {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }
+    )
+
+    if (result?.success === false || result?.error) {
+      throw new Error(result.error || result.message || 'Error al agregar material')
+    }
+
+    return true
+  }
+
+  static async getCategories(): Promise<{ nombre: string }[]> {
+    const result = await apiRequest<{ data: { nombre: string }[] }>('/productos/categorias')
+    return result.data
+  }
+
+  static async getMaterialsByCategoryName(categoria: string): Promise<Material[]> {
+    const result = await apiRequest<{ data: Material[] }>(`/productos/categorias/${encodeURIComponent(categoria)}/materiales`)
     return result.data
   }
 }

@@ -4,11 +4,14 @@ export interface BackendMaterial {
   codigo: string
   descripcion: string
   um: string
+  precio?: number
 }
 
 export interface BackendCatalogoProductos {
   id: string
   categoria: string
+  foto?: string
+  esVendible?: boolean
   materiales: BackendMaterial[]
 }
 
@@ -21,11 +24,14 @@ export interface MaterialItem {
   codigo: number
   descripcion: string
   um: string
+  precio?: number
 }
 
 export interface MaterialCategory {
   _id: string
   categoria: string
+  foto?: string
+  esVendible?: boolean
   materiales: MaterialItem[]
 }
 
@@ -35,6 +41,8 @@ export interface Material {
   categoria: string
   descripcion: string
   um: string
+  precio?: number
+  foto?: string
 }
 
 export interface MaterialFormData {
@@ -42,11 +50,37 @@ export interface MaterialFormData {
   categoria: string
   descripcion: string
   um: string
+  precio?: number
 }
 
 export interface MaterialFilters {
   searchTerm: string
   selectedCategory: string
+}
+
+// New interfaces for category management with photos
+export interface CreateCategoryRequest {
+  categoria: string
+  foto?: File | null
+  esVendible?: boolean
+  materiales?: CreateMaterialRequest[]
+}
+
+export interface CreateMaterialRequest {
+  codigo: string
+  descripcion: string
+  um: string
+  precio?: number
+}
+
+export interface UpdateCategoryRequest {
+  categoria?: string
+  foto?: File | null
+  esVendible?: boolean
+}
+
+export interface AddMaterialToCategoryRequest {
+  material: CreateMaterialRequest
 }
 
 export function transformBackendToFrontend(catalogos: BackendCatalogoProductos[]): Material[] {
@@ -60,6 +94,8 @@ export function transformBackendToFrontend(catalogos: BackendCatalogoProductos[]
         categoria: catalogo.categoria,
         descripcion: material.descripcion,
         um: material.um,
+        precio: material.precio,
+        foto: catalogo.foto,
       })
     })
   })
@@ -82,6 +118,8 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         categoria: category.categoria,
         descripcion: material.descripcion,
         um: material.um,
+        precio: material.precio,
+        foto: category.foto,
       })
     })
   })

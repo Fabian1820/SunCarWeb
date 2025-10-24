@@ -8,8 +8,10 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { ArrowLeft, Package, Plus, Search, AlertCircle, Loader2, RefreshCw } from "lucide-react"
+import { Switch } from "@/components/shared/molecule/switch"
+import { ArrowLeft, Package, Plus, Search, AlertCircle, Loader2, RefreshCw, Grid, List } from "lucide-react"
 import { MaterialsTable } from "@/components/feats/materials/materials-table"
+import { CategoriesTable } from "@/components/feats/materials/categories-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
 import { useMaterials } from "@/hooks/use-materials"
 import type { Material } from "@/lib/material-types"
@@ -28,30 +30,57 @@ export default function MaterialesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<"materials" | "categories">("materials")
 
   const addMaterial = async (material: Omit<Material, "id">) => {
     const categoria = (material as any).categoria
     const codigo = (material as any).codigo
     const descripcion = (material as any).descripcion
     const um = (material as any).um
+    const precio = (material as any).precio
+    const isNewCategory = (material as any).isNewCategory
+    const categoryPhoto = (material as any).categoryPhoto
+    const categoryVendible = (material as any).categoryVendible
 
     try {
-      // Encontrar o crear el producto por categoría
-      let producto = catalogs.find(c => c.categoria === categoria)
-      let productoId: string | undefined = producto?.id as any
-      if (!productoId) {
-        const newId = await createCategory(categoria)
-        productoId = newId
-      }
-      if (!productoId) {
-        throw new Error('No se pudo determinar el producto para la categoría')
-      }
+      let productoId: string | undefined
 
-      await addMaterialToProduct(productoId as any, { codigo: String(codigo), descripcion, um }, categoria)
+      if (isNewCategory) {
+        // Crear nueva categoría con foto y configuración
+        const { MaterialService } = await import("@/lib/services/feats/materials/material-service")
+        productoId = await MaterialService.createCategoryWithPhoto({
+          categoria,
+          foto: categoryPhoto,
+          esVendible: categoryVendible,
+          materiales: [{
+            codigo: String(codigo),
+            descripcion,
+            um,
+            precio: precio || 0
+          }]
+        })
+      } else {
+        // Encontrar o crear el producto por categoría
+        let producto = catalogs.find(c => c.categoria === categoria)
+        productoId = producto?.id as any
+        if (!productoId) {
+          const newId = await createCategory(categoria)
+          productoId = newId
+        }
+        if (!productoId) {
+          throw new Error('No se pudo determinar el producto para la categoría')
+        }
+
+        await addMaterialToProduct(productoId as any, { 
+          codigo: String(codigo), 
+          descripcion, 
+          um
+        }, categoria)
+      }
 
       toast({
         title: "Éxito",
-        description: 'Material creado exitosamente',
+        description: isNewCategory ? 'Categoría y material creados exitosamente' : 'Material creado exitosamente',
       })
 
       setIsAddDialogOpen(false)
@@ -150,6 +179,11 @@ export default function MaterialesPage() {
     return matchesSearch && matchesCategoryFilter
   })
 
+  const filteredCategories = catalogs.filter((category) => {
+    const matchesSearch = category.categoria.toLowerCase().includes(searchTerm.toLowerCase())
+    return matchesSearch
+  })
+
   // Debug: log cuando cambie el estado de materials
   console.log('[MaterialesPage] Materials count:', materials.length, 'Filtered count:', filteredMaterials.length)
 
@@ -215,7 +249,7 @@ export default function MaterialesPage() {
                   Agregar Material
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Agregar Nuevo Material</DialogTitle>
                 </DialogHeader>
@@ -233,63 +267,98 @@ export default function MaterialesPage() {
       </header>
 
       <main className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Filters and Search */}
-        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
-                    <CardContent className="pt-6">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Buscar Material
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Buscar por código o descripción..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
+        <div className="space-y-6">
+          {/* Filters and Search */}
+          <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
+            <CardContent className="pt-6">
+              <div className="flex flex-col lg:flex-row gap-4">
+                <div className="flex-1">
+                  <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
+                    {viewMode === "materials" ? "Buscar Material" : "Buscar Categoría"}
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="search"
+                      placeholder={viewMode === "materials" ? "Buscar por código o descripción..." : "Buscar por nombre de categoría..."}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                {viewMode === "materials" && (
+                  <div className="lg:w-48">
+                    <Label htmlFor="category-filter" className="text-sm font-medium text-gray-700 mb-2 block">
+                      Filtrar por Categoría
+                    </Label>
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas las categorías" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas las categorías</SelectItem>
+                        {categories.map((category, idx) => (
+                          <SelectItem key={category || idx} value={category}>
+                            {category}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* View Toggle */}
+          <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <List className="h-5 w-5 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">Vista por Materiales</span>
+                  </div>
+                  <Switch
+                    checked={viewMode === "categories"}
+                    onCheckedChange={(checked) => setViewMode(checked ? "categories" : "materials")}
                   />
+                  <div className="flex items-center space-x-2">
+                    <Grid className="h-5 w-5 text-gray-500" />
+                    <span className="text-sm font-medium text-gray-700">Vista por Categorías</span>
+                  </div>
                 </div>
               </div>
-              <div className="lg:w-48">
-                <Label htmlFor="category-filter" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Filtrar por Categoría
-                </Label>
-                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las categorías" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las categorías</SelectItem>
-                    {categories.map((category, idx) => (
-                      <SelectItem key={category || idx} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Materials Table */}
-        <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
-          <CardHeader>
-            <CardTitle>Catálogo de Materiales</CardTitle>
-            <CardDescription>
-              Mostrando {filteredMaterials.length} de {materials.length} materiales
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <MaterialsTable materials={filteredMaterials} onEdit={openEditDialog} onDelete={deleteMaterial} />
-          </CardContent>
-        </Card>
+          {/* Dynamic Table */}
+          <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
+            <CardHeader>
+              <CardTitle>
+                {viewMode === "materials" ? "Catálogo de Materiales" : "Catálogo de Categorías"}
+              </CardTitle>
+              <CardDescription>
+                {viewMode === "materials" 
+                  ? `Mostrando ${filteredMaterials.length} de ${materials.length} materiales`
+                  : `Mostrando ${filteredCategories.length} de ${catalogs.length} categorías`
+                }
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {viewMode === "materials" ? (
+                <MaterialsTable materials={filteredMaterials} onEdit={openEditDialog} onDelete={deleteMaterial} />
+              ) : (
+                <CategoriesTable categories={filteredCategories} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Editar Material</DialogTitle>
             </DialogHeader>

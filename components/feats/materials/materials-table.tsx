@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Edit, Trash2, Package } from "lucide-react"
+import { Edit, Trash2, Package, DollarSign, Image as ImageIcon } from "lucide-react"
 import type { Material } from "@/lib/material-types"
 
 interface MaterialsTableProps {
@@ -31,6 +31,7 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Categoría</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Material</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Unidad</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Precio</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
@@ -61,6 +62,14 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   {material.um}
                 </Badge>
+              </td>
+              <td className="py-4 px-4">
+                <div className="flex items-center space-x-2">
+                  <DollarSign className="h-4 w-4 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-900">
+                    {material.precio ? `$${material.precio.toFixed(2)}` : 'N/A'}
+                  </span>
+                </div>
               </td>
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-2">
