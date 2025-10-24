@@ -5,6 +5,15 @@ export interface ElementoPersonalizado {
   cantidad: number
 }
 
+// Oferta asignacion: usado al CREAR/ACTUALIZAR leads
+// El backend busca la oferta por ID y la embebe completa (snapshot)
+export interface OfertaAsignacion {
+  oferta_id: string  // ID de la oferta en el catálogo (OBLIGATORIO)
+  cantidad: number   // Cantidad solicitada (debe ser mayor a 0)
+}
+
+// Oferta embebida: retornada por el backend al LEER leads
+// Contiene snapshot completo de la oferta en el momento de creación
 export interface OfertaEmbebida {
   id?: string
   descripcion: string
@@ -61,7 +70,7 @@ export interface LeadCreateData {
   comentario?: string
   provincia_montaje?: string
   comercial?: string
-  ofertas?: OfertaEmbebida[]
+  ofertas?: OfertaAsignacion[]  // Al crear: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[]
   comprobante_pago_url?: string
   metodo_pago?: string
@@ -81,7 +90,7 @@ export interface LeadUpdateData {
   comentario?: string
   provincia_montaje?: string
   comercial?: string
-  ofertas?: OfertaEmbebida[]
+  ofertas?: OfertaAsignacion[]  // Al actualizar: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[]
   comprobante_pago_url?: string
   metodo_pago?: string

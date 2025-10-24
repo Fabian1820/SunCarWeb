@@ -15,6 +15,9 @@ export type {
   LeadCreateData,
   LeadUpdateData,
   LeadConversionRequest,
+  OfertaAsignacion,
+  OfertaEmbebida,
+  ElementoPersonalizado,
 } from './types/feats/leads/lead-types'
 
 export type {

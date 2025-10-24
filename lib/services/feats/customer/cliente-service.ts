@@ -41,8 +41,23 @@ export class ClienteService {
     if (params.direccion) search.append('direccion', params.direccion)
 
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ''}`
-    const response = await apiRequest<ClienteResponse>(endpoint)
-    return Array.isArray(response.data) ? response.data : []
+    const response = await apiRequest<ClienteResponse | Cliente[]>(endpoint)
+
+    // Manejar ambos formatos de respuesta:
+    // 1. Backend devuelve { success: true, data: [...] }
+    // 2. Backend devuelve directamente [...]
+    if (Array.isArray(response)) {
+      console.log('📦 Backend returned array directly, using it:', response.length, 'clients')
+      return response
+    }
+
+    if (response.data && Array.isArray(response.data)) {
+      console.log('📦 Backend returned wrapped response, extracting data:', response.data.length, 'clients')
+      return response.data
+    }
+
+    console.warn('⚠️ Unexpected response format from backend:', response)
+    return []
   }
 
   static async crearCliente(data: ClienteCreateData): Promise<ClienteResponse> {
