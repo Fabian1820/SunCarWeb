@@ -13,8 +13,9 @@ import { ArrowLeft, Package, Plus, Search, AlertCircle, Loader2, RefreshCw, Grid
 import { MaterialsTable } from "@/components/feats/materials/materials-table"
 import { CategoriesTable } from "@/components/feats/materials/categories-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
+import { EditCategoryForm } from "@/components/feats/materials/edit-category-form"
 import { useMaterials } from "@/hooks/use-materials"
-import type { Material } from "@/lib/material-types"
+import type { Material, BackendCatalogoProductos } from "@/lib/material-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -31,6 +32,8 @@ export default function MaterialesPage() {
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [viewMode, setViewMode] = useState<"materials" | "categories">("materials")
+  const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<BackendCatalogoProductos | null>(null)
 
   const addMaterial = async (material: Omit<Material, "id">) => {
     const categoria = (material as any).categoria
@@ -169,6 +172,35 @@ export default function MaterialesPage() {
   const openEditDialog = (material: Material) => {
     setEditingMaterial(material)
     setIsEditDialogOpen(true)
+  }
+
+  const openEditCategoryDialog = (category: BackendCatalogoProductos) => {
+    setEditingCategory(category)
+    setIsEditCategoryDialogOpen(true)
+  }
+
+  const updateCategory = async (data: { categoria: string; foto?: File | null; esVendible: boolean }) => {
+    if (!editingCategory) return
+
+    try {
+      const { MaterialService } = await import("@/lib/services/feats/materials/material-service")
+      await MaterialService.updateCategoryWithPhoto(editingCategory.id, data)
+      
+      toast({
+        title: "Éxito",
+        description: "Categoría actualizada correctamente",
+      })
+      
+      setIsEditCategoryDialogOpen(false)
+      setEditingCategory(null)
+      await refetch()
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Error al actualizar la categoría",
+        variant: "destructive",
+      })
+    }
   }
 
   const filteredMaterials = materials.filter((material) => {
@@ -350,7 +382,7 @@ export default function MaterialesPage() {
               {viewMode === "materials" ? (
                 <MaterialsTable materials={filteredMaterials} onEdit={openEditDialog} onDelete={deleteMaterial} />
               ) : (
-                <CategoriesTable categories={filteredCategories} />
+                <CategoriesTable categories={filteredCategories} onEdit={openEditCategoryDialog} />
               )}
             </CardContent>
           </Card>
@@ -373,6 +405,29 @@ export default function MaterialesPage() {
                 existingCategories={categories}
                 existingUnits={units}
                 isEditing
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Category Dialog */}
+        <Dialog open={isEditCategoryDialogOpen} onOpenChange={setIsEditCategoryDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Categoría</DialogTitle>
+            </DialogHeader>
+            {editingCategory && (
+              <EditCategoryForm
+                category={editingCategory}
+                onSubmit={updateCategory}
+                onCancel={() => {
+                  setIsEditCategoryDialogOpen(false)
+                  setEditingCategory(null)
+                }}
+                onClose={() => {
+                  setIsEditCategoryDialogOpen(false)
+                  setEditingCategory(null)
+                }}
               />
             )}
           </DialogContent>

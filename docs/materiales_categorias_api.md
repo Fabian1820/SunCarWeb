@@ -123,7 +123,33 @@
 
 ---
 
-### 5. Obtener todos los productos (categorías con materiales)
+### 5. Actualizar una categoría existente
+**PUT** `/api/productos/{producto_id}`
+
+- **Descripción**: Actualiza una categoría (producto) existente con los campos proporcionados.
+- **Parámetro de path:**  
+  - `producto_id`: ID de la categoría (producto)
+- **Body (FormData):**
+  ```
+  categoria: "string (opcional)"
+  esVendible: "boolean (opcional)"
+  foto: "File (opcional)"
+  ```
+- **Respuesta exitosa:**
+  ```json
+  {
+    "success": true,
+    "message": "Categoría actualizada exitosamente"
+  }
+  ```
+- **Validaciones:**
+  - Al menos un campo debe ser proporcionado para actualizar
+  - La foto se almacena en MinIO si se proporciona
+  - Solo se actualizan los campos enviados
+
+---
+
+### 6. Obtener todos los productos (categorías con materiales)
 **GET** `/api/productos/`
 
 - **Descripción**: Devuelve todas las categorías con sus materiales.
@@ -163,6 +189,10 @@
   - Los materiales son opcionales.
   - La foto es opcional (por defecto vacío).
   - esVendible es opcional (por defecto true).
+- **Al actualizar una categoría:**
+  - Al menos un campo debe ser proporcionado (categoria, esVendible, o foto).
+  - Solo se actualizan los campos enviados.
+  - La foto se almacena en MinIO si se proporciona.
 - **Al agregar un material:**
   - Se agrega a la lista de materiales de la categoría (producto) correspondiente.
 
@@ -203,10 +233,20 @@ curl -X POST "http://localhost:8000/api/productos/123456/materiales" \
   }'
 ```
 
+### Actualizar una categoría existente
+```bash
+curl -X PUT "http://localhost:8000/api/productos/123456" \
+  -H "Authorization: Bearer <TOKEN>" \
+  -F "categoria=Lubricantes Premium" \
+  -F "esVendible=true" \
+  -F "foto=@/path/to/image.jpg"
+```
+
 ---
 
 ## Resumen
 
 - **Las categorías** agrupan materiales y se gestionan como productos.
 - **Los materiales** se agregan, consultan y validan siempre dentro de una categoría.
-- **Los endpoints permiten** crear, consultar y modificar tanto categorías como materiales de forma flexible y validada. 
+- **Los endpoints permiten** crear, consultar, actualizar y modificar tanto categorías como materiales de forma flexible y validada.
+- **La actualización de categorías** permite modificar nombre, estado de vendible y foto de forma independiente. 
