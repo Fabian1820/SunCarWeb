@@ -1,16 +1,18 @@
 "use client"
 
+import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Switch } from "@/components/shared/molecule/switch"
-import { Image as ImageIcon, Package, Eye, EyeOff } from "lucide-react"
+import { Image as ImageIcon, Package, Eye, EyeOff, Edit } from "lucide-react"
 import type { BackendCatalogoProductos } from "@/lib/material-types"
 
 interface CategoriesTableProps {
   categories: BackendCatalogoProductos[]
   onToggleVendible?: (categoryId: string, isVendible: boolean) => void
+  onEdit?: (category: BackendCatalogoProductos) => void
 }
 
-export function CategoriesTable({ categories, onToggleVendible }: CategoriesTableProps) {
+export function CategoriesTable({ categories, onToggleVendible, onEdit }: CategoriesTableProps) {
   if (categories.length === 0) {
     return (
       <div className="text-center py-12">
@@ -30,6 +32,7 @@ export function CategoriesTable({ categories, onToggleVendible }: CategoriesTabl
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Foto</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Es Vendible</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -97,6 +100,19 @@ export function CategoriesTable({ categories, onToggleVendible }: CategoriesTabl
                       </>
                     )}
                   </div>
+                </div>
+              </td>
+              <td className="py-4 px-4">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit?.(category)}
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    title="Editar categoría"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
                 </div>
               </td>
             </tr>

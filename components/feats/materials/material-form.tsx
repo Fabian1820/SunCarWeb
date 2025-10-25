@@ -51,7 +51,6 @@ export function MaterialForm({
   const [newUnit, setNewUnit] = useState("")
   const [localCategories, setLocalCategories] = useState(existingCategories)
   const [localUnits, setLocalUnits] = useState(existingUnits)
-  const [photo, setPhoto] = useState<File | null>(null)
   const [isNewCategory, setIsNewCategory] = useState(false)
   const [categoryPhoto, setCategoryPhoto] = useState<File | null>(null)
   const [categoryVendible, setCategoryVendible] = useState(true)
@@ -130,9 +129,10 @@ export function MaterialForm({
     if (newCategory.trim() && !localCategories.includes(newCategory.trim())) {
       setIsCreatingCategory(true)
       try {
-        // Solo actualizar localmente; la creación real se maneja en el padre al guardar
-        setLocalCategories([...localCategories, newCategory.trim()])
-        setFormData({ ...formData, categoria: newCategory.trim() })
+        // Actualizar localmente y marcar como nueva categoría
+        const trimmedCategory = newCategory.trim()
+        setLocalCategories([...localCategories, trimmedCategory])
+        setFormData({ ...formData, categoria: trimmedCategory })
         setNewCategory("")
         setIsAddCategoryDialogOpen(false)
         setIsNewCategory(true) // Marcar como nueva categoría
@@ -146,9 +146,10 @@ export function MaterialForm({
 
   const addNewUnit = () => {
     if (newUnit.trim() && !localUnits.includes(newUnit.trim())) {
-      const updatedUnits = [...localUnits, newUnit.trim()]
+      const trimmedUnit = newUnit.trim()
+      const updatedUnits = [...localUnits, trimmedUnit]
       setLocalUnits(updatedUnits)
-      setFormData({ ...formData, um: newUnit.trim() })
+      setFormData({ ...formData, um: trimmedUnit })
       setNewUnit("")
       setIsAddUnitDialogOpen(false)
     }
@@ -308,16 +309,6 @@ export function MaterialForm({
               placeholder="0.00"
             />
           </div>
-          <FileUpload
-            id="material-photo"
-            label="Foto del Material (opcional)"
-            accept="image/*"
-            value={photo}
-            onChange={setPhoto}
-            maxSizeInMB={10}
-            showPreview={true}
-            disabled={isSubmitting}
-          />
 
           {/* Campos adicionales para nueva categoría */}
           {isNewCategory && (
