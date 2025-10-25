@@ -186,7 +186,7 @@ export default function Dashboard() {
                             </div>
                         </div>
                         <div className="flex items-center space-x-3">
-                            <Link href="/atencion-cliente">
+                            {/* <Link href="/atencion-cliente">
                                 <Button
                                     variant="outline"
                                     size="sm"
@@ -198,7 +198,7 @@ export default function Dashboard() {
                                         <div className="h-2 w-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
                                     </div>
                                 </Button>
-                            </Link>
+                            </Link> */}
                             <Button
                                 variant="outline"
                                 size="sm"

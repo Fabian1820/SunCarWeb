@@ -105,10 +105,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Normalizar el rol del usuario (quitar tildes, espacios, mayúsculas)
     const normalizedUserRole = normalizeString(user.rol)
     
-    // Director General y Subdirector tienen acceso a todo
+    // Director General, Subdirector y Desarrollador de Software tienen acceso a todo
     if (
       containsString(user.rol, 'director general') || 
-      containsString(user.rol, 'subdirector')
+      containsString(user.rol, 'subdirector') ||
+      containsString(user.rol, 'desarrollador de software')
     ) {
       return true
     }
