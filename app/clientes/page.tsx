@@ -31,6 +31,7 @@ import type {
   OfertaEmbebida,
 } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
+import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog"
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Cliente[]>([])
@@ -47,47 +48,13 @@ export default function ClientesPage() {
   const [isEditClientDialogOpen, setIsEditClientDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Cliente | null>(null)
   const [editClientFormLoading, setEditClientFormLoading] = useState(false)
-  const [editClientLatLng, setEditClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
-  const [editFechaInstalacion, setEditFechaInstalacion] = useState<Date | undefined>(undefined)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [createOfertas, setCreateOfertas] = useState<OfertaAsignacion[]>([])
   const [createElementos, setCreateElementos] = useState<ElementoPersonalizado[]>([])
-  const [editOfertas, setEditOfertas] = useState<OfertaAsignacion[]>([])
-  const [editElementos, setEditElementos] = useState<ElementoPersonalizado[]>([])
   const [fechaContacto, setFechaContacto] = useState<string>("")
-  const [editFechaContacto, setEditFechaContacto] = useState<string>("")
   const [fechaMontaje, setFechaMontaje] = useState<string>("")
-  const [editFechaMontaje, setEditFechaMontaje] = useState<string>("")
-
-  // Función para convertir ofertas embebidas a asignaciones
-  const convertOfertasToAsignaciones = (ofertasEmbebidas: OfertaEmbebida[] | undefined): OfertaAsignacion[] => {
-    if (!ofertasEmbebidas || ofertasEmbebidas.length === 0) return []
-    return ofertasEmbebidas
-      .filter(oferta => oferta.id) // Solo ofertas con ID
-      .map(oferta => ({
-        oferta_id: oferta.id!,
-        cantidad: oferta.cantidad || 1
-      }))
-  }
-
-  const normalizeDateForInput = (value?: string): string => {
-    if (!value) return ''
-    if (value.match(/^\d{4}-\d{2}-\d{2}$/)) return value
-    if (value.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      const [day, month, year] = value.split('/')
-      return `${year}-${month}-${day}`
-    }
-    const parsed = new Date(value)
-    if (!Number.isNaN(parsed.getTime())) {
-      const month = String(parsed.getMonth() + 1).padStart(2, '0')
-      const day = String(parsed.getDate()).padStart(2, '0')
-      return `${parsed.getFullYear()}-${month}-${day}`
-    }
-    return ''
-  }
-
 
   // Cargar clientes
   const fetchClients = useCallback(async () => {
@@ -142,17 +109,31 @@ export default function ClientesPage() {
   // Acción para editar cliente
   const handleEditClient = (client: Cliente) => {
     setEditingClient(client)
-    setEditClientLatLng({
-      lat: client.latitud !== undefined && client.latitud !== null ? String(client.latitud) : '',
-      lng: client.longitud !== undefined && client.longitud !== null ? String(client.longitud) : '',
-    })
-    setEditFechaInstalacion(client.fecha_instalacion ? new Date(client.fecha_instalacion) : undefined)
-    setEditFechaContacto(normalizeDateForInput(client.fecha_contacto))
-    setEditFechaMontaje(normalizeDateForInput(client.fecha_montaje))
-    // Convertir ofertas embebidas a asignaciones para editar
-    setEditOfertas(convertOfertasToAsignaciones(client.ofertas))
-    setEditElementos(client.elementos_personalizados ? JSON.parse(JSON.stringify(client.elementos_personalizados)) : [])
     setIsEditClientDialogOpen(true)
+  }
+
+  // Handler para actualizar cliente
+  const handleUpdateClient = async (data: ClienteUpdateData) => {
+    if (!editingClient) return
+
+    try {
+      const result = await ClienteService.actualizarCliente(editingClient.numero, data)
+      if (!result?.success) {
+        throw new Error(result?.message || "Error al actualizar el cliente")
+      }
+      toast({
+        title: "Éxito",
+        description: result.message || "Cliente actualizado correctamente",
+      })
+      await fetchClients()
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Error al actualizar el cliente",
+        variant: "destructive",
+      })
+      throw err
+    }
   }
 
   // Acción para eliminar cliente
@@ -623,317 +604,18 @@ export default function ClientesPage() {
           </DialogContent>
         </Dialog>
         {/* Modal de edición de cliente */}
-        <Dialog open={isEditClientDialogOpen} onOpenChange={v => {
-          setIsEditClientDialogOpen(v)
-          if (!v) {
-            setEditClientLatLng({ lat: '', lng: '' })
-            setEditOfertas([])
-            setEditElementos([])
-            setEditFechaContacto('')
-            setEditFechaMontaje('')
-            setEditFechaInstalacion(undefined)
-            setEditingClient(null)
-            setTimeout(() => {
-              const form = document.getElementById('edit-client-form') as HTMLFormElement | null
-              if (form) {
-                const nombreInput = form.elements.namedItem('nombre') as HTMLInputElement | null;
-                if (nombreInput) nombreInput.value = '';
-                const direccionInput = form.elements.namedItem('direccion') as HTMLInputElement | null;
-                if (direccionInput) direccionInput.value = '';
-              }
-            }, 0)
-          }
-        }}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Editar cliente</DialogTitle>
-            </DialogHeader>
-            <form id="edit-client-form" className="space-y-6" onSubmit={async e => {
-              e.preventDefault()
-              setEditClientFormLoading(true)
-              if (!editingClient) {
-                setEditClientFormLoading(false)
-                return
-              }
-              const form = e.target as HTMLFormElement
-              const nombre = (form.elements.namedItem('nombre') as HTMLInputElement).value.trim()
-              const direccion = (form.elements.namedItem('direccion') as HTMLInputElement).value.trim()
-              const telefono = (form.elements.namedItem('telefono') as HTMLInputElement)?.value.trim()
-              const telefonoAdicional = (form.elements.namedItem('telefono_adicional') as HTMLInputElement)?.value.trim()
-              const estado = (form.elements.namedItem('estado') as HTMLInputElement)?.value.trim()
-              const fuente = (form.elements.namedItem('fuente') as HTMLInputElement)?.value.trim()
-              const referencia = (form.elements.namedItem('referencia') as HTMLInputElement)?.value.trim()
-              const paisContacto = (form.elements.namedItem('pais_contacto') as HTMLInputElement)?.value.trim()
-              const comentario = (form.elements.namedItem('comentario') as HTMLTextAreaElement)?.value.trim()
-              const provinciaMontaje = (form.elements.namedItem('provincia_montaje') as HTMLInputElement)?.value.trim()
-              const comercial = (form.elements.namedItem('comercial') as HTMLInputElement)?.value.trim()
-              const carnetIdentidad = (form.elements.namedItem('carnet_identidad') as HTMLInputElement)?.value.trim()
-              const metodoPago = (form.elements.namedItem('metodo_pago') as HTMLInputElement)?.value.trim()
-              const moneda = (form.elements.namedItem('moneda') as HTMLInputElement)?.value.trim()
-
-              const latitud = editClientLatLng.lat.trim()
-              const longitud = editClientLatLng.lng.trim()
-
-              const updateBody: ClienteUpdateData = {}
-
-              if (nombre && nombre !== editingClient.nombre) updateBody.nombre = nombre
-              if (direccion && direccion !== editingClient.direccion) updateBody.direccion = direccion
-
-              if (telefono !== (editingClient.telefono || '')) updateBody.telefono = telefono || undefined
-              if (telefonoAdicional !== (editingClient.telefono_adicional || '')) updateBody.telefono_adicional = telefonoAdicional || undefined
-              if (estado !== (editingClient.estado || '')) updateBody.estado = estado || undefined
-              if (fuente !== (editingClient.fuente || '')) updateBody.fuente = fuente || undefined
-              if (referencia !== (editingClient.referencia || '')) updateBody.referencia = referencia || undefined
-              if (paisContacto !== (editingClient.pais_contacto || '')) updateBody.pais_contacto = paisContacto || undefined
-              if (comentario !== (editingClient.comentario || '')) updateBody.comentario = comentario || undefined
-              if (provinciaMontaje !== (editingClient.provincia_montaje || '')) updateBody.provincia_montaje = provinciaMontaje || undefined
-              if (comercial !== (editingClient.comercial || '')) updateBody.comercial = comercial || undefined
-              if (carnetIdentidad !== (editingClient.carnet_identidad || '')) updateBody.carnet_identidad = carnetIdentidad || undefined
-              if (metodoPago !== (editingClient.metodo_pago || '')) updateBody.metodo_pago = metodoPago || undefined
-              if (moneda !== (editingClient.moneda || '')) updateBody.moneda = moneda || undefined
-
-              const originalLat = editingClient.latitud !== undefined && editingClient.latitud !== null ? String(editingClient.latitud) : ''
-              if (latitud !== originalLat) updateBody.latitud = latitud || undefined
-
-              const originalLng = editingClient.longitud !== undefined && editingClient.longitud !== null ? String(editingClient.longitud) : ''
-              if (longitud !== originalLng) updateBody.longitud = longitud || undefined
-
-              const originalFechaContacto = normalizeDateForInput(editingClient.fecha_contacto)
-              if (editFechaContacto !== originalFechaContacto) updateBody.fecha_contacto = editFechaContacto || undefined
-
-              const originalFechaMontaje = normalizeDateForInput(editingClient.fecha_montaje)
-              if (editFechaMontaje !== originalFechaMontaje) updateBody.fecha_montaje = editFechaMontaje || undefined
-
-              const oldFecha = editingClient.fecha_instalacion ? new Date(editingClient.fecha_instalacion).toISOString() : ''
-              const newFechaInstalacion = editFechaInstalacion ? editFechaInstalacion.toISOString() : ''
-              if (newFechaInstalacion !== oldFecha) {
-                updateBody.fecha_instalacion = newFechaInstalacion || undefined
-              }
-
-              // Comparar ofertas: convertir las originales a asignaciones y comparar
-              const ofertasChanged = JSON.stringify(convertOfertasToAsignaciones(editingClient.ofertas)) !== JSON.stringify(editOfertas)
-              if (ofertasChanged) {
-                updateBody.ofertas = editOfertas
-              }
-
-              const elementosChanged = JSON.stringify(editingClient.elementos_personalizados || []) !== JSON.stringify(editElementos)
-              if (elementosChanged) {
-                updateBody.elementos_personalizados = editElementos
-              }
-
-              if (Object.keys(updateBody).length === 0) {
-                toast({
-                  title: "Advertencia",
-                  description: 'No hay cambios para guardar',
-                  variant: "destructive",
-                });
-                setEditClientFormLoading(false)
-                return
-              }
-              try {
-                const dataCliente = await ClienteService.actualizarCliente(editingClient.numero, updateBody)
-                if (!dataCliente?.success) {
-                  throw new Error(dataCliente?.message || "Error al actualizar el cliente")
-                }
-                toast({
-                  title: "Éxito",
-                  description: dataCliente.message || "Cliente actualizado correctamente",
-                });
-                setIsEditClientDialogOpen(false)
-                setEditClientLatLng({ lat: '', lng: '' })
-                setEditFechaInstalacion(undefined)
-                setEditFechaContacto('')
-                setEditFechaMontaje('')
-                setEditOfertas([])
-                setEditElementos([])
-                setEditingClient(null)
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("refreshClientsTable"))
-                }
-              } catch (err: unknown) {
-                toast({
-                  title: "Error",
-                  description: err instanceof Error ? err.message : "Error al actualizar el cliente",
-                  variant: "destructive",
-                });
-              } finally {
-                setEditClientFormLoading(false)
-              }
-            }}>
-              <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-2">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-nombre">Nombre *</Label>
-                  <Input id="edit-nombre" name="nombre" placeholder="Nombre del cliente" defaultValue={editingClient?.nombre || ''} required />
-                </div>
-                <div>
-                  <Label htmlFor="edit-numero">Número</Label>
-                  <Input id="edit-numero" name="numero" value={editingClient?.numero || ''} readOnly className="bg-gray-100" />
-                </div>
-                <div>
-                  <Label htmlFor="edit-direccion">Dirección *</Label>
-                  <Input id="edit-direccion" name="direccion" placeholder="Dirección" defaultValue={editingClient?.direccion || ''} required />
-                </div>
-                <div>
-                  <Label htmlFor="edit-telefono">Teléfono</Label>
-                  <Input id="edit-telefono" name="telefono" placeholder="555-1234" defaultValue={editingClient?.telefono || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-telefono-adicional">Teléfono adicional</Label>
-                  <Input id="edit-telefono-adicional" name="telefono_adicional" placeholder="Teléfono secundario" defaultValue={editingClient?.telefono_adicional || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-estado">Estado</Label>
-                  <Input id="edit-estado" name="estado" placeholder="Ej: activo, prospecto" defaultValue={editingClient?.estado || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-fuente">Fuente</Label>
-                  <Input id="edit-fuente" name="fuente" placeholder="Página web, referido..." defaultValue={editingClient?.fuente || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-referencia">Referencia</Label>
-                  <Input id="edit-referencia" name="referencia" placeholder="Detalle de origen" defaultValue={editingClient?.referencia || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-pais-contacto">País de contacto</Label>
-                  <Input id="edit-pais-contacto" name="pais_contacto" placeholder="País del cliente" defaultValue={editingClient?.pais_contacto || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-provincia-montaje">Provincia de montaje</Label>
-                  <Input id="edit-provincia-montaje" name="provincia_montaje" placeholder="Provincia" defaultValue={editingClient?.provincia_montaje || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-comercial">Comercial</Label>
-                  <Input id="edit-comercial" name="comercial" placeholder="Nombre del comercial" defaultValue={editingClient?.comercial || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-metodo-pago">Método de pago</Label>
-                  <Input id="edit-metodo-pago" name="metodo_pago" placeholder="Transferencia, efectivo..." defaultValue={editingClient?.metodo_pago || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-moneda">Moneda</Label>
-                  <Input id="edit-moneda" name="moneda" placeholder="USD, CUP, MLC..." defaultValue={editingClient?.moneda || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-carnet-identidad">Carnet de Identidad</Label>
-                  <Input id="edit-carnet-identidad" name="carnet_identidad" placeholder="12345678901" defaultValue={editingClient?.carnet_identidad || ''} />
-                </div>
-                <div>
-                  <Label htmlFor="edit-fecha-contacto">Fecha de contacto</Label>
-                  <Input
-                    id="edit-fecha-contacto"
-                    name="fecha_contacto"
-                    type="date"
-                    value={editFechaContacto}
-                    onChange={(event) => setEditFechaContacto(event.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-fecha-montaje">Fecha de montaje</Label>
-                  <Input
-                    id="edit-fecha-montaje"
-                    name="fecha_montaje"
-                    type="date"
-                    value={editFechaMontaje}
-                    onChange={(event) => setEditFechaMontaje(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="edit-comentario">Comentario</Label>
-                <Textarea
-                  id="edit-comentario"
-                  name="comentario"
-                  placeholder="Notas generales o contexto del cliente"
-                  defaultValue={editingClient?.comentario || ''}
-                  rows={3}
-                />
-              </div>
-
-              <OfertasAsignacionFields
-                value={editOfertas}
-                onChange={setEditOfertas}
-              />
-
-              <ElementosPersonalizadosFields
-                value={editElementos}
-                onChange={setEditElementos}
-              />
-
-              <div>
-                <Label>Fecha de Instalación</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !editFechaInstalacion && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editFechaInstalacion ? (
-                        format(editFechaInstalacion, "PPP 'a las' p", { locale: es })
-                      ) : (
-                        <span>Seleccionar fecha (opcional)</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={editFechaInstalacion}
-                      onSelect={setEditFechaInstalacion}
-                      locale={es}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div>
-                <Label>Ubicación (usar mapa para precisión)</Label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input value={editClientLatLng.lat} placeholder="Latitud" readOnly className="flex-1" />
-                    <Input value={editClientLatLng.lng} placeholder="Longitud" readOnly className="flex-1" />
-                  </div>
-                  <Button type="button" className="w-full bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(true)}>
-                    <MapPin className="h-4 w-4 mr-2" /> Seleccionar en mapa
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 sticky bottom-0 bg-white pb-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditClientDialogOpen(false)} disabled={editClientFormLoading} className="w-full sm:w-auto">Cancelar</Button>
-                <Button type="submit" className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white" disabled={editClientFormLoading}>{editClientFormLoading ? 'Guardando...' : 'Guardar'}</Button>
-              </div>
-              </div>
-            </form>
-            {/* Modal de mapa para seleccionar ubicación (reutiliza showMapModalClient y setShowMapModalClient) */}
-            <Dialog open={showMapModalClient} onOpenChange={setShowMapModalClient}>
-              <DialogContent className="max-w-xl">
-                <DialogHeader>
-                  <DialogTitle>Seleccionar ubicación en el mapa</DialogTitle>
-                </DialogHeader>
-                <div className="mb-4 text-gray-700">Haz click en el mapa para seleccionar la ubicación. Solo se guardarán latitud y longitud.</div>
-                <MapPicker
-                  initialLat={editClientLatLng.lat ? parseFloat(editClientLatLng.lat) : 23.1136}
-                  initialLng={editClientLatLng.lng ? parseFloat(editClientLatLng.lng) : -82.3666}
-                  onSelect={(lat: number, lng: number) => {
-                    setEditClientLatLng({ lat: String(lat), lng: String(lng) })
-                  }}
-                />
-                <div className="flex justify-end pt-4">
-                  <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(false)}>
-                    Confirmar ubicación
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </DialogContent>
-        </Dialog>
+        {editingClient && (
+          <EditClientDialog
+            open={isEditClientDialogOpen}
+            onOpenChange={(open) => {
+              setIsEditClientDialogOpen(open)
+              if (!open) setEditingClient(null)
+            }}
+            client={editingClient}
+            onSubmit={handleUpdateClient}
+            isLoading={editClientFormLoading}
+          />
+        )}
 
         {/* Modal de confirmación de eliminación */}
         <ConfirmDeleteDialog
