@@ -17,13 +17,13 @@ import { optimizarImagenParaWeb, PRESETS_OPTIMIZACION } from '@/lib/utils/image-
 interface UseGaleriaWebReturn {
   // Estado
   fotos: FotoGaleria[];
+  fotosFiltradas: FotoGaleria[];
   isLoading: boolean;
   error: string | null;
   carpetaActual: CarpetaGaleria | 'todas';
 
   // Acciones
   cargarTodasFotos: () => Promise<void>;
-  cargarFotosPorCarpeta: (carpeta: CarpetaGaleria) => Promise<void>;
   subirFoto: (data: SubirFotoData) => Promise<boolean>;
   eliminarFoto: (data: EliminarFotoData) => Promise<boolean>;
   cambiarCarpeta: (carpeta: CarpetaGaleria | 'todas') => void;
@@ -36,6 +36,11 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
   const [error, setError] = useState<string | null>(null);
   const [carpetaActual, setCarpetaActual] = useState<CarpetaGaleria | 'todas'>('todas');
 
+  // Filtrar fotos según la carpeta actual
+  const fotosFiltradas = carpetaActual === 'todas' 
+    ? fotos 
+    : fotos.filter(foto => foto.carpeta === carpetaActual);
+
   /**
    * Carga todas las fotos del bucket
    */
@@ -46,29 +51,8 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
     try {
       const data = await GaleriaWebService.getAllFotos();
       setFotos(data);
-      setCarpetaActual('todas');
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Error al cargar las fotos';
-      setError(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  /**
-   * Carga fotos de una carpeta específica
-   */
-  const cargarFotosPorCarpeta = useCallback(async (carpeta: CarpetaGaleria) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const data = await GaleriaWebService.getFotosPorCarpeta(carpeta);
-      setFotos(data);
-      setCarpetaActual(carpeta);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : `Error al cargar fotos de ${carpeta}`;
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -104,12 +88,8 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
       if (response.success) {
         toast.success(response.message || 'Foto subida exitosamente');
 
-        // Recargar fotos según la vista actual
-        if (carpetaActual === 'todas') {
-          await cargarTodasFotos();
-        } else {
-          await cargarFotosPorCarpeta(carpetaActual);
-        }
+        // Recargar todas las fotos
+        await cargarTodasFotos();
 
         return true;
       } else {
@@ -124,7 +104,7 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [carpetaActual, cargarTodasFotos, cargarFotosPorCarpeta]);
+  }, [cargarTodasFotos]);
 
   /**
    * Elimina una foto
@@ -139,12 +119,8 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
       if (response.success) {
         toast.success(response.message || 'Foto eliminada exitosamente');
 
-        // Recargar fotos según la vista actual
-        if (carpetaActual === 'todas') {
-          await cargarTodasFotos();
-        } else {
-          await cargarFotosPorCarpeta(carpetaActual);
-        }
+        // Recargar todas las fotos
+        await cargarTodasFotos();
 
         return true;
       } else {
@@ -159,29 +135,21 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [carpetaActual, cargarTodasFotos, cargarFotosPorCarpeta]);
+  }, [cargarTodasFotos]);
 
   /**
-   * Cambia la carpeta actual
+   * Cambia la carpeta actual (solo cambia el filtro, no recarga datos)
    */
   const cambiarCarpeta = useCallback((carpeta: CarpetaGaleria | 'todas') => {
-    if (carpeta === 'todas') {
-      cargarTodasFotos();
-    } else {
-      cargarFotosPorCarpeta(carpeta);
-    }
-  }, [cargarTodasFotos, cargarFotosPorCarpeta]);
+    setCarpetaActual(carpeta);
+  }, []);
 
   /**
-   * Recarga las fotos según la vista actual
+   * Recarga todas las fotos
    */
   const refetch = useCallback(async () => {
-    if (carpetaActual === 'todas') {
-      await cargarTodasFotos();
-    } else {
-      await cargarFotosPorCarpeta(carpetaActual);
-    }
-  }, [carpetaActual, cargarTodasFotos, cargarFotosPorCarpeta]);
+    await cargarTodasFotos();
+  }, [cargarTodasFotos]);
 
   // Carga inicial de todas las fotos
   useEffect(() => {
@@ -190,11 +158,11 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
 
   return {
     fotos,
+    fotosFiltradas,
     isLoading,
     error,
     carpetaActual,
     cargarTodasFotos,
-    cargarFotosPorCarpeta,
     subirFoto,
     eliminarFoto,
     cambiarCarpeta,

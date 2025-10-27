@@ -43,8 +43,32 @@ export function FotoCard({ foto, onEliminar, disabled }: FotoCardProps) {
   // Extraer nombre del archivo sin la carpeta
   const nombreSinCarpeta = foto.nombre_archivo.split('/').pop() || foto.nombre_archivo;
 
-  const handleDescargar = () => {
-    window.open(foto.url, '_blank');
+  const handleDescargar = async () => {
+    try {
+      // Descargar la imagen usando fetch y crear un blob
+      const response = await fetch(foto.url);
+      const blob = await response.blob();
+
+      // Crear URL temporal del blob
+      const blobUrl = window.URL.createObjectURL(blob);
+
+      // Crear elemento <a> temporal para descargar
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = nombreSinCarpeta; // Nombre del archivo para descargar
+      document.body.appendChild(link);
+
+      // Disparar la descarga
+      link.click();
+
+      // Limpiar
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error('Error al descargar la imagen:', error);
+      // Fallback: abrir en nueva pestaña
+      window.open(foto.url, '_blank');
+    }
   };
 
   return (
