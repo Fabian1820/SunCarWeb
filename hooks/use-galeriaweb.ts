@@ -12,6 +12,7 @@ import {
   EliminarFotoData
 } from '@/lib/types/feats/galeriaweb/galeriaweb-types';
 import { toast } from 'sonner';
+import { optimizarImagenParaWeb, PRESETS_OPTIMIZACION } from '@/lib/utils/image-optimizer';
 
 interface UseGaleriaWebReturn {
   // Estado
@@ -77,13 +78,28 @@ export function useGaleriaWeb(): UseGaleriaWebReturn {
 
   /**
    * Sube una nueva foto
+   * Optimiza la imagen antes de subirla (convierte a JPG, redimensiona y comprime)
    */
   const subirFoto = useCallback(async (data: SubirFotoData): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await GaleriaWebService.subirFoto(data);
+      // 1. Optimizar imagen antes de subir
+      toast.info('Optimizando imagen...', { duration: 2000 });
+
+      const fotoOptimizada = await optimizarImagenParaWeb(
+        data.foto,
+        PRESETS_OPTIMIZACION.galeria // Usa preset para galerías web
+      );
+
+      // 2. Subir foto optimizada
+      toast.info('Subiendo foto al servidor...', { duration: 2000 });
+
+      const response = await GaleriaWebService.subirFoto({
+        carpeta: data.carpeta,
+        foto: fotoOptimizada
+      });
 
       if (response.success) {
         toast.success(response.message || 'Foto subida exitosamente');

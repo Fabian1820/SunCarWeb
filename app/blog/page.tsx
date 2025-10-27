@@ -25,7 +25,7 @@ import { useBlog } from "@/hooks/use-blog"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { PageLoader } from "@/components/shared/atom/page-loader"
-import { Home, BookOpen, Plus, Search, AlertCircle } from "lucide-react"
+import { Home, BookOpen, Plus, Search, AlertCircle, ArrowLeft, Loader2 } from "lucide-react"
 import type { Blog, BlogFormData, Categoria, Estado } from "@/lib/blog-types"
 import { convertFormToRequest } from "@/lib/blog-types"
 
@@ -166,42 +166,48 @@ export default function BlogPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Fixed Header */}
-      <header className="fixed top-0 left-0 right-0 bg-white shadow-sm border-b border-orange-100 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+      {/* Header */}
+      <header className="fixed-header">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
               <Link href="/">
-                <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
-                  <Home className="h-5 w-5 mr-2" />
-                  Inicio
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
                 </Button>
               </Link>
-              <div className="flex items-center space-x-3">
-                <BookOpen className="h-8 w-8 text-purple-600" />
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Gestión de Blog</h1>
-                  <p className="text-sm text-gray-600">
-                    Administra artículos, noticias y contenido del blog
-                  </p>
-                </div>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Gestión de Blog
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    Contenido
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar artículos y contenido del blog</p>
               </div>
             </div>
-            <Button
-              onClick={() => setIsAddDialogOpen(true)}
-              className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Nuevo Blog
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsAddDialogOpen(true)}
+                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Blog
+              </Button>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Search and Filter Card */}
-        <Card className="mb-6 border-0 shadow-lg border-l-4 border-l-purple-600">
+      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="space-y-6">
+          {/* Search and Filter Card */}
+          <Card className="border-0 shadow-md border-l-4 border-l-purple-600">
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -275,37 +281,44 @@ export default function BlogPage() {
           </CardContent>
         </Card>
 
-        {/* Blog Table Card */}
-        <Card className="border-0 shadow-lg border-l-4 border-l-purple-600">
-          <CardHeader className="border-b border-gray-100">
-            <CardTitle className="text-xl font-semibold text-gray-900 flex items-center">
-              <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
-              Blogs
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-6">
-            <BlogTable
-              blogs={filteredBlogs}
-              onEdit={handleOpenEdit}
-              onDelete={handleDelete}
-            />
-          </CardContent>
-        </Card>
+          {/* Blog Table Card */}
+          <Card className="border-0 shadow-md border-l-4 border-l-purple-600">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-purple-600" />
+                Lista de Blogs
+                {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+              </CardTitle>
+              <CardDescription>
+                Mostrando {filteredBlogs.length} blog{filteredBlogs.length !== 1 ? "s" : ""}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BlogTable
+                blogs={filteredBlogs}
+                onEdit={handleOpenEdit}
+                onDelete={handleDelete}
+              />
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Create Dialog */}
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center text-xl">
                 <Plus className="h-5 w-5 mr-2 text-purple-600" />
                 Crear Nuevo Blog
               </DialogTitle>
             </DialogHeader>
-            <BlogForm
-              onSubmit={handleCreate}
-              onCancel={() => setIsAddDialogOpen(false)}
-              onValidarSlug={validarSlug}
-            />
+            <div className="overflow-y-auto flex-1 custom-scrollbar">
+              <BlogForm
+                onSubmit={handleCreate}
+                onCancel={() => setIsAddDialogOpen(false)}
+                onValidarSlug={validarSlug}
+              />
+            </div>
           </DialogContent>
         </Dialog>
 
@@ -317,25 +330,27 @@ export default function BlogPage() {
             if (!open) setEditingBlog(null)
           }}
         >
-          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader>
               <DialogTitle className="flex items-center text-xl">
                 <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
                 Editar Blog
               </DialogTitle>
             </DialogHeader>
-            {editingBlog && (
-              <BlogForm
-                initialData={editingBlog}
-                onSubmit={handleEdit}
-                onCancel={() => {
-                  setIsEditDialogOpen(false)
-                  setEditingBlog(null)
-                }}
-                isEditing
-                onValidarSlug={validarSlug}
-              />
-            )}
+            <div className="overflow-y-auto flex-1 custom-scrollbar">
+              {editingBlog && (
+                <BlogForm
+                  initialData={editingBlog}
+                  onSubmit={handleEdit}
+                  onCancel={() => {
+                    setIsEditDialogOpen(false)
+                    setEditingBlog(null)
+                  }}
+                  isEditing
+                  onValidarSlug={validarSlug}
+                />
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </main>

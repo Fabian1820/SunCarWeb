@@ -46,34 +46,36 @@ export function EliminarFotoDialog({
             <AlertTriangle className="h-5 w-5" />
             Confirmar Eliminación
           </AlertDialogTitle>
-          <AlertDialogDescription className="space-y-4">
-            <p className="text-base">
-              ¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer.
-            </p>
+          <AlertDialogDescription asChild>
+            <div className="space-y-4">
+              <p className="text-base">
+                ¿Estás seguro de que deseas eliminar esta foto? Esta acción no se puede deshacer.
+              </p>
 
-            {/* Vista previa de la foto a eliminar */}
-            <div className="space-y-2">
-              <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 border">
-                <Image
-                  src={foto.url}
-                  alt={nombreSinCarpeta}
-                  fill
-                  className="object-cover"
-                  unoptimized
-                />
-              </div>
-
-              {/* Información de la foto */}
-              <div className="space-y-1 bg-gray-50 p-3 rounded">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Nombre:</span>
-                  <span className="text-sm font-medium text-gray-700">{nombreSinCarpeta}</span>
+              {/* Vista previa de la foto a eliminar */}
+              <div className="space-y-2">
+                <div className="relative w-full h-48 rounded-lg overflow-hidden bg-gray-100 border">
+                  <Image
+                    src={foto.url}
+                    alt={nombreSinCarpeta}
+                    fill
+                    className="object-cover"
+                    unoptimized
+                  />
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Carpeta:</span>
-                  <span className="text-sm font-medium text-gray-700">
-                    {CARPETAS_INFO[foto.carpeta].label}
-                  </span>
+
+                {/* Información de la foto */}
+                <div className="space-y-1 bg-gray-50 p-3 rounded">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Nombre:</span>
+                    <span className="text-sm font-medium text-gray-700">{nombreSinCarpeta}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500">Carpeta:</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      {CARPETAS_INFO[foto.carpeta].label}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

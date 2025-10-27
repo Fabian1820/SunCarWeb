@@ -38,10 +38,28 @@ export function FileUpload({
   const dropZoneRef = useRef<HTMLDivElement>(null)
 
   const validateFile = useCallback((file: File): boolean => {
-    // Validar tipo de archivo
-    if (accept && !file.type.match(accept.replace(/\*/g, ".*"))) {
-      toast.error("Tipo de archivo no válido")
-      return false
+    // Si accept es "image/*", aceptar cualquier archivo de imagen por extensión
+    if (accept === 'image/*') {
+      const extensionesImagen = [
+        '.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg',
+        '.heic', '.heif', '.tiff', '.tif', '.ico', '.avif'
+      ];
+
+      const extension = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      const esImagen = extensionesImagen.includes(extension) ||
+                       (file.type && file.type.startsWith('image/'));
+
+      if (!esImagen) {
+        toast.error("Por favor selecciona un archivo de imagen")
+        return false
+      }
+    } else if (accept) {
+      // Para otros tipos de accept, validar normalmente
+      const tieneTipoMimeValido = file.type && file.type.match(accept.replace(/\*/g, ".*"))
+      if (!tieneTipoMimeValido) {
+        toast.error("Tipo de archivo no válido")
+        return false
+      }
     }
 
     // Validar tamaño
@@ -160,7 +178,7 @@ export function FileUpload({
           ref={fileInputRef}
           id={id}
           type="file"
-          accept={accept}
+          accept={accept === 'image/*' ? 'image/*,.heic,.heif' : accept}
           onChange={handleFileInputChange}
           className="hidden"
           disabled={disabled}

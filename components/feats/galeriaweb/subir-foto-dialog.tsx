@@ -67,19 +67,19 @@ export function SubirFotoDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            <Upload className="h-6 w-6 text-suncar-primary" />
+            <Upload className="h-6 w-6 text-pink-600" />
             Subir Nueva Foto
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1 custom-scrollbar">
           {/* Selector de carpeta */}
           <div className="space-y-3">
             <Label htmlFor="carpeta" className="text-base font-semibold flex items-center gap-2">
-              <FolderOpen className="h-5 w-5 text-suncar-primary" />
+              <FolderOpen className="h-5 w-5 text-pink-600" />
               Carpeta de Destino *
             </Label>
             <Select
@@ -103,9 +103,9 @@ export function SubirFotoDialog({
             </Select>
 
             {/* Descripción de carpeta seleccionada */}
-            <Alert className="bg-blue-50 border-blue-200">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-sm text-blue-800">
+            <Alert className="bg-pink-50 border-pink-200">
+              <Info className="h-4 w-4 text-pink-600" />
+              <AlertDescription className="text-sm text-pink-800">
                 {CARPETAS_INFO[carpeta].descripcion}
               </AlertDescription>
             </Alert>
@@ -124,25 +124,14 @@ export function SubirFotoDialog({
               onChange={setFoto}
               disabled={isUploading}
               maxSizeInMB={10}
-              showPreview={true}
+              showPreview={false}
               className="min-h-[250px]"
             />
 
-            {/* Información adicional */}
-            <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-              <p className="text-sm font-medium text-gray-700">Formatos aceptados:</p>
-              <div className="flex flex-wrap gap-2">
-                {CONTENT_TYPES_VALIDOS.map((type) => (
-                  <span
-                    key={type}
-                    className="px-2 py-1 bg-white border border-gray-200 rounded text-xs text-gray-600"
-                  >
-                    {type.replace('image/', '').toUpperCase()}
-                  </span>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-2">
-                Tamaño máximo: 10 MB
+            {/* Información sobre optimización */}
+            <div className="bg-blue-50 p-3 rounded-lg">
+              <p className="text-sm text-blue-800">
+                ✨ <strong>Optimización automática:</strong> Todas las imágenes se convertirán a JPG y se optimizarán para web antes de subir.
               </p>
             </div>
           </div>
@@ -179,7 +168,7 @@ export function SubirFotoDialog({
           <Button
             onClick={handleSubir}
             disabled={!foto || isUploading}
-            className="bg-suncar-primary hover:bg-suncar-primary/90"
+            className="bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800"
           >
             {isUploading ? (
               <>
