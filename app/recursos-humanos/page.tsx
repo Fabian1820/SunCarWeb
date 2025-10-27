@@ -149,13 +149,20 @@ export default function RecursosHumanosPage() {
   }
 
   // Función helper para calcular salario (igual que en la tabla)
-  const calcularSalario = (trabajador: any, montoTotal: number, totalTrabajadores: number): number => {
+  const calcularSalario = (trabajador: any, montoTotal: number, totalTrabajadores: number, trabajadoresDestacados: number): number => {
     if (!trabajador.salario_fijo || !trabajador.dias_trabajables) return 0
     
     const diasTrabajados = trabajador.dias_trabajables - (trabajador.dias_no_trabajados?.length || 0)
     const salarioProporcional = (trabajador.salario_fijo / trabajador.dias_trabajables) * diasTrabajados
-    const estimuloFijo = salarioProporcional * ((trabajador.porcentaje_fijo_estimulo || 0) / 100)
-    const estimuloVariable = (montoTotal * ((trabajador.porcentaje_variable_estimulo || 0) / 100)) / totalTrabajadores
+    
+    // Estímulo fijo: 75% del total × porcentaje individual del trabajador
+    const estimuloFijo = montoTotal * 0.75 * ((trabajador.porcentaje_fijo_estimulo || 0) / 100)
+    
+    // Estímulo variable: 25% del total × porcentaje individual del trabajador
+    const estimuloVariable = trabajador.porcentaje_variable_estimulo > 0 
+      ? montoTotal * 0.25 * ((trabajador.porcentaje_variable_estimulo || 0) / 100)
+      : 0
+    
     const salarioTotal = salarioProporcional + estimuloFijo + estimuloVariable + (trabajador.alimentacion || 0)
     
     return salarioTotal
@@ -181,7 +188,7 @@ export default function RecursosHumanosPage() {
       data: trabajadores.map(t => ({
         ...t,
         dias_no_trabajados_count: t.dias_no_trabajados?.length || 0,
-        salario_total: calcularSalario(t, ultimoIngreso?.monto || 0, trabajadores.length)
+        salario_total: calcularSalario(t, ultimoIngreso?.monto || 0, trabajadores.length, trabajadores.filter(tr => tr.porcentaje_variable_estimulo > 0).length)
       }))
     }
   }

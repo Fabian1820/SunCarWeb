@@ -6,6 +6,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Check, Calendar, Trash2 } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
+import { toast } from "sonner"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 
 interface RecursosHumanosTableProps {
@@ -17,36 +18,53 @@ interface RecursosHumanosTableProps {
   onEliminarTrabajador?: (ci: string, nombre: string) => Promise<void>
 }
 
-// Función para calcular el salario de un trabajador según la documentación API
+// Función para calcular el salario de un trabajador según la nueva especificación
 function calcularSalario(
   trabajador: TrabajadorRRHH,
   montoTotalEstimulos: number,
-  totalTrabajadores: number
+  totalTrabajadores: number,
+  trabajadoresDestacados: number
 ): number | null {
   // Validar que todos los datos estén completos
-  if (trabajador.salario_fijo === undefined ||
-      trabajador.alimentacion === undefined ||
-      trabajador.dias_trabajables === undefined ||
-      trabajador.dias_no_trabajados === undefined ||
-      trabajador.porcentaje_fijo_estimulo === undefined ||
-      trabajador.porcentaje_variable_estimulo === undefined ||
-      montoTotalEstimulos <= 0 ||
+  if (trabajador.salario_fijo === undefined || trabajador.salario_fijo === null ||
+      trabajador.alimentacion === undefined || trabajador.alimentacion === null ||
+      trabajador.dias_trabajables === undefined || trabajador.dias_trabajables === null ||
+      trabajador.dias_no_trabajados === undefined || trabajador.dias_no_trabajados === null ||
+      trabajador.porcentaje_fijo_estimulo === undefined || trabajador.porcentaje_fijo_estimulo === null ||
+      trabajador.porcentaje_variable_estimulo === undefined || trabajador.porcentaje_variable_estimulo === null ||
+      montoTotalEstimulos < 0 ||
       totalTrabajadores <= 0) {
+    console.log('❌ Datos incompletos para calcular salario:', {
+      salario_fijo: trabajador.salario_fijo,
+      alimentacion: trabajador.alimentacion,
+      dias_trabajables: trabajador.dias_trabajables,
+      dias_no_trabajados: trabajador.dias_no_trabajados,
+      porcentaje_fijo_estimulo: trabajador.porcentaje_fijo_estimulo,
+      porcentaje_variable_estimulo: trabajador.porcentaje_variable_estimulo,
+      montoTotalEstimulos,
+      totalTrabajadores
+    })
     return null
   }
 
-  // Cálculo según la documentación API (líneas 611-636)
+  // Cálculo según la nueva especificación
   // Días efectivamente trabajados
   const diasTrabajados = trabajador.dias_trabajables - trabajador.dias_no_trabajados.length
 
   // Salario proporcional a días trabajados
   const salarioProporcional = (trabajador.salario_fijo / trabajador.dias_trabajables) * diasTrabajados
 
-  // Estímulo fijo (porcentaje sobre el salario proporcional)
-  const estimuloFijo = salarioProporcional * (trabajador.porcentaje_fijo_estimulo / 100)
+  // Calcular trabajadores destacados (porcentaje_variable_estimulo > 0)
+  // Ya se pasa como parámetro
 
-  // Estímulo variable (porcentaje del ingreso mensual dividido entre todos los trabajadores)
-  const estimuloVariable = (montoTotalEstimulos * (trabajador.porcentaje_variable_estimulo / 100)) / totalTrabajadores
+  // Estímulo fijo: 75% del total × porcentaje individual del trabajador
+  const estimuloFijo = montoTotalEstimulos * 0.75 * (trabajador.porcentaje_fijo_estimulo / 100)
+
+  // Estímulo variable: 25% del total × porcentaje individual del trabajador
+  // Solo se aplica si el trabajador es destacado (porcentaje_variable_estimulo > 0)
+  const estimuloVariable = trabajador.porcentaje_variable_estimulo > 0 
+    ? montoTotalEstimulos * 0.25 * (trabajador.porcentaje_variable_estimulo / 100)
+    : 0
 
   // Total: salario proporcional + estímulos + alimentación completa
   const salarioTotal = salarioProporcional + estimuloFijo + estimuloVariable + trabajador.alimentacion
@@ -72,11 +90,50 @@ export function RecursosHumanosTableFinal({
 
   // Recalcular salarios cuando cambien los datos
   useEffect(() => {
+    console.log('🔄 Recalculando salarios...', { 
+      trabajadoresCount: trabajadores.length, 
+      montoTotalEstimulos 
+    })
+    
     const nuevosSalarios: Record<string, number | null> = {}
     const totalTrabajadores = trabajadores.length
+    
+    // Calcular trabajadores destacados (porcentaje_variable_estimulo > 0)
+    const trabajadoresDestacados = trabajadores.filter(t => t.porcentaje_variable_estimulo > 0).length
+    
+    // Validar suma de porcentajes
+    const sumaPorcentajesFijos = trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0)
+    const sumaPorcentajesVariables = trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0)
+    
+    console.log('📊 Validación de porcentajes:', {
+      sumaFijos: sumaPorcentajesFijos,
+      sumaVariables: sumaPorcentajesVariables,
+      excedeFijos: sumaPorcentajesFijos > 100,
+      excedeVariables: sumaPorcentajesVariables > 100
+    })
+    
+    // Mostrar alertas si excede el 100%
+    if (sumaPorcentajesFijos > 100) {
+      console.warn('⚠️ La suma de porcentajes fijos excede el 100%:', sumaPorcentajesFijos + '%')
+      toast.error(`⚠️ La suma de porcentajes fijos excede el 100%: ${sumaPorcentajesFijos.toFixed(1)}%`, {
+        duration: 5000,
+        description: 'Ajusta los porcentajes para que no excedan el 100% en total'
+      })
+    }
+    if (sumaPorcentajesVariables > 100) {
+      console.warn('⚠️ La suma de porcentajes variables excede el 100%:', sumaPorcentajesVariables + '%')
+      toast.error(`⚠️ La suma de porcentajes variables excede el 100%: ${sumaPorcentajesVariables.toFixed(1)}%`, {
+        duration: 5000,
+        description: 'Ajusta los porcentajes para que no excedan el 100% en total'
+      })
+    }
+    
+    console.log('👥 Trabajadores destacados:', trabajadoresDestacados, 'de', totalTrabajadores)
 
     trabajadores.forEach(trabajador => {
-      nuevosSalarios[trabajador.CI] = calcularSalario(trabajador, montoTotalEstimulos, totalTrabajadores)
+      const salario = calcularSalario(trabajador, montoTotalEstimulos, totalTrabajadores, trabajadoresDestacados)
+      nuevosSalarios[trabajador.CI] = salario
+      console.log(`💰 Salario calculado para ${trabajador.nombre}:`, salario)
     })
     setSalariosCalculados(nuevosSalarios)
   }, [trabajadores, montoTotalEstimulos])
@@ -344,6 +401,59 @@ export function RecursosHumanosTableFinal({
                 </tr>
               )
             })}
+            
+            {/* Fila de totales */}
+            <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
+              <td colSpan={2} className="py-3 px-4 text-center">
+                <span className="text-gray-700">TOTALES</span>
+              </td>
+              <td className="py-3 px-4 text-center">
+                <span className="text-blue-600">
+                  {trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0).toFixed(1)}%
+                </span>
+                {trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0) > 100 && (
+                  <span className="text-red-500 ml-2">⚠️</span>
+                )}
+              </td>
+              <td className="py-3 px-4 text-center">
+                <span className="text-purple-600">
+                  {trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0).toFixed(1)}%
+                </span>
+                {trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0) > 100 && (
+                  <span className="text-red-500 ml-2">⚠️</span>
+                )}
+              </td>
+              <td className="py-3 px-4 text-center">
+                <span className="text-gray-600">
+                  {trabajadores.reduce((sum, t) => sum + (t.salario_fijo || 0), 0).toFixed(2)}
+                </span>
+              </td>
+              <td className="py-3 px-4 text-center">
+                <span className="text-gray-600">
+                  {trabajadores.reduce((sum, t) => sum + (t.alimentacion || 0), 0).toFixed(2)}
+                </span>
+              </td>
+              <td className="py-3 px-4 text-center">
+                <span className="text-gray-600">
+                  {trabajadores.reduce((sum, t) => sum + (t.dias_trabajables || 0), 0)}
+                </span>
+              </td>
+              <td className="py-3 px-4 text-center">
+                <span className="text-gray-600">
+                  {trabajadores.reduce((sum, t) => sum + (t.dias_no_trabajados?.length || 0), 0)}
+                </span>
+              </td>
+              <td className="py-3 px-4 text-center bg-green-100">
+                <span className="font-bold text-green-800 text-lg">
+                  ${Object.values(salariosCalculados).reduce((sum, salario) => sum + (salario || 0), 0).toFixed(2)}
+                </span>
+              </td>
+              {onEliminarTrabajador && (
+                <td className="py-3 px-4 text-center">
+                  <span className="text-gray-400">-</span>
+                </td>
+              )}
+            </tr>
           </tbody>
         </table>
       </div>

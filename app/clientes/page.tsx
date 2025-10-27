@@ -60,10 +60,21 @@ export default function ClientesPage() {
   const fetchClients = useCallback(async () => {
     setLoading(true)
     try {
-      const params: { nombre?: string } = {}
-      if (searchTerm.trim()) params.nombre = searchTerm.trim()
-      const data = await ClienteService.getClientes(params)
-      setClients(Array.isArray(data) ? data : [])
+      // Primero obtener todos los clientes
+      const allClients = await ClienteService.getClientes({})
+      
+      // Si hay término de búsqueda, filtrar en el frontend
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase().trim()
+        const filteredClients = allClients.filter(cliente => 
+          cliente.nombre.toLowerCase().includes(searchLower) ||
+          cliente.numero.toLowerCase().includes(searchLower) ||
+          cliente.direccion.toLowerCase().includes(searchLower)
+        )
+        setClients(filteredClients)
+      } else {
+        setClients(allClients)
+      }
     } catch (error: unknown) {
       console.error('Error cargando clientes:', error)
       setClients([])
@@ -277,13 +288,13 @@ export default function ClientesPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="search-client" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Buscar por nombre
+                  Buscar cliente
                 </Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="search-client"
-                    placeholder="Buscar por nombre..."
+                    placeholder="Buscar por nombre, código o dirección..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
