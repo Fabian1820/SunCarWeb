@@ -23,7 +23,8 @@ import {
   Package,
   CreditCard,
   Percent,
-  Tag
+  Tag,
+  FileText
 } from "lucide-react"
 import {
   AlertDialog,
@@ -213,6 +214,18 @@ export default function OfertasList({
                   <div className="w-full aspect-square mb-4 rounded-lg bg-gray-100 flex items-center justify-center">
                     <ImageIcon className="h-8 w-8 text-gray-400" />
                   </div>
+                )}
+
+                {oferta.pdf && (
+                  <a
+                    href={oferta.pdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-blue-600 underline mb-4"
+                  >
+                    <FileText className="h-4 w-4" />
+                    Ver ficha técnica (PDF)
+                  </a>
                 )}
 
                 {/* Botones de acción */}

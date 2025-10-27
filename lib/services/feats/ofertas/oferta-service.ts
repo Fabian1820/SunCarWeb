@@ -61,6 +61,10 @@ export class OfertaService {
       formData.append('imagen', ofertaData.imagen)
     }
 
+    if (ofertaData.pdf) {
+      formData.append('pdf', ofertaData.pdf, ofertaData.pdf.name)
+    }
+
     formData.append('garantias', JSON.stringify(ofertaData.garantias || []))
 
     const response = await apiRequest<{ success: boolean; message: string; oferta_id: string }>('/ofertas/', {
@@ -107,6 +111,10 @@ export class OfertaService {
 
     if (ofertaData.imagen) {
       formData.append('imagen', ofertaData.imagen)
+    }
+
+    if (ofertaData.pdf) {
+      formData.append('pdf', ofertaData.pdf, ofertaData.pdf.name)
     }
 
     if (ofertaData.garantias !== undefined) {

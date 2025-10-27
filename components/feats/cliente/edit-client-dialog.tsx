@@ -92,15 +92,6 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
     return ""
   }
 
-  const convertDateFromInput = (value: string): string => {
-    if (!value) return ""
-    if (value.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = value.split("-")
-      return `${day}/${month}/${year}`
-    }
-    return value
-  }
-
   // Reset cuando cambia el campo seleccionado
   useEffect(() => {
     if (!selectedField || !client) return
@@ -152,25 +143,34 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
     if (!fieldConfig) return
 
     // Construir el objeto de actualización con SOLO el campo seleccionado
-    const updateData: ClienteUpdateData = {}
+    const updateData: Record<string, unknown> = {}
 
     if (fieldConfig.type === 'date') {
-      updateData[selectedField as keyof ClienteUpdateData] = fieldValue as never
+      updateData[selectedField] = fieldValue
+      console.log('Enviando fecha:', { campo: selectedField, valor: fieldValue })
     } else if (fieldConfig.type === 'datetime') {
-      updateData.fecha_instalacion = fechaInstalacion ? fechaInstalacion.toISOString() : undefined as never
+      const isoDate = fechaInstalacion ? fechaInstalacion.toISOString() : undefined
+      updateData['fecha_instalacion'] = isoDate
+      console.log('Enviando datetime:', { campo: 'fecha_instalacion', valor: isoDate })
     } else if (fieldConfig.type === 'location') {
-      updateData.latitud = latLng.lat || undefined as never
-      updateData.longitud = latLng.lng || undefined as never
+      updateData['latitud'] = latLng.lat || undefined
+      updateData['longitud'] = latLng.lng || undefined
+      console.log('Enviando ubicación:', { latitud: latLng.lat, longitud: latLng.lng })
     } else if (fieldConfig.type === 'ofertas') {
-      updateData.ofertas = ofertas as never
+      updateData['ofertas'] = ofertas
+      console.log('Enviando ofertas:', { campo: 'ofertas', valor: ofertas })
     } else if (fieldConfig.type === 'elementos') {
-      updateData.elementos_personalizados = elementosPersonalizados as never
+      updateData['elementos_personalizados'] = elementosPersonalizados
+      console.log('Enviando elementos:', { campo: 'elementos_personalizados', valor: elementosPersonalizados })
     } else {
-      updateData[selectedField as keyof ClienteUpdateData] = fieldValue as never
+      updateData[selectedField] = fieldValue
+      console.log('Enviando campo:', { campo: selectedField, valor: fieldValue })
     }
 
+    console.log('Objeto completo de actualización:', updateData)
+
     try {
-      await onSubmit(updateData)
+      await onSubmit(updateData as ClienteUpdateData)
       onOpenChange(false)
     } catch (error) {
       console.error('Error al actualizar cliente:', error)

@@ -29,6 +29,7 @@ export interface Oferta {
   precio_cliente?: number | null
   marca?: string | null
   imagen?: string | null
+  pdf?: string | null
   moneda?: string | null
   financiamiento?: boolean
   descuentos?: string | null
@@ -44,6 +45,7 @@ export interface OfertaSimplificada {
   precio_cliente?: number | null
   marca?: string | null
   imagen?: string | null
+  pdf?: string | null
   moneda?: string | null
   financiamiento?: boolean
   descuentos?: string | null
@@ -59,6 +61,7 @@ export interface CreateOfertaRequest {
   financiamiento?: boolean
   descuentos?: string | null
   imagen?: File | null
+  pdf?: File | null
   garantias: string[]
 }
 
