@@ -4,18 +4,10 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Input } from "@/components/shared/molecule/input"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/shared/molecule/dropdown-menu"
 import {
   Plus,
-  Search,
-  MoreHorizontal,
   Eye,
+  EyeOff,
   Edit,
   Trash2,
   DollarSign,
@@ -24,7 +16,8 @@ import {
   CreditCard,
   Percent,
   Tag,
-  FileText
+  FileText,
+  Loader2
 } from "lucide-react"
 import {
   AlertDialog,
@@ -39,6 +32,7 @@ import {
 } from "@/components/shared/atom/alert-dialog"
 import type { Oferta } from "@/lib/api-types"
 import { Loader } from "@/components/shared/atom/loader"
+import { Switch } from "@/components/shared/molecule/switch"
 
 interface OfertasListProps {
   ofertas: Oferta[]
@@ -48,6 +42,7 @@ interface OfertasListProps {
   onEdit: (oferta: Oferta) => void
   onManageElements: (oferta: Oferta) => void
   onDelete: (ofertaId: string) => void
+  onToggleVisibility: (oferta: Oferta, nextStatus: boolean) => Promise<boolean>
   searchTerm?: string
   minPrice?: number
   maxPrice?: number
@@ -62,11 +57,26 @@ export default function OfertasList({
   onEdit,
   onManageElements,
   onDelete,
+  onToggleVisibility,
   searchTerm = "",
   minPrice,
   maxPrice,
   selectedBrands = []
 }: OfertasListProps) {
+  const [updatingStatus, setUpdatingStatus] = useState<Record<string, boolean>>({})
+
+  const handleToggleVisibility = async (oferta: Oferta, checked: boolean) => {
+    setUpdatingStatus(prev => ({ ...prev, [oferta.id]: true }))
+    try {
+      await onToggleVisibility(oferta, checked)
+    } finally {
+      setUpdatingStatus(prev => {
+        const { [oferta.id]: _omit, ...rest } = prev
+        return rest
+      })
+    }
+  }
+
   // Filtrar ofertas por término de búsqueda avanzada y precios
   const filteredOfertas = ofertas.filter(oferta => {
     const matchesSearch = !searchTerm ||
@@ -126,17 +136,27 @@ export default function OfertasList({
           filteredOfertas.map((oferta) => (
             <Card key={oferta.id} className="border-0 shadow-lg hover:shadow-xl transition-shadow duration-200">
               <CardHeader className="pb-3">
-                <div className="flex justify-between items-start">
+                <div className="flex justify-between items-start gap-4">
                   <div className="flex-1 min-w-0">
-                  <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2">
-                    {oferta.descripcion}
-                  </CardTitle>
-                  <CardDescription className="mt-1 space-y-1">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Tag className="h-4 w-4 text-orange-500" />
-                      <span>{oferta.marca?.trim() || "Sin marca"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-2 flex flex-wrap items-center gap-2">
+                      <span className="break-words">{oferta.descripcion}</span>
+                      <Badge
+                        variant="secondary"
+                        className={
+                          oferta.is_active
+                            ? "bg-green-100 text-green-800 border-green-200"
+                            : "bg-gray-200 text-gray-700 border-gray-300"
+                        }
+                      >
+                        {oferta.is_active ? "Visible" : "Oculta"}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="mt-1 space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Tag className="h-4 w-4 text-orange-500" />
+                        <span>{oferta.marca?.trim() || "Sin marca"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         <span className="text-lg font-bold text-green-600">
                           {oferta.precio.toLocaleString()} {oferta.moneda?.toUpperCase() || 'USD'}
@@ -166,30 +186,51 @@ export default function OfertasList({
                       </div>
                     </CardDescription>
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>¿Eliminar oferta?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta acción no se puede deshacer. La oferta "{oferta.descripcion}" será eliminada permanentemente.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => onDelete(oferta.id)}
-                          className="bg-red-600 hover:bg-red-700"
-                        >
-                          Eliminar
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                  <div className="flex flex-col items-end gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 text-sm text-gray-600">
+                        {oferta.is_active ? (
+                          <Eye className="h-4 w-4 text-green-600" />
+                        ) : (
+                          <EyeOff className="h-4 w-4 text-gray-500" />
+                        )}
+                        <span>{oferta.is_active ? "Visible" : "Oculta"}</span>
+                      </div>
+                      <Switch
+                        checked={oferta.is_active}
+                        onCheckedChange={(checked) => handleToggleVisibility(oferta, checked)}
+                        disabled={!!updatingStatus[oferta.id]}
+                        aria-label={`Alternar visibilidad de ${oferta.descripcion}`}
+                      />
+                      {updatingStatus[oferta.id] && (
+                        <Loader2 className="h-4 w-4 animate-spin text-orange-600" />
+                      )}
+                    </div>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Eliminar oferta?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Esta acción no se puede deshacer. La oferta "{oferta.descripcion}" será eliminada permanentemente.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => onDelete(oferta.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                          >
+                            Eliminar
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardHeader>
 

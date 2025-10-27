@@ -35,6 +35,7 @@ export interface Oferta {
   descuentos?: string | null
   garantias: string[]
   elementos: ElementoOferta[]
+  is_active: boolean
 }
 
 export interface OfertaSimplificada {
@@ -49,6 +50,7 @@ export interface OfertaSimplificada {
   moneda?: string | null
   financiamiento?: boolean
   descuentos?: string | null
+  is_active: boolean
 }
 
 export interface CreateOfertaRequest {
@@ -63,6 +65,7 @@ export interface CreateOfertaRequest {
   imagen?: File | null
   pdf?: File | null
   garantias: string[]
+  is_active?: boolean
 }
 
 export type UpdateOfertaRequest = Partial<CreateOfertaRequest>

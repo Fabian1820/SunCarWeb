@@ -57,6 +57,10 @@ export class OfertaService {
       formData.append('descuentos', ofertaData.descuentos)
     }
 
+    if (ofertaData.is_active !== undefined) {
+      formData.append('is_active', ofertaData.is_active ? 'true' : 'false')
+    }
+
     if (ofertaData.imagen) {
       formData.append('imagen', ofertaData.imagen)
     }
@@ -109,6 +113,10 @@ export class OfertaService {
       formData.append('descuentos', ofertaData.descuentos)
     }
 
+    if (ofertaData.is_active !== undefined) {
+      formData.append('is_active', ofertaData.is_active ? 'true' : 'false')
+    }
+
     if (ofertaData.imagen) {
       formData.append('imagen', ofertaData.imagen)
     }
@@ -126,6 +134,21 @@ export class OfertaService {
       body: formData,
     })
     return response.success === true
+  }
+
+  static async updateOfertaStatus(ofertaId: string, isActive: boolean): Promise<{ success: boolean; is_active?: boolean }> {
+    const response = await apiRequest<{ success: boolean; message?: string; data?: { is_active: boolean } }>(
+      `/ofertas/${ofertaId}/status`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: isActive }),
+      }
+    )
+
+    return {
+      success: response.success === true,
+      is_active: response.data?.is_active,
+    }
   }
 
   static async deleteOferta(ofertaId: string): Promise<boolean> {
