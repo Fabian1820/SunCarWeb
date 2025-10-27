@@ -19,6 +19,7 @@ export interface UseOfertasReturn {
   eliminarElemento: (ofertaId: string, elementoIndex: number) => Promise<boolean>
   editarElemento: (ofertaId: string, elementoIndex: number, elemento: UpdateElementoRequest) => Promise<boolean>
   actualizarOfertaLocal: (ofertaId: string) => Promise<void>
+  actualizarEstadoOferta: (ofertaId: string, isActive: boolean) => Promise<boolean>
 }
 
 export function useOfertas(): UseOfertasReturn {
@@ -182,6 +183,33 @@ export function useOfertas(): UseOfertasReturn {
     }
   }
 
+  const actualizarEstadoOferta = async (ofertaId: string, isActive: boolean): Promise<boolean> => {
+    try {
+      setError(null)
+      const { success, is_active } = await OfertaService.updateOfertaStatus(ofertaId, isActive)
+
+      if (success) {
+        const estado = typeof is_active === 'boolean' ? is_active : isActive
+
+        setOfertas(prev =>
+          prev.map(oferta => (oferta.id === ofertaId ? { ...oferta, is_active: estado } : oferta))
+        )
+        setOfertasSimplificadas(prev =>
+          prev.map(oferta => (oferta.id === ofertaId ? { ...oferta, is_active: estado } : oferta))
+        )
+
+        return true
+      } else {
+        setError('No se pudo actualizar el estado de la oferta')
+        return false
+      }
+    } catch (err: any) {
+      console.error('Error al actualizar estado de oferta:', err)
+      setError(err.message || 'Error al actualizar el estado de la oferta')
+      return false
+    }
+  }
+
   // Actualizar una oferta específica en el estado local
   const actualizarOfertaLocal = async (ofertaId: string): Promise<void> => {
     try {
@@ -214,6 +242,7 @@ export function useOfertas(): UseOfertasReturn {
     agregarElemento,
     eliminarElemento,
     editarElemento,
-    actualizarOfertaLocal
+    actualizarOfertaLocal,
+    actualizarEstadoOferta
   }
 }

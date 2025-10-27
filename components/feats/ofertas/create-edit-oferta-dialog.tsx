@@ -56,6 +56,7 @@ export default function CreateEditOfertaDialog({
     financiamiento: false,
     descuentos: null,
     imagen: null,
+    pdf: null,
     garantias: []
   })
 
@@ -75,6 +76,7 @@ export default function CreateEditOfertaDialog({
         financiamiento: oferta.financiamiento || false,
         descuentos: oferta.descuentos || null,
         imagen: null, // No podemos pre-cargar un File desde URL
+        pdf: null,
         garantias: [...oferta.garantias]
       })
     } else if (isOpen) {
@@ -89,6 +91,7 @@ export default function CreateEditOfertaDialog({
         financiamiento: false,
         descuentos: null,
         imagen: null,
+        pdf: null,
         garantias: []
       })
     }
@@ -292,6 +295,25 @@ export default function CreateEditOfertaDialog({
                 currentImageUrl={isEditMode && oferta?.imagen && !formData.imagen ? oferta.imagen : undefined}
                 disabled={saving}
               />
+
+              <FileUpload
+                id="pdf"
+                label="Ficha técnica (PDF opcional)"
+                accept="application/pdf"
+                value={formData.pdf || null}
+                onChange={(file) => setFormData(prev => ({ ...prev, pdf: file }))}
+                maxSizeInMB={20}
+                showPreview={false}
+                disabled={saving}
+              />
+              {isEditMode && oferta?.pdf && !formData.pdf && (
+                <div className="text-sm text-blue-600">
+                  <a href={oferta.pdf} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 underline">
+                    <FileText className="h-4 w-4" />
+                    Ver PDF actual
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
 

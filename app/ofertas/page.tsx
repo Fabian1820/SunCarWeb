@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/shared/atom/button"
 import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search, Tag } from "lucide-react"
 import { useOfertas } from "@/hooks/use-ofertas"
-import { toast } from "sonner"
 import { useToast } from "@/hooks/use-toast"
 import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
@@ -27,7 +26,8 @@ export default function OfertasPage() {
     crearOferta,
     actualizarOferta,
     eliminarOferta,
-    actualizarOfertaLocal
+    actualizarOfertaLocal,
+    actualizarEstadoOferta
   } = useOfertas()
   
   const { toast: toastNotification } = useToast()
@@ -137,6 +137,32 @@ export default function OfertasPage() {
       toastNotification({
         title: "Error",
         description: "Error al eliminar la oferta",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleToggleVisibility = async (oferta: Oferta, nextStatus: boolean) => {
+    try {
+      const success = await actualizarEstadoOferta(oferta.id, nextStatus)
+      if (success) {
+        toastNotification({
+          title: "Visibilidad actualizada",
+          description: nextStatus
+            ? "La oferta ahora es visible para todos los usuarios."
+            : "La oferta se ocultó del catálogo.",
+        })
+      } else {
+        toastNotification({
+          title: "Error",
+          description: "No se pudo actualizar la visibilidad de la oferta",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      toastNotification({
+        title: "Error",
+        description: "Error al actualizar la visibilidad de la oferta",
         variant: "destructive",
       })
     }
@@ -395,6 +421,7 @@ export default function OfertasPage() {
           onEdit={handleEdit}
           onManageElements={handleManageElements}
           onDelete={handleDelete}
+          onToggleVisibility={handleToggleVisibility}
           searchTerm={searchTerm}
           minPrice={minPrice}
           maxPrice={maxPrice}

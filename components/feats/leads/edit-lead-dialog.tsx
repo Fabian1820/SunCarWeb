@@ -130,20 +130,27 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     if (!fieldConfig) return
 
     // Construir el objeto de actualización con SOLO el campo seleccionado
-    const updateData: LeadUpdateData = {}
+    const updateData: Record<string, unknown> = {}
 
     if (fieldConfig.type === 'date') {
-      updateData[selectedField as keyof LeadUpdateData] = convertDateFromInput(fieldValue) as never
+      const dateValue = convertDateFromInput(fieldValue)
+      updateData[selectedField] = dateValue
+      console.log('Enviando fecha:', { campo: selectedField, valor: dateValue })
     } else if (fieldConfig.type === 'ofertas') {
-      updateData.ofertas = ofertas as never
+      updateData['ofertas'] = ofertas
+      console.log('Enviando ofertas:', { campo: 'ofertas', valor: ofertas })
     } else if (fieldConfig.type === 'elementos') {
-      updateData.elementos_personalizados = elementosPersonalizados as never
+      updateData['elementos_personalizados'] = elementosPersonalizados
+      console.log('Enviando elementos:', { campo: 'elementos_personalizados', valor: elementosPersonalizados })
     } else {
-      updateData[selectedField as keyof LeadUpdateData] = fieldValue as never
+      updateData[selectedField] = fieldValue
+      console.log('Enviando campo:', { campo: selectedField, valor: fieldValue })
     }
 
+    console.log('Objeto completo de actualización:', updateData)
+
     try {
-      await onSubmit(updateData)
+      await onSubmit(updateData as LeadUpdateData)
       onOpenChange(false)
     } catch (error) {
       console.error('Error al actualizar lead:', error)

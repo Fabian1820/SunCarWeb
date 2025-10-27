@@ -130,6 +130,20 @@ export default function OfertaDetailsDialog({
                   <p className="text-gray-500">Sin imagen</p>
                 </div>
               )}
+
+              {oferta.pdf && (
+                <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <FileText className="h-4 w-4" />
+                  <a
+                    href={oferta.pdf}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    Ver ficha técnica (PDF)
+                  </a>
+                </div>
+              )}
             </CardContent>
           </Card>
 
