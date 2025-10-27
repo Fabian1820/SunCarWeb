@@ -19,7 +19,8 @@ import {
     Tag,
     ClipboardList,
     Briefcase,
-    BookOpen
+    BookOpen,
+    Image
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
@@ -123,6 +124,14 @@ export default function Dashboard() {
             title: 'Blog',
             description: 'Gestión de artículos y noticias.',
             color: 'purple-600',
+        },
+        {
+            id: 'galeriaweb',
+            href: '/galeriaweb',
+            icon: Image,
+            title: 'Galería Web',
+            description: 'Gestión de imágenes para el sitio web.',
+            color: 'pink-600',
         },
     ]
 

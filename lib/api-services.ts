@@ -13,3 +13,4 @@ export { OrdenTrabajoService } from './services/feats/ordenes-trabajo/orden-trab
 export { RecursosHumanosService } from './services/feats/recursos-humanos/recursos-humanos-service'
 export { IngresoMensualService } from './services/feats/recursos-humanos/ingreso-mensual-service'
 export { BlogService } from './services/feats/blog/blog-service'
+export { GaleriaWebService } from './services/feats/galeriaweb/galeriaweb-service'

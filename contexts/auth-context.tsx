@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       'Especialista en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'materiales'],
       'Técnico en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'materiales'],
       'Técnico Comercial': ['leads', 'clientes', 'ofertas', 'materiales'],
-      'Especialista en Redes y Sistemas': ['blog'],
+      'Especialista en Redes y Sistemas': ['blog', 'galeriaweb'],
       'Jefe de Operaciones': ['brigadas', 'trabajadores', 'materiales', 'clientes', 'ordenes-trabajo'],
     }
     
