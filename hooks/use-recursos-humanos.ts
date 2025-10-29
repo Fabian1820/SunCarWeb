@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { RecursosHumanosService, IngresoMensualService, TrabajadorService } from '@/lib/api-services'
+import { AsistenciaService } from '@/lib/services/asistencia-service'
 import type {
   TrabajadorRRHH,
   IngresoMensual,
@@ -12,9 +13,38 @@ export function useRecursosHumanos() {
   const [trabajadores, setTrabajadores] = useState<TrabajadorRRHH[]>([])
   const [ultimoIngreso, setUltimoIngreso] = useState<IngresoMensual | null>(null)
   const [cargos, setCargos] = useState<CargosResumen[]>([])
+  const [estadoAsistencia, setEstadoAsistencia] = useState<Map<string, boolean>>(new Map())
   const [loading, setLoading] = useState(true)
   const [loadingCargos, setLoadingCargos] = useState(false)
+  const [loadingAsistencia, setLoadingAsistencia] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Cargar estado de asistencia (solo para trabajadores no brigadistas)
+  const loadAsistencia = useCallback(async (trabajadoresActuales: TrabajadorRRHH[]) => {
+    setLoadingAsistencia(true)
+    try {
+      // Filtrar solo trabajadores no brigadistas
+      const noBrigadistas = trabajadoresActuales.filter(t => !t.is_brigadista)
+
+      if (noBrigadistas.length === 0) {
+        setEstadoAsistencia(new Map())
+        return
+      }
+
+      // Obtener CIs de trabajadores no brigadistas
+      const cis = noBrigadistas.map(t => t.CI)
+
+      // Verificar estado de múltiples trabajadores
+      const estadoMap = await AsistenciaService.verificarEstadoMultiple(cis)
+      setEstadoAsistencia(estadoMap)
+    } catch (err: any) {
+      console.error('Error al cargar estado de asistencia:', err)
+      // En caso de error, dejar el mapa vacío
+      setEstadoAsistencia(new Map())
+    } finally {
+      setLoadingAsistencia(false)
+    }
+  }, [])
 
   // Cargar datos iniciales
   const loadData = useCallback(async () => {
@@ -22,15 +52,19 @@ export function useRecursosHumanos() {
     setError(null)
     try {
       const data = await RecursosHumanosService.getRecursosHumanos()
-      setTrabajadores(data.trabajadores || [])
+      const trabajadoresCargados = data.trabajadores || []
+      setTrabajadores(trabajadoresCargados)
       setUltimoIngreso(data.ultimo_ingreso_mensual)
+
+      // Cargar estado de asistencia después de cargar trabajadores
+      await loadAsistencia(trabajadoresCargados)
     } catch (err: any) {
       console.error('Error al cargar datos de recursos humanos:', err)
       setError(err.message || 'Error al cargar los datos')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [loadAsistencia])
 
   // Cargar datos al montar el componente
   useEffect(() => {
@@ -260,8 +294,10 @@ export function useRecursosHumanos() {
     trabajadores,
     ultimoIngreso,
     cargos,
+    estadoAsistencia,
     loading,
     loadingCargos,
+    loadingAsistencia,
     error,
     actualizarCampoTrabajador,
     actualizarDiasNoTrabajados,
@@ -270,6 +306,7 @@ export function useRecursosHumanos() {
     crearTrabajador,
     eliminarTrabajador,
     loadCargos,
+    loadAsistencia,
     refresh
   }
 }

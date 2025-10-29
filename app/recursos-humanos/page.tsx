@@ -23,8 +23,10 @@ export default function RecursosHumanosPage() {
     trabajadores,
     ultimoIngreso,
     cargos,
+    estadoAsistencia,
     loading,
     loadingCargos,
+    loadingAsistencia,
     error,
     actualizarCampoTrabajador,
     guardarIngresoMensual,
@@ -418,6 +420,8 @@ export default function RecursosHumanosPage() {
                 mes={mesActual}
                 anio={anioActual}
                 montoTotalEstimulos={ultimoIngreso?.monto || 0}
+                estadoAsistencia={estadoAsistencia}
+                loadingAsistencia={loadingAsistencia}
                 onActualizarCampo={handleActualizarCampo}
                 onEliminarTrabajador={handleEliminarTrabajador}
               />

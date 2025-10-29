@@ -6,6 +6,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Check, Calendar, Trash2 } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
+import { AsistenciaBadge } from "./asistencia-badge"
 import { toast } from "sonner"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 
@@ -14,6 +15,8 @@ interface RecursosHumanosTableProps {
   mes: number
   anio: number
   montoTotalEstimulos: number
+  estadoAsistencia?: Map<string, boolean>
+  loadingAsistencia?: boolean
   onActualizarCampo: (ci: string, campo: string, valor: any) => Promise<{success: boolean; message: string}>
   onEliminarTrabajador?: (ci: string, nombre: string) => Promise<void>
 }
@@ -77,6 +80,8 @@ export function RecursosHumanosTableFinal({
   mes,
   anio,
   montoTotalEstimulos,
+  estadoAsistencia,
+  loadingAsistencia,
   onActualizarCampo,
   onEliminarTrabajador
 }: RecursosHumanosTableProps) {
@@ -299,6 +304,7 @@ export function RecursosHumanosTableFinal({
           <thead>
             <tr className="border-b-2 border-gray-200">
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
+              <th className="text-center py-3 px-4 font-semibold text-gray-900">Asistencia</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Cargo</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Fijo</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Variable</th>
@@ -324,6 +330,18 @@ export function RecursosHumanosTableFinal({
                       <p className="font-medium text-gray-900">{trabajador.nombre}</p>
                       <p className="text-xs text-gray-500">CI: {trabajador.CI}</p>
                     </div>
+                  </td>
+
+                  {/* Asistencia - Solo para trabajadores no brigadistas */}
+                  <td className="py-4 px-4 text-center">
+                    {!trabajador.is_brigadista ? (
+                      <AsistenciaBadge
+                        estaEnOficina={estadoAsistencia?.get(trabajador.CI) ?? false}
+                        loading={loadingAsistencia}
+                      />
+                    ) : (
+                      <span className="text-xs text-gray-400">N/A</span>
+                    )}
                   </td>
 
                   {/* Cargo */}
@@ -404,7 +422,7 @@ export function RecursosHumanosTableFinal({
             
             {/* Fila de totales */}
             <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
-              <td colSpan={2} className="py-3 px-4 text-center">
+              <td colSpan={3} className="py-3 px-4 text-center">
                 <span className="text-gray-700">TOTALES</span>
               </td>
               <td className="py-3 px-4 text-center">
