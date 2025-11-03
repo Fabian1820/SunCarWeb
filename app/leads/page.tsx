@@ -402,14 +402,14 @@ const formatEstado = (estado: string): string => {
                   </SelectTrigger>
                  <SelectContent>
   <SelectItem value="todos">Todos los estados</SelectItem>
-  <SelectItem value="pendiente_visita">Pendiente de visita</SelectItem>
-  <SelectItem value="pendiente_visitarnos">Pendiente de visitarnos</SelectItem>
-  <SelectItem value="pendiente_pago">Pendiente de pago</SelectItem>
-  <SelectItem value="revisando_ofertas">Revisando ofertas</SelectItem>
-  <SelectItem value="sin_respuesta">Sin respuesta aun</SelectItem>
-  <SelectItem value="proximamente">Proximamente</SelectItem>
-  <SelectItem value="pendiente_instalacion">Pendiente de instalación</SelectItem>
-  <SelectItem value="pendiente_presupuesto">Pendiente de presupuesto</SelectItem>
+  <SelectItem value="Pendiente de visita">Pendiente de visita</SelectItem>
+  <SelectItem value="Pendiente de visitarnos">Pendiente de visitarnos</SelectItem>
+  <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
+  <SelectItem value="Revisando ofertas">Revisando ofertas</SelectItem>
+  <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
+  <SelectItem value="Proximamente">Proximamente</SelectItem>
+  <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
+  <SelectItem value="Pendiente de presupuesto">Pendiente de presupuesto</SelectItem>
 </SelectContent>
                 </Select>
               </div>
