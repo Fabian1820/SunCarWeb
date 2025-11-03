@@ -213,21 +213,20 @@ export default function LeadsPage() {
     }
   }
 
-  // Función para formatear el estado de manera legible
-  const formatEstado = (estado: string): string => {
-    const estados: Record<string, string> = {
-      'nuevo': 'Nuevo',
-      'contactado': 'Contactado',
-      'calificado': 'Calificado',
-      'propuesta': 'Propuesta',
-      'negociacion': 'Negociación',
-      'cerrado_ganado': 'Cerrado - Ganado',
-      'cerrado_perdido': 'Cerrado - Perdido',
-      'descartado': 'Descartado'
-    }
-    return estados[estado] || estado
+ // Función para formatear el estado de manera legible
+const formatEstado = (estado: string): string => {
+  const estados: Record<string, string> = {
+    'pendiente_visita': 'Pendiente de visita',
+    'pendiente_visitarnos': 'Pendiente de visitarnos',
+    'pendiente_pago': 'Pendiente de pago',
+    'revisando_ofertas': 'Revisando ofertas',
+    'sin_respuesta': 'Sin respuesta aun',
+    'proximamente': 'Proximamente',
+    'pendiente_instalacion': 'Pendiente de instalación',
+    'pendiente_presupuesto': 'Pendiente de presupuesto',
   }
-
+  return estados[estado] || estado
+}
   const formatFecha = (valor?: string): string => {
     if (!valor) return 'N/A'
     if (valor.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
@@ -401,17 +400,17 @@ export default function LeadsPage() {
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los estados" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="nuevo">Nuevo</SelectItem>
-                    <SelectItem value="contactado">Contactado</SelectItem>
-                    <SelectItem value="calificado">Calificado</SelectItem>
-                    <SelectItem value="propuesta">Propuesta</SelectItem>
-                    <SelectItem value="negociacion">Negociación</SelectItem>
-                    <SelectItem value="cerrado_ganado">Cerrado - Ganado</SelectItem>
-                    <SelectItem value="cerrado_perdido">Cerrado - Perdido</SelectItem>
-                    <SelectItem value="descartado">Descartado</SelectItem>
-                  </SelectContent>
+                 <SelectContent>
+  <SelectItem value="todos">Todos los estados</SelectItem>
+  <SelectItem value="pendiente_visita">Pendiente de visita</SelectItem>
+  <SelectItem value="pendiente_visitarnos">Pendiente de visitarnos</SelectItem>
+  <SelectItem value="pendiente_pago">Pendiente de pago</SelectItem>
+  <SelectItem value="revisando_ofertas">Revisando ofertas</SelectItem>
+  <SelectItem value="sin_respuesta">Sin respuesta aun</SelectItem>
+  <SelectItem value="proximamente">Proximamente</SelectItem>
+  <SelectItem value="pendiente_instalacion">Pendiente de instalación</SelectItem>
+  <SelectItem value="pendiente_presupuesto">Pendiente de presupuesto</SelectItem>
+</SelectContent>
                 </Select>
               </div>
 
