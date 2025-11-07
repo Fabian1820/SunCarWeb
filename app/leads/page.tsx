@@ -241,30 +241,13 @@ const formatEstado = (estado: string): string => {
 
   // Preparar opciones de exportación para leads
   const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
-    // Preparar datos para exportación con formato legible
+    // Preparar datos para exportación con formato legible - solo nombre, dirección, teléfono y comentario
     const exportData = filteredLeads.map(lead => {
-      const ofertasResumen = (lead.ofertas || [])
-        .map(oferta => `${oferta.descripcion} (x${oferta.cantidad})`)
-        .join(' | ')
-
-      const elementosResumen = (lead.elementos_personalizados || [])
-        .map(elemento => `${elemento.descripcion} (x${elemento.cantidad})`)
-        .join(' | ')
-
       return {
-        ...lead,
-        fecha_contacto: formatFecha(lead.fecha_contacto),
-        estado: formatEstado(lead.estado),
-        fuente: lead.fuente || 'N/A',
-        referencia: lead.referencia || 'N/A',
+        nombre: lead.nombre || 'N/A',
         direccion: lead.direccion || 'N/A',
-        pais_contacto: lead.pais_contacto || 'N/A',
-        telefono_adicional: lead.telefono_adicional || 'N/A',
-        comentario: lead.comentario || 'N/A',
-        comercial: lead.comercial || 'N/A',
-        provincia_montaje: lead.provincia_montaje || 'N/A',
-        ofertas_resumen: ofertasResumen || 'N/A',
-        elementos_resumen: elementosResumen || 'N/A'
+        telefono: lead.telefono || 'N/A',
+        comentario: lead.comentario || 'N/A'
       }
     })
 
@@ -272,20 +255,10 @@ const formatEstado = (estado: string): string => {
       title: 'Listado de Leads',
       subtitle: `Total de leads: ${filteredLeads.length} | Fecha: ${new Date().toLocaleDateString('es-ES')}`,
       columns: [
-        { header: 'Fecha Contacto', key: 'fecha_contacto', width: 15 },
-        { header: 'Nombre', key: 'nombre', width: 25 },
-        { header: 'Teléfono', key: 'telefono', width: 15 },
-        { header: 'Teléfono adicional', key: 'telefono_adicional', width: 18 },
-        { header: 'Estado', key: 'estado', width: 18 },
-        { header: 'Comercial', key: 'comercial', width: 20 },
-        { header: 'Fuente', key: 'fuente', width: 15 },
-        { header: 'Referencia', key: 'referencia', width: 20 },
-        { header: 'Dirección', key: 'direccion', width: 30 },
-        { header: 'País', key: 'pais_contacto', width: 15 },
-        { header: 'Comentario', key: 'comentario', width: 30 },
-        { header: 'Provincia Montaje', key: 'provincia_montaje', width: 18 },
-        { header: 'Ofertas', key: 'ofertas_resumen', width: 40 },
-        { header: 'Elementos personalizados', key: 'elementos_resumen', width: 35 },
+        { header: 'Nombre', key: 'nombre', width: 30 },
+        { header: 'Dirección', key: 'direccion', width: 40 },
+        { header: 'Teléfono', key: 'telefono', width: 20 },
+        { header: 'Comentario', key: 'comentario', width: 50 },
       ],
       data: exportData
     }
@@ -402,14 +375,17 @@ const formatEstado = (estado: string): string => {
                   </SelectTrigger>
                  <SelectContent>
   <SelectItem value="todos">Todos los estados</SelectItem>
+  <SelectItem value="Esperando equipo">Esperando equipo</SelectItem>
+  <SelectItem value="No interesado">No interesado</SelectItem>
+  <SelectItem value="Pendiente de enviar oferta">Pendiente de enviar oferta</SelectItem>
+  <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
+  <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
+  <SelectItem value="Pendiente de presupuesto">Pendiente de presupuesto</SelectItem>
   <SelectItem value="Pendiente de visita">Pendiente de visita</SelectItem>
   <SelectItem value="Pendiente de visitarnos">Pendiente de visitarnos</SelectItem>
-  <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
+  <SelectItem value="Proximamente">Proximamente</SelectItem>
   <SelectItem value="Revisando ofertas">Revisando ofertas</SelectItem>
   <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
-  <SelectItem value="Proximamente">Proximamente</SelectItem>
-  <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
-  <SelectItem value="Pendiente de presupuesto">Pendiente de presupuesto</SelectItem>
 </SelectContent>
                 </Select>
               </div>

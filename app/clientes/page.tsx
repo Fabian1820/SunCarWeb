@@ -7,10 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/shared/molecule/input"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Label } from "@/components/shared/atom/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Calendar } from "@/components/shared/molecule/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/molecule/popover"
-import { Search, User, MapPin, ArrowLeft, CalendarIcon } from "lucide-react"
+import { Search, User, MapPin, ArrowLeft } from "lucide-react"
 import { ClienteService } from "@/lib/api-services"
 import { ElementosPersonalizadosFields } from "@/components/feats/leads/elementos-personalizados-fields"
 import { OfertasAsignacionFields } from "@/components/feats/leads/ofertas-asignacion-fields"
@@ -19,9 +18,6 @@ import { PageLoader } from "@/components/shared/atom/page-loader"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { cn } from "@/lib/utils"
 import type {
   Cliente,
   ClienteCreateData,
@@ -44,7 +40,7 @@ export default function ClientesPage() {
   const { toast } = useToast()
   const [showMapModalClient, setShowMapModalClient] = useState(false)
   const [clientLatLng, setClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
-  const [fechaInstalacion, setFechaInstalacion] = useState<Date | undefined>(undefined)
+  const [fechaInstalacion, setFechaInstalacion] = useState<string>("")
   const [isEditClientDialogOpen, setIsEditClientDialogOpen] = useState(false)
   const [editingClient, setEditingClient] = useState<Cliente | null>(null)
   const [editClientFormLoading, setEditClientFormLoading] = useState(false)
@@ -55,6 +51,7 @@ export default function ClientesPage() {
   const [createElementos, setCreateElementos] = useState<ElementoPersonalizado[]>([])
   const [fechaContacto, setFechaContacto] = useState<string>("")
   const [fechaMontaje, setFechaMontaje] = useState<string>("")
+  const [comercial, setComercial] = useState<string>("")
 
   // Cargar clientes
   const fetchClients = useCallback(async () => {
@@ -326,9 +323,10 @@ export default function ClientesPage() {
           setIsCreateClientDialogOpen(v)
           if (!v) {
             setClientLatLng({ lat: '', lng: '' })
-            setFechaInstalacion(undefined)
+            setFechaInstalacion('')
             setFechaContacto('')
             setFechaMontaje('')
+            setComercial('')
             setCreateOfertas([])
             setCreateElementos([])
             setTimeout(() => {
@@ -364,7 +362,7 @@ export default function ClientesPage() {
               const paisContacto = (form.elements.namedItem('pais_contacto') as HTMLInputElement)?.value.trim()
               const comentario = (form.elements.namedItem('comentario') as HTMLTextAreaElement)?.value.trim()
               const provinciaMontaje = (form.elements.namedItem('provincia_montaje') as HTMLInputElement)?.value.trim()
-              const comercial = (form.elements.namedItem('comercial') as HTMLInputElement)?.value.trim()
+              const comercialValue = comercial.trim() || (form.elements.namedItem('comercial') as HTMLInputElement)?.value.trim()
               const metodoPago = (form.elements.namedItem('metodo_pago') as HTMLInputElement)?.value.trim()
               const moneda = (form.elements.namedItem('moneda') as HTMLInputElement)?.value.trim()
               const latitud = clientLatLng.lat.trim()
@@ -396,14 +394,14 @@ export default function ClientesPage() {
                 if (paisContacto) clienteData.pais_contacto = paisContacto
                 if (comentario) clienteData.comentario = comentario
                 if (provinciaMontaje) clienteData.provincia_montaje = provinciaMontaje
-                if (comercial) clienteData.comercial = comercial
+                if (comercialValue) clienteData.comercial = comercialValue
                 if (metodoPago) clienteData.metodo_pago = metodoPago
                 if (moneda) clienteData.moneda = moneda
                 if (latitud) clienteData.latitud = latitud
                 if (longitud) clienteData.longitud = longitud
                 if (carnetIdentidad) clienteData.carnet_identidad = carnetIdentidad
                 if (fechaMontaje) clienteData.fecha_montaje = fechaMontaje
-                if (fechaInstalacion) clienteData.fecha_instalacion = fechaInstalacion.toISOString()
+                if (fechaInstalacion) clienteData.fecha_instalacion = fechaInstalacion
                 if (createOfertas.length > 0) clienteData.ofertas = createOfertas
                 if (createElementos.length > 0) clienteData.elementos_personalizados = createElementos
 
@@ -418,9 +416,10 @@ export default function ClientesPage() {
                 });
                 setIsCreateClientDialogOpen(false)
                 setClientLatLng({ lat: '', lng: '' })
-                setFechaInstalacion(undefined)
+                setFechaInstalacion('')
                 setFechaContacto('')
                 setFechaMontaje('')
+                setComercial('')
                 setCreateOfertas([])
                 setCreateElementos([])
                 const form = document.getElementById('create-client-form') as HTMLFormElement | null
@@ -439,150 +438,244 @@ export default function ClientesPage() {
               }
             }}>
               <div className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="nombre">Nombre *</Label>
-                  <Input id="nombre" name="nombre" placeholder="Nombre del cliente" required />
+              {/* Sección 1: Datos Personales */}
+              <div className="space-y-4">
+                <div className="border-b-2 border-gray-300 pb-3">
+                  <h3 className="text-base font-bold text-gray-900">Datos Personales</h3>
                 </div>
-                <div>
-                  <Label htmlFor="numero">Número *</Label>
-                  <Input id="numero" name="numero" placeholder="Número identificador" required />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="direccion">Dirección *</Label>
-                  <Input id="direccion" name="direccion" placeholder="Dirección" required />
-                </div>
-                <div>
-                  <Label htmlFor="telefono">Teléfono</Label>
-                  <Input id="telefono" name="telefono" placeholder="555-1234" />
-                </div>
-                <div>
-                  <Label htmlFor="telefono_adicional">Teléfono adicional</Label>
-                  <Input id="telefono_adicional" name="telefono_adicional" placeholder="Teléfono secundario" />
-                </div>
-                <div>
-                  <Label htmlFor="estado">Estado</Label>
-                  <Input id="estado" name="estado" placeholder="Ej: activo, prospecto" />
-                </div>
-                <div>
-                  <Label htmlFor="fuente">Fuente</Label>
-                  <Input id="fuente" name="fuente" placeholder="Página web, referido..." />
-                </div>
-                <div>
-                  <Label htmlFor="referencia">Referencia</Label>
-                  <Input id="referencia" name="referencia" placeholder="Detalle de origen" />
-                </div>
-                <div>
-                  <Label htmlFor="pais_contacto">País de contacto</Label>
-                  <Input id="pais_contacto" name="pais_contacto" placeholder="País del cliente" />
-                </div>
-                <div>
-                  <Label htmlFor="provincia_montaje">Provincia de montaje</Label>
-                  <Input id="provincia_montaje" name="provincia_montaje" placeholder="Provincia" />
-                </div>
-                <div>
-                  <Label htmlFor="comercial">Comercial</Label>
-                  <Input id="comercial" name="comercial" placeholder="Nombre del comercial" />
-                </div>
-                <div>
-                  <Label htmlFor="metodo_pago">Método de pago</Label>
-                  <Input id="metodo_pago" name="metodo_pago" placeholder="Transferencia, efectivo..." />
-                </div>
-                <div>
-                  <Label htmlFor="moneda">Moneda</Label>
-                  <Input id="moneda" name="moneda" placeholder="USD, CUP, MLC..." />
-                </div>
-                <div>
-                  <Label htmlFor="carnet_identidad">Carnet de Identidad</Label>
-                  <Input id="carnet_identidad" name="carnet_identidad" placeholder="12345678901" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="fecha_contacto">Fecha de contacto</Label>
-                  <Input
-                    id="fecha_contacto"
-                    name="fecha_contacto"
-                    type="date"
-                    value={fechaContacto}
-                    onChange={(event) => setFechaContacto(event.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="fecha_montaje">Fecha de montaje</Label>
-                  <Input
-                    id="fecha_montaje"
-                    name="fecha_montaje"
-                    type="date"
-                    value={fechaMontaje}
-                    onChange={(event) => setFechaMontaje(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="comentario">Comentario</Label>
-                <Textarea
-                  id="comentario"
-                  name="comentario"
-                  placeholder="Notas generales o contexto del cliente"
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-6">
-                <OfertasAsignacionFields
-                  value={createOfertas}
-                  onChange={setCreateOfertas}
-                />
-
-                <ElementosPersonalizadosFields
-                  value={createElementos}
-                  onChange={setCreateElementos}
-                />
-              </div>
-
-              <div>
-                <Label>Fecha de Instalación</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !fechaInstalacion && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {fechaInstalacion ? (
-                        format(fechaInstalacion, "PPP 'a las' p", { locale: es })
-                      ) : (
-                        <span>Seleccionar fecha (opcional)</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={fechaInstalacion}
-                      onSelect={setFechaInstalacion}
-                      locale={es}
-                      initialFocus
+                <div className="space-y-4">
+                  {/* Campos Obligatorios */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="nombre">Nombre *</Label>
+                      <Input 
+                        id="nombre" 
+                        name="nombre" 
+                        required 
+                        className="text-gray-900 placeholder:text-gray-400"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="numero">Código *</Label>
+                      <Input 
+                        id="numero" 
+                        name="numero" 
+                        required 
+                        className="text-gray-900 placeholder:text-gray-400"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="direccion">Dirección *</Label>
+                    <Input 
+                      id="direccion" 
+                      name="direccion" 
+                      required 
+                      className="text-gray-900 placeholder:text-gray-400"
                     />
-                  </PopoverContent>
-                </Popover>
+                  </div>
+                  <div>
+                    <Label>Ubicación en el Mapa</Label>
+                    <div className="flex gap-2 items-center">
+                      <Input 
+                        value={clientLatLng.lat} 
+                        readOnly 
+                        className="w-32 text-gray-600 bg-gray-50" 
+                      />
+                      <Input 
+                        value={clientLatLng.lng} 
+                        readOnly 
+                        className="w-32 text-gray-600 bg-gray-50" 
+                      />
+                      <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(true)}>
+                        <MapPin className="h-4 w-4 mr-1" /> Seleccionar en mapa
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Otros Datos Personales */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="carnet_identidad">Carnet de Identidad</Label>
+                      <Input 
+                        id="carnet_identidad" 
+                        name="carnet_identidad" 
+                        className="text-gray-900 placeholder:text-gray-400"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="telefono">Teléfono</Label>
+                      <Input 
+                        id="telefono" 
+                        name="telefono" 
+                        className="text-gray-900 placeholder:text-gray-400"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="telefono_adicional">Teléfono Adicional</Label>
+                      <Input 
+                        id="telefono_adicional" 
+                        name="telefono_adicional" 
+                        className="text-gray-900 placeholder:text-gray-400"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Label>Ubicación (usar mapa para precisión)</Label>
-                <div className="flex gap-2 items-center">
-                  <Input value={clientLatLng.lat} placeholder="Latitud" readOnly className="w-32" />
-                  <Input value={clientLatLng.lng} placeholder="Longitud" readOnly className="w-32" />
-                  <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(true)}>
-                    <MapPin className="h-4 w-4 mr-1" /> Seleccionar en mapa
-                  </Button>
+              {/* Sección 2: Fechas */}
+              <div className="space-y-4">
+                <div className="border-b-2 border-gray-300 pb-3">
+                  <h3 className="text-base font-bold text-gray-900">Fechas</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="fecha_contacto">Fecha de Contacto</Label>
+                    <Input
+                      id="fecha_contacto"
+                      name="fecha_contacto"
+                      type="date"
+                      value={fechaContacto}
+                      onChange={(event) => setFechaContacto(event.target.value)}
+                      className="text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fecha_montaje">Fecha de Montaje</Label>
+                    <Input
+                      id="fecha_montaje"
+                      name="fecha_montaje"
+                      type="date"
+                      value={fechaMontaje}
+                      onChange={(event) => setFechaMontaje(event.target.value)}
+                      className="text-gray-900"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fecha_instalacion">Fecha de Instalación</Label>
+                    <Input
+                      id="fecha_instalacion"
+                      name="fecha_instalacion"
+                      type="date"
+                      value={fechaInstalacion}
+                      onChange={(event) => setFechaInstalacion(event.target.value)}
+                      className="text-gray-900"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 3: Información Comercial */}
+              <div className="space-y-4">
+                <div className="border-b-2 border-gray-300 pb-3">
+                  <h3 className="text-base font-bold text-gray-900">Información Comercial</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="estado">Estado</Label>
+                    <Input 
+                      id="estado" 
+                      name="estado" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="fuente">Fuente</Label>
+                    <Input 
+                      id="fuente" 
+                      name="fuente" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="referencia">Referencia</Label>
+                    <Input 
+                      id="referencia" 
+                      name="referencia" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="pais_contacto">País de Contacto</Label>
+                    <Input 
+                      id="pais_contacto" 
+                      name="pais_contacto" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="provincia_montaje">Provincia de Montaje</Label>
+                    <Input 
+                      id="provincia_montaje" 
+                      name="provincia_montaje" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="comercial">Comercial</Label>
+                    <Select value={comercial} onValueChange={setComercial}>
+                      <SelectTrigger id="comercial" className="text-gray-900">
+                        <SelectValue placeholder="Seleccionar comercial" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Dashel">Dashel</SelectItem>
+                        <SelectItem value="Grethel">Grethel</SelectItem>
+                        <SelectItem value="Yanet">Yanet</SelectItem>
+                        <SelectItem value="Yanis">Yanis</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 4: Información de Pago */}
+              <div className="space-y-4">
+                <div className="border-b-2 border-gray-300 pb-3">
+                  <h3 className="text-base font-bold text-gray-900">Información de Pago</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="metodo_pago">Método de Pago</Label>
+                    <Input 
+                      id="metodo_pago" 
+                      name="metodo_pago" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="moneda">Moneda</Label>
+                    <Input 
+                      id="moneda" 
+                      name="moneda" 
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Sección 5: Comentarios y Detalles */}
+              <div className="space-y-4">
+                <div className="border-b-2 border-gray-300 pb-3">
+                  <h3 className="text-base font-bold text-gray-900">Comentarios y Detalles</h3>
+                </div>
+                <div>
+                  <Label htmlFor="comentario">Comentario</Label>
+                  <Textarea
+                    id="comentario"
+                    name="comentario"
+                    rows={3}
+                    className="text-gray-900 placeholder:text-gray-400"
+                  />
+                </div>
+                <div className="space-y-6">
+                  <OfertasAsignacionFields
+                    value={createOfertas}
+                    onChange={setCreateOfertas}
+                  />
+
+                  <ElementosPersonalizadosFields
+                    value={createElementos}
+                    onChange={setCreateElementos}
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-white pb-2">

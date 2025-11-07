@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import {

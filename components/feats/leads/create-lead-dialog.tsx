@@ -5,6 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader2 } from "lucide-react"
 import type { ElementoPersonalizado, LeadCreateData, OfertaAsignacion } from "@/lib/api-types"
 import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
@@ -80,7 +81,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     nombre: '',
     telefono: '',
     telefono_adicional: '',
-    estado: 'nuevo',
+    estado: '',
     fuente: '',
     referencia: '',
     direccion: '',
@@ -93,6 +94,20 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     metodo_pago: '',
     moneda: '',
   })
+
+  const estadosDisponibles = [
+    'Esperando equipo',
+    'No interesado',
+    'Pendiente de enviar oferta',
+    'Pendiente de instalación',
+    'Pendiente de pago',
+    'Pendiente de presupuesto',
+    'Pendiente de visita',
+    'Pendiente de visitarnos',
+    'Proximamente',
+    'Revisando ofertas',
+    'Sin respuesta'
+  ]
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -187,8 +202,98 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Fecha de Contacto */}
+      {/* Sección 1: Datos Personales */}
+      <div className="space-y-4">
+        <div className="border-b-2 border-gray-300 pb-3">
+          <h3 className="text-base font-bold text-gray-900">Datos Personales</h3>
+        </div>
+        <div className="space-y-4">
+          {/* Campos Obligatorios */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="nombre">
+                Nombre <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="nombre"
+                value={formData.nombre}
+                onChange={(e) => handleInputChange('nombre', e.target.value)}
+                className={`text-gray-900 placeholder:text-gray-400 ${errors.nombre ? 'border-red-500' : ''}`}
+              />
+              {errors.nombre && (
+                <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="telefono">
+                Teléfono <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="telefono"
+                value={formData.telefono}
+                onChange={(e) => handleInputChange('telefono', e.target.value)}
+                className={`text-gray-900 placeholder:text-gray-400 ${errors.telefono ? 'border-red-500' : ''}`}
+              />
+              {errors.telefono && (
+                <p className="text-sm text-red-500 mt-1">{errors.telefono}</p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="estado">
+                Estado <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={formData.estado}
+                onValueChange={(value) => handleInputChange('estado', value)}
+              >
+                <SelectTrigger 
+                  id="estado" 
+                  className={`text-gray-900 ${errors.estado ? 'border-red-500' : ''}`}
+                >
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {estadosDisponibles.map((estado) => (
+                    <SelectItem key={estado} value={estado}>
+                      {estado}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.estado && (
+                <p className="text-sm text-red-500 mt-1">{errors.estado}</p>
+              )}
+            </div>
+          </div>
+          {/* Otros Datos Personales */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="telefono_adicional">Teléfono Adicional</Label>
+              <Input
+                id="telefono_adicional"
+                value={formData.telefono_adicional || ''}
+                onChange={(e) => handleInputChange('telefono_adicional', e.target.value)}
+                className="text-gray-900 placeholder:text-gray-400"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="direccion">Dirección</Label>
+            <Input
+              id="direccion"
+              value={formData.direccion}
+              onChange={(e) => handleInputChange('direccion', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Sección 2: Fechas */}
+      <div className="space-y-4">
+        <div className="border-b-2 border-gray-300 pb-3">
+          <h3 className="text-base font-bold text-gray-900">Fechas</h3>
+        </div>
         <div>
           <Label htmlFor="fecha_contacto">
             Fecha de Contacto <span className="text-red-500">*</span>
@@ -198,200 +303,141 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
             type="date"
             value={convertToDateInput(formData.fecha_contacto)}
             onChange={(e) => handleInputChange('fecha_contacto', e.target.value)}
-            className={errors.fecha_contacto ? 'border-red-500' : ''}
+            className={`text-gray-900 ${errors.fecha_contacto ? 'border-red-500' : ''}`}
           />
           {errors.fecha_contacto && (
             <p className="text-sm text-red-500 mt-1">{errors.fecha_contacto}</p>
           )}
         </div>
+      </div>
 
-        {/* Nombre */}
-        <div>
-          <Label htmlFor="nombre">
-            Nombre <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="nombre"
-            placeholder="Nombre del lead"
-            value={formData.nombre}
-            onChange={(e) => handleInputChange('nombre', e.target.value)}
-            className={errors.nombre ? 'border-red-500' : ''}
-          />
-          {errors.nombre && (
-            <p className="text-sm text-red-500 mt-1">{errors.nombre}</p>
-          )}
+      {/* Sección 3: Información Comercial */}
+      <div className="space-y-4">
+        <div className="border-b-2 border-gray-300 pb-3">
+          <h3 className="text-base font-bold text-gray-900">Información Comercial</h3>
         </div>
-
-        {/* Teléfono */}
-        <div>
-          <Label htmlFor="telefono">
-            Teléfono <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="telefono"
-            placeholder="+1234567890"
-            value={formData.telefono}
-            onChange={(e) => handleInputChange('telefono', e.target.value)}
-            className={errors.telefono ? 'border-red-500' : ''}
-          />
-          {errors.telefono && (
-            <p className="text-sm text-red-500 mt-1">{errors.telefono}</p>
-          )}
-        </div>
-
-        {/* Teléfono adicional */}
-        <div>
-          <Label htmlFor="telefono_adicional">
-            Teléfono adicional
-          </Label>
-          <Input
-            id="telefono_adicional"
-            placeholder="+1234567890"
-            value={formData.telefono_adicional || ''}
-            onChange={(e) => handleInputChange('telefono_adicional', e.target.value)}
-          />
-        </div>
-
-        {/* Estado */}
-        <div>
-          <Label htmlFor="estado">
-            Estado <span className="text-red-500">*</span>
-          </Label>
-          <Input
-            id="estado"
-            placeholder="Escribir estado del lead"
-            value={formData.estado}
-            onChange={(e) => handleInputChange('estado', e.target.value)}
-            className={errors.estado ? 'border-red-500' : ''}
-          />
-          {errors.estado && (
-            <p className="text-sm text-red-500 mt-1">{errors.estado}</p>
-          )}
-        </div>
-
-        {/* Fuente */}
-        <div>
-          <Label htmlFor="fuente">Fuente</Label>
-          <Input
-            id="fuente"
-            list="fuentes-datalist"
-            placeholder="Escribir o seleccionar fuente..."
-            value={formData.fuente}
-            onChange={(e) => handleInputChange('fuente', e.target.value)}
-          />
-          <datalist id="fuentes-datalist">
-            {availableSources.map((source) => (
-              <option key={source} value={source} />
-            ))}
-          </datalist>
-        </div>
-
-        {/* Referencia */}
-        <div>
-          <Label htmlFor="referencia">Referencia</Label>
-          <Input
-            id="referencia"
-            placeholder="Cliente anterior, empleado, etc."
-            value={formData.referencia}
-            onChange={(e) => handleInputChange('referencia', e.target.value)}
-          />
-        </div>
-
-        {/* Comercial */}
-        <div>
-          <Label htmlFor="comercial">Comercial asignado</Label>
-          <Input
-            id="comercial"
-            placeholder="Nombre de la persona que atiende"
-            value={formData.comercial || ''}
-            onChange={(e) => handleInputChange('comercial', e.target.value)}
-          />
-        </div>
-
-        {/* Método de pago */}
-        <div>
-          <Label htmlFor="metodo_pago">Método de pago</Label>
-          <Input
-            id="metodo_pago"
-            placeholder="Transferencia, efectivo..."
-            value={formData.metodo_pago || ''}
-            onChange={(e) => handleInputChange('metodo_pago', e.target.value)}
-          />
-        </div>
-
-        {/* Moneda */}
-        <div>
-          <Label htmlFor="moneda">Moneda</Label>
-          <Input
-            id="moneda"
-            placeholder="USD, CUP, MLC..."
-            value={formData.moneda || ''}
-            onChange={(e) => handleInputChange('moneda', e.target.value)}
-          />
-        </div>
-
-        {/* País de Contacto */}
-        <div>
-          <Label htmlFor="pais_contacto">País de Contacto</Label>
-          <Input
-            id="pais_contacto"
-            list="paises-datalist"
-            placeholder="Escribir o seleccionar país..."
-            value={formData.pais_contacto}
-            onChange={(e) => handleInputChange('pais_contacto', e.target.value)}
-          />
-          <datalist id="paises-datalist">
-            {paisesDisponibles.map((pais) => (
-              <option key={pais} value={pais} />
-            ))}
-          </datalist>
-        </div>
-
-        {/* Provincia de Montaje */}
-        <div>
-          <Label htmlFor="provincia_montaje">Provincia de Montaje</Label>
-          <Input
-            id="provincia_montaje"
-            placeholder="Madrid, Barcelona, etc."
-            value={formData.provincia_montaje}
-            onChange={(e) => handleInputChange('provincia_montaje', e.target.value)}
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="fuente">Fuente</Label>
+            <Input
+              id="fuente"
+              list="fuentes-datalist"
+              value={formData.fuente}
+              onChange={(e) => handleInputChange('fuente', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+            <datalist id="fuentes-datalist">
+              {availableSources.map((source) => (
+                <option key={source} value={source} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <Label htmlFor="referencia">Referencia</Label>
+            <Input
+              id="referencia"
+              value={formData.referencia}
+              onChange={(e) => handleInputChange('referencia', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+          <div>
+            <Label htmlFor="comercial">Comercial</Label>
+            <Select
+              value={formData.comercial || ''}
+              onValueChange={(value) => handleInputChange('comercial', value)}
+            >
+              <SelectTrigger id="comercial" className="text-gray-900">
+                <SelectValue placeholder="Seleccionar comercial" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Dashel">Dashel</SelectItem>
+                <SelectItem value="Grethel">Grethel</SelectItem>
+                <SelectItem value="Yanet">Yanet</SelectItem>
+                <SelectItem value="Yanis">Yanis</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="pais_contacto">País de Contacto</Label>
+            <Input
+              id="pais_contacto"
+              list="paises-datalist"
+              value={formData.pais_contacto}
+              onChange={(e) => handleInputChange('pais_contacto', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+            <datalist id="paises-datalist">
+              {paisesDisponibles.map((pais) => (
+                <option key={pais} value={pais} />
+              ))}
+            </datalist>
+          </div>
+          <div>
+            <Label htmlFor="provincia_montaje">Provincia de Montaje</Label>
+            <Input
+              id="provincia_montaje"
+              value={formData.provincia_montaje}
+              onChange={(e) => handleInputChange('provincia_montaje', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Dirección */}
-      <div>
-        <Label htmlFor="direccion">Dirección</Label>
-        <Input
-          id="direccion"
-          placeholder="Calle 123, Ciudad"
-          value={formData.direccion}
-          onChange={(e) => handleInputChange('direccion', e.target.value)}
-        />
+      {/* Sección 4: Información de Pago */}
+      <div className="space-y-4">
+        <div className="border-b-2 border-gray-300 pb-3">
+          <h3 className="text-base font-bold text-gray-900">Información de Pago</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="metodo_pago">Método de Pago</Label>
+            <Input
+              id="metodo_pago"
+              value={formData.metodo_pago || ''}
+              onChange={(e) => handleInputChange('metodo_pago', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+          <div>
+            <Label htmlFor="moneda">Moneda</Label>
+            <Input
+              id="moneda"
+              value={formData.moneda || ''}
+              onChange={(e) => handleInputChange('moneda', e.target.value)}
+              className="text-gray-900 placeholder:text-gray-400"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Comentario */}
-      <div>
-        <Label htmlFor="comentario">Comentario</Label>
-        <Textarea
-          id="comentario"
-          placeholder="Notas generales sobre el lead, necesidades o contexto..."
-          value={formData.comentario || ''}
-          onChange={(e) => handleInputChange('comentario', e.target.value)}
-          rows={3}
-        />
-      </div>
+      {/* Sección 5: Comentarios y Detalles */}
+      <div className="space-y-4">
+        <div className="border-b-2 border-gray-300 pb-3">
+          <h3 className="text-base font-bold text-gray-900">Comentarios y Detalles</h3>
+        </div>
+        <div>
+          <Label htmlFor="comentario">Comentario</Label>
+          <Textarea
+            id="comentario"
+            value={formData.comentario || ''}
+            onChange={(e) => handleInputChange('comentario', e.target.value)}
+            rows={3}
+            className="text-gray-900 placeholder:text-gray-400"
+          />
+        </div>
+        <div className="space-y-6">
+          <OfertasAsignacionFields
+            value={formData.ofertas || []}
+            onChange={handleOfertasChange}
+          />
 
-      <div className="space-y-6">
-        <OfertasAsignacionFields
-          value={formData.ofertas || []}
-          onChange={handleOfertasChange}
-        />
-
-        <ElementosPersonalizadosFields
-          value={formData.elementos_personalizados || []}
-          onChange={handleElementosChange}
-        />
+          <ElementosPersonalizadosFields
+            value={formData.elementos_personalizados || []}
+            onChange={handleElementosChange}
+          />
+        </div>
       </div>
 
       {/* Botones */}
