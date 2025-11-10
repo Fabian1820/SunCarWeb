@@ -60,13 +60,13 @@ function calcularSalario(
   // Calcular trabajadores destacados (porcentaje_variable_estimulo > 0)
   // Ya se pasa como parámetro
 
-  // Estímulo fijo: 75% del total × porcentaje individual del trabajador
-  const estimuloFijo = montoTotalEstimulos * 0.75 * (trabajador.porcentaje_fijo_estimulo / 100)
+  // Estímulo fijo: 30% del total × porcentaje individual del trabajador
+  const estimuloFijo = montoTotalEstimulos * 0.30 * (trabajador.porcentaje_fijo_estimulo / 100)
 
-  // Estímulo variable: 25% del total × porcentaje individual del trabajador
+  // Estímulo variable: 70% del total × porcentaje individual del trabajador
   // Solo se aplica si el trabajador es destacado (porcentaje_variable_estimulo > 0)
   const estimuloVariable = trabajador.porcentaje_variable_estimulo > 0 
-    ? montoTotalEstimulos * 0.25 * (trabajador.porcentaje_variable_estimulo / 100)
+    ? montoTotalEstimulos * 0.70 * (trabajador.porcentaje_variable_estimulo / 100)
     : 0
 
   // Total: salario proporcional + estímulos + alimentación completa

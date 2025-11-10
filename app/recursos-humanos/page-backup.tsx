@@ -219,11 +219,10 @@ export default function RecursosHumanosPage() {
                     <DialogTitle>Configurar Monto de Estímulos</DialogTitle>
                   </DialogHeader>
                   <EstimulosDialog
-                    montoActual={ultimoIngreso?.monto || 0}
-                    mesActual={String(mesActual).padStart(2, '0')}
-                    anioActual={String(anioActual)}
-                    onGuardar={handleGuardarEstimulos}
-                  />
+                      montoActual={ultimoIngreso?.monto || 0}
+                      mesActual={String(mesActual).padStart(2, '0')}
+                      anioActual={String(anioActual)}
+                      onGuardar={handleGuardarEstimulos} ingresoId={null}                  />
                 </DialogContent>
               </Dialog>
               <Button
