@@ -14,3 +14,6 @@ export { RecursosHumanosService } from './services/feats/recursos-humanos/recurs
 export { IngresoMensualService } from './services/feats/recursos-humanos/ingreso-mensual-service'
 export { BlogService } from './services/feats/blog/blog-service'
 export { GaleriaWebService } from './services/feats/galeriaweb/galeriaweb-service'
+export { MarcaService } from './services/feats/marcas/marca-service'
+export { ServicioService } from './services/feats/servicios/servicio-service'
+export { OfertaPersonalizadaService } from './services/feats/ofertas-personalizadas/oferta-personalizada-service'

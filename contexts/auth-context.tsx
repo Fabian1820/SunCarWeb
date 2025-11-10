@@ -8,6 +8,7 @@ export interface User {
   ci: string
   nombre: string
   rol: string
+  is_superAdmin?: boolean
 }
 
 interface AuthContextType {
@@ -120,9 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const rolePermissions: Record<string, string[]> = {
       'Especialista en Gestión Económica': ['recursos-humanos'],
       'Especialista en Gestión de los Recursos Humanos': ['recursos-humanos'],
-      'Especialista en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'materiales'],
-      'Técnico en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'materiales'],
-      'Técnico Comercial': ['leads', 'clientes', 'ofertas', 'materiales'],
+      'Especialista en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'ofertas-personalizadas', 'materiales'],
+      'Técnico en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'ofertas-personalizadas', 'materiales'],
+      'Técnico Comercial': ['leads', 'clientes', 'ofertas', 'ofertas-personalizadas', 'materiales'],
       'Especialista en Redes y Sistemas': ['blog', 'galeriaweb'],
       'Jefe de Operaciones': ['brigadas', 'trabajadores', 'materiales', 'clientes', 'ordenes-trabajo'],
     }

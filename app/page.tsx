@@ -20,7 +20,8 @@ import {
     ClipboardList,
     Briefcase,
     BookOpen,
-    Image
+    Image,
+    Sparkles
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
@@ -100,6 +101,14 @@ export default function Dashboard() {
             title: 'Ofertas',
             description: 'Gestión de ofertas y promociones.',
             color: 'orange-600',
+        },
+        {
+            id: 'ofertas-personalizadas',
+            href: '/ofertas-personalizadas',
+            icon: Sparkles,
+            title: 'Ofertas Personalizadas',
+            description: 'Crear ofertas personalizadas para clientes.',
+            color: 'amber-600',
         },
         {
             id: 'ordenes-trabajo',
