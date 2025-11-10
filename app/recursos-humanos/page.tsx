@@ -121,7 +121,7 @@ export default function RecursosHumanosPage() {
     }
   }
 
-  const handleEliminarTrabajador = (ci: string, nombre: string) => {
+  const handleEliminarTrabajador = async (ci: string, nombre: string): Promise<void> => {
     setTrabajadorToDelete({ ci, nombre })
     setIsDeleteDialogOpen(true)
   }
