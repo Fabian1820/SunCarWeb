@@ -5,16 +5,18 @@ import { Input } from "@/components/shared/molecule/input"
 import { Button } from "@/components/shared/atom/button"
 import { TrabajadorService, PermisosService } from "@/lib/api-services"
 import { Trabajador } from "@/lib/api-types"
-import { Search, Shield, Loader2 } from "lucide-react"
+import { Search, Shield, Loader2, Key } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface TrabajadoresPermisosTableProps {
   onEditPermisos: (ci: string, nombre: string) => void
+  onSetPassword: (ci: string, nombre: string) => void
   refreshTrigger?: number
 }
 
 export function TrabajadoresPermisosTable({
   onEditPermisos,
+  onSetPassword,
   refreshTrigger,
 }: TrabajadoresPermisosTableProps) {
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([])
@@ -181,17 +183,30 @@ export function TrabajadoresPermisosTable({
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          onEditPermisos(trabajador.CI, trabajador.nombre)
-                        }
-                        className="text-suncar-primary border-suncar-primary hover:bg-suncar-primary/10"
-                      >
-                        <Shield className="h-4 w-4 mr-1" />
-                        Ver Módulos
-                      </Button>
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            onEditPermisos(trabajador.CI, trabajador.nombre)
+                          }
+                          className="text-suncar-primary border-suncar-primary hover:bg-suncar-primary/10"
+                        >
+                          <Shield className="h-4 w-4 mr-1" />
+                          Ver Módulos
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            onSetPassword(trabajador.CI, trabajador.nombre)
+                          }
+                          className="text-gray-600 hover:text-suncar-primary hover:bg-gray-100"
+                          title="Establecer contraseña administrativa"
+                        >
+                          <Key className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 )

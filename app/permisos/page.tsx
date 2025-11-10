@@ -15,6 +15,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { ModulosManagerDialog } from "@/components/feats/permisos/modulos-manager-dialog"
 import { TrabajadorPermisosDialog } from "@/components/feats/permisos/trabajador-permisos-dialog"
 import { TrabajadoresPermisosTable } from "@/components/feats/permisos/trabajadores-permisos-table"
+import { SetPasswordDialog } from "@/components/feats/permisos/set-password-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 
@@ -25,6 +26,7 @@ export default function PermisosPage() {
   const [isModulosDialogOpen, setIsModulosDialogOpen] = useState(false)
   const [isTrabajadorPermisosDialogOpen, setIsTrabajadorPermisosDialogOpen] =
     useState(false)
+  const [isSetPasswordDialogOpen, setIsSetPasswordDialogOpen] = useState(false)
   const [selectedTrabajadorCi, setSelectedTrabajadorCi] = useState<
     string | null
   >(null)
@@ -64,12 +66,26 @@ export default function PermisosPage() {
     setIsTrabajadorPermisosDialogOpen(true)
   }
 
+  const handleSetPassword = (ci: string, nombre: string) => {
+    setSelectedTrabajadorCi(ci)
+    setSelectedTrabajadorNombre(nombre)
+    setIsSetPasswordDialogOpen(true)
+  }
+
   const handleModulosUpdated = () => {
     setRefreshTrigger((prev) => prev + 1)
   }
 
   const handlePermisosUpdated = () => {
     setRefreshTrigger((prev) => prev + 1)
+  }
+
+  const handlePasswordSet = () => {
+    // Opcional: podrías actualizar algo si es necesario
+    toast({
+      title: "Éxito",
+      description: "Contraseña administrativa establecida correctamente",
+    })
   }
 
   return (
@@ -129,6 +145,7 @@ export default function PermisosPage() {
           <CardContent>
             <TrabajadoresPermisosTable
               onEditPermisos={handleEditTrabajadorPermisos}
+              onSetPassword={handleSetPassword}
               refreshTrigger={refreshTrigger}
             />
           </CardContent>
@@ -148,6 +165,14 @@ export default function PermisosPage() {
         trabajadorCi={selectedTrabajadorCi}
         trabajadorNombre={selectedTrabajadorNombre}
         onPermisosUpdated={handlePermisosUpdated}
+      />
+
+      <SetPasswordDialog
+        open={isSetPasswordDialogOpen}
+        onOpenChange={setIsSetPasswordDialogOpen}
+        trabajadorCi={selectedTrabajadorCi}
+        trabajadorNombre={selectedTrabajadorNombre}
+        onPasswordSet={handlePasswordSet}
       />
     </div>
   )
