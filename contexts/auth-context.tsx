@@ -71,6 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setIsAuthenticated(true)
         localStorage.setItem("auth_token", data.token)
         localStorage.setItem("user_data", JSON.stringify(data.user))
+
+        // Guardar últimas credenciales para auto-completar
+        localStorage.setItem("last_credentials", JSON.stringify({ ci, adminPass }))
+
         return { success: true, message: data.message }
       } else {
         console.error('Login failed:', data.message)

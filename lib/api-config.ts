@@ -94,6 +94,32 @@ export async function apiRequest<T>(
       console.error(`❌ API request failed: ${response.status} ${response.statusText}`)
       const errorData = await response.json().catch(() => ({}))
       console.error('❌ Error data:', errorData)
+
+      // Detectar token expirado o inválido (401)
+      if (response.status === 401) {
+        const errorMessage = errorData.detail || errorData.message || ''
+
+        // Si el token está expirado o inválido, cerrar sesión automáticamente
+        if (errorMessage.toLowerCase().includes('token') &&
+            (errorMessage.toLowerCase().includes('expirado') ||
+             errorMessage.toLowerCase().includes('inválido') ||
+             errorMessage.toLowerCase().includes('invalido'))) {
+          console.warn('🔐 Token expirado o inválido - cerrando sesión automáticamente')
+
+          // Limpiar localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_token')
+            localStorage.removeItem('user_data')
+
+            // Recargar la página para mostrar el login
+            // Usamos un pequeño delay para que el usuario vea el mensaje de error
+            setTimeout(() => {
+              window.location.reload()
+            }, 500)
+          }
+        }
+      }
+
       throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`)
     }
 

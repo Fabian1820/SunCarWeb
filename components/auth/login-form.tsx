@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Button } from "@/components/shared/atom/button"
@@ -19,6 +19,20 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
+
+  // Cargar últimas credenciales al montar el componente
+  useEffect(() => {
+    const savedCredentials = localStorage.getItem("last_credentials")
+    if (savedCredentials) {
+      try {
+        const { ci: savedCi, adminPass: savedPass } = JSON.parse(savedCredentials)
+        setCi(savedCi || "")
+        setAdminPass(savedPass || "")
+      } catch (error) {
+        console.error("Error loading saved credentials:", error)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
