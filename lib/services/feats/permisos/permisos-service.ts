@@ -88,4 +88,24 @@ export const PermisosService = {
 
     return response.data
   },
+
+  // ============= AUTENTICACIÓN ADMIN =============
+
+  /**
+   * Registra o actualiza la contraseña administrativa de un trabajador
+   */
+  async registerAdminPassword(
+    ci: string,
+    adminPass: string
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await apiRequest<{
+      success: boolean
+      message: string
+    }>('/auth/register-admin', {
+      method: 'POST',
+      body: JSON.stringify({ ci, adminPass }),
+    })
+
+    return response
+  },
 }
