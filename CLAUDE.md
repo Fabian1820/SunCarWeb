@@ -234,48 +234,68 @@ La aplicación usa variables de entorno para configurar la URL del backend API:
 - **Customer Service Module**: Uses mock data (`lib/mock-data/customer-service.ts`) with mock service implementation
 
 ### Authentication and Permissions System
-The application implements a complete JWT-based authentication system with role-based permissions:
+The application implements a complete JWT-based authentication system with **dynamic permission loading from backend**:
 
 1. **Authentication Context** (`contexts/auth-context.tsx`):
    - Manages authentication state, token, and user data storage
    - Provides login/logout functionality with backend JWT integration
    - Stores JWT token in localStorage as 'auth_token' and user data as 'user_data'
    - Automatically includes bearer token in all API requests
-   - Implements `hasPermission(module)` for role-based access control
+   - Implements `hasPermission(module)` for dynamic access control based on backend permissions
+   - **NO localStorage for permissions** - Modules are fetched fresh from backend on each dashboard load
 
 2. **Login Endpoint Integration**:
    - POST `/api/auth/login-admin` with credentials: `{ "ci": "12345678", "adminPass": "contraseña" }`
-   - Success response: `{ "success": true, "message": "Autenticación exitosa", "token": "jwt_token", "user": { "ci": "...", "nombre": "...", "rol": "..." } }`
+   - Success response: `{ "success": true, "message": "Autenticación exitosa", "token": "jwt_token", "user": { "ci": "...", "nombre": "...", "rol": "...", "is_superAdmin": boolean } }`
+   - Does NOT fetch modules during login - deferred until dashboard loads
    - Uses bcrypt password hashing on backend
    - Full JWT authentication as documented in `docs/AUTH_README.md`
 
-3. **Role-Based Permissions Matrix**:
-   - **Director General / Subdirector(a)** → All modules
-   - **Especialista en Gestión Económica / RR.HH.** → `recursos-humanos`
-   - **Especialista/Técnico en Gestión Comercial** → `leads`, `clientes`, `ofertas`, `materiales`
-   - **Especialista en Redes y Sistemas** → `blog`
-   - **Jefe de Operaciones** → `brigadas`, `trabajadores`, `materiales`, `clientes`, `ordenes-trabajo`
+3. **Dynamic Permission System**:
+   - **No hardcoded role mappings** - All permissions are fetched from backend
+   - **Real-time verification**: Dashboard calls `loadModulosPermitidos()` on mount via `useEffect`
+   - Calls `PermisosService.getTrabajadorModulosNombres(ci)` to get allowed module names
+   - Stores module names ONLY in state (`modulosPermitidos`) - **NOT in localStorage**
+   - Modules are re-fetched from backend every time dashboard is loaded/refreshed
+   - `hasPermission(module)` checks if module name exists in `modulosPermitidos` array
+   - **SuperAdmin privileges**: Users with `is_superAdmin: true` have access to all modules (managed separately in dashboard)
+   - **No permissions message**: Users without permissions see: "No tiene permisos de acceso aún o ha ocurrido algún cambio. Contacte con el equipo de informáticos para resolver el problema."
 
-4. **Global API Authentication**:
+4. **Permissions Management Module** (SuperAdmin only):
+   - Access restricted to `is_superAdmin: true` users only
+   - **Module Management**: Create/delete system modules (`/api/modulos/`)
+   - **Worker Permissions**: Assign/remove module access per worker by CI (`/api/permisos/trabajador/{ci}`)
+   - Full CRUD for permissions with backend persistence
+   - See `docs/ENDPOINTS_PERMISOS.md` for API documentation
+
+5. **Global API Authentication**:
    - All API calls automatically include `Authorization: Bearer <token>` header
    - Centralized through `apiRequest()` function in `lib/api-config.ts`
    - Automatic token retrieval from localStorage for client-side requests
 
-5. **Authentication Components**:
+6. **Token Expiration Handling**:
+   - Detects 401 responses with "Token inválido o expirado" message
+   - Automatically clears localStorage and reloads page to show login
+   - Preserves last used credentials for quick re-login
+   - Implementation in `lib/api-config.ts` (lines 98-121)
+
+7. **Authentication Components**:
    - `AuthGuard`: Global guard that protects entire app, shows login if not authenticated
    - `RouteGuard`: Protects individual routes based on required module permissions
-   - `LoginForm`: Handles admin login with CI and adminPass fields
+   - `LoginForm`: Handles admin login with CI and adminPass fields, auto-fills last used credentials
    - `UserMenu`: Displays user info (name, CI, role) and logout button
    - Full integration with existing UI components and styling
 
-6. **Dashboard Permission Filtering**:
-   - Main dashboard (`app/page.tsx`) dynamically filters visible modules based on user role
+8. **Dashboard Permission Filtering**:
+   - Main dashboard (`app/page.tsx`) dynamically filters visible modules based on permissions from backend
    - Uses `hasPermission()` to show only authorized modules
-   - Shows "No permissions" message if user has no module access
+   - SuperAdmin users see additional "Gestión de Permisos" module
+   - Shows dynamic "No permissions" message if user has no module access
 
-7. **Documentation**:
+9. **Documentation**:
    - `docs/AUTH_README.md` - Backend JWT authentication system
    - `docs/PERMISSIONS_SYSTEM.md` - Frontend permissions implementation guide
+   - `docs/ENDPOINTS_PERMISOS.md` - Permissions and modules API endpoints
    - Complete integration guide for protecting new routes and modules
 
 ### Backend Connectivity Solution

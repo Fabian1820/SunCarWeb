@@ -106,7 +106,7 @@ export async function apiRequest<T>(
              errorMessage.toLowerCase().includes('invalido'))) {
           console.warn('🔐 Token expirado o inválido - cerrando sesión automáticamente')
 
-          // Limpiar localStorage
+          // Limpiar localStorage (ya no se guarda modulos_permitidos)
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token')
             localStorage.removeItem('user_data')

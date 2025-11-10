@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react"
 import { API_BASE_URL } from "@/lib/api-config"
-import { normalizeString, containsString } from "@/lib/utils/string-utils"
+import { PermisosService } from "@/lib/api-services"
 
 export interface User {
   ci: string
@@ -15,11 +15,13 @@ interface AuthContextType {
   isAuthenticated: boolean
   token: string | null
   user: User | null
+  modulosPermitidos: string[]
   login: (ci: string, adminPass: string) => Promise<{ success: boolean; message: string }>
   logout: () => void
   isLoading: boolean
   getAuthHeader: () => Record<string, string>
   hasPermission: (module: string) => boolean
+  loadModulosPermitidos: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,13 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
+  const [modulosPermitidos, setModulosPermitidos] = useState<string[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Verificar si hay un token y usuario guardados al cargar la página
     const savedToken = localStorage.getItem("auth_token")
     const savedUser = localStorage.getItem("user_data")
-    
+
     if (savedToken && savedUser) {
       try {
         const userData = JSON.parse(savedUser)
@@ -89,10 +92,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const loadModulosPermitidos = async () => {
+    if (!user || !user.ci) {
+      setModulosPermitidos([])
+      return
+    }
+
+    try {
+      console.log('Cargando módulos permitidos para CI:', user.ci)
+      const modulos = await PermisosService.getTrabajadorModulosNombres(user.ci)
+      setModulosPermitidos(modulos)
+      console.log('Módulos permitidos cargados:', modulos)
+    } catch (error) {
+      console.error('Error loading módulos permitidos:', error)
+      // Si falla la carga de módulos, iniciar con array vacío
+      setModulosPermitidos([])
+    }
+  }
+
   const logout = () => {
     setIsAuthenticated(false)
     setToken(null)
     setUser(null)
+    setModulosPermitidos([])
     localStorage.removeItem("auth_token")
     localStorage.removeItem("user_data")
   }
@@ -105,56 +127,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const hasPermission = (module: string): boolean => {
-    if (!user || !user.rol) return false
-    
-    // Normalizar el rol del usuario (quitar tildes, espacios, mayúsculas)
-    const normalizedUserRole = normalizeString(user.rol)
-    
-    // Director General, Subdirector y Desarrollador de Software tienen acceso a todo
-    if (
-      containsString(user.rol, 'director general') || 
-      containsString(user.rol, 'subdirector') ||
-      containsString(user.rol, 'desarrollador de software')
-    ) {
+    if (!user) return false
+
+    // Los superAdmin tienen acceso a todos los módulos excepto el módulo de permisos
+    // (que se maneja aparte en el dashboard)
+    if (user.is_superAdmin && module !== 'permisos') {
       return true
     }
-    
-    // Mapeo de roles a módulos permitidos
-    // NOTA: Los roles aquí pueden tener cualquier formato (con tildes, mayúsculas, etc)
-    // ya que se normalizan antes de comparar
-    const rolePermissions: Record<string, string[]> = {
-      'Especialista en Gestión Económica': ['recursos-humanos'],
-      'Especialista en Gestión de los Recursos Humanos': ['recursos-humanos'],
-      'Especialista en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'ofertas-personalizadas', 'materiales'],
-      'Técnico en Gestión Comercial': ['leads', 'clientes', 'ofertas', 'ofertas-personalizadas', 'materiales'],
-      'Técnico Comercial': ['leads', 'clientes', 'ofertas', 'ofertas-personalizadas', 'materiales'],
-      'Especialista en Redes y Sistemas': ['blog', 'galeriaweb'],
-      'Jefe de Operaciones': ['brigadas', 'trabajadores', 'materiales', 'clientes', 'ordenes-trabajo'],
-    }
-    
-    // Buscar permisos del rol comparando strings normalizados
-    for (const [roleName, modules] of Object.entries(rolePermissions)) {
-      const normalizedRoleName = normalizeString(roleName)
-      
-      // Comparar roles normalizados
-      if (normalizedUserRole === normalizedRoleName || normalizedUserRole.includes(normalizedRoleName)) {
-        return modules.includes(module)
-      }
-    }
-    
-    return false
+
+    // Verificar si el módulo está en la lista de módulos permitidos
+    // Los nombres deben coincidir exactamente con los almacenados en la base de datos
+    return modulosPermitidos.includes(module)
   }
 
   return (
-    <AuthContext.Provider value={{ 
-      isAuthenticated, 
+    <AuthContext.Provider value={{
+      isAuthenticated,
       token,
       user,
-      login, 
-      logout, 
-      isLoading, 
+      modulosPermitidos,
+      login,
+      logout,
+      isLoading,
       getAuthHeader,
-      hasPermission
+      hasPermission,
+      loadModulosPermitidos
     }}>
       {children}
     </AuthContext.Provider>

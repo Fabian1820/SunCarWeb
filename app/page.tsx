@@ -21,7 +21,8 @@ import {
     Briefcase,
     BookOpen,
     Image,
-    Sparkles
+    Sparkles,
+    Shield
 } from "lucide-react"
 import {useState, useEffect} from "react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
@@ -36,13 +37,18 @@ import { useAuth } from "@/contexts/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
 
 export default function Dashboard() {
-    const { hasPermission, user } = useAuth()
+    const { hasPermission, user, loadModulosPermitidos } = useAuth()
     const [selectedForm, setSelectedForm] = useState<any>(null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false)
     const [recentReports, setRecentReports] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<any[]>([])
+
+    // Cargar módulos permitidos cada vez que se monta el dashboard
+    useEffect(() => {
+        loadModulosPermitidos()
+    }, [user])
 
     // Definir todos los módulos con sus configuraciones
     const allModules = [
@@ -144,8 +150,23 @@ export default function Dashboard() {
         },
     ]
 
-    // Filtrar módulos según permisos del usuario
-    const availableModules = allModules.filter(module => hasPermission(module.id))
+    // Módulos solo para superAdmin
+    const superAdminModules = user?.is_superAdmin ? [
+        {
+            id: 'permisos',
+            href: '/permisos',
+            icon: Shield,
+            title: 'Gestión de Permisos',
+            description: 'Administrar módulos y permisos de trabajadores.',
+            color: 'red-600',
+        }
+    ] : []
+
+    // Filtrar módulos según permisos del usuario y agregar módulos de superAdmin
+    const availableModules = [
+        ...allModules.filter(module => hasPermission(module.id)),
+        ...superAdminModules
+    ]
 
     useEffect(() => {
         // Obtener los reportes más recientes del backend
@@ -246,8 +267,8 @@ export default function Dashboard() {
                     
                     {availableModules.length === 0 ? (
                         <div className="text-center py-12">
-                            <p className="text-gray-600">No tienes permisos asignados para ningún módulo.</p>
-                            <p className="text-sm text-gray-500 mt-2">Contacta al administrador del sistema.</p>
+                            <p className="text-gray-600">No tiene permisos de acceso aún o ha ocurrido algún cambio.</p>
+                            <p className="text-sm text-gray-500 mt-2">Contacte con el equipo de informáticos para resolver el problema.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

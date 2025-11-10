@@ -139,40 +139,48 @@ export default function OfertasPersonalizadasPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header fijo */}
-      <header className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50 border-b">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-orange-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-lg">O</span>
+      {/* Header */}
+      <header className="fixed-header">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
+            <div className="flex items-center space-x-3">
+              <Link href="/">
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
+                </Button>
+              </Link>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
                   Ofertas Personalizadas
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                    Ventas
+                  </span>
                 </h1>
-                <p className="text-sm text-gray-600">
-                  Gestión de ofertas personalizadas para clientes
-                </p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de ofertas personalizadas para clientes</p>
               </div>
             </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsCreateDialogOpen(true)}
+                className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nueva Oferta
+              </Button>
+            </div>
           </div>
-          <Button onClick={() => setIsCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Oferta
-          </Button>
         </div>
       </header>
 
       {/* Contenido principal */}
-      <main className="pt-24 px-6 pb-6 space-y-6">
+      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Filtros y búsqueda */}
-        <Card className="p-6">
+        <Card className="mb-8 border-l-4 border-l-amber-600 p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Búsqueda */}
             <div className="md:col-span-2">

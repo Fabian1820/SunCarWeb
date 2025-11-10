@@ -17,3 +17,4 @@ export { GaleriaWebService } from './services/feats/galeriaweb/galeriaweb-servic
 export { MarcaService } from './services/feats/marcas/marca-service'
 export { ServicioService } from './services/feats/servicios/servicio-service'
 export { OfertaPersonalizadaService } from './services/feats/ofertas-personalizadas/oferta-personalizada-service'
+export { PermisosService } from './services/feats/permisos/permisos-service'
