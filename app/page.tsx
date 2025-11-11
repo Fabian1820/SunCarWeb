@@ -148,6 +148,14 @@ export default function Dashboard() {
             description: 'Gestión de imágenes para el sitio web.',
             color: 'pink-600',
         },
+        {
+            id: 'trabajos-pendientes',
+            href: '/trabajos-pendientes',
+            icon: FileText,
+            title: 'Trabajos Pendientes',
+            description: 'Gestión de trabajos pendientes y seguimiento.',
+            color: 'indigo-600',
+        },
     ]
 
     // Módulos solo para superAdmin
