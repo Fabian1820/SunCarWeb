@@ -620,7 +620,7 @@ export default function ClientesPage() {
                         <SelectItem value="Dashel">Dashel</SelectItem>
                         <SelectItem value="Grethel">Grethel</SelectItem>
                         <SelectItem value="Yanet">Yanet</SelectItem>
-                        <SelectItem value="Yanis">Yanis</SelectItem>
+                        <SelectItem value="Yany">Yany</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

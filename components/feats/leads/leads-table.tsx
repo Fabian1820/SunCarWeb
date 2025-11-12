@@ -44,6 +44,32 @@ interface LeadsTableProps {
   disableActions?: boolean
 }
 
+// Helper function to break text at approximately 25 characters
+function breakTextAtLength(text: string, maxLength: number = 25): string {
+  if (!text || text.length <= maxLength) return text
+  
+  const words = text.split(' ')
+  let result = ''
+  let currentLine = ''
+  
+  for (const word of words) {
+    if ((currentLine + word).length <= maxLength) {
+      currentLine += (currentLine ? ' ' : '') + word
+    } else {
+      if (currentLine) {
+        result += (result ? '\n' : '') + currentLine
+      }
+      currentLine = word
+    }
+  }
+  
+  if (currentLine) {
+    result += (result ? '\n' : '') + currentLine
+  }
+  
+  return result || text
+}
+
 export function LeadsTable({
   leads,
   onEdit,
@@ -321,13 +347,13 @@ export function LeadsTable({
             <tbody className="bg-white divide-y divide-gray-200">
               {leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="px-2 py-3 whitespace-nowrap min-w-[160px]">
+                  <td className="px-2 py-3 min-w-[160px] max-w-[200px]">
                     <div>
                       <div className="text-sm font-medium text-gray-900 truncate">
                         {lead.nombre}
                       </div>
-                      <div className="text-xs text-gray-500 truncate">
-                        {lead.direccion || 'Sin dirección'}
+                      <div className="text-xs text-gray-500 break-words whitespace-pre-line">
+                        {breakTextAtLength(lead.direccion || 'Sin dirección', 25)}
                       </div>
                     </div>
                   </td>

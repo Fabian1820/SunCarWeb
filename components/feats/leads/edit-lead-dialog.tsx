@@ -352,7 +352,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                     <SelectItem value="Dashel">Dashel</SelectItem>
                     <SelectItem value="Grethel">Grethel</SelectItem>
                     <SelectItem value="Yanet">Yanet</SelectItem>
-                    <SelectItem value="Yanis">Yanis</SelectItem>
+                    <SelectItem value="Yany">Yany</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

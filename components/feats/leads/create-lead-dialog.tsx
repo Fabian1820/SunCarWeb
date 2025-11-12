@@ -161,7 +161,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
       }
     })
 
-    return cleaned as LeadCreateData
+    return cleaned as unknown as LeadCreateData
   }
 
   const validateForm = (): boolean => {
@@ -354,7 +354,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
                 <SelectItem value="Dashel">Dashel</SelectItem>
                 <SelectItem value="Grethel">Grethel</SelectItem>
                 <SelectItem value="Yanet">Yanet</SelectItem>
-                <SelectItem value="Yanis">Yanis</SelectItem>
+                <SelectItem value="Yany">Yany</SelectItem>
               </SelectContent>
             </Select>
           </div>
