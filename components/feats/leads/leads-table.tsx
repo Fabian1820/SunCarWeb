@@ -710,118 +710,130 @@ export function LeadsTable({
           }
         }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Convertir lead a cliente</DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0">
+          {/* Header fijo */}
+          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 pt-6 pb-4">
+            <DialogHeader>
+              <DialogTitle>Convertir lead a cliente</DialogTitle>
+            </DialogHeader>
+          </div>
+
+          {/* Contenido scrolleable */}
           {leadToConvert && (
-            <div className="space-y-5">
-              <div className="text-sm text-gray-600">
-                Completa los datos necesarios para crear el cliente a partir del lead{" "}
-                <span className="font-semibold text-gray-900">{leadToConvert.nombre}</span>. Los datos del lead se copiarán automáticamente.
-              </div>
-
-              {conversionErrors.general && (
-                <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
-                  {conversionErrors.general}
-                </div>
-              )}
-
-              <div className="space-y-3 max-w-md">
-                <div>
-                  <Label htmlFor="numero_cliente" className="text-sm">Número de cliente *</Label>
-                  <Input
-                    id="numero_cliente"
-                    placeholder="CLI-2024-001"
-                    value={conversionData.numero}
-                    onChange={(event) => handleConversionInputChange('numero', event.target.value)}
-                    className={conversionErrors.numero ? 'border-red-500' : ''}
-                    autoFocus
-                  />
-                  {conversionErrors.numero && (
-                    <p className="text-xs text-red-600 mt-1">{conversionErrors.numero}</p>
-                  )}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              <div className="space-y-5">
+                <div className="text-xs sm:text-sm text-gray-600">
+                  Completa los datos necesarios para crear el cliente a partir del lead{" "}
+                  <span className="font-semibold text-gray-900">{leadToConvert.nombre}</span>. Los datos del lead se copiarán automáticamente.
                 </div>
 
-                <div>
-                  <Label htmlFor="metodo_pago_conversion" className="text-sm">Método de pago</Label>
-                  <Input
-                    id="metodo_pago_conversion"
-                    placeholder="Transferencia, efectivo..."
-                    value={conversionData.metodo_pago || ''}
-                    onChange={(event) => handleConversionInputChange('metodo_pago', event.target.value)}
-                  />
-                </div>
+                {conversionErrors.general && (
+                  <div className="text-xs sm:text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+                    {conversionErrors.general}
+                  </div>
+                )}
 
-                <div>
-                  <Label htmlFor="moneda_conversion" className="text-sm">Moneda</Label>
-                  <Input
-                    id="moneda_conversion"
-                    placeholder="USD, CUP, MLC..."
-                    value={conversionData.moneda || ''}
-                    onChange={(event) => handleConversionInputChange('moneda', event.target.value)}
-                  />
-                </div>
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="numero_cliente" className="text-xs sm:text-sm">Número de cliente *</Label>
+                    <Input
+                      id="numero_cliente"
+                      placeholder="CLI-2024-001"
+                      value={conversionData.numero}
+                      onChange={(event) => handleConversionInputChange('numero', event.target.value)}
+                      className={conversionErrors.numero ? 'border-red-500' : ''}
+                      autoFocus
+                    />
+                    {conversionErrors.numero && (
+                      <p className="text-xs text-red-600 mt-1">{conversionErrors.numero}</p>
+                    )}
+                  </div>
 
-                <div>
-                  <Label htmlFor="fecha_montaje" className="text-sm">Fecha de montaje</Label>
-                  <Input
-                    id="fecha_montaje"
-                    type="date"
-                    value={conversionData.fecha_montaje || ''}
-                    onChange={(event) => handleConversionInputChange('fecha_montaje', event.target.value)}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="metodo_pago_conversion" className="text-xs sm:text-sm">Método de pago</Label>
+                    <Input
+                      id="metodo_pago_conversion"
+                      placeholder="Transferencia, efectivo..."
+                      value={conversionData.metodo_pago || ''}
+                      onChange={(event) => handleConversionInputChange('metodo_pago', event.target.value)}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="fecha_instalacion" className="text-sm">Fecha de instalación</Label>
-                  <Input
-                    id="fecha_instalacion"
-                    type="datetime-local"
-                    value={conversionData.fecha_instalacion || ''}
-                    onChange={(event) => handleConversionInputChange('fecha_instalacion', event.target.value)}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="moneda_conversion" className="text-xs sm:text-sm">Moneda</Label>
+                    <Input
+                      id="moneda_conversion"
+                      placeholder="USD, CUP, MLC..."
+                      value={conversionData.moneda || ''}
+                      onChange={(event) => handleConversionInputChange('moneda', event.target.value)}
+                    />
+                  </div>
 
-                <div>
-                  <Label className="text-sm">Ubicación (usar mapa para precisión)</Label>
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        value={conversionData.latitud ? String(conversionData.latitud) : ''}
-                        placeholder="Latitud"
-                        readOnly
-                        className="flex-1"
-                      />
-                      <Input
-                        value={conversionData.longitud ? String(conversionData.longitud) : ''}
-                        placeholder="Longitud"
-                        readOnly
-                        className="flex-1"
-                      />
+                  <div>
+                    <Label htmlFor="fecha_montaje" className="text-xs sm:text-sm">Fecha de montaje</Label>
+                    <Input
+                      id="fecha_montaje"
+                      type="date"
+                      value={conversionData.fecha_montaje || ''}
+                      onChange={(event) => handleConversionInputChange('fecha_montaje', event.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="fecha_instalacion" className="text-xs sm:text-sm">Fecha de instalación</Label>
+                    <Input
+                      id="fecha_instalacion"
+                      type="datetime-local"
+                      value={conversionData.fecha_instalacion || ''}
+                      onChange={(event) => handleConversionInputChange('fecha_instalacion', event.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-xs sm:text-sm">Ubicación (usar mapa para precisión)</Label>
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          value={conversionData.latitud ? String(conversionData.latitud) : ''}
+                          placeholder="Latitud"
+                          readOnly
+                          className="flex-1"
+                        />
+                        <Input
+                          value={conversionData.longitud ? String(conversionData.longitud) : ''}
+                          placeholder="Longitud"
+                          readOnly
+                          className="flex-1"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                        onClick={() => setShowMapModalConversion(true)}
+                      >
+                        <MapPin className="h-4 w-4 mr-2" /> Seleccionar en mapa
+                      </Button>
                     </div>
-                    <Button
-                      type="button"
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                      onClick={() => setShowMapModalConversion(true)}
-                    >
-                      <MapPin className="h-4 w-4 mr-2" /> Seleccionar en mapa
-                    </Button>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="carnet_identidad" className="text-xs sm:text-sm">Carnet de identidad</Label>
+                    <Input
+                      id="carnet_identidad"
+                      placeholder="Documento opcional"
+                      value={conversionData.carnet_identidad || ''}
+                      onChange={(event) => handleConversionInputChange('carnet_identidad', event.target.value)}
+                    />
                   </div>
                 </div>
-
-                <div>
-                  <Label htmlFor="carnet_identidad" className="text-sm">Carnet de identidad</Label>
-                  <Input
-                    id="carnet_identidad"
-                    placeholder="Documento opcional"
-                    value={conversionData.carnet_identidad || ''}
-                    onChange={(event) => handleConversionInputChange('carnet_identidad', event.target.value)}
-                  />
-                </div>
               </div>
+            </div>
+          )}
 
-              <div className="flex justify-end gap-2 pt-2">
+          {/* Footer */}
+          {leadToConvert && (
+            <div className="border-t border-gray-200 px-6 py-4 bg-white">
+              <div className="flex justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"

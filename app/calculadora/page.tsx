@@ -542,8 +542,8 @@ export default function CalculadoraPage() {
             </div>
           </div>
 
-          {/* Footer fijo */}
-          <div className="sticky bottom-0 z-10 bg-white border-t border-gray-200 px-6 py-4">
+          {/* Footer */}
+          <div className="border-t border-gray-200 px-6 py-4 bg-white">
             <div className="flex justify-end">
               <Button onClick={() => setShowRecomendaciones(false)} variant="outline">
                 Cerrar
