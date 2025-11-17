@@ -24,70 +24,77 @@ export interface EquipoPersonalizado {
 }
 
 export const equipos: Equipo[] = [
-  // Electrodomésticos de Cocina
-  { id: "refrigerador", nombre: "Refrigerador (A++)", potenciaW: 150, consumoKwh: 0.15, categoria: "Electrodomésticos de Cocina" },
-  { id: "congelador", nombre: "Congelador independiente", potenciaW: 200, consumoKwh: 0.2, categoria: "Electrodomésticos de Cocina" },
+  // Electrodomésticos de Cocina (consumos REALES investigados)
+  { id: "refrigerador", nombre: "Refrigerador (A++)", potenciaW: 150, consumoKwh: 0.055, categoria: "Electrodomésticos de Cocina" },
+  { id: "congelador", nombre: "Congelador independiente", potenciaW: 200, consumoKwh: 0.075, categoria: "Electrodomésticos de Cocina" },
   { id: "microondas", nombre: "Microondas", potenciaW: 1200, consumoKwh: 1.2, categoria: "Electrodomésticos de Cocina" },
-  { id: "horno", nombre: "Horno eléctrico", potenciaW: 2000, consumoKwh: 2.0, categoria: "Electrodomésticos de Cocina" },
-  { id: "cocina-induccion", nombre: "Cocina de inducción (una zona)", potenciaW: 1800, consumoKwh: 1.8, categoria: "Electrodomésticos de Cocina" },
+  { id: "horno", nombre: "Horno eléctrico", potenciaW: 2000, consumoKwh: 1.8, categoria: "Electrodomésticos de Cocina" },
+  { id: "cocina-induccion", nombre: "Cocina de inducción (una zona)", potenciaW: 1800, consumoKwh: 1.6, categoria: "Electrodomésticos de Cocina" },
   { id: "extractor", nombre: "Extractor de cocina", potenciaW: 100, consumoKwh: 0.1, categoria: "Electrodomésticos de Cocina" },
   { id: "licuadora", nombre: "Licuadora", potenciaW: 400, consumoKwh: 0.4, categoria: "Electrodomésticos de Cocina" },
   { id: "tostadora", nombre: "Tostadora", potenciaW: 800, consumoKwh: 0.8, categoria: "Electrodomésticos de Cocina" },
-  { id: "cafetera", nombre: "Cafetera", potenciaW: 800, consumoKwh: 0.8, categoria: "Electrodomésticos de Cocina" },
-  { id: "lavavajillas", nombre: "Lavavajillas", potenciaW: 1500, consumoKwh: 1.5, categoria: "Electrodomésticos de Cocina" },
-  
+  { id: "cafetera", nombre: "Cafetera", potenciaW: 800, consumoKwh: 0.7, categoria: "Electrodomésticos de Cocina" },
+  { id: "lavavajillas", nombre: "Lavavajillas", potenciaW: 1500, consumoKwh: 1.3, categoria: "Electrodomésticos de Cocina" },
+  { id: "olla-arrocera", nombre: "Olla arrocera", potenciaW: 700, consumoKwh: 0.4, categoria: "Electrodomésticos de Cocina" },
+  { id: "olla-reina", nombre: "Olla reina (eléctrica)", potenciaW: 1500, consumoKwh: 1.2, categoria: "Electrodomésticos de Cocina" },
+  { id: "freidora-aire", nombre: "Freidora de aire", potenciaW: 1500, consumoKwh: 1.4, categoria: "Electrodomésticos de Cocina" },
+
   // Equipos de Sala y Entretenimiento
-  { id: "tv-32", nombre: "Televisor LED 32\"", potenciaW: 70, consumoKwh: 0.07, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "tv-50", nombre: "Televisor LED 50\"", potenciaW: 150, consumoKwh: 0.15, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "decodificador", nombre: "Decodificador / TV Box", potenciaW: 25, consumoKwh: 0.025, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "sonido", nombre: "Equipo de sonido", potenciaW: 100, consumoKwh: 0.1, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "consola", nombre: "Consola de videojuegos", potenciaW: 120, consumoKwh: 0.12, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "tv-32", nombre: "Televisor LED 32\"", potenciaW: 70, consumoKwh: 0.06, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "tv-50", nombre: "Televisor LED 50\"", potenciaW: 150, consumoKwh: 0.12, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "decodificador", nombre: "Decodificador / TV Box", potenciaW: 25, consumoKwh: 0.02, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "sonido", nombre: "Equipo de sonido", potenciaW: 100, consumoKwh: 0.08, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "consola", nombre: "Consola de videojuegos", potenciaW: 120, consumoKwh: 0.1, categoria: "Equipos de Sala y Entretenimiento" },
   { id: "router", nombre: "Router WiFi", potenciaW: 10, consumoKwh: 0.01, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "laptop", nombre: "Laptop", potenciaW: 60, consumoKwh: 0.06, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "pc", nombre: "PC de escritorio", potenciaW: 250, consumoKwh: 0.25, categoria: "Equipos de Sala y Entretenimiento" },
-  { id: "monitor", nombre: "Monitor", potenciaW: 40, consumoKwh: 0.04, categoria: "Equipos de Sala y Entretenimiento" },
-  
+  { id: "laptop", nombre: "Laptop", potenciaW: 60, consumoKwh: 0.045, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "pc", nombre: "PC de escritorio", potenciaW: 250, consumoKwh: 0.2, categoria: "Equipos de Sala y Entretenimiento" },
+  { id: "monitor", nombre: "Monitor", potenciaW: 40, consumoKwh: 0.035, categoria: "Equipos de Sala y Entretenimiento" },
+
   // Climatización y Ventilación
-  { id: "ac-9000", nombre: "Aire acondicionado 9000 BTU (1 Tn)", potenciaW: 1000, consumoKwh: 1.0, categoria: "Climatización y Ventilación" },
-  { id: "ac-12000", nombre: "Aire acondicionado 12000 BTU (1.5 Tn)", potenciaW: 1500, consumoKwh: 1.5, categoria: "Climatización y Ventilación" },
-  { id: "ac-inverter", nombre: "Aire acondicionado inverter (eficiente)", potenciaW: 950, consumoKwh: 0.95, categoria: "Climatización y Ventilación" },
-  { id: "ventilador", nombre: "Ventilador de pie", potenciaW: 70, consumoKwh: 0.07, categoria: "Climatización y Ventilación" },
+  { id: "ac-9000", nombre: "Aire acondicionado 9000 BTU (1 Tn)", potenciaW: 1000, consumoKwh: 0.9, categoria: "Climatización y Ventilación" },
+  { id: "ac-12000", nombre: "Aire acondicionado 12000 BTU (1.5 Tn)", potenciaW: 1500, consumoKwh: 1.35, categoria: "Climatización y Ventilación" },
+  { id: "ac-inverter", nombre: "Aire acondicionado inverter (eficiente)", potenciaW: 950, consumoKwh: 0.6, categoria: "Climatización y Ventilación" },
+  { id: "ventilador", nombre: "Ventilador de pie", potenciaW: 70, consumoKwh: 0.065, categoria: "Climatización y Ventilación" },
   { id: "extractor-aire", nombre: "Extractor de aire", potenciaW: 40, consumoKwh: 0.04, categoria: "Climatización y Ventilación" },
-  { id: "deshumidificador", nombre: "Deshumidificador", potenciaW: 300, consumoKwh: 0.3, categoria: "Climatización y Ventilación" },
+  { id: "deshumidificador", nombre: "Deshumidificador", potenciaW: 300, consumoKwh: 0.28, categoria: "Climatización y Ventilación" },
   { id: "calefactor", nombre: "Calefactor eléctrico pequeño", potenciaW: 1200, consumoKwh: 1.2, categoria: "Climatización y Ventilación" },
-  
+
+  // Iluminación
+  { id: "luz-fria", nombre: "Luz fría/fluorescente 18W", potenciaW: 18, consumoKwh: 0.018, categoria: "Iluminación" },
+  { id: "lampara-led", nombre: "Lámpara LED 10W", potenciaW: 10, consumoKwh: 0.01, categoria: "Iluminación" },
+  { id: "lampara-incandescente", nombre: "Lámpara incandescente 60W", potenciaW: 60, consumoKwh: 0.06, categoria: "Iluminación" },
+
   // Dormitorio y Uso General
-  { id: "lampara-led", nombre: "Lámpara LED 10W", potenciaW: 10, consumoKwh: 0.01, categoria: "Dormitorio y Uso General" },
-  { id: "lampara-incandescente", nombre: "Lámpara incandescente", potenciaW: 60, consumoKwh: 0.06, categoria: "Dormitorio y Uso General" },
   { id: "cargador-celular", nombre: "Cargador de celular", potenciaW: 5, consumoKwh: 0.005, categoria: "Dormitorio y Uso General" },
   { id: "despertador", nombre: "Despertador digital", potenciaW: 3, consumoKwh: 0.003, categoria: "Dormitorio y Uso General" },
-  { id: "plancha", nombre: "Plancha de ropa", potenciaW: 1200, consumoKwh: 1.2, categoria: "Dormitorio y Uso General" },
+  { id: "plancha", nombre: "Plancha de ropa", potenciaW: 1200, consumoKwh: 1.1, categoria: "Dormitorio y Uso General" },
   { id: "secadora-cabello", nombre: "Secadora de cabello", potenciaW: 1500, consumoKwh: 1.5, categoria: "Dormitorio y Uso General" },
-  
+
   // Lavandería y Limpieza
-  { id: "lavadora", nombre: "Lavadora automática", potenciaW: 500, consumoKwh: 0.5, categoria: "Lavandería y Limpieza" },
-  { id: "secadora", nombre: "Secadora eléctrica", potenciaW: 2000, consumoKwh: 2.0, categoria: "Lavandería y Limpieza" },
-  { id: "aspiradora", nombre: "Aspiradora", potenciaW: 800, consumoKwh: 0.8, categoria: "Lavandería y Limpieza" },
-  { id: "planchadora", nombre: "Planchadora de vapor", potenciaW: 1200, consumoKwh: 1.2, categoria: "Lavandería y Limpieza" },
-  
+  { id: "lavadora", nombre: "Lavadora automática", potenciaW: 500, consumoKwh: 0.4, categoria: "Lavandería y Limpieza" },
+  { id: "secadora", nombre: "Secadora eléctrica", potenciaW: 2000, consumoKwh: 1.9, categoria: "Lavandería y Limpieza" },
+  { id: "aspiradora", nombre: "Aspiradora", potenciaW: 800, consumoKwh: 0.75, categoria: "Lavandería y Limpieza" },
+  { id: "planchadora", nombre: "Planchadora de vapor", potenciaW: 1200, consumoKwh: 1.1, categoria: "Lavandería y Limpieza" },
+
   // Agua y Servicios
-  { id: "bomba-1-2", nombre: "Bomba de agua doméstica 1/2 HP", potenciaW: 370, consumoKwh: 0.37, categoria: "Agua y Servicios" },
-  { id: "bomba-1", nombre: "Bomba de agua 1 HP", potenciaW: 750, consumoKwh: 0.75, categoria: "Agua y Servicios" },
-  { id: "calentador-agua", nombre: "Calentador de agua eléctrico", potenciaW: 2000, consumoKwh: 2.0, categoria: "Agua y Servicios" },
-  { id: "calentador-instantaneo", nombre: "Calentador instantáneo (ducha)", potenciaW: 4500, consumoKwh: 4.5, categoria: "Agua y Servicios" },
-  { id: "purificador", nombre: "Purificador / Dispensador de agua", potenciaW: 100, consumoKwh: 0.1, categoria: "Agua y Servicios" },
-  
+  { id: "bomba-1-2", nombre: "Bomba de agua doméstica 1/2 HP", potenciaW: 370, consumoKwh: 0.35, categoria: "Agua y Servicios" },
+  { id: "bomba-1", nombre: "Bomba de agua 1 HP", potenciaW: 750, consumoKwh: 0.7, categoria: "Agua y Servicios" },
+  { id: "calentador-agua", nombre: "Calentador de agua eléctrico", potenciaW: 2000, consumoKwh: 1.8, categoria: "Agua y Servicios" },
+  { id: "calentador-instantaneo", nombre: "Calentador instantáneo (ducha)", potenciaW: 4500, consumoKwh: 4.3, categoria: "Agua y Servicios" },
+  { id: "purificador", nombre: "Purificador / Dispensador de agua", potenciaW: 100, consumoKwh: 0.09, categoria: "Agua y Servicios" },
+
   // Otros Equipos y Herramientas
-  { id: "cargador-vehiculo", nombre: "Cargador de vehículo eléctrico doméstico", potenciaW: 3600, consumoKwh: 3.6, categoria: "Otros Equipos y Herramientas" },
+  { id: "cargador-vehiculo", nombre: "Cargador de vehículo eléctrico doméstico", potenciaW: 3600, consumoKwh: 3.4, categoria: "Otros Equipos y Herramientas" },
   { id: "taladro", nombre: "Taladro eléctrico", potenciaW: 600, consumoKwh: 0.6, categoria: "Otros Equipos y Herramientas" },
-  { id: "compresor", nombre: "Compresor pequeño", potenciaW: 1000, consumoKwh: 1.0, categoria: "Otros Equipos y Herramientas" },
-  { id: "soldadora", nombre: "Soldadora", potenciaW: 3000, consumoKwh: 3.0, categoria: "Otros Equipos y Herramientas" },
+  { id: "compresor", nombre: "Compresor pequeño", potenciaW: 1000, consumoKwh: 0.9, categoria: "Otros Equipos y Herramientas" },
+  { id: "soldadora", nombre: "Soldadora", potenciaW: 3000, consumoKwh: 2.8, categoria: "Otros Equipos y Herramientas" },
 ]
 
 export const categorias = [
   "Electrodomésticos de Cocina",
   "Equipos de Sala y Entretenimiento",
   "Climatización y Ventilación",
+  "Iluminación",
   "Dormitorio y Uso General",
   "Lavandería y Limpieza",
   "Agua y Servicios",

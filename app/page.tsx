@@ -37,66 +37,15 @@ import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard
 import {Toaster} from "@/components/shared/molecule/toaster"
 import { useAuth } from "@/contexts/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
-import { ConsumoElectricoCalculator, equipos, type EquipoPersonalizado } from "@/components/shared/molecule/consumo-electrico-calculator"
-import { useMemo } from "react"
 
 export default function Dashboard() {
     const { hasPermission, user, loadModulosPermitidos } = useAuth()
     const [selectedForm, setSelectedForm] = useState<any>(null)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false)
-    const [isCalculadoraOpen, setIsCalculadoraOpen] = useState(false)
     const [recentReports, setRecentReports] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<any[]>([])
-    
-    // Estado para la calculadora de consumo eléctrico
-    const [selectedEquipos, setSelectedEquipos] = useState<Set<string>>(new Set())
-    const [equiposPersonalizados, setEquiposPersonalizados] = useState<EquipoPersonalizado[]>([])
-    
-    // Calcular consumo total
-    const consumoTotal = useMemo(() => {
-        let total = 0
-        
-        // Sumar equipos seleccionados
-        selectedEquipos.forEach(equipoId => {
-            const equipo = equipos.find(e => e.id === equipoId)
-            if (equipo) {
-                total += equipo.consumoKwh
-            }
-        })
-        
-        // Sumar equipos personalizados
-        equiposPersonalizados.forEach(equipo => {
-            total += equipo.consumoKwh
-        })
-        
-        return total
-    }, [selectedEquipos, equiposPersonalizados])
-    
-    // Funciones para manejar equipos
-    const toggleEquipo = (equipoId: string) => {
-        const newSelected = new Set(selectedEquipos)
-        if (newSelected.has(equipoId)) {
-            newSelected.delete(equipoId)
-        } else {
-            newSelected.add(equipoId)
-        }
-        setSelectedEquipos(newSelected)
-    }
-    
-    const agregarEquipoPersonalizado = (equipo: EquipoPersonalizado) => {
-        setEquiposPersonalizados([...equiposPersonalizados, equipo])
-    }
-    
-    const eliminarEquipoPersonalizado = (index: number) => {
-        setEquiposPersonalizados(equiposPersonalizados.filter((_, i) => i !== index))
-    }
-    
-    const restablecerParametros = () => {
-        setSelectedEquipos(new Set())
-        setEquiposPersonalizados([])
-    }
 
     // Cargar módulos permitidos cada vez que se monta el dashboard
     useEffect(() => {
@@ -299,15 +248,16 @@ export default function Dashboard() {
                                     </div>
                                 </Button>
                             </Link> */}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setIsCalculadoraOpen(true)}
-                                className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300"
-                            >
-                                <Calculator className="h-4 w-4 text-orange-600"/>
-                                <span className="text-gray-700">Calculadora</span>
-                            </Button>
+                            <Link href="/calculadora">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300"
+                                >
+                                    <Calculator className="h-4 w-4 text-orange-600"/>
+                                    <span className="text-gray-700">Calculadora</span>
+                                </Button>
+                            </Link>
                             <Button
                                 variant="outline"
                                 size="sm"
@@ -386,19 +336,6 @@ export default function Dashboard() {
                     <ContactosDashboard/>
                 </DialogContent>
             </Dialog>
-
-            {/* Calculadora de Consumo Eléctrico */}
-            <ConsumoElectricoCalculator 
-                open={isCalculadoraOpen} 
-                onOpenChange={setIsCalculadoraOpen}
-                selectedEquipos={selectedEquipos}
-                onToggleEquipo={toggleEquipo}
-                equiposPersonalizados={equiposPersonalizados}
-                onAgregarEquipoPersonalizado={agregarEquipoPersonalizado}
-                onEliminarEquipoPersonalizado={eliminarEquipoPersonalizado}
-                consumoTotal={consumoTotal}
-                onRestablecer={restablecerParametros}
-            />
 
             <Toaster/>
         </div>
