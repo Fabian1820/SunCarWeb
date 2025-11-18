@@ -9,7 +9,9 @@ import { Slider } from "@/components/shared/molecule/slider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Calculator, Plus, X, Zap, RotateCcw, ArrowLeft, Battery, Cpu, Lightbulb, Minus } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/molecule/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/shared/molecule/command"
+import { Calculator, Plus, X, Zap, RotateCcw, ArrowLeft, Battery, Cpu, Lightbulb, Minus, Search } from "lucide-react"
 import { equipos, categorias, type EquipoPersonalizado } from "@/components/shared/molecule/consumo-electrico-calculator"
 
 interface EquipoCantidad {
@@ -26,6 +28,9 @@ export default function CalculadoraPage() {
   const [nuevoEquipoConsumo, setNuevoEquipoConsumo] = useState([100])
   const [showRecomendaciones, setShowRecomendaciones] = useState(false)
   const [bateriaKwh, setBateriaKwh] = useState([0])
+  const [openBuscador, setOpenBuscador] = useState(false)
+  const [busqueda, setBusqueda] = useState("")
+  const [cantidadBuscador, setCantidadBuscador] = useState<Map<string, number>>(new Map())
 
   // Calcular potencia total en kW (para dimensionar inversor)
   const potenciaTotalKw = useMemo(() => {
@@ -130,7 +135,42 @@ export default function CalculadoraPage() {
   const restablecerParametros = () => {
     setEquiposCantidad(new Map())
     setEquiposPersonalizados([])
+    setCantidadBuscador(new Map())
   }
+
+  const agregarDesdeBuscador = (equipoId: string) => {
+    const cantidad = cantidadBuscador.get(equipoId) || 1
+    const nuevaCantidad = new Map(equiposCantidad)
+    nuevaCantidad.set(equipoId, cantidad)
+    setEquiposCantidad(nuevaCantidad)
+    // Limpiar la cantidad del buscador
+    const nuevaCantidadBuscador = new Map(cantidadBuscador)
+    nuevaCantidadBuscador.delete(equipoId)
+    setCantidadBuscador(nuevaCantidadBuscador)
+    // Cerrar el buscador
+    setOpenBuscador(false)
+    setBusqueda("")
+  }
+
+  const actualizarCantidadBuscador = (equipoId: string, cantidad: number) => {
+    const nuevaCantidad = new Map(cantidadBuscador)
+    if (cantidad > 0) {
+      nuevaCantidad.set(equipoId, cantidad)
+    } else {
+      nuevaCantidad.delete(equipoId)
+    }
+    setCantidadBuscador(nuevaCantidad)
+  }
+
+  // Filtrar equipos según búsqueda
+  const equiposFiltrados = useMemo(() => {
+    if (!busqueda.trim()) return equipos
+    const busquedaLower = busqueda.toLowerCase()
+    return equipos.filter(equipo =>
+      equipo.nombre.toLowerCase().includes(busquedaLower) ||
+      equipo.categoria.toLowerCase().includes(busquedaLower)
+    )
+  }, [busqueda])
 
   const equiposPorCategoria = useMemo(() => {
     const grouped: Record<string, typeof equipos> = {}
@@ -234,6 +274,123 @@ export default function CalculadoraPage() {
                   </Button>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Buscador de equipos */}
+        <div className="mb-6">
+          <Card className="border-orange-200">
+            <CardContent className="pt-6">
+              <Popover open={openBuscador} onOpenChange={setOpenBuscador}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openBuscador}
+                    className="w-full justify-start text-left font-normal border-orange-200 hover:bg-orange-50"
+                  >
+                    <Search className="mr-2 h-4 w-4 shrink-0 text-orange-600" />
+                    <span className="text-gray-500">Buscar equipos...</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[600px] p-0" align="start">
+                  <Command>
+                    <CommandInput
+                      placeholder="Buscar por nombre o categoría..."
+                      value={busqueda}
+                      onValueChange={setBusqueda}
+                    />
+                    <CommandList>
+                      <CommandEmpty>No se encontraron equipos.</CommandEmpty>
+                      {categorias.map(categoria => {
+                        const equiposCategoria = equiposFiltrados.filter(e => e.categoria === categoria)
+                        if (equiposCategoria.length === 0) return null
+
+                        return (
+                          <CommandGroup key={categoria} heading={categoria}>
+                            {equiposCategoria.map(equipo => {
+                              const yaAgregado = equiposCantidad.has(equipo.id)
+                              const cantidadActual = cantidadBuscador.get(equipo.id) || 1
+
+                              return (
+                                <CommandItem
+                                  key={equipo.id}
+                                  value={equipo.id}
+                                  onSelect={() => {}}
+                                  className="flex items-center justify-between py-3"
+                                >
+                                  <div className="flex-1 min-w-0 mr-4">
+                                    <div className="text-sm font-medium text-gray-900">
+                                      {equipo.nombre}
+                                      {yaAgregado && (
+                                        <Badge variant="outline" className="ml-2 text-xs bg-orange-50 border-orange-200">
+                                          Agregado
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      {equipo.potenciaW} W • {(equipo.consumoKwh * 1000).toFixed(0)} W real/h
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          actualizarCantidadBuscador(equipo.id, Math.max(1, cantidadActual - 1))
+                                        }}
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 w-7 p-0"
+                                      >
+                                        <Minus className="h-3 w-3" />
+                                      </Button>
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        value={cantidadActual}
+                                        onChange={(e) => {
+                                          e.stopPropagation()
+                                          const valor = parseInt(e.target.value) || 1
+                                          actualizarCantidadBuscador(equipo.id, Math.max(1, valor))
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="w-14 h-7 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                      />
+                                      <Button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          actualizarCantidadBuscador(equipo.id, cantidadActual + 1)
+                                        }}
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-7 w-7 p-0"
+                                      >
+                                        <Plus className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <Button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        agregarDesdeBuscador(equipo.id)
+                                      }}
+                                      size="sm"
+                                      className="bg-orange-600 hover:bg-orange-700 h-7"
+                                    >
+                                      Agregar
+                                    </Button>
+                                  </div>
+                                </CommandItem>
+                              )
+                            })}
+                          </CommandGroup>
+                        )
+                      })}
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </CardContent>
           </Card>
         </div>
