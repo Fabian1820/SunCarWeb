@@ -13,9 +13,10 @@ import { RecursosHumanosTableFinal } from "@/components/feats/recursos-humanos/r
 import { CargosResumenTable } from "@/components/feats/recursos-humanos/cargos-resumen-table"
 import { EstimulosDialog } from "@/components/feats/recursos-humanos/estimulos-dialog"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
+import { WorkerDetailsDashboard } from "@/components/feats/recursos-humanos/worker-details-dashboard"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
-import type { CrearTrabajadorRRHHRequest } from "@/lib/recursos-humanos-types"
+import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH } from "@/lib/recursos-humanos-types"
 import type { ExportOptions } from "@/lib/export-service"
 
 export default function RecursosHumanosPage() {
@@ -43,6 +44,8 @@ export default function RecursosHumanosPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [trabajadorToDelete, setTrabajadorToDelete] = useState<{ ci: string; nombre: string } | null>(null)
   const [isDeletingWorker, setIsDeletingWorker] = useState(false)
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<TrabajadorRRHH | null>(null)
   const { toast} = useToast()
 
   // Cargar cargos cuando se cambia a vista de cargos
@@ -126,6 +129,11 @@ export default function RecursosHumanosPage() {
     setIsDeleteDialogOpen(true)
   }
 
+  const handleVerDetalles = (trabajador: TrabajadorRRHH) => {
+    setTrabajadorSeleccionado(trabajador)
+    setIsDetailsDialogOpen(true)
+  }
+
   const confirmEliminarTrabajador = async () => {
     if (!trabajadorToDelete) return
 
@@ -203,9 +211,9 @@ export default function RecursosHumanosPage() {
       columns: [
         { header: 'Cargo', key: 'cargo', width: 25 },
         { header: 'Cantidad de Personas', key: 'cantidad_personas', width: 20 },
-        { header: 'Salario Fijo Promedio', key: 'salario_fijo', width: 20 },
-        { header: '% Estímulo Fijo Promedio', key: 'porcentaje_fijo_estimulo', width: 22 },
-        { header: '% Estímulo Variable Promedio', key: 'porcentaje_variable_estimulo', width: 25 },
+        { header: 'Total Salario Fijo', key: 'salario_fijo', width: 20 },
+        { header: 'Total % Estímulo Fijo', key: 'porcentaje_fijo_estimulo', width: 22 },
+        { header: 'Total % Estímulo Variable', key: 'porcentaje_variable_estimulo', width: 25 },
       ],
       data: cargos
     }
@@ -390,7 +398,7 @@ export default function RecursosHumanosPage() {
                 <CardDescription className="mt-1">
                   {vistaActual === 'trabajadores'
                     ? 'Haga click en cualquier campo para editarlo. El salario se calcula automáticamente. Presione Enter para guardar o Esc para cancelar.'
-                    : 'Vista consolidada de trabajadores agrupados por cargo con promedios de salarios y estímulos.'
+                    : 'Vista consolidada de trabajadores agrupados por cargo con totales sumados de salarios y porcentajes de estímulos.'
                   }
                 </CardDescription>
               </div>
@@ -424,6 +432,7 @@ export default function RecursosHumanosPage() {
                 loadingAsistencia={loadingAsistencia}
                 onActualizarCampo={handleActualizarCampo}
                 onEliminarTrabajador={handleEliminarTrabajador}
+                onVerDetalles={handleVerDetalles}
               />
             ) : loadingCargos ? (
               <div className="flex items-center justify-center py-12">
@@ -448,6 +457,31 @@ export default function RecursosHumanosPage() {
         onConfirm={confirmEliminarTrabajador}
         isLoading={isDeletingWorker}
       />
+
+      {/* Dialog de detalles del trabajador */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Detalles del Trabajador</DialogTitle>
+          </DialogHeader>
+          {trabajadorSeleccionado && (
+            <WorkerDetailsDashboard
+              trabajador={trabajadorSeleccionado}
+              salarioCalculado={calcularSalario(
+                trabajadorSeleccionado,
+                ultimoIngreso?.monto || 0,
+                trabajadores.length,
+                trabajadores.filter(t => t.porcentaje_variable_estimulo > 0).length
+              )}
+              montoTotalEstimulos={ultimoIngreso?.monto || 0}
+              mes={mesActual}
+              anio={anioActual}
+              estadoAsistencia={estadoAsistencia}
+              loadingAsistencia={loadingAsistencia}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Toaster />
     </div>

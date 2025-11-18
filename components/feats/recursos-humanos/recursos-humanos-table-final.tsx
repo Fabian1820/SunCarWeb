@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Check, Calendar, Trash2 } from "lucide-react"
+import { Check, Calendar, Trash2, Eye } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
 import { AsistenciaBadge } from "./asistencia-badge"
 import { toast } from "sonner"
@@ -19,6 +19,7 @@ interface RecursosHumanosTableProps {
   loadingAsistencia?: boolean
   onActualizarCampo: (ci: string, campo: string, valor: any) => Promise<{success: boolean; message: string}>
   onEliminarTrabajador?: (ci: string, nombre: string) => Promise<void>
+  onVerDetalles?: (trabajador: TrabajadorRRHH) => void
 }
 
 // Función para calcular el salario de un trabajador según la nueva especificación
@@ -83,7 +84,8 @@ export function RecursosHumanosTableFinal({
   estadoAsistencia,
   loadingAsistencia,
   onActualizarCampo,
-  onEliminarTrabajador
+  onEliminarTrabajador,
+  onVerDetalles
 }: RecursosHumanosTableProps) {
   const [editando, setEditando] = useState<{ci: string, campo: string} | null>(null)
   const [valores, setValores] = useState<Record<string, any>>({})
@@ -304,7 +306,6 @@ export function RecursosHumanosTableFinal({
           <thead>
             <tr className="border-b-2 border-gray-200">
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">Asistencia</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Cargo</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Fijo</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Variable</th>
@@ -313,9 +314,7 @@ export function RecursosHumanosTableFinal({
               <th className="text-center py-3 px-4 font-semibold text-gray-900">Días Trabajables</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">Días No Trabajados</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900 bg-green-50">Salario Calculado</th>
-              {onEliminarTrabajador && (
-                <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
-              )}
+              <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -324,24 +323,21 @@ export function RecursosHumanosTableFinal({
 
               return (
                 <tr key={trabajador.CI} className="border-b border-gray-100 hover:bg-purple-50/50">
-                  {/* Nombre */}
+                  {/* Nombre + Asistencia */}
                   <td className="py-4 px-4">
                     <div>
                       <p className="font-medium text-gray-900">{trabajador.nombre}</p>
-                      <p className="text-xs text-gray-500">CI: {trabajador.CI}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {!trabajador.is_brigadista ? (
+                          <AsistenciaBadge
+                            estaEnOficina={estadoAsistencia?.get(trabajador.CI) ?? false}
+                            loading={loadingAsistencia}
+                          />
+                        ) : (
+                          <span className="text-xs text-gray-400">Brigadista</span>
+                        )}
+                      </div>
                     </div>
-                  </td>
-
-                  {/* Asistencia - Solo para trabajadores no brigadistas */}
-                  <td className="py-4 px-4 text-center">
-                    {!trabajador.is_brigadista ? (
-                      <AsistenciaBadge
-                        estaEnOficina={estadoAsistencia?.get(trabajador.CI) ?? false}
-                        loading={loadingAsistencia}
-                      />
-                    ) : (
-                      <span className="text-xs text-gray-400">N/A</span>
-                    )}
                   </td>
 
                   {/* Cargo */}
@@ -403,26 +399,39 @@ export function RecursosHumanosTableFinal({
                   </td>
 
                   {/* Acciones */}
-                  {onEliminarTrabajador && (
-                    <td className="py-4 px-4 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onEliminarTrabajador(trabajador.CI, trabajador.nombre)}
-                        className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                        title="Eliminar trabajador"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </td>
-                  )}
+                  <td className="py-4 px-4">
+                    <div className="flex items-center justify-center gap-2">
+                      {onVerDetalles && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onVerDetalles(trabajador)}
+                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          title="Ver detalles del trabajador"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {onEliminarTrabajador && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onEliminarTrabajador(trabajador.CI, trabajador.nombre)}
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                          title="Eliminar trabajador"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               )
             })}
             
             {/* Fila de totales */}
             <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
-              <td colSpan={3} className="py-3 px-4 text-center">
+              <td colSpan={2} className="py-3 px-4 text-center">
                 <span className="text-gray-700">TOTALES</span>
               </td>
               <td className="py-3 px-4 text-center">
@@ -466,11 +475,9 @@ export function RecursosHumanosTableFinal({
                   ${Object.values(salariosCalculados).reduce((sum, salario) => sum + (salario || 0), 0).toFixed(2)}
                 </span>
               </td>
-              {onEliminarTrabajador && (
-                <td className="py-3 px-4 text-center">
-                  <span className="text-gray-400">-</span>
-                </td>
-              )}
+              <td className="py-3 px-4 text-center">
+                <span className="text-gray-400">-</span>
+              </td>
             </tr>
           </tbody>
         </table>

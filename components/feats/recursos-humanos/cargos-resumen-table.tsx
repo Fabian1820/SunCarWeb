@@ -25,9 +25,9 @@ export function CargosResumenTable({ cargos }: CargosResumenTableProps) {
                 Cantidad
               </div>
             </th>
-            <th className="text-center py-3 px-4 font-semibold text-gray-900">Salario Fijo Promedio</th>
-            <th className="text-center py-3 px-4 font-semibold text-gray-900">% Estímulo Fijo Promedio</th>
-            <th className="text-center py-3 px-4 font-semibold text-gray-900">% Estímulo Variable Promedio</th>
+            <th className="text-center py-3 px-4 font-semibold text-gray-900">Total Salario Fijo</th>
+            <th className="text-center py-3 px-4 font-semibold text-gray-900">Total % Estímulo Fijo</th>
+            <th className="text-center py-3 px-4 font-semibold text-gray-900">Total % Estímulo Variable</th>
           </tr>
         </thead>
         <tbody>
@@ -72,14 +72,28 @@ export function CargosResumenTable({ cargos }: CargosResumenTableProps) {
         <tfoot className="border-t-2 border-gray-200 bg-gray-50">
           <tr>
             <td className="py-3 px-4 font-semibold text-gray-900">
-              Total
+              TOTALES GENERALES
             </td>
             <td className="py-3 px-4 text-center">
               <span className="inline-flex items-center justify-center bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-bold">
                 {cargos.reduce((sum, cargo) => sum + cargo.cantidad_personas, 0)} personas
               </span>
             </td>
-            <td colSpan={3}></td>
+            <td className="py-3 px-4 text-center">
+              <span className="font-bold text-gray-900">
+                ${cargos.reduce((sum, cargo) => sum + cargo.salario_fijo, 0).toFixed(2)}
+              </span>
+            </td>
+            <td className="py-3 px-4 text-center">
+              <span className="font-bold text-blue-600">
+                {cargos.reduce((sum, cargo) => sum + cargo.porcentaje_fijo_estimulo, 0).toFixed(1)}%
+              </span>
+            </td>
+            <td className="py-3 px-4 text-center">
+              <span className="font-bold text-purple-600">
+                {cargos.reduce((sum, cargo) => sum + cargo.porcentaje_variable_estimulo, 0).toFixed(1)}%
+              </span>
+            </td>
           </tr>
         </tfoot>
       </table>
