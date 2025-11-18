@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Label } from "@/components/shared/atom/label"
@@ -8,179 +8,475 @@ import { Input } from "@/components/shared/molecule/input"
 import { Slider } from "@/components/shared/molecule/slider"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  ConfirmDeleteDialog,
+} from "@/components/shared/molecule/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/shared/molecule/popover"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/shared/molecule/command"
-import { Calculator, Plus, X, Zap, RotateCcw, ArrowLeft, Battery, Cpu, Lightbulb, Minus, Search } from "lucide-react"
-import { equipos, categorias, type EquipoPersonalizado } from "@/components/shared/molecule/consumo-electrico-calculator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import {
+  Calculator,
+  Plus,
+  X,
+  Zap,
+  RotateCcw,
+  ArrowLeft,
+  Battery,
+  Cpu,
+  Lightbulb,
+  Minus,
+  Search,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react"
+import { CalculoEnergeticoService } from "@/lib/api-services"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
+import { PageLoader } from "@/components/shared/atom/page-loader"
+import type { CalculoEnergeticoCategoria } from "@/lib/types/calculo-energetico-types"
 
-interface EquipoCantidad {
-  equipoId: string
-  cantidad: number
+const categoriaIconos: Record<string, string> = {
+  "Electrodomésticos de Cocina": "🏠",
+  "Equipos de Sala y Entretenimiento": "🛋️",
+  "Climatización y Ventilación": "❄️",
+  "Iluminación": "💡",
+  "Dormitorio y Uso General": "🛏️",
+  "Lavandería y Limpieza": "🧺",
+  "Agua y Servicios": "💧",
+  "Otros Equipos y Herramientas": "🔧",
 }
 
+const getEquipoKey = (categoriaId: string, equipoNombre: string) => `${categoriaId}::${equipoNombre}`
+
+type EquipoWithMeta = {
+  key: string
+  categoriaId: string
+  categoriaNombre: string
+  nombre: string
+  potencia_kw: number
+  energia_kwh: number
+}
+
+interface CreateEquipoForm {
+  nombre: string
+  potencia_kw: string
+  energia_kwh: string
+  categoria: string
+  categoriaPersonalizada: string
+}
+
+const createEmptyCreateForm = (): CreateEquipoForm => ({
+  nombre: "",
+  potencia_kw: "",
+  energia_kwh: "",
+  categoria: "",
+  categoriaPersonalizada: "",
+})
+
+interface EditEquipoForm {
+  nombre: string
+  potencia_kw: string
+  energia_kwh: string
+}
+
+const createEmptyEditForm = (): EditEquipoForm => ({
+  nombre: "",
+  potencia_kw: "",
+  energia_kwh: "",
+})
+
 export default function CalculadoraPage() {
+  const { toast } = useToast()
+
+  const [categorias, setCategorias] = useState<CalculoEnergeticoCategoria[]>([])
   const [equiposCantidad, setEquiposCantidad] = useState<Map<string, number>>(new Map())
-  const [equiposPersonalizados, setEquiposPersonalizados] = useState<EquipoPersonalizado[]>([])
-  const [showAgregarEquipo, setShowAgregarEquipo] = useState(false)
-  const [nuevoEquipoNombre, setNuevoEquipoNombre] = useState("")
-  const [nuevoEquipoPotencia, setNuevoEquipoPotencia] = useState([100])
-  const [nuevoEquipoConsumo, setNuevoEquipoConsumo] = useState([100])
   const [showRecomendaciones, setShowRecomendaciones] = useState(false)
   const [bateriaKwh, setBateriaKwh] = useState([0])
   const [openBuscador, setOpenBuscador] = useState(false)
   const [busqueda, setBusqueda] = useState("")
   const [cantidadBuscador, setCantidadBuscador] = useState<Map<string, number>>(new Map())
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [createForm, setCreateForm] = useState<CreateEquipoForm>(() => createEmptyCreateForm())
+  const [createLoading, setCreateLoading] = useState(false)
+  const [editingEquipo, setEditingEquipo] = useState<EquipoWithMeta | null>(null)
+  const [editForm, setEditForm] = useState<EditEquipoForm>(() => createEmptyEditForm())
+  const [editLoading, setEditLoading] = useState(false)
+  const [equipoToDelete, setEquipoToDelete] = useState<EquipoWithMeta | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [loadingCategorias, setLoadingCategorias] = useState(false)
+  const [categoriasError, setCategoriasError] = useState<string | null>(null)
 
-  // Calcular potencia total en kW (para dimensionar inversor)
+  const fetchCategorias = useCallback(async () => {
+    setLoadingCategorias(true)
+    try {
+      const data = await CalculoEnergeticoService.getCategorias()
+      setCategorias(data)
+      setCategoriasError(null)
+    } catch (error) {
+      console.error("[Calculadora] Error al cargar categorías:", error)
+      setCategorias([])
+      setCategoriasError(
+        error instanceof Error ? error.message : "No se pudieron cargar los equipos. Intenta nuevamente."
+      )
+    } finally {
+      setLoadingCategorias(false)
+      setInitialLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchCategorias()
+  }, [fetchCategorias])
+
+  const equiposConMeta = useMemo<EquipoWithMeta[]>(() => {
+    return categorias.flatMap((categoria) =>
+      (categoria.equipos || []).map((equipo) => ({
+        key: getEquipoKey(categoria.id, equipo.nombre),
+        categoriaId: categoria.id,
+        categoriaNombre: categoria.nombre,
+        nombre: equipo.nombre,
+        potencia_kw: equipo.potencia_kw,
+        energia_kwh: equipo.energia_kwh,
+      }))
+    )
+  }, [categorias])
+
+  const equiposIndex = useMemo(() => {
+    const map = new Map<string, EquipoWithMeta>()
+    equiposConMeta.forEach((equipo) => map.set(equipo.key, equipo))
+    return map
+  }, [equiposConMeta])
+
+  useEffect(() => {
+    const validKeys = new Set(equiposConMeta.map((equipo) => equipo.key))
+    const pruneMap = <T,>(source: Map<string, T>) => {
+      let changed = false
+      const next = new Map<string, T>()
+      source.forEach((value, key) => {
+        if (validKeys.has(key)) {
+          next.set(key, value)
+        } else {
+          changed = true
+        }
+      })
+
+      if (!changed && source.size === next.size) {
+        let identical = true
+        source.forEach((value, key) => {
+          if (next.get(key) !== value) {
+            identical = false
+          }
+        })
+        if (identical) {
+          return source
+        }
+      }
+      return next
+    }
+
+    setEquiposCantidad((prev) => pruneMap(prev))
+    setCantidadBuscador((prev) => pruneMap(prev))
+  }, [equiposConMeta])
+
   const potenciaTotalKw = useMemo(() => {
-    let totalW = 0
-
-    // Sumar equipos seleccionados con sus cantidades
-    equiposCantidad.forEach((cantidad, equipoId) => {
-      const equipo = equipos.find(e => e.id === equipoId)
+    let total = 0
+    equiposCantidad.forEach((cantidad, key) => {
+      const equipo = equiposIndex.get(key)
       if (equipo) {
-        totalW += equipo.potenciaW * cantidad
+        total += equipo.potencia_kw * cantidad
       }
     })
+    return total
+  }, [equiposCantidad, equiposIndex])
 
-    // Sumar equipos personalizados (usar potenciaW convertida)
-    equiposPersonalizados.forEach(equipo => {
-      totalW += equipo.consumoKwh * 1000 // consumoKwh almacena la potencia en kW
-    })
-
-    return totalW / 1000
-  }, [equiposCantidad, equiposPersonalizados])
-
-  // Calcular consumo REAL en kWh (para dimensionar batería)
   const consumoRealKwh = useMemo(() => {
-    let totalKwh = 0
-
-    // Sumar consumo REAL de equipos seleccionados con sus cantidades
-    equiposCantidad.forEach((cantidad, equipoId) => {
-      const equipo = equipos.find(e => e.id === equipoId)
+    let total = 0
+    equiposCantidad.forEach((cantidad, key) => {
+      const equipo = equiposIndex.get(key)
       if (equipo) {
-        totalKwh += equipo.consumoKwh * cantidad // Aquí usamos el consumo REAL
+        total += equipo.energia_kwh * cantidad
       }
     })
+    return total
+  }, [equiposCantidad, equiposIndex])
 
-    // Sumar equipos personalizados
-    equiposPersonalizados.forEach(equipo => {
-      totalKwh += equipo.consumoKwh
-    })
-
-    return totalKwh
-  }, [equiposCantidad, equiposPersonalizados])
-
-  // Recomendaciones
   const inversorRecomendado = potenciaTotalKw * 1.25
   const bateriaRecomendada5h = consumoRealKwh * 5
+  const duracionConBateria = consumoRealKwh > 0 ? bateriaKwh[0] / consumoRealKwh : 0
+  const totalEquipos = equiposCantidad.size
+  const categoriaOptions = useMemo(() => categorias.map((categoria) => categoria.nombre), [categorias])
+  const noEquiposRegistrados = useMemo(
+    () => categorias.every((categoria) => (categoria.equipos || []).length === 0),
+    [categorias]
+  )
 
-  // Calcular duración con batería personalizada
-  const duracionConBateria = bateriaKwh[0] > 0 ? bateriaKwh[0] / consumoRealKwh : 0
+  const restablecerParametros = () => {
+    setEquiposCantidad(new Map())
+    setCantidadBuscador(new Map())
+  }
 
-  // Inicializar batería recomendada cuando se abre el modal
+  const agregarEquipo = (equipoKey: string, cantidad = 1) => {
+    if (!equiposIndex.has(equipoKey)) return
+
+    setEquiposCantidad((prev) => {
+      const next = new Map(prev)
+      next.set(equipoKey, cantidad)
+      return next
+    })
+  }
+
+  const eliminarEquipo = (equipoKey: string) => {
+    setEquiposCantidad((prev) => {
+      const next = new Map(prev)
+      next.delete(equipoKey)
+      return next
+    })
+  }
+
+  const incrementarCantidad = (equipoKey: string) => {
+    setEquiposCantidad((prev) => {
+      const next = new Map(prev)
+      const actual = next.get(equipoKey) || 0
+      next.set(equipoKey, actual + 1)
+      return next
+    })
+  }
+
+  const decrementarCantidad = (equipoKey: string) => {
+    setEquiposCantidad((prev) => {
+      const next = new Map(prev)
+      const actual = next.get(equipoKey) || 0
+      if (actual > 1) {
+        next.set(equipoKey, actual - 1)
+      } else {
+        next.delete(equipoKey)
+      }
+      return next
+    })
+  }
+
+  const agregarDesdeBuscador = (equipoKey: string) => {
+    const cantidad = Math.max(1, cantidadBuscador.get(equipoKey) || 1)
+    agregarEquipo(equipoKey, cantidad)
+    setCantidadBuscador((prev) => {
+      const next = new Map(prev)
+      next.delete(equipoKey)
+      return next
+    })
+    setOpenBuscador(false)
+    setBusqueda("")
+  }
+
+  const actualizarCantidadBuscador = (equipoKey: string, cantidad: number) => {
+    setCantidadBuscador((prev) => {
+      const next = new Map(prev)
+      if (cantidad > 0) {
+        next.set(equipoKey, cantidad)
+      } else {
+        next.delete(equipoKey)
+      }
+      return next
+    })
+  }
+
   const handleOpenRecomendaciones = () => {
     setBateriaKwh([parseFloat(bateriaRecomendada5h.toFixed(2))])
     setShowRecomendaciones(true)
   }
 
-  const agregarEquipo = (equipoId: string) => {
-    const nuevaCantidad = new Map(equiposCantidad)
-    nuevaCantidad.set(equipoId, 1)
-    setEquiposCantidad(nuevaCantidad)
-  }
-
-  const eliminarEquipo = (equipoId: string) => {
-    const nuevaCantidad = new Map(equiposCantidad)
-    nuevaCantidad.delete(equipoId)
-    setEquiposCantidad(nuevaCantidad)
-  }
-
-  const incrementarCantidad = (equipoId: string) => {
-    const nuevaCantidad = new Map(equiposCantidad)
-    const cantidadActual = nuevaCantidad.get(equipoId) || 0
-    nuevaCantidad.set(equipoId, cantidadActual + 1)
-    setEquiposCantidad(nuevaCantidad)
-  }
-
-  const decrementarCantidad = (equipoId: string) => {
-    const nuevaCantidad = new Map(equiposCantidad)
-    const cantidadActual = nuevaCantidad.get(equipoId) || 0
-    if (cantidadActual > 1) {
-      nuevaCantidad.set(equipoId, cantidadActual - 1)
-    } else {
-      nuevaCantidad.delete(equipoId)
-    }
-    setEquiposCantidad(nuevaCantidad)
-  }
-
-  const agregarEquipoPersonalizado = () => {
-    if (nuevoEquipoNombre.trim() && nuevoEquipoPotencia[0] > 0) {
-      setEquiposPersonalizados([...equiposPersonalizados, {
-        nombre: nuevoEquipoNombre.trim(),
-        consumoKwh: nuevoEquipoConsumo[0] / 1000 // Guardar consumo real en kW
-      }])
-      setNuevoEquipoNombre("")
-      setNuevoEquipoPotencia([100])
-      setNuevoEquipoConsumo([100])
-      setShowAgregarEquipo(false)
+  const handleCreateDialogChange = (open: boolean) => {
+    setIsCreateDialogOpen(open)
+    if (!open) {
+      setCreateForm(createEmptyCreateForm())
     }
   }
 
-  const eliminarEquipoPersonalizado = (index: number) => {
-    setEquiposPersonalizados(equiposPersonalizados.filter((_, i) => i !== index))
-  }
+  const handleCreateEquipo = async () => {
+    const nombre = createForm.nombre.trim()
+    const potencia = parseFloat(createForm.potencia_kw)
+    const energia = parseFloat(createForm.energia_kwh)
+    const categoriaSeleccionada =
+      createForm.categoria === "otro" ? createForm.categoriaPersonalizada.trim() : createForm.categoria.trim()
 
-  const restablecerParametros = () => {
-    setEquiposCantidad(new Map())
-    setEquiposPersonalizados([])
-    setCantidadBuscador(new Map())
-  }
-
-  const agregarDesdeBuscador = (equipoId: string) => {
-    const cantidad = cantidadBuscador.get(equipoId) || 1
-    const nuevaCantidad = new Map(equiposCantidad)
-    nuevaCantidad.set(equipoId, cantidad)
-    setEquiposCantidad(nuevaCantidad)
-    // Limpiar la cantidad del buscador
-    const nuevaCantidadBuscador = new Map(cantidadBuscador)
-    nuevaCantidadBuscador.delete(equipoId)
-    setCantidadBuscador(nuevaCantidadBuscador)
-    // Cerrar el buscador
-    setOpenBuscador(false)
-    setBusqueda("")
-  }
-
-  const actualizarCantidadBuscador = (equipoId: string, cantidad: number) => {
-    const nuevaCantidad = new Map(cantidadBuscador)
-    if (cantidad > 0) {
-      nuevaCantidad.set(equipoId, cantidad)
-    } else {
-      nuevaCantidad.delete(equipoId)
+    if (!nombre) {
+      toast({ title: "Campos incompletos", description: "Ingresa el nombre del equipo.", variant: "destructive" })
+      return
     }
-    setCantidadBuscador(nuevaCantidad)
+
+    if (!categoriaSeleccionada) {
+      toast({ title: "Campos incompletos", description: "Selecciona o ingresa una categoría.", variant: "destructive" })
+      return
+    }
+
+    if (Number.isNaN(potencia) || potencia <= 0) {
+      toast({
+        title: "Dato inválido",
+        description: "La potencia debe ser un número positivo en kW.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (Number.isNaN(energia) || energia <= 0) {
+      toast({
+        title: "Dato inválido",
+        description: "La energía debe ser un número positivo en kWh.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setCreateLoading(true)
+    try {
+      await CalculoEnergeticoService.createEquipo({
+        nombre,
+        potencia_kw: potencia,
+        energia_kwh: energia,
+        categoria: categoriaSeleccionada,
+      })
+      toast({ title: "Equipo registrado", description: "El equipo se agregó correctamente." })
+      handleCreateDialogChange(false)
+      await fetchCategorias()
+    } catch (error) {
+      console.error("[Calculadora] Error al crear equipo:", error)
+      toast({
+        title: "No se pudo crear el equipo",
+        description: error instanceof Error ? error.message : "Intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setCreateLoading(false)
+    }
   }
 
-  // Filtrar equipos según búsqueda
-  const equiposFiltrados = useMemo(() => {
-    if (!busqueda.trim()) return equipos
-    const busquedaLower = busqueda.toLowerCase()
-    return equipos.filter(equipo =>
-      equipo.nombre.toLowerCase().includes(busquedaLower) ||
-      equipo.categoria.toLowerCase().includes(busquedaLower)
-    )
-  }, [busqueda])
-
-  const equiposPorCategoria = useMemo(() => {
-    const grouped: Record<string, typeof equipos> = {}
-    categorias.forEach(cat => {
-      grouped[cat] = equipos.filter(e => e.categoria === cat)
+  const handleEditEquipo = (equipo: EquipoWithMeta) => {
+    setEditingEquipo(equipo)
+    setEditForm({
+      nombre: equipo.nombre,
+      potencia_kw: equipo.potencia_kw.toString(),
+      energia_kwh: equipo.energia_kwh.toString(),
     })
-    return grouped
-  }, [])
+  }
 
-  const totalEquipos = equiposCantidad.size + equiposPersonalizados.length
+  const handleEditDialogChange = (open: boolean) => {
+    if (!open) {
+      setEditingEquipo(null)
+      setEditForm(createEmptyEditForm())
+    }
+  }
+
+  const handleUpdateEquipo = async () => {
+    if (!editingEquipo) return
+
+    const nombre = editForm.nombre.trim()
+    const potencia = parseFloat(editForm.potencia_kw)
+    const energia = parseFloat(editForm.energia_kwh)
+
+    if (!nombre) {
+      toast({ title: "Nombre requerido", description: "El nombre no puede estar vacío.", variant: "destructive" })
+      return
+    }
+
+    if (Number.isNaN(potencia) || potencia <= 0) {
+      toast({
+        title: "Dato inválido",
+        description: "La potencia debe ser mayor a 0 kW.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (Number.isNaN(energia) || energia <= 0) {
+      toast({
+        title: "Dato inválido",
+        description: "La energía debe ser mayor a 0 kWh.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const payload: {
+      nombre?: string
+      potencia_kw?: number
+      energia_kwh?: number
+    } = {}
+
+    if (nombre !== editingEquipo.nombre) payload.nombre = nombre
+    if (potencia !== editingEquipo.potencia_kw) payload.potencia_kw = potencia
+    if (energia !== editingEquipo.energia_kwh) payload.energia_kwh = energia
+
+    if (Object.keys(payload).length === 0) {
+      toast({ title: "Sin cambios", description: "Actualiza algún campo antes de guardar." })
+      return
+    }
+
+    setEditLoading(true)
+    try {
+      await CalculoEnergeticoService.updateEquipo(editingEquipo.categoriaId, editingEquipo.nombre, payload)
+      toast({ title: "Equipo actualizado", description: "Los datos del equipo fueron guardados." })
+      handleEditDialogChange(false)
+      await fetchCategorias()
+    } catch (error) {
+      console.error("[Calculadora] Error al actualizar equipo:", error)
+      toast({
+        title: "No se pudo actualizar",
+        description: error instanceof Error ? error.message : "Intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setEditLoading(false)
+    }
+  }
+
+  const handleDeleteEquipo = (equipo: EquipoWithMeta) => {
+    setEquipoToDelete(equipo)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDeleteEquipo = async () => {
+    if (!equipoToDelete) return
+
+    setDeleteLoading(true)
+    try {
+      await CalculoEnergeticoService.deleteEquipo(equipoToDelete.categoriaId, equipoToDelete.nombre)
+      toast({ title: "Equipo eliminado", description: "El equipo se eliminó correctamente." })
+      setEquiposCantidad((prev) => {
+        const next = new Map(prev)
+        next.delete(equipoToDelete.key)
+        return next
+      })
+      setCantidadBuscador((prev) => {
+        const next = new Map(prev)
+        next.delete(equipoToDelete.key)
+        return next
+      })
+      await fetchCategorias()
+    } catch (error) {
+      console.error("[Calculadora] Error al eliminar equipo:", error)
+      toast({
+        title: "No se pudo eliminar el equipo",
+        description: error instanceof Error ? error.message : "Intenta más tarde.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleteLoading(false)
+      setEquipoToDelete(null)
+      setIsDeleteDialogOpen(false)
+    }
+  }
+
+  if (initialLoading) {
+    return <PageLoader moduleName="Calculadora" text="Cargando equipos del backend..." />
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -198,7 +494,7 @@ export default function CalculadoraPage() {
             </div>
             <div className="flex items-center space-x-3">
               <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full"/>
+                <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -209,6 +505,12 @@ export default function CalculadoraPage() {
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {loadingCategorias && (
+                <span className="flex items-center gap-2 text-sm text-orange-700">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Actualizando
+                </span>
+              )}
               <Button
                 onClick={restablecerParametros}
                 variant="outline"
@@ -218,6 +520,14 @@ export default function CalculadoraPage() {
               >
                 <RotateCcw className="h-4 w-4 text-orange-600" />
                 <span>Restablecer</span>
+              </Button>
+              <Button
+                onClick={() => setIsCreateDialogOpen(true)}
+                size="sm"
+                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                <Plus className="h-4 w-4" />
+                Registrar equipo
               </Button>
             </div>
           </div>
@@ -231,38 +541,30 @@ export default function CalculadoraPage() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex-1">
-                  <div className="grid grid-cols-2 gap-6">
-                    {/* Potencia en kW */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Potencia Total (Inversor)</p>
                       <p className="text-3xl font-bold text-gray-900 flex items-center gap-2">
                         <Cpu className="h-8 w-8 text-orange-600" />
                         {potenciaTotalKw.toFixed(2)} kW
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        = {(potenciaTotalKw * 1000).toFixed(0)} Watts
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">= {(potenciaTotalKw * 1000).toFixed(0)} Watts</p>
                     </div>
-
-                    {/* Consumo REAL en kWh */}
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Consumo Real por Hora (Batería)</p>
                       <p className="text-3xl font-bold text-gray-900 flex items-center gap-2">
                         <Zap className="h-8 w-8 text-orange-600" />
                         {consumoRealKwh.toFixed(3)} kWh
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Consumo diario (24h): {(consumoRealKwh * 24).toFixed(2)} kWh
-                      </p>
+                      <p className="text-xs text-gray-500 mt-1">Consumo diario (24h): {(consumoRealKwh * 24).toFixed(2)} kWh</p>
                     </div>
                   </div>
                 </div>
                 <Badge variant="outline" className="text-lg px-4 py-2 bg-white ml-4">
-                  {totalEquipos} {totalEquipos === 1 ? 'equipo' : 'equipos'}
+                  {totalEquipos} {totalEquipos === 1 ? "equipo" : "equipos"}
                 </Badge>
               </div>
 
-              {/* Botón de recomendaciones */}
               {totalEquipos > 0 && (
                 <div className="border-t border-orange-200 pt-4">
                   <Button
@@ -302,43 +604,51 @@ export default function CalculadoraPage() {
                       onValueChange={setBusqueda}
                     />
                     <CommandList>
-                      <CommandEmpty>No se encontraron equipos.</CommandEmpty>
-                      {categorias.map(categoria => {
-                        const equiposCategoria = equiposFiltrados.filter(e => e.categoria === categoria)
+                      <CommandEmpty>Sin resultados para la búsqueda.</CommandEmpty>
+                      {categorias.map((categoria) => {
+                        const equiposCategoria = (categoria.equipos || []).filter((equipo) => {
+                          if (!busqueda.trim()) return true
+                          const busquedaLower = busqueda.toLowerCase()
+                          return (
+                            equipo.nombre.toLowerCase().includes(busquedaLower) ||
+                            categoria.nombre.toLowerCase().includes(busquedaLower)
+                          )
+                        })
+
                         if (equiposCategoria.length === 0) return null
 
                         return (
-                          <CommandGroup key={categoria} heading={categoria}>
-                            {equiposCategoria.map(equipo => {
-                              const yaAgregado = equiposCantidad.has(equipo.id)
-                              const cantidadActual = cantidadBuscador.get(equipo.id) || 1
+                          <CommandGroup key={categoria.id} heading={categoria.nombre}>
+                            {equiposCategoria.map((equipo) => {
+                              const equipoKey = getEquipoKey(categoria.id, equipo.nombre)
+                              const yaAgregado = equiposCantidad.has(equipoKey)
+                              const cantidadActual = cantidadBuscador.get(equipoKey) || 1
 
                               return (
-                                <CommandItem
-                                  key={equipo.id}
-                                  value={equipo.id}
-                                  onSelect={() => {}}
-                                  className="flex items-center justify-between py-3"
-                                >
-                                  <div className="flex-1 min-w-0 mr-4">
-                                    <div className="text-sm font-medium text-gray-900">
-                                      {equipo.nombre}
+                                <CommandItem key={equipoKey} value={equipoKey} onSelect={() => agregarDesdeBuscador(equipoKey)}>
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between">
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          {Math.round(equipo.potencia_kw * 1000)} W •{" "}
+                                          {Math.round(equipo.energia_kwh * 1000)} W real/h
+                                        </p>
+                                      </div>
                                       {yaAgregado && (
-                                        <Badge variant="outline" className="ml-2 text-xs bg-orange-50 border-orange-200">
+                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
                                           Agregado
                                         </Badge>
                                       )}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      {equipo.potenciaW} W • {(equipo.consumoKwh * 1000).toFixed(0)} W real/h
-                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">{categoria.nombre}</div>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <div className="flex items-center gap-1">
                                       <Button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          actualizarCantidadBuscador(equipo.id, Math.max(1, cantidadActual - 1))
+                                          actualizarCantidadBuscador(equipoKey, Math.max(1, cantidadActual - 1))
                                         }}
                                         size="sm"
                                         variant="outline"
@@ -350,18 +660,18 @@ export default function CalculadoraPage() {
                                         type="number"
                                         min="1"
                                         value={cantidadActual}
+                                        onClick={(e) => e.stopPropagation()}
                                         onChange={(e) => {
                                           e.stopPropagation()
-                                          const valor = parseInt(e.target.value) || 1
-                                          actualizarCantidadBuscador(equipo.id, Math.max(1, valor))
+                                          const valor = parseInt(e.target.value, 10) || 1
+                                          actualizarCantidadBuscador(equipoKey, Math.max(1, valor))
                                         }}
-                                        onClick={(e) => e.stopPropagation()}
                                         className="w-14 h-7 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
                                       <Button
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          actualizarCantidadBuscador(equipo.id, cantidadActual + 1)
+                                          actualizarCantidadBuscador(equipoKey, cantidadActual + 1)
                                         }}
                                         size="sm"
                                         variant="outline"
@@ -373,7 +683,7 @@ export default function CalculadoraPage() {
                                     <Button
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        agregarDesdeBuscador(equipo.id)
+                                        agregarDesdeBuscador(equipoKey)
                                       }}
                                       size="sm"
                                       className="bg-orange-600 hover:bg-orange-700 h-7"
@@ -395,217 +705,313 @@ export default function CalculadoraPage() {
           </Card>
         </div>
 
+        {categoriasError && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {categoriasError}
+          </div>
+        )}
+
         {/* Contenido principal */}
         <div className="space-y-6">
-          {/* Lista de equipos por categoría */}
-          <div className="space-y-4">
-            {categorias.map(categoria => {
-              const equiposCategoria = equiposPorCategoria[categoria]
-              if (equiposCategoria.length === 0) return null
-
-              const iconos: Record<string, string> = {
-                "Electrodomésticos de Cocina": "🏠",
-                "Equipos de Sala y Entretenimiento": "🛋️",
-                "Climatización y Ventilación": "❄️",
-                "Iluminación": "💡",
-                "Dormitorio y Uso General": "🛏️",
-                "Lavandería y Limpieza": "🧺",
-                "Agua y Servicios": "💧",
-                "Otros Equipos y Herramientas": "🔧"
-              }
-
-              return (
-                <Card key={categoria} className="border-orange-100">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      <span>{iconos[categoria]}</span>
-                      {categoria}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {equiposCategoria.map(equipo => {
-                        const cantidad = equiposCantidad.get(equipo.id) || 0
-                        const seleccionado = cantidad > 0
-
-                        return (
-                          <div
-                            key={equipo.id}
-                            className={`p-3 rounded-lg border transition-colors ${
-                              seleccionado
-                                ? "border-orange-300 bg-orange-50"
-                                : "border-gray-200 bg-white"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {equipo.potenciaW} W • {(equipo.consumoKwh * 1000).toFixed(0)} W real/h
-                                </p>
-                              </div>
-                            </div>
-
-                            {!seleccionado ? (
-                              <Button
-                                onClick={() => agregarEquipo(equipo.id)}
-                                size="sm"
-                                variant="outline"
-                                className="w-full border-orange-200 hover:bg-orange-100"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Agregar
-                              </Button>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  onClick={() => decrementarCantidad(equipo.id)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Minus className="h-3 w-3" />
-                                </Button>
-                                <div className="flex-1 text-center">
-                                  <span className="text-sm font-semibold">{cantidad}</span>
-                                </div>
-                                <Button
-                                  onClick={() => incrementarCantidad(equipo.id)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  onClick={() => eliminarEquipo(equipo.id)}
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-
-          {/* Equipos personalizados */}
-          {equiposPersonalizados.length > 0 && (
-            <Card className="border-orange-200 bg-orange-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Equipos Personalizados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {equiposPersonalizados.map((equipo, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-white rounded-lg border border-orange-200"
-                    >
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
-                        <p className="text-xs text-gray-500">{(equipo.consumoKwh * 1000).toFixed(0)} W real/h</p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => eliminarEquipoPersonalizado(index)}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+          {noEquiposRegistrados && !loadingCategorias ? (
+            <Card className="border-dashed border-orange-200">
+              <CardContent className="py-10 text-center">
+                <p className="text-gray-600">Aún no hay equipos registrados en el backend.</p>
+                <p className="text-sm text-gray-500 mt-2">Usa el botón &quot;Registrar equipo&quot; para comenzar.</p>
               </CardContent>
             </Card>
-          )}
-
-          {/* Agregar equipo personalizado */}
-          {!showAgregarEquipo ? (
-            <Button
-              onClick={() => setShowAgregarEquipo(true)}
-              variant="outline"
-              className="w-full border-orange-200 hover:bg-orange-50"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Agregar Equipo Personalizado
-            </Button>
           ) : (
-            <Card className="border-orange-200 bg-orange-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Nuevo Equipo Personalizado</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="equipo-nombre">Nombre del Equipo</Label>
-                  <Input
-                    id="equipo-nombre"
-                    placeholder="Ej: Bomba de piscina"
-                    value={nuevoEquipoNombre}
-                    onChange={(e) => setNuevoEquipoNombre(e.target.value)}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="equipo-consumo">
-                    Consumo Real por Hora: {nuevoEquipoConsumo[0]} Watts
-                  </Label>
-                  <Slider
-                    id="equipo-consumo"
-                    min={1}
-                    max={10000}
-                    step={10}
-                    value={nuevoEquipoConsumo}
-                    onValueChange={setNuevoEquipoConsumo}
-                    className="mt-2"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>1 W</span>
-                    <span>10000 W (10 kW)</span>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-2">
-                    Este es el consumo REAL promedio por hora de uso del equipo.
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={agregarEquipoPersonalizado}
-                    className="flex-1 bg-orange-600 hover:bg-orange-700"
-                    disabled={!nuevoEquipoNombre.trim()}
-                  >
-                    Agregar
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setShowAgregarEquipo(false)
-                      setNuevoEquipoNombre("")
-                      setNuevoEquipoPotencia([100])
-                      setNuevoEquipoConsumo([100])
-                    }}
-                    variant="outline"
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <div className="space-y-4">
+              {categorias.map((categoria) => {
+                if ((categoria.equipos || []).length === 0) return null
+                const icono = categoriaIconos[categoria.nombre] || "⚡️"
+
+                return (
+                  <Card key={categoria.id} className="border-orange-100">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                        <span>{icono}</span>
+                        {categoria.nombre}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {(categoria.equipos || []).map((equipo) => {
+                          const equipoKey = getEquipoKey(categoria.id, equipo.nombre)
+                          const cantidad = equiposCantidad.get(equipoKey) || 0
+                          const seleccionado = cantidad > 0
+                          const equipoMeta =
+                            equiposIndex.get(equipoKey) || {
+                              key: equipoKey,
+                              categoriaId: categoria.id,
+                              categoriaNombre: categoria.nombre,
+                              nombre: equipo.nombre,
+                              potencia_kw: equipo.potencia_kw,
+                              energia_kwh: equipo.energia_kwh,
+                            }
+
+                          return (
+                            <div
+                              key={equipoKey}
+                              className={`p-3 rounded-lg border transition-colors ${
+                                seleccionado ? "border-orange-300 bg-orange-50" : "border-gray-200 bg-white"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {Math.round(equipo.potencia_kw * 1000)} W •{" "}
+                                    {Math.round(equipo.energia_kwh * 1000)} W real/h
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                    onClick={() => handleEditEquipo(equipoMeta)}
+                                    aria-label={`Editar ${equipo.nombre}`}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    onClick={() => handleDeleteEquipo(equipoMeta)}
+                                    aria-label={`Eliminar ${equipo.nombre}`}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {!seleccionado ? (
+                                <Button
+                                  onClick={() => agregarEquipo(equipoKey, 1)}
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full border-orange-200 hover:bg-orange-100"
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Agregar
+                                </Button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    onClick={() => decrementarCantidad(equipoKey)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Minus className="h-3 w-3" />
+                                  </Button>
+                                  <div className="flex-1 text-center">
+                                    <span className="text-sm font-semibold">{cantidad}</span>
+                                  </div>
+                                  <Button
+                                    onClick={() => incrementarCantidad(equipoKey)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    onClick={() => eliminarEquipo(equipoKey)}
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
           )}
         </div>
       </main>
 
+      {/* Crear equipo */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Registrar nuevo equipo</DialogTitle>
+            <DialogDescription>Ingresa los datos para crear el equipo en la colección del backend.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nuevo-equipo-nombre">Nombre del equipo</Label>
+              <Input
+                id="nuevo-equipo-nombre"
+                placeholder="Ej: Refrigerador (A++)"
+                value={createForm.nombre}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, nombre: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="nuevo-equipo-potencia">Potencia instantánea (kW)</Label>
+                <Input
+                  id="nuevo-equipo-potencia"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="Ej: 0.15"
+                  min="0"
+                  step="0.01"
+                  value={createForm.potencia_kw}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, potencia_kw: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="nuevo-equipo-energia">Consumo real (kWh)</Label>
+                <Input
+                  id="nuevo-equipo-energia"
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="Ej: 0.06"
+                  min="0"
+                  step="0.01"
+                  value={createForm.energia_kwh}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, energia_kwh: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div>
+              <Label>Categoría</Label>
+              <Select
+                value={createForm.categoria}
+                onValueChange={(value) =>
+                  setCreateForm((prev) => ({
+                    ...prev,
+                    categoria: value,
+                    categoriaPersonalizada: value === "otro" ? prev.categoriaPersonalizada : "",
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoriaOptions.map((nombre) => (
+                    <SelectItem key={nombre} value={nombre}>
+                      {nombre}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="otro">Otra categoría</SelectItem>
+                </SelectContent>
+              </Select>
+              {createForm.categoria === "otro" && (
+                <Input
+                  className="mt-3"
+                  placeholder="Nombre de la nueva categoría"
+                  value={createForm.categoriaPersonalizada}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, categoriaPersonalizada: e.target.value }))}
+                />
+              )}
+            </div>
+          </div>
+          <DialogFooter className="pt-4">
+            <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateEquipo} disabled={createLoading}>
+              {createLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Editar equipo */}
+      <Dialog open={Boolean(editingEquipo)} onOpenChange={handleEditDialogChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar equipo</DialogTitle>
+            <DialogDescription>Actualiza la información del equipo seleccionado.</DialogDescription>
+          </DialogHeader>
+          {editingEquipo && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="editar-equipo-nombre">Nombre del equipo</Label>
+                <Input
+                  id="editar-equipo-nombre"
+                  value={editForm.nombre}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, nombre: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="editar-equipo-potencia">Potencia (kW)</Label>
+                  <Input
+                    id="editar-equipo-potencia"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={editForm.potencia_kw}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, potencia_kw: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="editar-equipo-energia">Consumo (kWh)</Label>
+                  <Input
+                    id="editar-equipo-energia"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    value={editForm.energia_kwh}
+                    onChange={(e) => setEditForm((prev) => ({ ...prev, energia_kwh: e.target.value }))}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="pt-4">
+            <Button variant="outline" onClick={() => handleEditDialogChange(false)} disabled={editLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUpdateEquipo} disabled={editLoading}>
+              {editLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Guardar cambios
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmación para eliminar equipo */}
+      <ConfirmDeleteDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setIsDeleteDialogOpen(open)
+          if (!open) {
+            setEquipoToDelete(null)
+          }
+        }}
+        title="Eliminar equipo"
+        message={
+          equipoToDelete
+            ? `¿Seguro que deseas eliminar el equipo "${equipoToDelete.nombre}" de la categoría "${equipoToDelete.categoriaNombre}"?`
+            : "¿Seguro que deseas eliminar este equipo?"
+        }
+        onConfirm={confirmDeleteEquipo}
+        confirmText="Eliminar equipo"
+        isLoading={deleteLoading}
+      />
+
       {/* Modal de Recomendaciones */}
       <Dialog open={showRecomendaciones} onOpenChange={setShowRecomendaciones}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-          {/* Header fijo */}
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-6 pt-6 pb-4">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -614,11 +1020,8 @@ export default function CalculadoraPage() {
               </DialogTitle>
             </DialogHeader>
           </div>
-
-          {/* Contenido scrolleable */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
             <div className="space-y-6">
-              {/* Inversor Recomendado */}
               <Card className="border-orange-200">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -629,20 +1032,18 @@ export default function CalculadoraPage() {
                 <CardContent className="space-y-3">
                   <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
                     <p className="text-xs sm:text-sm text-gray-600 mb-1">Potencia del Inversor</p>
-                    <p className="text-xl sm:text-2xl font-bold text-orange-600">
-                      {inversorRecomendado.toFixed(2)} kW
-                    </p>
+                    <p className="text-xl sm:text-2xl font-bold text-orange-600">{inversorRecomendado.toFixed(2)} kW</p>
                     <p className="text-xs text-gray-500 mt-2">
                       Potencia base: {potenciaTotalKw.toFixed(2)} kW + 25% de margen
                     </p>
                   </div>
                   <p className="text-xs text-gray-600">
-                    ℹ️ El margen del 25% cubre picos de arranque de motores (aires acondicionados, refrigeradores) y permite expansión futura.
+                    ℹ️ El margen del 25% cubre picos de arranque de motores (aires acondicionados, refrigeradores) y
+                    permite expansión futura.
                   </p>
                 </CardContent>
               </Card>
 
-              {/* Batería Recomendada */}
               <Card className="border-orange-200">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base flex items-center gap-2">
@@ -653,15 +1054,9 @@ export default function CalculadoraPage() {
                 <CardContent className="space-y-4">
                   <div className="bg-orange-50 p-3 sm:p-4 rounded-lg">
                     <p className="text-xs sm:text-sm text-gray-600 mb-1">Capacidad Recomendada (5 horas)</p>
-                    <p className="text-xl sm:text-2xl font-bold text-orange-600">
-                      {bateriaRecomendada5h.toFixed(2)} kWh
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      {consumoRealKwh.toFixed(3)} kWh/h × 5 horas de autonomía
-                    </p>
+                    <p className="text-xl sm:text-2xl font-bold text-orange-600">{bateriaRecomendada5h.toFixed(2)} kWh</p>
+                    <p className="text-xs text-gray-500 mt-2">{consumoRealKwh.toFixed(3)} kWh/h × 5 horas de autonomía</p>
                   </div>
-
-                  {/* Ajustar capacidad de batería */}
                   <div className="border-t border-orange-200 pt-4">
                     <Label htmlFor="bateria-kwh" className="text-xs sm:text-sm font-medium">
                       Ajustar Capacidad de Batería: {bateriaKwh[0].toFixed(2)} kWh
@@ -680,15 +1075,11 @@ export default function CalculadoraPage() {
                       <span>50 kWh</span>
                     </div>
                   </div>
-
-                  {/* Duración calculada */}
                   <div className="bg-blue-50 p-3 sm:p-4 rounded-lg border border-blue-200">
                     <p className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">
                       ⏱️ Duración con {bateriaKwh[0].toFixed(2)} kWh
                     </p>
-                    <p className="text-2xl sm:text-3xl font-bold text-blue-600">
-                      {duracionConBateria.toFixed(1)} horas
-                    </p>
+                    <p className="text-2xl sm:text-3xl font-bold text-blue-600">{duracionConBateria.toFixed(1)} horas</p>
                     <p className="text-xs text-gray-600 mt-2">
                       Con {bateriaKwh[0].toFixed(2)} kWh de batería y un consumo real de {consumoRealKwh.toFixed(3)} kWh/h,
                       el sistema funcionará aproximadamente {duracionConBateria.toFixed(1)} horas sin red eléctrica.
@@ -698,8 +1089,6 @@ export default function CalculadoraPage() {
               </Card>
             </div>
           </div>
-
-          {/* Footer */}
           <div className="border-t border-gray-200 px-6 py-4 bg-white">
             <div className="flex justify-end">
               <Button onClick={() => setShowRecomendaciones(false)} variant="outline">
@@ -709,6 +1098,8 @@ export default function CalculadoraPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Toaster />
     </div>
   )
 }
