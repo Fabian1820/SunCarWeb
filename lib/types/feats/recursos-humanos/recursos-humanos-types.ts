@@ -65,10 +65,10 @@ export interface SuccessResponse {
 
 export interface CargosResumen {
   cargo: string
-  porcentaje_fijo_estimulo: number
-  porcentaje_variable_estimulo: number
-  salario_fijo: number
   cantidad_personas: number
+  total_porcentaje_fijo_estimulo: number
+  total_porcentaje_variable_estimulo: number
+  total_salario_fijo: number
 }
 
 export interface CargosResumenResponse {

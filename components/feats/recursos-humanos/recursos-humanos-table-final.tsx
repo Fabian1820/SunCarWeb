@@ -20,6 +20,7 @@ interface RecursosHumanosTableProps {
   onActualizarCampo: (ci: string, campo: string, valor: any) => Promise<{success: boolean; message: string}>
   onEliminarTrabajador?: (ci: string, nombre: string) => Promise<void>
   onVerDetalles?: (trabajador: TrabajadorRRHH) => void
+  isVistaHistorica?: boolean
 }
 
 // Función para calcular el salario de un trabajador según la nueva especificación
@@ -85,7 +86,8 @@ export function RecursosHumanosTableFinal({
   loadingAsistencia,
   onActualizarCampo,
   onEliminarTrabajador,
-  onVerDetalles
+  onVerDetalles,
+  isVistaHistorica = false
 }: RecursosHumanosTableProps) {
   const [editando, setEditando] = useState<{ci: string, campo: string} | null>(null)
   const [valores, setValores] = useState<Record<string, any>>({})
@@ -305,7 +307,7 @@ export function RecursosHumanosTableFinal({
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-gray-200">
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-900 sticky left-0 bg-white z-10">Nombre</th>
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Cargo</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Fijo</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Variable</th>
@@ -314,7 +316,7 @@ export function RecursosHumanosTableFinal({
               <th className="text-center py-3 px-4 font-semibold text-gray-900">Días Trabajables</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900">Días No Trabajados</th>
               <th className="text-center py-3 px-4 font-semibold text-gray-900 bg-green-50">Salario Calculado</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
+              {!isVistaHistorica && <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -324,7 +326,7 @@ export function RecursosHumanosTableFinal({
               return (
                 <tr key={trabajador.CI} className="border-b border-gray-100 hover:bg-purple-50/50">
                   {/* Nombre + Asistencia */}
-                  <td className="py-4 px-4">
+                  <td className="py-4 px-4 sticky left-0 bg-white z-10">
                     <div>
                       <p className="font-medium text-gray-900">{trabajador.nombre}</p>
                       <div className="flex items-center gap-2 mt-1">
@@ -342,45 +344,51 @@ export function RecursosHumanosTableFinal({
 
                   {/* Cargo */}
                   <td className="py-4 px-4 text-center">
-                    {renderCampoEditable(trabajador, 'cargo', trabajador.cargo, 'text')}
+                    {isVistaHistorica ? trabajador.cargo : renderCampoEditable(trabajador, 'cargo', trabajador.cargo, 'text')}
                   </td>
 
                   {/* % Estímulo Fijo - step: 1 */}
                   <td className="py-4 px-4 text-center">
-                    {renderCampoEditable(trabajador, 'porcentaje_fijo_estimulo', trabajador.porcentaje_fijo_estimulo, 'number', 1)}
+                    {isVistaHistorica ? trabajador.porcentaje_fijo_estimulo : renderCampoEditable(trabajador, 'porcentaje_fijo_estimulo', trabajador.porcentaje_fijo_estimulo, 'number', 1)}
                   </td>
 
                   {/* % Estímulo Variable - step: 1 */}
                   <td className="py-4 px-4 text-center">
-                    {renderCampoEditable(trabajador, 'porcentaje_variable_estimulo', trabajador.porcentaje_variable_estimulo, 'number', 1)}
+                    {isVistaHistorica ? trabajador.porcentaje_variable_estimulo : renderCampoEditable(trabajador, 'porcentaje_variable_estimulo', trabajador.porcentaje_variable_estimulo, 'number', 1)}
                   </td>
 
                   {/* Salario Fijo - step: 1000 */}
                   <td className="py-4 px-4 text-center">
-                    {renderCampoEditable(trabajador, 'salario_fijo', trabajador.salario_fijo, 'number', 1000)}
+                    {isVistaHistorica ? trabajador.salario_fijo : renderCampoEditable(trabajador, 'salario_fijo', trabajador.salario_fijo, 'number', 1000)}
                   </td>
 
                   {/* Alimentación - step: 1000 */}
                   <td className="py-4 px-4 text-center">
-                    {renderCampoEditable(trabajador, 'alimentacion', trabajador.alimentacion, 'number', 1000)}
+                    {isVistaHistorica ? trabajador.alimentacion : renderCampoEditable(trabajador, 'alimentacion', trabajador.alimentacion, 'number', 1000)}
                   </td>
 
                   {/* Días Trabajables - step: 1 */}
                   <td className="py-4 px-4 text-center">
-                    {renderCampoEditable(trabajador, 'dias_trabajables', trabajador.dias_trabajables, 'number', 1)}
+                    {isVistaHistorica ? trabajador.dias_trabajables : renderCampoEditable(trabajador, 'dias_trabajables', trabajador.dias_trabajables, 'number', 1)}
                   </td>
 
                   {/* Días No Trabajados */}
                   <td className="py-4 px-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => abrirCalendario(trabajador)}
-                      className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      {trabajador.dias_no_trabajados.length} días
-                    </Button>
+                    {isVistaHistorica ? (
+                      <div className="text-center">
+                        {trabajador.dias_no_trabajados.length} días
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => abrirCalendario(trabajador)}
+                        className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        {trabajador.dias_no_trabajados.length} días
+                      </Button>
+                    )}
                   </td>
 
                   {/* Salario Calculado */}
@@ -399,32 +407,34 @@ export function RecursosHumanosTableFinal({
                   </td>
 
                   {/* Acciones */}
-                  <td className="py-4 px-4">
-                    <div className="flex items-center justify-center gap-2">
-                      {onVerDetalles && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onVerDetalles(trabajador)}
-                          className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                          title="Ver detalles del trabajador"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {onEliminarTrabajador && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onEliminarTrabajador(trabajador.CI, trabajador.nombre)}
-                          className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                          title="Eliminar trabajador"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </td>
+                  {!isVistaHistorica && (
+                    <td className="py-4 px-4">
+                      <div className="flex items-center justify-center gap-2">
+                        {onVerDetalles && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onVerDetalles(trabajador)}
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            title="Ver detalles del trabajador"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onEliminarTrabajador && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onEliminarTrabajador(trabajador.CI, trabajador.nombre)}
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            title="Eliminar trabajador"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               )
             })}
@@ -461,14 +471,10 @@ export function RecursosHumanosTableFinal({
                 </span>
               </td>
               <td className="py-3 px-4 text-center">
-                <span className="text-gray-600">
-                  {trabajadores.reduce((sum, t) => sum + (t.dias_trabajables || 0), 0)}
-                </span>
+                <span className="text-gray-400">-</span>
               </td>
               <td className="py-3 px-4 text-center">
-                <span className="text-gray-600">
-                  {trabajadores.reduce((sum, t) => sum + (t.dias_no_trabajados?.length || 0), 0)}
-                </span>
+                <span className="text-gray-400">-</span>
               </td>
               <td className="py-3 px-4 text-center bg-green-100">
                 <span className="font-bold text-green-800 text-lg">

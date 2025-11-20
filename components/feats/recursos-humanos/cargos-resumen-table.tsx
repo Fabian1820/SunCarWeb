@@ -46,17 +46,17 @@ export function CargosResumenTable({ cargos }: CargosResumenTableProps) {
                 </td>
                 <td className="py-4 px-4 text-center">
                   <span className="text-gray-900 font-medium">
-                    ${cargo.salario_fijo.toFixed(2)}
+                    ${(cargo.total_salario_fijo || 0).toFixed(2)}
                   </span>
                 </td>
                 <td className="py-4 px-4 text-center">
                   <span className="text-gray-900">
-                    {cargo.porcentaje_fijo_estimulo.toFixed(1)}%
+                    {(cargo.total_porcentaje_fijo_estimulo || 0).toFixed(1)}%
                   </span>
                 </td>
                 <td className="py-4 px-4 text-center">
                   <span className="text-gray-900">
-                    {cargo.porcentaje_variable_estimulo.toFixed(1)}%
+                    {(cargo.total_porcentaje_variable_estimulo || 0).toFixed(1)}%
                   </span>
                 </td>
               </tr>
@@ -81,17 +81,17 @@ export function CargosResumenTable({ cargos }: CargosResumenTableProps) {
             </td>
             <td className="py-3 px-4 text-center">
               <span className="font-bold text-gray-900">
-                ${cargos.reduce((sum, cargo) => sum + cargo.salario_fijo, 0).toFixed(2)}
+                ${cargos.reduce((sum, cargo) => sum + (cargo.total_salario_fijo || 0), 0).toFixed(2)}
               </span>
             </td>
             <td className="py-3 px-4 text-center">
               <span className="font-bold text-blue-600">
-                {cargos.reduce((sum, cargo) => sum + cargo.porcentaje_fijo_estimulo, 0).toFixed(1)}%
+                {cargos.reduce((sum, cargo) => sum + (cargo.total_porcentaje_fijo_estimulo || 0), 0).toFixed(1)}%
               </span>
             </td>
             <td className="py-3 px-4 text-center">
               <span className="font-bold text-purple-600">
-                {cargos.reduce((sum, cargo) => sum + cargo.porcentaje_variable_estimulo, 0).toFixed(1)}%
+                {cargos.reduce((sum, cargo) => sum + (cargo.total_porcentaje_variable_estimulo || 0), 0).toFixed(1)}%
               </span>
             </td>
           </tr>

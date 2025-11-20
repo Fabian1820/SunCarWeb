@@ -5,19 +5,28 @@ import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { ArrowLeft, DollarSign, Users, Calendar, UserPlus, List, Briefcase } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/shared/molecule/dropdown-menu"
+import { ArrowLeft, DollarSign, Users, Calendar, UserPlus, List, Briefcase, Archive, Save, History, Settings, ChevronDown } from "lucide-react"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { RecursosHumanosTableFinal } from "@/components/feats/recursos-humanos/recursos-humanos-table-final"
 import { CargosResumenTable } from "@/components/feats/recursos-humanos/cargos-resumen-table"
 import { EstimulosDialog } from "@/components/feats/recursos-humanos/estimulos-dialog"
+import { HistorialIngresosDialog } from "@/components/feats/recursos-humanos/historial-ingresos-dialog"
 import { CrearTrabajadorForm } from "@/components/feats/recursos-humanos/crear-trabajador-form"
 import { WorkerDetailsDashboard } from "@/components/feats/recursos-humanos/worker-details-dashboard"
+import { ArchivoNominasList } from "@/components/feats/recursos-humanos/archivo-nominas-list"
+import { ArchivoNominaDetail } from "@/components/feats/recursos-humanos/archivo-nomina-detail"
+import { GuardarNominaDialog } from "@/components/feats/recursos-humanos/guardar-nomina-dialog"
+import { NominaNavigation } from "@/components/feats/recursos-humanos/nomina-navigation"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
-import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH } from "@/lib/recursos-humanos-types"
+import { useArchivoRH } from "@/hooks/use-archivo-rh"
+import { IngresoMensualService } from "@/lib/api-services"
+import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH, IngresoMensual } from "@/lib/recursos-humanos-types"
 import type { ExportOptions } from "@/lib/export-service"
+import type { ArchivoNominaRH } from "@/lib/types/feats/recursos-humanos/archivo-rh-types"
 
 export default function RecursosHumanosPage() {
   const {
@@ -37,16 +46,38 @@ export default function RecursosHumanosPage() {
     refresh
   } = useRecursosHumanos()
 
+  // Hook para archivo de nóminas
+  const {
+    nominas,
+    loading: loadingArchivo,
+    loadNominas,
+    guardarNomina,
+  } = useArchivoRH()
+
   const [isEstimulosDialogOpen, setIsEstimulosDialogOpen] = useState(false)
+  const [isHistorialIngresosDialogOpen, setIsHistorialIngresosDialogOpen] = useState(false)
+  const [isConfigDropdownOpen, setIsConfigDropdownOpen] = useState(false)
   const [isCrearTrabajadorDialogOpen, setIsCrearTrabajadorDialogOpen] = useState(false)
   const [isSubmittingWorker, setIsSubmittingWorker] = useState(false)
-  const [vistaActual, setVistaActual] = useState<'trabajadores' | 'cargos'>('trabajadores')
+  const [vistaActual, setVistaActual] = useState<'trabajadores' | 'cargos' | 'archivo'>('trabajadores')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [trabajadorToDelete, setTrabajadorToDelete] = useState<{ ci: string; nombre: string } | null>(null)
   const [isDeletingWorker, setIsDeletingWorker] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<TrabajadorRRHH | null>(null)
-  const { toast} = useToast()
+
+  // Estados para archivo de nóminas
+  const [isGuardarNominaDialogOpen, setIsGuardarNominaDialogOpen] = useState(false)
+  const [isNominaDetailDialogOpen, setIsNominaDetailDialogOpen] = useState(false)
+  const [nominaSeleccionada, setNominaSeleccionada] = useState<ArchivoNominaRH | null>(null)
+  const [ingresosDisponibles, setIngresosDisponibles] = useState<IngresoMensual[]>([])
+  const [nominasExistentes, setNominasExistentes] = useState<Set<string>>(new Set())
+
+  // Estados para navegación de períodos históricos
+  const [periodoVisualizando, setPeriodoVisualizando] = useState<{ mes: number; anio: number } | null>(null)
+  const [datosNominaHistorica, setDatosNominaHistorica] = useState<ArchivoNominaRH | null>(null)
+
+  const { toast } = useToast()
 
   // Cargar cargos cuando se cambia a vista de cargos
   useEffect(() => {
@@ -55,9 +86,27 @@ export default function RecursosHumanosPage() {
     }
   }, [vistaActual, cargos.length, loadCargos])
 
+  // Cargar archivo cuando se cambia a vista de archivo
+  useEffect(() => {
+    if (vistaActual === 'archivo') {
+      loadNominas()
+    }
+  }, [vistaActual, loadNominas])
+
   // Obtener mes y año actuales o del último ingreso
   const mesActual = ultimoIngreso?.mes || new Date().getMonth() + 1
   const anioActual = ultimoIngreso?.anio || new Date().getFullYear()
+
+  // Determinar qué período y datos mostrar (actual o histórico)
+  const estaViendoHistorico = periodoVisualizando !== null
+  const mesVisualizando = estaViendoHistorico ? periodoVisualizando!.mes : mesActual
+  const anioVisualizando = estaViendoHistorico ? periodoVisualizando!.anio : anioActual
+  const trabajadoresMostrar = estaViendoHistorico
+    ? (datosNominaHistorica?.trabajadores as any as TrabajadorRRHH[] || [])
+    : trabajadores
+  const ingresoMostrar = estaViendoHistorico
+    ? datosNominaHistorica?.ingreso_mensual_monto || 0
+    : (ultimoIngreso?.monto || 0)
 
   const handleActualizarCampo = async (ci: string, campo: string, valor: any) => {
     const result = await actualizarCampoTrabajador(ci, campo as any, valor)
@@ -158,6 +207,84 @@ export default function RecursosHumanosPage() {
     }
   }
 
+  // Handlers para archivo de nóminas
+  const handleGuardarNomina = async (data: any) => {
+    const result = await guardarNomina(data)
+
+    if (result.success) {
+      toast({
+        title: "Nómina guardada",
+        description: result.message,
+      })
+      setIsGuardarNominaDialogOpen(false)
+
+      // Resetear navegación para volver al período actual
+      setPeriodoVisualizando(null)
+      setDatosNominaHistorica(null)
+
+      // Refrescar datos actuales para reflejar el reseteo
+      await refresh()
+    } else {
+      toast({
+        title: "Error al guardar nómina",
+        description: result.message,
+        variant: "destructive",
+      })
+    }
+
+    return result
+  }
+
+  const handleVerDetalleNomina = (nomina: ArchivoNominaRH) => {
+    setNominaSeleccionada(nomina)
+    setIsNominaDetailDialogOpen(true)
+  }
+
+  // Handlers para navegación de períodos históricos
+  const handleNavigateToNomina = (nomina: ArchivoNominaRH) => {
+    console.log('📅 Navegando a nómina histórica:', nomina.mes, nomina.anio)
+    setPeriodoVisualizando({ mes: nomina.mes, anio: nomina.anio })
+    setDatosNominaHistorica(nomina)
+  }
+
+  const handleVolverActual = () => {
+    console.log('🔄 Volviendo al período actual')
+    setPeriodoVisualizando(null)
+    setDatosNominaHistorica(null)
+  }
+
+  const handleAbrirGuardarNomina = async () => {
+    try {
+      console.log('📂 Cargando datos para crear nómina...')
+
+      // Cargar tanto los ingresos mensuales como las nóminas existentes en paralelo
+      const [ingresos, nominasResult] = await Promise.all([
+        IngresoMensualService.getAllIngresos(),
+        loadNominas()
+      ])
+
+      console.log('✅ Ingresos mensuales cargados:', ingresos.length)
+      console.log('✅ Nóminas existentes cargadas:', nominasResult.data?.length || 0)
+
+      setIngresosDisponibles(ingresos)
+
+      // Construir Set de IDs de ingresos que ya tienen nómina guardada
+      const existingIds = new Set(nominasResult.data?.map(n => n.ingreso_mensual_id) || [])
+      setNominasExistentes(existingIds)
+
+      console.log('📊 Periodos con nómina:', Array.from(existingIds))
+
+      setIsGuardarNominaDialogOpen(true)
+    } catch (error: any) {
+      console.error('❌ Error al cargar datos para nómina:', error)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los datos necesarios para crear la nómina",
+        variant: "destructive",
+      })
+    }
+  }
+
   // Función helper para calcular salario (igual que en la tabla)
   const calcularSalario = (trabajador: any, montoTotal: number, totalTrabajadores: number, trabajadoresDestacados: number): number => {
     if (!trabajador.salario_fijo || !trabajador.dias_trabajables) return 0
@@ -182,7 +309,7 @@ export default function RecursosHumanosPage() {
   const getExportOptionsTrabajadores = (): Omit<ExportOptions, 'filename'> => {
     return {
       title: 'Nómina Mensual - Vista por Trabajador',
-      subtitle: `Período: ${String(mesActual).padStart(2, '0')}/${anioActual} | Monto Total Estímulos: $${(ultimoIngreso?.monto || 0).toFixed(2)}`,
+      subtitle: `Período: ${String(mesVisualizando).padStart(2, '0')}/${anioVisualizando} | Monto Total Estímulos: $${ingresoMostrar.toFixed(2)}`,
       columns: [
         { header: 'CI', key: 'CI', width: 15 },
         { header: 'Nombre', key: 'nombre', width: 25 },
@@ -195,10 +322,10 @@ export default function RecursosHumanosPage() {
         { header: 'Días No Trabajados', key: 'dias_no_trabajados_count', width: 18 },
         { header: 'Salario Total', key: 'salario_total', width: 15 },
       ],
-      data: trabajadores.map(t => ({
+      data: trabajadoresMostrar.map(t => ({
         ...t,
         dias_no_trabajados_count: t.dias_no_trabajados?.length || 0,
-        salario_total: calcularSalario(t, ultimoIngreso?.monto || 0, trabajadores.length, trabajadores.filter(tr => tr.porcentaje_variable_estimulo > 0).length)
+        salario_total: calcularSalario(t, ingresoMostrar, trabajadoresMostrar.length, trabajadoresMostrar.filter(tr => tr.porcentaje_variable_estimulo > 0).length)
       }))
     }
   }
@@ -211,9 +338,9 @@ export default function RecursosHumanosPage() {
       columns: [
         { header: 'Cargo', key: 'cargo', width: 25 },
         { header: 'Cantidad de Personas', key: 'cantidad_personas', width: 20 },
-        { header: 'Total Salario Fijo', key: 'salario_fijo', width: 20 },
-        { header: 'Total % Estímulo Fijo', key: 'porcentaje_fijo_estimulo', width: 22 },
-        { header: 'Total % Estímulo Variable', key: 'porcentaje_variable_estimulo', width: 25 },
+        { header: 'Total Salario Fijo', key: 'total_salario_fijo', width: 20 },
+        { header: 'Total % Estímulo Fijo', key: 'total_porcentaje_fijo_estimulo', width: 22 },
+        { header: 'Total % Estímulo Variable', key: 'total_porcentaje_variable_estimulo', width: 25 },
       ],
       data: cargos
     }
@@ -269,16 +396,59 @@ export default function RecursosHumanosPage() {
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
-              <Dialog open={isEstimulosDialogOpen} onOpenChange={setIsEstimulosDialogOpen}>
-                <DialogTrigger asChild>
+              {/* Dropdown de Configuración */}
+              <DropdownMenu open={isConfigDropdownOpen} onOpenChange={setIsConfigDropdownOpen}>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    variant="outline"
-                    className="border-green-300 text-green-700 hover:bg-green-50"
+                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
                   >
-                    <DollarSign className="mr-2 h-4 w-4" />
-                    Configurar Estímulos
+                    <Settings className="mr-2 h-4 w-4" />
+                    Configuración
+                    <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
-                </DialogTrigger>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setIsCrearTrabajadorDialogOpen(true)
+                      setIsConfigDropdownOpen(false)
+                    }}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Crear Trabajador
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      handleAbrirGuardarNomina()
+                      setIsConfigDropdownOpen(false)
+                    }}
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    Guardar Nómina
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setIsEstimulosDialogOpen(true)
+                      setIsConfigDropdownOpen(false)
+                    }}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    Config Estímulo del Mes
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setIsHistorialIngresosDialogOpen(true)
+                      setIsConfigDropdownOpen(false)
+                    }}
+                  >
+                    <History className="mr-2 h-4 w-4" />
+                    Ver Historial de Estímulos
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Dialog para configurar estímulos */}
+              <Dialog open={isEstimulosDialogOpen} onOpenChange={setIsEstimulosDialogOpen}>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Configurar Monto de Estímulos</DialogTitle>
@@ -292,15 +462,19 @@ export default function RecursosHumanosPage() {
                   />
                 </DialogContent>
               </Dialog>
+
+              {/* Dialog para historial de ingresos */}
+              <Dialog open={isHistorialIngresosDialogOpen} onOpenChange={setIsHistorialIngresosDialogOpen}>
+                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl">Historial de Ingresos Mensuales</DialogTitle>
+                  </DialogHeader>
+                  <HistorialIngresosDialog />
+                </DialogContent>
+              </Dialog>
+
+              {/* Dialog para crear trabajador */}
               <Dialog open={isCrearTrabajadorDialogOpen} onOpenChange={setIsCrearTrabajadorDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800"
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Crear Trabajador
-                  </Button>
-                </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>Crear Nuevo Trabajador</DialogTitle>
@@ -319,15 +493,17 @@ export default function RecursosHumanosPage() {
 
       <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Información del período y estímulos */}
-        <Card className="mb-8 border-l-4 border-l-purple-600">
+        <Card className={`mb-8 border-l-4 ${estaViendoHistorico ? 'border-l-amber-600' : 'border-l-purple-600'}`}>
           <CardContent className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center space-x-3">
-                <Calendar className="h-8 w-8 text-purple-600" />
+                <Calendar className={`h-8 w-8 ${estaViendoHistorico ? 'text-amber-600' : 'text-purple-600'}`} />
                 <div>
-                  <p className="text-sm text-gray-600">Período</p>
+                  <p className="text-sm text-gray-600">
+                    Período {estaViendoHistorico && '(Histórico)'}
+                  </p>
                   <p className="text-lg font-bold text-gray-900">
-                    {String(mesActual).padStart(2, '0')}/{anioActual}
+                    {String(mesVisualizando).padStart(2, '0')}/{anioVisualizando}
                   </p>
                 </div>
               </div>
@@ -336,7 +512,7 @@ export default function RecursosHumanosPage() {
                 <div>
                   <p className="text-sm text-gray-600">Monto Total Estímulos</p>
                   <p className="text-lg font-bold text-gray-900">
-                    ${(ultimoIngreso?.monto || 0).toFixed(2)} {ultimoIngreso?.moneda || 'CUP'}
+                    ${ingresoMostrar.toFixed(2)} {ultimoIngreso?.moneda || 'CUP'}
                   </p>
                 </div>
               </div>
@@ -345,7 +521,7 @@ export default function RecursosHumanosPage() {
                 <div>
                   <p className="text-sm text-gray-600">Trabajadores</p>
                   <p className="text-lg font-bold text-gray-900">
-                    {trabajadores.length}
+                    {trabajadoresMostrar.length}
                   </p>
                 </div>
               </div>
@@ -374,6 +550,15 @@ export default function RecursosHumanosPage() {
               <Briefcase className="mr-2 h-4 w-4" />
               Vista por Cargo
             </Button>
+            <Button
+              variant={vistaActual === 'archivo' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setVistaActual('archivo')}
+              className={vistaActual === 'archivo' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              Archivo Histórico
+            </Button>
           </div>
         </div>
 
@@ -388,61 +573,102 @@ export default function RecursosHumanosPage() {
                       <List className="h-5 w-5" />
                       Gestión de Nómina Mensual - Por Trabajador
                     </>
-                  ) : (
+                  ) : vistaActual === 'cargos' ? (
                     <>
                       <Briefcase className="h-5 w-5" />
                       Resumen de Nómina - Por Cargo
+                    </>
+                  ) : (
+                    <>
+                      <Archive className="h-5 w-5" />
+                      Archivo Histórico de Nóminas
                     </>
                   )}
                 </CardTitle>
                 <CardDescription className="mt-1">
                   {vistaActual === 'trabajadores'
-                    ? 'Haga click en cualquier campo para editarlo. El salario se calcula automáticamente. Presione Enter para guardar o Esc para cancelar.'
-                    : 'Vista consolidada de trabajadores agrupados por cargo con totales sumados de salarios y porcentajes de estímulos.'
+                    ? estaViendoHistorico
+                      ? '⚠️ VISTA HISTÓRICA: Esta nómina ha sido archivada. Los datos no pueden ser modificados. Use las flechas de navegación para cambiar de período.'
+                      : 'Haga click en cualquier campo para editarlo. El salario se calcula automáticamente. Presione Enter para guardar o Esc para cancelar.'
+                    : vistaActual === 'cargos'
+                    ? 'Vista consolidada de trabajadores agrupados por cargo con totales sumados de salarios y porcentajes de estímulos.'
+                    : 'Historial completo de nóminas guardadas. Las nóminas archivadas son inmutables y no pueden editarse.'
                   }
                 </CardDescription>
               </div>
-              
+
               {/* Botones de exportación */}
-              <div className="flex-shrink-0">
-                {vistaActual === 'trabajadores' ? (
-                  <ExportButtons
-                    exportOptions={getExportOptionsTrabajadores()}
-                    baseFilename={`nomina_trabajadores_${String(mesActual).padStart(2, '0')}_${anioActual}`}
-                    variant="compact"
-                  />
-                ) : (
-                  <ExportButtons
-                    exportOptions={getExportOptionsCargos()}
-                    baseFilename={`nomina_cargos_${String(mesActual).padStart(2, '0')}_${anioActual}`}
-                    variant="compact"
-                  />
-                )}
-              </div>
+              {vistaActual !== 'archivo' && (
+                <div className="flex-shrink-0">
+                  {vistaActual === 'trabajadores' ? (
+                    <ExportButtons
+                      exportOptions={getExportOptionsTrabajadores()}
+                      baseFilename={`nomina_trabajadores_${String(mesVisualizando).padStart(2, '0')}_${anioVisualizando}`}
+                      variant="compact"
+                    />
+                  ) : (
+                    <ExportButtons
+                      exportOptions={getExportOptionsCargos()}
+                      baseFilename={`nomina_cargos_${String(mesActual).padStart(2, '0')}_${anioActual}`}
+                      variant="compact"
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
             {vistaActual === 'trabajadores' ? (
-              <RecursosHumanosTableFinal
-                trabajadores={trabajadores}
-                mes={mesActual}
-                anio={anioActual}
-                montoTotalEstimulos={ultimoIngreso?.monto || 0}
-                estadoAsistencia={estadoAsistencia}
-                loadingAsistencia={loadingAsistencia}
-                onActualizarCampo={handleActualizarCampo}
-                onEliminarTrabajador={handleEliminarTrabajador}
-                onVerDetalles={handleVerDetalles}
-              />
-            ) : loadingCargos ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-600">Cargando resumen de cargos...</p>
+              <>
+                {/* Navegación entre períodos */}
+                <div className="mb-4">
+                  <NominaNavigation
+                    mesActual={mesActual}
+                    anioActual={anioActual}
+                    onNavigate={handleNavigateToNomina}
+                    onVolverActual={handleVolverActual}
+                  />
                 </div>
-              </div>
+
+                <RecursosHumanosTableFinal
+                  trabajadores={trabajadoresMostrar}
+                  mes={mesVisualizando}
+                  anio={anioVisualizando}
+                  montoTotalEstimulos={ingresoMostrar}
+                  estadoAsistencia={estadoAsistencia}
+                  loadingAsistencia={loadingAsistencia}
+                  onActualizarCampo={estaViendoHistorico ? async () => ({ success: false, message: 'No se pueden editar datos históricos' }) : handleActualizarCampo}
+                  onEliminarTrabajador={estaViendoHistorico ? async () => {} : handleEliminarTrabajador}
+                  onVerDetalles={handleVerDetalles}
+                  isVistaHistorica={estaViendoHistorico}
+                />
+              </>
+            ) : vistaActual === 'cargos' ? (
+              loadingCargos ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Cargando resumen de cargos...</p>
+                  </div>
+                </div>
+              ) : (
+                <CargosResumenTable cargos={cargos} />
+              )
             ) : (
-              <CargosResumenTable cargos={cargos} />
+              // Vista de archivo histórico
+              loadingArchivo ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Cargando archivo histórico...</p>
+                  </div>
+                </div>
+              ) : (
+                <ArchivoNominasList
+                  nominas={nominas}
+                  onVerDetalle={handleVerDetalleNomina}
+                />
+              )
             )}
           </CardContent>
         </Card>
@@ -462,23 +688,53 @@ export default function RecursosHumanosPage() {
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden">
           <DialogHeader>
-            <DialogTitle className="text-2xl">Detalles del Trabajador</DialogTitle>
+            <DialogTitle className="text-2xl">
+              Detalles del Trabajador {estaViendoHistorico && '(Vista Histórica)'}
+            </DialogTitle>
           </DialogHeader>
           {trabajadorSeleccionado && (
             <WorkerDetailsDashboard
               trabajador={trabajadorSeleccionado}
               salarioCalculado={calcularSalario(
                 trabajadorSeleccionado,
-                ultimoIngreso?.monto || 0,
-                trabajadores.length,
-                trabajadores.filter(t => t.porcentaje_variable_estimulo > 0).length
+                ingresoMostrar,
+                trabajadoresMostrar.length,
+                trabajadoresMostrar.filter(t => t.porcentaje_variable_estimulo > 0).length
               )}
-              montoTotalEstimulos={ultimoIngreso?.monto || 0}
-              mes={mesActual}
-              anio={anioActual}
+              montoTotalEstimulos={ingresoMostrar}
+              mes={mesVisualizando}
+              anio={anioVisualizando}
               estadoAsistencia={estadoAsistencia}
               loadingAsistencia={loadingAsistencia}
             />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para guardar nómina */}
+      <Dialog open={isGuardarNominaDialogOpen} onOpenChange={setIsGuardarNominaDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Guardar Nómina Mensual</DialogTitle>
+          </DialogHeader>
+          <GuardarNominaDialog
+            trabajadores={trabajadores}
+            ingresosDisponibles={ingresosDisponibles}
+            nominasExistentes={nominasExistentes}
+            onGuardar={handleGuardarNomina}
+            onCancel={() => setIsGuardarNominaDialogOpen(false)}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para ver detalle de nómina archivada */}
+      <Dialog open={isNominaDetailDialogOpen} onOpenChange={setIsNominaDetailDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Detalle de Nómina Archivada</DialogTitle>
+          </DialogHeader>
+          {nominaSeleccionada && (
+            <ArchivoNominaDetail nomina={nominaSeleccionada} />
           )}
         </DialogContent>
       </Dialog>
