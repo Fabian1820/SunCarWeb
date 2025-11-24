@@ -31,7 +31,6 @@ export function CategoriesTable({ categories, onToggleVendible, onEdit }: Catego
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Categoría</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Foto</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Es Vendible</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
@@ -78,28 +77,6 @@ export function CategoriesTable({ categories, onToggleVendible, onEdit }: Catego
                       <ImageIcon className="h-4 w-4 text-gray-400" />
                     </div>
                   )}
-                </div>
-              </td>
-              <td className="py-4 px-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    checked={category.esVendible ?? true}
-                    onCheckedChange={(checked) => onToggleVendible?.(category.id, checked)}
-                    disabled={!onToggleVendible}
-                  />
-                  <div className="flex items-center space-x-1">
-                    {category.esVendible ? (
-                      <>
-                        <Eye className="h-4 w-4 text-green-600" />
-                        <span className="text-sm text-green-600">Vendible</span>
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-500">No vendible</span>
-                      </>
-                    )}
-                  </div>
                 </div>
               </td>
               <td className="py-4 px-4">

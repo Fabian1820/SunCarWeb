@@ -92,17 +92,6 @@ export function EditCategoryForm({
             />
           </div>
 
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="esVendible"
-              checked={formData.esVendible}
-              onCheckedChange={(checked) => setFormData({ ...formData, esVendible: checked })}
-            />
-            <Label htmlFor="esVendible" className="cursor-pointer">
-              Es vendible
-            </Label>
-          </div>
-
           <FileUpload
             id="category-photo"
             label="Foto de la Categoría (opcional)"

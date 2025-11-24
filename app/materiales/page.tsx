@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
@@ -14,6 +14,7 @@ import { MaterialsTable } from "@/components/feats/materials/materials-table"
 import { CategoriesTable } from "@/components/feats/materials/categories-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
 import { EditCategoryForm } from "@/components/feats/materials/edit-category-form"
+import { DuplicatesDashboard } from "@/components/feats/materials/duplicates-dashboard"
 import { useMaterials } from "@/hooks/use-materials"
 import type { Material, BackendCatalogoProductos } from "@/lib/material-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
@@ -22,7 +23,7 @@ import { Toaster } from "@/components/shared/molecule/toaster"
 
 export default function MaterialesPage() {
   const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct, createCategory, addMaterialToProduct } = useMaterials()
-  const { toast } = useToast()
+  const { toast, dismiss } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -34,6 +35,10 @@ export default function MaterialesPage() {
   const [viewMode, setViewMode] = useState<"materials" | "categories">("materials")
   const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<BackendCatalogoProductos | null>(null)
+  const [duplicatesChecked, setDuplicatesChecked] = useState(false)
+  const [duplicates, setDuplicates] = useState<{ codigo: string; materiales: Material[] }[]>([])
+  const [isDuplicatesDashboardOpen, setIsDuplicatesDashboardOpen] = useState(false)
+  const duplicateToastIdRef = useRef<string | null>(null)
 
   const addMaterial = async (material: Omit<Material, "id">) => {
     const categoria = (material as any).categoria
@@ -87,6 +92,7 @@ export default function MaterialesPage() {
       })
 
       setIsAddDialogOpen(false)
+      setDuplicatesChecked(false) // Re-verificar duplicados después de agregar
     } catch (err: any) {
       toast({
         title: "Error",
@@ -121,6 +127,7 @@ export default function MaterialesPage() {
       });
       setIsEditDialogOpen(false)
       setEditingMaterial(null)
+      setDuplicatesChecked(false) // Re-verificar duplicados después de editar
     } catch (err: any) {
       toast({
         title: "Error",
@@ -215,6 +222,72 @@ export default function MaterialesPage() {
     const matchesSearch = category.categoria.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
+
+  // Función para abrir el dashboard de duplicados y cerrar el toast
+  const handleOpenDuplicatesDashboard = useCallback(() => {
+    console.log('[handleOpenDuplicatesDashboard] Abriendo dashboard, toastId:', duplicateToastIdRef.current)
+    setIsDuplicatesDashboardOpen(true)
+    // Cerrar el toast si existe
+    if (duplicateToastIdRef.current) {
+      console.log('[handleOpenDuplicatesDashboard] Cerrando toast:', duplicateToastIdRef.current)
+      dismiss(duplicateToastIdRef.current)
+      duplicateToastIdRef.current = null
+    }
+  }, [dismiss])
+
+  // Detectar códigos duplicados
+  useEffect(() => {
+    if (!loading && materials.length > 0 && !duplicatesChecked) {
+      const codigoMap = new Map<string, Material[]>()
+
+      // Agrupar materiales por código
+      materials.forEach(material => {
+        const codigo = String(material.codigo)
+        if (!codigoMap.has(codigo)) {
+          codigoMap.set(codigo, [])
+        }
+        codigoMap.get(codigo)!.push(material)
+      })
+
+      // Encontrar duplicados
+      const foundDuplicates = Array.from(codigoMap.entries())
+        .filter(([_, mats]) => mats.length > 1)
+        .map(([codigo, mats]) => ({ codigo, materiales: mats }))
+
+      if (foundDuplicates.length > 0) {
+        setDuplicates(foundDuplicates)
+
+        const totalDuplicates = foundDuplicates.reduce((sum, dup) => sum + dup.materiales.length, 0)
+
+        const toastResult = toast({
+          title: "⚠️ Códigos Duplicados Detectados",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p className="text-sm">
+                Se encontraron {foundDuplicates.length} código(s) con duplicados ({totalDuplicates} materiales afectados)
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleOpenDuplicatesDashboard}
+                className="w-fit bg-white hover:bg-gray-50 text-gray-900 font-medium shadow-sm border-gray-300"
+              >
+                📋 Ver Detalles
+              </Button>
+            </div>
+          ) as any,
+          variant: "destructive",
+          duration: 15000,
+        })
+
+        // Guardar el ID del toast para poder cerrarlo después
+        duplicateToastIdRef.current = toastResult.id
+        console.log('[useEffect] Toast creado con ID:', toastResult.id)
+      }
+
+      setDuplicatesChecked(true)
+    }
+  }, [loading, materials, duplicatesChecked, toast])
 
   // Debug: log cuando cambie el estado de materials
   console.log('[MaterialesPage] Materials count:', materials.length, 'Filtered count:', filteredMaterials.length)
@@ -372,7 +445,7 @@ export default function MaterialesPage() {
                 {viewMode === "materials" ? "Catálogo de Materiales" : "Catálogo de Categorías"}
               </CardTitle>
               <CardDescription>
-                {viewMode === "materials" 
+                {viewMode === "materials"
                   ? `Mostrando ${filteredMaterials.length} de ${materials.length} materiales`
                   : `Mostrando ${filteredCategories.length} de ${catalogs.length} categorías`
                 }
@@ -380,9 +453,18 @@ export default function MaterialesPage() {
             </CardHeader>
             <CardContent>
               {viewMode === "materials" ? (
-                <MaterialsTable materials={filteredMaterials} onEdit={openEditDialog} onDelete={deleteMaterial} />
+                <MaterialsTable
+                  key={`${searchTerm}-${selectedCategory}-${materials.length}`}
+                  materials={filteredMaterials}
+                  onEdit={openEditDialog}
+                  onDelete={deleteMaterial}
+                />
               ) : (
-                <CategoriesTable categories={filteredCategories} onEdit={openEditCategoryDialog} />
+                <CategoriesTable
+                  key={`${searchTerm}-${catalogs.length}`}
+                  categories={filteredCategories}
+                  onEdit={openEditCategoryDialog}
+                />
               )}
             </CardContent>
           </Card>
@@ -442,6 +524,13 @@ export default function MaterialesPage() {
           onConfirm={confirmDeleteMaterial}
           confirmText="Eliminar Material"
           isLoading={deleteLoading}
+        />
+
+        {/* Dashboard de Duplicados */}
+        <DuplicatesDashboard
+          open={isDuplicatesDashboardOpen}
+          onOpenChange={setIsDuplicatesDashboardOpen}
+          duplicates={duplicates}
         />
       </main>
       <Toaster />
