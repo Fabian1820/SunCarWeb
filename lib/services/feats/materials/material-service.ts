@@ -16,6 +16,9 @@ export class MaterialService {
     return result.data.flatMap((cat: any) =>
       (cat.materiales || []).map((m: any) => ({
         ...m,
+        // Usa el ObjectId del producto como identificador base; si el material trae su propio _id, úsalo
+        id: m._id || m.id || m.material_id || cat.id,
+        material_key: `${m._id || m.id || m.material_id || cat.id}__${m.codigo}`,
         categoria: cat.categoria,
         producto_id: cat.id,
       }))

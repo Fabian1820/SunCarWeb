@@ -1,9 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/shared/molecule/card"
-import {Badge} from "@/components/shared/atom/badge"
-import {Button} from "@/components/shared/atom/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
+import { Badge } from "@/components/shared/atom/badge"
+import { Button } from "@/components/shared/atom/button"
 import {
     Sun,
     FileText,
@@ -24,17 +24,18 @@ import {
     Sparkles,
     Shield,
     Calculator,
-    RotateCcw
+    RotateCcw,
+    Receipt
 } from "lucide-react"
-import {useState, useEffect} from "react"
-import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/shared/molecule/dialog"
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
-import {ReporteService, ClienteService} from "@/lib/api-services"
-import {Loader} from "@/components/shared/atom/loader"
-import {Wrench, Zap} from "lucide-react"
-import {VisuallyHidden} from "@radix-ui/react-visually-hidden"
+import { ReporteService, ClienteService } from "@/lib/api-services"
+import { Loader } from "@/components/shared/atom/loader"
+import { Wrench, Zap } from "lucide-react"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard"
-import {Toaster} from "@/components/shared/molecule/toaster"
+import { Toaster } from "@/components/shared/molecule/toaster"
 import { useAuth } from "@/contexts/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
 
@@ -158,6 +159,14 @@ export default function Dashboard() {
             description: 'Gestión de trabajos pendientes y seguimiento.',
             color: 'indigo-600',
         },
+        {
+            id: 'facturas',
+            href: '/facturas',
+            icon: Receipt,
+            title: 'Facturación',
+            description: 'Gestión de facturas y vales de venta.',
+            color: 'sky-600',
+        },
     ]
 
     // Módulos solo para superAdmin
@@ -227,7 +236,7 @@ export default function Dashboard() {
                             <div
                                 className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
                                 <img src="/logo.png" alt="Logo SunCar"
-                                     className="h-10 w-10 object-contain rounded-full"/>
+                                    className="h-10 w-10 object-contain rounded-full" />
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900">Administración de SUNCAR</h1>
@@ -254,7 +263,7 @@ export default function Dashboard() {
                                     size="sm"
                                     className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300"
                                 >
-                                    <Calculator className="h-4 w-4 text-orange-600"/>
+                                    <Calculator className="h-4 w-4 text-orange-600" />
                                     <span className="text-gray-700">Calculadora</span>
                                 </Button>
                             </Link>
@@ -264,7 +273,7 @@ export default function Dashboard() {
                                 onClick={() => setIsContactosDialogOpen(true)}
                                 className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300"
                             >
-                                <Info className="h-4 w-4 text-blue-600"/>
+                                <Info className="h-4 w-4 text-blue-600" />
                                 <span className="text-gray-700">Información</span>
                             </Button>
                             <UserMenu />
@@ -284,7 +293,7 @@ export default function Dashboard() {
                             </p>
                         )}
                     </div>
-                    
+
                     {availableModules.length === 0 ? (
                         <div className="text-center py-12">
                             <p className="text-gray-600">No tiene permisos de acceso aún o ha ocurrido algún cambio.</p>
@@ -297,7 +306,7 @@ export default function Dashboard() {
                                     <Card
                                         className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
                                         <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                            <module.icon className={`h-10 w-10 text-${module.color} mx-auto mb-3`}/>
+                                            <module.icon className={`h-10 w-10 text-${module.color} mx-auto mb-3`} />
                                             <h3 className="text-lg font-semibold text-gray-900 mb-2">{module.title}</h3>
                                             <p className="text-sm text-gray-600">{module.description}</p>
                                         </CardContent>
@@ -320,7 +329,7 @@ export default function Dashboard() {
                     </VisuallyHidden>
                     {/* El encabezado visual se muestra solo dentro de FormViewer */}
                     {selectedForm && <FormViewer formData={selectedForm}
-                                                 clienteCompleto={getClienteByNumero(selectedForm.cliente?.numero)}/>}
+                        clienteCompleto={getClienteByNumero(selectedForm.cliente?.numero)} />}
                 </DialogContent>
             </Dialog>
 
@@ -329,15 +338,15 @@ export default function Dashboard() {
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center space-x-2">
-                            <Info className="h-5 w-5 text-blue-600"/>
+                            <Info className="h-5 w-5 text-blue-600" />
                             <span>Información de Contacto</span>
                         </DialogTitle>
                     </DialogHeader>
-                    <ContactosDashboard/>
+                    <ContactosDashboard />
                 </DialogContent>
             </Dialog>
 
-            <Toaster/>
+            <Toaster />
         </div>
     )
 }
