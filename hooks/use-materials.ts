@@ -14,14 +14,14 @@ interface UseMaterialsReturn {
   createProduct: (categoria: string, materiales?: any[]) => Promise<string>
   addMaterialToProduct: (
     productoId: string,
-    material: { codigo: string, descripcion: string, um: string },
+    material: { codigo: string, descripcion: string, um: string, precio?: number },
     categoria?: string
   ) => Promise<boolean>
   deleteMaterialByCodigo: (materialCodigo: string, categoria?: string) => Promise<boolean>
   editMaterialInProduct: (
     productoId: string,
     materialCodigo: string,
-    data: { codigo: string | number, descripcion: string, um: string },
+    data: { codigo: string | number, descripcion: string, um: string, precio?: number },
     categoria?: string
   ) => Promise<boolean>
 }
@@ -103,7 +103,7 @@ export function useMaterials(): UseMaterialsReturn {
     return id
   }
 
-  const addMaterialToProduct = async (productoId: string, material: { codigo: string, descripcion: string, um: string }, categoria?: string) => {
+  const addMaterialToProduct = async (productoId: string, material: { codigo: string, descripcion: string, um: string, precio?: number }, categoria?: string) => {
     console.log('[useMaterials] Adding material:', { productoId, material, categoria });
 
     try {
@@ -112,7 +112,7 @@ export function useMaterials(): UseMaterialsReturn {
       if (!ok) {
         throw new Error('No se pudo agregar el material');
       }
-      
+
       // Actualización optimista del estado local
       setMaterials(prev => {
         console.log('[useMaterials] Current materials before add:', prev.length);
@@ -121,24 +121,25 @@ export function useMaterials(): UseMaterialsReturn {
           codigo: Number(material.codigo), // Convertir a número
           descripcion: material.descripcion,
           um: material.um,
+          precio: material.precio,
           categoria: categoria || '',
         } as any
         console.log('[useMaterials] New material to add:', newMaterial);
-        
+
         // Evitar duplicados por código/categoría
         const exists = prev.some(m => String(m.codigo) === String(material.codigo) && m.categoria === categoria)
         console.log('[useMaterials] Material exists?', exists);
-        
+
         if (exists) {
           console.log('[useMaterials] Material already exists, not adding');
           return prev;
         }
-        
+
         const updated = [newMaterial, ...prev];
         console.log('[useMaterials] Updated materials count:', updated.length);
         return updated;
       })
-      
+
       // También actualizar catálogo local si existe
       setCatalogs(prev => prev.map(c => c.id === (productoId as any) ? { ...c, materiales: [...(c.materiales as any[] || []), material] } : c))
       return true;
@@ -148,7 +149,7 @@ export function useMaterials(): UseMaterialsReturn {
     }
   }
 
-  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string }, categoria?: string) => {
+  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string, precio?: number }, categoria?: string) => {
     try {
       const ok = await MaterialService.editMaterialInProduct(productoId, materialCodigo, data)
       console.log('[useMaterials] Edit result:', ok);
@@ -160,7 +161,7 @@ export function useMaterials(): UseMaterialsReturn {
         const sameCode = String(m.codigo) === String(materialCodigo)
         const sameCategory = categoria ? m.categoria === categoria : true
         if (sameCode && sameCategory) {
-          return { ...m, codigo: data.codigo as any, descripcion: data.descripcion, um: data.um }
+          return { ...m, codigo: data.codigo as any, descripcion: data.descripcion, um: data.um, precio: data.precio }
         }
         return m
       }))

@@ -79,10 +79,11 @@ export default function MaterialesPage() {
           throw new Error('No se pudo determinar el producto para la categoría')
         }
 
-        await addMaterialToProduct(productoId as any, { 
-          codigo: String(codigo), 
-          descripcion, 
-          um
+        await addMaterialToProduct(productoId as any, {
+          codigo: String(codigo),
+          descripcion,
+          um,
+          precio: precio
         }, categoria)
       }
 
@@ -108,6 +109,7 @@ export default function MaterialesPage() {
     const categoria = (updatedMaterial as any).categoria
     const descripcion = (updatedMaterial as any).descripcion
     const um = (updatedMaterial as any).um
+    const precio = (updatedMaterial as any).precio
     // Buscar producto y material original
     const producto = catalogs.find(c => c.categoria === categoria)
     if (!producto) {
@@ -120,7 +122,7 @@ export default function MaterialesPage() {
     }
     const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
     try {
-      await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um }, categoria)
+      await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um, precio }, categoria)
       toast({
         title: "Éxito",
         description: 'Material actualizado exitosamente',

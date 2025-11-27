@@ -39,7 +39,7 @@ export function MaterialForm({
     categoria: initialData?.categoria || "",
     descripcion: initialData?.descripcion || "",
     um: initialData?.um || "",
-    precio: initialData?.precio || 0,
+    precio: initialData?.precio ?? undefined,
   })
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -102,7 +102,7 @@ export function MaterialForm({
         }
         await onSubmit(materialData as any)
         if (!isEditing) {
-          setFormData({ codigo: "", categoria: "", descripcion: "", um: "", precio: 0 })
+          setFormData({ codigo: "", categoria: "", descripcion: "", um: "", precio: undefined })
           setIsNewCategory(false)
           setCategoryPhoto(null)
           setCategoryVendible(true)
@@ -304,8 +304,14 @@ export function MaterialForm({
               type="number"
               step="0.01"
               min="0"
-              value={formData.precio || ""}
-              onChange={(e) => setFormData({ ...formData, precio: parseFloat(e.target.value) || 0 })}
+              value={formData.precio ?? ""}
+              onChange={(e) => {
+                const value = e.target.value
+                setFormData({
+                  ...formData,
+                  precio: value === "" ? undefined : parseFloat(value) || 0
+                })
+              }}
               placeholder="0.00"
             />
           </div>
