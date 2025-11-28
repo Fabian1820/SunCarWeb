@@ -93,7 +93,6 @@ export default function MaterialesPage() {
       })
 
       setIsAddDialogOpen(false)
-      setDuplicatesChecked(false) // Re-verificar duplicados después de agregar
     } catch (err: any) {
       toast({
         title: "Error",
@@ -129,7 +128,6 @@ export default function MaterialesPage() {
       });
       setIsEditDialogOpen(false)
       setEditingMaterial(null)
-      setDuplicatesChecked(false) // Re-verificar duplicados después de editar
     } catch (err: any) {
       toast({
         title: "Error",
