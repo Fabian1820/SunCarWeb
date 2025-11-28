@@ -155,10 +155,10 @@ export function OfertasPersonalizadasTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {oferta.precio !== undefined ? (
+                      {typeof oferta.precio === 'number' && !Number.isNaN(oferta.precio) ? (
                         <span className="font-semibold">${oferta.precio.toFixed(2)}</span>
                       ) : (
-                        <span className="text-muted-foreground">No definido</span>
+                        <span className="text-muted-foreground">$0.00</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -235,9 +235,9 @@ export function OfertasPersonalizadasTable({
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Precio</p>
                   <p className="text-lg font-semibold">
-                    {selectedOferta.precio !== undefined
+                    {typeof selectedOferta.precio === 'number' && !Number.isNaN(selectedOferta.precio)
                       ? `$${selectedOferta.precio.toFixed(2)}`
-                      : 'No definido'}
+                      : '$0.00'}
                   </p>
                 </div>
                 <div>

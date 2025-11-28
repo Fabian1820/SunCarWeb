@@ -34,6 +34,9 @@ interface EditOfertaDialogProps {
   oferta: OfertaPersonalizada | null
   onSubmit: (id: string, data: OfertaPersonalizadaUpdateRequest) => Promise<void>
   isLoading?: boolean
+  lockContactType?: 'cliente' | 'lead'
+  lockClienteId?: string
+  lockLeadId?: string
 }
 
 export function EditOfertaDialog({
@@ -42,6 +45,9 @@ export function EditOfertaDialog({
   oferta,
   onSubmit,
   isLoading = false,
+  lockContactType,
+  lockClienteId,
+  lockLeadId,
 }: EditOfertaDialogProps) {
   const [contactType, setContactType] = useState<'cliente' | 'lead'>('cliente')
   const [clienteId, setClienteId] = useState<string>('')
@@ -54,14 +60,15 @@ export function EditOfertaDialog({
   const [precio, setPrecio] = useState<string>('')
   const [pagada, setPagada] = useState<boolean>(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const contactLocked = Boolean(lockContactType)
 
   // Cargar datos de la oferta cuando cambia
   useEffect(() => {
     if (oferta) {
       const hasLead = Boolean(oferta.lead_id)
-      setContactType(hasLead ? 'lead' : 'cliente')
-      setClienteId(oferta.cliente_id || '')
-      setLeadId(oferta.lead_id || '')
+      setContactType(lockContactType || (hasLead ? 'lead' : 'cliente'))
+      setClienteId(lockClienteId || oferta.cliente_id || '')
+      setLeadId(lockLeadId || oferta.lead_id || '')
       setInversores(oferta.inversores || [])
       setBaterias(oferta.baterias || [])
       setPaneles(oferta.paneles || [])
@@ -71,7 +78,7 @@ export function EditOfertaDialog({
       setPagada(oferta.pagada || false)
       setErrors({})
     }
-  }, [oferta])
+  }, [oferta, lockClienteId, lockLeadId, lockContactType])
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
@@ -81,10 +88,12 @@ export function EditOfertaDialog({
 
     if (!hasCliente && !hasLead) {
       newErrors.destinatario = 'Selecciona un cliente o un lead'
-    } else if (contactType === 'cliente' && !hasCliente) {
-      newErrors.destinatario = 'Selecciona un cliente'
-    } else if (contactType === 'lead' && !hasLead) {
-      newErrors.destinatario = 'Selecciona un lead'
+    } else if (!contactLocked) {
+      if (contactType === 'cliente' && !hasCliente) {
+        newErrors.destinatario = 'Selecciona un cliente'
+      } else if (contactType === 'lead' && !hasLead) {
+        newErrors.destinatario = 'Selecciona un lead'
+      }
     }
 
     // Al menos un item debe estar presente
@@ -144,32 +153,35 @@ export function EditOfertaDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Cliente */}
-          <div>
-            <ClienteSelectorField
-              contactType={contactType}
-              onContactTypeChange={(type) => {
-                setContactType(type)
-                if (type === 'cliente') {
-                  setLeadId('')
-                } else {
-                  setClienteId('')
-                }
-                setErrors((prev) => {
-                  const { destinatario, ...rest } = prev
-                  return rest
-                })
-              }}
-              clienteId={clienteId}
-              leadId={leadId}
-              onClienteChange={setClienteId}
-              onLeadChange={setLeadId}
-              label="Cliente o Lead"
-            />
-            {errors.destinatario && (
-              <p className="text-sm text-red-500 mt-1">{errors.destinatario}</p>
-            )}
-          </div>
+          {/* Cliente/Lead (oculto si viene bloqueado) */}
+          {!contactLocked && (
+            <div>
+              <ClienteSelectorField
+                contactType={contactType}
+                onContactTypeChange={(type) => {
+                  if (contactLocked) return
+                  setContactType(type)
+                  if (type === 'cliente') {
+                    setLeadId('')
+                  } else {
+                    setClienteId('')
+                  }
+                  setErrors((prev) => {
+                    const { destinatario, ...rest } = prev
+                    return rest
+                  })
+                }}
+                clienteId={clienteId}
+                leadId={leadId}
+                onClienteChange={setClienteId}
+                onLeadChange={setLeadId}
+                label="Cliente o Lead"
+              />
+              {errors.destinatario && (
+                <p className="text-sm text-red-500 mt-1">{errors.destinatario}</p>
+              )}
+            </div>
+          )}
 
           {/* Tabs para equipos, útiles y servicios */}
           <Tabs defaultValue="equipos" className="w-full">

@@ -959,6 +959,8 @@ export function LeadsTable({
         isLoading={ofertaSubmitting}
         defaultContactType="lead"
         defaultLeadId={selectedLeadForOfertas?.id || ''}
+        lockContactType="lead"
+        lockLeadId={selectedLeadForOfertas?.id || ''}
       />
 
       <EditOfertaDialog
@@ -970,6 +972,8 @@ export function LeadsTable({
         oferta={editingOferta}
         onSubmit={handleUpdateOfertaLead}
         isLoading={ofertaSubmitting}
+        lockContactType="lead"
+        lockLeadId={selectedLeadForOfertas?.id || ''}
       />
 
       {/* Modal de mapa para convertir lead a cliente */}

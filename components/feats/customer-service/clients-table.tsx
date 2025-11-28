@@ -385,6 +385,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
         defaultClienteId={
           clientForOfertas?.numero || (clientForOfertas as any)?._id || ''
         }
+        lockContactType="cliente"
+        lockClienteId={clientForOfertas?.numero || (clientForOfertas as any)?._id || ''}
       />
 
       <EditOfertaDialog
@@ -396,6 +398,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
         oferta={editingOferta}
         onSubmit={handleUpdateOfertaCliente}
         isLoading={ofertaSubmitting}
+        lockContactType="cliente"
+        lockClienteId={clientForOfertas?.numero || (clientForOfertas as any)?._id || ''}
       />
 
       {/* Modal de reportes de cliente */}
