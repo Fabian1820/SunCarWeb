@@ -54,6 +54,7 @@ export interface ServicioOfertaItem {
 export interface OfertaPersonalizada {
   id?: string
   cliente_id?: string
+  lead_id?: string
   inversores?: InversorItem[]
   baterias?: BateriaItem[]
   paneles?: PanelItem[]
@@ -69,6 +70,7 @@ export interface OfertaPersonalizada {
  */
 export interface OfertaPersonalizadaCreateRequest {
   cliente_id?: string
+  lead_id?: string
   inversores?: InversorItem[]
   baterias?: BateriaItem[]
   paneles?: PanelItem[]
@@ -84,6 +86,7 @@ export interface OfertaPersonalizadaCreateRequest {
  */
 export interface OfertaPersonalizadaUpdateRequest {
   cliente_id?: string
+  lead_id?: string
   inversores?: InversorItem[]
   baterias?: BateriaItem[]
   paneles?: PanelItem[]

@@ -7,9 +7,8 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader2 } from "lucide-react"
-import type { ElementoPersonalizado, LeadCreateData, OfertaAsignacion } from "@/lib/api-types"
+import type { ElementoPersonalizado, LeadCreateData } from "@/lib/api-types"
 import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
-import { OfertasAsignacionFields } from "./ofertas-asignacion-fields"
 
 interface CreateLeadDialogProps {
   onSubmit: (data: LeadCreateData) => Promise<void>
@@ -131,13 +130,6 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
         [field]: ''
       }))
     }
-  }
-
-  const handleOfertasChange = (items: OfertaAsignacion[]) => {
-    setFormData((prev) => ({
-      ...prev,
-      ofertas: items,
-    }))
   }
 
   const handleElementosChange = (items: ElementoPersonalizado[]) => {
@@ -428,11 +420,6 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
           />
         </div>
         <div className="space-y-6">
-          <OfertasAsignacionFields
-            value={formData.ofertas || []}
-            onChange={handleOfertasChange}
-          />
-
           <ElementosPersonalizadosFields
             value={formData.elementos_personalizados || []}
             onChange={handleElementosChange}

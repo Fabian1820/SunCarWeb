@@ -42,11 +42,11 @@ export function EquiposField({ type, value, onChange, label }: EquiposFieldProps
   const [marca, setMarca] = useState<string>('')
   const [codigoEquipo, setCodigoEquipo] = useState<string>('')
 
-  // Mapear tipo a categoría
-  const getCategoriaByType = (t: EquipoType): string => {
-    if (t === 'inversor') return 'Inversor'
-    if (t === 'bateria') return 'Batería'
-    return 'Panel'
+  // Mapear tipo a nombre de categoría
+  const getCategoriaNameByType = (t: EquipoType): string => {
+    if (t === 'inversor') return 'INVERSORES'
+    if (t === 'bateria') return 'BATERÍAS'
+    return 'PANELES'
   }
 
   // Cargar materiales de la categoría correspondiente
@@ -54,8 +54,22 @@ export function EquiposField({ type, value, onChange, label }: EquiposFieldProps
     const loadMateriales = async () => {
       setLoading(true)
       try {
-        const categoria = getCategoriaByType(type)
-        const data = await MaterialService.getMaterialsByCategory(categoria)
+        const categoriaNombre = getCategoriaNameByType(type)
+
+        // Primero obtener todas las categorías para encontrar el ID
+        const categorias = await MaterialService.getCategories()
+        const categoriaEncontrada = categorias.find(
+          (c) => c.categoria === categoriaNombre || c.nombre === categoriaNombre
+        )
+
+        if (!categoriaEncontrada || !categoriaEncontrada.id) {
+          console.warn(`Categoría "${categoriaNombre}" no encontrada`)
+          setMateriales([])
+          return
+        }
+
+        // Ahora usar el ID para obtener los materiales
+        const data = await MaterialService.getMaterialsByCategory(categoriaEncontrada.id)
         setMateriales(Array.isArray(data) ? data : [])
       } catch (error) {
         console.error('Error loading materiales:', error)

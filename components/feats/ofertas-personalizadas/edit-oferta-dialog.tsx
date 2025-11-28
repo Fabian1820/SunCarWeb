@@ -43,7 +43,9 @@ export function EditOfertaDialog({
   onSubmit,
   isLoading = false,
 }: EditOfertaDialogProps) {
+  const [contactType, setContactType] = useState<'cliente' | 'lead'>('cliente')
   const [clienteId, setClienteId] = useState<string>('')
+  const [leadId, setLeadId] = useState<string>('')
   const [inversores, setInversores] = useState<InversorItem[]>([])
   const [baterias, setBaterias] = useState<BateriaItem[]>([])
   const [paneles, setPaneles] = useState<PanelItem[]>([])
@@ -56,7 +58,10 @@ export function EditOfertaDialog({
   // Cargar datos de la oferta cuando cambia
   useEffect(() => {
     if (oferta) {
+      const hasLead = Boolean(oferta.lead_id)
+      setContactType(hasLead ? 'lead' : 'cliente')
       setClienteId(oferta.cliente_id || '')
+      setLeadId(oferta.lead_id || '')
       setInversores(oferta.inversores || [])
       setBaterias(oferta.baterias || [])
       setPaneles(oferta.paneles || [])
@@ -71,8 +76,15 @@ export function EditOfertaDialog({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!clienteId) {
-      newErrors.clienteId = 'Selecciona un cliente'
+    const hasCliente = Boolean(clienteId)
+    const hasLead = Boolean(leadId)
+
+    if (!hasCliente && !hasLead) {
+      newErrors.destinatario = 'Selecciona un cliente o un lead'
+    } else if (contactType === 'cliente' && !hasCliente) {
+      newErrors.destinatario = 'Selecciona un cliente'
+    } else if (contactType === 'lead' && !hasLead) {
+      newErrors.destinatario = 'Selecciona un lead'
     }
 
     // Al menos un item debe estar presente
@@ -109,6 +121,7 @@ export function EditOfertaDialog({
 
     const data: OfertaPersonalizadaUpdateRequest = {
       cliente_id: clienteId || undefined,
+      lead_id: leadId || undefined,
       inversores: inversores.length > 0 ? inversores : undefined,
       baterias: baterias.length > 0 ? baterias : undefined,
       paneles: paneles.length > 0 ? paneles : undefined,
@@ -134,13 +147,27 @@ export function EditOfertaDialog({
           {/* Cliente */}
           <div>
             <ClienteSelectorField
-              value={clienteId}
-              onChange={setClienteId}
-              label="Cliente"
-              placeholder="Busca y selecciona un cliente"
+              contactType={contactType}
+              onContactTypeChange={(type) => {
+                setContactType(type)
+                if (type === 'cliente') {
+                  setLeadId('')
+                } else {
+                  setClienteId('')
+                }
+                setErrors((prev) => {
+                  const { destinatario, ...rest } = prev
+                  return rest
+                })
+              }}
+              clienteId={clienteId}
+              leadId={leadId}
+              onClienteChange={setClienteId}
+              onLeadChange={setLeadId}
+              label="Cliente o Lead"
             />
-            {errors.clienteId && (
-              <p className="text-sm text-red-500 mt-1">{errors.clienteId}</p>
+            {errors.destinatario && (
+              <p className="text-sm text-red-500 mt-1">{errors.destinatario}</p>
             )}
           </div>
 

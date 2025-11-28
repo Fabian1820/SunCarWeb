@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/shared/molecule/dialog"
 import {
   FileCheck,
   Eye,
@@ -11,13 +11,25 @@ import {
   Building2,
   Phone,
   Edit,
-  Trash2
+  Trash2,
+  ListChecks,
+  Plus,
 } from "lucide-react"
 import { ReportsTable } from "@/components/feats/reports/reports-table"
 import { ReporteService } from "@/lib/api-services"
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog"
+import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas"
+import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table"
+import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog"
+import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog"
+import type {
+  OfertaPersonalizada,
+  OfertaPersonalizadaCreateRequest,
+  OfertaPersonalizadaUpdateRequest,
+} from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types"
+import { useToast } from "@/hooks/use-toast"
 import type { Cliente } from "@/lib/api-types"
 
 interface ClientsTableProps {
@@ -29,6 +41,14 @@ interface ClientsTableProps {
 }
 
 export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loading = false }: ClientsTableProps) {
+  const { toast } = useToast()
+  const {
+    ofertas,
+    loading: ofertasLoading,
+    createOferta,
+    updateOferta,
+    deleteOferta,
+  } = useOfertasPersonalizadas()
   const [selectedClientReports, setSelectedClientReports] = useState<any[] | null>(null)
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null)
   const [loadingClientReports, setLoadingClientReports] = useState(false)
@@ -36,6 +56,18 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   const [clientLocation, setClientLocation] = useState<{ lat: number, lng: number } | null>(null)
   const [showClientDetails, setShowClientDetails] = useState(false)
   const [clientForDetails, setClientForDetails] = useState<Cliente | null>(null)
+  const [showOfertasDialog, setShowOfertasDialog] = useState(false)
+  const [clientForOfertas, setClientForOfertas] = useState<Cliente | null>(null)
+  const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false)
+  const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false)
+  const [editingOferta, setEditingOferta] = useState<OfertaPersonalizada | null>(null)
+  const [ofertaSubmitting, setOfertaSubmitting] = useState(false)
+
+  const ofertasDelCliente = useMemo(() => {
+    if (!clientForOfertas) return []
+    const posiblesIds = [clientForOfertas.numero, (clientForOfertas as any)?._id].filter(Boolean) as string[]
+    return ofertas.filter((o) => o.cliente_id && posiblesIds.includes(o.cliente_id))
+  }, [ofertas, clientForOfertas])
 
   // Acción para ver reportes de un cliente
   const handleViewClientReports = async (client: Cliente) => {
@@ -67,6 +99,85 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   const handleViewClientDetails = (client: Cliente) => {
     setClientForDetails(client)
     setShowClientDetails(true)
+  }
+
+  const openOfertasCliente = (client: Cliente) => {
+    setClientForOfertas(client)
+    setShowOfertasDialog(true)
+  }
+
+  const closeOfertasDialog = () => {
+    setShowOfertasDialog(false)
+    setClientForOfertas(null)
+    setIsCreateOfertaOpen(false)
+    setIsEditOfertaOpen(false)
+    setEditingOferta(null)
+  }
+
+  const handleCreateOfertaCliente = async (payload: OfertaPersonalizadaCreateRequest) => {
+    const clienteId = clientForOfertas?.numero || (clientForOfertas as any)?._id
+    if (!clienteId) return
+    setOfertaSubmitting(true)
+    try {
+      const success = await createOferta({
+        ...payload,
+        cliente_id: clienteId,
+        lead_id: undefined,
+      })
+      toast({
+        title: success ? "Oferta creada" : "No se pudo crear la oferta",
+        description: success
+          ? "Se registró la oferta personalizada para el cliente."
+          : "Intenta nuevamente más tarde.",
+        variant: success ? "default" : "destructive",
+      })
+      if (success) {
+        setIsCreateOfertaOpen(false)
+      }
+    } finally {
+      setOfertaSubmitting(false)
+    }
+  }
+
+  const handleUpdateOfertaCliente = async (id: string, data: OfertaPersonalizadaUpdateRequest) => {
+    const clienteId = clientForOfertas?.numero || (clientForOfertas as any)?._id
+    if (!clienteId || !id) return
+    setOfertaSubmitting(true)
+    try {
+      const success = await updateOferta(id, {
+        ...data,
+        cliente_id: clienteId,
+        lead_id: undefined,
+      })
+      toast({
+        title: success ? "Oferta actualizada" : "No se pudo actualizar la oferta",
+        description: success
+          ? "Cambios guardados correctamente."
+          : "Intenta nuevamente más tarde.",
+        variant: success ? "default" : "destructive",
+      })
+      if (success) {
+        setIsEditOfertaOpen(false)
+        setEditingOferta(null)
+      }
+    } finally {
+      setOfertaSubmitting(false)
+    }
+  }
+
+  const handleDeleteOfertaCliente = async (id: string) => {
+    if (!id) return
+    setOfertaSubmitting(true)
+    try {
+      const success = await deleteOferta(id)
+      toast({
+        title: success ? "Oferta eliminada" : "No se pudo eliminar",
+        description: success ? "Se eliminó la oferta personalizada." : "Intenta nuevamente.",
+        variant: success ? "default" : "destructive",
+      })
+    } finally {
+      setOfertaSubmitting(false)
+    }
   }
 
   // Columnas para reportes (para el modal de reportes de cliente)
@@ -179,6 +290,15 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openOfertasCliente(client)}
+                      className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                      title="Ofertas personalizadas"
+                    >
+                      <ListChecks className="h-4 w-4" />
+                    </Button>
+                    <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onDelete(client)}
@@ -213,6 +333,70 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
           </tbody>
         </table>
       </div>
+
+      {/* Ofertas personalizadas */}
+      <Dialog
+        open={showOfertasDialog}
+        onOpenChange={(open) => {
+          setShowOfertasDialog(open)
+          if (!open) {
+            closeOfertasDialog()
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ofertas personalizadas del cliente</DialogTitle>
+            <DialogDescription>
+              {clientForOfertas ? `${clientForOfertas.nombre} (${clientForOfertas.numero})` : 'Selecciona un cliente'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-gray-600">
+              {ofertasDelCliente.length} {ofertasDelCliente.length === 1 ? 'oferta' : 'ofertas'} asociadas.
+            </div>
+            <Button
+              onClick={() => setIsCreateOfertaOpen(true)}
+              disabled={!clientForOfertas?.numero}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva oferta
+            </Button>
+          </div>
+          <OfertasPersonalizadasTable
+            ofertas={ofertasDelCliente}
+            onEdit={(oferta) => {
+              setEditingOferta(oferta)
+              setIsEditOfertaOpen(true)
+            }}
+            onDelete={handleDeleteOfertaCliente}
+            loading={ofertasLoading || ofertaSubmitting}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <CreateOfertaDialog
+        open={isCreateOfertaOpen}
+        onOpenChange={setIsCreateOfertaOpen}
+        onSubmit={handleCreateOfertaCliente}
+        isLoading={ofertaSubmitting}
+        defaultContactType="cliente"
+        defaultClienteId={
+          clientForOfertas?.numero || (clientForOfertas as any)?._id || ''
+        }
+      />
+
+      <EditOfertaDialog
+        open={isEditOfertaOpen}
+        onOpenChange={(open) => {
+          setIsEditOfertaOpen(open)
+          if (!open) setEditingOferta(null)
+        }}
+        oferta={editingOferta}
+        onSubmit={handleUpdateOfertaCliente}
+        isLoading={ofertaSubmitting}
+      />
 
       {/* Modal de reportes de cliente */}
       <Dialog open={!!selectedClientReports} onOpenChange={v => { if (!v) { setSelectedClientReports(null); setSelectedClient(null); } }}>

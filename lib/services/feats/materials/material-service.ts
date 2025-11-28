@@ -25,9 +25,14 @@ export class MaterialService {
     )
   }
 
-  static async getCategories(): Promise<{ id: string; categoria: string }[]> {
-    const result = await apiRequest<{ data: { id: string; categoria: string }[] }>('/productos/categorias')
-    return result.data
+  static async getCategories(): Promise<{ id: string; categoria: string; nombre?: string }[]> {
+    const result = await apiRequest<{ data: { id: string; categoria?: string; nombre?: string }[] }>('/productos/categorias')
+    // Normalizar: asegurar que siempre tengamos 'categoria'
+    return result.data.map(cat => ({
+      id: cat.id,
+      categoria: cat.categoria || cat.nombre || '',
+      nombre: cat.nombre || cat.categoria
+    }))
   }
 
   static async getMaterialsByCategory(categoria: string): Promise<Material[]> {
@@ -250,15 +255,5 @@ export class MaterialService {
     }
 
     return true
-  }
-
-  static async getCategories(): Promise<{ nombre: string }[]> {
-    const result = await apiRequest<{ data: { nombre: string }[] }>('/productos/categorias')
-    return result.data
-  }
-
-  static async getMaterialsByCategoryName(categoria: string): Promise<Material[]> {
-    const result = await apiRequest<{ data: Material[] }>(`/productos/categorias/${encodeURIComponent(categoria)}/materiales`)
-    return result.data
   }
 }

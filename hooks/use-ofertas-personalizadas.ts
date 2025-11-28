@@ -10,6 +10,7 @@ import type {
 
 interface OfertaFilters {
   clienteId?: string
+  leadId?: string
   pagada?: boolean | 'all'
   precioMin?: number
   precioMax?: number
@@ -195,14 +196,22 @@ export function useOfertasPersonalizadas(): UseOfertasPersonalizadasReturn {
 
     // Filtro por término de búsqueda (busca en ID de cliente)
     if (searchTerm) {
-      filtered = filtered.filter((oferta) =>
-        oferta.cliente_id?.toLowerCase().includes(searchTerm.toLowerCase())
+      const term = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (oferta) =>
+          oferta.cliente_id?.toLowerCase().includes(term) ||
+          oferta.lead_id?.toLowerCase().includes(term)
       )
     }
 
     // Filtro por cliente
     if (filters.clienteId) {
       filtered = filtered.filter((oferta) => oferta.cliente_id === filters.clienteId)
+    }
+
+    // Filtro por lead
+    if (filters.leadId) {
+      filtered = filtered.filter((oferta) => oferta.lead_id === filters.leadId)
     }
 
     // Filtro por estado de pago

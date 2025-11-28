@@ -1,24 +1,10 @@
 "use client"
 
-import { useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Plus, Trash2, Check } from 'lucide-react'
 import { Button } from '@/components/shared/atom/button'
 import { Input } from '@/components/shared/molecule/input'
 import { Label } from '@/components/shared/atom/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/shared/atom/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/shared/molecule/dialog'
 import { Card } from '@/components/shared/molecule/card'
 import { useServicios } from '@/hooks/use-servicios'
 import { useToast } from '@/hooks/use-toast'
@@ -37,17 +23,50 @@ export function ServicioSelectorField({
 }: ServicioSelectorFieldProps) {
   const { serviciosSimplificados, loading, createServicio } = useServicios()
   const { toast } = useToast()
-  const [selectedServicioId, setSelectedServicioId] = useState<string>('')
+  const [descripcion, setDescripcion] = useState('')
   const [costo, setCosto] = useState<string>('')
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newServicioDescripcion, setNewServicioDescripcion] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
+  const [suggestions, setSuggestions] = useState<typeof serviciosSimplificados>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [isCreatingNew, setIsCreatingNew] = useState(false)
+  const wrapperRef = useRef<HTMLDivElement>(null)
 
-  const handleAddServicio = () => {
-    if (!selectedServicioId) {
+  // Cerrar sugerencias al hacer clic fuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Filtrar sugerencias según lo escrito
+  useEffect(() => {
+    if (descripcion.trim()) {
+      const filtered = serviciosSimplificados.filter((s) =>
+        s.descripcion.toLowerCase().includes(descripcion.toLowerCase())
+      )
+      setSuggestions(filtered)
+      setShowSuggestions(true)
+    } else {
+      setSuggestions(serviciosSimplificados)
+      setShowSuggestions(false)
+    }
+  }, [descripcion, serviciosSimplificados])
+
+  const handleSelectSuggestion = (servicioDescripcion: string) => {
+    setDescripcion(servicioDescripcion)
+    setShowSuggestions(false)
+  }
+
+  const handleAddServicio = async () => {
+    const descripcionTrimmed = descripcion.trim()
+
+    if (!descripcionTrimmed) {
       toast({
         title: 'Error',
-        description: 'Selecciona un servicio',
+        description: 'Ingresa una descripción del servicio',
         variant: 'destructive',
       })
       return
@@ -63,75 +82,75 @@ export function ServicioSelectorField({
       return
     }
 
-    const servicio = serviciosSimplificados.find((s) => s.id === selectedServicioId)
-    if (!servicio) return
-
-    // Verificar si ya existe este servicio
-    const existeServicio = value.some((s) => s.descripcion === servicio.descripcion)
-    if (existeServicio) {
+    // Verificar si ya existe este servicio en la lista de la oferta
+    const existeEnOferta = value.some(
+      (s) => s.descripcion.toLowerCase() === descripcionTrimmed.toLowerCase()
+    )
+    if (existeEnOferta) {
       toast({
         title: 'Advertencia',
-        description: 'Este servicio ya está agregado',
+        description: 'Este servicio ya está agregado a la oferta',
         variant: 'destructive',
       })
       return
     }
 
+    // Verificar si el servicio existe en el catálogo
+    const existeEnCatalogo = serviciosSimplificados.some(
+      (s) => s.descripcion.toLowerCase() === descripcionTrimmed.toLowerCase()
+    )
+
+    // Si no existe en el catálogo, crearlo automáticamente
+    if (!existeEnCatalogo) {
+      setIsCreatingNew(true)
+      try {
+        const success = await createServicio({
+          descripcion: descripcionTrimmed,
+          is_active: true,
+        })
+
+        if (!success) {
+          toast({
+            title: 'Error',
+            description: 'No se pudo crear el servicio en el catálogo',
+            variant: 'destructive',
+          })
+          setIsCreatingNew(false)
+          return
+        }
+
+        toast({
+          title: 'Servicio creado',
+          description: `"${descripcionTrimmed}" se agregó al catálogo`,
+        })
+      } catch (error) {
+        console.error('Error creating servicio:', error)
+        toast({
+          title: 'Error',
+          description: 'Error al crear el servicio',
+          variant: 'destructive',
+        })
+        setIsCreatingNew(false)
+        return
+      } finally {
+        setIsCreatingNew(false)
+      }
+    }
+
+    // Agregar servicio a la oferta
     const newServicio: ServicioOfertaItem = {
-      descripcion: servicio.descripcion,
+      descripcion: descripcionTrimmed,
       costo: costoNumerico,
     }
 
     onChange([...value, newServicio])
-    setSelectedServicioId('')
+    setDescripcion('')
     setCosto('')
+    setShowSuggestions(false)
   }
 
   const handleRemoveServicio = (index: number) => {
     onChange(value.filter((_, i) => i !== index))
-  }
-
-  const handleCreateServicio = async () => {
-    if (!newServicioDescripcion.trim()) {
-      toast({
-        title: 'Error',
-        description: 'La descripción del servicio es requerida',
-        variant: 'destructive',
-      })
-      return
-    }
-
-    setIsCreating(true)
-    try {
-      const success = await createServicio({
-        descripcion: newServicioDescripcion.trim(),
-        is_active: true,
-      })
-
-      if (success) {
-        toast({
-          title: 'Éxito',
-          description: 'Servicio creado exitosamente',
-        })
-        setIsCreateDialogOpen(false)
-        setNewServicioDescripcion('')
-      } else {
-        toast({
-          title: 'Error',
-          description: 'No se pudo crear el servicio',
-          variant: 'destructive',
-        })
-      }
-    } catch (error) {
-      console.error('Error creating servicio:', error)
-      toast({
-        title: 'Error',
-        description: 'Error al crear el servicio',
-        variant: 'destructive',
-      })
-    } finally {
-      setIsCreating(false)
-    }
   }
 
   return (
@@ -139,32 +158,42 @@ export function ServicioSelectorField({
       <Label>{label}</Label>
 
       {/* Formulario para agregar servicio */}
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <Select
-            value={selectedServicioId}
-            onValueChange={setSelectedServicioId}
-            disabled={loading}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={loading ? 'Cargando...' : 'Selecciona un servicio'}
-              />
-            </SelectTrigger>
-            <SelectContent>
-              {serviciosSimplificados.map((servicio) => (
-                <SelectItem key={servicio.id} value={servicio.id}>
-                  {servicio.descripcion}
-                </SelectItem>
+      <div className="flex gap-2" ref={wrapperRef}>
+        <div className="flex-1 relative">
+          <Input
+            type="text"
+            placeholder="Escribe o selecciona un servicio"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            onFocus={() => {
+              if (serviciosSimplificados.length > 0) {
+                setSuggestions(serviciosSimplificados)
+                setShowSuggestions(true)
+              }
+            }}
+            disabled={loading || isCreatingNew}
+          />
+
+          {/* Lista de sugerencias */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+              {suggestions.map((servicio) => (
+                <button
+                  key={servicio.id}
+                  type="button"
+                  className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center justify-between"
+                  onClick={() => handleSelectSuggestion(servicio.descripcion)}
+                >
+                  <span>{servicio.descripcion}</span>
+                  {descripcion.toLowerCase() === servicio.descripcion.toLowerCase() && (
+                    <Check className="h-4 w-4 text-green-600" />
+                  )}
+                </button>
               ))}
-              {serviciosSimplificados.length === 0 && !loading && (
-                <SelectItem value="no-servicios" disabled>
-                  No hay servicios disponibles
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+            </div>
+          )}
         </div>
+
         <Input
           type="number"
           placeholder="Costo"
@@ -173,24 +202,35 @@ export function ServicioSelectorField({
           className="w-32"
           min="0"
           step="0.01"
+          disabled={isCreatingNew}
         />
-        <Button type="button" onClick={handleAddServicio} size="icon" variant="default">
-          <Plus className="h-4 w-4" />
-        </Button>
+
         <Button
           type="button"
-          variant="outline"
+          onClick={handleAddServicio}
           size="icon"
-          onClick={() => setIsCreateDialogOpen(true)}
-          title="Crear nuevo servicio"
+          variant="default"
+          disabled={loading || isCreatingNew}
+          title="Agregar servicio (se creará si no existe)"
         >
-          <Plus className="h-4 w-4" />
+          {isCreatingNew ? (
+            <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4" />
+          )}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        💡 Escribe para buscar servicios existentes o crea uno nuevo automáticamente
+      </p>
 
       {/* Lista de servicios agregados */}
       {value.length > 0 && (
         <div className="space-y-2">
+          <Label className="text-sm text-muted-foreground">
+            Servicios agregados ({value.length})
+          </Label>
           {value.map((servicio, index) => (
             <Card key={index} className="p-3">
               <div className="flex items-center justify-between">
@@ -218,44 +258,6 @@ export function ServicioSelectorField({
       {value.length === 0 && (
         <p className="text-sm text-muted-foreground">No se han agregado servicios</p>
       )}
-
-      {/* Dialog para crear nuevo servicio */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Nuevo Servicio</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="servicio-descripcion">
-                Descripción <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="servicio-descripcion"
-                value={newServicioDescripcion}
-                onChange={(e) => setNewServicioDescripcion(e.target.value)}
-                placeholder="Ej: Instalación de paneles solares"
-                disabled={isCreating}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                El costo se define por oferta, no aquí
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsCreateDialogOpen(false)}
-              disabled={isCreating}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleCreateServicio} disabled={isCreating}>
-              {isCreating ? 'Creando...' : 'Crear Servicio'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

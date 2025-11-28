@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, FormEvent } from 'react'
+import { useEffect, useState, FormEvent } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/shared/atom/button'
 import { Input } from '@/components/shared/molecule/input'
@@ -32,6 +32,9 @@ interface CreateOfertaDialogProps {
   onOpenChange: (open: boolean) => void
   onSubmit: (data: OfertaPersonalizadaCreateRequest) => Promise<void>
   isLoading?: boolean
+  defaultContactType?: 'cliente' | 'lead'
+  defaultClienteId?: string
+  defaultLeadId?: string
 }
 
 export function CreateOfertaDialog({
@@ -39,8 +42,13 @@ export function CreateOfertaDialog({
   onOpenChange,
   onSubmit,
   isLoading = false,
+  defaultContactType = 'cliente',
+  defaultClienteId = '',
+  defaultLeadId = '',
 }: CreateOfertaDialogProps) {
+  const [contactType, setContactType] = useState<'cliente' | 'lead'>('cliente')
   const [clienteId, setClienteId] = useState<string>('')
+  const [leadId, setLeadId] = useState<string>('')
   const [inversores, setInversores] = useState<InversorItem[]>([])
   const [baterias, setBaterias] = useState<BateriaItem[]>([])
   const [paneles, setPaneles] = useState<PanelItem[]>([])
@@ -51,7 +59,9 @@ export function CreateOfertaDialog({
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const resetForm = () => {
-    setClienteId('')
+    setContactType(defaultContactType || 'cliente')
+    setClienteId(defaultClienteId || '')
+    setLeadId(defaultLeadId || '')
     setInversores([])
     setBaterias([])
     setPaneles([])
@@ -62,11 +72,27 @@ export function CreateOfertaDialog({
     setErrors({})
   }
 
+  // Prefill contact selection when the dialog opens
+  useEffect(() => {
+    if (open) {
+      setContactType(defaultContactType || 'cliente')
+      setClienteId(defaultClienteId || '')
+      setLeadId(defaultLeadId || '')
+    }
+  }, [open, defaultContactType, defaultClienteId, defaultLeadId])
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!clienteId) {
-      newErrors.clienteId = 'Selecciona un cliente'
+    const hasCliente = Boolean(clienteId)
+    const hasLead = Boolean(leadId)
+
+    if (!hasCliente && !hasLead) {
+      newErrors.destinatario = 'Selecciona un cliente o un lead'
+    } else if (contactType === 'cliente' && !hasCliente) {
+      newErrors.destinatario = 'Selecciona un cliente'
+    } else if (contactType === 'lead' && !hasLead) {
+      newErrors.destinatario = 'Selecciona un lead'
     }
 
     // Al menos un item debe estar presente
@@ -99,6 +125,7 @@ export function CreateOfertaDialog({
 
     const data: OfertaPersonalizadaCreateRequest = {
       cliente_id: clienteId || undefined,
+      lead_id: leadId || undefined,
       inversores: inversores.length > 0 ? inversores : undefined,
       baterias: baterias.length > 0 ? baterias : undefined,
       paneles: paneles.length > 0 ? paneles : undefined,
@@ -123,13 +150,27 @@ export function CreateOfertaDialog({
           {/* Cliente */}
           <div>
             <ClienteSelectorField
-              value={clienteId}
-              onChange={setClienteId}
-              label="Cliente"
-              placeholder="Busca y selecciona un cliente"
+              contactType={contactType}
+              onContactTypeChange={(type) => {
+                setContactType(type)
+                if (type === 'cliente') {
+                  setLeadId('')
+                } else {
+                  setClienteId('')
+                }
+                setErrors((prev) => {
+                  const { destinatario, ...rest } = prev
+                  return rest
+                })
+              }}
+              clienteId={clienteId}
+              leadId={leadId}
+              onClienteChange={setClienteId}
+              onLeadChange={setLeadId}
+              label="Cliente o Lead"
             />
-            {errors.clienteId && (
-              <p className="text-sm text-red-500 mt-1">{errors.clienteId}</p>
+            {errors.destinatario && (
+              <p className="text-sm text-red-500 mt-1">{errors.destinatario}</p>
             )}
           </div>
 
