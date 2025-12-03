@@ -378,7 +378,9 @@ export function FacturasSection() {
 
                                     <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between font-semibold">
                                         <span>Total del Vale:</span>
-                                        <span className="text-orange-600">{formatCurrency(vale.total || 0)}</span>
+                                        <span className="text-orange-600">
+                                            {formatCurrency(vale.items.reduce((sum, item) => sum + (item.precio * item.cantidad), 0))}
+                                        </span>
                                     </div>
                                 </div>
                             ))}
