@@ -13,6 +13,7 @@ import {
     Package,
     User,
     MessageCircle,
+    MessageSquare,
     UserPlus,
     Info,
     Phone,
@@ -166,6 +167,14 @@ export default function Dashboard() {
             title: 'Facturación',
             description: 'Gestión de facturas y vales de venta.',
             color: 'sky-600',
+        },
+        {
+            id: 'whatsapp',
+            href: '/whatsapp',
+            icon: MessageSquare,
+            title: 'WhatsApp Business',
+            description: 'Gestión de conversaciones y atención al cliente.',
+            color: 'green-600',
         },
     ]
 
