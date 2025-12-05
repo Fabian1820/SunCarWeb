@@ -74,7 +74,7 @@ export function EditOfertaDialog({
       setPaneles(oferta.paneles || [])
       setUtiles(oferta.utiles || [])
       setServicios(oferta.servicios || [])
-      setPrecio(oferta.precio !== undefined ? oferta.precio.toString() : '')
+      setPrecio(oferta.precio !== undefined && oferta.precio !== null ? oferta.precio.toString() : '')
       setPagada(oferta.pagada || false)
       setErrors({})
     }
