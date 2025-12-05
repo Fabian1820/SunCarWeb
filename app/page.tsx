@@ -26,7 +26,8 @@ import {
     Shield,
     Calculator,
     RotateCcw,
-    Receipt
+    Receipt,
+    ShoppingBag
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
@@ -175,6 +176,14 @@ export default function Dashboard() {
             title: 'WhatsApp Business',
             description: 'Gestión de conversaciones y atención al cliente.',
             color: 'green-600',
+        },
+        {
+            id: 'articulos-tienda',
+            href: '/articulos-tienda',
+            icon: ShoppingBag,
+            title: 'Artículos Tienda',
+            description: 'Administrar catálogo de artículos de tienda.',
+            color: 'blue-600',
         },
     ]
 
@@ -359,4 +368,3 @@ export default function Dashboard() {
         </div>
     )
 }
-

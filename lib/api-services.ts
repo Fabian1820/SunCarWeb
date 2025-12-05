@@ -20,3 +20,4 @@ export { OfertaPersonalizadaService } from './services/feats/ofertas-personaliza
 export { PermisosService } from './services/feats/permisos/permisos-service'
 export { TrabajoPendienteService } from './services/feats/trabajos-pendientes/trabajo-pendiente-service'
 export { CalculoEnergeticoService } from './services/feats/calculo-energetico/calculo-energetico-service'
+export { ArticuloTiendaService } from './services/feats/articulos-tienda/articulo-tienda-service'
