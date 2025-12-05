@@ -65,8 +65,10 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
 
   const ofertasDelCliente = useMemo(() => {
     if (!clientForOfertas) return []
-    const posiblesIds = [clientForOfertas.numero, (clientForOfertas as any)?._id].filter(Boolean) as string[]
-    return ofertas.filter((o) => o.cliente_id && posiblesIds.includes(o.cliente_id))
+    // Usar solo el ID de MongoDB para filtrar ofertas
+    const clienteId = clientForOfertas.id
+    if (!clienteId) return []
+    return ofertas.filter((o) => o.cliente_id === clienteId)
   }, [ofertas, clientForOfertas])
 
   // Acción para ver reportes de un cliente
@@ -115,8 +117,16 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   }
 
   const handleCreateOfertaCliente = async (payload: OfertaPersonalizadaCreateRequest) => {
-    const clienteId = clientForOfertas?.numero || (clientForOfertas as any)?._id
-    if (!clienteId) return
+    // Usar solo el ID de MongoDB del cliente
+    const clienteId = clientForOfertas?.id
+    if (!clienteId) {
+      toast({
+        title: "Error",
+        description: "El cliente no tiene un ID válido de MongoDB.",
+        variant: "destructive",
+      })
+      return
+    }
     setOfertaSubmitting(true)
     try {
       const success = await createOferta({
@@ -140,8 +150,16 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   }
 
   const handleUpdateOfertaCliente = async (id: string, data: OfertaPersonalizadaUpdateRequest) => {
-    const clienteId = clientForOfertas?.numero || (clientForOfertas as any)?._id
-    if (!clienteId || !id) return
+    // Usar solo el ID de MongoDB del cliente
+    const clienteId = clientForOfertas?.id
+    if (!clienteId || !id) {
+      toast({
+        title: "Error",
+        description: "El cliente no tiene un ID válido de MongoDB.",
+        variant: "destructive",
+      })
+      return
+    }
     setOfertaSubmitting(true)
     try {
       const success = await updateOferta(id, {
@@ -357,7 +375,7 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
             </div>
             <Button
               onClick={() => setIsCreateOfertaOpen(true)}
-              disabled={!clientForOfertas?.numero}
+              disabled={!clientForOfertas?.id}
               className="bg-amber-600 hover:bg-amber-700 text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -382,11 +400,9 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
         onSubmit={handleCreateOfertaCliente}
         isLoading={ofertaSubmitting}
         defaultContactType="cliente"
-        defaultClienteId={
-          clientForOfertas?.numero || (clientForOfertas as any)?._id || ''
-        }
+        defaultClienteId={clientForOfertas?.id || ''}
         lockContactType="cliente"
-        lockClienteId={clientForOfertas?.numero || (clientForOfertas as any)?._id || ''}
+        lockClienteId={clientForOfertas?.id || ''}
       />
 
       <EditOfertaDialog
@@ -399,7 +415,7 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
         onSubmit={handleUpdateOfertaCliente}
         isLoading={ofertaSubmitting}
         lockContactType="cliente"
-        lockClienteId={clientForOfertas?.numero || (clientForOfertas as any)?._id || ''}
+        lockClienteId={clientForOfertas?.id || ''}
       />
 
       {/* Modal de reportes de cliente */}
