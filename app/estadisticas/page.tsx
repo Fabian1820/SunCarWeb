@@ -1,0 +1,231 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { Button } from "@/components/shared/atom/button"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/shared/molecule/card"
+import { ArrowLeft, BarChart3, Calendar, RefreshCw } from "lucide-react"
+import { useEstadisticas } from "@/hooks/use-estadisticas"
+import { KpiMonthSelector } from "@/components/feats/estadisticas/kpi-month-selector"
+import { TimelinePeriodSelector } from "@/components/feats/estadisticas/timeline-period-selector"
+import { KpiCards } from "@/components/feats/estadisticas/kpi-cards"
+import { EstadisticasCharts } from "@/components/feats/estadisticas/estadisticas-charts"
+import { PageLoader } from "@/components/shared/atom/page-loader"
+import { useToast } from "@/hooks/use-toast"
+import { Toaster } from "@/components/shared/molecule/toaster"
+import { RouteGuard } from "@/components/auth/route-guard"
+
+export default function EstadisticasPage() {
+  return (
+    <RouteGuard requiredModule="estadisticas">
+      <EstadisticasPageContent />
+    </RouteGuard>
+  )
+}
+
+function EstadisticasPageContent() {
+  const currentDate = new Date()
+  const [año, setAño] = useState(currentDate.getFullYear())
+  const [mes, setMes] = useState(currentDate.getMonth() + 1)
+  const [cantidadMeses, setCantidadMeses] = useState(6)
+
+  const {
+    timelineData,
+    selectedMonthStat,
+    loading,
+    error,
+    loadLineaTiempo,
+    loadEstadisticaMensual,
+    clearError
+  } = useEstadisticas()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    handleConsultar()
+  }, [])
+
+  const handleConsultar = () => {
+    loadLineaTiempo(cantidadMeses)
+    loadEstadisticaMensual(año, mes)
+  }
+
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
+
+  const getMesNombre = (mesNum: number) => {
+    const meses = [
+      "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+      "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+    ]
+    return meses[mesNum - 1] || ""
+  }
+
+  const getRangoFechas = () => {
+    if (timelineData.length === 0) return ""
+    const mesInicial = timelineData[0]
+    const mesFinal = timelineData[timelineData.length - 1]
+    return `${getMesNombre(mesInicial.mes)} ${mesInicial.año} - ${getMesNombre(mesFinal.mes)} ${mesFinal.año}`
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+      {/* Header */}
+      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
+            <div className="flex items-center space-x-3">
+              <Link href="/">
+                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Volver al Dashboard</span>
+                  <span className="sm:hidden">Volver</span>
+                </Button>
+              </Link>
+              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
+                  Estadísticas
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                    Analytics
+                  </span>
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Métricas de crecimiento y rendimiento</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Button
+                onClick={handleConsultar}
+                disabled={loading}
+                variant="outline"
+                size="sm"
+                className="border-orange-200 hover:bg-orange-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                Actualizar
+              </Button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="pt-32 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Error Alert */}
+        {error && (
+          <Card className="mb-6 border-red-200 bg-red-50 border-l-4 border-l-red-500">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-red-800">{error}</p>
+                <Button variant="ghost" size="sm" onClick={clearError}>
+                  ✕
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ==================== SECCIÓN 1: KPI DEL MES ==================== */}
+        <section className="mb-10">
+          <Card className="border-0 shadow-md border-l-4 border-l-orange-600 mb-6">
+            <CardHeader className="pb-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <Calendar className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Resumen Mensual</CardTitle>
+                    <CardDescription>Indicadores clave del mes seleccionado</CardDescription>
+                  </div>
+                </div>
+
+                <KpiMonthSelector
+                  año={año}
+                  mes={mes}
+                  onChangeAño={setAño}
+                  onChangeMes={setMes}
+                  onConsultar={() => loadEstadisticaMensual(año, mes)}
+                  loading={loading}
+                />
+              </div>
+            </CardHeader>
+          </Card>
+
+          {/* KPI Cards */}
+          <KpiCards estadisticas={selectedMonthStat} />
+        </section>
+
+        {/* ==================== SECCIÓN 2: LÍNEA DE TIEMPO ==================== */}
+        <section>
+          <Card className="border-0 shadow-md border-l-4 border-l-orange-600 mb-6">
+            <CardHeader className="pb-4">
+              <TimelinePeriodSelector
+                cantidadMeses={cantidadMeses}
+                onChangeCantidadMeses={setCantidadMeses}
+                onConsultar={() => loadLineaTiempo(cantidadMeses)}
+                loading={loading}
+              />
+            </CardHeader>
+          </Card>
+
+          {/* Loading State */}
+          {loading && timelineData.length === 0 && (
+            <PageLoader moduleName="Estadísticas" text="Cargando datos..." />
+          )}
+
+          {/* Charts Content */}
+          {timelineData.length > 0 && !loading && (
+            <div className="space-y-6">
+              {/* Period Header */}
+              <Card className="border-0 shadow-sm bg-gray-50">
+                <CardContent className="py-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <BarChart3 className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Período: {getRangoFechas()}
+                      </h2>
+                      <p className="text-sm text-gray-500">
+                        Análisis de {timelineData.length} meses
+                      </p>
+                    </div>
+                    <span className="text-sm font-medium text-orange-700 bg-orange-100 px-3 py-1 rounded-full">
+                      {timelineData.length} períodos
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Charts */}
+              <EstadisticasCharts estadisticas={timelineData} />
+            </div>
+          )}
+
+          {/* Empty State */}
+          {timelineData.length === 0 && !loading && !error && (
+            <Card className="border-0 shadow-md border-l-4 border-l-gray-400">
+              <CardContent className="p-12 text-center">
+                <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600 text-lg">
+                  No hay datos disponibles para el período seleccionado.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </section>
+      </main>
+
+      <Toaster />
+    </div>
+  )
+}

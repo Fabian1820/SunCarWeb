@@ -27,7 +27,8 @@ import {
     Calculator,
     RotateCcw,
     Receipt,
-    ShoppingBag
+    ShoppingBag,
+    BarChart3
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
@@ -184,6 +185,14 @@ export default function Dashboard() {
             title: 'Artículos Tienda',
             description: 'Administrar catálogo de artículos de tienda.',
             color: 'blue-600',
+        },
+        {
+            id: 'estadisticas',
+            href: '/estadisticas',
+            icon: BarChart3,
+            title: 'Estadísticas',
+            description: 'Análisis de crecimiento mensual y métricas clave.',
+            color: 'purple-600',
         },
     ]
 
