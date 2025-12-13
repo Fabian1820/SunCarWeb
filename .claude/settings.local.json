@@ -4,7 +4,9 @@
       "Bash(npm run build)",
       "Bash(npm run lint)",
       "Bash(cat package.json)",
-      "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && wc -l {}')"
+      "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && wc -l {}')",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []

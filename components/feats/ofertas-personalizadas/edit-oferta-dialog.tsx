@@ -18,6 +18,7 @@ import { ClienteSelectorField } from './cliente-selector-field'
 import { EquiposField } from './equipos-field'
 import { UtilesField } from './utiles-field'
 import { ServicioSelectorField } from './servicio-selector-field'
+import { GenerarLinkPagoButton } from './generar-link-pago-button'
 import type {
   OfertaPersonalizada,
   OfertaPersonalizadaUpdateRequest,
@@ -258,24 +259,37 @@ export function EditOfertaDialog({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                'Guardar Cambios'
-              )}
-            </Button>
+            <div className="flex justify-between w-full">
+              <div className="flex gap-2">
+                {oferta && (
+                  <GenerarLinkPagoButton
+                    oferta={oferta}
+                    variant="outline"
+                    size="default"
+                  />
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isLoading}
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    'Guardar Cambios'
+                  )}
+                </Button>
+              </div>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

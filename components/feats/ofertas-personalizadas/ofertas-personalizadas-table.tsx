@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from '@/components/shared/molecule/dialog'
 import { Badge } from '@/components/shared/atom/badge'
+import { GenerarLinkPagoButton } from './generar-link-pago-button'
 import type { OfertaPersonalizada } from '@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types'
 
 interface OfertasPersonalizadasTableProps {
@@ -342,9 +343,20 @@ export function OfertasPersonalizadasTable({
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
-              Cerrar
-            </Button>
+            <div className="flex justify-between w-full">
+              <div>
+                {selectedOferta && (
+                  <GenerarLinkPagoButton
+                    oferta={selectedOferta}
+                    variant="default"
+                    size="default"
+                  />
+                )}
+              </div>
+              <Button variant="outline" onClick={() => setIsDetailsOpen(false)}>
+                Cerrar
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
