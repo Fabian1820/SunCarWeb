@@ -25,7 +25,10 @@ import {
     Shield,
     Calculator,
     RotateCcw,
-    Receipt
+    Receipt,
+    MessageSquare,
+    ShoppingBag,
+    BarChart3
 } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
@@ -168,6 +171,30 @@ export default function Dashboard() {
             title: 'Facturación',
             description: 'Gestión de facturas y vales de venta.',
             color: 'sky-600',
+        },
+        {
+            id: 'whatsapp',
+            href: '/whatsapp',
+            icon: MessageSquare,
+            title: 'WhatsApp Business',
+            description: 'Gestión de conversaciones y atención al cliente.',
+            color: 'green-600',
+        },
+        {
+            id: 'articulos-tienda',
+            href: '/articulos-tienda',
+            icon: ShoppingBag,
+            title: 'Artículos Tienda',
+            description: 'Administrar catálogo de artículos de tienda.',
+            color: 'blue-600',
+        },
+        {
+            id: 'estadisticas',
+            href: '/estadisticas',
+            icon: BarChart3,
+            title: 'Estadísticas',
+            description: 'Análisis de crecimiento mensual y métricas clave.',
+            color: 'purple-600',
         },
     ]
 

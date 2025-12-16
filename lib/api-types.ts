@@ -49,3 +49,13 @@ export type {
   UpdateOrdenTrabajoRequest,
   OrdenTrabajoResponse,
 } from './types/feats/ordenes-trabajo/orden-trabajo-types'
+
+export type {
+  ArticuloTienda,
+  ArticuloTiendaFormData,
+  ArticuloTiendaCreateData,
+  ArticuloTiendaUpdateData,
+  ArticuloTiendaFilters,
+  BackendArticuloTiendaResponse,
+  EspecificacionesSugeridas,
+} from './types/feats/articulos-tienda/articulos-tienda-types'
