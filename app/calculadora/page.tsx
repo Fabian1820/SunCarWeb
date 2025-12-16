@@ -566,53 +566,89 @@ export default function CalculadoraPage() {
         style={{ paddingTop: headerHeight + 8 }}
       >
         {/* Panel de consumo total */}
-        <div
-          className="sticky z-10 bg-gradient-to-br from-orange-50 to-yellow-50 pb-4 sm:pb-6"
-          style={{ top: headerHeight }}
-        >
-          <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200 shadow-lg">
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                <div className="flex-1">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Potencia Total (Inversor)</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                        <Cpu className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
-                        {potenciaTotalKw.toFixed(2)} kW
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">= {(potenciaTotalKw * 1000).toFixed(0)} Watts</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-600 mb-1">Consumo Real por Hora (Batería)</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                        <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
-                        {consumoRealKwh.toFixed(3)} kWh
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">Consumo diario (24h): {(consumoRealKwh * 24).toFixed(2)} kWh</p>
-                    </div>
+        <div className="-mx-4 sm:mx-0">
+          <div
+            className="sticky z-10 bg-gradient-to-br from-orange-50 to-yellow-50 px-4 sm:px-0 pb-3 sm:pb-6"
+            style={{ top: headerHeight }}
+          >
+            {/* Subheader compacto (móvil) */}
+            <Card className="sm:hidden bg-white/95 backdrop-blur border-orange-200 shadow-sm">
+              <CardContent className="p-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500">Potencia</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{potenciaTotalKw.toFixed(2)} kW</p>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500">Consumo/h</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{consumoRealKwh.toFixed(3)} kWh</p>
+                  </div>
+                  <div className="flex justify-end">
+                    <Badge variant="outline" className="text-xs px-2 py-1 bg-white h-fit">
+                      {totalEquipos} {totalEquipos === 1 ? "eq" : "eqs"}
+                    </Badge>
                   </div>
                 </div>
-                <div className="flex justify-end sm:justify-start">
-                  <Badge variant="outline" className="text-sm sm:text-lg px-3 py-1.5 sm:px-4 sm:py-2 bg-white">
-                    {totalEquipos} {totalEquipos === 1 ? "equipo" : "equipos"}
-                  </Badge>
-                </div>
-              </div>
 
-              {totalEquipos > 0 && (
-                <div className="border-t border-orange-200 pt-4">
+                {totalEquipos > 0 && (
                   <Button
                     onClick={handleOpenRecomendaciones}
-                    className="w-full bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
+                    className="mt-3 w-full h-9 bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
                   >
-                    <Lightbulb className="h-5 w-5" />
-                    Dimensionar Inversor y Batería
+                    <Lightbulb className="h-4 w-4" />
+                    Dimensionar
                   </Button>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Panel completo (desktop/tablet) */}
+            <Card className="hidden sm:block bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200 shadow-lg">
+              <CardContent className="pt-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                  <div className="flex-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1">Potencia Total (Inversor)</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                          <Cpu className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
+                          {potenciaTotalKw.toFixed(2)} kW
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">= {(potenciaTotalKw * 1000).toFixed(0)} Watts</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-gray-600 mb-1">Consumo Real por Hora (Batería)</p>
+                        <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                          <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
+                          {consumoRealKwh.toFixed(3)} kWh
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Consumo diario (24h): {(consumoRealKwh * 24).toFixed(2)} kWh
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-end sm:justify-start">
+                    <Badge variant="outline" className="text-sm sm:text-lg px-3 py-1.5 sm:px-4 sm:py-2 bg-white">
+                      {totalEquipos} {totalEquipos === 1 ? "equipo" : "equipos"}
+                    </Badge>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+
+                {totalEquipos > 0 && (
+                  <div className="border-t border-orange-200 pt-4">
+                    <Button
+                      onClick={handleOpenRecomendaciones}
+                      className="w-full bg-orange-600 hover:bg-orange-700 flex items-center justify-center gap-2"
+                    >
+                      <Lightbulb className="h-5 w-5" />
+                      Dimensionar Inversor y Batería
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Buscador de equipos */}
@@ -883,7 +919,7 @@ export default function CalculadoraPage() {
 
       {/* Crear equipo */}
       <Dialog open={isCreateDialogOpen} onOpenChange={handleCreateDialogChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Registrar nuevo equipo</DialogTitle>
             <DialogDescription>Ingresa los datos para crear el equipo en la colección del backend.</DialogDescription>
@@ -960,11 +996,11 @@ export default function CalculadoraPage() {
               )}
             </div>
           </div>
-          <DialogFooter className="pt-4">
-            <Button variant="outline" onClick={() => handleCreateDialogChange(false)}>
+          <DialogFooter className="pt-4 gap-2">
+            <Button variant="outline" onClick={() => handleCreateDialogChange(false)} className="w-full sm:w-auto">
               Cancelar
             </Button>
-            <Button onClick={handleCreateEquipo} disabled={createLoading}>
+            <Button onClick={handleCreateEquipo} disabled={createLoading} className="w-full sm:w-auto">
               {createLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
             </Button>
@@ -974,7 +1010,7 @@ export default function CalculadoraPage() {
 
       {/* Editar equipo */}
       <Dialog open={Boolean(editingEquipo)} onOpenChange={handleEditDialogChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Editar equipo</DialogTitle>
             <DialogDescription>Actualiza la información del equipo seleccionado.</DialogDescription>
@@ -1017,11 +1053,11 @@ export default function CalculadoraPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="pt-4">
-            <Button variant="outline" onClick={() => handleEditDialogChange(false)} disabled={editLoading}>
+          <DialogFooter className="pt-4 gap-2">
+            <Button variant="outline" onClick={() => handleEditDialogChange(false)} disabled={editLoading} className="w-full sm:w-auto">
               Cancelar
             </Button>
-            <Button onClick={handleUpdateEquipo} disabled={editLoading}>
+            <Button onClick={handleUpdateEquipo} disabled={editLoading} className="w-full sm:w-auto">
               {editLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar cambios
             </Button>
