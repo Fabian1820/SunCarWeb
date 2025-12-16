@@ -16,7 +16,7 @@ import { useOrdenesTrabajo } from "@/hooks/use-ordenes-trabajo"
 import { OrdenesTrabajoTable } from "@/components/feats/ordenes-trabajo/ordenes-trabajo-table"
 import { CreateOrdenTrabajoDialog } from "@/components/feats/ordenes-trabajo/create-orden-trabajo-dialog"
 import { MessagePreviewDialog } from "@/components/feats/ordenes-trabajo/message-preview-dialog"
-import { OrdenTrabajoService, ClienteService } from "@/lib/api-services"
+import { OrdenTrabajoService } from "@/lib/api-services"
 import type { OrdenTrabajo, CreateOrdenTrabajoRequest } from "@/lib/api-types"
 
 export default function OrdenesTrabajoPage() {
@@ -48,25 +48,44 @@ export default function OrdenesTrabajoPage() {
     return <PageLoader moduleName="Órdenes de Trabajo" text="Cargando órdenes de trabajo..." />
   }
 
-  const handleCreateOrden = async (data: { ordenData: CreateOrdenTrabajoRequest }) => {
-    const { ordenData } = data
+  const handleCreateOrden = async (data: { payload: CreateOrdenTrabajoRequest }) => {
+    const { payload } = data
     try {
-      const response = await createOrden(ordenData)
-
-      if (!response.success) {
-        throw new Error(response.message || 'Error al crear la orden de trabajo')
-      }
-
+      const response = await createOrden(payload)
       toast({
         title: "Éxito",
-        description: "Orden de trabajo creada correctamente",
+        description: response.message || "Órdenes de trabajo creadas correctamente",
       })
 
-      // Generar mensaje usando los datos de la orden creada
-      if (response.data) {
-        const message = OrdenTrabajoService.generateOrdenTrabajoMessage(response.data)
-        setMessageToShow(message)
-        setIsMessageDialogOpen(true)
+      // Si se crearon múltiples órdenes, obtener todas y generar mensaje combinado
+      if (response.ids?.length) {
+        // Guardar grupo de órdenes creadas juntas en localStorage para agrupación
+        const grupoId = Date.now().toString()
+        if (typeof window !== 'undefined') {
+          const gruposExistentes = JSON.parse(
+            localStorage.getItem('ordenes_grupos') || '{}'
+          )
+          response.ids.forEach((id) => {
+            gruposExistentes[id] = grupoId
+          })
+          localStorage.setItem('ordenes_grupos', JSON.stringify(gruposExistentes))
+        }
+
+        // Obtener todas las órdenes creadas
+        const ordenesCreadas = await Promise.all(
+          response.ids.map((id) => OrdenTrabajoService.getOrdenTrabajoById(id))
+        )
+        const ordenesValidas = ordenesCreadas.filter((o): o is OrdenTrabajo => o !== null)
+
+        if (ordenesValidas.length > 0) {
+          // Generar mensaje combinado si hay múltiples órdenes, o individual si es una sola
+          const message =
+            ordenesValidas.length > 1
+              ? OrdenTrabajoService.generateMultipleOrdenesTrabajoMessage(ordenesValidas)
+              : OrdenTrabajoService.generateOrdenTrabajoMessage(ordenesValidas[0])
+          setMessageToShow(message)
+          setIsMessageDialogOpen(true)
+        }
       }
 
       await loadOrdenes()
@@ -80,9 +99,13 @@ export default function OrdenesTrabajoPage() {
     }
   }
 
-  const handleViewMessage = async (orden: OrdenTrabajo) => {
+  const handleViewMessage = async (orden: OrdenTrabajo | OrdenTrabajo[]) => {
     try {
-      const message = OrdenTrabajoService.generateOrdenTrabajoMessage(orden)
+      const ordenes = Array.isArray(orden) ? orden : [orden]
+      const message =
+        ordenes.length > 1
+          ? OrdenTrabajoService.generateMultipleOrdenesTrabajoMessage(ordenes)
+          : OrdenTrabajoService.generateOrdenTrabajoMessage(ordenes[0])
       setMessageToShow(message)
       setIsMessageDialogOpen(true)
     } catch (error) {

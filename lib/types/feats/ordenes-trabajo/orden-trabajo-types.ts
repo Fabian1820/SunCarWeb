@@ -2,46 +2,56 @@
 // Backend types: inversion, averia, mantenimiento
 export type TipoReporte = 'inversion' | 'averia' | 'mantenimiento'
 
-// Backend brigada structure from view brigadas_completas
-export interface BrigadaOrdenTrabajo {
-  lider_ci: string
-  lider_nombre: string
-  lider_apellido: string
-  integrantes: Array<{
-    ci: string
-    nombre: string
-    apellido: string
-  }>
+export interface TrabajadorOrdenTrabajo {
+  id: string
+  nombre: string
+  CI: string
+  rol: string
+  tiene_contraseña: boolean
 }
 
-// Backend cliente structure
+export interface BrigadaOrdenTrabajo {
+  id?: string
+  lider: TrabajadorOrdenTrabajo
+  integrantes: TrabajadorOrdenTrabajo[]
+}
+
 export interface ClienteOrdenTrabajo {
   numero: string
   nombre: string
-  apellido?: string
-  telefono?: string
-  direccion?: string
+  direccion: string
+  latitud: number | null
+  longitud: number | null
+  telefono: string | null
+  carnet_identidad: string | null
+  equipo_instalado: null
+  fecha_instalacion: string | null
 }
 
 // Main OrdenTrabajo type matching backend response
 export interface OrdenTrabajo {
   id: string
-  brigada_lider_ci: string
-  brigada?: BrigadaOrdenTrabajo // Populated from brigadas_completas view
-  cliente_numero: string
-  cliente?: ClienteOrdenTrabajo // Populated from clientes collection
+  brigada: BrigadaOrdenTrabajo
+  cliente: ClienteOrdenTrabajo
   tipo_reporte: TipoReporte
-  fecha: string // ISODate from backend
-  comentarios?: string
+  fecha: string // ISO string
+  comentarios?: string | null
+  comentario_transporte?: string | null
 }
 
-// Request to create orden matching backend schema
-export interface CreateOrdenTrabajoRequest {
+// Single orden payload used inside bulk creation
+export interface CreateOrdenTrabajoItem {
   brigada_lider_ci: string
   cliente_numero: string
   tipo_reporte: TipoReporte
   fecha: string
   comentarios?: string
+  comentario_transporte?: string
+}
+
+// Request to create one or more órdenes
+export interface CreateOrdenTrabajoRequest {
+  ordenes: CreateOrdenTrabajoItem[]
 }
 
 // Request to update orden - all fields optional per backend
@@ -51,11 +61,16 @@ export interface UpdateOrdenTrabajoRequest {
   tipo_reporte?: TipoReporte
   fecha?: string
   comentarios?: string
+  comentario_transporte?: string
 }
 
-// Backend response structure
-export interface OrdenTrabajoResponse {
-  success: boolean
+export interface CreateOrdenTrabajoResponse {
+  ids: string[]
   message: string
-  data: OrdenTrabajo | OrdenTrabajo[] | null
+  total: number
+}
+
+export interface ListOrdenesTrabajoResponse {
+  ordenes: OrdenTrabajo[]
+  total: number
 }

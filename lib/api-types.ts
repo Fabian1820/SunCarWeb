@@ -47,7 +47,9 @@ export type {
   OrdenTrabajo,
   CreateOrdenTrabajoRequest,
   UpdateOrdenTrabajoRequest,
-  OrdenTrabajoResponse,
+  CreateOrdenTrabajoResponse,
+  ListOrdenesTrabajoResponse,
+  CreateOrdenTrabajoItem,
 } from './types/feats/ordenes-trabajo/orden-trabajo-types'
 
 export type {
