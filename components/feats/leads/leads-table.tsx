@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog"
 import { downloadFile } from "@/lib/utils/download-file"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
@@ -27,8 +27,19 @@ import {
   Download,
   CreditCard,
   ChevronRight,
+  Plus,
 } from "lucide-react"
-import type { Lead, LeadConversionRequest, OfertaEmbebida } from "@/lib/api-types"
+import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas"
+import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table"
+import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog"
+import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog"
+import type {
+  OfertaPersonalizada,
+  OfertaPersonalizadaCreateRequest,
+  OfertaPersonalizadaUpdateRequest,
+} from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types"
+import { useToast } from "@/hooks/use-toast"
+import type { Lead, LeadConversionRequest } from "@/lib/api-types"
 
 interface LeadsTableProps {
   leads: Lead[]
@@ -80,6 +91,14 @@ export function LeadsTable({
   loading,
   disableActions,
 }: LeadsTableProps) {
+  const { toast } = useToast()
+  const {
+    ofertas,
+    loading: ofertasLoading,
+    createOferta,
+    updateOferta,
+    deleteOferta,
+  } = useOfertasPersonalizadas()
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -91,9 +110,19 @@ export function LeadsTable({
   const [conversionLoading, setConversionLoading] = useState(false)
   const [isComprobanteDialogOpen, setIsComprobanteDialogOpen] = useState(false)
   const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(null)
-  const [selectedOferta, setSelectedOferta] = useState<OfertaEmbebida | null>(null)
-  const [isOfertaElementosDialogOpen, setIsOfertaElementosDialogOpen] = useState(false)
   const [showMapModalConversion, setShowMapModalConversion] = useState(false)
+  const [showOfertasDialog, setShowOfertasDialog] = useState(false)
+  const [selectedLeadForOfertas, setSelectedLeadForOfertas] = useState<Lead | null>(null)
+  const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false)
+  const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false)
+  const [editingOferta, setEditingOferta] = useState<OfertaPersonalizada | null>(null)
+  const [ofertaSubmitting, setOfertaSubmitting] = useState(false)
+
+  const ofertasDelLead = useMemo(() => {
+    if (!selectedLeadForOfertas) return []
+    const leadIdentifiers = [selectedLeadForOfertas.id, selectedLeadForOfertas.telefono].filter(Boolean) as string[]
+    return ofertas.filter((o) => o.lead_id && leadIdentifiers.includes(o.lead_id))
+  }, [ofertas, selectedLeadForOfertas])
 
   const openDetailDialog = (lead: Lead) => {
     setSelectedLead(lead)
@@ -174,6 +203,83 @@ export function LeadsTable({
       await downloadFile(lead.comprobante_pago_url, `comprobante-lead-${lead.nombre || lead.id || 'archivo'}`)
     } catch (error) {
       console.error('Error downloading comprobante for lead', lead.id, error)
+    }
+  }
+
+  const openOfertasLead = (lead: Lead) => {
+    setSelectedLeadForOfertas(lead)
+    setShowOfertasDialog(true)
+  }
+
+  const closeOfertasDialog = () => {
+    setShowOfertasDialog(false)
+    setSelectedLeadForOfertas(null)
+    setIsCreateOfertaOpen(false)
+    setIsEditOfertaOpen(false)
+    setEditingOferta(null)
+  }
+
+  const handleCreateOfertaLead = async (payload: OfertaPersonalizadaCreateRequest) => {
+    if (!selectedLeadForOfertas?.id) return
+    setOfertaSubmitting(true)
+    try {
+      const success = await createOferta({
+        ...payload,
+        lead_id: selectedLeadForOfertas.id,
+        cliente_id: undefined,
+      })
+      toast({
+        title: success ? "Oferta creada" : "No se pudo crear la oferta",
+        description: success
+          ? "Se registró la oferta personalizada para el lead."
+          : "Intenta nuevamente más tarde.",
+        variant: success ? "default" : "destructive",
+      })
+      if (success) {
+        setIsCreateOfertaOpen(false)
+      }
+    } finally {
+      setOfertaSubmitting(false)
+    }
+  }
+
+  const handleUpdateOfertaLead = async (id: string, data: OfertaPersonalizadaUpdateRequest) => {
+    if (!selectedLeadForOfertas?.id || !id) return
+    setOfertaSubmitting(true)
+    try {
+      const success = await updateOferta(id, {
+        ...data,
+        lead_id: selectedLeadForOfertas.id,
+        cliente_id: undefined,
+      })
+      toast({
+        title: success ? "Oferta actualizada" : "No se pudo actualizar la oferta",
+        description: success
+          ? "Cambios guardados correctamente."
+          : "Intenta nuevamente más tarde.",
+        variant: success ? "default" : "destructive",
+      })
+      if (success) {
+        setIsEditOfertaOpen(false)
+        setEditingOferta(null)
+      }
+    } finally {
+      setOfertaSubmitting(false)
+    }
+  }
+
+  const handleDeleteOfertaLead = async (id: string) => {
+    if (!id) return
+    setOfertaSubmitting(true)
+    try {
+      const success = await deleteOferta(id)
+      toast({
+        title: success ? "Oferta eliminada" : "No se pudo eliminar",
+        description: success ? "Se eliminó la oferta personalizada." : "Intenta nuevamente.",
+        variant: success ? "default" : "destructive",
+      })
+    } finally {
+      setOfertaSubmitting(false)
     }
   }
 
@@ -438,6 +544,16 @@ export function LeadsTable({
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => openOfertasLead(lead)}
+                        className="text-amber-600 hover:text-amber-800 h-7 w-7 p-0"
+                        title="Ofertas personalizadas"
+                        disabled={disableActions || !lead.id}
+                      >
+                        <ListChecks className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => openDetailDialog(lead)}
                         className="text-blue-600 hover:text-blue-800 h-7 w-7 p-0"
                         title="Ver detalles"
@@ -601,77 +717,6 @@ export function LeadsTable({
                   <div className="flex items-center">
                     <MapPin className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
                     <span className="text-sm break-words">{selectedLead.provincia_montaje}</span>
-                  </div>
-                </div>
-              )}
-
-              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                    <Package className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                    Ofertas asociadas
-                  </h3>
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                    {selectedLead.ofertas.map((oferta, index) => (
-                      <div key={`oferta-${selectedLead.id}-${index}`} className="border border-orange-100 rounded-lg p-3 bg-orange-50 min-w-0 overflow-hidden">
-                        <div className="flex flex-col gap-2">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                            <div className="flex-1 min-w-0 overflow-hidden">
-                              <span className="text-sm font-semibold text-gray-900 truncate block" title={oferta.descripcion}>{oferta.descripcion}</span>
-                              {oferta.marca && (
-                                <div className="text-xs text-gray-600 mt-1 truncate" title={oferta.marca}>
-                                  Marca: {oferta.marca}
-                                </div>
-                              )}
-                            </div>
-                            <Badge variant="outline" className="text-xs w-fit shrink-0">
-                              Cant: {oferta.cantidad}
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            {formatCurrency(oferta.precio, oferta.moneda || 'USD') && (
-                              <div className="text-gray-600 truncate">
-                                <span className="font-medium">Precio base:</span> {formatCurrency(oferta.precio, oferta.moneda || 'USD')}
-                              </div>
-                            )}
-                            {formatCurrency(oferta.precio_cliente, oferta.moneda || 'USD') && (
-                              <div className="text-gray-600 truncate">
-                                <span className="font-medium">P. Cliente:</span> {formatCurrency(oferta.precio_cliente, oferta.moneda || 'USD')}
-                              </div>
-                            )}
-                          </div>
-
-                          {oferta.descuentos && (
-                            <div className="text-xs text-gray-600 truncate" title={oferta.descuentos}>
-                              <span className="font-medium">Descuentos:</span> {oferta.descuentos}
-                            </div>
-                          )}
-                          {oferta.garantias && oferta.garantias.length > 0 && (
-                            <div className="text-xs text-gray-600 truncate" title={oferta.garantias.join(', ')}>
-                              <span className="font-medium">Garantías:</span> {oferta.garantias.join(', ')}
-                            </div>
-                          )}
-
-                          {oferta.elementos && oferta.elementos.length > 0 && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="w-full mt-2 text-xs h-8 text-orange-700 border-orange-200 hover:bg-orange-100"
-                              onClick={() => {
-                                setSelectedOferta(oferta)
-                                setIsOfertaElementosDialogOpen(true)
-                              }}
-                            >
-                              <Package className="h-3 w-3 mr-1" />
-                              Ver elementos ({oferta.elementos.length})
-                              <ChevronRight className="h-3 w-3 ml-auto" />
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </div>
               )}
@@ -863,6 +908,74 @@ export function LeadsTable({
         </DialogContent>
       </Dialog>
 
+      {/* Ofertas personalizadas asociadas */}
+      <Dialog
+        open={showOfertasDialog}
+        onOpenChange={(open) => {
+          setShowOfertasDialog(open)
+          if (!open) {
+            closeOfertasDialog()
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ofertas personalizadas del lead</DialogTitle>
+            <DialogDescription>
+              {selectedLeadForOfertas
+                ? `${selectedLeadForOfertas.nombre || selectedLeadForOfertas.telefono || selectedLeadForOfertas.id || 'Lead'}`
+                : 'Selecciona un lead'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-sm text-gray-600">
+              {ofertasDelLead.length} {ofertasDelLead.length === 1 ? 'oferta' : 'ofertas'} asociadas.
+            </div>
+            <Button
+              onClick={() => setIsCreateOfertaOpen(true)}
+              disabled={!selectedLeadForOfertas?.id}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva oferta
+            </Button>
+          </div>
+          <OfertasPersonalizadasTable
+            ofertas={ofertasDelLead}
+            onEdit={(oferta) => {
+              setEditingOferta(oferta)
+              setIsEditOfertaOpen(true)
+            }}
+            onDelete={handleDeleteOfertaLead}
+            loading={ofertasLoading || ofertaSubmitting}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <CreateOfertaDialog
+        open={isCreateOfertaOpen}
+        onOpenChange={setIsCreateOfertaOpen}
+        onSubmit={handleCreateOfertaLead}
+        isLoading={ofertaSubmitting}
+        defaultContactType="lead"
+        defaultLeadId={selectedLeadForOfertas?.id || ''}
+        lockContactType="lead"
+        lockLeadId={selectedLeadForOfertas?.id || ''}
+      />
+
+      <EditOfertaDialog
+        open={isEditOfertaOpen}
+        onOpenChange={(open) => {
+          setIsEditOfertaOpen(open)
+          if (!open) setEditingOferta(null)
+        }}
+        oferta={editingOferta}
+        onSubmit={handleUpdateOfertaLead}
+        isLoading={ofertaSubmitting}
+        lockContactType="lead"
+        lockLeadId={selectedLeadForOfertas?.id || ''}
+      />
+
       {/* Modal de mapa para convertir lead a cliente */}
       <Dialog open={showMapModalConversion} onOpenChange={setShowMapModalConversion}>
         <DialogContent className="max-w-xl">
@@ -897,95 +1010,6 @@ export function LeadsTable({
         defaultMoneda={leadForComprobante?.moneda}
         onSubmit={handleComprobanteSubmit}
       />
-
-      {/* Dialog Elementos de Oferta */}
-      <Dialog open={isOfertaElementosDialogOpen} onOpenChange={setIsOfertaElementosDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Elementos de la Oferta</DialogTitle>
-          </DialogHeader>
-          {selectedOferta && (
-            <div className="space-y-4">
-              <div className="bg-orange-50 border border-orange-100 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-1">{selectedOferta.descripcion}</h3>
-                {selectedOferta.marca && (
-                  <p className="text-sm text-gray-600">Marca: {selectedOferta.marca}</p>
-                )}
-                <div className="flex items-center gap-4 mt-2 text-sm">
-                  {formatCurrency(selectedOferta.precio, selectedOferta.moneda || 'USD') && (
-                    <span className="text-gray-700">
-                      <span className="font-medium">Precio:</span> {formatCurrency(selectedOferta.precio, selectedOferta.moneda || 'USD')}
-                    </span>
-                  )}
-                  <Badge variant="outline" className="text-xs">
-                    Cantidad: {selectedOferta.cantidad}
-                  </Badge>
-                </div>
-              </div>
-
-              {selectedOferta.elementos && selectedOferta.elementos.length > 0 ? (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">
-                    Elementos incluidos ({selectedOferta.elementos.length})
-                  </h4>
-                  <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                    {selectedOferta.elementos.map((elemento: any, index: number) => (
-                      <div
-                        key={`elemento-${index}`}
-                        className="flex items-start gap-3 border border-gray-200 rounded-lg p-3 bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="p-2 bg-blue-100 rounded-lg shrink-0">
-                          <Package className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 break-words">
-                                {elemento.nombre || elemento.descripcion || elemento.name || 'Elemento sin nombre'}
-                              </p>
-                              {elemento.material && (
-                                <p className="text-xs text-gray-600 mt-1">Material: {elemento.material}</p>
-                              )}
-                              {elemento.descripcion && elemento.nombre && (
-                                <p className="text-xs text-gray-600 mt-1">{elemento.descripcion}</p>
-                              )}
-                            </div>
-                            {elemento.cantidad && (
-                              <Badge variant="outline" className="text-xs shrink-0">
-                                {elemento.cantidad}
-                              </Badge>
-                            )}
-                          </div>
-                          {elemento.precio && (
-                            <p className="text-xs text-gray-600 mt-1">
-                              Precio: {formatCurrency(elemento.precio, elemento.moneda || selectedOferta.moneda || 'USD')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">No hay elementos disponibles para esta oferta</p>
-                </div>
-              )}
-
-              <div className="flex justify-end pt-2 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsOfertaElementosDialogOpen(false)}
-                >
-                  Cerrar
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <ConfirmDeleteDialog

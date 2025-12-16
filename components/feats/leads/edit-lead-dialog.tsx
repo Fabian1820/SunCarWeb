@@ -7,9 +7,8 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Loader2 } from "lucide-react"
-import type { ElementoPersonalizado, Lead, LeadUpdateData, OfertaAsignacion } from "@/lib/api-types"
+import type { ElementoPersonalizado, Lead, LeadUpdateData } from "@/lib/api-types"
 import { ElementosPersonalizadosFields } from "./elementos-personalizados-fields"
-import { OfertasAsignacionFields } from "./ofertas-asignacion-fields"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 
 interface EditLeadDialogProps {
@@ -37,17 +36,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     if (!yyyymmdd) return ''
     const [year, month, day] = yyyymmdd.split('-')
     return `${day}/${month}/${year}`
-  }
-
-  // Función para convertir ofertas embebidas a asignaciones
-  const convertOfertasToAsignaciones = (ofertas: Lead['ofertas']): OfertaAsignacion[] => {
-    if (!ofertas || ofertas.length === 0) return []
-    return ofertas
-      .filter(oferta => oferta.id)
-      .map(oferta => ({
-        oferta_id: oferta.id!,
-        cantidad: oferta.cantidad || 1
-      }))
   }
 
   const paisesDisponibles = [
@@ -85,7 +73,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     comercial: lead.comercial || '',
     metodo_pago: lead.metodo_pago || '',
     moneda: lead.moneda || '',
-    ofertas: convertOfertasToAsignaciones(lead.ofertas),
     elementos_personalizados: lead.elementos_personalizados ?
       JSON.parse(JSON.stringify(lead.elementos_personalizados)) : []
   })
@@ -106,7 +93,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     comercial: lead.comercial || '',
     metodo_pago: lead.metodo_pago || '',
     moneda: lead.moneda || '',
-    ofertas: JSON.stringify(convertOfertasToAsignaciones(lead.ofertas)),
     elementos_personalizados: JSON.stringify(lead.elementos_personalizados || [])
   })
 
@@ -128,7 +114,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         comercial: lead.comercial || '',
         metodo_pago: lead.metodo_pago || '',
         moneda: lead.moneda || '',
-        ofertas: convertOfertasToAsignaciones(lead.ofertas),
         elementos_personalizados: lead.elementos_personalizados ?
           JSON.parse(JSON.stringify(lead.elementos_personalizados)) : []
       })
@@ -139,13 +124,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     setFormData(prev => ({
       ...prev,
       [field]: value
-    }))
-  }
-
-  const handleOfertasChange = (items: OfertaAsignacion[]) => {
-    setFormData(prev => ({
-      ...prev,
-      ofertas: items
     }))
   }
 
@@ -183,12 +161,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     const initialFecha = convertFromDateInput(initialValues.fecha_contacto)
     if (currentFecha !== initialFecha) {
       updateData.fecha_contacto = currentFecha
-    }
-
-    // Ofertas (comparar JSON)
-    const currentOfertas = JSON.stringify(formData.ofertas)
-    if (currentOfertas !== initialValues.ofertas) {
-      updateData.ofertas = formData.ofertas
     }
 
     // Elementos personalizados (comparar JSON)
@@ -426,11 +398,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
               />
             </div>
             <div className="space-y-6">
-              <OfertasAsignacionFields
-                value={formData.ofertas}
-                onChange={handleOfertasChange}
-              />
-
               <ElementosPersonalizadosFields
                 value={formData.elementos_personalizados}
                 onChange={handleElementosChange}

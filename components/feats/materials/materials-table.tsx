@@ -36,8 +36,8 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
           </tr>
         </thead>
         <tbody>
-          {materials.map((material) => (
-            <tr key={material.id || material.codigo || `${material.categoria}-${material.codigo}`} className="border-b border-gray-100 hover:bg-gray-50">
+          {materials.map((material, index) => (
+            <tr key={`${material.codigo}-${material.categoria}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-3">
                   <div className="bg-amber-100 p-2 rounded-lg">

@@ -161,7 +161,9 @@ export default function OfertasPersonalizadasPage() {
                     Ventas
                   </span>
                 </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de ofertas personalizadas para clientes</p>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
+                  Gestión de ofertas personalizadas para clientes y leads.
+                </p>
               </div>
             </div>
             <div className="flex gap-2">
@@ -189,7 +191,7 @@ export default function OfertasPersonalizadasPage() {
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="search"
-                  placeholder="Buscar por ID de cliente..."
+                  placeholder="Buscar por ID de cliente o lead..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"

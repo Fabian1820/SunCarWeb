@@ -3,7 +3,8 @@
     "allow": [
       "Bash(npm run build)",
       "Bash(npm run lint)",
-      "Bash(cat package.json)"
+      "Bash(cat package.json)",
+      "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && wc -l {}')"
     ],
     "deny": [],
     "ask": []

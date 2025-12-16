@@ -1,6 +1,7 @@
 import type { ElementoPersonalizado, OfertaEmbebida, OfertaAsignacion } from '../leads/lead-types'
 
 export interface Cliente {
+  id?: string  // ID de MongoDB (transformado desde _id por el backend)
   numero: string
   nombre: string
   direccion: string

@@ -55,6 +55,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
 
   // Estado del formulario con valores iniciales del cliente
   const [formData, setFormData] = useState({
+    numero: client.numero || '',
     nombre: client.nombre || '',
     direccion: client.direccion || '',
     telefono: client.telefono || '',
@@ -81,6 +82,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
 
   // Guardar valores iniciales para detectar cambios
   const [initialValues] = useState({
+    numero: client.numero || '',
     nombre: client.nombre || '',
     direccion: client.direccion || '',
     telefono: client.telefono || '',
@@ -108,6 +110,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
   useEffect(() => {
     if (open) {
       setFormData({
+        numero: client.numero || '',
         nombre: client.nombre || '',
         direccion: client.direccion || '',
         telefono: client.telefono || '',
@@ -163,7 +166,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
 
     // Campos de texto simples
     const textFields = [
-      'nombre', 'direccion', 'telefono', 'telefono_adicional', 'carnet_identidad',
+      'numero', 'nombre', 'direccion', 'telefono', 'telefono_adicional', 'carnet_identidad',
       'estado', 'fuente', 'referencia', 'pais_contacto', 'provincia_montaje',
       'comercial', 'metodo_pago', 'moneda', 'comentario'
     ]
@@ -235,6 +238,17 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
               <div className="space-y-4">
                 {/* Campos Obligatorios */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="numero">
+                      Número <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="numero"
+                      value={formData.numero}
+                      onChange={(e) => handleInputChange('numero', e.target.value)}
+                      className="text-gray-900 placeholder:text-gray-400"
+                    />
+                  </div>
                   <div>
                     <Label htmlFor="nombre">
                       Nombre <span className="text-red-500">*</span>

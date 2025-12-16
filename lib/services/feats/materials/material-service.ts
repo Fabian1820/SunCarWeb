@@ -16,15 +16,23 @@ export class MaterialService {
     return result.data.flatMap((cat: any) =>
       (cat.materiales || []).map((m: any) => ({
         ...m,
+        // Usa el ObjectId del producto como identificador base; si el material trae su propio _id, úsalo
+        id: m._id || m.id || m.material_id || cat.id,
+        material_key: `${m._id || m.id || m.material_id || cat.id}__${m.codigo}`,
         categoria: cat.categoria,
         producto_id: cat.id,
       }))
     )
   }
 
-  static async getCategories(): Promise<{ id: string; categoria: string }[]> {
-    const result = await apiRequest<{ data: { id: string; categoria: string }[] }>('/productos/categorias')
-    return result.data
+  static async getCategories(): Promise<{ id: string; categoria: string; nombre?: string }[]> {
+    const result = await apiRequest<{ data: { id: string; categoria?: string; nombre?: string }[] }>('/productos/categorias')
+    // Normalizar: asegurar que siempre tengamos 'categoria'
+    return result.data.map(cat => ({
+      id: cat.id,
+      categoria: cat.categoria || cat.nombre || '',
+      nombre: cat.nombre || cat.categoria
+    }))
   }
 
   static async getMaterialsByCategory(categoria: string): Promise<Material[]> {
@@ -50,7 +58,7 @@ export class MaterialService {
 
   static async addMaterialToProduct(
     productoId: string,
-    material: { codigo: string; descripcion: string; um: string }
+    material: { codigo: string; descripcion: string; um: string; precio?: number }
   ): Promise<boolean> {
     console.log('[MaterialService] Agregando material a producto:', { productoId, material })
     try {
@@ -131,7 +139,7 @@ export class MaterialService {
   static async editMaterialInProduct(
     productoId: string,
     materialCodigo: string,
-    data: { codigo: string | number; descripcion: string; um: string }
+    data: { codigo: string | number; descripcion: string; um: string; precio?: number }
   ): Promise<boolean> {
     console.log('[MaterialService] Editando material:', { productoId, materialCodigo, data })
     try {
@@ -247,15 +255,5 @@ export class MaterialService {
     }
 
     return true
-  }
-
-  static async getCategories(): Promise<{ nombre: string }[]> {
-    const result = await apiRequest<{ data: { nombre: string }[] }>('/productos/categorias')
-    return result.data
-  }
-
-  static async getMaterialsByCategoryName(categoria: string): Promise<Material[]> {
-    const result = await apiRequest<{ data: Material[] }>(`/productos/categorias/${encodeURIComponent(categoria)}/materiales`)
-    return result.data
   }
 }

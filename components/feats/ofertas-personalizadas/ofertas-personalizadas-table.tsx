@@ -84,7 +84,7 @@ export function OfertasPersonalizadasTable({
             <TableHeader>
               <TableRow>
                 <TableHead>ID</TableHead>
-                <TableHead>Cliente ID</TableHead>
+                <TableHead>Cliente/Lead</TableHead>
                 <TableHead>Equipos</TableHead>
                 <TableHead>Precio</TableHead>
                 <TableHead>Estado</TableHead>
@@ -105,8 +105,32 @@ export function OfertasPersonalizadasTable({
                     <TableCell className="font-mono text-xs">
                       {oferta.id?.slice(-8) || 'N/A'}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {oferta.cliente_id?.slice(-8) || 'N/A'}
+                    <TableCell>
+                      <div className="space-y-1">
+                        {oferta.cliente_id && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="bg-amber-100 text-amber-800">
+                              Cliente
+                            </Badge>
+                            <span className="font-mono text-xs">
+                              {oferta.cliente_id.slice(-8)}
+                            </span>
+                          </div>
+                        )}
+                        {oferta.lead_id && (
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                              Lead
+                            </Badge>
+                            <span className="font-mono text-xs">
+                              {oferta.lead_id.slice(-8)}
+                            </span>
+                          </div>
+                        )}
+                        {!oferta.cliente_id && !oferta.lead_id && (
+                          <span className="text-xs text-muted-foreground">Sin asignar</span>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm space-y-1">
@@ -131,10 +155,10 @@ export function OfertasPersonalizadasTable({
                       </div>
                     </TableCell>
                     <TableCell>
-                      {oferta.precio !== undefined ? (
+                      {typeof oferta.precio === 'number' && !Number.isNaN(oferta.precio) ? (
                         <span className="font-semibold">${oferta.precio.toFixed(2)}</span>
                       ) : (
-                        <span className="text-muted-foreground">No definido</span>
+                        <span className="text-muted-foreground">$0.00</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -205,11 +229,15 @@ export function OfertasPersonalizadasTable({
                   <p className="font-mono text-sm">{selectedOferta.cliente_id || 'N/A'}</p>
                 </div>
                 <div>
+                  <p className="text-sm font-medium text-muted-foreground">Lead ID</p>
+                  <p className="font-mono text-sm">{selectedOferta.lead_id || 'N/A'}</p>
+                </div>
+                <div>
                   <p className="text-sm font-medium text-muted-foreground">Precio</p>
                   <p className="text-lg font-semibold">
-                    {selectedOferta.precio !== undefined
+                    {typeof selectedOferta.precio === 'number' && !Number.isNaN(selectedOferta.precio)
                       ? `$${selectedOferta.precio.toFixed(2)}`
-                      : 'No definido'}
+                      : '$0.00'}
                   </p>
                 </div>
                 <div>

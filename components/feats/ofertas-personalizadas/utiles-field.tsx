@@ -43,12 +43,12 @@ export function UtilesField({
     const loadCategories = async () => {
       try {
         const data = await MaterialService.getCategories()
-        // Filtrar categorías de equipos (Inversor, Batería, Panel)
+        // Filtrar categorías de equipos (INVERSORES, BATERÍAS, PANELES)
         const categoriasUtiles = data.filter(
           (c) =>
-            c.categoria !== 'Inversor' &&
-            c.categoria !== 'Batería' &&
-            c.categoria !== 'Panel'
+            c.categoria !== 'INVERSORES' &&
+            c.categoria !== 'BATERÍAS' &&
+            c.categoria !== 'PANELES'
         )
         setCategories(categoriasUtiles)
       } catch (error) {
@@ -68,7 +68,19 @@ export function UtilesField({
     const loadMateriales = async () => {
       setLoading(true)
       try {
-        const data = await MaterialService.getMaterialsByCategory(selectedCategoria)
+        // Buscar el ID de la categoría seleccionada
+        const categoriaEncontrada = categorias.find(
+          (c) => c.categoria === selectedCategoria || c.id === selectedCategoria
+        )
+
+        if (!categoriaEncontrada || !categoriaEncontrada.id) {
+          console.warn(`Categoría "${selectedCategoria}" no encontrada`)
+          setMateriales([])
+          return
+        }
+
+        // Usar el ID para obtener los materiales
+        const data = await MaterialService.getMaterialsByCategory(categoriaEncontrada.id)
         setMateriales(Array.isArray(data) ? data : [])
       } catch (error) {
         console.error('Error loading materiales:', error)
@@ -78,7 +90,7 @@ export function UtilesField({
       }
     }
     loadMateriales()
-  }, [selectedCategoria])
+  }, [selectedCategoria, categorias])
 
   const handleAddUtil = () => {
     const cantidadNum = parseInt(cantidad)
