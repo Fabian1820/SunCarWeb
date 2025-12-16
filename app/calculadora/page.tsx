@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Label } from "@/components/shared/atom/label"
@@ -94,6 +94,9 @@ const createEmptyEditForm = (): EditEquipoForm => ({
 
 export default function CalculadoraPage() {
   const { toast } = useToast()
+
+  const headerRef = useRef<HTMLElement | null>(null)
+  const [headerHeight, setHeaderHeight] = useState<number>(120)
 
   const [categorias, setCategorias] = useState<CalculoEnergeticoCategoria[]>([])
   const [equiposCantidad, setEquiposCantidad] = useState<Map<string, number>>(new Map())
@@ -474,6 +477,24 @@ export default function CalculadoraPage() {
     }
   }
 
+  useLayoutEffect(() => {
+    if (!headerRef.current) return
+
+    const element = headerRef.current
+    const update = () => setHeaderHeight(Math.ceil(element.getBoundingClientRect().height))
+
+    update()
+
+    const resizeObserver = new ResizeObserver(() => update())
+    resizeObserver.observe(element)
+    window.addEventListener("resize", update)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener("resize", update)
+    }
+  }, [])
+
   if (initialLoading) {
     return <PageLoader moduleName="Calculadora" text="Cargando equipos del backend..." />
   }
@@ -481,88 +502,102 @@ export default function CalculadoraPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="fixed-header">
+      <header ref={headerRef} className="fixed-header bg-white/90 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center gap-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  Volver al Dashboard
-                </Button>
-              </Link>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
+          <div className="grid grid-cols-[auto,1fr,auto] items-center gap-2 py-2 sm:py-6">
+            <Link href="/" className="flex">
+              <Button
+                variant="ghost"
+                size="sm"
+                aria-label="Volver al dashboard"
+                className="flex items-center justify-center gap-2 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="hidden sm:inline">Volver al Dashboard</span>
+              </Button>
+            </Link>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-self-center">
+              <div className="hidden sm:flex p-0 rounded-full bg-white shadow border border-orange-200 items-center justify-center h-12 w-12">
                 <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <Calculator className="h-6 w-6 text-orange-600" />
-                  Calculadora de Consumo Eléctrico
+                <h1 className="text-base sm:text-2xl font-bold text-gray-900 flex items-center justify-center gap-2">
+                  <Calculator className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
+                  <span className="truncate">Calculadora</span>
+                  <span className="hidden sm:inline">de Consumo Eléctrico</span>
                 </h1>
-                <p className="text-sm text-gray-600">Calcula el consumo de tus equipos eléctricos.</p>
+                <p className="hidden sm:block text-sm text-gray-600">Calcula el consumo de tus equipos eléctricos.</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center gap-2 sm:gap-3 justify-end">
               {loadingCategorias && (
                 <span className="flex items-center gap-2 text-sm text-orange-700">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Actualizando
+                  <span className="hidden sm:inline">Actualizando</span>
                 </span>
               )}
               <Button
                 onClick={restablecerParametros}
                 variant="outline"
                 size="sm"
-                className="flex items-center gap-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300"
+                aria-label="Restablecer"
+                className="flex items-center justify-center gap-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
                 disabled={totalEquipos === 0}
               >
                 <RotateCcw className="h-4 w-4 text-orange-600" />
-                <span>Restablecer</span>
+                <span className="hidden sm:inline">Restablecer</span>
               </Button>
               <Button
                 onClick={() => setIsCreateDialogOpen(true)}
                 size="sm"
-                className="flex items-center gap-2 bg-orange-600 hover:bg-orange-700 text-white"
+                aria-label="Registrar equipo"
+                className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
               >
                 <Plus className="h-4 w-4" />
-                Registrar equipo
+                <span className="hidden sm:inline">Registrar equipo</span>
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main
+        className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"
+        style={{ paddingTop: headerHeight + 8 }}
+      >
         {/* Panel de consumo total */}
-        <div className="sticky top-0 z-10 bg-gradient-to-br from-orange-50 to-yellow-50 pb-6">
+        <div
+          className="sticky z-10 bg-gradient-to-br from-orange-50 to-yellow-50 pb-4 sm:pb-6"
+          style={{ top: headerHeight }}
+        >
           <Card className="bg-gradient-to-br from-orange-50 to-yellow-50 border-orange-200 shadow-lg">
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                 <div className="flex-1">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Potencia Total (Inversor)</p>
-                      <p className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                        <Cpu className="h-8 w-8 text-orange-600" />
+                      <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                        <Cpu className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
                         {potenciaTotalKw.toFixed(2)} kW
                       </p>
                       <p className="text-xs text-gray-500 mt-1">= {(potenciaTotalKw * 1000).toFixed(0)} Watts</p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600 mb-1">Consumo Real por Hora (Batería)</p>
-                      <p className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                        <Zap className="h-8 w-8 text-orange-600" />
+                      <p className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                        <Zap className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600" />
                         {consumoRealKwh.toFixed(3)} kWh
                       </p>
                       <p className="text-xs text-gray-500 mt-1">Consumo diario (24h): {(consumoRealKwh * 24).toFixed(2)} kWh</p>
                     </div>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-lg px-4 py-2 bg-white ml-4">
-                  {totalEquipos} {totalEquipos === 1 ? "equipo" : "equipos"}
-                </Badge>
+                <div className="flex justify-end sm:justify-start">
+                  <Badge variant="outline" className="text-sm sm:text-lg px-3 py-1.5 sm:px-4 sm:py-2 bg-white">
+                    {totalEquipos} {totalEquipos === 1 ? "equipo" : "equipos"}
+                  </Badge>
+                </div>
               </div>
 
               {totalEquipos > 0 && (
@@ -596,7 +631,7 @@ export default function CalculadoraPage() {
                     <span className="text-gray-500">Buscar equipos...</span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[600px] p-0" align="start">
+                <PopoverContent className="w-[calc(100vw-2rem)] max-w-[600px] p-0" align="start">
                   <Command>
                     <CommandInput
                       placeholder="Buscar por nombre o categoría..."
@@ -625,25 +660,30 @@ export default function CalculadoraPage() {
                               const cantidadActual = cantidadBuscador.get(equipoKey) || 1
 
                               return (
-                                <CommandItem key={equipoKey} value={equipoKey} onSelect={() => agregarDesdeBuscador(equipoKey)}>
-                                  <div className="flex-1">
-                                    <div className="flex items-center justify-between">
-                                      <div>
-                                        <p className="text-sm font-medium text-gray-900">{equipo.nombre}</p>
+                                <CommandItem
+                                  key={equipoKey}
+                                  value={equipoKey}
+                                  onSelect={() => agregarDesdeBuscador(equipoKey)}
+                                  className="flex flex-col sm:flex-row sm:items-center gap-3"
+                                >
+                                  <div className="w-full sm:flex-1 min-w-0">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">{equipo.nombre}</p>
                                         <p className="text-xs text-gray-500 mt-1">
                                           {Math.round(equipo.potencia_kw * 1000)} W •{" "}
                                           {Math.round(equipo.energia_kwh * 1000)} W real/h
                                         </p>
                                       </div>
                                       {yaAgregado && (
-                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200">
+                                        <Badge variant="secondary" className="bg-green-100 text-green-700 border-green-200 shrink-0">
                                           Agregado
                                         </Badge>
                                       )}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">{categoria.nombre}</div>
+                                    <div className="text-xs text-gray-500 mt-1 truncate">{categoria.nombre}</div>
                                   </div>
-                                  <div className="flex items-center gap-2">
+                                  <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2">
                                     <div className="flex items-center gap-1">
                                       <Button
                                         onClick={(e) => {
@@ -652,7 +692,7 @@ export default function CalculadoraPage() {
                                         }}
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 w-7 p-0"
+                                        className="h-8 w-8 p-0"
                                       >
                                         <Minus className="h-3 w-3" />
                                       </Button>
@@ -666,7 +706,7 @@ export default function CalculadoraPage() {
                                           const valor = parseInt(e.target.value, 10) || 1
                                           actualizarCantidadBuscador(equipoKey, Math.max(1, valor))
                                         }}
-                                        className="w-14 h-7 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                        className="w-16 h-8 text-center text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                       />
                                       <Button
                                         onClick={(e) => {
@@ -675,7 +715,7 @@ export default function CalculadoraPage() {
                                         }}
                                         size="sm"
                                         variant="outline"
-                                        className="h-7 w-7 p-0"
+                                        className="h-8 w-8 p-0"
                                       >
                                         <Plus className="h-3 w-3" />
                                       </Button>
@@ -686,7 +726,7 @@ export default function CalculadoraPage() {
                                         agregarDesdeBuscador(equipoKey)
                                       }}
                                       size="sm"
-                                      className="bg-orange-600 hover:bg-orange-700 h-7"
+                                      className="bg-orange-600 hover:bg-orange-700 h-8 px-3"
                                     >
                                       Agregar
                                     </Button>
