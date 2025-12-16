@@ -27,7 +27,7 @@ import {
     RotateCcw,
     Receipt
 } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
 import { ReporteService, ClienteService } from "@/lib/api-services"
@@ -47,6 +47,8 @@ export default function Dashboard() {
     const [recentReports, setRecentReports] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<any[]>([])
+    const headerRef = useRef<HTMLElement | null>(null)
+    const [headerHeight, setHeaderHeight] = useState<number>(120)
 
     // Cargar módulos permitidos cada vez que se monta el dashboard
     useEffect(() => {
@@ -226,24 +228,45 @@ export default function Dashboard() {
 
     const getClienteByNumero = (numero: string | number) => clients.find(c => String(c.numero) === String(numero));
 
+    useLayoutEffect(() => {
+        if (!headerRef.current) return
+
+        const element = headerRef.current
+        const update = () => setHeaderHeight(Math.ceil(element.getBoundingClientRect().height))
+
+        update()
+
+        const resizeObserver = new ResizeObserver(() => update())
+        resizeObserver.observe(element)
+        window.addEventListener("resize", update)
+
+        return () => {
+            resizeObserver.disconnect()
+            window.removeEventListener("resize", update)
+        }
+    }, [])
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
             {/* Header */}
-            <header className="fixed-header">
+            <header ref={headerRef} className="fixed-header bg-white/90 backdrop-blur">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center py-6">
-                        <div className="flex items-center space-x-3">
+                    <div className="flex items-center justify-between py-2 sm:py-6">
+                        <div className="flex items-center gap-3">
                             <div
-                                className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
+                                className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-9 w-9 sm:h-14 sm:w-14">
                                 <img src="/logo.png" alt="Logo SunCar"
-                                    className="h-10 w-10 object-contain rounded-full" />
+                                    className="h-8 w-8 sm:h-10 sm:w-10 object-contain rounded-full" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900">Administración de SUNCAR</h1>
-                                <p className="text-sm text-gray-600">Sistema de Gestión de Empresarial.</p>
+                                <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+                                    <span className="block sm:hidden text-base tracking-[0.3em] uppercase">SUNCAR</span>
+                                    <span className="hidden sm:inline">Administración de SUNCAR</span>
+                                </h1>
+                                <p className="hidden sm:block text-sm text-gray-600">Sistema de Gestión de Empresarial.</p>
                             </div>
                         </div>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 justify-end">
                             {/* <Link href="/atencion-cliente">
                                 <Button
                                     variant="outline"
@@ -257,24 +280,26 @@ export default function Dashboard() {
                                     </div>
                                 </Button>
                             </Link> */}
-                            <Link href="/calculadora">
+                            <Link href="/calculadora" className="flex">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300"
+                                    aria-label="Abrir calculadora"
+                                    className="flex items-center justify-center space-x-0 sm:space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto"
                                 >
                                     <Calculator className="h-4 w-4 text-orange-600" />
-                                    <span className="text-gray-700">Calculadora</span>
+                                    <span className="hidden sm:inline text-gray-700">Calculadora</span>
                                 </Button>
                             </Link>
                             <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => setIsContactosDialogOpen(true)}
-                                className="flex items-center space-x-2 bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300"
+                                aria-label="Ver información de contacto"
+                                className="flex items-center justify-center space-x-0 sm:space-x-2 bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto"
                             >
                                 <Info className="h-4 w-4 text-blue-600" />
-                                <span className="text-gray-700">Información</span>
+                                <span className="hidden sm:inline text-gray-700">Información</span>
                             </Button>
                             <UserMenu />
                         </div>
@@ -282,11 +307,14 @@ export default function Dashboard() {
                 </div>
             </header>
 
-            <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <main
+                className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8"
+                style={{ paddingTop: headerHeight + 8 }}
+            >
                 {/* Full width layout for modules */}
                 <div className="flex flex-col">
-                    <div className="mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 text-center">Módulos del Sistema</h2>
+                    <div className="mb-4 sm:mb-6">
+                        <h2 className="text-lg sm:text-xl font-bold text-gray-900 text-center">Módulos del Sistema</h2>
                         {user && (
                             <p className="text-center text-sm text-gray-600 mt-2">
                                 Bienvenido, <span className="font-semibold">{user.nombre}</span> - {user.rol}
@@ -300,13 +328,13 @@ export default function Dashboard() {
                             <p className="text-sm text-gray-500 mt-2">Contacte con el equipo de informáticos para resolver el problema.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                             {availableModules.map((module) => (
                                 <Link key={module.id} href={module.href}>
                                     <Card
-                                        className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2">
-                                        <CardContent className="p-6 text-center flex flex-col justify-center h-full">
-                                            <module.icon className={`h-10 w-10 text-${module.color} mx-auto mb-3`} />
+                                        className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer h-full hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
+                                        <CardContent className="p-4 sm:p-6 text-center flex flex-col justify-center h-full">
+                                            <module.icon className={`h-8 w-8 sm:h-10 sm:w-10 text-${module.color} mx-auto mb-3`} />
                                             <h3 className="text-lg font-semibold text-gray-900 mb-2">{module.title}</h3>
                                             <p className="text-sm text-gray-600">{module.description}</p>
                                         </CardContent>
@@ -350,4 +378,3 @@ export default function Dashboard() {
         </div>
     )
 }
-
