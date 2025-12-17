@@ -18,6 +18,7 @@ import { TrabajadoresPermisosTable } from "@/components/feats/permisos/trabajado
 import { SetPasswordDialog } from "@/components/feats/permisos/set-password-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function PermisosPage() {
   const { user } = useAuth()
@@ -47,16 +48,22 @@ export default function PermisosPage() {
               super-administradores pueden gestionar permisos.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Link href="/">
-              <Button variant="outline" className="w-full">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Volver al inicio
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+	        <CardContent>
+	          <Link href="/">
+	            <Button
+	              variant="outline"
+	              size="icon"
+	              className="w-full touch-manipulation"
+	              aria-label="Volver al inicio"
+	              title="Volver al inicio"
+	            >
+	              <ArrowLeft className="h-4 w-4" />
+	              <span className="sr-only">Volver al inicio</span>
+	            </Button>
+	          </Link>
+	        </CardContent>
+	      </Card>
+	    </div>
     )
   }
 
@@ -88,54 +95,35 @@ export default function PermisosPage() {
     })
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <Toaster />
+	  return (
+	    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+	      <Toaster />
 
-      {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Gestión de Permisos
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    SuperAdmin
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar módulos y permisos de trabajadores</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setIsModulosDialogOpen(true)}
-                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Ver Módulos
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+	      {/* Header */}
+	      <ModuleHeader
+	        title="Gestión de Permisos"
+	        subtitle="Administrar módulos y permisos de trabajadores"
+	        badge={{ text: "SuperAdmin", className: "bg-red-100 text-red-800" }}
+	        actions={
+	          <Button
+	            size="icon"
+	            onClick={() => setIsModulosDialogOpen(true)}
+	            className="h-9 w-9 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 touch-manipulation"
+	            aria-label="Ver módulos"
+	            title="Ver módulos"
+	          >
+	            <Settings className="h-4 w-4" />
+	            <span className="sr-only">Ver módulos</span>
+	          </Button>
+	        }
+	      />
 
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Main Content */}
-        <Card className="mb-8 border-l-4 border-l-red-600">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-red-600" />
+	      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+	        {/* Main Content */}
+	        <Card className="mb-8 border-l-4 border-l-red-600">
+	          <CardHeader>
+	            <CardTitle className="flex items-center gap-2">
+	              <Shield className="h-5 w-5 text-red-600" />
               Trabajadores y Permisos
             </CardTitle>
             <CardDescription>

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
+import { Loader2, Save, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -300,15 +301,24 @@ export function CreateTrabajoDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              size="icon"
+              className="touch-manipulation"
+              aria-label="Cancelar"
+              title="Cancelar"
             >
-              Cancelar
+              <X className="h-4 w-4" />
+              <span className="sr-only">Cancelar</span>
             </Button>
             <Button
               type="submit"
               disabled={loading}
+              size="icon"
               className="bg-orange-600 hover:bg-orange-700"
+              aria-label={loading ? 'Guardando' : 'Guardar'}
+              title={loading ? 'Guardando' : 'Guardar'}
             >
-              {loading ? 'Guardando...' : 'Guardar'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <span className="sr-only">{loading ? 'Guardando...' : 'Guardar'}</span>
             </Button>
           </DialogFooter>
         </form>

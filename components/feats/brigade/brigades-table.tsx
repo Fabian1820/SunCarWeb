@@ -204,17 +204,18 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 
   return (
     <>
-      {/* Mobile: tarjeta/accordion con acciones grandes */}
-      <div className="sm:hidden space-y-3">
-        <Button
-          variant="outline"
-          className="w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
-          onClick={() => openReportDialog(null)}
-          title="Calcular materiales usados de todas las brigadas"
-        >
-          <Calendar className="h-4 w-4" />
-          Calcular materiales (todas)
-        </Button>
+	      {/* Mobile: tarjeta/accordion con acciones grandes */}
+	      <div className="sm:hidden space-y-3">
+	        <Button
+	          variant="outline"
+	          className="w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
+	          onClick={() => openReportDialog(null)}
+	          aria-label="Calcular materiales (todas)"
+	          title="Calcular materiales usados de todas las brigadas"
+	        >
+	          <Calendar className="h-4 w-4" />
+	          <span className="sr-only">Calcular materiales (todas)</span>
+	        </Button>
 
         {brigades.map((brigade) => {
           const isExpanded = expandedBrigadeId === brigade.id
@@ -247,47 +248,54 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 
               <CardContent className="p-4 pt-0 space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <Badge variant="outline" className="bg-gray-50">
-                    {brigade.members.length} trabajadores
-                  </Badge>
-                  <Button
-                    variant="outline"
-                    className="border-blue-300 text-blue-700 hover:bg-blue-50 touch-manipulation"
-                    onClick={() => openDetailDialog(brigade)}
-                  >
-                    <Eye className="h-4 w-4" />
-                    Detalles
-                  </Button>
-                </div>
+	                  <Badge variant="outline" className="bg-gray-50">
+	                    {brigade.members.length} trabajadores
+	                  </Badge>
+	                  <Button
+	                    variant="outline"
+	                    size="icon"
+	                    className="h-10 w-10 border-blue-300 text-blue-700 hover:bg-blue-50 touch-manipulation"
+	                    onClick={() => openDetailDialog(brigade)}
+	                    aria-label="Ver detalles"
+	                    title="Ver detalles"
+	                  >
+	                    <Eye className="h-4 w-4" />
+	                    <span className="sr-only">Detalles</span>
+	                  </Button>
+	                </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <Button
-                    variant="outline"
-                    className="h-11 border-blue-300 text-blue-700 hover:bg-blue-50 opacity-50 cursor-not-allowed touch-manipulation"
-                    disabled
-                    title="Editar brigada (Próximamente)"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Editar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-11 border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
-                    onClick={() => openDeleteBrigadeDialog(brigade)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Eliminar
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-11 border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
-                    title="Calcular materiales usados de esta brigada"
-                    onClick={() => openReportDialog(brigade.id)}
-                  >
-                    <Calendar className="h-4 w-4" />
-                    Materiales
-                  </Button>
-                </div>
+	                <div className="grid grid-cols-3 gap-2">
+	                  <Button
+	                    variant="outline"
+	                    className="h-11 w-full border-blue-300 text-blue-700 hover:bg-blue-50 opacity-50 cursor-not-allowed touch-manipulation"
+	                    disabled
+	                    title="Editar brigada (Próximamente)"
+	                    aria-label="Editar brigada (Próximamente)"
+	                  >
+	                    <Edit className="h-4 w-4" />
+	                    <span className="sr-only">Editar</span>
+	                  </Button>
+	                  <Button
+	                    variant="outline"
+	                    className="h-11 w-full border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
+	                    onClick={() => openDeleteBrigadeDialog(brigade)}
+	                    aria-label="Eliminar brigada"
+	                    title="Eliminar brigada"
+	                  >
+	                    <Trash2 className="h-4 w-4" />
+	                    <span className="sr-only">Eliminar</span>
+	                  </Button>
+	                  <Button
+	                    variant="outline"
+	                    className="h-11 w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
+	                    title="Calcular materiales usados de esta brigada"
+	                    onClick={() => openReportDialog(brigade.id)}
+	                    aria-label="Materiales"
+	                  >
+	                    <Calendar className="h-4 w-4" />
+	                    <span className="sr-only">Materiales</span>
+	                  </Button>
+	                </div>
 
                 {isExpanded && (
                   <div className="pt-3 border-t border-gray-100">

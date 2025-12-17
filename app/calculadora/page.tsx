@@ -505,17 +505,17 @@ export default function CalculadoraPage() {
       <header ref={headerRef} className="fixed-header bg-white/90 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-[auto,1fr,auto] items-center gap-2 py-2 sm:py-6">
-            <Link href="/" className="flex">
-              <Button
-                variant="ghost"
-                size="sm"
-                aria-label="Volver al dashboard"
-                className="flex items-center justify-center gap-2 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Volver al Dashboard</span>
-              </Button>
-            </Link>
+	            <Link href="/" className="flex">
+	              <Button
+	                variant="ghost"
+	                size="sm"
+	                aria-label="Volver al dashboard"
+	                className="flex items-center justify-center gap-2 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
+	              >
+	                <ArrowLeft className="h-4 w-4" />
+	                <span className="sr-only">Volver al Dashboard</span>
+	              </Button>
+	            </Link>
             <div className="flex items-center gap-2 sm:gap-3 min-w-0 justify-self-center">
               <div className="hidden sm:flex p-0 rounded-full bg-white shadow border border-orange-200 items-center justify-center h-12 w-12">
                 <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
@@ -536,26 +536,26 @@ export default function CalculadoraPage() {
                   <span className="hidden sm:inline">Actualizando</span>
                 </span>
               )}
-              <Button
-                onClick={restablecerParametros}
-                variant="outline"
-                size="sm"
-                aria-label="Restablecer"
-                className="flex items-center justify-center gap-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
-                disabled={totalEquipos === 0}
-              >
-                <RotateCcw className="h-4 w-4 text-orange-600" />
-                <span className="hidden sm:inline">Restablecer</span>
-              </Button>
-              <Button
-                onClick={() => setIsCreateDialogOpen(true)}
-                size="sm"
-                aria-label="Registrar equipo"
-                className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
-              >
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Registrar equipo</span>
-              </Button>
+	              <Button
+	                onClick={restablecerParametros}
+	                variant="outline"
+	                size="sm"
+	                aria-label="Restablecer"
+	                className="flex items-center justify-center gap-2 border-orange-200 hover:bg-orange-50 hover:border-orange-300 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
+	                disabled={totalEquipos === 0}
+	              >
+	                <RotateCcw className="h-4 w-4 text-orange-600" />
+	                <span className="sr-only">Restablecer</span>
+	              </Button>
+	              <Button
+	                onClick={() => setIsCreateDialogOpen(true)}
+	                size="sm"
+	                aria-label="Registrar equipo"
+	                className="flex items-center justify-center gap-2 bg-orange-600 hover:bg-orange-700 text-white h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
+	              >
+	                <Plus className="h-4 w-4" />
+	                <span className="sr-only">Registrar equipo</span>
+	              </Button>
             </div>
           </div>
         </div>

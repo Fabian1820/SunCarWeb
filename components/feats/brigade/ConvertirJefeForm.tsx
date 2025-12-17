@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/shared/atom/button';
-import { Eye, EyeOff } from 'lucide-react';
+import { Crown, Eye, EyeOff, X } from 'lucide-react';
 import type { Trabajador } from '@/lib/api-types';
 
 export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, trabajadores }: {
@@ -93,8 +93,32 @@ export function ConvertirJefeForm({ onSubmit, onCancel, loading, trabajador, tra
       </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>
-        <Button type="submit" disabled={loading}>Convertir</Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+          size="icon"
+          className="w-10 sm:w-auto sm:px-4 touch-manipulation"
+          title="Cancelar"
+          aria-label="Cancelar"
+        >
+          <X className="h-4 w-4" />
+          <span className="hidden sm:inline">Cancelar</span>
+          <span className="sr-only">Cancelar</span>
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading}
+          size="icon"
+          className="w-10 sm:w-auto sm:px-4 touch-manipulation"
+          title="Convertir"
+          aria-label="Convertir"
+        >
+          <Crown className="h-4 w-4" />
+          <span className="hidden sm:inline">Convertir</span>
+          <span className="sr-only">Convertir</span>
+        </Button>
       </div>
     </form>
   );

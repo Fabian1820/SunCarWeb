@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/shared/atom/button';
+import { Users, X } from 'lucide-react';
 import type { Brigade } from '@/lib/brigade-types';
 import type { Trabajador } from '@/lib/api-types';
 
@@ -50,8 +51,32 @@ export function AsignarBrigadaForm({ onSubmit, onCancel, loading, brigadas, trab
       </div>
       {error && <div className="text-red-600 text-sm">{error}</div>}
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" onClick={onCancel} disabled={loading}>Cancelar</Button>
-        <Button type="submit" disabled={loading}>Asignar</Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onCancel}
+          disabled={loading}
+          size="icon"
+          className="w-10 sm:w-auto sm:px-4 touch-manipulation"
+          title="Cancelar"
+          aria-label="Cancelar"
+        >
+          <X className="h-4 w-4" />
+          <span className="hidden sm:inline">Cancelar</span>
+          <span className="sr-only">Cancelar</span>
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading}
+          size="icon"
+          className="w-10 sm:w-auto sm:px-4 touch-manipulation"
+          title="Asignar"
+          aria-label="Asignar"
+        >
+          <Users className="h-4 w-4" />
+          <span className="hidden sm:inline">Asignar</span>
+          <span className="sr-only">Asignar</span>
+        </Button>
       </div>
     </form>
   );

@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search, Tag } from "lucide-react"
+import { Package, TrendingUp, DollarSign, Eye, AlertTriangle, Plus, Search, Tag } from "lucide-react"
 import { useOfertas } from "@/hooks/use-ofertas"
 import { useToast } from "@/hooks/use-toast"
 import type { Oferta, CreateOfertaRequest, UpdateOfertaRequest } from "@/lib/api-types"
@@ -16,6 +15,7 @@ import OfertasList from "@/components/feats/ofertas/ofertas-list"
 import CreateEditOfertaDialog from "@/components/feats/ofertas/create-edit-oferta-dialog"
 import OfertaDetailsDialog from "@/components/feats/ofertas/oferta-details-dialog"
 import ManageElementsDialog from "@/components/feats/ofertas/manage-elements-dialog"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function OfertasPage() {
   const {
@@ -245,29 +245,13 @@ export default function OfertasPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-        <header className="fixed-header">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-6">
-              <div className="flex items-center space-x-3">
-                <Link href="/">
-                  <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Volver al Dashboard</span>
-                  </Button>
-                </Link>
-                <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-12 w-12">
-                  <img src="/logo.png" alt="Logo SunCar" className="h-10 w-10 object-contain rounded-full" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Ofertas</h1>
-                  <p className="text-sm text-gray-600">Gestión de ofertas y promociones</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </header>
+        <ModuleHeader
+          title="Ofertas"
+          subtitle="Gestión de ofertas y promociones"
+          badge={{ text: "Promociones", className: "bg-orange-100 text-orange-800" }}
+        />
 
-        <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-8">
+        <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
@@ -286,46 +270,26 @@ export default function OfertasPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Ofertas
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    Promociones
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de ofertas y promociones</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md"
-                onClick={handleCreateNew}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Oferta
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Ofertas"
+        subtitle="Gestión de ofertas y promociones"
+        badge={{ text: "Promociones", className: "bg-orange-100 text-orange-800" }}
+        className="bg-white shadow-sm border-b border-orange-100"
+        actions={
+          <Button
+            size="icon"
+            className="h-9 w-9 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
+            onClick={handleCreateNew}
+            aria-label="Nueva oferta"
+            title="Nueva oferta"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="sr-only">Nueva oferta</span>
+          </Button>
+        }
+      />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         {/* Barra de búsqueda y filtros */}
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">

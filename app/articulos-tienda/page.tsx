@@ -1,14 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { ArrowLeft, ShoppingBag, Plus, Search, AlertCircle, Loader2, RefreshCw, Eye } from "lucide-react"
+import { ShoppingBag, Plus, Search, AlertCircle, Loader2, RefreshCw, Eye } from "lucide-react"
 import { ArticulosTiendaTable } from "@/components/feats/articulos-tienda/articulos-tienda-table"
 import { ArticuloTiendaForm } from "@/components/feats/articulos-tienda/articulo-tienda-form"
 import { useArticulosTienda } from "@/hooks/use-articulos-tienda"
@@ -16,6 +15,7 @@ import type { ArticuloTienda, ArticuloTiendaCreateData, ArticuloTiendaUpdateData
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function ArticulosTiendaPage() {
     const {
@@ -158,80 +158,69 @@ export default function ArticulosTiendaPage() {
         return <PageLoader moduleName="Artículos Tienda" text="Cargando catálogo de artículos..." />
     }
 
-    if (error) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-                <div className="text-center max-w-md">
-                    <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar artículos</h3>
-                    <p className="text-gray-600 mb-4">{error}</p>
-                    <Button onClick={refetch} className="bg-blue-600 hover:bg-blue-700">
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                        Reintentar
-                    </Button>
-                </div>
-            </div>
-        )
-    }
+	    if (error) {
+	        return (
+	            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+	                <div className="text-center max-w-md">
+	                    <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+	                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar artículos</h3>
+	                    <p className="text-gray-600 mb-4">{error}</p>
+	                    <Button
+	                        size="icon"
+	                        onClick={refetch}
+	                        className="h-10 w-10 bg-blue-600 hover:bg-blue-700 touch-manipulation"
+	                        aria-label="Reintentar"
+	                        title="Reintentar"
+	                    >
+	                        <RefreshCw className="h-4 w-4" />
+	                        <span className="sr-only">Reintentar</span>
+	                    </Button>
+	                </div>
+	            </div>
+	        )
+	    }
 
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-            {/* Header */}
-            <header className="fixed-header bg-white shadow-sm border-b border-blue-100">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-                        <div className="flex items-center space-x-3">
-                            <Link href="/">
-                                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                                    <ArrowLeft className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Volver al Dashboard</span>
-                                    <span className="sm:hidden">Volver</span>
-                                </Button>
-                            </Link>
-                            <div className="p-0 rounded-full bg-white shadow border border-blue-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-                            </div>
-                            <div className="min-w-0">
-                                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                                    Gestión de Artículos Tienda
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Tienda
-                  </span>
-                                </h1>
-                                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                                    Administrar catálogo de artículos de tienda
-                                </p>
-                            </div>
-                        </div>
+	    return (
+	        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+	            {/* Header */}
+	            <ModuleHeader
+	                title="Gestión de Artículos Tienda"
+	                subtitle="Administrar catálogo de artículos de tienda"
+	                badge={{ text: "Tienda", className: "bg-blue-100 text-blue-800" }}
+	                className="bg-white shadow-sm border-b border-blue-100"
+	                actions={
+	                    <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+	                        <DialogTrigger asChild>
+	                            <Button
+	                                size="icon"
+	                                className="h-9 w-9 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 touch-manipulation"
+	                                aria-label="Agregar artículo"
+	                                title="Agregar artículo"
+	                            >
+	                                <Plus className="h-4 w-4" />
+	                                <span className="sr-only">Agregar artículo</span>
+	                            </Button>
+	                        </DialogTrigger>
+	                        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+	                            <DialogHeader>
+	                                <DialogTitle>Agregar Nuevo Artículo</DialogTitle>
+	                            </DialogHeader>
+	                            <ArticuloTiendaForm
+	                                onSubmit={handleAddArticulo}
+	                                onCancel={() => setIsAddDialogOpen(false)}
+	                                onClose={() => setIsAddDialogOpen(false)}
+	                                existingCategories={categories}
+	                            />
+	                        </DialogContent>
+	                    </Dialog>
+	                }
+	            />
 
-                        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800">
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Agregar Artículo
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                                <DialogHeader>
-                                    <DialogTitle>Agregar Nuevo Artículo</DialogTitle>
-                                </DialogHeader>
-                                <ArticuloTiendaForm
-                                    onSubmit={handleAddArticulo}
-                                    onCancel={() => setIsAddDialogOpen(false)}
-                                    onClose={() => setIsAddDialogOpen(false)}
-                                    existingCategories={categories}
-                                />
-                            </DialogContent>
-                        </Dialog>
-                    </div>
-                </div>
-            </header>
-
-            <main className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-                <div className="space-y-6">
-                    {/* Filters and Search */}
-                    <Card className="border-0 shadow-md mb-6 border-l-4 border-l-blue-600">
-                        <CardContent className="pt-6">
+	            <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+	                <div className="space-y-6">
+	                    {/* Filters and Search */}
+	                    <Card className="border-0 shadow-md mb-6 border-l-4 border-l-blue-600">
+	                        <CardContent className="pt-6">
                             <div className="flex flex-col lg:flex-row gap-4">
                                 <div className="flex-1">
                                     <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">

@@ -1,13 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { ArrowLeft, Search, Loader2 } from "lucide-react"
+import { Search, Loader2 } from "lucide-react"
 import { useBrigadasTrabajadores } from '@/hooks/use-brigadas-trabajadores'
 import { TrabajadoresTable } from '@/components/feats/worker/trabajadores-table'
 import { TrabajadorService } from '@/lib/api-services'
@@ -18,6 +16,7 @@ import { useBrigadas } from "@/hooks/use-brigadas"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function TrabajadoresPage() {
   const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
@@ -114,40 +113,17 @@ export default function TrabajadoresPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Gestión de Trabajadores
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Personal
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar personal y asignaciones</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Gestión de Trabajadores"
+        subtitle="Administrar personal y asignaciones"
+        badge={{ text: "Personal", className: "bg-blue-100 text-blue-800" }}
+      />
 
-      <main className="pt-32 pb-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
 
         {/* Search */}
         <Card className="mb-8 border-l-4 border-l-blue-600">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex flex-col md:flex-row gap-4">
               <div className="flex-1">
                 <Label htmlFor="worker-search" className="text-sm font-medium text-gray-700 mb-2 block">

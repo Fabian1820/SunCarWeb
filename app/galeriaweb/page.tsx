@@ -6,7 +6,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useGaleriaWeb } from '@/hooks/use-galeriaweb';
 import {
   CarpetaGaleria,
@@ -20,10 +19,11 @@ import { SubirFotoDialog } from '@/components/feats/galeriaweb/subir-foto-dialog
 import { EliminarFotoDialog } from '@/components/feats/galeriaweb/eliminar-foto-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/shared/atom/select';
 import { Label } from '@/components/shared/atom/label';
-import { Upload, Image as ImageIcon, RefreshCw, ArrowLeft, Loader2 } from 'lucide-react';
+import { Upload, Image as ImageIcon, RefreshCw, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/shared/atom/badge';
 import { RouteGuard } from '@/components/auth/route-guard';
 import { PageLoader } from '@/components/shared/atom/page-loader';
+import { ModuleHeader } from '@/components/shared/organism/module-header';
 
 export default function GaleriaWebPage() {
   return (
@@ -75,56 +75,41 @@ function GaleriaWebPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Gestión de Galería Web
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
-                    Multimedia
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar imágenes del sitio web</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={refetch}
-                disabled={isLoading}
-                className="flex items-center space-x-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Actualizar</span>
-              </Button>
+      <ModuleHeader
+        title="Gestión de Galería Web"
+        subtitle="Administrar imágenes del sitio web"
+        badge={{ text: 'Multimedia', className: 'bg-pink-100 text-pink-800' }}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={refetch}
+              disabled={isLoading}
+              className="h-9 w-9 touch-manipulation"
+              aria-label="Actualizar"
+              title="Actualizar"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="sr-only">Actualizar</span>
+            </Button>
 
-              <Button
-                onClick={() => setIsSubirDialogOpen(true)}
-                className="bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800"
-                disabled={isLoading}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Subir Foto
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+            <Button
+              size="icon"
+              onClick={() => setIsSubirDialogOpen(true)}
+              className="h-9 w-9 bg-gradient-to-r from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800 touch-manipulation"
+              disabled={isLoading}
+              aria-label="Subir foto"
+              title="Subir foto"
+            >
+              <Upload className="h-4 w-4" />
+              <span className="sr-only">Subir foto</span>
+            </Button>
+          </>
+        }
+      />
 
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="space-y-6">
           {/* Estadísticas */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

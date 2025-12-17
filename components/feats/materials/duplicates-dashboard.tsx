@@ -22,10 +22,10 @@ export function DuplicatesDashboard({ open, onOpenChange, duplicates }: Duplicat
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col [&>button]:top-3 [&>button]:right-3 [&>button]:bg-red-100 [&>button]:hover:bg-red-200 [&>button]:rounded-full [&>button]:p-2 [&>button]:opacity-100">
+      <DialogContent className="w-[calc(100vw-2rem)] sm:w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col [&>button]:top-3 [&>button]:right-3 [&>button]:bg-red-100 [&>button]:hover:bg-red-200 [&>button]:rounded-full [&>button]:p-2 [&>button]:opacity-100">
         <DialogHeader>
           <div className="flex items-center justify-between pr-10">
-            <DialogTitle className="flex items-center gap-2 text-xl">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-xl flex-wrap">
               <AlertTriangle className="h-6 w-6 text-amber-600" />
               Códigos Duplicados Detectados
             </DialogTitle>

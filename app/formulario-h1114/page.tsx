@@ -1,11 +1,10 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
-import { ArrowLeft, Sun, Users, Package, MapPin, Camera, Calendar, Save, FileText } from "lucide-react"
+import { Sun, Users, Package, MapPin, Camera, Calendar, Save, FileText } from "lucide-react"
 import { BrigadeSection } from "@/components/feats/brigade/brigade-section"
 import { MaterialsSection } from "@/components/feats/materials/materials-section"
 import { LocationSection } from "@/components/shared/organism/location-section"
@@ -14,6 +13,7 @@ import { DateTimeSection } from "@/components/shared/molecule/datetime-section"
 import { ServiceTypeSection } from "@/components/feats/reports/service-type-section"
 import type { FormData } from "@/lib/types"
 import { DescriptionSection } from "@/components/shared/molecule/description-section"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function FormularioH1114() {
   const [formData, setFormData] = useState<FormData>({
@@ -65,37 +65,26 @@ export default function FormularioH1114() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Reporte H-1114</h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">ID: {formData.formId}</p>
-              </div>
-            </div>
-            <Button
-              onClick={handleSave}
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700"
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Guardar Reporte
-            </Button>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Reporte H-1114"
+        subtitle={`ID: ${formData.formId}`}
+        backLabel="Volver"
+        className="bg-white shadow-sm border-b border-orange-100"
+        actions={
+          <Button
+            size="icon"
+            onClick={handleSave}
+            className="h-9 w-9 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 touch-manipulation"
+            aria-label="Guardar reporte"
+            title="Guardar reporte"
+          >
+            <Save className="h-4 w-4" />
+            <span className="sr-only">Guardar reporte</span>
+          </Button>
+        }
+      />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Progress Sidebar */}
           <div className="lg:col-span-1">

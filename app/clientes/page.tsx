@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
@@ -9,7 +8,7 @@ import { Textarea } from "@/components/shared/molecule/textarea"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Search, User, MapPin, ArrowLeft } from "lucide-react"
+import { Search, User, MapPin } from "lucide-react"
 import { ClienteService } from "@/lib/api-services"
 import { ElementosPersonalizadosFields } from "@/components/feats/leads/elementos-personalizados-fields"
 import { OfertasAsignacionFields } from "@/components/feats/leads/ofertas-asignacion-fields"
@@ -18,6 +17,7 @@ import { PageLoader } from "@/components/shared/atom/page-loader"
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 import type {
   Cliente,
   ClienteCreateData,
@@ -241,45 +241,25 @@ export default function ClientesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Gestión de Clientes
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    Servicio
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Visualiza y administra clientes</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md"
-                onClick={() => setIsCreateClientDialogOpen(true)}
-              >
-                <User className="h-4 w-4 mr-2" />
-                Crear Cliente
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-8">
+      <ModuleHeader
+        title="Gestión de Clientes"
+        subtitle="Visualiza y administra clientes"
+        badge={{ text: "Servicio", className: "bg-orange-100 text-orange-800" }}
+        className="bg-white shadow-sm border-b border-orange-100"
+        actions={
+          <Button
+            size="icon"
+            className="h-9 w-9 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
+            onClick={() => setIsCreateClientDialogOpen(true)}
+            aria-label="Crear cliente"
+            title="Crear cliente"
+          >
+            <User className="h-4 w-4" />
+            <span className="sr-only">Crear cliente</span>
+          </Button>
+        }
+      />
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
