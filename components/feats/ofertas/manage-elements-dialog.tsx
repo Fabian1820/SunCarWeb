@@ -277,7 +277,7 @@ export default function ManageElementsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-orange-600" />
@@ -312,7 +312,7 @@ export default function ManageElementsDialog({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <div>
                   <Label htmlFor="categoria">Categoría</Label>
                   <Input
@@ -393,7 +393,7 @@ export default function ManageElementsDialog({
                       {isEditing ? (
                         // Modo edición
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <div>
                               <Label htmlFor={`edit-categoria-${index}`}>Categoría</Label>
                               <Input

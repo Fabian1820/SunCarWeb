@@ -47,7 +47,7 @@ export function MessagePreviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[800px] h-[600px] max-w-[800px] max-h-[600px] flex flex-col p-0">
+      <DialogContent className="w-full sm:w-[800px] h-[600px] max-w-[95vw] sm:max-w-[800px] max-h-[90vh] sm:max-h-[600px] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-gray-200 flex-shrink-0">
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>

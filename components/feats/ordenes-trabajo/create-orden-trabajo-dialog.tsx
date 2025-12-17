@@ -196,7 +196,7 @@ export function CreateOrdenTrabajoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle>Crear Nueva Orden de Trabajo</DialogTitle>
         </DialogHeader>

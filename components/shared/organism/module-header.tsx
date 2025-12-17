@@ -5,6 +5,7 @@ import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
 import { cn } from "@/lib/utils"
+import { useIsMobile } from "@/hooks/use-mobile"
 
 type ModuleHeaderBadge = {
   text: string
@@ -30,12 +31,14 @@ export function ModuleHeader({
   actions,
   className,
 }: ModuleHeaderProps) {
+  const isMobile = useIsMobile()
+  
   return (
     <header className={cn("fixed-header", className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-3 sm:py-6 gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link href={backHref} className="flex" aria-label={backLabel} title={backLabel}>
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <Link href={backHref} className="flex shrink-0" aria-label={backLabel} title={backLabel}>
               <Button variant="ghost" size="icon" className="touch-manipulation">
                 <ArrowLeft className="h-4 w-4" />
                 <span className="sr-only">{backLabel}</span>
@@ -50,16 +53,23 @@ export function ModuleHeader({
               />
             </div>
 
-            <div className="min-w-0">
-              <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                {title}
+            <div className="min-w-0 flex-1">
+              <h1 className={cn(
+                "font-bold text-gray-900 flex items-center gap-2",
+                isMobile ? "text-base" : "text-xl"
+              )}>
+                <span className="truncate">{title}</span>
                 {badge && (
-                  <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium", badge.className)}>
+                  <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0", badge.className)}>
                     {badge.text}
                   </span>
                 )}
               </h1>
-              {subtitle && <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">{subtitle}</p>}
+              {subtitle && (
+                <p className={cn("text-gray-600", isMobile ? "text-xs hidden" : "text-sm block")}>
+                  {subtitle}
+                </p>
+              )}
             </div>
           </div>
 

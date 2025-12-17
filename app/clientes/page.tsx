@@ -326,7 +326,7 @@ export default function ClientesPage() {
             <DialogHeader>
               <DialogTitle>Crear nuevo cliente</DialogTitle>
             </DialogHeader>
-            <form id="create-client-form" className="space-y-6" onSubmit={async e => {
+            <form id="create-client-form" className="space-y-6 overflow-x-hidden" onSubmit={async e => {
               e.preventDefault()
               setClientFormLoading(true)
               const form = e.target as HTMLFormElement
@@ -456,19 +456,22 @@ export default function ClientesPage() {
                   </div>
                   <div>
                     <Label>Ubicación en el Mapa</Label>
-                    <div className="flex gap-2 items-center">
-                      <Input 
-                        value={clientLatLng.lat} 
-                        readOnly 
-                        className="w-32 text-gray-600 bg-gray-50" 
-                      />
-                      <Input 
-                        value={clientLatLng.lng} 
-                        readOnly 
-                        className="w-32 text-gray-600 bg-gray-50" 
-                      />
-                      <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalClient(true)}>
-                        <MapPin className="h-4 w-4 mr-1" /> Seleccionar en mapa
+                    <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                      <div className="flex gap-2 flex-1">
+                        <Input 
+                          value={clientLatLng.lat} 
+                          readOnly 
+                          className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm" 
+                        />
+                        <Input 
+                          value={clientLatLng.lng} 
+                          readOnly 
+                          className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm" 
+                        />
+                      </div>
+                      <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white shrink-0" size="sm" onClick={() => setShowMapModalClient(true)}>
+                        <MapPin className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline">Seleccionar en mapa</span>
                       </Button>
                     </div>
                   </div>

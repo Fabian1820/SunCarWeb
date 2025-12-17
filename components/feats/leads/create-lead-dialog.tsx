@@ -193,7 +193,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2">
+    <form onSubmit={handleSubmit} className="space-y-6 max-h-[80vh] overflow-y-auto pr-2 overflow-x-hidden">
       {/* Sección 1: Datos Personales */}
       <div className="space-y-4">
         <div className="border-b-2 border-gray-300 pb-3">
@@ -268,15 +268,15 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
                 className="text-gray-900 placeholder:text-gray-400"
               />
             </div>
-          </div>
-          <div>
-            <Label htmlFor="direccion">Dirección</Label>
-            <Input
-              id="direccion"
-              value={formData.direccion}
-              onChange={(e) => handleInputChange('direccion', e.target.value)}
-              className="text-gray-900 placeholder:text-gray-400"
-            />
+            <div>
+              <Label htmlFor="direccion">Dirección</Label>
+              <Input
+                id="direccion"
+                value={formData.direccion}
+                onChange={(e) => handleInputChange('direccion', e.target.value)}
+                className="text-gray-900 placeholder:text-gray-400"
+              />
+            </div>
           </div>
         </div>
       </div>

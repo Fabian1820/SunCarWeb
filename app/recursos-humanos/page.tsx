@@ -27,6 +27,7 @@ import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH, IngresoMensual } from 
 import type { ExportOptions } from "@/lib/export-service"
 import type { ArchivoNominaRH } from "@/lib/types/feats/recursos-humanos/archivo-rh-types"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
+import { cn } from "@/lib/utils"
 
 export default function RecursosHumanosPage() {
   const {
@@ -517,28 +518,37 @@ export default function RecursosHumanosPage() {
               variant={vistaActual === 'trabajadores' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setVistaActual('trabajadores')}
-              className={vistaActual === 'trabajadores' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+              className={cn(
+                vistaActual === 'trabajadores' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100',
+                'sm:px-3 px-2'
+              )}
             >
-              <List className="mr-2 h-4 w-4" />
-              Vista por Trabajador
+              <List className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Vista por Trabajador</span>
             </Button>
             <Button
               variant={vistaActual === 'cargos' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setVistaActual('cargos')}
-              className={vistaActual === 'cargos' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+              className={cn(
+                vistaActual === 'cargos' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100',
+                'sm:px-3 px-2'
+              )}
             >
-              <Briefcase className="mr-2 h-4 w-4" />
-              Vista por Cargo
+              <Briefcase className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Vista por Cargo</span>
             </Button>
             <Button
               variant={vistaActual === 'archivo' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setVistaActual('archivo')}
-              className={vistaActual === 'archivo' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+              className={cn(
+                vistaActual === 'archivo' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100',
+                'sm:px-3 px-2'
+              )}
             >
-              <Archive className="mr-2 h-4 w-4" />
-              Archivo Histórico
+              <Archive className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Archivo Histórico</span>
             </Button>
           </div>
         </div>
