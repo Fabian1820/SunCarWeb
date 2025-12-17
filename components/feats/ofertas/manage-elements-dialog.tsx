@@ -277,26 +277,29 @@ export default function ManageElementsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-orange-600" />
-            Gestionar Elementos - {oferta.descripcion}
+          <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-base sm:text-lg">
+            <div className="flex items-center gap-2">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 shrink-0" />
+              <span className="truncate">Gestionar Elementos</span>
+            </div>
+            <span className="text-xs sm:text-base text-gray-600 truncate max-w-full">- {oferta.descripcion}</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Información de la oferta */}
           <Card className="bg-orange-50 border-orange-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-orange-900">{oferta.descripcion}</h3>
-                  <p className="text-sm text-orange-700">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-orange-900 text-sm sm:text-base truncate">{oferta.descripcion}</h3>
+                  <p className="text-xs sm:text-sm text-orange-700">
                     {oferta.elementos?.length || 0} elemento{(oferta.elementos?.length || 0) !== 1 ? 's' : ''} actual{(oferta.elementos?.length || 0) !== 1 ? 'es' : ''}
                   </p>
                 </div>
-                <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                <Badge variant="outline" className="bg-orange-100 text-orange-800 shrink-0">
                   ${oferta.precio.toLocaleString()}
                 </Badge>
               </div>
@@ -313,26 +316,28 @@ export default function ManageElementsDialog({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                  <Label htmlFor="categoria">Categoría</Label>
+                <div className="sm:col-span-1">
+                  <Label htmlFor="categoria" className="text-xs sm:text-sm">Categoría</Label>
                   <Input
                     id="categoria"
                     placeholder="Ej: Panel Solar"
                     value={nuevoElemento.categoria}
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, categoria: e.target.value }))}
+                    className="text-sm"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="descripcion">Descripción *</Label>
+                <div className="sm:col-span-1 lg:col-span-1">
+                  <Label htmlFor="descripcion" className="text-xs sm:text-sm">Descripción *</Label>
                   <Input
                     id="descripcion"
-                    placeholder="Ej: Panel 400W monocristalino"
+                    placeholder="Ej: Panel 400W"
                     value={nuevoElemento.descripcion}
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, descripcion: e.target.value }))}
+                    className="text-sm"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="cantidad">Cantidad *</Label>
+                <div className="sm:col-span-1">
+                  <Label htmlFor="cantidad" className="text-xs sm:text-sm">Cantidad *</Label>
                   <Input
                     id="cantidad"
                     type="number"
@@ -341,13 +346,15 @@ export default function ManageElementsDialog({
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, cantidad: parseFloat(e.target.value) || 0 }))}
                     min="0.01"
                     step="0.01"
+                    className="text-sm"
                   />
                 </div>
-                <div className="flex items-end">
+                <div className="sm:col-span-1 flex items-end">
                   <Button
                     onClick={handleAgregarElemento}
                     disabled={saving || !nuevoElemento.descripcion.trim()}
-                    className="w-full"
+                    className="w-full text-sm"
+                    size="sm"
                   >
                     {saving ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />

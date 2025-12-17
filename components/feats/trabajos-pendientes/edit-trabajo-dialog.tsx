@@ -235,30 +235,33 @@ export function EditTrabajoDialog({
             </Label>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
-              size="icon"
-              className="touch-manipulation"
-              aria-label="Cancelar"
-              title="Cancelar"
+              className="w-full sm:w-auto touch-manipulation"
             >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Cancelar</span>
+              <X className="h-4 w-4 mr-2" />
+              Cancelar
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              size="icon"
-              className="bg-orange-600 hover:bg-orange-700"
-              aria-label={loading ? 'Actualizando' : 'Actualizar'}
-              title={loading ? 'Actualizando' : 'Actualizar'}
+              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              <span className="sr-only">{loading ? 'Actualizando...' : 'Actualizar'}</span>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Actualizando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Actualizar
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>

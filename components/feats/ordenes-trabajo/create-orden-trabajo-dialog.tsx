@@ -196,11 +196,11 @@ export function CreateOrdenTrabajoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-3xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
-          <DialogTitle>Crear Nueva Orden de Trabajo</DialogTitle>
+          <DialogTitle className="text-base sm:text-lg">Crear Nueva Orden de Trabajo</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleAddOrden} className="space-y-6">
+        <form onSubmit={handleAddOrden} className="space-y-4 sm:space-y-6">
           {/* Selección de brigada - Usa CI del líder como valor */}
           <div>
             <Label htmlFor="brigada">Brigada *</Label>
@@ -220,20 +220,22 @@ export function CreateOrdenTrabajoDialog({
 
           {/* Selección de cliente existente con búsqueda */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Cliente existente *</Label>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <Label className="text-sm">Cliente existente *</Label>
               <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Search className="h-4 w-4" />
-                Busca por nombre
+                <Search className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Busca por nombre</span>
+                <span className="sm:hidden">Búsqueda</span>
               </div>
             </div>
             <Input
               placeholder="Escribe el nombre del cliente para buscar"
               value={clienteSearch}
               onChange={(e) => setClienteSearch(e.target.value)}
+              className="text-sm"
             />
             <Select value={clienteNumero} onValueChange={setClienteNumero} disabled={loadingData}>
-              <SelectTrigger>
+              <SelectTrigger className="text-sm">
                 <SelectValue placeholder="Selecciona un cliente" />
               </SelectTrigger>
               <SelectContent>
@@ -356,7 +358,7 @@ export function CreateOrdenTrabajoDialog({
           </div>
 
           {/* Botones de acción */}
-          <div className="flex justify-end gap-2 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
             <Button
               type="button"
               variant="outline"
@@ -365,13 +367,14 @@ export function CreateOrdenTrabajoDialog({
                 onOpenChange(false)
               }}
               disabled={loading}
+              className="w-full sm:w-auto"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               variant="secondary"
-              className="border-orange-200 text-orange-700"
+              className="border-orange-200 text-orange-700 w-full sm:w-auto"
               disabled={loading || loadingData}
             >
               <Plus className="h-4 w-4 mr-2" />
@@ -379,8 +382,8 @@ export function CreateOrdenTrabajoDialog({
             </Button>
             <Button
               type="button"
-              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white"
-              disabled={loading || loadingData}
+              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white w-full sm:w-auto"
+              disabled={loading || loadingData || ordenesPendientes.length === 0}
               onClick={handleCreateOrdenes}
             >
               {loading ? 'Creando...' : `Crear ${ordenesPendientes.length || ''} orden(es)`}
