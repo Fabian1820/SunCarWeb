@@ -159,11 +159,12 @@ function BrigadasPageContent() {
             <DialogTrigger asChild>
               <Button
                 size="icon"
-                className="h-9 w-9 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 touch-manipulation"
+                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 touch-manipulation"
                 aria-label="Nueva brigada"
                 title="Nueva brigada"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Nueva Brigada</span>
                 <span className="sr-only">Nueva brigada</span>
               </Button>
             </DialogTrigger>

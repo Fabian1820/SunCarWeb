@@ -36,8 +36,8 @@ export function ModuleHeader({
         <div className="flex items-center justify-between py-3 sm:py-6 gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link href={backHref} className="flex shrink-0" aria-label={backLabel} title={backLabel}>
-              <Button variant="ghost" size="icon" className="touch-manipulation">
-                <ArrowLeft className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="touch-manipulation h-9 w-9 sm:h-10 sm:w-10">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                 <span className="sr-only">{backLabel}</span>
               </Button>
             </Link>
@@ -51,7 +51,7 @@ export function ModuleHeader({
             </div>
 
             <div className="min-w-0 flex-1">
-              <h1 className="text-base sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+              <h1 className="text-base sm:text-xl lg:text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <span className="truncate">{title}</span>
                 {badge && (
                   <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0", badge.className)}>
@@ -67,7 +67,11 @@ export function ModuleHeader({
             </div>
           </div>
 
-          {actions ? <div className="flex items-center gap-2 shrink-0">{actions}</div> : null}
+          {actions ? (
+            <div className="flex items-center gap-2 shrink-0 [&>button]:h-9 [&>button]:w-9 sm:[&>button]:h-auto sm:[&>button]:w-auto sm:[&>button]:px-4 sm:[&>button]:py-2">
+              {actions}
+            </div>
+          ) : null}
         </div>
       </div>
     </header>

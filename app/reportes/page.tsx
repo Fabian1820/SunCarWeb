@@ -150,12 +150,13 @@ export default function ReportesPage() {
         actions={
           <Button
             size="icon"
-            className="h-9 w-9 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold shadow-md touch-manipulation"
+            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white font-semibold shadow-md touch-manipulation"
             onClick={() => setIsCreateDialogOpen(true)}
             aria-label="Crear reporte"
             title="Crear reporte"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Crear Reporte</span>
             <span className="sr-only">Crear reporte</span>
           </Button>
         }

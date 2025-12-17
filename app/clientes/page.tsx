@@ -249,12 +249,13 @@ export default function ClientesPage() {
         actions={
           <Button
             size="icon"
-            className="h-9 w-9 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
+            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
             onClick={() => setIsCreateClientDialogOpen(true)}
             aria-label="Crear cliente"
             title="Crear cliente"
           >
-            <User className="h-4 w-4" />
+            <User className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Crear Cliente</span>
             <span className="sr-only">Crear cliente</span>
           </Button>
         }

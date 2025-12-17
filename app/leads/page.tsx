@@ -279,11 +279,12 @@ const formatEstado = (estado: string): string => {
             <DialogTrigger asChild>
               <Button
                 size="icon"
-                className="h-9 w-9 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 touch-manipulation"
+                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 touch-manipulation"
                 aria-label="Nuevo lead"
                 title="Nuevo lead"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Nuevo Lead</span>
                 <span className="sr-only">Nuevo lead</span>
               </Button>
             </DialogTrigger>
