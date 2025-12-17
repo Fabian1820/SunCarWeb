@@ -5,7 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power, Calendar, FileText } from "lucide-react"
+import { Edit, Trash2, Users, Crown, Phone, Mail, UserMinus, Eye, Power, Calendar, FileText, ChevronDown, ChevronUp } from "lucide-react"
 import type { Brigade } from "@/lib/brigade-types"
 import { BrigadaService, TrabajadorService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
@@ -28,6 +28,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
   const [workerToDelete, setWorkerToDelete] = useState<{ brigadeId: string, workerId: string, workerName: string } | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const [expandedBrigadeId, setExpandedBrigadeId] = useState<string | null>(null)
   const [isReportDialogOpen, setIsReportDialogOpen] = useState(false)
   const [reportBrigadeId, setReportBrigadeId] = useState<string | null>(null)
   const [dateRange, setDateRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
@@ -42,6 +43,10 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
   const openDetailDialog = (brigade: Brigade) => {
     setSelectedBrigade(brigade)
     setIsDetailDialogOpen(true)
+  }
+
+  const toggleExpanded = (brigadeId: string) => {
+    setExpandedBrigadeId((current) => (current === brigadeId ? null : brigadeId))
   }
 
   const handleDeleteBrigade = async () => {
@@ -199,8 +204,135 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 
   return (
     <>
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      {/* Mobile: tarjeta/accordion con acciones grandes */}
+      <div className="sm:hidden space-y-3">
+        <Button
+          variant="outline"
+          className="w-full border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
+          onClick={() => openReportDialog(null)}
+          title="Calcular materiales usados de todas las brigadas"
+        >
+          <Calendar className="h-4 w-4" />
+          Calcular materiales (todas)
+        </Button>
+
+        {brigades.map((brigade) => {
+          const isExpanded = expandedBrigadeId === brigade.id
+
+          return (
+            <Card key={brigade.id} className="border-gray-200">
+              <CardHeader className="p-4 pb-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="bg-blue-100 p-2 rounded-lg shrink-0">
+                      <Crown className="h-4 w-4 text-orange-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">{brigade.leader.name}</p>
+                      <p className="text-sm text-gray-600">CI: {brigade.leader.ci}</p>
+                    </div>
+                  </div>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => toggleExpanded(brigade.id)}
+                    className="touch-manipulation"
+                    aria-label={isExpanded ? "Ocultar miembros" : "Ver miembros"}
+                  >
+                    {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  </Button>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-4 pt-0 space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge variant="outline" className="bg-gray-50">
+                    {brigade.members.length} trabajadores
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-50 touch-manipulation"
+                    onClick={() => openDetailDialog(brigade)}
+                  >
+                    <Eye className="h-4 w-4" />
+                    Detalles
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant="outline"
+                    className="h-11 border-blue-300 text-blue-700 hover:bg-blue-50 opacity-50 cursor-not-allowed touch-manipulation"
+                    disabled
+                    title="Editar brigada (Próximamente)"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Editar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-11 border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
+                    onClick={() => openDeleteBrigadeDialog(brigade)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Eliminar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-11 border-green-400 text-green-700 hover:bg-green-50 touch-manipulation"
+                    title="Calcular materiales usados de esta brigada"
+                    onClick={() => openReportDialog(brigade.id)}
+                  >
+                    <Calendar className="h-4 w-4" />
+                    Materiales
+                  </Button>
+                </div>
+
+                {isExpanded && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <div className="text-sm font-semibold text-gray-900 mb-2">Miembros</div>
+                    {brigade.members.length > 0 ? (
+                      <div className="space-y-2">
+                        {brigade.members.map((member) => (
+                          <div
+                            key={member.id || member.ci}
+                            className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 p-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{member.name}</p>
+                              <p className="text-xs text-gray-600">CI: {member.ci}</p>
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => openDeleteWorkerDialog(brigade.id, member.ci, member.name)}
+                              className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
+                              title="Remover trabajador"
+                            >
+                              <UserMinus className="h-4 w-4" />
+                              <span className="sr-only">Remover trabajador</span>
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">No hay trabajadores asignados a esta brigada</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Desktop: tabla (se mantiene) */}
+      <div
+        className="hidden sm:block overflow-x-auto overscroll-x-contain touch-pan-x"
+        style={{ WebkitOverflowScrolling: "touch" }}
+      >
+        <table className="w-full min-w-[720px]">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-4 font-semibold text-gray-900">Jefe (Nombre y CI)</th>
@@ -289,7 +421,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalles de la Brigada</DialogTitle>
           </DialogHeader>
@@ -398,7 +530,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 
       {/* Modal para seleccionar rango de fechas para el reporte */}
       <Dialog open={isReportDialogOpen} onOpenChange={setIsReportDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {reportBrigadeId
@@ -471,56 +603,60 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
             <div className="mt-8">
               {reportBrigadeId ? (
                 // Tabla para una brigada
-                <table className="w-full text-sm border-separate border-spacing-y-2">
-                  <thead>
-                    <tr className="bg-green-50">
-                      <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
-                      <th className="py-2 px-4 text-left font-semibold text-green-900">Categoría</th>
-                      <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
-                      <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((mat: any, idx: number) => (
-                      <tr key={mat.codigo + idx} className="bg-white border-b border-gray-100 hover:bg-green-50">
-                        <td className="py-2 px-4">{mat.codigo}</td>
-                        <td className="py-2 px-4">{mat.categoria}</td>
-                        <td className="py-2 px-4">{mat.descripcion}</td>
-                        <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad_total}</td>
+                <div className="overflow-x-auto -mx-2 px-2 overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                  <table className="w-full min-w-[640px] text-sm border-separate border-spacing-y-2">
+                    <thead>
+                      <tr className="bg-green-50">
+                        <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
+                        <th className="py-2 px-4 text-left font-semibold text-green-900">Categoría</th>
+                        <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
+                        <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
                       </tr>
-                    )) : (
-                      <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((mat: any, idx: number) => (
+                        <tr key={mat.codigo + idx} className="bg-white border-b border-gray-100 hover:bg-green-50">
+                          <td className="py-2 px-4">{mat.codigo}</td>
+                          <td className="py-2 px-4">{mat.categoria}</td>
+                          <td className="py-2 px-4">{mat.descripcion}</td>
+                          <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad_total}</td>
+                        </tr>
+                      )) : (
+                        <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
                 // Tabla para todas las brigadas
                 <div className="space-y-8">
                   {Array.isArray(reportResults) && reportResults.length > 0 ? reportResults.map((brigada: any, idx: number) => (
                     <div key={brigada.jefe_brigada + idx}>
                       <div className="font-bold text-lg text-green-800 mb-2">Jefe de Brigada: {brigada.jefe_brigada || <span className='text-gray-400'>(Sin nombre)</span>}</div>
-                      <table className="w-full text-sm border-separate border-spacing-y-2 mb-4">
-                        <thead>
-                          <tr className="bg-green-50">
-                            <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
-                            <th className="py-2 px-4 text-left font-semibold text-green-900">Categoría</th>
-                            <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
-                            <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Array.isArray(brigada.materiales) && brigada.materiales.length > 0 ? brigada.materiales.map((mat: any, idx2: number) => (
-                            <tr key={mat.codigo + idx2} className="bg-white border-b border-gray-100 hover:bg-green-50">
-                              <td className="py-2 px-4">{mat.codigo}</td>
-                              <td className="py-2 px-4">{mat.categoria}</td>
-                              <td className="py-2 px-4">{mat.descripcion}</td>
-                              <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad_total}</td>
+                      <div className="overflow-x-auto -mx-2 px-2 overscroll-x-contain touch-pan-x" style={{ WebkitOverflowScrolling: "touch" }}>
+                        <table className="w-full min-w-[640px] text-sm border-separate border-spacing-y-2 mb-4">
+                          <thead>
+                            <tr className="bg-green-50">
+                              <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tl-lg">Código</th>
+                              <th className="py-2 px-4 text-left font-semibold text-green-900">Categoría</th>
+                              <th className="py-2 px-4 text-left font-semibold text-green-900">Descripción</th>
+                              <th className="py-2 px-4 text-left font-semibold text-green-900 rounded-tr-lg">Cantidad total</th>
                             </tr>
-                          )) : (
-                            <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
-                          )}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {Array.isArray(brigada.materiales) && brigada.materiales.length > 0 ? brigada.materiales.map((mat: any, idx2: number) => (
+                              <tr key={mat.codigo + idx2} className="bg-white border-b border-gray-100 hover:bg-green-50">
+                                <td className="py-2 px-4">{mat.codigo}</td>
+                                <td className="py-2 px-4">{mat.categoria}</td>
+                                <td className="py-2 px-4">{mat.descripcion}</td>
+                                <td className="py-2 px-4 font-bold text-green-700">{mat.cantidad_total}</td>
+                              </tr>
+                            )) : (
+                              <tr><td colSpan={4} className="text-center text-gray-500 py-4">No hay materiales usados en este rango</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )) : (
                     <div className="text-center text-gray-500 py-4">No hay materiales usados en este rango</div>
