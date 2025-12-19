@@ -183,8 +183,8 @@ export function FacturasSection() {
 	                        </div>
 	                            <Button
 	                                onClick={handleCreate}
-	                                size="icon"
-	                                className="h-10 w-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
+	                                size="sm"
+	                                className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
 	                                aria-label="Nueva factura"
 	                                title="Nueva factura"
 	                            >

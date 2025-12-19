@@ -20,6 +20,7 @@ export function FixedHeaderWatcher() {
 
   useLayoutEffect(() => {
     let resizeObserver: ResizeObserver | null = null
+    let mutationObserver: MutationObserver | null = null
 
     const updateHeight = () => {
       const header = document.querySelector<HTMLElement>(".fixed-header")
@@ -53,10 +54,15 @@ export function FixedHeaderWatcher() {
     window.addEventListener("resize", updateHeight)
     const retry = window.setTimeout(startObserving, 150)
 
+    // Observe DOM changes to catch content rendered after data load
+    mutationObserver = new MutationObserver(() => updateHeight())
+    mutationObserver.observe(document.body, { childList: true, subtree: true })
+
     return () => {
       window.clearTimeout(retry)
       window.removeEventListener("resize", updateHeight)
       resizeObserver?.disconnect()
+      mutationObserver?.disconnect()
     }
   }, [pathname])
 

@@ -49,6 +49,11 @@ export function ModuleHeader({
       document.documentElement.style.setProperty("--module-header-height", `${height}px`)
       document.documentElement.style.setProperty("--fixed-header-height", `${height}px`)
       document.documentElement.style.setProperty("--content-with-fixed-header-padding", `${height + offset}px`)
+
+      // Also push inline padding to content areas in case they mount after load
+      document.querySelectorAll<HTMLElement>(".content-with-fixed-header").forEach((node) => {
+        node.style.paddingTop = `${height + offset}px`
+      })
     }
 
     const resizeObserver = new ResizeObserver(updateHeight)
