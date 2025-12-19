@@ -32,6 +32,11 @@ export function FixedHeaderWatcher() {
       const offset = computeOffset()
       document.documentElement.style.setProperty("--fixed-header-height", `${height}px`)
       document.documentElement.style.setProperty("--content-with-fixed-header-padding", `${height + offset}px`)
+
+      // For robustness, also set inline padding on each content container
+      document.querySelectorAll<HTMLElement>(".content-with-fixed-header").forEach((node) => {
+        node.style.paddingTop = `${height + offset}px`
+      })
     }
 
     const startObserving = () => {

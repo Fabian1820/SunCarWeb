@@ -312,7 +312,7 @@ export default function Dashboard() {
                                     variant="outline"
                                     size="sm"
                                     aria-label="Abrir calculadora"
-                                    className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 w-9 touch-manipulation"
+                                    className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
                                 >
                                     <Calculator className="h-4 w-4 text-orange-600 sm:mr-2" />
                                     <span className="hidden sm:inline">Calculadora</span>
@@ -324,7 +324,7 @@ export default function Dashboard() {
                                 size="sm"
                                 onClick={() => setIsContactosDialogOpen(true)}
                                 aria-label="Ver información de contacto"
-                                className="flex items-center justify-center bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 w-9 touch-manipulation"
+                                className="flex items-center justify-center bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
                             >
                                 <Info className="h-4 w-4 text-blue-600 sm:mr-2" />
                                 <span className="hidden sm:inline">Información</span>

@@ -184,7 +184,7 @@ export function FacturasSection() {
 	                            <Button
 	                                onClick={handleCreate}
 	                                size="icon"
-	                                className="h-10 w-10 bg-orange-600 hover:bg-orange-700 touch-manipulation"
+	                                className="h-10 w-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
 	                                aria-label="Nueva factura"
 	                                title="Nueva factura"
 	                            >
@@ -197,7 +197,7 @@ export function FacturasSection() {
                 </div>
             </header>
 
-            <main className="pt-32 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <main className="content-with-fixed-header pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center mb-4">
                         <p className="text-red-600">Error: {error}</p>
