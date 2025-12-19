@@ -11,6 +11,13 @@ import { usePathname } from "next/navigation"
 export function FixedHeaderWatcher() {
   const pathname = usePathname()
 
+  const computeOffset = () => {
+    if (typeof window === "undefined") return 16
+    if (window.innerWidth >= 1024) return 24
+    if (window.innerWidth >= 640) return 20
+    return 16
+  }
+
   useLayoutEffect(() => {
     let resizeObserver: ResizeObserver | null = null
 
@@ -18,10 +25,13 @@ export function FixedHeaderWatcher() {
       const header = document.querySelector<HTMLElement>(".fixed-header")
       if (!header) {
         document.documentElement.style.removeProperty("--fixed-header-height")
+        document.documentElement.style.removeProperty("--content-with-fixed-header-padding")
         return
       }
       const height = Math.ceil(header.getBoundingClientRect().height)
+      const offset = computeOffset()
       document.documentElement.style.setProperty("--fixed-header-height", `${height}px`)
+      document.documentElement.style.setProperty("--content-with-fixed-header-padding", `${height + offset}px`)
     }
 
     const startObserving = () => {

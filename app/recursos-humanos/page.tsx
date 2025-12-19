@@ -390,7 +390,8 @@ export default function RecursosHumanosPage() {
 	                aria-label="Configuración"
 	                title="Configuración"
 	              >
-	                <Settings className="h-4 w-4" />
+	                <Settings className="h-4 w-4 sm:mr-2" />
+	                <span className="hidden sm:inline">Configuración</span>
 	                <span className="sr-only">Configuración</span>
 	              </Button>
 	            </DropdownMenuTrigger>

@@ -197,7 +197,8 @@ export default function ArticulosTiendaPage() {
 	                                aria-label="Agregar artículo"
 	                                title="Agregar artículo"
 	                            >
-	                                <Plus className="h-4 w-4" />
+	                                <Plus className="h-4 w-4 sm:mr-2" />
+	                                <span className="hidden sm:inline">Agregar Artículo</span>
 	                                <span className="sr-only">Agregar artículo</span>
 	                            </Button>
 	                        </DialogTrigger>

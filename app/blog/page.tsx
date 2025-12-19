@@ -180,7 +180,8 @@ export default function BlogPage() {
             aria-label="Nuevo blog"
             title="Nuevo blog"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nuevo Blog</span>
             <span className="sr-only">Nuevo blog</span>
           </Button>
         }

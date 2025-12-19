@@ -90,7 +90,8 @@ function GaleriaWebPageContent() {
               aria-label="Actualizar"
               title="Actualizar"
             >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 sm:mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Actualizar</span>
               <span className="sr-only">Actualizar</span>
             </Button>
 
@@ -102,7 +103,8 @@ function GaleriaWebPageContent() {
               aria-label="Subir foto"
               title="Subir foto"
             >
-              <Upload className="h-4 w-4" />
+              <Upload className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Subir Foto</span>
               <span className="sr-only">Subir foto</span>
             </Button>
           </>

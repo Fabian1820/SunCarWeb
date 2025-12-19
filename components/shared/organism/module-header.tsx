@@ -32,14 +32,23 @@ export function ModuleHeader({
 }: ModuleHeaderProps) {
   const headerRef = useRef<HTMLElement>(null)
 
+  const computeOffset = () => {
+    if (typeof window === "undefined") return 16
+    if (window.innerWidth >= 1024) return 24
+    if (window.innerWidth >= 640) return 20
+    return 16
+  }
+
   useLayoutEffect(() => {
     const element = headerRef.current
     if (!element) return
 
     const updateHeight = () => {
       const height = Math.ceil(element.getBoundingClientRect().height)
+      const offset = computeOffset()
       document.documentElement.style.setProperty("--module-header-height", `${height}px`)
       document.documentElement.style.setProperty("--fixed-header-height", `${height}px`)
+      document.documentElement.style.setProperty("--content-with-fixed-header-padding", `${height + offset}px`)
     }
 
     const resizeObserver = new ResizeObserver(updateHeight)
@@ -52,6 +61,7 @@ export function ModuleHeader({
       window.removeEventListener("resize", updateHeight)
       document.documentElement.style.removeProperty("--module-header-height")
       document.documentElement.style.removeProperty("--fixed-header-height")
+      document.documentElement.style.removeProperty("--content-with-fixed-header-padding")
     }
   }, [])
 
