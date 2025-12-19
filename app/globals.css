@@ -126,12 +126,13 @@
 }
 
 :root {
+  --fixed-header-height: 96px;
   --module-header-height: 96px;
   --module-header-offset: 16px;
 }
 
 .content-with-fixed-header {
-  padding-top: calc(var(--module-header-height, 96px) + var(--module-header-offset, 16px));
+  padding-top: calc(var(--fixed-header-height, var(--module-header-height, 96px)) + var(--module-header-offset, 16px));
 }
 
 @media (min-width: 640px) {

@@ -113,6 +113,7 @@ export default function PermisosPage() {
 	            title="Ver módulos"
 	          >
 	            <Settings className="h-4 w-4" />
+	            <span className="hidden sm:inline">Ver Módulos</span>
 	            <span className="sr-only">Ver módulos</span>
 	          </Button>
 	        }

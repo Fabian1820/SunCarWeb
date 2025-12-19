@@ -39,6 +39,7 @@ export function ModuleHeader({
     const updateHeight = () => {
       const height = Math.ceil(element.getBoundingClientRect().height)
       document.documentElement.style.setProperty("--module-header-height", `${height}px`)
+      document.documentElement.style.setProperty("--fixed-header-height", `${height}px`)
     }
 
     const resizeObserver = new ResizeObserver(updateHeight)
@@ -50,6 +51,7 @@ export function ModuleHeader({
       resizeObserver.disconnect()
       window.removeEventListener("resize", updateHeight)
       document.documentElement.style.removeProperty("--module-header-height")
+      document.documentElement.style.removeProperty("--fixed-header-height")
     }
   }, [])
 

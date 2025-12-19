@@ -92,7 +92,8 @@ function EstadisticasPageContent() {
 	            aria-label="Actualizar"
 	            title="Actualizar"
 	          >
-	            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+	            <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+	            <span className="hidden sm:inline">Actualizar</span>
 	            <span className="sr-only">Actualizar</span>
 	          </Button>
 	        }

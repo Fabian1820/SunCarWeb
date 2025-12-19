@@ -208,7 +208,8 @@ export default function TrabajosPendientesPage() {
               aria-label="Ver historial"
               title="Ver historial"
             >
-              <History className="h-4 w-4" />
+              <History className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Historial</span>
               <span className="sr-only">Ver historial</span>
             </Button>
             <Button
@@ -222,7 +223,8 @@ export default function TrabajosPendientesPage() {
               aria-label="Nuevo trabajo"
               title="Nuevo trabajo"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nuevo Trabajo</span>
               <span className="sr-only">Nuevo trabajo</span>
             </Button>
           </>

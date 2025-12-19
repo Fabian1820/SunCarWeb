@@ -152,7 +152,8 @@ export default function OfertasPersonalizadasPage() {
             aria-label="Nueva oferta"
             title="Nueva oferta"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nueva Oferta</span>
             <span className="sr-only">Nueva oferta</span>
           </Button>
         }
