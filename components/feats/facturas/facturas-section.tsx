@@ -156,11 +156,12 @@ export function FacturasSection() {
 	                                <Button
 	                                    variant="ghost"
 	                                    size="icon"
-	                                    className="touch-manipulation"
+	                                    className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
 	                                    aria-label="Volver al Dashboard"
 	                                    title="Volver al Dashboard"
 	                                >
-	                                    <ArrowLeft className="h-4 w-4" />
+	                                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
+	                                    <span className="hidden sm:inline">Volver al Dashboard</span>
 	                                    <span className="sr-only">Volver al Dashboard</span>
 	                                </Button>
 	                            </Link>

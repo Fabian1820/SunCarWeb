@@ -277,14 +277,14 @@ export default function ManageElementsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-[95vw] sm:w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="w-[95vw] sm:max-w-4xl md:max-w-5xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-base sm:text-lg">
-            <div className="flex items-center gap-2">
+          <DialogTitle className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 text-base sm:text-lg">
+            <div className="flex items-center gap-2 min-w-0">
               <Package className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 shrink-0" />
               <span className="truncate">Gestionar Elementos</span>
             </div>
-            <span className="text-xs sm:text-base text-gray-600 truncate max-w-full">- {oferta.descripcion}</span>
+            <span className="text-xs sm:text-base text-gray-600 break-words w-full sm:max-w-[70%]">- {oferta.descripcion}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -294,7 +294,7 @@ export default function ManageElementsDialog({
             <CardContent className="p-3 sm:p-4">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-orange-900 text-sm sm:text-base truncate">{oferta.descripcion}</h3>
+                  <h3 className="font-semibold text-orange-900 text-sm sm:text-base break-words">{oferta.descripcion}</h3>
                   <p className="text-xs sm:text-sm text-orange-700">
                     {oferta.elementos?.length || 0} elemento{(oferta.elementos?.length || 0) !== 1 ? 's' : ''} actual{(oferta.elementos?.length || 0) !== 1 ? 'es' : ''}
                   </p>
@@ -366,16 +366,18 @@ export default function ManageElementsDialog({
                 </div>
               </div>
 
-              <FileUpload
-                id="foto-elemento"
-                label="Foto del Elemento (opcional)"
-                accept="image/*"
-                value={nuevoElemento.foto}
-                onChange={(file) => setNuevoElemento(prev => ({ ...prev, foto: file }))}
-                maxSizeInMB={10}
-                showPreview={true}
-                disabled={saving}
-              />
+              <div className="overflow-hidden rounded-lg border border-dashed border-gray-200">
+                <FileUpload
+                  id="foto-elemento"
+                  label="Foto del Elemento (opcional)"
+                  accept="image/*"
+                  value={nuevoElemento.foto}
+                  onChange={(file) => setNuevoElemento(prev => ({ ...prev, foto: file }))}
+                  maxSizeInMB={10}
+                  showPreview={true}
+                  disabled={saving}
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -556,8 +558,8 @@ export default function ManageElementsDialog({
           </Card>
 
           {/* Botones de acción */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto justify-center">
               <X className="h-4 w-4 mr-2" />
               Cerrar
             </Button>

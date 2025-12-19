@@ -76,8 +76,13 @@ export function ModuleHeader({
         <div className="flex items-center justify-between py-3 sm:py-6 gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link href={backHref} className="flex shrink-0" aria-label={backLabel} title={backLabel}>
-              <Button variant="ghost" size="icon" className="touch-manipulation h-9 w-9 sm:h-10 sm:w-10">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
+              >
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span className="hidden sm:inline">{backLabel}</span>
                 <span className="sr-only">{backLabel}</span>
               </Button>
             </Link>

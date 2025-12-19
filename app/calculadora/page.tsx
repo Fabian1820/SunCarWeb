@@ -512,7 +512,8 @@ export default function CalculadoraPage() {
 	                aria-label="Volver al dashboard"
 	                className="flex items-center justify-center gap-2 h-9 w-9 p-0 rounded-full sm:rounded-md sm:w-auto sm:px-3"
 	              >
-	                <ArrowLeft className="h-4 w-4" />
+	                <ArrowLeft className="h-4 w-4 sm:mr-2" />
+	                <span className="hidden sm:inline">Volver al Dashboard</span>
 	                <span className="sr-only">Volver al Dashboard</span>
 	              </Button>
 	            </Link>
