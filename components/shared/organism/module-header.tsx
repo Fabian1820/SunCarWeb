@@ -1,6 +1,6 @@
 "use client"
 
-import type { ReactNode } from "react"
+import { useLayoutEffect, useRef, type ReactNode } from "react"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
@@ -30,8 +30,31 @@ export function ModuleHeader({
   actions,
   className,
 }: ModuleHeaderProps) {
+  const headerRef = useRef<HTMLElement>(null)
+
+  useLayoutEffect(() => {
+    const element = headerRef.current
+    if (!element) return
+
+    const updateHeight = () => {
+      const height = Math.ceil(element.getBoundingClientRect().height)
+      document.documentElement.style.setProperty("--module-header-height", `${height}px`)
+    }
+
+    const resizeObserver = new ResizeObserver(updateHeight)
+    updateHeight()
+    resizeObserver.observe(element)
+    window.addEventListener("resize", updateHeight)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener("resize", updateHeight)
+      document.documentElement.style.removeProperty("--module-header-height")
+    }
+  }, [])
+
   return (
-    <header className={cn("fixed-header", className)}>
+    <header ref={headerRef} className={cn("fixed-header", className)}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between py-3 sm:py-6 gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -68,7 +91,7 @@ export function ModuleHeader({
           </div>
 
           {actions ? (
-            <div className="flex items-center gap-2 shrink-0 [&>button]:h-9 [&>button]:w-9 sm:[&>button]:h-auto sm:[&>button]:w-auto sm:[&>button]:px-4 sm:[&>button]:py-2">
+            <div className="flex items-center gap-2 shrink-0 [&_button]:h-9 [&_button]:w-9 [&_a]:h-9 [&_a]:w-9 sm:[&_button]:h-auto sm:[&_button]:w-auto sm:[&_button]:px-4 sm:[&_button]:py-2 sm:[&_a]:h-auto sm:[&_a]:w-auto sm:[&_a]:px-4 sm:[&_a]:py-2">
               {actions}
             </div>
           ) : null}
@@ -77,4 +100,3 @@ export function ModuleHeader({
     </header>
   )
 }
-

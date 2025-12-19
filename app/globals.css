@@ -125,18 +125,23 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
+:root {
+  --module-header-height: 96px;
+  --module-header-offset: 16px;
+}
+
 .content-with-fixed-header {
-  padding-top: 100px;
+  padding-top: calc(var(--module-header-height, 96px) + var(--module-header-offset, 16px));
 }
 
 @media (min-width: 640px) {
-  .content-with-fixed-header {
-    padding-top: 120px;
+  :root {
+    --module-header-offset: 20px;
   }
 }
 
 @media (min-width: 1024px) {
-  .content-with-fixed-header {
-    padding-top: 140px;
+  :root {
+    --module-header-offset: 24px;
   }
 }
