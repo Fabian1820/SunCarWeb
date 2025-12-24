@@ -11,12 +11,13 @@ interface GenerarLinkRequest {
   oferta_id?: string
   cliente_id?: string
   lead_id?: string
+  moneda?: string
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: GenerarLinkRequest = await request.json()
-    const { precio, descripcion, oferta_id, cliente_id, lead_id } = body
+    const { precio, descripcion, oferta_id, cliente_id, lead_id, moneda } = body
 
     // Validaciones
     if (!precio || precio <= 0) {
@@ -41,6 +42,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const currencyCode = (moneda || 'USD').toUpperCase()
+    if (currencyCode !== 'USD' && currencyCode !== 'EUR') {
+      return NextResponse.json(
+        { success: false, message: 'Moneda inválida. Usa USD o EUR.' },
+        { status: 400 }
+      )
+    }
+
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: STRIPE_API_VERSION,
     })
@@ -48,11 +57,14 @@ export async function POST(request: NextRequest) {
     const precioConRecargo = Math.round(precio * (1 + STRIPE_FEE_PERCENT) * 100) / 100
 
     // Crear Payment Link en Stripe
+    const paymentMethodTypes =
+      currencyCode === 'EUR' ? ['card', 'link', 'klarna', 'billie'] : ['card', 'link']
+
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [
         {
           price_data: {
-            currency: 'usd',
+            currency: currencyCode.toLowerCase(),
             product_data: {
               name: 'Oferta Personalizada SunCar',
               description: descripcion,
@@ -62,10 +74,12 @@ export async function POST(request: NextRequest) {
           quantity: 1,
         },
       ],
+      payment_method_types: paymentMethodTypes,
       metadata: {
         oferta_id: oferta_id || '',
         cliente_id: cliente_id || '',
         lead_id: lead_id || '',
+        moneda: currencyCode,
         created_at: new Date().toISOString(),
       },
     })

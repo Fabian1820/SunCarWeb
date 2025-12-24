@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { CreditCard, Loader2, Copy, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/shared/atom/button'
 import {
@@ -32,6 +32,8 @@ export function GenerarLinkPagoButton({
   const [dialogOpen, setDialogOpen] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string>('')
   const [copied, setCopied] = useState(false)
+  const [currency, setCurrency] = useState<'USD' | 'EUR'>('USD')
+  const currencySelectId = useId()
   const { toast } = useToast()
 
   // Validaciones
@@ -41,6 +43,11 @@ export function GenerarLinkPagoButton({
   const precioConRecargo = hasPrice
     ? Math.round(oferta.precio! * (1 + STRIPE_FEE_PERCENT) * 100) / 100
     : 0
+
+  const formatCurrency = (amount: number, currencyCode: 'USD' | 'EUR') => {
+    const symbol = currencyCode === 'EUR' ? '€' : '$'
+    return `${symbol}${amount.toFixed(2)} ${currencyCode}`
+  }
 
   // Formatear descripción de la oferta
   const formatearDescripcion = (): string => {
@@ -78,7 +85,8 @@ export function GenerarLinkPagoButton({
 
     const formatServicioItem = (item: { descripcion?: string; costo?: number }) => {
       const descripcion = item.descripcion?.trim() || 'Servicio sin descripción'
-      const costo = typeof item.costo === 'number' ? ` ($${item.costo.toFixed(2)})` : ''
+      const costo =
+        typeof item.costo === 'number' ? ` (${formatCurrency(item.costo, currency)})` : ''
       return `${descripcion}${costo}`.trim()
     }
 
@@ -134,6 +142,7 @@ export function GenerarLinkPagoButton({
           oferta_id: oferta.id,
           cliente_id: oferta.cliente_id,
           lead_id: oferta.lead_id,
+          moneda: currency,
         }),
       })
 
@@ -182,30 +191,47 @@ export function GenerarLinkPagoButton({
 
   return (
     <>
-      <Button
-        variant={variant}
-        size={size}
-        onClick={handleGenerate}
-        disabled={isDisabled}
-        title={
-          isPagada
-            ? 'La oferta ya está pagada'
-            : !hasPrice
-            ? 'La oferta debe tener un precio válido'
-            : 'Generar link de pago con Stripe (incluye 5% de gastos)'
-        }
-      >
-        {loading ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          showIcon && <CreditCard className="h-4 w-4" />
-        )}
-        {size !== 'icon' && (
-          <span className={showIcon ? 'ml-2' : ''}>
-            {loading ? 'Generando...' : 'Generar Link de Pago (+5% Stripe)'}
-          </span>
-        )}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
+          <label htmlFor={currencySelectId} className="text-xs font-medium text-gray-600">
+            Moneda
+          </label>
+          <select
+            id={currencySelectId}
+            className="h-9 rounded-md border border-gray-300 bg-white px-2 text-sm"
+            value={currency}
+            onChange={(event) => setCurrency(event.target.value as 'USD' | 'EUR')}
+            disabled={loading}
+          >
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+          </select>
+        </div>
+        <Button
+          variant={variant}
+          size={size}
+          onClick={handleGenerate}
+          disabled={isDisabled}
+          title={
+            isPagada
+              ? 'La oferta ya está pagada'
+              : !hasPrice
+              ? 'La oferta debe tener un precio válido'
+              : 'Generar link de pago con Stripe (incluye 5% de gastos)'
+          }
+        >
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            showIcon && <CreditCard className="h-4 w-4" />
+          )}
+          {size !== 'icon' && (
+            <span className={showIcon ? 'ml-2' : ''}>
+              {loading ? 'Generando...' : 'Generar Link de Pago (+5% Stripe)'}
+            </span>
+          )}
+        </Button>
+      </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[600px]">
@@ -252,10 +278,11 @@ export function GenerarLinkPagoButton({
                 <strong>Descripción:</strong> {formatearDescripcion()}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Precio base:</strong> ${oferta.precio?.toFixed(2)} USD
+                <strong>Precio base:</strong>{' '}
+                {typeof oferta.precio === 'number' ? formatCurrency(oferta.precio, currency) : 'N/A'}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Total con 5% Stripe:</strong> ${precioConRecargo.toFixed(2)} USD
+                <strong>Total con 5% Stripe:</strong> {formatCurrency(precioConRecargo, currency)}
               </p>
             </div>
           </div>
