@@ -27,6 +27,7 @@ export function GenerarLinkPagoButton({
   size = 'default',
   showIcon = true,
 }: GenerarLinkPagoButtonProps) {
+  const STRIPE_FEE_PERCENT = 0.05
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string>('')
@@ -37,30 +38,77 @@ export function GenerarLinkPagoButton({
   const isPagada = oferta.pagada === true
   const hasPrice = oferta.precio !== undefined && oferta.precio !== null && oferta.precio > 0
   const isDisabled = isPagada || !hasPrice || loading
+  const precioConRecargo = hasPrice
+    ? Math.round(oferta.precio! * (1 + STRIPE_FEE_PERCENT) * 100) / 100
+    : 0
 
   // Formatear descripción de la oferta
   const formatearDescripcion = (): string => {
     const partes: string[] = []
 
+    const formatEquipoItem = (
+      label: string,
+      item: {
+        cantidad?: number
+        potencia?: number
+        marca?: string
+        descripcion?: string
+        codigo_equipo?: string
+      }
+    ) => {
+      const cantidad = typeof item.cantidad === 'number' ? `${item.cantidad}x ` : ''
+      const descripcion = item.descripcion?.trim()
+      const detalles = [
+        item.marca?.trim(),
+        item.potencia ? `${item.potencia}W` : undefined,
+        item.codigo_equipo?.trim(),
+      ]
+        .filter(Boolean)
+        .join(' ')
+      const base = descripcion || label
+      const extra = detalles ? ` (${detalles})` : ''
+      return `${cantidad}${base}${extra}`.trim()
+    }
+
+    const formatUtilItem = (item: { cantidad?: number; descripcion?: string }) => {
+      const cantidad = typeof item.cantidad === 'number' ? `${item.cantidad}x ` : ''
+      const descripcion = item.descripcion?.trim() || 'Útil sin descripción'
+      return `${cantidad}${descripcion}`.trim()
+    }
+
+    const formatServicioItem = (item: { descripcion?: string; costo?: number }) => {
+      const descripcion = item.descripcion?.trim() || 'Servicio sin descripción'
+      const costo = typeof item.costo === 'number' ? ` ($${item.costo.toFixed(2)})` : ''
+      return `${descripcion}${costo}`.trim()
+    }
+
     if (oferta.inversores && oferta.inversores.length > 0) {
-      partes.push(`Inversores: ${oferta.inversores.length}`)
+      partes.push(
+        `Inversores: ${oferta.inversores.map((inv) => formatEquipoItem('Inversor', inv)).join('; ')}`
+      )
     }
     if (oferta.baterias && oferta.baterias.length > 0) {
-      partes.push(`Baterías: ${oferta.baterias.length}`)
+      partes.push(
+        `Baterías: ${oferta.baterias.map((bat) => formatEquipoItem('Batería', bat)).join('; ')}`
+      )
     }
     if (oferta.paneles && oferta.paneles.length > 0) {
-      partes.push(`Paneles: ${oferta.paneles.length}`)
+      partes.push(
+        `Paneles: ${oferta.paneles.map((panel) => formatEquipoItem('Panel', panel)).join('; ')}`
+      )
     }
     if (oferta.utiles && oferta.utiles.length > 0) {
-      partes.push(`Útiles: ${oferta.utiles.length}`)
+      partes.push(`Útiles: ${oferta.utiles.map((util) => formatUtilItem(util)).join('; ')}`)
     }
     if (oferta.servicios && oferta.servicios.length > 0) {
-      partes.push(`Servicios: ${oferta.servicios.length}`)
+      partes.push(
+        `Servicios: ${oferta.servicios.map((srv) => formatServicioItem(srv)).join('; ')}`
+      )
     }
 
     return partes.length > 0
-      ? partes.join(' | ')
-      : 'Oferta personalizada de energía solar'
+      ? partes.join('\n')
+      : 'Oferta personalizada de energia solar'
   }
 
   const handleGenerate = async () => {
@@ -144,7 +192,7 @@ export function GenerarLinkPagoButton({
             ? 'La oferta ya está pagada'
             : !hasPrice
             ? 'La oferta debe tener un precio válido'
-            : 'Generar link de pago con Stripe'
+            : 'Generar link de pago con Stripe (incluye 5% de gastos)'
         }
       >
         {loading ? (
@@ -154,7 +202,7 @@ export function GenerarLinkPagoButton({
         )}
         {size !== 'icon' && (
           <span className={showIcon ? 'ml-2' : ''}>
-            {loading ? 'Generando...' : 'Generar Link de Pago'}
+            {loading ? 'Generando...' : 'Generar Link de Pago (+5% Stripe)'}
           </span>
         )}
       </Button>
@@ -204,7 +252,10 @@ export function GenerarLinkPagoButton({
                 <strong>Descripción:</strong> {formatearDescripcion()}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Precio:</strong> ${oferta.precio?.toFixed(2)} USD
+                <strong>Precio base:</strong> ${oferta.precio?.toFixed(2)} USD
+              </p>
+              <p className="text-sm text-gray-600">
+                <strong>Total con 5% Stripe:</strong> ${precioConRecargo.toFixed(2)} USD
               </p>
             </div>
           </div>

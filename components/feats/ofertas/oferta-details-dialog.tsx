@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/s
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
+import { GenerarLinkPagoOfertaButton } from "@/components/feats/ofertas/generar-link-pago-button"
 import {
   DollarSign,
   Image as ImageIcon,
@@ -226,7 +227,8 @@ export default function OfertaDetailsDialog({
           )}
 
           {/* Botón cerrar */}
-          <div className="flex justify-end pt-4 border-t">
+          <div className="flex flex-col gap-3 pt-4 border-t sm:flex-row sm:justify-between sm:items-center">
+            <GenerarLinkPagoOfertaButton oferta={oferta} />
             <Button variant="outline" onClick={onClose}>
               <X className="h-4 w-4 mr-2" />
               Cerrar

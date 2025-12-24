@@ -6,6 +6,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2024-12-18.acacia',
 })
 
+const STRIPE_FEE_PERCENT = 0.05
+
 interface GenerarLinkRequest {
   precio: number
   descripcion: string
@@ -42,6 +44,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const precioConRecargo = Math.round(precio * (1 + STRIPE_FEE_PERCENT) * 100) / 100
+
     // Crear Payment Link en Stripe
     const paymentLink = await stripe.paymentLinks.create({
       line_items: [
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
               name: 'Oferta Personalizada SunCar',
               description: descripcion,
             },
-            unit_amount: Math.round(precio * 100), // Convertir a centavos
+            unit_amount: Math.round(precioConRecargo * 100), // Convertir a centavos
           },
           quantity: 1,
         },
@@ -69,6 +73,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Link de pago generado exitosamente',
       payment_link: paymentLink.url,
+      precio_con_recargo: precioConRecargo,
     })
   } catch (error) {
     console.error('Error generando payment link:', error)
