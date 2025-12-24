@@ -1,12 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/shared/molecule/dropdown-menu"
-import { ArrowLeft, DollarSign, Users, Calendar, UserPlus, List, Briefcase, Archive, Save, History, Settings, ChevronDown } from "lucide-react"
+import { DollarSign, Users, Calendar, UserPlus, List, Briefcase, Archive, Save, History, Settings, ChevronDown, RefreshCw } from "lucide-react"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -27,6 +26,8 @@ import { IngresoMensualService } from "@/lib/api-services"
 import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH, IngresoMensual } from "@/lib/recursos-humanos-types"
 import type { ExportOptions } from "@/lib/export-service"
 import type { ArchivoNominaRH } from "@/lib/types/feats/recursos-humanos/archivo-rh-types"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
+import { cn } from "@/lib/utils"
 
 export default function RecursosHumanosPage() {
   const {
@@ -350,152 +351,134 @@ export default function RecursosHumanosPage() {
     return <PageLoader moduleName="Recursos Humanos" text="Cargando datos..." />
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
-        <Card className="max-w-md border-red-200">
-          <CardContent className="p-6">
-            <h2 className="text-lg font-bold text-red-800 mb-2">Error al cargar datos</h2>
-            <p className="text-red-600">{error}</p>
-            <Button onClick={refresh} className="mt-4">
-              Reintentar
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+	  if (error) {
+	    return (
+	      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
+	        <Card className="max-w-md border-red-200">
+	          <CardContent className="p-6">
+	            <h2 className="text-lg font-bold text-red-800 mb-2">Error al cargar datos</h2>
+	            <p className="text-red-600">{error}</p>
+	            <Button
+	              size="icon"
+	              onClick={refresh}
+	              className="mt-4 touch-manipulation"
+	              aria-label="Reintentar"
+	              title="Reintentar"
+	            >
+	              <RefreshCw className="h-4 w-4" />
+	              <span className="sr-only">Reintentar</span>
+	            </Button>
+	          </CardContent>
+	        </Card>
+	      </div>
+	    )
+	  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Recursos Humanos
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    Nómina
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  Gestión mensual de nómina y estímulos
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {/* Dropdown de Configuración */}
-              <DropdownMenu open={isConfigDropdownOpen} onOpenChange={setIsConfigDropdownOpen}>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    Configuración
-                    <ChevronDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setIsCrearTrabajadorDialogOpen(true)
-                      setIsConfigDropdownOpen(false)
-                    }}
-                  >
-                    <UserPlus className="mr-2 h-4 w-4" />
-                    Crear Trabajador
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      handleAbrirGuardarNomina()
-                      setIsConfigDropdownOpen(false)
-                    }}
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    Guardar Nómina
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setIsEstimulosDialogOpen(true)
-                      setIsConfigDropdownOpen(false)
-                    }}
-                  >
-                    <Settings className="mr-2 h-4 w-4" />
-                    Config Estímulo del Mes
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setIsHistorialIngresosDialogOpen(true)
-                      setIsConfigDropdownOpen(false)
-                    }}
-                  >
-                    <History className="mr-2 h-4 w-4" />
-                    Ver Historial de Estímulos
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+	  return (
+	    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+	      {/* Header */}
+	      <ModuleHeader
+	        title="Recursos Humanos"
+	        subtitle="Gestión mensual de nómina y estímulos"
+	        badge={{ text: "Nómina", className: "bg-purple-100 text-purple-800" }}
+	        actions={
+	          <DropdownMenu open={isConfigDropdownOpen} onOpenChange={setIsConfigDropdownOpen}>
+	            <DropdownMenuTrigger asChild>
+	              <Button
+	                size="icon"
+	                className="h-9 w-9 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white touch-manipulation"
+	                aria-label="Configuración"
+	                title="Configuración"
+	              >
+	                <Settings className="h-4 w-4 sm:mr-2" />
+	                <span className="hidden sm:inline">Configuración</span>
+	                <span className="sr-only">Configuración</span>
+	              </Button>
+	            </DropdownMenuTrigger>
+	            <DropdownMenuContent align="end" className="w-64">
+	              <DropdownMenuItem
+	                onClick={() => {
+	                  setIsCrearTrabajadorDialogOpen(true)
+	                  setIsConfigDropdownOpen(false)
+	                }}
+	              >
+	                <UserPlus className="mr-2 h-4 w-4" />
+	                Crear Trabajador
+	              </DropdownMenuItem>
+	              <DropdownMenuItem
+	                onClick={() => {
+	                  handleAbrirGuardarNomina()
+	                  setIsConfigDropdownOpen(false)
+	                }}
+	              >
+	                <Save className="mr-2 h-4 w-4" />
+	                Guardar Nómina
+	              </DropdownMenuItem>
+	              <DropdownMenuItem
+	                onClick={() => {
+	                  setIsEstimulosDialogOpen(true)
+	                  setIsConfigDropdownOpen(false)
+	                }}
+	              >
+	                <Settings className="mr-2 h-4 w-4" />
+	                Config Estímulo del Mes
+	              </DropdownMenuItem>
+	              <DropdownMenuItem
+	                onClick={() => {
+	                  setIsHistorialIngresosDialogOpen(true)
+	                  setIsConfigDropdownOpen(false)
+	                }}
+	              >
+	                <History className="mr-2 h-4 w-4" />
+	                Ver Historial de Estímulos
+	              </DropdownMenuItem>
+	            </DropdownMenuContent>
+	          </DropdownMenu>
+	        }
+	      />
 
-              {/* Dialog para configurar estímulos */}
-              <Dialog open={isEstimulosDialogOpen} onOpenChange={setIsEstimulosDialogOpen}>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Configurar Monto de Estímulos</DialogTitle>
-                  </DialogHeader>
-                  <EstimulosDialog
-                    montoActual={ultimoIngreso?.monto || 0}
-                    mesActual={String(mesActual).padStart(2, '0')}
-                    anioActual={String(anioActual)}
-                    ingresoId={ultimoIngreso?.id || null}
-                    onGuardar={handleGuardarEstimulos}
-                  />
-                </DialogContent>
-              </Dialog>
+	      <Dialog open={isEstimulosDialogOpen} onOpenChange={setIsEstimulosDialogOpen}>
+	        <DialogContent>
+	          <DialogHeader>
+	            <DialogTitle>Configurar Monto de Estímulos</DialogTitle>
+	          </DialogHeader>
+	          <EstimulosDialog
+	            montoActual={ultimoIngreso?.monto || 0}
+	            mesActual={String(mesActual).padStart(2, '0')}
+	            anioActual={String(anioActual)}
+	            ingresoId={ultimoIngreso?.id || null}
+	            onGuardar={handleGuardarEstimulos}
+	          />
+	        </DialogContent>
+	      </Dialog>
 
-              {/* Dialog para historial de ingresos */}
-              <Dialog open={isHistorialIngresosDialogOpen} onOpenChange={setIsHistorialIngresosDialogOpen}>
-                <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl">Historial de Ingresos Mensuales</DialogTitle>
-                  </DialogHeader>
-                  <HistorialIngresosDialog />
-                </DialogContent>
-              </Dialog>
+	      <Dialog open={isHistorialIngresosDialogOpen} onOpenChange={setIsHistorialIngresosDialogOpen}>
+	        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+	          <DialogHeader>
+	            <DialogTitle className="text-2xl">Historial de Ingresos Mensuales</DialogTitle>
+	          </DialogHeader>
+	          <HistorialIngresosDialog />
+	        </DialogContent>
+	      </Dialog>
 
-              {/* Dialog para crear trabajador */}
-              <Dialog open={isCrearTrabajadorDialogOpen} onOpenChange={setIsCrearTrabajadorDialogOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
-                    <DialogTitle>Crear Nuevo Trabajador</DialogTitle>
-                  </DialogHeader>
-                  <CrearTrabajadorForm
-                    onSubmit={handleCrearTrabajador}
-                    onCancel={() => setIsCrearTrabajadorDialogOpen(false)}
-                    isSubmitting={isSubmittingWorker}
-                  />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        </div>
-      </header>
+	      <Dialog open={isCrearTrabajadorDialogOpen} onOpenChange={setIsCrearTrabajadorDialogOpen}>
+	        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+	          <DialogHeader>
+	            <DialogTitle>Crear Nuevo Trabajador</DialogTitle>
+	          </DialogHeader>
+	          <CrearTrabajadorForm
+	            onSubmit={handleCrearTrabajador}
+	            onCancel={() => setIsCrearTrabajadorDialogOpen(false)}
+	            isSubmitting={isSubmittingWorker}
+	          />
+	        </DialogContent>
+	      </Dialog>
 
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Información del período y estímulos */}
-        <Card className={`mb-8 border-l-4 ${estaViendoHistorico ? 'border-l-amber-600' : 'border-l-purple-600'}`}>
-          <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+	      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+	        {/* Información del período y estímulos */}
+	        <Card className={`mb-8 border-l-4 ${estaViendoHistorico ? 'border-l-amber-600' : 'border-l-purple-600'}`}>
+	          <CardContent className="p-6">
+	            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center space-x-3">
                 <Calendar className={`h-8 w-8 ${estaViendoHistorico ? 'text-amber-600' : 'text-purple-600'}`} />
                 <div>
@@ -536,28 +519,37 @@ export default function RecursosHumanosPage() {
               variant={vistaActual === 'trabajadores' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setVistaActual('trabajadores')}
-              className={vistaActual === 'trabajadores' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+              className={cn(
+                vistaActual === 'trabajadores' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100',
+                'sm:px-3 px-2'
+              )}
             >
-              <List className="mr-2 h-4 w-4" />
-              Vista por Trabajador
+              <List className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Vista por Trabajador</span>
             </Button>
             <Button
               variant={vistaActual === 'cargos' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setVistaActual('cargos')}
-              className={vistaActual === 'cargos' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+              className={cn(
+                vistaActual === 'cargos' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100',
+                'sm:px-3 px-2'
+              )}
             >
-              <Briefcase className="mr-2 h-4 w-4" />
-              Vista por Cargo
+              <Briefcase className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Vista por Cargo</span>
             </Button>
             <Button
               variant={vistaActual === 'archivo' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => setVistaActual('archivo')}
-              className={vistaActual === 'archivo' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100'}
+              className={cn(
+                vistaActual === 'archivo' ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'hover:bg-gray-100',
+                'sm:px-3 px-2'
+              )}
             >
-              <Archive className="mr-2 h-4 w-4" />
-              Archivo Histórico
+              <Archive className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Archivo Histórico</span>
             </Button>
           </div>
         </div>

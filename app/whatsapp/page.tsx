@@ -79,6 +79,10 @@ function WhatsAppPageContent() {
     setChatSeleccionado(chatActualizado || null)
   }
 
+  const handleBackToChatList = () => {
+    setChatSeleccionado(null)
+  }
+
   const handleEnviarMensaje = (chatId: string, contenido: string) => {
     const nuevoMensaje: Mensaje = {
       id: `msg-${Date.now()}`,
@@ -142,16 +146,16 @@ function WhatsAppPageContent() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-[100svh] bg-white">
       {/* Header */}
-      <header className="bg-gradient-to-r from-green-600 to-green-500 text-white px-6 py-4 shadow-lg">
+      <header className="bg-gradient-to-r from-green-600 to-green-500 text-white px-4 sm:px-6 py-3 sm:py-4 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-white/20 rounded-lg">
             <MessageSquare className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">WhatsApp Business</h1>
-            <p className="text-green-100 text-sm">
+            <h1 className="text-lg sm:text-2xl font-bold">WhatsApp Business</h1>
+            <p className="text-green-100 text-xs sm:text-sm">
               Gestiona tus conversaciones con clientes
             </p>
           </div>
@@ -161,7 +165,9 @@ function WhatsAppPageContent() {
       {/* Contenido principal */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Lista de chats */}
-        <div className="w-96 flex-shrink-0">
+        <div
+          className={`w-full md:w-96 flex-shrink-0 ${chatSeleccionado ? "hidden md:block" : ""}`}
+        >
           <ChatList
             chats={chatsVisibles}
             chatSeleccionado={chatSeleccionado}
@@ -174,12 +180,13 @@ function WhatsAppPageContent() {
         </div>
 
         {/* Área de conversación */}
-        <div className="flex-1">
+        <div className={`flex-1 min-w-0 ${chatSeleccionado ? "" : "hidden md:block"}`}>
           {chatSeleccionado ? (
             <ChatConversation
               chat={chatSeleccionado}
               onEnviarMensaje={handleEnviarMensaje}
               onGestionarEtiquetas={handleGestionarEtiquetas}
+              onBack={handleBackToChatList}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full bg-gray-50">

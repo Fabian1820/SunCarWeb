@@ -151,14 +151,20 @@ export function FacturasSection() {
             <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
-                        <div className="flex items-center space-x-3">
-                            <Link href="/">
-                                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                                    <ArrowLeft className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Volver al Dashboard</span>
-                                    <span className="sm:hidden">Volver</span>
-                                </Button>
-                            </Link>
+	                        <div className="flex items-center space-x-3">
+	                            <Link href="/">
+	                                <Button
+	                                    variant="ghost"
+	                                    size="icon"
+	                                    className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
+	                                    aria-label="Volver al Dashboard"
+	                                    title="Volver al Dashboard"
+	                                >
+	                                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
+	                                    <span className="hidden sm:inline">Volver al Dashboard</span>
+	                                    <span className="sr-only">Volver al Dashboard</span>
+	                                </Button>
+	                            </Link>
                             <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
                                 <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
                             </div>
@@ -173,22 +179,26 @@ export function FacturasSection() {
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-3 justify-end">
-                            <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
-                                Total facturado: {formatCurrency(stats?.total_facturado || 0)}
-                            </div>
-                            <Button
-                                onClick={handleCreate}
-                                className="bg-orange-600 hover:bg-orange-700 gap-2"
-                            >
-                                <Plus className="h-4 w-4" />
-                                Nueva Factura
-                            </Button>
-                        </div>
+	                        <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
+	                            Total facturado: {formatCurrency(stats?.total_facturado || 0)}
+	                        </div>
+	                            <Button
+	                                onClick={handleCreate}
+	                                size="sm"
+	                                className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
+	                                aria-label="Nueva factura"
+	                                title="Nueva factura"
+	                            >
+	                                <Plus className="h-4 w-4 sm:mr-2" />
+	                                <span className="hidden sm:inline">Nueva Factura</span>
+	                                <span className="sr-only">Nueva factura</span>
+	                            </Button>
+	                        </div>
                     </div>
                 </div>
             </header>
 
-            <main className="pt-32 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <main className="content-with-fixed-header pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {error && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center mb-4">
                         <p className="text-red-600">Error: {error}</p>

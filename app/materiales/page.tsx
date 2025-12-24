@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
@@ -9,7 +8,7 @@ import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { Switch } from "@/components/shared/molecule/switch"
-import { ArrowLeft, Package, Plus, Search, AlertCircle, Loader2, RefreshCw, Grid, List } from "lucide-react"
+import { Package, Plus, Search, AlertCircle, Loader2, RefreshCw, Grid, List } from "lucide-react"
 import { MaterialsTable } from "@/components/feats/materials/materials-table"
 import { CategoriesTable } from "@/components/feats/materials/categories-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
@@ -20,6 +19,7 @@ import type { Material, BackendCatalogoProductos } from "@/lib/material-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function MaterialesPage() {
   const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct, createCategory, addMaterialToProduct } = useMaterials()
@@ -266,16 +266,19 @@ export default function MaterialesPage() {
               <p className="text-sm">
                 Se encontraron {foundDuplicates.length} código(s) con duplicados ({totalDuplicates} materiales afectados)
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleOpenDuplicatesDashboard}
-                className="w-fit bg-white hover:bg-gray-50 text-gray-900 font-medium shadow-sm border-gray-300"
-              >
-                📋 Ver Detalles
-              </Button>
-            </div>
-          ) as any,
+	              <Button
+	                size="icon"
+	                variant="outline"
+	                onClick={handleOpenDuplicatesDashboard}
+	                className="h-9 w-9 bg-white hover:bg-gray-50 text-gray-900 font-medium shadow-sm border-gray-300 touch-manipulation"
+	                aria-label="Ver detalles"
+	                title="Ver detalles"
+	              >
+	                <List className="h-4 w-4" />
+	                <span className="sr-only">Ver detalles</span>
+	              </Button>
+	            </div>
+	          ) as any,
           variant: "destructive",
           duration: 15000,
         })
@@ -303,78 +306,70 @@ export default function MaterialesPage() {
     return <PageLoader moduleName="Materiales" text="Cargando catálogo de materiales..." />
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar materiales</h3>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <Button onClick={refetch} className="bg-amber-600 hover:bg-amber-700">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reintentar
-          </Button>
-        </div>
-      </div>
-    )
-  }
+	  if (error) {
+	    return (
+	      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
+	        <div className="text-center max-w-md">
+	          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
+	          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar materiales</h3>
+	          <p className="text-gray-600 mb-4">{error}</p>
+	          <Button
+	            size="icon"
+	            onClick={refetch}
+	            className="h-10 w-10 bg-amber-600 hover:bg-amber-700 touch-manipulation"
+	            aria-label="Reintentar"
+	            title="Reintentar"
+	          >
+	            <RefreshCw className="h-4 w-4" />
+	            <span className="sr-only">Reintentar</span>
+	          </Button>
+	        </div>
+	      </div>
+	    )
+	  }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header */}
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Gestión de Materiales
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                    Recursos
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar catálogo de materiales y equipos</p>
-              </div>
-            </div>
-            
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Agregar Material
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Agregar Nuevo Material</DialogTitle>
-                </DialogHeader>
-                <MaterialForm
-                  onSubmit={addMaterial}
-                  onCancel={handleCloseModal}
-                  onClose={handleCloseModal}
-                  existingCategories={categories}
-                  existingUnits={units}
-                />
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-      </header>
+	  return (
+	    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+	      {/* Header */}
+	      <ModuleHeader
+	        title="Gestión de Materiales"
+	        subtitle="Administrar catálogo de materiales y equipos"
+	        badge={{ text: "Recursos", className: "bg-emerald-100 text-emerald-800" }}
+	        className="bg-white shadow-sm border-b border-orange-100"
+	        actions={
+	          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+	            <DialogTrigger asChild>
+	              <Button
+	                size="icon"
+	                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 touch-manipulation"
+	                aria-label="Agregar material"
+	                title="Agregar material"
+	              >
+	                <Plus className="h-4 w-4 sm:mr-2" />
+	                <span className="hidden sm:inline">Agregar Material</span>
+	                <span className="sr-only">Agregar material</span>
+	              </Button>
+	            </DialogTrigger>
+	            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+	              <DialogHeader>
+	                <DialogTitle>Agregar Nuevo Material</DialogTitle>
+	              </DialogHeader>
+	              <MaterialForm
+	                onSubmit={addMaterial}
+	                onCancel={handleCloseModal}
+	                onClose={handleCloseModal}
+	                existingCategories={categories}
+	                existingUnits={units}
+	              />
+	            </DialogContent>
+	          </Dialog>
+	        }
+	      />
 
-      <main className="pt-32 pb-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="space-y-6">
-          {/* Filters and Search */}
-          <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
+	      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+	        <div className="space-y-6">
+	          {/* Filters and Search */}
+	          <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
             <CardContent className="pt-6">
               <div className="flex flex-col lg:flex-row gap-4">
                 <div className="flex-1">

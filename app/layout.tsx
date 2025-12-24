@@ -8,6 +8,7 @@ import { AuthGuard } from "@/components/auth/auth-guard"
 import { PWAInstallPrompt } from "@/components/shared/molecule/pwa-install-prompt"
 import { OfflineIndicator } from "@/components/shared/molecule/offline-indicator"
 import { Toaster } from "@/components/shared/molecule/toaster"
+import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -75,6 +76,7 @@ export default function RootLayout({
         <AuthProvider>
           <InitialLoaderProvider>
             <AuthGuard>
+              <FixedHeaderWatcher />
               {children}
             </AuthGuard>
           </InitialLoaderProvider>

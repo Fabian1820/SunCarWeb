@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react'
+import { Loader2, Save, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -96,7 +97,7 @@ export function EditTrabajoDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-orange-600">
             Editar Trabajo Pendiente
@@ -234,21 +235,33 @@ export function EditTrabajoDialog({
             </Label>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="w-full sm:w-auto touch-manipulation"
             >
+              <X className="h-4 w-4 mr-2" />
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={loading}
-              className="bg-orange-600 hover:bg-orange-700"
+              className="w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white"
             >
-              {loading ? 'Actualizando...' : 'Actualizar'}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Actualizando...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Actualizar
+                </>
+              )}
             </Button>
           </DialogFooter>
         </form>

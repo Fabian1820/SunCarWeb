@@ -1,13 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Search, FileText, ArrowLeft, Plus } from "lucide-react"
+import { Search, FileText, Plus } from "lucide-react"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -16,8 +15,9 @@ import { useOrdenesTrabajo } from "@/hooks/use-ordenes-trabajo"
 import { OrdenesTrabajoTable } from "@/components/feats/ordenes-trabajo/ordenes-trabajo-table"
 import { CreateOrdenTrabajoDialog } from "@/components/feats/ordenes-trabajo/create-orden-trabajo-dialog"
 import { MessagePreviewDialog } from "@/components/feats/ordenes-trabajo/message-preview-dialog"
-import { OrdenTrabajoService, ClienteService } from "@/lib/api-services"
+import { OrdenTrabajoService } from "@/lib/api-services"
 import type { OrdenTrabajo, CreateOrdenTrabajoRequest } from "@/lib/api-types"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function OrdenesTrabajoPage() {
   const { toast } = useToast()
@@ -48,25 +48,44 @@ export default function OrdenesTrabajoPage() {
     return <PageLoader moduleName="Órdenes de Trabajo" text="Cargando órdenes de trabajo..." />
   }
 
-  const handleCreateOrden = async (data: { ordenData: CreateOrdenTrabajoRequest }) => {
-    const { ordenData } = data
+  const handleCreateOrden = async (data: { payload: CreateOrdenTrabajoRequest }) => {
+    const { payload } = data
     try {
-      const response = await createOrden(ordenData)
-
-      if (!response.success) {
-        throw new Error(response.message || 'Error al crear la orden de trabajo')
-      }
-
+      const response = await createOrden(payload)
       toast({
         title: "Éxito",
-        description: "Orden de trabajo creada correctamente",
+        description: response.message || "Órdenes de trabajo creadas correctamente",
       })
 
-      // Generar mensaje usando los datos de la orden creada
-      if (response.data) {
-        const message = OrdenTrabajoService.generateOrdenTrabajoMessage(response.data)
-        setMessageToShow(message)
-        setIsMessageDialogOpen(true)
+      // Si se crearon múltiples órdenes, obtener todas y generar mensaje combinado
+      if (response.ids?.length) {
+        // Guardar grupo de órdenes creadas juntas en localStorage para agrupación
+        const grupoId = Date.now().toString()
+        if (typeof window !== 'undefined') {
+          const gruposExistentes = JSON.parse(
+            localStorage.getItem('ordenes_grupos') || '{}'
+          )
+          response.ids.forEach((id) => {
+            gruposExistentes[id] = grupoId
+          })
+          localStorage.setItem('ordenes_grupos', JSON.stringify(gruposExistentes))
+        }
+
+        // Obtener todas las órdenes creadas
+        const ordenesCreadas = await Promise.all(
+          response.ids.map((id) => OrdenTrabajoService.getOrdenTrabajoById(id))
+        )
+        const ordenesValidas = ordenesCreadas.filter((o): o is OrdenTrabajo => o !== null)
+
+        if (ordenesValidas.length > 0) {
+          // Generar mensaje combinado si hay múltiples órdenes, o individual si es una sola
+          const message =
+            ordenesValidas.length > 1
+              ? OrdenTrabajoService.generateMultipleOrdenesTrabajoMessage(ordenesValidas)
+              : OrdenTrabajoService.generateOrdenTrabajoMessage(ordenesValidas[0])
+          setMessageToShow(message)
+          setIsMessageDialogOpen(true)
+        }
       }
 
       await loadOrdenes()
@@ -80,9 +99,13 @@ export default function OrdenesTrabajoPage() {
     }
   }
 
-  const handleViewMessage = async (orden: OrdenTrabajo) => {
+  const handleViewMessage = async (orden: OrdenTrabajo | OrdenTrabajo[]) => {
     try {
-      const message = OrdenTrabajoService.generateOrdenTrabajoMessage(orden)
+      const ordenes = Array.isArray(orden) ? orden : [orden]
+      const message =
+        ordenes.length > 1
+          ? OrdenTrabajoService.generateMultipleOrdenesTrabajoMessage(ordenes)
+          : OrdenTrabajoService.generateOrdenTrabajoMessage(ordenes[0])
       setMessageToShow(message)
       setIsMessageDialogOpen(true)
     } catch (error) {
@@ -129,48 +152,27 @@ export default function OrdenesTrabajoPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Órdenes de Trabajo
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    Gestión
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  Crea y gestiona órdenes de trabajo para brigadas
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md"
-                onClick={() => setIsCreateDialogOpen(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Crear Orden
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Órdenes de Trabajo"
+        subtitle="Crea y gestiona órdenes de trabajo para brigadas"
+        badge={{ text: "Gestión", className: "bg-orange-100 text-orange-800" }}
+        className="bg-white shadow-sm border-b border-orange-100"
+        actions={
+          <Button
+            size="icon"
+            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
+            onClick={() => setIsCreateDialogOpen(true)}
+            aria-label="Crear orden"
+            title="Crear orden"
+          >
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Crear Orden</span>
+            <span className="sr-only">Crear orden</span>
+          </Button>
+        }
+      />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         {/* Filtros */}
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">

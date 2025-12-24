@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { OrdenTrabajoService } from '@/lib/api-services'
-import type { OrdenTrabajo, CreateOrdenTrabajoRequest, UpdateOrdenTrabajoRequest } from '@/lib/api-types'
+import type {
+  OrdenTrabajo,
+  CreateOrdenTrabajoRequest,
+  UpdateOrdenTrabajoRequest,
+  CreateOrdenTrabajoResponse,
+} from '@/lib/api-types'
 
 interface UseOrdenesTrabajoReturn {
   ordenes: OrdenTrabajo[]
@@ -14,7 +19,7 @@ interface UseOrdenesTrabajoReturn {
   filterBrigada: string
   setFilterBrigada: (brigada: string) => void
   loadOrdenes: () => Promise<void>
-  createOrden: (data: CreateOrdenTrabajoRequest) => Promise<{ success: boolean; data?: any; message?: string }>
+  createOrden: (data: CreateOrdenTrabajoRequest) => Promise<CreateOrdenTrabajoResponse>
   updateOrden: (id: string, data: UpdateOrdenTrabajoRequest) => Promise<boolean>
   deleteOrden: (id: string) => Promise<boolean>
   clearError: () => void
@@ -53,18 +58,14 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase()
       filtered = filtered.filter(orden => {
-        const clienteNombre = orden.cliente
-          ? `${orden.cliente.nombre} ${orden.cliente.apellido || ''}`.toLowerCase()
-          : ''
-        const brigadaNombre = orden.brigada
-          ? `${orden.brigada.lider_nombre} ${orden.brigada.lider_apellido}`.toLowerCase()
-          : ''
+        const clienteNombre = orden.cliente?.nombre?.toLowerCase() || ''
+        const brigadaNombre = orden.brigada?.lider?.nombre?.toLowerCase() || ''
 
         return (
           clienteNombre.includes(searchLower) ||
-          orden.cliente_numero.toLowerCase().includes(searchLower) ||
+          orden.cliente?.numero?.toLowerCase().includes(searchLower) ||
           brigadaNombre.includes(searchLower) ||
-          orden.brigada_lider_ci.toLowerCase().includes(searchLower) ||
+          orden.brigada?.lider?.CI?.toLowerCase().includes(searchLower) ||
           orden.comentarios?.toLowerCase().includes(searchLower)
         )
       })
@@ -77,13 +78,13 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
 
     // Filtrar por brigada (CI del líder)
     if (filterBrigada) {
-      filtered = filtered.filter(orden => orden.brigada_lider_ci === filterBrigada)
+      filtered = filtered.filter(orden => orden.brigada?.lider?.CI === filterBrigada)
     }
 
     return filtered
   }, [ordenes, searchTerm, filterTipoReporte, filterBrigada])
 
-  const createOrden = useCallback(async (data: CreateOrdenTrabajoRequest): Promise<{ success: boolean; data?: any; message?: string }> => {
+  const createOrden = useCallback(async (data: CreateOrdenTrabajoRequest): Promise<CreateOrdenTrabajoResponse> => {
     setLoading(true)
     setError(null)
     try {
@@ -96,7 +97,7 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
       const errorMsg = err instanceof Error ? err.message : 'Error al crear la orden de trabajo'
       setError(errorMsg)
       console.error('❌ Error creating orden de trabajo:', err)
-      return { success: false, message: errorMsg }
+      throw new Error(errorMsg)
     } finally {
       setLoading(false)
     }
@@ -109,11 +110,11 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
       console.log('📝 Actualizando orden de trabajo:', id, data)
       const response = await OrdenTrabajoService.updateOrdenTrabajo(id, data)
       console.log('✅ Orden actualizada:', response)
-      if (response.success) {
+      if (response?.id) {
         await loadOrdenes() // Recargar la lista
         return true
       }
-      throw new Error(response.message || 'Error al actualizar la orden de trabajo')
+      throw new Error('Error al actualizar la orden de trabajo')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al actualizar la orden de trabajo')
       console.error('❌ Error updating orden de trabajo:', err)
@@ -130,7 +131,7 @@ export function useOrdenesTrabajo(): UseOrdenesTrabajoReturn {
       console.log('🗑️ Eliminando orden de trabajo:', id)
       const response = await OrdenTrabajoService.deleteOrdenTrabajo(id)
       console.log('✅ Orden eliminada:', response)
-      if (response.success) {
+      if (response.success !== false) {
         await loadOrdenes() // Recargar la lista
         return true
       }

@@ -229,7 +229,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
             <DialogTitle>Editar Cliente - {client.nombre}</DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto pr-2">
+          <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(90vh-120px)] overflow-y-auto pr-2 overflow-x-hidden">
             {/* Sección 1: Datos Personales */}
             <div className="space-y-4">
               <div className="border-b-2 border-gray-300 pb-3">
@@ -274,25 +274,29 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                 </div>
                 <div>
                   <Label>Ubicación en el Mapa</Label>
-                  <div className="flex gap-2 items-center">
-                    <Input
-                      value={formData.latitud}
-                      readOnly
-                      placeholder="Latitud"
-                      className="w-32 text-gray-600 bg-gray-50"
-                    />
-                    <Input
-                      value={formData.longitud}
-                      readOnly
-                      placeholder="Longitud"
-                      className="w-32 text-gray-600 bg-gray-50"
-                    />
+                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <div className="flex gap-2 flex-1">
+                      <Input
+                        value={formData.latitud}
+                        readOnly
+                        placeholder="Latitud"
+                        className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                      />
+                      <Input
+                        value={formData.longitud}
+                        readOnly
+                        placeholder="Longitud"
+                        className="flex-1 sm:w-32 text-gray-600 bg-gray-50 text-xs sm:text-sm"
+                      />
+                    </div>
                     <Button
                       type="button"
-                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                      className="bg-purple-600 hover:bg-purple-700 text-white shrink-0 sm:shrink-0"
+                      size="sm"
                       onClick={() => setShowMapModal(true)}
                     >
-                      <MapPin className="h-4 w-4 mr-1" /> Seleccionar en mapa
+                      <MapPin className="h-4 w-4 sm:mr-1" />
+                      <span className="hidden sm:inline">Seleccionar en mapa</span>
                     </Button>
                   </div>
                 </div>

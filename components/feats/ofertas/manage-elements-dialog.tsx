@@ -195,7 +195,7 @@ export default function ManageElementsDialog({
     setElementoEditando({
       index: elementoIndex,
       elemento: {
-        categoria: elemento.categoria,
+        categoria: elemento.categoria || undefined,
         descripcion: elemento.descripcion || "",
         cantidad: elemento.cantidad,
         foto: null // La foto se manejará por separado
@@ -277,26 +277,29 @@ export default function ManageElementsDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-4xl md:max-w-5xl max-h-[90vh] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Package className="h-5 w-5 text-orange-600" />
-            Gestionar Elementos - {oferta.descripcion}
+          <DialogTitle className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-2 text-base sm:text-lg">
+            <div className="flex items-center gap-2 min-w-0">
+              <Package className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600 shrink-0" />
+              <span className="truncate">Gestionar Elementos</span>
+            </div>
+            <span className="text-xs sm:text-base text-gray-600 break-words w-full sm:max-w-[70%]">- {oferta.descripcion}</span>
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
           {/* Información de la oferta */}
           <Card className="bg-orange-50 border-orange-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-orange-900">{oferta.descripcion}</h3>
-                  <p className="text-sm text-orange-700">
+            <CardContent className="p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-orange-900 text-sm sm:text-base break-words">{oferta.descripcion}</h3>
+                  <p className="text-xs sm:text-sm text-orange-700">
                     {oferta.elementos?.length || 0} elemento{(oferta.elementos?.length || 0) !== 1 ? 's' : ''} actual{(oferta.elementos?.length || 0) !== 1 ? 'es' : ''}
                   </p>
                 </div>
-                <Badge variant="outline" className="bg-orange-100 text-orange-800">
+                <Badge variant="outline" className="bg-orange-100 text-orange-800 shrink-0">
                   ${oferta.precio.toLocaleString()}
                 </Badge>
               </div>
@@ -305,34 +308,36 @@ export default function ManageElementsDialog({
 
           {/* Formulario para agregar nuevo elemento */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Agregar Nuevo Elemento
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="truncate">Agregar Nuevo Elemento</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                <div>
-                  <Label htmlFor="categoria">Categoría</Label>
+            <CardContent className="space-y-4 p-3 sm:p-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="sm:col-span-1">
+                  <Label htmlFor="categoria" className="text-xs sm:text-sm">Categoría</Label>
                   <Input
                     id="categoria"
                     placeholder="Ej: Panel Solar"
                     value={nuevoElemento.categoria}
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, categoria: e.target.value }))}
+                    className="text-sm"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="descripcion">Descripción *</Label>
+                <div className="sm:col-span-1 lg:col-span-1">
+                  <Label htmlFor="descripcion" className="text-xs sm:text-sm">Descripción *</Label>
                   <Input
                     id="descripcion"
-                    placeholder="Ej: Panel 400W monocristalino"
+                    placeholder="Ej: Panel 400W"
                     value={nuevoElemento.descripcion}
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, descripcion: e.target.value }))}
+                    className="text-sm"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="cantidad">Cantidad *</Label>
+                <div className="sm:col-span-1">
+                  <Label htmlFor="cantidad" className="text-xs sm:text-sm">Cantidad *</Label>
                   <Input
                     id="cantidad"
                     type="number"
@@ -341,13 +346,15 @@ export default function ManageElementsDialog({
                     onChange={(e) => setNuevoElemento(prev => ({ ...prev, cantidad: parseFloat(e.target.value) || 0 }))}
                     min="0.01"
                     step="0.01"
+                    className="text-sm"
                   />
                 </div>
-                <div className="flex items-end">
+                <div className="sm:col-span-1 flex items-end">
                   <Button
                     onClick={handleAgregarElemento}
                     disabled={saving || !nuevoElemento.descripcion.trim()}
-                    className="w-full"
+                    className="w-full text-sm"
+                    size="sm"
                   >
                     {saving ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -359,41 +366,43 @@ export default function ManageElementsDialog({
                 </div>
               </div>
 
-              <FileUpload
-                id="foto-elemento"
-                label="Foto del Elemento (opcional)"
-                accept="image/*"
-                value={nuevoElemento.foto}
-                onChange={(file) => setNuevoElemento(prev => ({ ...prev, foto: file }))}
-                maxSizeInMB={10}
-                showPreview={true}
-                disabled={saving}
-              />
+              <div className="overflow-hidden rounded-lg border border-dashed border-gray-200">
+                <FileUpload
+                  id="foto-elemento"
+                  label="Foto del Elemento (opcional)"
+                  accept="image/*"
+                  value={nuevoElemento.foto}
+                  onChange={(file) => setNuevoElemento(prev => ({ ...prev, foto: file }))}
+                  maxSizeInMB={10}
+                  showPreview={true}
+                  disabled={saving}
+                />
+              </div>
             </CardContent>
           </Card>
 
           {/* Lista de elementos existentes */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Elementos Actuales ({oferta.elementos?.length || 0})
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Package className="h-4 w-4 shrink-0" />
+                <span className="truncate">Elementos Actuales ({oferta.elementos?.length || 0})</span>
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-3 sm:p-6">
               {oferta.elementos && oferta.elementos.length > 0 ? (
                 <div className="space-y-3">
                   {oferta.elementos.map((elemento, index) => {
                     // Crear una key más estable basada en las propiedades del elemento
-                    const elementKey = `${elemento.categoria}-${elemento.descripcion || 'no-desc'}-${elemento.cantidad}-${index}`
+                    const elementKey = `${elemento.categoria || 'no-cat'}-${elemento.descripcion || 'no-desc'}-${elemento.cantidad}-${index}`
                     const isEditing = elementoEditando?.index === index
 
                     return (
-                    <div key={elementKey} className="p-4 bg-gray-50 rounded-lg border">
+                    <div key={elementKey} className="p-3 sm:p-4 bg-gray-50 rounded-lg border">
                       {isEditing ? (
                         // Modo edición
                         <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             <div>
                               <Label htmlFor={`edit-categoria-${index}`}>Categoría</Label>
                               <Input
@@ -474,19 +483,19 @@ export default function ManageElementsDialog({
                         </div>
                       ) : (
                         // Modo visualización
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                               {elemento.categoria && (
-                                <Badge variant="outline" className="text-xs">
+                                <Badge variant="outline" className="text-xs shrink-0">
                                   {elemento.categoria}
                                 </Badge>
                               )}
-                              <span className="font-medium text-gray-900">
+                              <span className="font-medium text-gray-900 break-words text-sm sm:text-base">
                                 {elemento.descripcion || "Sin descripción"}
                               </span>
                                {elemento.cantidad && (
-                                 <Badge variant="secondary" className="text-xs">
+                                 <Badge variant="secondary" className="text-xs shrink-0">
                                    x{elemento.cantidad}
                                  </Badge>
                                )}
@@ -512,7 +521,7 @@ export default function ManageElementsDialog({
                             )}
                           </div>
 
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 shrink-0">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -549,8 +558,8 @@ export default function ManageElementsDialog({
           </Card>
 
           {/* Botones de acción */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button variant="outline" onClick={onClose}>
+          <div className="flex flex-col sm:flex-row sm:justify-end gap-3 pt-4 border-t">
+            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto justify-center">
               <X className="h-4 w-4 mr-2" />
               Cerrar
             </Button>

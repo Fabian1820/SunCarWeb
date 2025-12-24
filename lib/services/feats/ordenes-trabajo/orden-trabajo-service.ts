@@ -5,7 +5,8 @@ import type {
   OrdenTrabajo,
   CreateOrdenTrabajoRequest,
   UpdateOrdenTrabajoRequest,
-  OrdenTrabajoResponse,
+  CreateOrdenTrabajoResponse,
+  ListOrdenesTrabajoResponse,
 } from '../../../api-types'
 
 export class OrdenTrabajoService {
@@ -23,9 +24,9 @@ export class OrdenTrabajoService {
     if (params.brigada_lider_ci) search.append('brigada_lider_ci', params.brigada_lider_ci)
     if (params.cliente_numero) search.append('cliente_numero', params.cliente_numero)
     const endpoint = `/ordenes-trabajo/${search.toString() ? `?${search.toString()}` : ''}`
-    const response = await apiRequest<OrdenTrabajoResponse>(endpoint)
+    const response = await apiRequest<ListOrdenesTrabajoResponse>(endpoint)
     console.log('✅ OrdenTrabajoService.getOrdenesTrabajo response:', response)
-    return Array.isArray(response.data) ? response.data : []
+    return Array.isArray(response.ordenes) ? response.ordenes : []
   }
 
   /**
@@ -34,24 +35,19 @@ export class OrdenTrabajoService {
    */
   static async getOrdenTrabajoById(ordenId: string): Promise<OrdenTrabajo | null> {
     console.log('🔍 Calling getOrdenTrabajoById with ID:', ordenId)
-    const response = await apiRequest<OrdenTrabajoResponse>(`/ordenes-trabajo/${ordenId}`)
+    const response = await apiRequest<OrdenTrabajo>(`/ordenes-trabajo/${ordenId}`)
     console.log('✅ OrdenTrabajoService.getOrdenTrabajoById response:', response)
-    if (!response.data || Array.isArray(response.data)) {
-      return null
-    }
-    return response.data
+    return response || null
   }
 
   /**
-   * Create new orden de trabajo
+   * Create one or more órdenes de trabajo
    * Backend endpoint: POST /api/ordenes-trabajo/
-   * Required fields: brigada_lider_ci, cliente_numero, tipo_reporte, fecha
+   * Required fields per orden: brigada_lider_ci, cliente_numero, tipo_reporte, fecha
    */
-  static async createOrdenTrabajo(
-    ordenData: CreateOrdenTrabajoRequest
-  ): Promise<{ success: boolean; message: string; data?: any }> {
+  static async createOrdenTrabajo(ordenData: CreateOrdenTrabajoRequest): Promise<CreateOrdenTrabajoResponse> {
     console.log('📝 Calling createOrdenTrabajo with:', ordenData)
-    const response = await apiRequest<{ success: boolean; message: string; data?: any }>('/ordenes-trabajo/', {
+    const response = await apiRequest<CreateOrdenTrabajoResponse>('/ordenes-trabajo/', {
       method: 'POST',
       body: JSON.stringify(ordenData),
     })
@@ -67,9 +63,9 @@ export class OrdenTrabajoService {
   static async updateOrdenTrabajo(
     ordenId: string,
     ordenData: UpdateOrdenTrabajoRequest
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<OrdenTrabajo> {
     console.log('📝 Calling updateOrdenTrabajo with ID:', ordenId, 'data:', ordenData)
-    const response = await apiRequest<{ success: boolean; message: string }>(`/ordenes-trabajo/${ordenId}`, {
+    const response = await apiRequest<OrdenTrabajo>(`/ordenes-trabajo/${ordenId}`, {
       method: 'PUT',
       body: JSON.stringify(ordenData),
     })
@@ -81,9 +77,9 @@ export class OrdenTrabajoService {
    * Delete orden de trabajo
    * Backend endpoint: DELETE /api/ordenes-trabajo/{orden_id}
    */
-  static async deleteOrdenTrabajo(ordenId: string): Promise<{ success: boolean; message: string }> {
+  static async deleteOrdenTrabajo(ordenId: string): Promise<{ success?: boolean; message?: string }> {
     console.log('🗑️ Calling deleteOrdenTrabajo with ID:', ordenId)
-    const response = await apiRequest<{ success: boolean; message: string }>(`/ordenes-trabajo/${ordenId}`, {
+    const response = await apiRequest<{ success?: boolean; message?: string }>(`/ordenes-trabajo/${ordenId}`, {
       method: 'DELETE',
     })
     console.log('✅ OrdenTrabajoService.deleteOrdenTrabajo response:', response)
@@ -91,11 +87,11 @@ export class OrdenTrabajoService {
   }
 
   /**
-   * Generate WhatsApp message for orden de trabajo
+   * Generate WhatsApp message for a single orden de trabajo
    * Uses backend tipo_reporte values (inversion, averia, mantenimiento)
    */
-  static generateOrdenTrabajoMessage(orden: OrdenTrabajo, clienteNombre?: string): string {
-    const url = `https://api.suncarsrl.com/app/crear/${orden.tipo_reporte}/${orden.cliente_numero}`
+  static generateOrdenTrabajoMessage(orden: OrdenTrabajo): string {
+    const url = `https://api.suncarsrl.com/app/crear/${orden.tipo_reporte}/${orden.cliente.numero}`
 
     const fechaFormateada = new Date(orden.fecha).toLocaleDateString('es-ES', {
       year: 'numeric',
@@ -103,25 +99,87 @@ export class OrdenTrabajoService {
       day: 'numeric',
     })
 
-    // Get client name from populated cliente object or use parameter
-    const nombreCliente = clienteNombre || (orden.cliente ? `${orden.cliente.nombre} ${orden.cliente.apellido || ''}`.trim() : 'Sin nombre')
+    const nombreCliente = orden.cliente ? `${orden.cliente.nombre}`.trim() : 'Sin nombre'
 
-    // Get brigada info from populated brigada object
-    const nombreBrigada = orden.brigada
-      ? `${orden.brigada.lider_nombre} ${orden.brigada.lider_apellido}`.trim()
+    const nombreBrigada = orden.brigada?.lider
+      ? `${orden.brigada.lider.nombre}`.trim()
       : 'Sin asignar'
 
     return `📋 *ORDEN DE TRABAJO*
 
 🔧 Tipo: ${orden.tipo_reporte.toUpperCase()}
 👤 Cliente: ${nombreCliente}
-📍 N° Cliente: ${orden.cliente_numero}
+📍 N° Cliente: ${orden.cliente.numero}
 👷 Brigada: ${nombreBrigada}
 📅 Fecha de ejecución: ${fechaFormateada}
-${orden.comentarios ? `\n💬 Comentarios:\n${orden.comentarios}\n` : ''}
-🔗 Link de reporte:
+${orden.comentarios ? `\n💬 Comentarios:\n${orden.comentarios}\n` : ''}${
+      orden.comentario_transporte ? `\n🚌 Transporte:\n${orden.comentario_transporte}\n` : ''
+    }🔗 Link de reporte:
 ${url}
 
 _Generado por SunCar SRL_`
+  }
+
+  /**
+   * Generate WhatsApp message for multiple órdenes de trabajo
+   * Combines all órdenes into a single message
+   */
+  static generateMultipleOrdenesTrabajoMessage(ordenes: OrdenTrabajo[]): string {
+    if (ordenes.length === 0) {
+      return ''
+    }
+
+    if (ordenes.length === 1) {
+      return this.generateOrdenTrabajoMessage(ordenes[0])
+    }
+
+    // Ordenar por fecha de ejecución
+    const ordenesOrdenadas = [...ordenes].sort(
+      (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+    )
+
+    let message = `📋 *LISTA DE ÓRDENES DE TRABAJO*\n\n`
+    message += `Total: ${ordenesOrdenadas.length} orden${ordenesOrdenadas.length > 1 ? 'es' : ''}\n\n`
+    message += `${'='.repeat(40)}\n\n`
+
+    ordenesOrdenadas.forEach((orden, index) => {
+      const url = `https://api.suncarsrl.com/app/crear/${orden.tipo_reporte}/${orden.cliente.numero}`
+      const fechaFormateada = new Date(orden.fecha).toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+
+      const nombreCliente = orden.cliente ? `${orden.cliente.nombre}`.trim() : 'Sin nombre'
+      const nombreBrigada = orden.brigada?.lider
+        ? `${orden.brigada.lider.nombre}`.trim()
+        : 'Sin asignar'
+
+      message += `📋 *ORDEN ${index + 1}*\n\n`
+      message += `🔧 Tipo: ${orden.tipo_reporte.toUpperCase()}\n`
+      message += `👤 Cliente: ${nombreCliente}\n`
+      message += `📍 N° Cliente: ${orden.cliente.numero}\n`
+      message += `👷 Brigada: ${nombreBrigada}\n`
+      message += `📅 Fecha de ejecución: ${fechaFormateada}\n`
+
+      if (orden.comentarios) {
+        message += `\n💬 Comentarios:\n${orden.comentarios}\n`
+      }
+
+      if (orden.comentario_transporte) {
+        message += `\n🚌 Transporte:\n${orden.comentario_transporte}\n`
+      }
+
+      message += `\n🔗 Link de reporte:\n${url}\n`
+
+      if (index < ordenesOrdenadas.length - 1) {
+        message += `\n${'-'.repeat(40)}\n\n`
+      }
+    })
+
+    message += `\n${'='.repeat(40)}\n\n`
+    message += `_Generado por SunCar SRL_`
+
+    return message
   }
 }

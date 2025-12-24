@@ -35,17 +35,17 @@ export function WorkerDetailsDashboard({
     : 0
 
   return (
-    <div className="space-y-6 max-h-[80vh] overflow-y-auto p-1">
+    <div className="space-y-6 max-h-[75vh] sm:max-h-[80vh] overflow-y-auto p-1 sm:p-2">
       {/* Información Principal del Trabajador */}
       <Card className="border-l-4 border-l-purple-600 shadow-lg">
         <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="h-16 w-16 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold">
                 {trabajador.nombre.charAt(0)}
               </div>
-              <div>
-                <CardTitle className="text-2xl text-gray-900">{trabajador.nombre}</CardTitle>
+              <div className="min-w-0">
+                <CardTitle className="text-xl sm:text-2xl text-gray-900 truncate">{trabajador.nombre}</CardTitle>
                 <p className="text-sm text-gray-600 mt-1">CI: {trabajador.CI}</p>
               </div>
             </div>
@@ -97,7 +97,7 @@ export function WorkerDetailsDashboard({
               <h3 className="text-lg font-semibold text-gray-700">Salario Total Calculado</h3>
             </div>
             {salarioCalculado !== null && salarioCalculado !== undefined ? (
-              <p className="text-5xl font-bold text-green-700">
+              <p className="text-3xl sm:text-5xl font-bold text-green-700">
                 ${salarioCalculado.toFixed(2)}
               </p>
             ) : (
@@ -180,22 +180,22 @@ export function WorkerDetailsDashboard({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="p-4 bg-blue-50 rounded-lg text-center">
               <p className="text-sm text-blue-600 mb-1">Días Trabajables</p>
-              <p className="text-3xl font-bold text-blue-700">{trabajador.dias_trabajables || 0}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-blue-700">{trabajador.dias_trabajables || 0}</p>
             </div>
             <div className="p-4 bg-red-50 rounded-lg text-center">
               <p className="text-sm text-red-600 mb-1">Días No Trabajados</p>
-              <p className="text-3xl font-bold text-red-700">{trabajador.dias_no_trabajados?.length || 0}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-red-700">{trabajador.dias_no_trabajados?.length || 0}</p>
             </div>
             <div className="p-4 bg-green-50 rounded-lg text-center">
               <p className="text-sm text-green-600 mb-1">Días Efectivos</p>
-              <p className="text-3xl font-bold text-green-700">{diasTrabajados}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-green-700">{diasTrabajados}</p>
             </div>
             <div className="p-4 bg-purple-50 rounded-lg text-center">
               <p className="text-sm text-purple-600 mb-1">% Asistencia</p>
-              <p className="text-3xl font-bold text-purple-700">
+              <p className="text-2xl sm:text-3xl font-bold text-purple-700">
                 {trabajador.dias_trabajables > 0
                   ? ((diasTrabajados / trabajador.dias_trabajables) * 100).toFixed(1)
                   : '0'}%
@@ -228,7 +228,7 @@ export function WorkerDetailsDashboard({
           <CardTitle className="text-base text-gray-700">Información Complementaria</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="flex justify-between p-2 bg-white rounded border border-gray-200">
               <span className="text-gray-600">CI:</span>
               <span className="font-medium text-gray-900">{trabajador.CI}</span>

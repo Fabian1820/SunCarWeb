@@ -1,14 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { ArrowLeft, Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
+import { Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
 import { LeadsTable } from "@/components/feats/leads/leads-table"
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
@@ -20,6 +19,7 @@ import { Toaster } from "@/components/shared/molecule/toaster"
 import type { Lead, LeadCreateData, LeadUpdateData, LeadConversionRequest } from "@/lib/api-types"
 import type { ExportOptions } from "@/lib/export-service"
 import { downloadFile } from "@/lib/utils/download-file"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function LeadsPage() {
   const {
@@ -270,58 +270,40 @@ const formatEstado = (estado: string): string => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Gestión de Leads
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Ventas
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administrar leads y oportunidades de venta</p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Dialog open={isCreateLeadDialogOpen} onOpenChange={setIsCreateLeadDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Nuevo Lead
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Crear Nuevo Lead</DialogTitle>
-                  </DialogHeader>
-                  <CreateLeadDialog
-                    onSubmit={handleCreateLead}
-                    onCancel={() => setIsCreateLeadDialogOpen(false)}
-                    availableSources={availableSources}
-                    isLoading={loadingAction}
-                  />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Gestión de Leads"
+        subtitle="Administrar leads y oportunidades de venta"
+        badge={{ text: "Ventas", className: "bg-green-100 text-green-800" }}
+        actions={
+          <Dialog open={isCreateLeadDialogOpen} onOpenChange={setIsCreateLeadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="icon"
+                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 touch-manipulation"
+                aria-label="Nuevo lead"
+                title="Nuevo lead"
+              >
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Nuevo Lead</span>
+                <span className="sr-only">Nuevo lead</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Lead</DialogTitle>
+              </DialogHeader>
+              <CreateLeadDialog
+                onSubmit={handleCreateLead}
+                onCancel={() => setIsCreateLeadDialogOpen(false)}
+                availableSources={availableSources}
+                isLoading={loadingAction}
+              />
+            </DialogContent>
+          </Dialog>
+        }
+      />
 
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Error Alert */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">

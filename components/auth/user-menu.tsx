@@ -23,10 +23,11 @@ export function UserMenu() {
         <Button
           variant="outline"
           size="sm"
-          className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300"
+          aria-label="Abrir men\xFA de cuenta"
+          className="flex items-center justify-center gap-0 sm:gap-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 w-9 sm:h-9 sm:w-auto px-0 sm:px-3"
         >
           <User className="h-4 w-4 text-orange-600" />
-          <span className="text-gray-700">{user.nombre}</span>
+          <span className="hidden sm:inline text-gray-700">{user.nombre}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

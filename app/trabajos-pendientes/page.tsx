@@ -23,6 +23,7 @@ import { EditTrabajoDialog } from '@/components/feats/trabajos-pendientes/edit-t
 import { ClientesPendientesFAB } from '@/components/feats/trabajos-pendientes/clientes-pendientes-fab'
 import { TrabajoDetailsModal } from '@/components/feats/trabajos-pendientes/trabajo-details-modal'
 import { TrabajosHistorialModal } from '@/components/feats/trabajos-pendientes/trabajos-historial-modal'
+import { ModuleHeader } from '@/components/shared/organism/module-header'
 import { ConfirmDeleteDialog } from '@/components/shared/molecule/dialog'
 import type { TrabajoPendiente, TrabajoPendienteCreateData } from '@/lib/types/feats/trabajos-pendientes/trabajo-pendiente-types'
 
@@ -174,8 +175,14 @@ export default function TrabajosPendientesPage() {
             <h2 className="text-xl font-semibold text-red-800 mb-2">Error</h2>
             <p className="text-red-600">{error}</p>
             <Link href="/">
-              <Button className="mt-4 bg-red-600 hover:bg-red-700">
-                Volver al Inicio
+              <Button
+                className="mt-4 bg-red-600 hover:bg-red-700"
+                size="icon"
+                aria-label="Volver al inicio"
+                title="Volver al inicio"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Volver al inicio</span>
               </Button>
             </Link>
           </div>
@@ -186,59 +193,46 @@ export default function TrabajosPendientesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Trabajos Pendientes
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                    Gestión
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Administra trabajos pendientes y seguimiento</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                onClick={() => setIsHistorialModalOpen(true)}
-              >
-                <History className="h-4 w-4 mr-2" />
-                Ver Historial
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md"
-                onClick={() => {
-                  setInitialCI(undefined)
-                  setIsCreateDialogOpen(true)
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Trabajo
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Trabajos Pendientes"
+        subtitle="Administra trabajos pendientes y seguimiento"
+        badge={{ text: 'Gestión', className: 'bg-indigo-100 text-indigo-800' }}
+        className="bg-white shadow-sm border-b border-orange-100"
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 border-indigo-200 text-indigo-700 hover:bg-indigo-50 touch-manipulation"
+              onClick={() => setIsHistorialModalOpen(true)}
+              aria-label="Ver historial"
+              title="Ver historial"
+            >
+              <History className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Historial</span>
+              <span className="sr-only">Ver historial</span>
+            </Button>
+            <Button
+              variant="default"
+              size="icon"
+              className="h-9 w-9 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
+              onClick={() => {
+                setInitialCI(undefined)
+                setIsCreateDialogOpen(true)
+              }}
+              aria-label="Nuevo trabajo"
+              title="Nuevo trabajo"
+            >
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nuevo Trabajo</span>
+              <span className="sr-only">Nuevo trabajo</span>
+            </Button>
+          </>
+        }
+      />
 
       {/* Main Content */}
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-24">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24">
         {/* Search Card */}
         <Card className="border-0 shadow-md border-l-4 border-l-indigo-600 mb-6">
           <CardContent className="pt-6">

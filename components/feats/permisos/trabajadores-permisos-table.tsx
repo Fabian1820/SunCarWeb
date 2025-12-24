@@ -136,8 +136,8 @@ export function TrabajadoresPermisosTable({
           </p>
         </div>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
-          <table className="w-full">
+        <div className="border rounded-lg overflow-hidden overflow-x-auto">
+          <table className="w-full min-w-[600px]">
             <thead className="bg-gray-100 border-b">
               <tr>
                 <th className="text-left px-4 py-3 font-semibold text-sm text-gray-700">

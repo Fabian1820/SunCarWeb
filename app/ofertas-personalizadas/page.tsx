@@ -1,8 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { ArrowLeft, Plus, Search } from 'lucide-react'
-import Link from 'next/link'
+import { Plus, Search } from 'lucide-react'
 import { Button } from '@/components/shared/atom/button'
 import { Input } from '@/components/shared/molecule/input'
 import { Card } from '@/components/shared/molecule/card'
@@ -24,6 +23,7 @@ import type {
   OfertaPersonalizadaCreateRequest,
   OfertaPersonalizadaUpdateRequest,
 } from '@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types'
+import { ModuleHeader } from '@/components/shared/organism/module-header'
 
 export default function OfertasPersonalizadasPage() {
   const { toast } = useToast()
@@ -140,49 +140,29 @@ export default function OfertasPersonalizadasPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
-      <header className="fixed-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-6 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Ofertas Personalizadas
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-                    Ventas
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  Gestión de ofertas personalizadas para clientes y leads.
-                </p>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setIsCreateDialogOpen(true)}
-                className="bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Oferta
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <ModuleHeader
+        title="Ofertas Personalizadas"
+        subtitle="Gestión de ofertas personalizadas para clientes y leads."
+        badge={{ text: 'Ventas', className: 'bg-amber-100 text-amber-800' }}
+        actions={
+          <Button
+            size="icon"
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="h-9 w-9 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 touch-manipulation"
+            aria-label="Nueva oferta"
+            title="Nueva oferta"
+          >
+            <Plus className="h-4 w-4 sm:mr-2" />
+            <span className="hidden sm:inline">Nueva Oferta</span>
+            <span className="sr-only">Nueva oferta</span>
+          </Button>
+        }
+      />
 
       {/* Contenido principal */}
-      <main className="pt-32 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Filtros y búsqueda */}
-        <Card className="mb-8 border-l-4 border-l-amber-600 p-6">
+        <Card className="mb-8 border-l-4 border-l-amber-600 p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Búsqueda */}
             <div className="md:col-span-2">

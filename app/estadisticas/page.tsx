@@ -1,10 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/shared/molecule/card"
-import { ArrowLeft, BarChart3, Calendar, RefreshCw } from "lucide-react"
+import { BarChart3, Calendar, RefreshCw } from "lucide-react"
 import { useEstadisticas } from "@/hooks/use-estadisticas"
 import { KpiMonthSelector } from "@/components/feats/estadisticas/kpi-month-selector"
 import { TimelinePeriodSelector } from "@/components/feats/estadisticas/timeline-period-selector"
@@ -14,6 +13,7 @@ import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { RouteGuard } from "@/components/auth/route-guard"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function EstadisticasPage() {
   return (
@@ -74,54 +74,36 @@ function EstadisticasPageContent() {
     return `${getMesNombre(mesInicial.mes)} ${mesInicial.año} - ${getMesNombre(mesFinal.mes)} ${mesFinal.año}`
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header */}
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
-            <div className="flex items-center space-x-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="flex items-center space-x-2">
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Volver al Dashboard</span>
-                  <span className="sm:hidden">Volver</span>
-                </Button>
-              </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
-                <img src="/logo.png" alt="Logo SunCar" className="h-6 w-6 sm:h-10 sm:w-10 object-contain rounded-full" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Estadísticas
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    Analytics
-                  </span>
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Métricas de crecimiento y rendimiento</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                onClick={handleConsultar}
-                disabled={loading}
-                variant="outline"
-                size="sm"
-                className="border-orange-200 hover:bg-orange-50"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                Actualizar
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+	  return (
+	    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+	      {/* Header */}
+	      <ModuleHeader
+	        title="Estadísticas"
+	        subtitle="Métricas de crecimiento y rendimiento"
+	        badge={{ text: "Analytics", className: "bg-orange-100 text-orange-800" }}
+	        className="bg-white shadow-sm border-b border-orange-100"
+	        actions={
+	          <Button
+	            onClick={handleConsultar}
+	            disabled={loading}
+	            variant="outline"
+	            size="icon"
+	            className="h-9 w-9 border-orange-200 hover:bg-orange-50 touch-manipulation"
+	            aria-label="Actualizar"
+	            title="Actualizar"
+	          >
+	            <RefreshCw className={`h-4 w-4 sm:mr-2 ${loading ? 'animate-spin' : ''}`} />
+	            <span className="hidden sm:inline">Actualizar</span>
+	            <span className="sr-only">Actualizar</span>
+	          </Button>
+	        }
+	      />
 
-      <main className="pt-32 pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Error Alert */}
-        {error && (
-          <Card className="mb-6 border-red-200 bg-red-50 border-l-4 border-l-red-500">
-            <CardContent className="p-4">
+	      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-10">
+	        {/* Error Alert */}
+	        {error && (
+	          <Card className="mb-6 border-red-200 bg-red-50 border-l-4 border-l-red-500">
+	            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <p className="text-red-800">{error}</p>
                 <Button variant="ghost" size="sm" onClick={clearError}>

@@ -118,11 +118,32 @@
   left: 0;
   right: 0;
   z-index: 50;
-  background: white;
+  background: rgba(255, 255, 255, 0.95);
   border-bottom: 1px solid #fed7aa;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+:root {
+  --fixed-header-height: 96px;
+  --module-header-height: 96px;
+  --module-header-offset: 16px;
+  --content-with-fixed-header-padding: calc(var(--fixed-header-height) + var(--module-header-offset));
 }
 
 .content-with-fixed-header {
-  padding-top: 150px;
+  padding-top: var(--content-with-fixed-header-padding, 144px);
+}
+
+@media (min-width: 640px) {
+  :root {
+    --module-header-offset: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --module-header-offset: 24px;
+  }
 }
