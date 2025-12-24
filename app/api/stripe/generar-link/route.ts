@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 
-// Inicializar Stripe con la Secret Key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia',
-})
+const STRIPE_API_VERSION = '2024-12-18.acacia'
 
 const STRIPE_FEE_PERCENT = 0.05
 
@@ -43,6 +40,10 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       )
     }
+
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: STRIPE_API_VERSION,
+    })
 
     const precioConRecargo = Math.round(precio * (1 + STRIPE_FEE_PERCENT) * 100) / 100
 
