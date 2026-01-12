@@ -8,15 +8,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { TrabajoPendienteService } from '@/lib/api-services'
 import { ClienteService } from '@/lib/api-services'
+import { LeadService } from '@/lib/api-services'
 import type {
   TrabajoPendiente,
   TrabajoPendienteCreateData
 } from '@/lib/types/feats/trabajos-pendientes/trabajo-pendiente-types'
 import type { Cliente } from '@/lib/types/feats/customer/cliente-types'
+import type { Lead } from '@/lib/types/feats/leads/lead-types'
 
 export function useTrabajoPendientes() {
   const [trabajos, setTrabajos] = useState<TrabajoPendiente[]>([])
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -36,6 +39,17 @@ export function useTrabajoPendientes() {
     return map
   }, [clientes])
 
+  // Create a map of lead_id -> Lead nombre for efficient lookup
+  const leadMap = useMemo(() => {
+    const map = new Map<string, string>()
+    leads.forEach((lead) => {
+      if (lead.id) {
+        map.set(lead.id, lead.nombre)
+      }
+    })
+    return map
+  }, [leads])
+
   /**
    * Load all clientes for CI -> Nombre lookup
    */
@@ -50,7 +64,20 @@ export function useTrabajoPendientes() {
   }, [])
 
   /**
-   * Load all trabajos pendientes and enrich with client names
+   * Load all leads for lead_id -> Nombre lookup
+   */
+  const loadLeads = useCallback(async () => {
+    try {
+      const leadsData = await LeadService.getLeads({})
+      setLeads(Array.isArray(leadsData) ? leadsData : [])
+    } catch (err) {
+      console.error('Error loading leads:', err)
+      // Don't set error state, as this is a secondary operation
+    }
+  }, [])
+
+  /**
+   * Load all trabajos pendientes and enrich with client/lead names
    */
   const loadTrabajos = useCallback(async () => {
     setLoading(true)
@@ -59,11 +86,25 @@ export function useTrabajoPendientes() {
       const data = await TrabajoPendienteService.getTrabajos()
       const trabajosArray = Array.isArray(data) ? data : []
 
-      // Enrich each trabajo with client name
-      const enrichedTrabajos = trabajosArray.map((trabajo) => ({
-        ...trabajo,
-        Nombre: clienteMap.get(trabajo.CI) || undefined
-      }))
+      // Enrich each trabajo with client or lead name
+      const enrichedTrabajos = trabajosArray.map((trabajo) => {
+        let nombre: string | undefined
+        let tipoReferencia: 'cliente' | 'lead' | undefined
+
+        if (trabajo.CI) {
+          nombre = clienteMap.get(trabajo.CI)
+          tipoReferencia = 'cliente'
+        } else if (trabajo.lead_id) {
+          nombre = leadMap.get(trabajo.lead_id)
+          tipoReferencia = 'lead'
+        }
+
+        return {
+          ...trabajo,
+          Nombre: nombre,
+          tipo_referencia: tipoReferencia
+        }
+      })
 
       setTrabajos(enrichedTrabajos)
     } catch (err) {
@@ -74,7 +115,7 @@ export function useTrabajoPendientes() {
     } finally {
       setLoading(false)
     }
-  }, [clienteMap])
+  }, [clienteMap, leadMap])
 
   /**
    * Filter trabajos by search term (searches CI, Nombre, Estado)
@@ -102,13 +143,28 @@ export function useTrabajoPendientes() {
    * Create a new trabajo pendiente
    */
   const createTrabajo = async (
-    data: TrabajoPendienteCreateData
-  ): Promise<{ success: boolean; message: string }> => {
+    data: TrabajoPendienteCreateData,
+    archivos?: File[]
+  ): Promise<{ success: boolean; message: string; trabajoId?: string }> => {
     try {
       const response = await TrabajoPendienteService.crearTrabajo(data)
       if (response.success) {
+        // If archivos are provided and we have a trabajo_id, upload them
+        if (archivos && archivos.length > 0 && response.trabajo_id) {
+          try {
+            await TrabajoPendienteService.uploadArchivos(response.trabajo_id, archivos)
+          } catch (uploadErr) {
+            console.error('Error uploading archivos:', uploadErr)
+            // Don't fail the whole operation if file upload fails
+          }
+        }
+        
         await loadTrabajos()
-        return { success: true, message: response.message || 'Trabajo creado exitosamente' }
+        return { 
+          success: true, 
+          message: response.message || 'Trabajo creado exitosamente',
+          trabajoId: response.trabajo_id
+        }
       }
       return { success: false, message: response.message || 'Error al crear trabajo' }
     } catch (err) {
@@ -211,22 +267,35 @@ export function useTrabajoPendientes() {
     )
   }, [clientes])
 
-  // Load clientes first, then trabajos
+  /**
+   * Get leads with "Pendiente de Instalación" status
+   */
+  const getLeadsPendientesInstalacion = useCallback((): Lead[] => {
+    return leads.filter(
+      (lead) =>
+        lead.estado?.toLowerCase() === 'pendiente de instalación' ||
+        lead.estado?.toLowerCase() === 'pendiente de instalacion'
+    )
+  }, [leads])
+
+  // Load clientes and leads first, then trabajos
   useEffect(() => {
     loadClientes()
-  }, [loadClientes])
+    loadLeads()
+  }, [loadClientes, loadLeads])
 
-  // Load trabajos when clienteMap is ready
+  // Load trabajos when clienteMap and leadMap are ready
   useEffect(() => {
-    if (clientes.length > 0 || !loading) {
+    if ((clientes.length > 0 || leads.length > 0) || !loading) {
       loadTrabajos()
     }
-  }, [clientes.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clientes.length, leads.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     trabajos,
     filteredTrabajos,
     clientes,
+    leads,
     loading,
     error,
     searchTerm,
@@ -238,6 +307,7 @@ export function useTrabajoPendientes() {
     incrementVisits,
     toggleActiveStatus,
     getClientesPendientesInstalacion,
+    getLeadsPendientesInstalacion,
     clearError: () => setError(null)
   }
 }

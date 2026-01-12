@@ -25,6 +25,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/shared/atom/select'
+import { FileUploadSection } from './file-upload-section'
+import { TrabajoPendienteService } from '@/lib/api-services'
 import type {
   TrabajoPendiente,
   TrabajoPendienteCreateData
@@ -105,19 +107,21 @@ export function EditTrabajoDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* CI - Read only */}
+          {/* CI/Lead - Read only */}
           <div>
-            <Label htmlFor="ci_readonly">CI (No editable)</Label>
+            <Label htmlFor="referencia_readonly">
+              {trabajo.tipo_referencia === 'lead' ? 'Lead ID' : 'CI'} (No editable)
+            </Label>
             <Input
-              id="ci_readonly"
-              value={trabajo.CI}
+              id="referencia_readonly"
+              value={trabajo.CI || trabajo.lead_id || 'N/A'}
               readOnly
               disabled
               className="bg-gray-100 cursor-not-allowed"
             />
             {trabajo.Nombre && (
               <p className="text-sm text-gray-500 mt-1">
-                Cliente: {trabajo.Nombre}
+                {trabajo.tipo_referencia === 'lead' ? 'Lead' : 'Cliente'}: {trabajo.Nombre}
               </p>
             )}
           </div>
@@ -234,6 +238,29 @@ export function EditTrabajoDialog({
               Trabajo activo
             </Label>
           </div>
+
+          {/* Archivos Section */}
+          {trabajo.id && (
+            <div className="border-t pt-4">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Archivos Adjuntos</h3>
+              <FileUploadSection
+                archivos={trabajo.archivos || []}
+                onUpload={async (files) => {
+                  if (trabajo.id) {
+                    await TrabajoPendienteService.uploadArchivos(trabajo.id, files)
+                    // Reload trabajo data would happen in parent component
+                  }
+                }}
+                onDelete={async (archivoId) => {
+                  if (trabajo.id) {
+                    await TrabajoPendienteService.deleteArchivo(trabajo.id, archivoId)
+                    // Reload trabajo data would happen in parent component
+                  }
+                }}
+                disabled={loading}
+              />
+            </div>
+          )}
 
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
             <Button

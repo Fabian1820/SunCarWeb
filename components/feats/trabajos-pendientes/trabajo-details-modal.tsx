@@ -11,6 +11,7 @@ import {
   DialogTitle
 } from '@/components/shared/molecule/dialog'
 import { Badge } from '@/components/shared/atom/badge'
+import { FileUploadSection } from './file-upload-section'
 import type { TrabajoPendiente } from '@/lib/types/feats/trabajos-pendientes/trabajo-pendiente-types'
 
 interface TrabajoDetailsModalProps {
@@ -64,27 +65,43 @@ export function TrabajoDetailsModal({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Información del Cliente */}
+          {/* Información del Cliente/Lead */}
           <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-4 border border-indigo-200">
             <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <svg className="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
-              Información del Cliente
+              Información del {trabajo.tipo_referencia === 'lead' ? 'Lead' : 'Cliente'}
             </h3>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-gray-600">CI</p>
-                <p className="font-medium text-gray-900">{trabajo.CI}</p>
-              </div>
+              {trabajo.CI && (
+                <div>
+                  <p className="text-sm text-gray-600">CI</p>
+                  <p className="font-medium text-gray-900">{trabajo.CI}</p>
+                </div>
+              )}
+              {trabajo.lead_id && (
+                <div>
+                  <p className="text-sm text-gray-600">Lead ID</p>
+                  <p className="font-medium text-gray-900">{trabajo.lead_id}</p>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-gray-600">Nombre</p>
                 <p className="font-medium text-gray-900">
                   {trabajo.Nombre || (
-                    <span className="text-gray-400 italic">Sin cliente asociado</span>
+                    <span className="text-gray-400 italic">Sin {trabajo.tipo_referencia === 'lead' ? 'lead' : 'cliente'} asociado</span>
                   )}
                 </p>
               </div>
+              {trabajo.tipo_referencia && (
+                <div>
+                  <p className="text-sm text-gray-600">Tipo</p>
+                  <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-300">
+                    {trabajo.tipo_referencia === 'lead' ? 'Lead' : 'Cliente'}
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
 
@@ -175,6 +192,24 @@ export function TrabajoDetailsModal({
                 Comentarios
               </h3>
               <p className="text-gray-700 whitespace-pre-wrap">{trabajo.comentario}</p>
+            </div>
+          )}
+
+          {/* Archivos Adjuntos */}
+          {trabajo.archivos && trabajo.archivos.length > 0 && (
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <svg className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                Archivos Adjuntos ({trabajo.archivos.length})
+              </h3>
+              <FileUploadSection
+                archivos={trabajo.archivos}
+                onUpload={async () => {}} // Read-only en modal de detalles
+                onDelete={async () => {}} // Read-only en modal de detalles
+                disabled={true}
+              />
             </div>
           )}
 

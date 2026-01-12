@@ -34,6 +34,7 @@ export default function TrabajosPendientesPage() {
     trabajos,
     filteredTrabajos: allFilteredTrabajos,
     clientes,
+    leads,
     loading,
     error,
     searchTerm,
@@ -41,7 +42,8 @@ export default function TrabajosPendientesPage() {
     createTrabajo,
     updateTrabajo,
     deleteTrabajo,
-    getClientesPendientesInstalacion
+    getClientesPendientesInstalacion,
+    getLeadsPendientesInstalacion
   } = useTrabajoPendientes()
 
   // Dialog states
@@ -60,8 +62,9 @@ export default function TrabajosPendientesPage() {
   // Delete loading state
   const [deleteLoading, setDeleteLoading] = useState(false)
 
-  // Get clientes pendientes de instalación
+  // Get clientes and leads pendientes de instalación
   const clientesPendientes = getClientesPendientesInstalacion()
+  const leadsPendientes = getLeadsPendientesInstalacion()
 
   // Filter out "Finalizado" trabajos from main view
   const filteredTrabajosNoFinalizados = useMemo(() => {
@@ -73,8 +76,8 @@ export default function TrabajosPendientesPage() {
   /**
    * Handle create trabajo
    */
-  const handleCreate = async (data: TrabajoPendienteCreateData) => {
-    const result = await createTrabajo(data)
+  const handleCreate = async (data: TrabajoPendienteCreateData, archivos?: File[]) => {
+    const result = await createTrabajo(data, archivos)
     if (result.success) {
       toast({
         title: 'Éxito',
@@ -288,6 +291,7 @@ export default function TrabajosPendientesPage() {
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreate}
         clientes={clientes}
+        leads={leads}
         initialCI={initialCI}
       />
 

@@ -72,12 +72,15 @@ export async function apiRequest<T>(
       baseHeaders['Content-Type'] = 'application/json'
     }
 
+    // Extraer headers de requestOptions para hacer merge correcto
+    const { headers: requestHeaders, ...restOptions } = requestOptions
+
     const config: RequestInit = {
+      ...restOptions,
       headers: {
         ...baseHeaders,
-        ...(requestOptions.headers || {}),
+        ...(requestHeaders || {}),
       },
-      ...requestOptions,
     }
 
     console.log(`📡 Making API request to: ${url}`)

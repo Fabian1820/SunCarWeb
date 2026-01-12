@@ -125,4 +125,59 @@ export class TrabajoPendienteService {
       }
     )
   }
+
+  /**
+   * Upload archivos to a trabajo pendiente
+   * @param id - Trabajo ID
+   * @param files - Array of files to upload
+   * @returns API response
+   */
+  static async uploadArchivos(
+    id: string,
+    files: File[]
+  ): Promise<TrabajoPendienteResponse> {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('archivos', file)
+    })
+
+    // No pasar headers - apiRequest detecta FormData y no agrega Content-Type
+    return apiRequest<TrabajoPendienteResponse>(
+      `/trabajos-pendientes/${id}/archivos`,
+      {
+        method: 'POST',
+        body: formData
+      }
+    )
+  }
+
+  /**
+   * Delete an archivo from a trabajo pendiente
+   * @param trabajoId - Trabajo ID
+   * @param archivoId - Archivo ID
+   * @returns API response
+   */
+  static async deleteArchivo(
+    trabajoId: string,
+    archivoId: string
+  ): Promise<TrabajoPendienteResponse> {
+    return apiRequest<TrabajoPendienteResponse>(
+      `/trabajos-pendientes/${trabajoId}/archivos/${archivoId}`,
+      {
+        method: 'DELETE'
+      }
+    )
+  }
+
+  /**
+   * Get all archivos for a trabajo pendiente
+   * @param id - Trabajo ID
+   * @returns Array of archivos
+   */
+  static async getArchivos(id: string): Promise<any[]> {
+    const response = await apiRequest<{ success: boolean; data: any[] }>(
+      `/trabajos-pendientes/${id}/archivos`
+    )
+    return Array.isArray(response.data) ? response.data : []
+  }
 }

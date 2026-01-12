@@ -22,3 +22,4 @@ export { TrabajoPendienteService } from './services/feats/trabajos-pendientes/tr
 export { CalculoEnergeticoService } from './services/feats/calculo-energetico/calculo-energetico-service'
 export { ArticuloTiendaService } from './services/feats/articulos-tienda/articulo-tienda-service'
 export { EstadisticasService } from './services/feats/estadisticas/estadisticas-service'
+export { InventarioService } from './services/feats/inventario/inventario-service'

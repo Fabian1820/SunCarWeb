@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useMemo } from 'react'
-import { Loader2, Save, X } from 'lucide-react'
+import { Loader2, Save, X, Users, UserPlus } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -25,15 +25,20 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/shared/atom/select'
-import type { TrabajoPendienteCreateData } from '@/lib/types/feats/trabajos-pendientes/trabajo-pendiente-types'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/shared/molecule/tabs'
+import { FileUploadSection, getFileType } from './file-upload-section'
+import type { TrabajoPendienteCreateData, ArchivoTrabajo } from '@/lib/types/feats/trabajos-pendientes/trabajo-pendiente-types'
 import type { Cliente } from '@/lib/types/feats/customer/cliente-types'
+import type { Lead } from '@/lib/types/feats/leads/lead-types'
 
 interface CreateTrabajoDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSubmit: (data: TrabajoPendienteCreateData) => Promise<void>
+  onSubmit: (data: TrabajoPendienteCreateData, archivos?: File[]) => Promise<void>
   clientes: Cliente[]
+  leads: Lead[]
   initialCI?: string // Optional pre-filled CI
+  initialLeadId?: string // Optional pre-filled Lead ID
 }
 
 export function CreateTrabajoDialog({
@@ -41,14 +46,19 @@ export function CreateTrabajoDialog({
   onOpenChange,
   onSubmit,
   clientes,
-  initialCI
+  leads,
+  initialCI,
+  initialLeadId
 }: CreateTrabajoDialogProps) {
   const [loading, setLoading] = useState(false)
+  const [tipoReferencia, setTipoReferencia] = useState<'cliente' | 'lead'>('cliente')
   const [useManualCI, setUseManualCI] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [archivosToUpload, setArchivosToUpload] = useState<File[]>([])
 
   const [formData, setFormData] = useState<TrabajoPendienteCreateData>({
-    CI: initialCI || '',
+    CI: initialCI || undefined,
+    lead_id: initialLeadId || undefined,
     estado: 'Pendiente',
     fecha_inicio: new Date().toISOString().split('T')[0],
     is_active: true,
@@ -58,11 +68,15 @@ export function CreateTrabajoDialog({
     responsable_parada: null
   })
 
-  // Reset form when dialog opens/closes or initialCI changes
+  // Reset form when dialog opens/closes or initialCI/initialLeadId changes
   useEffect(() => {
     if (open) {
+      const hasInitialCI = !!initialCI
+      const hasInitialLead = !!initialLeadId
+      
       setFormData({
-        CI: initialCI || '',
+        CI: initialCI || undefined,
+        lead_id: initialLeadId || undefined,
         estado: 'Pendiente',
         fecha_inicio: new Date().toISOString().split('T')[0],
         is_active: true,
@@ -71,10 +85,13 @@ export function CreateTrabajoDialog({
         comentario: null,
         responsable_parada: null
       })
-      setUseManualCI(!!initialCI)
+      
+      setTipoReferencia(hasInitialLead ? 'lead' : 'cliente')
+      setUseManualCI(hasInitialCI)
       setSearchTerm('')
+      setArchivosToUpload([])
     }
-  }, [open, initialCI])
+  }, [open, initialCI, initialLeadId])
 
   // Filter clients by search term
   const filteredClientes = useMemo(() => {
@@ -88,14 +105,34 @@ export function CreateTrabajoDialog({
     )
   }, [clientes, searchTerm])
 
+  // Filter leads by search term
+  const filteredLeads = useMemo(() => {
+    if (!searchTerm.trim()) return leads
+    const lower = searchTerm.toLowerCase()
+    return leads.filter(
+      (l) =>
+        l.nombre.toLowerCase().includes(lower) ||
+        l.telefono.toLowerCase().includes(lower) ||
+        l.id?.toLowerCase().includes(lower)
+    )
+  }, [leads, searchTerm])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     // Validation
-    if (!formData.CI.trim()) {
-      alert('Por favor ingrese un CI')
-      return
+    if (tipoReferencia === 'cliente') {
+      if (!formData.CI?.trim()) {
+        alert('Por favor ingrese un CI o seleccione un cliente')
+        return
+      }
+    } else {
+      if (!formData.lead_id?.trim()) {
+        alert('Por favor seleccione un lead')
+        return
+      }
     }
+    
     if (!formData.estado.trim()) {
       alert('Por favor seleccione un estado')
       return
@@ -107,7 +144,15 @@ export function CreateTrabajoDialog({
 
     setLoading(true)
     try {
-      await onSubmit(formData)
+      // Clean up data based on tipo_referencia
+      const dataToSubmit = { ...formData }
+      if (tipoReferencia === 'cliente') {
+        delete dataToSubmit.lead_id
+      } else {
+        delete dataToSubmit.CI
+      }
+      
+      await onSubmit(dataToSubmit, archivosToUpload)
       onOpenChange(false)
     } catch (error) {
       console.error('Error creating trabajo:', error)
@@ -117,7 +162,20 @@ export function CreateTrabajoDialog({
   }
 
   const handleClientSelect = (value: string) => {
-    setFormData({ ...formData, CI: value })
+    setFormData({ ...formData, CI: value, lead_id: undefined })
+  }
+
+  const handleLeadSelect = (value: string) => {
+    setFormData({ ...formData, lead_id: value, CI: undefined })
+  }
+
+  const handleFileUpload = async (files: File[]) => {
+    // Store files to upload after trabajo is created
+    setArchivosToUpload(prev => [...prev, ...files])
+  }
+
+  const handleFileDelete = async (index: number) => {
+    setArchivosToUpload(prev => prev.filter((_, i) => i !== index))
   }
 
   return (
@@ -130,71 +188,117 @@ export function CreateTrabajoDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Client Selection Section */}
-          <div className="space-y-3 border-b pb-4">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="useManualCI"
-                checked={useManualCI}
-                onChange={(e) => {
-                  setUseManualCI(e.target.checked)
-                  if (!e.target.checked) {
-                    setFormData({ ...formData, CI: '' })
-                  }
-                }}
-                className="rounded border-gray-300"
-              />
-              <Label htmlFor="useManualCI" className="cursor-pointer">
-                Ingresar CI manualmente
-              </Label>
-            </div>
+          {/* Tabs para Cliente o Lead */}
+          <Tabs value={tipoReferencia} onValueChange={(v) => setTipoReferencia(v as 'cliente' | 'lead')}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="cliente" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Cliente
+              </TabsTrigger>
+              <TabsTrigger value="lead" className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4" />
+                Lead
+              </TabsTrigger>
+            </TabsList>
 
-            {!useManualCI ? (
+            {/* Tab Content: Cliente */}
+            <TabsContent value="cliente" className="space-y-3 mt-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="useManualCI"
+                  checked={useManualCI}
+                  onChange={(e) => {
+                    setUseManualCI(e.target.checked)
+                    if (!e.target.checked) {
+                      setFormData({ ...formData, CI: undefined })
+                    }
+                  }}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="useManualCI" className="cursor-pointer">
+                  Ingresar CI manualmente
+                </Label>
+              </div>
+
+              {!useManualCI ? (
+                <div>
+                  <Label htmlFor="searchCliente">Buscar Cliente</Label>
+                  <Input
+                    id="searchCliente"
+                    placeholder="Buscar por nombre o CI..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="mb-2"
+                  />
+                  <Select value={formData.CI} onValueChange={handleClientSelect}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar cliente" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {filteredClientes.length === 0 ? (
+                        <div className="p-2 text-sm text-gray-500">
+                          No se encontraron clientes
+                        </div>
+                      ) : (
+                        filteredClientes.map((cliente) => (
+                          <SelectItem
+                            key={cliente.numero}
+                            value={cliente.carnet_identidad || cliente.numero}
+                          >
+                            {cliente.nombre} - CI: {cliente.carnet_identidad || 'N/A'}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="manualCI">CI Manual</Label>
+                  <Input
+                    id="manualCI"
+                    placeholder="Ingresar CI..."
+                    value={formData.CI || ''}
+                    onChange={(e) => setFormData({ ...formData, CI: e.target.value })}
+                    required
+                  />
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Tab Content: Lead */}
+            <TabsContent value="lead" className="space-y-3 mt-4">
               <div>
-                <Label htmlFor="searchCliente">Buscar Cliente</Label>
+                <Label htmlFor="searchLead">Buscar Lead</Label>
                 <Input
-                  id="searchCliente"
-                  placeholder="Buscar por nombre o CI..."
+                  id="searchLead"
+                  placeholder="Buscar por nombre o teléfono..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="mb-2"
                 />
-                <Select value={formData.CI} onValueChange={handleClientSelect}>
+                <Select value={formData.lead_id} onValueChange={handleLeadSelect}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar cliente" />
+                    <SelectValue placeholder="Seleccionar lead" />
                   </SelectTrigger>
                   <SelectContent>
-                    {filteredClientes.length === 0 ? (
+                    {filteredLeads.length === 0 ? (
                       <div className="p-2 text-sm text-gray-500">
-                        No se encontraron clientes
+                        No se encontraron leads
                       </div>
                     ) : (
-                      filteredClientes.map((cliente) => (
-                        <SelectItem
-                          key={cliente.numero}
-                          value={cliente.carnet_identidad || cliente.numero}
-                        >
-                          {cliente.nombre} - CI: {cliente.carnet_identidad || 'N/A'}
+                      filteredLeads.map((lead) => (
+                        <SelectItem key={lead.id} value={lead.id || ''}>
+                          {lead.nombre} - Tel: {lead.telefono} - Estado: {lead.estado}
                         </SelectItem>
                       ))
                     )}
                   </SelectContent>
                 </Select>
               </div>
-            ) : (
-              <div>
-                <Label htmlFor="manualCI">CI Manual</Label>
-                <Input
-                  id="manualCI"
-                  placeholder="Ingresar CI..."
-                  value={formData.CI}
-                  onChange={(e) => setFormData({ ...formData, CI: e.target.value })}
-                  required
-                />
-              </div>
-            )}
-          </div>
+            </TabsContent>
+          </Tabs>
 
           {/* Estado */}
           <div>
@@ -293,6 +397,28 @@ export function CreateTrabajoDialog({
             <Label htmlFor="is_active" className="cursor-pointer">
               Trabajo activo
             </Label>
+          </div>
+
+          {/* Archivos Section */}
+          <div className="border-t pt-4">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Archivos Adjuntos</h3>
+            <FileUploadSection
+              archivos={archivosToUpload.map((file, index) => ({
+                id: `temp-${index}`,
+                url: URL.createObjectURL(file),
+                tipo: getFileType(file.type),
+                nombre: file.name,
+                tamano: file.size,
+                mime_type: file.type,
+                created_at: new Date().toISOString()
+              }))}
+              onUpload={handleFileUpload}
+              onDelete={(id) => {
+                const index = parseInt(id.replace('temp-', ''))
+                handleFileDelete(index)
+              }}
+              disabled={loading}
+            />
           </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">

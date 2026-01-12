@@ -61,3 +61,18 @@ export type {
   BackendArticuloTiendaResponse,
   EspecificacionesSugeridas,
 } from './types/feats/articulos-tienda/articulos-tienda-types'
+
+export type {
+  InventarioMovimientoTipo,
+  Almacen,
+  Tienda,
+  StockItem,
+  MovimientoInventario,
+  AlmacenCreateData,
+  AlmacenUpdateData,
+  TiendaCreateData,
+  TiendaUpdateData,
+  MovimientoCreateData,
+  VentaItem,
+  VentaCreateData,
+} from './types/feats/inventario/inventario-types'

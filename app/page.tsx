@@ -4,6 +4,8 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
+import { Switch } from "@/components/shared/molecule/switch"
+import { Label } from "@/components/shared/atom/label"
 import {
     Sun,
     FileText,
@@ -30,10 +32,10 @@ import {
     ShoppingBag,
     BarChart3
 } from "lucide-react"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
-import { ReporteService, ClienteService } from "@/lib/api-services"
+import { ReporteService, ClienteService, InventarioService } from "@/lib/api-services"
 import { Loader } from "@/components/shared/atom/loader"
 import { Wrench, Zap } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
@@ -41,6 +43,7 @@ import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { useAuth } from "@/contexts/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
+import type { Almacen, Tienda } from "@/lib/inventario-types"
 
 export default function Dashboard() {
     const { hasPermission, user, loadModulosPermitidos } = useAuth()
@@ -50,6 +53,9 @@ export default function Dashboard() {
     const [recentReports, setRecentReports] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<any[]>([])
+    const [tiendas, setTiendas] = useState<Tienda[]>([])
+    const [almacenes, setAlmacenes] = useState<Almacen[]>([])
+    const [showDynamicModules, setShowDynamicModules] = useState(true)
     const headerRef = useRef<HTMLElement | null>(null)
     const [headerHeight, setHeaderHeight] = useState<number>(120)
 
@@ -57,6 +63,46 @@ export default function Dashboard() {
     useEffect(() => {
         loadModulosPermitidos()
     }, [user])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const stored = localStorage.getItem("dashboard_show_dynamic_modules")
+        if (stored !== null) {
+            setShowDynamicModules(stored === "true")
+        }
+    }, [])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        localStorage.setItem("dashboard_show_dynamic_modules", String(showDynamicModules))
+    }, [showDynamicModules])
+
+    const loadDynamicModules = useCallback(async () => {
+        if (!user) return
+        try {
+            const [tiendasData, almacenesData] = await Promise.all([
+                InventarioService.getTiendas(),
+                InventarioService.getAlmacenes(),
+            ])
+            setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
+            setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
+        } catch (error) {
+            console.error("Error loading tiendas/almacenes:", error)
+            setTiendas([])
+            setAlmacenes([])
+        }
+    }, [user])
+
+    useEffect(() => {
+        loadDynamicModules()
+    }, [loadDynamicModules])
+
+    useEffect(() => {
+        if (typeof window === "undefined") return
+        const handler = () => loadDynamicModules()
+        window.addEventListener("refreshDynamicModules", handler)
+        return () => window.removeEventListener("refreshDynamicModules", handler)
+    }, [loadDynamicModules])
 
     // Definir todos los módulos con sus configuraciones
     const allModules = [
@@ -91,6 +137,41 @@ export default function Dashboard() {
             title: 'Gestionar Materiales',
             description: 'Administrar catálogo de materiales.',
             color: 'emerald-600',
+        },
+        {
+            id: 'inventario',
+            href: '/inventario',
+            icon: Package,
+            title: 'Inventario y Tiendas',
+            description: 'Controlar almacenes, stock y movimientos de tienda.',
+            color: 'orange-600',
+        },
+        {
+            id: 'almacenes',
+            permission: 'inventario',
+            href: '/inventario?tab=almacenes',
+            icon: Package,
+            title: 'Almacenes',
+            description: 'Gestionar almacenes y sus responsables.',
+            color: 'orange-600',
+        },
+        {
+            id: 'tiendas',
+            permission: 'inventario',
+            href: '/inventario?tab=tiendas',
+            icon: ShoppingBag,
+            title: 'Tiendas',
+            description: 'Registrar sucursales y su almacén asociado.',
+            color: 'orange-600',
+        },
+        {
+            id: 'movimientos',
+            permission: 'inventario',
+            href: '/inventario?tab=movimientos',
+            icon: RotateCcw,
+            title: 'Movimientos',
+            description: 'Registrar entradas, salidas y transferencias.',
+            color: 'orange-600',
         },
         {
             id: 'reportes',
@@ -198,6 +279,36 @@ export default function Dashboard() {
         },
     ]
 
+    const tiendaModules = showDynamicModules
+        ? tiendas
+            .filter((tienda) => Boolean(tienda.id))
+            .map((tienda) => ({
+                id: `tienda-${tienda.id}`,
+                permission: `tienda:${tienda.id}`,
+                href: `/tiendas/${tienda.id}`,
+                icon: ShoppingBag,
+                title: `Tienda: ${tienda.nombre}`,
+                description: tienda.almacen_nombre
+                    ? `Ventas · Almacén ${tienda.almacen_nombre}`
+                    : "Ventas y stock",
+                color: 'orange-600',
+            }))
+        : []
+
+    const almacenModules = showDynamicModules
+        ? almacenes
+            .filter((almacen) => Boolean(almacen.id))
+            .map((almacen) => ({
+                id: `almacen-${almacen.id}`,
+                permission: `almacen:${almacen.id}`,
+                href: `/almacenes/${almacen.id}`,
+                icon: Package,
+                title: `Almacén: ${almacen.nombre}`,
+                description: "Entradas, salidas y stock",
+                color: 'orange-600',
+            }))
+        : []
+
     // Módulos solo para superAdmin
     const superAdminModules = user?.is_superAdmin ? [
         {
@@ -212,7 +323,9 @@ export default function Dashboard() {
 
     // Filtrar módulos según permisos del usuario y agregar módulos de superAdmin
     const availableModules = [
-        ...allModules.filter(module => hasPermission(module.id)),
+        ...allModules.filter(module => hasPermission(module.permission ?? module.id)),
+        ...tiendaModules.filter(module => hasPermission(module.permission ?? module.id)),
+        ...almacenModules.filter(module => hasPermission(module.permission ?? module.id)),
         ...superAdminModules
     ]
 
@@ -342,13 +455,25 @@ export default function Dashboard() {
             >
                 {/* Full width layout for modules */}
                 <div className="flex flex-col">
-                    <div className="mb-4 sm:mb-6">
-                        <h2 className="text-lg sm:text-xl font-bold text-gray-900 text-center">Módulos del Sistema</h2>
-                        {user && (
-                            <p className="text-center text-sm text-gray-600 mt-2">
-                                Bienvenido, <span className="font-semibold">{user.nombre}</span> - {user.rol}
-                            </p>
-                        )}
+                    <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-center sm:text-left">
+                            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Módulos del Sistema</h2>
+                            {user && (
+                                <p className="text-sm text-gray-600 mt-2">
+                                    Bienvenido, <span className="font-semibold">{user.nombre}</span> - {user.rol}
+                                </p>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-center sm:justify-end gap-2">
+                            <Switch
+                                id="toggle-dynamic-modules"
+                                checked={showDynamicModules}
+                                onCheckedChange={setShowDynamicModules}
+                            />
+                            <Label htmlFor="toggle-dynamic-modules" className="text-sm text-gray-700">
+                                Mostrar tiendas y almacenes
+                            </Label>
+                        </div>
                     </div>
 
                     {availableModules.length === 0 ? (
