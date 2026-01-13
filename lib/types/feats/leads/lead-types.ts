@@ -43,6 +43,7 @@ export interface Lead {
   pais_contacto?: string
   comentario?: string
   provincia_montaje?: string
+  municipio?: string
   comercial?: string
   ofertas?: OfertaEmbebida[]
   elementos_personalizados?: ElementoPersonalizado[]
@@ -69,6 +70,7 @@ export interface LeadCreateData {
   pais_contacto?: string
   comentario?: string
   provincia_montaje?: string
+  municipio?: string
   comercial?: string
   ofertas?: OfertaAsignacion[]  // Al crear: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[]
@@ -89,6 +91,7 @@ export interface LeadUpdateData {
   pais_contacto?: string
   comentario?: string
   provincia_montaje?: string
+  municipio?: string
   comercial?: string
   ofertas?: OfertaAsignacion[]  // Al actualizar: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[]

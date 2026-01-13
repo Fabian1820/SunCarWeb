@@ -6,6 +6,7 @@ interface LeadFilters {
   searchTerm: string
   estado: string
   fuente: string
+  comercial: string
   fechaDesde: string
   fechaHasta: string
 }
@@ -41,6 +42,7 @@ export function useLeads(): UseLeadsReturn {
     searchTerm: '',
     estado: '',
     fuente: '',
+    comercial: '',
     fechaDesde: '',
     fechaHasta: ''
   })
@@ -122,6 +124,11 @@ export function useLeads(): UseLeadsReturn {
     // Filtro por fuente
     if (filters.fuente) {
       filtered = filtered.filter(lead => lead.fuente === filters.fuente)
+    }
+
+    // Filtro por comercial
+    if (filters.comercial) {
+      filtered = filtered.filter(lead => lead.comercial === filters.comercial)
     }
 
     // Filtro por rango de fechas

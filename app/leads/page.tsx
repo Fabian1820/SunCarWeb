@@ -320,126 +320,114 @@ const formatEstado = (estado: string): string => {
 
         {/* Search and Filters */}
         <Card className="mb-8 border-l-4 border-l-green-600">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5 text-green-600" />
-              Búsqueda y Filtros
-            </CardTitle>
-            <CardDescription>Filtra y busca leads por diferentes criterios</CardDescription>
-          </CardHeader>
           <CardContent className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {/* Búsqueda general */}
-              <div>
-                <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Búsqueda General
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Nombre, teléfono..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              {/* Filtro por Estado */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Estado
-                </Label>
-                <Select value={filters.estado || "todos"} onValueChange={(value) => setFilters({ estado: value === "todos" ? "" : value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los estados" />
-                  </SelectTrigger>
-                 <SelectContent>
-  <SelectItem value="todos">Todos los estados</SelectItem>
-  <SelectItem value="Esperando equipo">Esperando equipo</SelectItem>
-  <SelectItem value="No interesado">No interesado</SelectItem>
-  <SelectItem value="Pendiente de enviar oferta">Pendiente de enviar oferta</SelectItem>
-  <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
-  <SelectItem value="Pendiente de pago">Pendiente de pago</SelectItem>
-  <SelectItem value="Pendiente de presupuesto">Pendiente de presupuesto</SelectItem>
-  <SelectItem value="Pendiente de visita">Pendiente de visita</SelectItem>
-  <SelectItem value="Pendiente de visitarnos">Pendiente de visitarnos</SelectItem>
-  <SelectItem value="Proximamente">Proximamente</SelectItem>
-  <SelectItem value="Revisando ofertas">Revisando ofertas</SelectItem>
-  <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
-</SelectContent>
-                </Select>
-              </div>
-
-              {/* Filtro por Fuente */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  Fuente
-                </Label>
-                <Select value={filters.fuente || "todas"} onValueChange={(value) => setFilters({ fuente: value === "todas" ? "" : value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las fuentes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas las fuentes</SelectItem>
-                    {availableSources.map((source) => (
-                      <SelectItem key={source} value={source}>
-                        {source}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Filtro Fecha Desde */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  Fecha Desde
-                </Label>
+            {/* Primera fila: Búsqueda y botón limpiar */}
+            <div className="flex gap-3 mb-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  type="date"
-                  value={filters.fechaDesde}
-                  onChange={(e) => setFilters({ fechaDesde: e.target.value })}
-                  placeholder="DD/MM/YYYY"
+                  id="search"
+                  placeholder="Buscar por nombre, teléfono, dirección..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
                 />
               </div>
-
-              {/* Filtro Fecha Hasta */}
-              <div>
-                <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                  <Calendar className="h-4 w-4 inline mr-1" />
-                  Fecha Hasta
-                </Label>
-                <Input
-                  type="date"
-                  value={filters.fechaHasta}
-                  onChange={(e) => setFilters({ fechaHasta: e.target.value })}
-                  placeholder="DD/MM/YYYY"
-                />
-              </div>
-            </div>
-
-            {/* Botón para limpiar filtros */}
-            <div className="mt-4 flex justify-end">
               <Button
                 variant="outline"
-                size="sm"
                 onClick={() => {
                   setSearchTerm('')
                   setFilters({
                     searchTerm: '',
                     estado: '',
                     fuente: '',
+                    comercial: '',
                     fechaDesde: '',
                     fechaHasta: ''
                   })
                 }}
-                className="text-gray-600 hover:text-gray-800"
+                className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
               >
                 Limpiar Filtros
               </Button>
+            </div>
+
+            {/* Segunda fila: Todos los filtros en una sola fila con buen espaciado */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Filtro por Estado */}
+              <div>
+                <Select value={filters.estado || "todos"} onValueChange={(value) => setFilters({ estado: value === "todos" ? "" : value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los estados</SelectItem>
+                    <SelectItem value="Esperando equipo">Esperando equipo</SelectItem>
+                    <SelectItem value="No interesado">No interesado</SelectItem>
+                    <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
+                    <SelectItem value="Pendiente de presupuesto">Pendiente de presupuesto</SelectItem>
+                    <SelectItem value="Pendiente de visita">Pendiente de visita</SelectItem>
+                    <SelectItem value="Pendiente de visitarnos">Pendiente de visitarnos</SelectItem>
+                    <SelectItem value="Proximamente">Proximamente</SelectItem>
+                    <SelectItem value="Revisando ofertas">Revisando ofertas</SelectItem>
+                    <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Fuente */}
+              <div>
+                <Select value={filters.fuente || "todas"} onValueChange={(value) => setFilters({ fuente: value === "todas" ? "" : value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las fuentes" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas las fuentes</SelectItem>
+                    <SelectItem value="Página Web">Página Web</SelectItem>
+                    <SelectItem value="Instagram">Instagram</SelectItem>
+                    <SelectItem value="Facebook">Facebook</SelectItem>
+                    <SelectItem value="Directo">Directo</SelectItem>
+                    <SelectItem value="Mensaje de Whatsapp">Mensaje de Whatsapp</SelectItem>
+                    <SelectItem value="Visita">Visita</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Comercial */}
+              <div>
+                <Select value={filters.comercial || "todos"} onValueChange={(value) => setFilters({ comercial: value === "todos" ? "" : value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los comerciales" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los comerciales</SelectItem>
+                    <SelectItem value="Enelido Alexander Calero Perez">Enelido Alexander Calero Perez</SelectItem>
+                    <SelectItem value="Yanet Clara Rodríguez Quintana">Yanet Clara Rodríguez Quintana</SelectItem>
+                    <SelectItem value="Dashel Pinillos Zubiaur">Dashel Pinillos Zubiaur</SelectItem>
+                    <SelectItem value="Gretel María Mojena Almenares">Gretel María Mojena Almenares</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro Fecha Desde */}
+              <div>
+                <Input
+                  type="date"
+                  value={filters.fechaDesde}
+                  onChange={(e) => setFilters({ fechaDesde: e.target.value })}
+                  placeholder="Fecha desde"
+                />
+              </div>
+
+              {/* Filtro Fecha Hasta */}
+              <div>
+                <Input
+                  type="date"
+                  value={filters.fechaHasta}
+                  onChange={(e) => setFilters({ fechaHasta: e.target.value })}
+                  placeholder="Fecha hasta"
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

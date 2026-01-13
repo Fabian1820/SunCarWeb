@@ -360,17 +360,20 @@ export function LeadsTable({
   }
 
   const getEstadoBadge = (estado: string) => {
-    const colors: Record<string, string> = {
-      nuevo: 'bg-blue-100 text-blue-800',
-      contactado: 'bg-yellow-100 text-yellow-800',
-      calificado: 'bg-purple-100 text-purple-800',
-      propuesta: 'bg-orange-100 text-orange-800',
-      negociacion: 'bg-pink-100 text-pink-800',
-      cerrado_ganado: 'bg-green-100 text-green-800',
-      cerrado_perdido: 'bg-red-100 text-red-800',
-      descartado: 'bg-gray-100 text-gray-800'
+    const estadosConfig: Record<string, { bg: string; text: string; label: string }> = {
+      'Esperando equipo': { bg: 'bg-amber-100', text: 'text-amber-800', label: 'Esperando equipo' },
+      'No interesado': { bg: 'bg-gray-200', text: 'text-gray-700', label: 'No interesado' },
+      'Pendiente de instalación': { bg: 'bg-green-100', text: 'text-green-800', label: 'Pendiente de instalación' },
+      'Pendiente de presupuesto': { bg: 'bg-purple-100', text: 'text-purple-800', label: 'Pendiente de presupuesto' },
+      'Pendiente de visita': { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Pendiente de visita' },
+      'Pendiente de visitarnos': { bg: 'bg-pink-100', text: 'text-pink-800', label: 'Pendiente de visitarnos' },
+      'Proximamente': { bg: 'bg-cyan-100', text: 'text-cyan-800', label: 'Próximamente' },
+      'Revisando ofertas': { bg: 'bg-indigo-100', text: 'text-indigo-800', label: 'Revisando ofertas' },
+      'Sin respuesta': { bg: 'bg-red-100', text: 'text-red-800', label: 'Sin respuesta' },
     }
-    return colors[estado] || 'bg-gray-100 text-gray-800'
+    
+    const config = estadosConfig[estado] || { bg: 'bg-gray-100', text: 'text-gray-800', label: estado }
+    return { className: `${config.bg} ${config.text}`, label: config.label }
   }
 
   const formatDate = (dateString: string) => {
@@ -433,17 +436,14 @@ export function LeadsTable({
                 <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[160px]">
                   Lead
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[130px]">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[110px]">
                   Contacto
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">
                   Estado
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[110px]">
+                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[90px]">
                   Fuente
-                </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
-                  Fecha
                 </th>
                 <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[200px] w-[200px]">
                   Acciones
@@ -463,7 +463,7 @@ export function LeadsTable({
                       </div>
                     </div>
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap min-w-[130px]">
+                  <td className="px-2 py-3 whitespace-nowrap min-w-[110px] max-w-[150px]">
                     <div className="text-sm text-gray-900 truncate">
                       {lead.telefono}
                     </div>
@@ -480,11 +480,16 @@ export function LeadsTable({
                       </div>
                     )}
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap min-w-[100px]">
+                  <td className="px-2 py-3 min-w-[140px]">
                     <div className="w-full">
-                      <Badge className={`${getEstadoBadge(lead.estado)} text-xs truncate max-w-[90px] inline-block`}>
-                        {lead.estado}
-                      </Badge>
+                      {(() => {
+                        const estadoBadge = getEstadoBadge(lead.estado)
+                        return (
+                          <Badge className={`${estadoBadge.className} text-xs whitespace-normal break-words leading-tight inline-block`}>
+                            {estadoBadge.label}
+                          </Badge>
+                        )
+                      })()}
                       {lead.comercial && (
                         <div className="text-xs text-gray-500 flex items-center mt-1">
                           <UserCheck className="h-3 w-3 mr-1 text-gray-400" />
@@ -493,7 +498,7 @@ export function LeadsTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap min-w-[110px]">
+                  <td className="px-2 py-3 whitespace-nowrap min-w-[90px] max-w-[140px]">
                     <div className="text-sm text-gray-900 truncate">
                       {lead.fuente || 'No especificada'}
                     </div>
@@ -502,12 +507,6 @@ export function LeadsTable({
                         Ref: {lead.referencia}
                       </div>
                     )}
-                  </td>
-                  <td className="px-2 py-3 whitespace-nowrap min-w-[100px]">
-                    <div className="text-sm text-gray-900 flex items-center">
-                      <Calendar className="h-3 w-3 mr-1 text-gray-400 flex-shrink-0" />
-                      <span className="truncate">{formatDate(lead.fecha_contacto)}</span>
-                    </div>
                   </td>
                   <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium min-w-[200px] w-[200px]">
                     <div className="flex items-center justify-end space-x-1">
@@ -639,9 +638,14 @@ export function LeadsTable({
                       <span className="text-sm break-words">Contacto: {formatDate(selectedLead.fecha_contacto)}</span>
                     </div>
                     <div className="flex items-center">
-                      <Badge className={getEstadoBadge(selectedLead.estado)}>
-                        {selectedLead.estado}
-                      </Badge>
+                      {(() => {
+                        const estadoBadge = getEstadoBadge(selectedLead.estado)
+                        return (
+                          <Badge className={estadoBadge.className}>
+                            {estadoBadge.label}
+                          </Badge>
+                        )
+                      })()}
                     </div>
                     {selectedLead.comercial && (
                       <div className="text-sm text-gray-700 flex items-center">

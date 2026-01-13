@@ -2,8 +2,11 @@
 // Función para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
   const backendUrlEnv = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com'
-  // Forzar https para evitar redirecciones 301 que rompen CORS en preflight
-  const backendUrl = backendUrlEnv.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '')
+  // Solo forzar https en producción (cuando no es localhost)
+  const isLocalhost = backendUrlEnv.includes('localhost') || backendUrlEnv.includes('127.0.0.1')
+  const backendUrl = isLocalhost 
+    ? backendUrlEnv.replace(/\/+$/, '')
+    : backendUrlEnv.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '')
   const apiUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`
   
   console.log('✅ Using direct backend URL:', apiUrl)

@@ -321,10 +321,10 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                     <SelectValue placeholder="Seleccionar comercial" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Dashel">Dashel</SelectItem>
-                    <SelectItem value="Grethel">Grethel</SelectItem>
-                    <SelectItem value="Yanet">Yanet</SelectItem>
-                    <SelectItem value="Yany">Yany</SelectItem>
+                    <SelectItem value="Enelido Alexander Calero Perez">Enelido Alexander Calero Perez</SelectItem>
+                    <SelectItem value="Yanet Clara Rodríguez Quintana">Yanet Clara Rodríguez Quintana</SelectItem>
+                    <SelectItem value="Dashel Pinillos Zubiaur">Dashel Pinillos Zubiaur</SelectItem>
+                    <SelectItem value="Gretel María Mojena Almenares">Gretel María Mojena Almenares</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
