@@ -154,8 +154,13 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         metodo_pago: lead.metodo_pago || '',
         moneda: lead.moneda || '',
       })
-      
-      // Resetear oferta con datos del lead
+    }
+  }, [open, lead, user])
+
+  // Resetear oferta DESPUÉS de que los materiales se hayan cargado
+  useEffect(() => {
+    if (open && !loadingMateriales && (inversores.length > 0 || baterias.length > 0 || paneles.length > 0)) {
+      console.log('🔄 Reseteando oferta con datos del lead:', lead.ofertas?.[0])
       setOferta({
         inversor_codigo: lead.ofertas?.[0]?.inversor_codigo || '',
         inversor_cantidad: lead.ofertas?.[0]?.inversor_cantidad || 1,
@@ -172,7 +177,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         razon_costo_extra: lead.ofertas?.[0]?.razon_costo_extra || ''
       })
     }
-  }, [open, lead, user])
+  }, [open, loadingMateriales, inversores.length, baterias.length, paneles.length, lead])
 
   // Cargar provincias al montar el componente
   useEffect(() => {
@@ -722,10 +727,9 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                 <div className="md:col-span-2">
                   <Label htmlFor="inversor">Inversor</Label>
                   <Select
-                    value={oferta.inversor_codigo ? `${oferta.inversor_codigo}-idx${inversores.findIndex(inv => String(inv.codigo) === oferta.inversor_codigo)}` : ''}
+                    value={oferta.inversor_codigo && inversores.length > 0 ? String(oferta.inversor_codigo) : ''}
                     onValueChange={(value) => {
-                      const codigo = value.replace(/-idx\d+$/, '')
-                      setOferta(prev => ({ ...prev, inversor_codigo: codigo }))
+                      setOferta(prev => ({ ...prev, inversor_codigo: value }))
                     }}
                     disabled={loadingMateriales || inversores.length === 0}
                   >
@@ -741,14 +745,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                       />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
-                      {inversores.map((inv, index) => {
-                        const uniqueValue = `${inv.codigo}-idx${index}`
-                        return (
-                          <SelectItem key={uniqueValue} value={uniqueValue}>
-                            {inv.descripcion}
-                          </SelectItem>
-                        )
-                      })}
+                      {inversores.map((inv, index) => (
+                        <SelectItem key={`inv-${inv.codigo}-${index}`} value={String(inv.codigo)}>
+                          {inv.descripcion}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -769,10 +770,9 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                 <div className="md:col-span-2">
                   <Label htmlFor="bateria">Batería</Label>
                   <Select
-                    value={oferta.bateria_codigo ? `${oferta.bateria_codigo}-idx${baterias.findIndex(bat => String(bat.codigo) === oferta.bateria_codigo)}` : ''}
+                    value={oferta.bateria_codigo && baterias.length > 0 ? String(oferta.bateria_codigo) : ''}
                     onValueChange={(value) => {
-                      const codigo = value.replace(/-idx\d+$/, '')
-                      setOferta(prev => ({ ...prev, bateria_codigo: codigo }))
+                      setOferta(prev => ({ ...prev, bateria_codigo: value }))
                     }}
                     disabled={loadingMateriales || baterias.length === 0}
                   >
@@ -788,14 +788,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                       />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
-                      {baterias.map((bat, index) => {
-                        const uniqueValue = `${bat.codigo}-idx${index}`
-                        return (
-                          <SelectItem key={uniqueValue} value={uniqueValue}>
-                            {bat.descripcion}
-                          </SelectItem>
-                        )
-                      })}
+                      {baterias.map((bat, index) => (
+                        <SelectItem key={`bat-${bat.codigo}-${index}`} value={String(bat.codigo)}>
+                          {bat.descripcion}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -816,10 +813,9 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                 <div className="md:col-span-2">
                   <Label htmlFor="panel">Panel</Label>
                   <Select
-                    value={oferta.panel_codigo ? `${oferta.panel_codigo}-idx${paneles.findIndex(pan => String(pan.codigo) === oferta.panel_codigo)}` : ''}
+                    value={oferta.panel_codigo && paneles.length > 0 ? String(oferta.panel_codigo) : ''}
                     onValueChange={(value) => {
-                      const codigo = value.replace(/-idx\d+$/, '')
-                      setOferta(prev => ({ ...prev, panel_codigo: codigo }))
+                      setOferta(prev => ({ ...prev, panel_codigo: value }))
                     }}
                     disabled={loadingMateriales || paneles.length === 0}
                   >
@@ -835,14 +831,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                       />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
-                      {paneles.map((pan, index) => {
-                        const uniqueValue = `${pan.codigo}-idx${index}`
-                        return (
-                          <SelectItem key={uniqueValue} value={uniqueValue}>
-                            {pan.descripcion}
-                          </SelectItem>
-                        )
-                      })}
+                      {paneles.map((pan, index) => (
+                        <SelectItem key={`pan-${pan.codigo}-${index}`} value={String(pan.codigo)}>
+                          {pan.descripcion}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
