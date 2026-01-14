@@ -742,15 +742,6 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                     className="text-gray-900 placeholder:text-gray-400"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="referencia">Referencia</Label>
-                  <Input
-                    id="referencia"
-                    value={formData.referencia}
-                    onChange={(e) => handleInputChange('referencia', e.target.value)}
-                    className="text-gray-900 placeholder:text-gray-400"
-                  />
-                </div>
               </div>
             </div>
           </div>
