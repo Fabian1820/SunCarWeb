@@ -241,24 +241,67 @@ const formatEstado = (estado: string): string => {
 
   // Preparar opciones de exportación para leads
   const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
-    // Preparar datos para exportación con formato legible - solo nombre, dirección, teléfono y comentario
-    const exportData = filteredLeads.map(lead => {
+    // Construir título con filtro de estado si aplica
+    let titulo = 'Listado de Leads'
+    if (filters.estado) {
+      titulo = `Listado de Leads - ${filters.estado}`
+    }
+    
+    const exportData = filteredLeads.map((lead, index) => {
+      // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
+      let ofertaTexto = ''
+      
+      if (lead.ofertas && lead.ofertas.length > 0) {
+        const ofertasFormateadas = lead.ofertas.map(oferta => {
+          const productos: string[] = []
+          
+          // Inversor
+          if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+            const nombre = oferta.inversor_nombre || oferta.inversor_codigo
+            productos.push(`${oferta.inversor_cantidad}x ${nombre}`)
+          }
+          
+          // Batería
+          if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+            const nombre = oferta.bateria_nombre || oferta.bateria_codigo
+            productos.push(`${oferta.bateria_cantidad}x ${nombre}`)
+          }
+          
+          // Paneles
+          if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+            const nombre = oferta.panel_nombre || oferta.panel_codigo
+            productos.push(`${oferta.panel_cantidad}x ${nombre}`)
+          }
+          
+          // Agregar • al inicio de cada producto
+          return productos.length > 0 ? '• ' + productos.join(' • ') : ''
+        }).filter(Boolean)
+        
+        ofertaTexto = ofertasFormateadas.join(' • ') || ''
+      }
+
       return {
+        numero: index + 1,
         nombre: lead.nombre || 'N/A',
-        direccion: lead.direccion || 'N/A',
         telefono: lead.telefono || 'N/A',
-        comentario: lead.comentario || 'N/A'
+        provincia: lead.provincia_montaje || 'N/A',
+        municipio: lead.municipio || 'N/A',
+        direccion: lead.direccion || 'N/A',
+        oferta: ofertaTexto
       }
     })
 
     return {
-      title: 'Listado de Leads',
-      subtitle: `Total de leads: ${filteredLeads.length} | Fecha: ${new Date().toLocaleDateString('es-ES')}`,
+      title: `Suncar SRL: ${titulo}`,
+      subtitle: `Fecha: ${new Date().toLocaleDateString('es-ES')}`,
       columns: [
-        { header: 'Nombre', key: 'nombre', width: 30 },
-        { header: 'Dirección', key: 'direccion', width: 40 },
-        { header: 'Teléfono', key: 'telefono', width: 20 },
-        { header: 'Comentario', key: 'comentario', width: 50 },
+        { header: 'No.', key: 'numero', width: 4 },
+        { header: 'Nombre', key: 'nombre', width: 14 },
+        { header: 'Teléfono', key: 'telefono', width: 14 },
+        { header: 'Provincia', key: 'provincia', width: 12 },
+        { header: 'Municipio', key: 'municipio', width: 12 },
+        { header: 'Dirección', key: 'direccion', width: 38 },
+        { header: 'Oferta', key: 'oferta', width: 23.57 },
       ],
       data: exportData
     }

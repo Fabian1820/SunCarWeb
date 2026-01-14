@@ -576,270 +576,333 @@ export function LeadsTable({
 
           {selectedLead && (
             <div className="space-y-6 pt-4">
-              {/* Encabezado con nombre y estado */}
-              <div className="flex items-start justify-between gap-4 pb-4 border-b">
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-2xl font-semibold text-gray-900 mb-2 break-words">{selectedLead.nombre}</h3>
-                  <div className="flex items-center gap-2 flex-wrap text-sm text-gray-600">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {formatDate(selectedLead.fecha_contacto)}
-                    </span>
-                    {selectedLead.comercial && (
-                      <>
-                        <span className="text-gray-300">•</span>
-                        <span>{selectedLead.comercial}</span>
-                      </>
+              {/* Sección 1: Datos Personales */}
+              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+                <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-900">Datos Personales</h3>
+                  <p className="text-sm text-gray-500 mt-1">Información básica del contacto</p>
+                </div>
+                <div className="space-y-4">
+                  {/* Fila 1: Nombre y Referencia */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-700">Nombre</Label>
+                      <p className="text-gray-900 font-medium mt-1">{selectedLead.nombre}</p>
+                    </div>
+                    {selectedLead.referencia && (
+                      <div>
+                        <Label className="text-gray-700">Referencia</Label>
+                        <p className="text-gray-900 mt-1">{selectedLead.referencia}</p>
+                      </div>
                     )}
                   </div>
-                </div>
-                <div className="flex-shrink-0">
-                  {(() => {
-                    const estadoBadge = getEstadoBadge(selectedLead.estado)
-                    return (
-                      <Badge className={`${estadoBadge.className} text-sm px-3 py-1`}>
-                        {estadoBadge.label}
-                      </Badge>
-                    )
-                  })()}
-                </div>
-              </div>
 
-              {/* Grid de información básica */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Contacto */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Contacto</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-start gap-2">
-                      <Phone className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-gray-900 font-medium break-words">{selectedLead.telefono || 'No registrado'}</p>
-                        {selectedLead.telefono_adicional && (
-                          <p className="text-gray-600 text-xs mt-0.5 break-words">Alt: {selectedLead.telefono_adicional}</p>
-                        )}
+                  {/* Fila 2: Teléfono y Teléfono Adicional */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-gray-700">Teléfono</Label>
+                      <p className="text-gray-900 font-medium flex items-center gap-2 mt-1">
+                        <Phone className="h-4 w-4 text-gray-400" />
+                        {selectedLead.telefono}
+                      </p>
+                    </div>
+                    {selectedLead.telefono_adicional && (
+                      <div>
+                        <Label className="text-gray-700">Teléfono Adicional</Label>
+                        <p className="text-gray-900 flex items-center gap-2 mt-1">
+                          <PhoneForwarded className="h-4 w-4 text-gray-400" />
+                          {selectedLead.telefono_adicional}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Fila 3: Estado, Fuente y Fecha */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-gray-700">Estado</Label>
+                      <div className="mt-1">
+                        {(() => {
+                          const estadoBadge = getEstadoBadge(selectedLead.estado)
+                          return (
+                            <Badge className={`${estadoBadge.className} text-sm px-3 py-1`}>
+                              {estadoBadge.label}
+                            </Badge>
+                          )
+                        })()}
                       </div>
                     </div>
-                    {selectedLead.direccion && (
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                        <p className="text-gray-700 break-words">{selectedLead.direccion}</p>
+                    {selectedLead.fuente && (
+                      <div>
+                        <Label className="text-gray-700">Fuente</Label>
+                        <p className="text-gray-900 mt-1">{selectedLead.fuente}</p>
                       </div>
                     )}
+                    <div>
+                      <Label className="text-gray-700">Fecha de Contacto</Label>
+                      <p className="text-gray-900 flex items-center gap-2 mt-1">
+                        <Calendar className="h-4 w-4 text-gray-400" />
+                        {formatDate(selectedLead.fecha_contacto)}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {/* Ubicación */}
-                <div className="space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Ubicación</h4>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    {selectedLead.pais_contacto && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-16">País:</span>
-                        <span className="font-medium">{selectedLead.pais_contacto}</span>
-                      </div>
-                    )}
+                  {/* Fila 4: Dirección (ancho completo) */}
+                  {selectedLead.direccion && (
+                    <div>
+                      <Label className="text-gray-700">Dirección</Label>
+                      <p className="text-gray-900 flex items-start gap-2 mt-1">
+                        <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        {selectedLead.direccion}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Fila 5: Provincia, Municipio y País */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {selectedLead.provincia_montaje && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-16">Provincia:</span>
-                        <span className="font-medium">{selectedLead.provincia_montaje}</span>
+                      <div>
+                        <Label className="text-gray-700">Provincia</Label>
+                        <p className="text-gray-900 mt-1">{selectedLead.provincia_montaje}</p>
                       </div>
                     )}
                     {selectedLead.municipio && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 w-16">Municipio:</span>
-                        <span className="font-medium">{selectedLead.municipio}</span>
+                      <div>
+                        <Label className="text-gray-700">Municipio</Label>
+                        <p className="text-gray-900 mt-1">{selectedLead.municipio}</p>
                       </div>
                     )}
-                    {!selectedLead.pais_contacto && !selectedLead.provincia_montaje && !selectedLead.municipio && (
-                      <p className="text-gray-400 italic">Sin información de ubicación</p>
+                    {selectedLead.pais_contacto && (
+                      <div>
+                        <Label className="text-gray-700">País de Contacto</Label>
+                        <p className="text-gray-900 mt-1">{selectedLead.pais_contacto}</p>
+                      </div>
                     )}
                   </div>
-                </div>
 
-                {/* Seguimiento */}
-                {(selectedLead.fuente || selectedLead.referencia) && (
-                  <div className="space-y-3 md:col-span-2">
-                    <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Seguimiento</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                      {selectedLead.fuente && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Fuente:</span>
-                          <span className="text-gray-900 font-medium">{selectedLead.fuente}</span>
-                        </div>
-                      )}
-                      {selectedLead.referencia && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-500">Referencia:</span>
-                          <span className="text-gray-900 font-medium">{selectedLead.referencia}</span>
-                        </div>
-                      )}
+                  {/* Fila 6: Comercial */}
+                  {selectedLead.comercial && (
+                    <div>
+                      <Label className="text-gray-700">Comercial Asignado</Label>
+                      <p className="text-gray-900 flex items-center gap-2 mt-1">
+                        <UserCheck className="h-4 w-4 text-gray-400" />
+                        {selectedLead.comercial}
+                      </p>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Comentarios */}
-              {selectedLead.comentario && (
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Comentarios</h4>
-                  <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg">
-                    {selectedLead.comentario}
-                  </p>
-                </div>
-              )}
-
-              {/* Ofertas */}
+              {/* Sección 2: Oferta */}
               {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Ofertas Asociadas
-                  </h4>
-                  <div className="space-y-3">
+                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
+                    <p className="text-sm text-gray-500 mt-1">Detalles de productos y cantidades</p>
+                  </div>
+                  <div className="space-y-4">
                     {selectedLead.ofertas.map((oferta, idx) => (
                       <div key={idx} className="border rounded-lg p-4 bg-gray-50">
-                        <div className="space-y-3">
-                          {/* Productos */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {oferta.inversor_codigo && oferta.inversor_cantidad > 0 && (
-                              <div className="bg-white rounded-md p-3 border">
-                                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Inversor</p>
-                                <p className="text-sm font-semibold text-gray-900 truncate" title={oferta.inversor_nombre || oferta.inversor_codigo}>
-                                  {oferta.inversor_nombre || oferta.inversor_codigo}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">Cantidad: {oferta.inversor_cantidad}</p>
-                              </div>
-                            )}
-                            {oferta.bateria_codigo && oferta.bateria_cantidad > 0 && (
-                              <div className="bg-white rounded-md p-3 border">
-                                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Batería</p>
-                                <p className="text-sm font-semibold text-gray-900 truncate" title={oferta.bateria_nombre || oferta.bateria_codigo}>
-                                  {oferta.bateria_nombre || oferta.bateria_codigo}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">Cantidad: {oferta.bateria_cantidad}</p>
-                              </div>
-                            )}
-                            {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
-                              <div className="bg-white rounded-md p-3 border">
-                                <p className="text-xs font-medium text-gray-500 uppercase mb-1">Paneles</p>
-                                <p className="text-sm font-semibold text-gray-900 truncate" title={oferta.panel_nombre || oferta.panel_codigo}>
-                                  {oferta.panel_nombre || oferta.panel_codigo}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">Cantidad: {oferta.panel_cantidad}</p>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Costos */}
-                          <div className="bg-white rounded-md p-3 border mt-3">
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">Costo</p>
-                                <p className="font-semibold text-gray-900">${oferta.costo_oferta.toFixed(2)}</p>
-                              </div>
-                              {oferta.costo_extra > 0 && (
-                                <div>
-                                  <p className="text-xs text-gray-500 mb-1">Extra</p>
-                                  <p className="font-semibold text-gray-900">${oferta.costo_extra.toFixed(2)}</p>
-                                </div>
-                              )}
-                              {oferta.costo_transporte > 0 && (
-                                <div>
-                                  <p className="text-xs text-gray-500 mb-1">Transporte</p>
-                                  <p className="font-semibold text-gray-900">${oferta.costo_transporte.toFixed(2)}</p>
-                                </div>
-                              )}
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">Total</p>
-                                <p className="font-bold text-gray-900">${(oferta.costo_oferta + oferta.costo_extra + oferta.costo_transporte).toFixed(2)}</p>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Estados */}
-                          {(oferta.aprobada || oferta.pagada) && (
-                            <div className="flex gap-2 flex-wrap mt-3">
-                              {oferta.aprobada && (
-                                <span className="inline-flex items-center text-xs text-gray-700 bg-white border rounded-md px-2 py-1">
-                                  ✓ Aprobada
-                                </span>
-                              )}
-                              {oferta.pagada && (
-                                <span className="inline-flex items-center text-xs text-gray-700 bg-white border rounded-md px-2 py-1">
-                                  ✓ Pagada
-                                </span>
-                              )}
+                        {/* Productos en Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Inversor */}
+                          {oferta.inversor_codigo && oferta.inversor_cantidad > 0 && (
+                            <div>
+                              <Label className="text-gray-700">Inversor</Label>
+                              <p className="text-gray-900 font-medium mt-1">
+                                {oferta.inversor_nombre || oferta.inversor_codigo}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">Cantidad: {oferta.inversor_cantidad}</p>
                             </div>
                           )}
 
-                          {/* Elementos personalizados y razón */}
-                          {(oferta.elementos_personalizados || oferta.razon_costo_extra) && (
-                            <div className="pt-3 mt-3 border-t space-y-2 text-sm">
-                              {oferta.elementos_personalizados && (
-                                <div>
-                                  <span className="text-gray-500">Elementos:</span>{' '}
-                                  <span className="text-gray-900">{oferta.elementos_personalizados}</span>
-                                </div>
-                              )}
-                              {oferta.razon_costo_extra && (
-                                <div>
-                                  <span className="text-gray-500">Razón extra:</span>{' '}
-                                  <span className="text-gray-900">{oferta.razon_costo_extra}</span>
-                                </div>
-                              )}
+                          {/* Batería */}
+                          {oferta.bateria_codigo && oferta.bateria_cantidad > 0 && (
+                            <div>
+                              <Label className="text-gray-700">Batería</Label>
+                              <p className="text-gray-900 font-medium mt-1">
+                                {oferta.bateria_nombre || oferta.bateria_codigo}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">Cantidad: {oferta.bateria_cantidad}</p>
+                            </div>
+                          )}
+
+                          {/* Paneles */}
+                          {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
+                            <div>
+                              <Label className="text-gray-700">Paneles</Label>
+                              <p className="text-gray-900 font-medium mt-1">
+                                {oferta.panel_nombre || oferta.panel_codigo}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">Cantidad: {oferta.panel_cantidad}</p>
                             </div>
                           )}
                         </div>
+
+                        {/* Estado de la Oferta */}
+                        {(oferta.aprobada || oferta.pagada) && (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                            {oferta.aprobada && (
+                              <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
+                                <input
+                                  type="checkbox"
+                                  checked={true}
+                                  disabled
+                                  className="h-5 w-5 rounded border-gray-300 text-green-600"
+                                />
+                                <Label className="font-medium">Oferta Aprobada</Label>
+                              </div>
+                            )}
+                            {oferta.pagada && (
+                              <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
+                                <input
+                                  type="checkbox"
+                                  checked={true}
+                                  disabled
+                                  className="h-5 w-5 rounded border-gray-300 text-blue-600"
+                                />
+                                <Label className="font-medium">Oferta Pagada</Label>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Elementos Personalizados */}
+                        {oferta.elementos_personalizados && (
+                          <div className="mt-4">
+                            <Label className="text-gray-700">Elementos Personalizados (Comentario)</Label>
+                            <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
+                              {oferta.elementos_personalizados}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* Información de Pago */}
-              {(selectedLead.metodo_pago || selectedLead.moneda || selectedLead.comprobante_pago_url) && (
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Información de Pago</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                    {selectedLead.metodo_pago && (
-                      <div>
-                        <span className="text-gray-500">Método de pago:</span>{' '}
-                        <span className="text-gray-900 font-medium">{selectedLead.metodo_pago}</span>
+              {/* Sección 3: Costos y Pago */}
+              {selectedLead.ofertas && selectedLead.ofertas.length > 0 && (
+                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900">Costos y Pago</h3>
+                    <p className="text-sm text-gray-500 mt-1">Información financiera de la oferta</p>
+                  </div>
+                  <div className="space-y-4">
+                    {selectedLead.ofertas.map((oferta, idx) => (
+                      <div key={`costos-${idx}`}>
+                        {/* Costos - Primera fila */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <Label className="text-gray-700">Costo de Oferta</Label>
+                            <p className="text-gray-900 font-semibold mt-1">
+                              ${oferta.costo_oferta.toFixed(2)}
+                            </p>
+                          </div>
+                          {oferta.costo_extra > 0 && (
+                            <div>
+                              <Label className="text-gray-700">Costo Extra</Label>
+                              <p className="text-gray-900 font-semibold mt-1">
+                                ${oferta.costo_extra.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+                          {oferta.costo_transporte > 0 && (
+                            <div>
+                              <Label className="text-gray-700">Costo de Transporte</Label>
+                              <p className="text-gray-900 font-semibold mt-1">
+                                ${oferta.costo_transporte.toFixed(2)}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Costo Final */}
+                        <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                          <Label className="text-gray-700">Costo Final</Label>
+                          <p className="text-2xl font-bold text-gray-900 mt-1">
+                            ${(oferta.costo_oferta + oferta.costo_extra + oferta.costo_transporte).toFixed(2)}
+                          </p>
+                        </div>
+
+                        {/* Razón del Costo Extra */}
+                        {oferta.razon_costo_extra && (
+                          <div className="mt-4">
+                            <Label className="text-gray-700">Razón del Costo Extra</Label>
+                            <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
+                              {oferta.razon_costo_extra}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Método de Pago y Moneda */}
+                    {(selectedLead.metodo_pago || selectedLead.moneda) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                        {selectedLead.metodo_pago && (
+                          <div>
+                            <Label className="text-gray-700">Método de Pago</Label>
+                            <p className="text-gray-900 font-medium mt-1">{selectedLead.metodo_pago}</p>
+                          </div>
+                        )}
+                        {selectedLead.moneda && (
+                          <div>
+                            <Label className="text-gray-700">Moneda</Label>
+                            <p className="text-gray-900 font-medium mt-1">{selectedLead.moneda}</p>
+                          </div>
+                        )}
                       </div>
                     )}
-                    {selectedLead.moneda && (
-                      <div>
-                        <span className="text-gray-500">Moneda:</span>{' '}
-                        <span className="text-gray-900 font-medium">{selectedLead.moneda}</span>
+
+                    {/* Comprobante de Pago */}
+                    {selectedLead.comprobante_pago_url && (
+                      <div className="pt-4 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void handleDownloadComprobante(selectedLead)}
+                          className="w-full md:w-auto"
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Descargar Comprobante
+                        </Button>
                       </div>
                     )}
                   </div>
-                  {selectedLead.comprobante_pago_url && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full sm:w-auto"
-                      onClick={() => void handleDownloadComprobante(selectedLead)}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Descargar Comprobante
-                    </Button>
-                  )}
                 </div>
               )}
 
-              {/* Elementos personalizados */}
+              {/* Sección 4: Comentarios (Condicional) */}
+              {selectedLead.comentario && (
+                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900">Comentarios</h3>
+                    <p className="text-sm text-gray-500 mt-1">Notas adicionales sobre el lead</p>
+                  </div>
+                  <div className="space-y-4">
+                    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg border">
+                      {selectedLead.comentario}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Sección 5: Elementos Personalizados (Condicional) */}
               {selectedLead.elementos_personalizados && selectedLead.elementos_personalizados.length > 0 && (
-                <div className="space-y-3 pt-4 border-t">
-                  <h4 className="text-sm font-semibold text-gray-900 uppercase tracking-wide flex items-center gap-2">
-                    <ListChecks className="h-4 w-4" />
-                    Elementos Personalizados
-                  </h4>
+                <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+                  <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                    <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                      <ListChecks className="h-5 w-5" />
+                      Elementos Personalizados
+                    </h3>
+                    <p className="text-sm text-gray-500 mt-1">Elementos adicionales del lead</p>
+                  </div>
                   <div className="space-y-2">
                     {selectedLead.elementos_personalizados.map((elemento, index) => (
-                      <div key={`elemento-${selectedLead.id}-${index}`} className="flex items-center justify-between border rounded-md px-4 py-3 bg-gray-50">
+                      <div key={index} className="flex items-center justify-between border rounded-md px-4 py-3 bg-gray-50">
                         <span className="text-sm text-gray-900">{elemento.descripcion}</span>
                         <span className="text-sm font-medium text-gray-600 ml-4">
                           Cant: {elemento.cantidad}
@@ -850,8 +913,8 @@ export function LeadsTable({
                 </div>
               )}
 
-              {/* Botón cerrar */}
-              <div className="flex justify-end pt-6 border-t">
+              {/* Botón Cerrar */}
+              <div className="flex justify-end pt-4 border-t">
                 <Button variant="outline" onClick={() => setIsDetailDialogOpen(false)}>
                   Cerrar
                 </Button>

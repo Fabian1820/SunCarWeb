@@ -43,6 +43,7 @@
     "cmdk": "1.0.4",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.5.1",
+    "exceljs": "^4.4.0",
     "heic2any": "^0.0.4",
     "input-otp": "1.4.1",
     "jspdf": "^3.0.3",

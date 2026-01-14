@@ -17,7 +17,7 @@
 
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 
 export interface ExportColumn {
   header: string
@@ -54,73 +54,114 @@ async function imageToBase64(url: string): Promise<string> {
 }
 
 /**
- * Exporta datos a formato Excel
+ * Exporta datos a formato Excel usando ExcelJS
  */
 export async function exportToExcel(options: ExportOptions): Promise<void> {
   const { title, subtitle, filename, columns, data } = options
 
   // Crear un nuevo libro de trabajo
-  const wb = XLSX.utils.book_new()
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Reporte')
 
-  // Preparar datos para el encabezado
-  const headerData: any[][] = [
-    ['SUNCAR SRL'],
-    [title],
-  ]
+  // Columna A vacía para margen izquierdo
+  worksheet.getColumn(1).width = 3
 
+  // Agregar encabezado (empezando en columna B)
+  let currentRow = 1
+  
+  // Fila 1: Título (ya incluye Suncar SRL) - en columna B
+  worksheet.getCell(`B${currentRow}`).value = title
+  worksheet.getCell(`B${currentRow}`).font = { bold: true, size: 14 }
+  currentRow++
+
+  // Fila 2: Subtítulo (si existe) - en columna B
   if (subtitle) {
-    headerData.push([subtitle])
+    worksheet.getCell(`B${currentRow}`).value = subtitle
+    worksheet.getCell(`B${currentRow}`).font = { size: 11 }
+    currentRow++
   }
 
-  headerData.push([`Fecha de generación: ${new Date().toLocaleString('es-ES')}`])
-  headerData.push([]) // Línea vacía
+  // Fila vacía
+  currentRow++
 
-  // Preparar encabezados de columnas
-  const columnHeaders = columns.map(col => col.header)
+  // Fila de encabezados de columnas (empezando en columna B, índice 2)
+  const headerRow = worksheet.getRow(currentRow)
+  columns.forEach((col, index) => {
+    const cell = headerRow.getCell(index + 2) // +2 porque columna A está vacía
+    cell.value = col.header
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFEA580C' } // Color naranja de SunCar
+    }
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+    cell.border = {
+      top: { style: 'thin' },
+      bottom: { style: 'thin' },
+      left: { style: 'thin' },
+      right: { style: 'thin' }
+    }
+  })
+  headerRow.height = 25
+  currentRow++
 
-  // Preparar datos de la tabla
-  const tableData = data.map(row => {
-    return columns.map(col => {
-      const value = row[col.key]
-      // Formatear números si es necesario
-      if (typeof value === 'number') {
-        return value
+  // Agregar datos
+  data.forEach((rowData) => {
+    const row = worksheet.getRow(currentRow)
+    let maxLines = 1
+    
+    columns.forEach((col, index) => {
+      const cell = row.getCell(index + 2) // +2 porque columna A está vacía
+      const value = rowData[col.key] ?? ''
+      cell.value = value
+      
+      // Calcular líneas considerando el wrap por ancho de columna
+      if (typeof value === 'string' && value.length > 0) {
+        const colWidth = col.width || 15
+        // Ser más conservador: menos caracteres por línea para asegurar espacio
+        const charsPerLine = Math.max(1, Math.floor(colWidth * 0.75))
+        
+        // Calcular líneas basándose en la longitud total del texto
+        const estimatedLines = Math.ceil(value.length / charsPerLine)
+        
+        maxLines = Math.max(maxLines, estimatedLines)
       }
-      return value ?? ''
+      
+      // Arial 11
+      cell.font = { name: 'Arial', size: 11 }
+      cell.alignment = { 
+        horizontal: 'left', 
+        vertical: 'top', 
+        wrapText: true 
+      }
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+      }
     })
+    
+    // Altura de fila: 16pt por línea para Arial 11, con margen extra para asegurar visibilidad
+    row.height = Math.max(18, (16 * maxLines) + 5)
+    currentRow++
   })
 
-  // Combinar encabezado + headers + datos
-  const sheetData = [
-    ...headerData,
-    columnHeaders,
-    ...tableData
-  ]
+  // Configurar anchos de columna (empezando en columna B)
+  columns.forEach((col, index) => {
+    worksheet.getColumn(index + 2).width = col.width || 15
+  })
 
-  // Crear hoja de cálculo
-  const ws = XLSX.utils.aoa_to_sheet(sheetData)
-
-  // Configurar anchos de columna
-  const colWidths = columns.map(col => ({ wch: col.width || 15 }))
-  ws['!cols'] = colWidths
-
-  // Aplicar estilos al encabezado (primeras filas)
-  const headerRows = headerData.length
-  for (let i = 0; i < headerRows; i++) {
-    const cellRef = XLSX.utils.encode_cell({ r: i, c: 0 })
-    if (ws[cellRef]) {
-      ws[cellRef].s = {
-        font: { bold: true, sz: i === 0 ? 16 : 12 },
-        alignment: { horizontal: 'center' }
-      }
-    }
-  }
-
-  // Agregar hoja al libro
-  XLSX.utils.book_append_sheet(wb, ws, 'Reporte')
-
-  // Descargar archivo
-  XLSX.writeFile(wb, `${filename}.xlsx`)
+  // Generar el archivo y descargarlo
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${filename}.xlsx`
+  link.click()
+  window.URL.revokeObjectURL(url)
 }
 
 /**
