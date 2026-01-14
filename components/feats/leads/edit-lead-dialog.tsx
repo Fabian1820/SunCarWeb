@@ -201,8 +201,10 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     fetchProvincias()
   }, [])
 
-  // Cargar materiales (inversores, baterías, paneles) al montar el componente
+  // Cargar materiales cuando se abre el diálogo
   useEffect(() => {
+    if (!open) return // Solo cargar si el diálogo está abierto
+    
     const fetchMateriales = async () => {
       setLoadingMateriales(true)
       try {
@@ -249,7 +251,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     }
 
     fetchMateriales()
-  }, [])
+  }, [open]) // Cambiar dependencia de [] a [open]
 
   // Cargar municipios cuando se selecciona una provincia
   useEffect(() => {
