@@ -137,6 +137,8 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
   // Reset cuando se abre el diálogo con un lead diferente
   useEffect(() => {
     if (open) {
+      console.log('🔄 Reseteando formulario con lead:', lead)
+      
       setFormData({
         fecha_contacto: convertToDateInput(lead.fecha_contacto),
         nombre: lead.nombre || '',
@@ -154,8 +156,19 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         metodo_pago: lead.metodo_pago || '',
         moneda: lead.moneda || '',
       })
+      
+      // Si el lead tiene provincia, buscar su código para cargar municipios
+      if (lead.provincia_montaje && provincias.length > 0) {
+        const provincia = provincias.find(p => p.nombre === lead.provincia_montaje)
+        if (provincia) {
+          console.log('🗺️ Provincia encontrada, estableciendo código:', provincia.codigo)
+          setSelectedProvinciaCodigo(provincia.codigo)
+        }
+      } else {
+        setSelectedProvinciaCodigo('')
+      }
     }
-  }, [open, lead, user])
+  }, [open, lead, user, provincias])
 
   // Resetear oferta DESPUÉS de que los materiales se hayan cargado
   useEffect(() => {
@@ -501,6 +514,32 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+                  <Label htmlFor="fecha_contacto">
+                    Fecha de Contacto <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="fecha_contacto"
+                    type="date"
+                    value={formData.fecha_contacto}
+                    onChange={(e) => handleInputChange('fecha_contacto', e.target.value)}
+                    className={`text-gray-900 ${errors.fecha_contacto ? 'border-red-500' : ''}`}
+                  />
+                  {errors.fecha_contacto && (
+                    <p className="text-sm text-red-500 mt-1">{errors.fecha_contacto}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="comercial">Comercial</Label>
+                  <Input
+                    id="comercial"
+                    value={formData.comercial}
+                    onChange={(e) => handleInputChange('comercial', e.target.value)}
+                    className="text-gray-900 placeholder:text-gray-400"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
                   <Label htmlFor="nombre">
                     Nombre <span className="text-red-500">*</span>
                   </Label>
@@ -704,11 +743,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                   />
                 </div>
                 <div>
-                  <Label htmlFor="comercial">Comercial</Label>
+                  <Label htmlFor="referencia">Referencia</Label>
                   <Input
-                    id="comercial"
-                    value={formData.comercial}
-                    onChange={(e) => handleInputChange('comercial', e.target.value)}
+                    id="referencia"
+                    value={formData.referencia}
+                    onChange={(e) => handleInputChange('referencia', e.target.value)}
                     className="text-gray-900 placeholder:text-gray-400"
                   />
                 </div>
