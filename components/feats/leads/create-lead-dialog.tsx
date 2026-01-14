@@ -79,8 +79,8 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     razon_costo_extra: ''
   })
 
-  // Calcular costo final automáticamente
-  const costoFinal = oferta.costo_oferta + oferta.costo_extra
+  // Calcular costo final automáticamente (incluye costo de transporte)
+  const costoFinal = oferta.costo_oferta + oferta.costo_extra + oferta.costo_transporte
   
   // Función para convertir fecha DD/MM/YYYY a YYYY-MM-DD (para input date)
   const convertToDateInput = (ddmmyyyy: string): string => {
@@ -454,6 +454,11 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     const cleaned: Record<string, unknown> = { ...data }
 
     Object.entries(cleaned).forEach(([key, value]) => {
+      // No eliminar el array de ofertas, lo necesitamos siempre
+      if (key === 'ofertas') {
+        return
+      }
+
       if (typeof value === 'string' && value.trim() === '') {
         delete cleaned[key]
         return
@@ -497,7 +502,41 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     }
 
     try {
-      await onSubmit(sanitizeLeadData(formData))
+      // Buscar las descripciones de los productos seleccionados
+      const inversorSeleccionado = inversores.find(inv => String(inv.codigo) === oferta.inversor_codigo)
+      const bateriaSeleccionada = baterias.find(bat => String(bat.codigo) === oferta.bateria_codigo)
+      const panelSeleccionado = paneles.find(pan => String(pan.codigo) === oferta.panel_codigo)
+
+      // Construir el objeto de oferta desde el estado 'oferta' incluyendo las descripciones
+      const ofertaToSend = {
+        inversor_codigo: oferta.inversor_codigo || '',
+        inversor_nombre: inversorSeleccionado?.descripcion || '',
+        inversor_cantidad: oferta.inversor_cantidad,
+        bateria_codigo: oferta.bateria_codigo || '',
+        bateria_nombre: bateriaSeleccionada?.descripcion || '',
+        bateria_cantidad: oferta.bateria_cantidad,
+        panel_codigo: oferta.panel_codigo || '',
+        panel_nombre: panelSeleccionado?.descripcion || '',
+        panel_cantidad: oferta.panel_cantidad,
+        elementos_personalizados: oferta.elementos_personalizados || '',
+        aprobada: oferta.aprobada,
+        pagada: oferta.pagada,
+        costo_oferta: oferta.costo_oferta,
+        costo_extra: oferta.costo_extra,
+        costo_transporte: oferta.costo_transporte,
+        razon_costo_extra: oferta.razon_costo_extra || ''
+      }
+
+      // Crear el leadData con la oferta incluida
+      const leadDataWithOferta = {
+        ...formData,
+        ofertas: [ofertaToSend] // ← Agregar la oferta al array
+      }
+
+      console.log('📤 Enviando lead con oferta:', leadDataWithOferta)
+      console.log('📦 Oferta a enviar:', ofertaToSend)
+
+      await onSubmit(sanitizeLeadData(leadDataWithOferta))
     } catch (error) {
       console.error('Error al crear lead:', error)
     }

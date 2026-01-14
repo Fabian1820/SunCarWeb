@@ -15,19 +15,22 @@ export interface OfertaAsignacion {
 // Oferta embebida: retornada por el backend al LEER leads
 // Contiene snapshot completo de la oferta en el momento de creación
 export interface OfertaEmbebida {
-  id?: string
-  descripcion: string
-  descripcion_detallada?: string
-  precio: number
-  precio_cliente?: number
-  marca?: string
-  imagen?: string
-  moneda?: string
-  financiamiento?: boolean
-  descuentos?: string
-  garantias?: string[]
-  elementos?: unknown[]
-  cantidad: number
+  inversor_codigo: string | null
+  inversor_nombre?: string | null
+  inversor_cantidad: number
+  bateria_codigo: string | null
+  bateria_nombre?: string | null
+  bateria_cantidad: number
+  panel_codigo: string | null
+  panel_nombre?: string | null
+  panel_cantidad: number
+  costo_oferta: number
+  costo_extra: number
+  costo_transporte: number
+  aprobada: boolean
+  pagada: boolean
+  elementos_personalizados: string | null
+  razon_costo_extra: string | null
 }
 
 export interface Lead {
