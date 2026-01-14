@@ -427,9 +427,16 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
 
     try {
       // Buscar las descripciones de los productos seleccionados
-      const inversorSeleccionado = inversores.find(inv => String(inv.codigo) === oferta.inversor_codigo)
-      const bateriaSeleccionada = baterias.find(bat => String(bat.codigo) === oferta.bateria_codigo)
-      const panelSeleccionado = paneles.find(pan => String(pan.codigo) === oferta.panel_codigo)
+      console.log('🔍 Buscando inversor con código:', oferta.inversor_codigo)
+      console.log('📦 Inversores disponibles:', inversores.map(inv => ({ codigo: inv.codigo, descripcion: inv.descripcion })))
+      
+      const inversorSeleccionado = inversores.find(inv => String(inv.codigo) === String(oferta.inversor_codigo))
+      const bateriaSeleccionada = baterias.find(bat => String(bat.codigo) === String(oferta.bateria_codigo))
+      const panelSeleccionado = paneles.find(pan => String(pan.codigo) === String(oferta.panel_codigo))
+
+      console.log('✅ Inversor encontrado:', inversorSeleccionado)
+      console.log('✅ Batería encontrada:', bateriaSeleccionada)
+      console.log('✅ Panel encontrado:', panelSeleccionado)
 
       // Construir el objeto de oferta incluyendo las descripciones
       const ofertaToSend = {
@@ -450,6 +457,8 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         costo_transporte: oferta.costo_transporte,
         razon_costo_extra: oferta.razon_costo_extra || ''
       }
+
+      console.log('📦 Oferta a enviar:', ofertaToSend)
 
       // Crear el leadData con la oferta incluida
       const leadDataWithOferta = {
