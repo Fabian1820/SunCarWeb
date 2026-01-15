@@ -50,8 +50,8 @@ interface ClientsTableProps {
 
 const CLIENT_ESTADOS = [
   "Equipo instalado con éxito",
-  "Pendiente de instalacion",
-  "Instalacion en proceso",
+  "Pendiente de instalación",
+  "Instalación en Proceso",
 ]
 
 const LEAD_FUENTES = [
@@ -173,7 +173,7 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
     if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0)
     if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999)
 
-    return clients.filter((client) => {
+    const filtered = clients.filter((client) => {
       if (search) {
         const text = buildSearchText(client)
         if (!text.includes(search)) {
@@ -210,6 +210,21 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
       }
 
       return true
+    })
+
+    // Ordenar por los últimos 3 dígitos del código de cliente (descendente)
+    return filtered.sort((a, b) => {
+      // Extraer los últimos 3 dígitos del código
+      const getLastThreeDigits = (numero: string) => {
+        const digits = numero.match(/\d+/g)?.join('') || '0'
+        return parseInt(digits.slice(-3)) || 0
+      }
+
+      const aNum = getLastThreeDigits(a.numero)
+      const bNum = getLastThreeDigits(b.numero)
+
+      // Ordenar de mayor a menor (más reciente primero)
+      return bNum - aNum
     })
   }, [clients, searchTerm, filters])
 
@@ -520,6 +535,9 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                     <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">Cliente</th>
                     <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Contacto</th>
                     <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Estado</th>
+                    {filteredClients.some(c => c.estado === 'Instalación en Proceso') && (
+                      <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[15%]">Falta Instalación</th>
+                    )}
                     <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Oferta</th>
                     <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">Acciones</th>
                   </tr>
@@ -539,17 +557,15 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                         'Esperando equipo': 'bg-amber-100 text-amber-800 hover:bg-amber-200',
                         'No interesado': 'bg-gray-200 text-gray-700 hover:bg-gray-300',
                         'Pendiente de instalación': 'bg-green-100 text-green-800 hover:bg-green-200',
-                        'Pendiente de instalacion': 'bg-green-100 text-green-800 hover:bg-green-200',
                         'Pendiente de presupuesto': 'bg-purple-100 text-purple-800 hover:bg-purple-200',
                         'Pendiente de visita': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
                         'Pendiente de visitarnos': 'bg-pink-100 text-pink-800 hover:bg-pink-200',
                         'Proximamente': 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200',
                         'Revisando ofertas': 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200',
                         'Sin respuesta': 'bg-red-100 text-red-800 hover:bg-red-200',
-                        // Estados de clientes (con y sin tilde)
+                        // Estados de clientes
                         'Equipo instalado con éxito': 'bg-orange-100 text-orange-800 hover:bg-orange-200',
-                        'Instalacion en proceso': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
-                        'Instalación en proceso': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+                        'Instalación en Proceso': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
                       }
                       
                       return estadosConfig[estadoNormalizado] || 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -596,6 +612,18 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                             )}
                           </div>
                         </td>
+                        {filteredClients.some(c => c.estado === 'Instalación en Proceso') && (
+                          <td className="py-4 px-3">
+                            {client.estado === 'Instalación en Proceso' && (
+                              <div className="text-xs">
+                                <div className="text-gray-500 mb-1">Falta:</div>
+                                <div className="text-gray-900 font-medium">
+                                  {client.falta_instalacion || 'No especificado'}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        )}
                         <td className="py-4 px-3">
                           <div className="space-y-1">
                             {client.ofertas && client.ofertas.length > 0 ? (

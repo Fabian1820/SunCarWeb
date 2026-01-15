@@ -173,6 +173,16 @@ export function ClienteDetallesDialog({
                 )}
               </div>
 
+              {/* Fila 4.5: Falta Instalación (Condicional) */}
+              {cliente.estado === 'Instalación en Proceso' && cliente.falta_instalacion && (
+                <div>
+                  <Label className="text-gray-700">¿Qué le falta a la instalación?</Label>
+                  <p className="text-sm text-gray-700 bg-amber-50 p-3 rounded-md border border-amber-200 mt-1">
+                    {cliente.falta_instalacion}
+                  </p>
+                </div>
+              )}
+
               {/* Fila 5: Dirección (ancho completo) */}
               <div>
                 <Label className="text-gray-700">Dirección</Label>

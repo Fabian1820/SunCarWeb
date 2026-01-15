@@ -113,4 +113,7 @@ export interface LeadConversionRequest {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  estado?: string
+  fuente?: string
+  municipio?: string
 }

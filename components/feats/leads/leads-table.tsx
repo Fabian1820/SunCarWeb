@@ -108,7 +108,6 @@ export function LeadsTable({
   const [conversionLoading, setConversionLoading] = useState(false)
   const [isComprobanteDialogOpen, setIsComprobanteDialogOpen] = useState(false)
   const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(null)
-  const [showMapModalConversion, setShowMapModalConversion] = useState(false)
   const [showOfertasDialog, setShowOfertasDialog] = useState(false)
   const [selectedLeadForOfertas, setSelectedLeadForOfertas] = useState<Lead | null>(null)
   const [isCreateOfertaOpen, setIsCreateOfertaOpen] = useState(false)
@@ -152,6 +151,9 @@ export function LeadsTable({
       numero: '',
       metodo_pago: lead.metodo_pago || '',
       moneda: lead.moneda || '',
+      estado: lead.estado || '',
+      fuente: lead.fuente || '',
+      municipio: lead.municipio || '',
     })
     setConversionErrors({})
     setConversionLoading(false)
@@ -316,6 +318,18 @@ export function LeadsTable({
 
     if (conversionData.moneda && conversionData.moneda.trim()) {
       payload.moneda = conversionData.moneda.trim()
+    }
+
+    if (conversionData.estado && conversionData.estado.trim()) {
+      payload.estado = conversionData.estado.trim()
+    }
+
+    if (conversionData.fuente && conversionData.fuente.trim()) {
+      payload.fuente = conversionData.fuente.trim()
+    }
+
+    if (conversionData.municipio && conversionData.municipio.trim()) {
+      payload.municipio = conversionData.municipio.trim()
     }
 
     return payload
@@ -975,6 +989,36 @@ export function LeadsTable({
                   </div>
 
                   <div>
+                    <Label htmlFor="carnet_identidad" className="text-xs sm:text-sm">Carnet de identidad</Label>
+                    <Input
+                      id="carnet_identidad"
+                      placeholder="Documento opcional"
+                      value={conversionData.carnet_identidad || ''}
+                      onChange={(event) => handleConversionInputChange('carnet_identidad', event.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="fecha_montaje" className="text-xs sm:text-sm">Fecha de inicio de instalación</Label>
+                    <Input
+                      id="fecha_montaje"
+                      type="date"
+                      value={conversionData.fecha_montaje || ''}
+                      onChange={(event) => handleConversionInputChange('fecha_montaje', event.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="fecha_instalacion" className="text-xs sm:text-sm">Fecha de fin de instalación</Label>
+                    <Input
+                      id="fecha_instalacion"
+                      type="date"
+                      value={conversionData.fecha_instalacion || ''}
+                      onChange={(event) => handleConversionInputChange('fecha_instalacion', event.target.value)}
+                    />
+                  </div>
+
+                  <div>
                     <Label htmlFor="metodo_pago_conversion" className="text-xs sm:text-sm">Método de pago</Label>
                     <Input
                       id="metodo_pago_conversion"
@@ -991,63 +1035,6 @@ export function LeadsTable({
                       placeholder="USD, CUP, MLC..."
                       value={conversionData.moneda || ''}
                       onChange={(event) => handleConversionInputChange('moneda', event.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="fecha_montaje" className="text-xs sm:text-sm">Fecha de montaje</Label>
-                    <Input
-                      id="fecha_montaje"
-                      type="date"
-                      value={conversionData.fecha_montaje || ''}
-                      onChange={(event) => handleConversionInputChange('fecha_montaje', event.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="fecha_instalacion" className="text-xs sm:text-sm">Fecha de instalación</Label>
-                    <Input
-                      id="fecha_instalacion"
-                      type="datetime-local"
-                      value={conversionData.fecha_instalacion || ''}
-                      onChange={(event) => handleConversionInputChange('fecha_instalacion', event.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-xs sm:text-sm">Ubicación (usar mapa para precisión)</Label>
-                    <div className="space-y-2">
-                      <div className="flex gap-2">
-                        <Input
-                          value={conversionData.latitud ? String(conversionData.latitud) : ''}
-                          placeholder="Latitud"
-                          readOnly
-                          className="flex-1"
-                        />
-                        <Input
-                          value={conversionData.longitud ? String(conversionData.longitud) : ''}
-                          placeholder="Longitud"
-                          readOnly
-                          className="flex-1"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-                        onClick={() => setShowMapModalConversion(true)}
-                      >
-                        <MapPin className="h-4 w-4 mr-2" /> Seleccionar en mapa
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="carnet_identidad" className="text-xs sm:text-sm">Carnet de identidad</Label>
-                    <Input
-                      id="carnet_identidad"
-                      placeholder="Documento opcional"
-                      value={conversionData.carnet_identidad || ''}
-                      onChange={(event) => handleConversionInputChange('carnet_identidad', event.target.value)}
                     />
                   </div>
                 </div>
@@ -1155,32 +1142,6 @@ export function LeadsTable({
         lockContactType="lead"
         lockLeadId={selectedLeadForOfertas?.id || ''}
       />
-
-      {/* Modal de mapa para convertir lead a cliente */}
-      <Dialog open={showMapModalConversion} onOpenChange={setShowMapModalConversion}>
-        <DialogContent className="max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Seleccionar ubicación en el mapa</DialogTitle>
-          </DialogHeader>
-          <div className="mb-4 text-gray-700">Haz click en el mapa para seleccionar la ubicación. Solo se guardarán latitud y longitud.</div>
-          <MapPicker
-            initialLat={conversionData.latitud ? (typeof conversionData.latitud === 'number' ? conversionData.latitud : parseFloat(String(conversionData.latitud))) : 23.1136}
-            initialLng={conversionData.longitud ? (typeof conversionData.longitud === 'number' ? conversionData.longitud : parseFloat(String(conversionData.longitud))) : -82.3666}
-            onSelect={(lat: number, lng: number) => {
-              setConversionData(prev => ({
-                ...prev,
-                latitud: String(lat),
-                longitud: String(lng),
-              }))
-            }}
-          />
-          <div className="flex justify-end pt-4">
-            <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModalConversion(false)}>
-              Confirmar ubicación
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <UploadComprobanteDialog
         open={isComprobanteDialogOpen}

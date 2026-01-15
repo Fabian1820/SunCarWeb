@@ -118,7 +118,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
     nombre: '',
     telefono: '',
     telefono_adicional: '',
-    estado: 'Pendiente de instalacion',
+    estado: 'Pendiente de instalación',
     fuente: '',
     referencia: '',
     direccion: '',
@@ -134,6 +134,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
     carnet_identidad: '',
     fecha_montaje: '',
     fecha_instalacion: '',
+    falta_instalacion: '',
   })
 
   // Actualizar el comercial cuando el usuario cambie (por si acaso)
@@ -472,16 +473,16 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
 
     // Campos obligatorios
     if (!formData.numero.trim()) {
-      newErrors.numero = 'El codigo de cliente es obligatorio'
+      newErrors.numero = 'El código de cliente es obligatorio'
     }
     if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es obligatorio'
     }
     if (!formData.telefono.trim()) {
-      newErrors.telefono = 'El telefono es obligatorio'
+      newErrors.telefono = 'El teléfono es obligatorio'
     }
     if (!formData.direccion.trim()) {
-      newErrors.direccion = 'La direccion es obligatoria'
+      newErrors.direccion = 'La dirección es obligatoria'
     }
 
     setErrors(newErrors)
@@ -523,7 +524,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
       const clientDataWithOferta: ClienteCreateData = {
         ...formData,
         fecha_contacto: getCurrentDateDDMMYYYY(),
-        estado: 'Pendiente de instalacion',
+        // Mantener el estado seleccionado por el usuario (no sobrescribir)
         latitud: clientLatLng.lat || undefined,
         longitud: clientLatLng.lng || undefined,
         ofertas: [ofertaToSend],
@@ -603,12 +604,19 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="estado">Estado</Label>
-              <Input
-                id="estado"
-                value="Pendiente de instalacion"
-                disabled
-                className="text-gray-900 bg-gray-100"
-              />
+              <Select
+                value={formData.estado}
+                onValueChange={(value) => handleInputChange('estado', value)}
+              >
+                <SelectTrigger id="estado" className="text-gray-900">
+                  <SelectValue placeholder="Seleccionar estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Equipo instalado con éxito">Equipo instalado con éxito</SelectItem>
+                  <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
+                  <SelectItem value="Instalación en Proceso">Instalación en Proceso</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <Label htmlFor="fuente">Fuente</Label>
@@ -664,9 +672,24 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
             </div>
           </div>
 
-          {/* 4. Direccion */}
+          {/* Campo condicional: Falta Instalación */}
+          {formData.estado === 'Instalación en Proceso' && (
+            <div>
+              <Label htmlFor="falta_instalacion">¿Qué le falta a la instalación?</Label>
+              <Textarea
+                id="falta_instalacion"
+                value={formData.falta_instalacion || ''}
+                onChange={(e) => handleInputChange('falta_instalacion', e.target.value)}
+                rows={2}
+                className="text-gray-900 placeholder:text-gray-400"
+                placeholder="Describe qué le falta para completar la instalación..."
+              />
+            </div>
+          )}
+
+          {/* 4. Dirección */}
           <div>
-            <Label htmlFor="direccion">Direccion</Label>
+            <Label htmlFor="direccion">Dirección</Label>
             <Input
               id="direccion"
               value={formData.direccion}
@@ -728,9 +751,9 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
             </div>
           </div>
 
-          {/* 6. Ubicacion en el mapa */}
+          {/* 6. Ubicación en el mapa */}
           <div>
-            <Label>Ubicacion en el mapa</Label>
+            <Label>Ubicación en el mapa</Label>
             <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
               <div className="flex gap-2 flex-1">
                 <Input
@@ -760,7 +783,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="telefono">
-                Telefono <span className="text-red-500">*</span>
+                Teléfono <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="telefono"
@@ -777,7 +800,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
               )}
             </div>
             <div>
-              <Label htmlFor="telefono_adicional">Telefono Adicional</Label>
+              <Label htmlFor="telefono_adicional">Teléfono Adicional</Label>
               <Input
                 id="telefono_adicional"
                 value={formData.telefono_adicional || ''}
@@ -788,7 +811,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
             </div>
           </div>
           <div>
-            <Label htmlFor="pais_contacto">Pais de contacto</Label>
+            <Label htmlFor="pais_contacto">País de contacto</Label>
             <Input
               id="pais_contacto"
               value={formData.pais_contacto || ''}
@@ -807,7 +830,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="fecha_montaje">Fecha de inicio de instalacion</Label>
+            <Label htmlFor="fecha_montaje">Fecha de inicio de instalación</Label>
             <Input
               id="fecha_montaje"
               type="date"
@@ -817,7 +840,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
             />
           </div>
           <div>
-            <Label htmlFor="fecha_instalacion">Fecha de fin de instalacion</Label>
+            <Label htmlFor="fecha_instalacion">Fecha de fin de instalación</Label>
             <Input
               id="fecha_instalacion"
               type="date"
@@ -1169,10 +1192,10 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
       <Dialog open={showMapModal} onOpenChange={setShowMapModal}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Seleccionar ubicacion en el mapa</DialogTitle>
+            <DialogTitle>Seleccionar ubicación en el mapa</DialogTitle>
           </DialogHeader>
           <div className="mb-4 text-gray-700">
-            Haz click en el mapa para seleccionar la ubicacion. Solo se guardaran latitud y longitud.
+            Haz click en el mapa para seleccionar la ubicación. Solo se guardarán latitud y longitud.
           </div>
           <MapPicker
             initialLat={clientLatLng.lat ? parseFloat(clientLatLng.lat) : 23.1136}
@@ -1183,7 +1206,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
           />
           <div className="flex justify-end pt-4">
             <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModal(false)}>
-              Confirmar ubicacion
+              Confirmar ubicación
             </Button>
           </div>
         </DialogContent>

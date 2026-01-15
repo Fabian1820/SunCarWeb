@@ -28,6 +28,7 @@ export interface Cliente {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  falta_instalacion?: string  // Qué le falta a la instalación (solo para estado "Instalación en proceso")
 }
 
 export interface ClienteResponse {
@@ -61,6 +62,7 @@ export interface ClienteCreateData {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  falta_instalacion?: string  // Qué le falta a la instalación
 }
 
 export interface ClienteSimpleCreateData {
@@ -71,6 +73,7 @@ export interface ClienteSimpleCreateData {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  falta_instalacion?: string  // Qué le falta a la instalación
 }
 
 export type ClienteUpdateData = Partial<ClienteCreateData>

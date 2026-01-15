@@ -109,13 +109,30 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
     return `${day}/${month}/${year}`
   }
 
+  // Función auxiliar para normalizar estados
+  const normalizeEstado = (estado: string): string => {
+    if (!estado) return ''
+    
+    const estadosMap: Record<string, string> = {
+      'Instalacion en proceso': 'Instalación en Proceso',
+      'Instalación en proceso': 'Instalación en Proceso',
+      'instalacion en proceso': 'Instalación en Proceso',
+      'Pendiente de instalacion': 'Pendiente de instalación',
+      'pendiente de instalacion': 'Pendiente de instalación',
+      'Equipo instalado con éxito': 'Equipo instalado con éxito',
+      'equipo instalado con éxito': 'Equipo instalado con éxito',
+    }
+    
+    return estadosMap[estado] || estado
+  }
+
   const [formData, setFormData] = useState({
     numero: client.numero || '',
     fecha_contacto: convertToDateInput(client.fecha_contacto || ''),
     nombre: client.nombre || '',
     telefono: client.telefono || '',
     telefono_adicional: client.telefono_adicional || '',
-    estado: client.estado || '',
+    estado: normalizeEstado(client.estado || ''),
     fuente: client.fuente || '',
     referencia: client.referencia || '',
     direccion: client.direccion || '',
@@ -129,6 +146,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
     carnet_identidad: client.carnet_identidad || '',
     fecha_montaje: client.fecha_montaje || '',
     fecha_instalacion: client.fecha_instalacion || '',
+    falta_instalacion: client.falta_instalacion || '',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -137,6 +155,29 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
   useEffect(() => {
     if (open) {
       console.log('🔄 Reseteando formulario con cliente:', client)
+      console.log('📊 Estado del cliente:', client.estado)
+      console.log('📊 Tipo de estado:', typeof client.estado)
+      
+      // Normalizar el estado para compatibilidad con versiones anteriores
+      let estadoNormalizado = client.estado || ''
+      
+      // Mapeo de estados antiguos a nuevos
+      const estadosMap: Record<string, string> = {
+        'Instalacion en proceso': 'Instalación en Proceso',
+        'Instalación en proceso': 'Instalación en Proceso',
+        'instalacion en proceso': 'Instalación en Proceso',
+        'Pendiente de instalacion': 'Pendiente de instalación',
+        'pendiente de instalacion': 'Pendiente de instalación',
+        'Equipo instalado con éxito': 'Equipo instalado con éxito',
+        'equipo instalado con éxito': 'Equipo instalado con éxito',
+      }
+      
+      // Normalizar usando el mapa
+      if (estadoNormalizado && estadosMap[estadoNormalizado]) {
+        estadoNormalizado = estadosMap[estadoNormalizado]
+      }
+      
+      console.log('✅ Estado normalizado:', estadoNormalizado)
       
       setFormData({
         numero: client.numero || '',
@@ -144,7 +185,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
         nombre: client.nombre || '',
         telefono: client.telefono || '',
         telefono_adicional: client.telefono_adicional || '',
-        estado: client.estado || '',
+        estado: estadoNormalizado,
         fuente: client.fuente || '',
         referencia: client.referencia || '',
         direccion: client.direccion || '',
@@ -158,7 +199,10 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
         carnet_identidad: client.carnet_identidad || '',
         fecha_montaje: client.fecha_montaje || '',
         fecha_instalacion: client.fecha_instalacion || '',
+        falta_instalacion: client.falta_instalacion || '',
       })
+      
+      console.log('✅ FormData actualizado con estado:', estadoNormalizado)
       
       // Actualizar coordenadas del mapa
       setClientLatLng({
@@ -432,16 +476,16 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
     const newErrors: Record<string, string> = {}
 
     if (!formData.numero.trim()) {
-      newErrors.numero = 'El codigo de cliente es obligatorio'
+      newErrors.numero = 'El código de cliente es obligatorio'
     }
     if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es obligatorio'
     }
     if (!formData.telefono.trim()) {
-      newErrors.telefono = 'El telefono es obligatorio'
+      newErrors.telefono = 'El teléfono es obligatorio'
     }
     if (!formData.direccion.trim()) {
-      newErrors.direccion = 'La direccion es obligatoria'
+      newErrors.direccion = 'La dirección es obligatoria'
     }
 
     setErrors(newErrors)
@@ -574,7 +618,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="numero">
-                      Codigo de cliente <span className="text-red-500">*</span>
+                      Código de cliente <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="numero"
@@ -600,12 +644,20 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="estado">Estado</Label>
-                    <Input
-                      id="estado"
+                    <Select
+                      key={`estado-${client.id}-${formData.estado}`}
                       value={formData.estado}
-                      onChange={(e) => handleInputChange('estado', e.target.value)}
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
+                      onValueChange={(value) => handleInputChange('estado', value)}
+                    >
+                      <SelectTrigger id="estado" className="text-gray-900">
+                        <SelectValue placeholder="Seleccionar estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Equipo instalado con éxito">Equipo instalado con éxito</SelectItem>
+                        <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
+                        <SelectItem value="Instalación en Proceso">Instalación en Proceso</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div>
                     <Label htmlFor="fuente">Fuente</Label>
@@ -661,9 +713,24 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                   </div>
                 </div>
 
+                {/* Campo condicional: Falta Instalación */}
+                {(formData.estado === 'Instalación en Proceso') && (
+                  <div>
+                    <Label htmlFor="falta_instalacion">¿Qué le falta a la instalación?</Label>
+                    <Textarea
+                      id="falta_instalacion"
+                      value={formData.falta_instalacion || ''}
+                      onChange={(e) => handleInputChange('falta_instalacion', e.target.value)}
+                      rows={2}
+                      className="text-gray-900 placeholder:text-gray-400"
+                      placeholder="Describe qué le falta para completar la instalación..."
+                    />
+                  </div>
+                )}
+
                 <div>
                   <Label htmlFor="direccion">
-                    Direccion <span className="text-red-500">*</span>
+                    Dirección <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="direccion"
@@ -726,7 +793,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                 </div>
 
                 <div>
-                  <Label>Ubicacion en el mapa</Label>
+                  <Label>Ubicación en el mapa</Label>
                   <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
                     <div className="flex gap-2 flex-1">
                       <Input
@@ -755,7 +822,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="telefono">
-                      Telefono <span className="text-red-500">*</span>
+                      Teléfono <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="telefono"
@@ -772,7 +839,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="telefono_adicional">Telefono Adicional</Label>
+                    <Label htmlFor="telefono_adicional">Teléfono Adicional</Label>
                     <Input
                       id="telefono_adicional"
                       value={formData.telefono_adicional || ''}
@@ -783,7 +850,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="pais_contacto">Pais de contacto</Label>
+                  <Label htmlFor="pais_contacto">País de contacto</Label>
                   <Input
                     id="pais_contacto"
                     value={formData.pais_contacto || ''}
@@ -801,7 +868,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="fecha_montaje">Fecha de inicio de instalacion</Label>
+                  <Label htmlFor="fecha_montaje">Fecha de inicio de instalación</Label>
                   <Input
                     id="fecha_montaje"
                     type="date"
@@ -811,7 +878,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                   />
                 </div>
                 <div>
-                  <Label htmlFor="fecha_instalacion">Fecha de fin de instalacion</Label>
+                  <Label htmlFor="fecha_instalacion">Fecha de fin de instalación</Label>
                   <Input
                     id="fecha_instalacion"
                     type="date"
@@ -1141,10 +1208,10 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
       <Dialog open={showMapModal} onOpenChange={setShowMapModal}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>Seleccionar ubicacion en el mapa</DialogTitle>
+            <DialogTitle>Seleccionar ubicación en el mapa</DialogTitle>
           </DialogHeader>
           <div className="mb-4 text-gray-700">
-            Haz click en el mapa para seleccionar la ubicacion. Solo se guardaran latitud y longitud.
+            Haz click en el mapa para seleccionar la ubicación. Solo se guardarán latitud y longitud.
           </div>
           <MapPicker
             initialLat={clientLatLng.lat ? parseFloat(clientLatLng.lat) : 23.1136}
@@ -1155,7 +1222,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
           />
           <div className="flex justify-end pt-4">
             <Button type="button" className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => setShowMapModal(false)}>
-              Confirmar ubicacion
+              Confirmar ubicación
             </Button>
           </div>
         </DialogContent>
