@@ -14,6 +14,7 @@ export interface Cliente {
   pais_contacto?: string
   comentario?: string
   provincia_montaje?: string
+  municipio?: string
   comercial?: string
   ofertas?: OfertaEmbebida[]
   elementos_personalizados?: ElementoPersonalizado[]
@@ -48,6 +49,7 @@ export interface ClienteCreateData {
   pais_contacto?: string
   comentario?: string
   provincia_montaje?: string
+  municipio?: string
   comercial?: string
   ofertas?: OfertaAsignacion[]  // Al crear: solo enviar oferta_id + cantidad
   elementos_personalizados?: ElementoPersonalizado[]

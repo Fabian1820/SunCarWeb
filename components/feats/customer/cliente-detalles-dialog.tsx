@@ -1,30 +1,40 @@
 "use client"
 
-import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Calendar, MapPin, Phone, CreditCard, User, Building2, Navigation, UserCheck, Package, ListChecks, ChevronRight } from "lucide-react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import type { Cliente, OfertaEmbebida } from "@/lib/api-types"
+import { Label } from "@/components/shared/atom/label"
+import { 
+  Calendar, 
+  MapPin, 
+  Phone, 
+  CreditCard, 
+  UserCheck, 
+  Package, 
+  ListChecks, 
+  PhoneForwarded,
+  Edit,
+  Download,
+  Navigation
+} from "lucide-react"
+import type { Cliente } from "@/lib/api-types"
+import { downloadFile } from "@/lib/utils/download-file"
 
 interface ClienteDetallesDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   cliente: Cliente | null
-  onViewMap?: (cliente: Cliente) => void
+  onEdit?: (cliente: Cliente) => void
+  onDownloadComprobante?: (cliente: Cliente) => Promise<void>
 }
 
 export function ClienteDetallesDialog({
   open,
   onOpenChange,
   cliente,
-  onViewMap,
+  onEdit,
+  onDownloadComprobante,
 }: ClienteDetallesDialogProps) {
-  const [selectedOferta, setSelectedOferta] = useState<OfertaEmbebida | null>(null)
-  const [isOfertaElementosDialogOpen, setIsOfertaElementosDialogOpen] = useState(false)
-
   if (!cliente) return null
 
   const hasLocation = cliente.latitud !== undefined && cliente.latitud !== null && cliente.longitud !== undefined && cliente.longitud !== null
@@ -34,392 +44,468 @@ export function ClienteDetallesDialog({
   const lngNumber = hasLocation
     ? (typeof cliente.longitud === 'number' ? cliente.longitud : parseFloat(cliente.longitud))
     : null
-  const ofertas = cliente.ofertas || []
-  const elementos = cliente.elementos_personalizados || []
 
-  const formatCurrency = (value?: number, currency = 'USD') => {
-    if (typeof value !== 'number' || Number.isNaN(value)) return null
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return null
+    // Si ya está en formato DD/MM/YYYY, devolverlo tal como está
+    if (dateString.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      return dateString
+    }
+    // Si está en formato ISO (YYYY-MM-DD), convertir a DD/MM/YYYY
+    const date = new Date(dateString)
+    if (!isNaN(date.getTime())) {
+      const day = date.getDate().toString().padStart(2, '0')
+      const month = (date.getMonth() + 1).toString().padStart(2, '0')
+      const year = date.getFullYear()
+      return `${day}/${month}/${year}`
+    }
+    return dateString
+  }
+
+  const handleDownloadComprobante = async () => {
+    if (!cliente.comprobante_pago_url) return
+
     try {
-      return value.toLocaleString(undefined, { style: 'currency', currency })
-    } catch {
-      return `${value} ${currency}`
+      if (onDownloadComprobante) {
+        await onDownloadComprobante(cliente)
+        return
+      }
+      await downloadFile(cliente.comprobante_pago_url, `comprobante-cliente-${cliente.nombre || cliente.id || 'archivo'}`)
+    } catch (error) {
+      console.error('Error downloading comprobante for cliente', cliente.id, error)
     }
   }
 
-  const formatDateLabel = (value?: string) => {
-    if (!value) return null
-    const parsed = new Date(value)
-    if (Number.isNaN(parsed.getTime())) return value
-    return format(parsed, "PPP", { locale: es })
-  }
-
-  const fechaContactoFormatted = formatDateLabel(cliente.fecha_contacto)
-  const fechaMontajeFormatted = formatDateLabel(cliente.fecha_montaje)
-  const fechaInstalacionFormatted = cliente.fecha_instalacion
-    ? format(new Date(cliente.fecha_instalacion), "PPP 'a las' p", { locale: es })
-    : null
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-lg sm:text-xl">
-            <Building2 className="h-5 w-5 text-orange-600 flex-shrink-0" />
-            <span className="truncate">Detalles del Cliente</span>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="border-b pb-4">
+          <DialogTitle className="text-xl font-semibold text-gray-900">
+            Información del Cliente
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 sm:space-y-6 pr-2">
-          <div className="bg-gradient-to-r from-orange-50 to-yellow-50 p-3 sm:p-4 rounded-lg border border-orange-200">
-            <div className="flex items-start justify-between">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1 break-words">{cliente.nombre}</h3>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" className="bg-orange-100 text-orange-700 border-orange-300 text-xs sm:text-sm">
-                    N° {cliente.numero}
-                  </Badge>
-                  {cliente.estado && (
-                    <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-300 text-xs sm:text-sm">
-                      {cliente.estado}
-                    </Badge>
-                  )}
+        <div className="space-y-6 pt-4">
+          {/* Sección 1: Datos Personales */}
+          <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+            <div className="pb-4 mb-4 border-b-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">Datos Personales</h3>
+              <p className="text-sm text-gray-500 mt-1">Información básica del contacto</p>
+            </div>
+            <div className="space-y-4">
+              {/* Fila 1: Nombre y Referencia */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-700">Nombre</Label>
+                  <p className="text-gray-900 font-medium mt-1">{cliente.nombre}</p>
                 </div>
+                {cliente.referencia && (
+                  <div>
+                    <Label className="text-gray-700">Referencia</Label>
+                    <p className="text-gray-900 mt-1">{cliente.referencia}</p>
+                  </div>
+                )}
               </div>
+
+              {/* Fila 2: Código y Carnet */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-700">Código de Cliente</Label>
+                  <p className="text-gray-900 font-medium mt-1">N° {cliente.numero}</p>
+                </div>
+                {cliente.carnet_identidad && (
+                  <div>
+                    <Label className="text-gray-700">Carnet de Identidad</Label>
+                    <p className="text-gray-900 flex items-center gap-2 mt-1">
+                      <CreditCard className="h-4 w-4 text-gray-400" />
+                      {cliente.carnet_identidad}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Fila 3: Teléfono y Teléfono Adicional */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-gray-700">Teléfono</Label>
+                  <p className="text-gray-900 font-medium flex items-center gap-2 mt-1">
+                    <Phone className="h-4 w-4 text-gray-400" />
+                    {cliente.telefono || 'No registrado'}
+                  </p>
+                </div>
+                {cliente.telefono_adicional && (
+                  <div>
+                    <Label className="text-gray-700">Teléfono Adicional</Label>
+                    <p className="text-gray-900 flex items-center gap-2 mt-1">
+                      <PhoneForwarded className="h-4 w-4 text-gray-400" />
+                      {cliente.telefono_adicional}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Fila 4: Estado, Fuente y Fecha de Contacto */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {cliente.estado && (
+                  <div>
+                    <Label className="text-gray-700">Estado</Label>
+                    <div className="mt-1">
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 text-sm px-3 py-1">
+                        {cliente.estado}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+                {cliente.fuente && (
+                  <div>
+                    <Label className="text-gray-700">Fuente</Label>
+                    <p className="text-gray-900 mt-1">{cliente.fuente}</p>
+                  </div>
+                )}
+                {cliente.fecha_contacto && (
+                  <div>
+                    <Label className="text-gray-700">Fecha de Contacto</Label>
+                    <p className="text-gray-900 flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      {formatDate(cliente.fecha_contacto)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Fila 5: Dirección (ancho completo) */}
+              <div>
+                <Label className="text-gray-700">Dirección</Label>
+                <p className="text-gray-900 flex items-start gap-2 mt-1">
+                  <MapPin className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                  {cliente.direccion || 'Sin dirección'}
+                </p>
+              </div>
+
+              {/* Fila 6: Provincia, Municipio y País */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {cliente.provincia_montaje && (
+                  <div>
+                    <Label className="text-gray-700">Provincia</Label>
+                    <p className="text-gray-900 mt-1">{cliente.provincia_montaje}</p>
+                  </div>
+                )}
+                {cliente.municipio && (
+                  <div>
+                    <Label className="text-gray-700">Municipio</Label>
+                    <p className="text-gray-900 mt-1">{cliente.municipio}</p>
+                  </div>
+                )}
+                {cliente.pais_contacto && (
+                  <div>
+                    <Label className="text-gray-700">País de Contacto</Label>
+                    <p className="text-gray-900 mt-1">{cliente.pais_contacto}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Fila 7: Coordenadas GPS */}
+              {hasLocation && latNumber !== null && lngNumber !== null && !Number.isNaN(latNumber) && !Number.isNaN(lngNumber) && (
+                <div>
+                  <Label className="text-gray-700">Coordenadas GPS</Label>
+                  <p className="text-gray-900 flex items-center gap-2 mt-1">
+                    <Navigation className="h-4 w-4 text-gray-400" />
+                    {latNumber.toFixed(6)}, {lngNumber.toFixed(6)}
+                  </p>
+                </div>
+              )}
+
+              {/* Fila 8: Comercial */}
+              {cliente.comercial && (
+                <div>
+                  <Label className="text-gray-700">Comercial Asignado</Label>
+                  <p className="text-gray-900 flex items-center gap-2 mt-1">
+                    <UserCheck className="h-4 w-4 text-gray-400" />
+                    {cliente.comercial}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-            <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
-                  <MapPin className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-gray-500">Dirección</p>
-                  <p className="text-sm sm:text-base font-semibold text-gray-900 mt-1 break-words">{cliente.direccion || 'Sin dirección'}</p>
-                </div>
+          {/* Sección 2: Fechas de Instalación */}
+          {(cliente.fecha_montaje || cliente.fecha_instalacion) && (
+            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+              <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">Fechas de Instalación</h3>
+                <p className="text-sm text-gray-500 mt-1">Inicio y fin de la instalación</p>
               </div>
-            </div>
-
-            <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
-                  <Phone className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
-                </div>
-                <div className="flex-1 space-y-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-gray-500">Teléfonos</p>
-                  <p className="text-sm sm:text-base font-semibold text-gray-900 break-words">{cliente.telefono || 'No registrado'}</p>
-                  {cliente.telefono_adicional && (
-                    <p className="text-xs sm:text-sm text-gray-600 break-words">Secundario: {cliente.telefono_adicional}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 md:col-span-2 min-w-0">
-              <div className="flex items-start gap-2 sm:gap-3">
-                <div className="p-2 bg-emerald-100 rounded-lg flex-shrink-0">
-                  <UserCheck className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
-                </div>
-                <div className="flex-1 space-y-1 min-w-0">
-                  <p className="text-xs sm:text-sm font-medium text-gray-500">Seguimiento</p>
-                  {cliente.comercial && <p className="text-xs sm:text-sm text-gray-700 break-words">Comercial: <span className="font-medium">{cliente.comercial}</span></p>}
-                  {cliente.fuente && <p className="text-xs sm:text-sm text-gray-600 break-words">Fuente: {cliente.fuente}</p>}
-                  {cliente.referencia && <p className="text-xs sm:text-sm text-gray-600 break-words">Referencia: {cliente.referencia}</p>}
-                  {(cliente.pais_contacto || cliente.provincia_montaje) && (
-                    <p className="text-xs sm:text-sm text-gray-600 break-words">
-                      {cliente.pais_contacto && `País: ${cliente.pais_contacto}`}
-                      {cliente.pais_contacto && cliente.provincia_montaje && ' · '}
-                      {cliente.provincia_montaje && `Provincia: ${cliente.provincia_montaje}`}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {cliente.carnet_identidad && (
-              <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
-                    <CreditCard className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm font-medium text-gray-500">Carnet de Identidad</p>
-                    <p className="text-sm sm:text-base font-semibold text-gray-900 mt-1 break-words">{cliente.carnet_identidad}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {hasLocation && latNumber !== null && lngNumber !== null && !Number.isNaN(latNumber) && !Number.isNaN(lngNumber) && (
-              <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-                <div className="flex items-start gap-2 sm:gap-3">
-                  <div className="p-2 bg-indigo-100 rounded-lg flex-shrink-0">
-                    <Navigation className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm font-medium text-gray-500">Coordenadas GPS</p>
-                    <p className="text-xs sm:text-sm font-semibold text-gray-900 mt-1 break-all">
-                      {latNumber.toFixed(6)}, {lngNumber.toFixed(6)}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {cliente.fecha_montaje && (
+                  <div>
+                    <Label className="text-gray-700">Fecha de Inicio de Instalación</Label>
+                    <p className="text-gray-900 flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      {formatDate(cliente.fecha_montaje)}
                     </p>
                   </div>
-                </div>
+                )}
+                {cliente.fecha_instalacion && (
+                  <div>
+                    <Label className="text-gray-700">Fecha de Fin de Instalación</Label>
+                    <p className="text-gray-900 flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      {formatDate(cliente.fecha_instalacion)}
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-
-          {cliente.comentario && (
-            <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-              <p className="text-xs sm:text-sm font-medium text-gray-500 mb-2">Comentario</p>
-              <p className="text-xs sm:text-sm text-gray-800 leading-relaxed whitespace-pre-wrap break-words">{cliente.comentario}</p>
             </div>
           )}
 
-          {(fechaContactoFormatted || fechaMontajeFormatted || fechaInstalacionFormatted) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {fechaContactoFormatted && (
-                <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg flex-shrink-0">
-                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium text-gray-500">Fecha de contacto</p>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-900 mt-1 break-words">{fechaContactoFormatted}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {fechaMontajeFormatted && (
-                <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg flex-shrink-0">
-                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium text-gray-500">Fecha de montaje</p>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-900 mt-1 break-words">{fechaMontajeFormatted}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {fechaInstalacionFormatted && (
-                <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 min-w-0 sm:col-span-2 lg:col-span-1">
-                  <div className="flex items-start gap-2 sm:gap-3">
-                    <div className="p-2 bg-rose-100 rounded-lg flex-shrink-0">
-                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5 text-rose-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-medium text-gray-500">Fecha de instalación</p>
-                      <p className="text-xs sm:text-sm font-semibold text-gray-900 mt-1 break-words">{fechaInstalacionFormatted}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {ofertas.length > 0 && (
-            <div className="min-w-0">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                <Package className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                <span>Ofertas asociadas</span>
-              </h3>
-              <div className="space-y-2 sm:space-y-3">
-                {ofertas.map((oferta, index) => {
-                  const precioBase = formatCurrency(oferta.precio, oferta.moneda || 'USD')
-                  const precioCliente = formatCurrency(oferta.precio_cliente, oferta.moneda || 'USD')
-                  return (
-                    <div key={`oferta-${cliente.numero}-${index}`} className="border border-orange-100 rounded-lg p-2 sm:p-3 bg-orange-50 min-w-0 overflow-hidden">
-                      <div className="space-y-2">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                          <div className="flex-1 min-w-0 overflow-hidden">
-                            <span className="text-xs sm:text-sm font-semibold text-gray-900 truncate block" title={oferta.descripcion}>{oferta.descripcion}</span>
-                            {oferta.marca && (
-                              <p className="text-xs text-gray-600 mt-1 truncate" title={oferta.marca}>Marca: {oferta.marca}</p>
-                            )}
-                          </div>
-                          <Badge variant="outline" className="text-xs self-start sm:self-auto flex-shrink-0">
-                            Cant: {oferta.cantidad}
-                          </Badge>
+          {/* Sección 3: Oferta */}
+          {cliente.ofertas && cliente.ofertas.length > 0 && (
+            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+              <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
+                <p className="text-sm text-gray-500 mt-1">Detalles de productos y cantidades</p>
+              </div>
+              <div className="space-y-4">
+                {cliente.ofertas.map((oferta, idx) => (
+                  <div key={idx} className="border rounded-lg p-4 bg-gray-50">
+                    {/* Productos en Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Inversor */}
+                      {oferta.inversor_codigo && oferta.inversor_cantidad > 0 && (
+                        <div>
+                          <Label className="text-gray-700">Inversor</Label>
+                          <p className="text-gray-900 font-medium mt-1">
+                            {oferta.inversor_nombre || oferta.inversor_codigo}
+                          </p>
+                          <p className="text-sm text-gray-500">Cantidad: {oferta.inversor_cantidad}</p>
                         </div>
+                      )}
 
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          {precioBase && (
-                            <div className="text-gray-600 truncate">
-                              <span className="font-medium">Precio base:</span> {precioBase}
-                            </div>
-                          )}
-                          {precioCliente && (
-                            <div className="text-gray-600 truncate">
-                              <span className="font-medium">P. Cliente:</span> {precioCliente}
-                            </div>
-                          )}
+                      {/* Batería */}
+                      {oferta.bateria_codigo && oferta.bateria_cantidad > 0 && (
+                        <div>
+                          <Label className="text-gray-700">Batería</Label>
+                          <p className="text-gray-900 font-medium mt-1">
+                            {oferta.bateria_nombre || oferta.bateria_codigo}
+                          </p>
+                          <p className="text-sm text-gray-500">Cantidad: {oferta.bateria_cantidad}</p>
                         </div>
+                      )}
 
-                        {oferta.descuentos && (
-                          <div className="text-xs text-gray-600 truncate" title={oferta.descuentos}>
-                            <span className="font-medium">Descuentos:</span> {oferta.descuentos}
+                      {/* Panel */}
+                      {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
+                        <div>
+                          <Label className="text-gray-700">Panel</Label>
+                          <p className="text-gray-900 font-medium mt-1">
+                            {oferta.panel_nombre || oferta.panel_codigo}
+                          </p>
+                          <p className="text-sm text-gray-500">Cantidad: {oferta.panel_cantidad}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Estado de la Oferta */}
+                    {(oferta.aprobada || oferta.pagada) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        {oferta.aprobada && (
+                          <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
+                            <input
+                              type="checkbox"
+                              checked={true}
+                              disabled
+                              className="h-5 w-5 rounded border-gray-300 text-green-600"
+                            />
+                            <Label className="font-medium">Oferta Aprobada</Label>
                           </div>
                         )}
-                        {oferta.garantias && oferta.garantias.length > 0 && (
-                          <div className="text-xs text-gray-600 truncate" title={oferta.garantias.join(', ')}>
-                            <span className="font-medium">Garantías:</span> {oferta.garantias.join(', ')}
+                        {oferta.pagada && (
+                          <div className="flex items-center space-x-2 p-3 border rounded-md bg-white">
+                            <input
+                              type="checkbox"
+                              checked={true}
+                              disabled
+                              className="h-5 w-5 rounded border-gray-300 text-blue-600"
+                            />
+                            <Label className="font-medium">Oferta Pagada</Label>
                           </div>
-                        )}
-
-                        {oferta.elementos && oferta.elementos.length > 0 && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="w-full mt-1 text-xs h-8 text-orange-700 border-orange-200 hover:bg-orange-100"
-                            onClick={() => {
-                              setSelectedOferta(oferta)
-                              setIsOfertaElementosDialogOpen(true)
-                            }}
-                          >
-                            <Package className="h-3 w-3 mr-1" />
-                            Ver elementos ({oferta.elementos.length})
-                            <ChevronRight className="h-3 w-3 ml-auto" />
-                          </Button>
                         )}
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+                    )}
 
-          {elementos.length > 0 && (
-            <div className="min-w-0">
-              <h3 className="text-xs sm:text-sm font-medium text-gray-500 mb-2 flex items-center gap-2">
-                <ListChecks className="h-4 w-4 text-green-600 flex-shrink-0" />
-                <span>Elementos personalizados</span>
-              </h3>
-              <div className="space-y-2">
-                {elementos.map((item, index) => (
-                  <div key={`elemento-${cliente.numero}-${index}`} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border border-gray-200 rounded-md px-2 sm:px-3 py-2 bg-white min-w-0">
-                    <span className="text-xs sm:text-sm text-gray-700 break-words min-w-0">{item.descripcion}</span>
-                    <Badge variant="outline" className="text-xs bg-gray-50 self-start sm:self-auto flex-shrink-0">
-                      {item.cantidad}
-                    </Badge>
+                    {/* Elementos Personalizados */}
+                    {oferta.elementos_personalizados && (
+                      <div className="mt-4">
+                        <Label className="text-gray-700">Elementos Personalizados (Comentario)</Label>
+                        <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
+                          {oferta.elementos_personalizados}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4 border-t">
-            {hasLocation && latNumber !== null && lngNumber !== null && !Number.isNaN(latNumber) && !Number.isNaN(lngNumber) && onViewMap && (
+          {/* Sección 4: Costos y Pago */}
+          {cliente.ofertas && cliente.ofertas.length > 0 && (
+            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+              <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">Costos y Pago</h3>
+                <p className="text-sm text-gray-500 mt-1">Información financiera de la oferta</p>
+              </div>
+              <div className="space-y-4">
+                {cliente.ofertas.map((oferta, idx) => {
+                  const costoOferta = oferta.costo_oferta || 0
+                  const costoExtra = oferta.costo_extra || 0
+                  const costoTransporte = oferta.costo_transporte || 0
+                  const costoFinal = costoOferta + costoExtra + costoTransporte
+                  
+                  return (
+                  <div key={`costos-${idx}`}>
+                    {/* Costos - Primera fila */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-gray-700">Costo de Oferta</Label>
+                        <p className="text-gray-900 font-semibold mt-1">
+                          ${costoOferta.toFixed(2)}
+                        </p>
+                      </div>
+                      {costoExtra > 0 && (
+                        <div>
+                          <Label className="text-gray-700">Costo Extra</Label>
+                          <p className="text-gray-900 font-semibold mt-1">
+                            ${costoExtra.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                      {costoTransporte > 0 && (
+                        <div>
+                          <Label className="text-gray-700">Costo de Transporte</Label>
+                          <p className="text-gray-900 font-semibold mt-1">
+                            ${costoTransporte.toFixed(2)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Costo Final */}
+                    <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
+                      <Label className="text-gray-700">Costo Final</Label>
+                      <p className="text-2xl font-bold text-gray-900 mt-1">
+                        ${costoFinal.toFixed(2)}
+                      </p>
+                    </div>
+
+                    {/* Razón del Costo Extra */}
+                    {oferta.razon_costo_extra && (
+                      <div className="mt-4">
+                        <Label className="text-gray-700">Razón del Costo Extra</Label>
+                        <p className="text-sm text-gray-700 bg-white p-3 rounded-md border mt-1">
+                          {oferta.razon_costo_extra}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  )
+                })}
+
+                {/* Método de Pago y Moneda */}
+                {(cliente.metodo_pago || cliente.moneda) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                    {cliente.metodo_pago && (
+                      <div>
+                        <Label className="text-gray-700">Método de Pago</Label>
+                        <p className="text-gray-900 font-medium mt-1">{cliente.metodo_pago}</p>
+                      </div>
+                    )}
+                    {cliente.moneda && (
+                      <div>
+                        <Label className="text-gray-700">Moneda</Label>
+                        <p className="text-gray-900 font-medium mt-1">{cliente.moneda}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Comprobante de Pago */}
+                {cliente.comprobante_pago_url && (
+                  <div className="pt-4 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadComprobante}
+                      className="w-full md:w-auto"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Descargar Comprobante
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sección 5: Comentarios (Condicional) */}
+          {cliente.comentario && (
+            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+              <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900">Comentarios</h3>
+                <p className="text-sm text-gray-500 mt-1">Notas adicionales sobre el cliente</p>
+              </div>
+              <div className="space-y-4">
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap break-words bg-gray-50 p-4 rounded-lg border">
+                  {cliente.comentario}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Sección 6: Elementos Personalizados (Condicional) */}
+          {cliente.elementos_personalizados && cliente.elementos_personalizados.length > 0 && (
+            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+              <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <ListChecks className="h-5 w-5" />
+                  Elementos Personalizados
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">Elementos adicionales del cliente</p>
+              </div>
+              <div className="space-y-2">
+                {cliente.elementos_personalizados.map((elemento, index) => (
+                  <div key={index} className="flex items-center justify-between border rounded-md px-4 py-3 bg-gray-50">
+                    <span className="text-sm text-gray-900">{elemento.descripcion}</span>
+                    <span className="text-sm font-medium text-gray-600 ml-4">
+                      Cant: {elemento.cantidad}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Botones */}
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            {onEdit && (
               <Button
                 variant="outline"
                 onClick={() => {
-                  onViewMap(cliente)
+                  onEdit(cliente)
                   onOpenChange(false)
                 }}
-                className="border-purple-300 text-purple-700 hover:bg-purple-50 w-full sm:w-auto"
+                className="border-orange-300 text-orange-700 hover:bg-orange-50"
               >
-                <MapPin className="h-4 w-4 mr-2" />
-                <span className="truncate">Ver en Mapa</span>
+                <Edit className="h-4 w-4 mr-2" />
+                Editar Cliente
               </Button>
             )}
-            <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cerrar
             </Button>
           </div>
         </div>
       </DialogContent>
-
-      {/* Dialog Elementos de Oferta */}
-      <Dialog open={isOfertaElementosDialogOpen} onOpenChange={setIsOfertaElementosDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg">Elementos de la Oferta</DialogTitle>
-          </DialogHeader>
-          {selectedOferta && (
-            <div className="space-y-4">
-              <div className="bg-orange-50 border border-orange-100 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-900 mb-1">{selectedOferta.descripcion}</h3>
-                {selectedOferta.marca && (
-                  <p className="text-sm text-gray-600">Marca: {selectedOferta.marca}</p>
-                )}
-                <div className="flex items-center gap-4 mt-2 text-sm">
-                  {formatCurrency(selectedOferta.precio, selectedOferta.moneda || 'USD') && (
-                    <span className="text-gray-700">
-                      <span className="font-medium">Precio:</span> {formatCurrency(selectedOferta.precio, selectedOferta.moneda || 'USD')}
-                    </span>
-                  )}
-                  <Badge variant="outline" className="text-xs">
-                    Cantidad: {selectedOferta.cantidad}
-                  </Badge>
-                </div>
-              </div>
-
-              {selectedOferta.elementos && selectedOferta.elementos.length > 0 ? (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">
-                    Elementos incluidos ({selectedOferta.elementos.length})
-                  </h4>
-                  <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
-                    {selectedOferta.elementos.map((elemento: any, index: number) => (
-                      <div
-                        key={`elemento-${index}`}
-                        className="flex items-start gap-3 border border-gray-200 rounded-lg p-3 bg-white hover:bg-gray-50 transition-colors"
-                      >
-                        <div className="p-2 bg-blue-100 rounded-lg shrink-0">
-                          <Package className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 break-words">
-                                {elemento.nombre || elemento.descripcion || elemento.name || 'Elemento sin nombre'}
-                              </p>
-                              {elemento.material && (
-                                <p className="text-xs text-gray-600 mt-1">Material: {elemento.material}</p>
-                              )}
-                              {elemento.descripcion && elemento.nombre && (
-                                <p className="text-xs text-gray-600 mt-1">{elemento.descripcion}</p>
-                              )}
-                            </div>
-                            {elemento.cantidad && (
-                              <Badge variant="outline" className="text-xs shrink-0">
-                                {elemento.cantidad}
-                              </Badge>
-                            )}
-                          </div>
-                          {elemento.precio && (
-                            <p className="text-xs text-gray-600 mt-1">
-                              Precio: {formatCurrency(elemento.precio, elemento.moneda || selectedOferta.moneda || 'USD')}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Package className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm">No hay elementos disponibles para esta oferta</p>
-                </div>
-              )}
-
-              <div className="flex justify-end pt-2 border-t">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsOfertaElementosDialogOpen(false)}
-                >
-                  Cerrar
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </Dialog>
   )
 }

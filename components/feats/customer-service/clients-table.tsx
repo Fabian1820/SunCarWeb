@@ -50,7 +50,7 @@ interface ClientsTableProps {
 
 const CLIENT_ESTADOS = [
   "Equipo instalado con éxito",
-  "Pendiente de instalación",
+  "Pendiente de instalacion",
   "Instalacion en proceso",
 ]
 
