@@ -2,13 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/shared/atom/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Input } from "@/components/shared/molecule/input"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Search, User, MapPin } from "lucide-react"
+import { User, MapPin } from "lucide-react"
 import { ClienteService } from "@/lib/api-services"
 import { ElementosPersonalizadosFields } from "@/components/feats/leads/elementos-personalizados-fields"
 import { OfertasAsignacionFields } from "@/components/feats/leads/ofertas-asignacion-fields"
@@ -24,7 +23,6 @@ import type {
   ClienteUpdateData,
   ElementoPersonalizado,
   OfertaAsignacion,
-  OfertaEmbebida,
 } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
 import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog"
@@ -33,7 +31,6 @@ export default function ClientesPage() {
   const [clients, setClients] = useState<Cliente[]>([])
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
 
   const [isCreateClientDialogOpen, setIsCreateClientDialogOpen] = useState(false)
   const [clientFormLoading, setClientFormLoading] = useState(false)
@@ -61,24 +58,14 @@ export default function ClientesPage() {
       const allClients = await ClienteService.getClientes({})
       
       // Si hay término de búsqueda, filtrar en el frontend
-      if (searchTerm.trim()) {
-        const searchLower = searchTerm.toLowerCase().trim()
-        const filteredClients = allClients.filter(cliente => 
-          cliente.nombre.toLowerCase().includes(searchLower) ||
-          cliente.numero.toLowerCase().includes(searchLower) ||
-          cliente.direccion.toLowerCase().includes(searchLower)
-        )
-        setClients(filteredClients)
-      } else {
-        setClients(allClients)
-      }
+      setClients(allClients)
     } catch (error: unknown) {
       console.error('Error cargando clientes:', error)
       setClients([])
     } finally {
       setLoading(false)
     }
-  }, [searchTerm])
+  }, [])
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
@@ -261,44 +248,13 @@ export default function ClientesPage() {
         }
       />
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="search-client" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Buscar cliente
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search-client"
-                    placeholder="Buscar por nombre, código o dirección..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
-          <CardHeader>
-            <CardTitle>Clientes</CardTitle>
-            <CardDescription>
-              Mostrando {clients.length} clientes
-            </CardDescription>
-          </CardHeader>
-                      <CardContent>
-              <ClientsTable
-                clients={clients}
-                onEdit={handleEditClient}
-                onDelete={handleDeleteClient}
-                onViewLocation={handleViewClientLocation}
-                loading={loading}
-              />
-            </CardContent>
-          </Card>
+        <ClientsTable
+          clients={clients}
+          onEdit={handleEditClient}
+          onDelete={handleDeleteClient}
+          onViewLocation={handleViewClientLocation}
+          loading={loading}
+        />
         {/* Modal de creación de cliente */}
         <Dialog open={isCreateClientDialogOpen} onOpenChange={v => {
           setIsCreateClientDialogOpen(v)
