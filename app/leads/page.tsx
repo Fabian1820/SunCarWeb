@@ -273,6 +273,11 @@ const formatEstado = (estado: string): string => {
             productos.push(`${oferta.panel_cantidad}x ${nombre}`)
           }
           
+          // Elementos personalizados de la oferta
+          if (oferta.elementos_personalizados) {
+            productos.push(oferta.elementos_personalizados)
+          }
+          
           // Agregar • al inicio de cada producto
           return productos.length > 0 ? '• ' + productos.join(' • ') : ''
         }).filter(Boolean)

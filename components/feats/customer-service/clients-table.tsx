@@ -690,6 +690,11 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                                       <span className="text-gray-500 ml-1">({oferta.panel_cantidad})</span>
                                     </div>
                                   )}
+                                  {oferta.elementos_personalizados && (
+                                    <div className="text-gray-700">
+                                      {oferta.elementos_personalizados}
+                                    </div>
+                                  )}
                                 </div>
                               ))
                             ) : (
