@@ -516,132 +516,159 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Contacto</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Seguimiento</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">Cliente</th>
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Contacto</th>
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Estado</th>
+                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Oferta</th>
+                    <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">Acciones</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredClients.map((client) => (
-                    <tr key={client._id || client.numero} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-orange-100 p-2 rounded-lg">
-                            <Building2 className="h-4 w-4 text-orange-500" />
-                          </div>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {filteredClients.map((client) => {
+                    // Determinar el color del estado (igual que en leads-table)
+                    const getEstadoColor = (estado: string | undefined) => {
+                      if (!estado) return "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                      
+                      // Normalizar el estado (trim y comparación)
+                      const estadoNormalizado = estado.trim()
+                      
+                      // Mapeo exacto de estados como en leads
+                      const estadosConfig: Record<string, string> = {
+                        // Estados de leads
+                        'Esperando equipo': 'bg-amber-100 text-amber-800 hover:bg-amber-200',
+                        'No interesado': 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+                        'Pendiente de instalación': 'bg-green-100 text-green-800 hover:bg-green-200',
+                        'Pendiente de instalacion': 'bg-green-100 text-green-800 hover:bg-green-200',
+                        'Pendiente de presupuesto': 'bg-purple-100 text-purple-800 hover:bg-purple-200',
+                        'Pendiente de visita': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+                        'Pendiente de visitarnos': 'bg-pink-100 text-pink-800 hover:bg-pink-200',
+                        'Proximamente': 'bg-cyan-100 text-cyan-800 hover:bg-cyan-200',
+                        'Revisando ofertas': 'bg-indigo-100 text-indigo-800 hover:bg-indigo-200',
+                        'Sin respuesta': 'bg-red-100 text-red-800 hover:bg-red-200',
+                        // Estados de clientes (con y sin tilde)
+                        'Equipo instalado con éxito': 'bg-orange-100 text-orange-800 hover:bg-orange-200',
+                        'Instalacion en proceso': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+                        'Instalación en proceso': 'bg-blue-100 text-blue-800 hover:bg-blue-200',
+                      }
+                      
+                      return estadosConfig[estadoNormalizado] || 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }
+
+                    return (
+                      <tr key={client._id || client.numero} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-3">
                           <div>
-                            <p className="font-semibold text-gray-900">{client.nombre}</p>
-                            <Badge variant="outline" className="bg-gray-50 mt-1">
-                              {client.numero}
-                            </Badge>
+                            <p className="font-semibold text-gray-900 text-sm mb-1">{client.nombre}</p>
+                            <p className="text-xs text-gray-500">{client.numero}</p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center text-sm text-gray-700 gap-2">
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span>{client.telefono || "Sin telefono"}</span>
+                        </td>
+                        <td className="py-4 px-3">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center text-sm text-gray-900">
+                              <Phone className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
+                              <span className="font-medium">{client.telefono || "Sin teléfono"}</span>
+                            </div>
+                            {client.direccion && (
+                              <div className="flex items-start text-xs text-gray-500">
+                                <MapPin className="h-3.5 w-3.5 text-gray-400 mr-1.5 mt-0.5 flex-shrink-0" />
+                                <span className="line-clamp-2">{client.direccion}</span>
+                              </div>
+                            )}
                           </div>
-                          {client.telefono_adicional && (
-                            <div className="text-xs text-gray-500 pl-6">
-                              Secundario: {client.telefono_adicional}
-                            </div>
-                          )}
-                          {client.direccion && (
-                            <div className="text-xs text-gray-500 pl-6 truncate max-w-xs">
-                              {client.direccion}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex flex-col gap-1">
-                          {client.estado && (
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 w-fit">
-                              {client.estado}
-                            </Badge>
-                          )}
-                          {client.comercial && (
-                            <div className="text-xs text-gray-600">
-                              Comercial: {client.comercial}
-                            </div>
-                          )}
-                          {client.fuente && (
-                            <div className="text-xs text-gray-500">
-                              Fuente: {client.fuente}
-                            </div>
-                          )}
-                          {client.fecha_contacto && (
-                            <div className="text-xs text-gray-400">
-                              Contacto: {client.fecha_contacto}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewClientDetails(client)}
-                            className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                            title="Ver detalles completos"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(client)}
-                            className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                            title="Editar cliente"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openOfertasCliente(client)}
-                            className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                            title="Ofertas personalizadas"
-                          >
-                            <ListChecks className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onDelete(client)}
-                            className="border-red-300 text-red-700 hover:bg-red-50"
-                            title="Eliminar cliente"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewClientReports(client)}
-                            className="border-green-300 text-emerald-600 hover:bg-green-50"
-                            title="Ver reportes del cliente"
-                          >
-                            <FileCheck className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleViewClientLocation(client)}
-                            className="border-purple-300 text-purple-700 hover:bg-purple-50"
-                            disabled={!client.latitud || !client.longitud}
-                            title={client.latitud && client.longitud ? "Ver ubicacion" : "Sin ubicacion registrada"}
-                          >
-                            <MapPin className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-4 px-3">
+                          <div className="w-full">
+                            {client.estado && (
+                              <Badge className={`${getEstadoColor(client.estado)} text-xs whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}>
+                                {client.estado}
+                              </Badge>
+                            )}
+                            {client.comercial && (
+                              <div className="text-xs text-gray-500 flex items-center mt-2">
+                                <span className="truncate">{client.comercial}</span>
+                              </div>
+                            )}
+                            {client.fuente && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                <span className="text-gray-400">Fuente:</span> {client.fuente}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-3">
+                          <div className="space-y-1">
+                            {client.ofertas && client.ofertas.length > 0 ? (
+                              client.ofertas.map((oferta: any, idx: number) => (
+                                <div key={idx} className="text-xs space-y-0.5">
+                                  {oferta.inversor_codigo && oferta.inversor_cantidad > 0 && (
+                                    <div>
+                                      <span className="text-gray-700">Inversor:</span>{' '}
+                                      <span className="text-gray-900 font-medium">
+                                        {oferta.inversor_nombre || oferta.inversor_codigo}
+                                      </span>
+                                      <span className="text-gray-500 ml-1">({oferta.inversor_cantidad})</span>
+                                    </div>
+                                  )}
+                                  {oferta.bateria_codigo && oferta.bateria_cantidad > 0 && (
+                                    <div>
+                                      <span className="text-gray-700">Batería:</span>{' '}
+                                      <span className="text-gray-900 font-medium">
+                                        {oferta.bateria_nombre || oferta.bateria_codigo}
+                                      </span>
+                                      <span className="text-gray-500 ml-1">({oferta.bateria_cantidad})</span>
+                                    </div>
+                                  )}
+                                  {oferta.panel_codigo && oferta.panel_cantidad > 0 && (
+                                    <div>
+                                      <span className="text-gray-700">Paneles:</span>{' '}
+                                      <span className="text-gray-900 font-medium">
+                                        {oferta.panel_nombre || oferta.panel_codigo}
+                                      </span>
+                                      <span className="text-gray-500 ml-1">({oferta.panel_cantidad})</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-xs text-gray-400">Sin ofertas</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-3">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewClientDetails(client)}
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              title="Ver detalles"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(client)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              title="Editar"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(client)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
