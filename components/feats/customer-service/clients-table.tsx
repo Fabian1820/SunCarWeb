@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Label } from "@/components/shared/atom/label"
@@ -46,6 +46,15 @@ interface ClientsTableProps {
   onDelete: (client: Cliente) => void
   onViewLocation: (client: Cliente) => void
   loading?: boolean
+  onFiltersChange?: (filters: {
+    searchTerm: string
+    estado: string[]
+    fuente: string
+    comercial: string
+    fechaDesde: string
+    fechaHasta: string
+  }) => void
+  exportButtons?: React.ReactNode
 }
 
 const CLIENT_ESTADOS = [
@@ -110,7 +119,7 @@ const parseDateValue = (value?: string) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loading = false }: ClientsTableProps) {
+export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loading = false, onFiltersChange, exportButtons }: ClientsTableProps) {
   const { toast } = useToast()
   const {
     ofertas,
@@ -161,6 +170,20 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
       return { ...prev, estado: next }
     })
   }
+
+  // Notificar al padre cuando cambien los filtros
+  useEffect(() => {
+    if (onFiltersChange) {
+      onFiltersChange({
+        searchTerm,
+        estado: filters.estado,
+        fuente: filters.fuente,
+        comercial: filters.comercial,
+        fechaDesde: filters.fechaDesde,
+        fechaHasta: filters.fechaHasta,
+      })
+    }
+  }, [searchTerm, filters, onFiltersChange])
 
   const filteredClients = useMemo(() => {
     const search = searchTerm.trim().toLowerCase()
@@ -515,10 +538,21 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
 
       <Card className="border-l-4 border-l-orange-600">
         <CardHeader>
-          <CardTitle>Clientes</CardTitle>
-          <CardDescription>
-            Mostrando {filteredClients.length} cliente{filteredClients.length === 1 ? "" : "s"}
-          </CardDescription>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+            <div>
+              <CardTitle>Clientes</CardTitle>
+              <CardDescription>
+                Mostrando {filteredClients.length} cliente{filteredClients.length === 1 ? "" : "s"}
+              </CardDescription>
+            </div>
+            
+            {/* Botones de exportación */}
+            {exportButtons && filteredClients.length > 0 && (
+              <div className="flex-shrink-0">
+                {exportButtons}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           {filteredClients.length === 0 ? (

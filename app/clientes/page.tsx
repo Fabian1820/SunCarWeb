@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { User } from "lucide-react"
@@ -11,11 +11,13 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog"
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type {
   Cliente,
   ClienteCreateData,
   ClienteUpdateData,
 } from "@/lib/api-types"
+import type { ExportOptions } from "@/lib/export-service"
 import { downloadFile } from "@/lib/utils/download-file"
 import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog"
 
@@ -33,6 +35,16 @@ export default function ClientesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  
+  // Estado para capturar los filtros aplicados desde ClientsTable
+  const [appliedFilters, setAppliedFilters] = useState({
+    searchTerm: "",
+    estado: [] as string[],
+    fuente: "",
+    comercial: "",
+    fechaDesde: "",
+    fechaHasta: "",
+  })
 
   // Cargar clientes
   const fetchClients = useCallback(async () => {
@@ -231,6 +243,222 @@ export default function ClientesPage() {
     void client
   }
 
+  // Función para parsear fechas
+  const parseDateValue = (value?: string) => {
+    if (!value) return null
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      const [day, month, year] = value.split("/").map(Number)
+      const parsed = new Date(year, month - 1, day)
+      return Number.isNaN(parsed.getTime()) ? null : parsed
+    }
+    const parsed = new Date(value)
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
+
+  // Función para construir texto de búsqueda
+  const buildSearchText = (client: Cliente) => {
+    const parts: string[] = []
+    const visited = new WeakSet<object>()
+
+    const addValue = (value: unknown) => {
+      if (value === null || value === undefined) return
+      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+        parts.push(String(value))
+        return
+      }
+      if (value instanceof Date) {
+        parts.push(value.toISOString())
+        return
+      }
+      if (Array.isArray(value)) {
+        value.forEach(addValue)
+        return
+      }
+      if (typeof value === "object") {
+        if (visited.has(value)) return
+        visited.add(value)
+        Object.values(value as Record<string, unknown>).forEach(addValue)
+      }
+    }
+
+    addValue(client)
+    return parts.join(" ").toLowerCase()
+  }
+
+  // Clientes filtrados usando la misma lógica que ClientsTable
+  const filteredClients = useMemo(() => {
+    const search = appliedFilters.searchTerm.trim().toLowerCase()
+    const fechaDesde = parseDateValue(appliedFilters.fechaDesde)
+    const fechaHasta = parseDateValue(appliedFilters.fechaHasta)
+    const selectedEstados = appliedFilters.estado.map((estado) => estado.toLowerCase())
+    const selectedFuente = appliedFilters.fuente.trim().toLowerCase()
+    const selectedComercial = appliedFilters.comercial.trim().toLowerCase()
+
+    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0)
+    if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999)
+
+    const filtered = clients.filter((client) => {
+      if (search) {
+        const text = buildSearchText(client)
+        if (!text.includes(search)) {
+          return false
+        }
+      }
+
+      if (appliedFilters.estado.length > 0) {
+        const estado = client.estado?.trim()
+        if (!estado || !selectedEstados.includes(estado.toLowerCase())) {
+          return false
+        }
+      }
+
+      if (appliedFilters.fuente) {
+        const fuente = client.fuente?.trim().toLowerCase()
+        if (!fuente || fuente !== selectedFuente) {
+          return false
+        }
+      }
+
+      if (appliedFilters.comercial) {
+        const comercial = client.comercial?.trim().toLowerCase()
+        if (!comercial || comercial !== selectedComercial) {
+          return false
+        }
+      }
+
+      if (fechaDesde || fechaHasta) {
+        const fecha = parseDateValue(client.fecha_contacto)
+        if (!fecha) return false
+        if (fechaDesde && fecha < fechaDesde) return false
+        if (fechaHasta && fecha > fechaHasta) return false
+      }
+
+      return true
+    })
+
+    // Ordenar por los últimos 3 dígitos del código de cliente (descendente)
+    return filtered.sort((a, b) => {
+      const getLastThreeDigits = (numero: string) => {
+        const digits = numero.match(/\d+/g)?.join('') || '0'
+        return parseInt(digits.slice(-3)) || 0
+      }
+
+      const aNum = getLastThreeDigits(a.numero)
+      const bNum = getLastThreeDigits(b.numero)
+
+      return bNum - aNum
+    })
+  }, [clients, appliedFilters])
+
+  // Preparar opciones de exportación para clientes
+  const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
+    // Construir título con filtro de estado si aplica
+    let titulo = 'Listado de Clientes'
+    if (appliedFilters.estado.length === 1) {
+      titulo = `Listado de Clientes - ${appliedFilters.estado[0]}`
+    } else if (appliedFilters.estado.length > 1) {
+      titulo = `Listado de Clientes - ${appliedFilters.estado.length} estados`
+    }
+    
+    // Verificar si hay clientes con estado "Instalación en Proceso"
+    const tieneInstalacionEnProceso = filteredClients.some(c => c.estado === 'Instalación en Proceso')
+    
+    // Ordenar clientes por provincia: La Habana primero, luego el resto alfabéticamente
+    const clientesOrdenados = [...filteredClients].sort((a, b) => {
+      const provinciaA = (a.provincia_montaje || '').trim()
+      const provinciaB = (b.provincia_montaje || '').trim()
+      
+      // Si ambos son La Habana, mantener orden original
+      if (provinciaA === 'La Habana' && provinciaB === 'La Habana') return 0
+      
+      // La Habana siempre va primero
+      if (provinciaA === 'La Habana') return -1
+      if (provinciaB === 'La Habana') return 1
+      
+      // Para el resto, ordenar alfabéticamente
+      return provinciaA.localeCompare(provinciaB, 'es')
+    })
+    
+    const exportData = clientesOrdenados.map((client, index) => {
+      // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
+      let ofertaTexto = ''
+      
+      if (client.ofertas && client.ofertas.length > 0) {
+        const ofertasFormateadas = client.ofertas.map((oferta: any) => {
+          const productos: string[] = []
+          
+          // Inversor
+          if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+            const nombre = oferta.inversor_nombre || oferta.inversor_codigo
+            productos.push(`${oferta.inversor_cantidad}x ${nombre}`)
+          }
+          
+          // Batería
+          if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+            const nombre = oferta.bateria_nombre || oferta.bateria_codigo
+            productos.push(`${oferta.bateria_cantidad}x ${nombre}`)
+          }
+          
+          // Paneles
+          if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+            const nombre = oferta.panel_nombre || oferta.panel_codigo
+            productos.push(`${oferta.panel_cantidad}x ${nombre}`)
+          }
+          
+          // Agregar • al inicio de cada producto
+          return productos.length > 0 ? '• ' + productos.join(' • ') : ''
+        }).filter(Boolean)
+        
+        ofertaTexto = ofertasFormateadas.join(' • ') || ''
+      }
+
+      const baseData: any = {
+        numero: index + 1,
+        nombre: client.nombre || 'N/A',
+        telefono: client.telefono || 'N/A',
+        provincia: client.provincia_montaje || 'N/A',
+        municipio: client.municipio || 'N/A',
+        direccion: client.direccion || 'N/A',
+      }
+
+      // Si hay clientes con "Instalación en Proceso", agregar columna "falta"
+      if (tieneInstalacionEnProceso) {
+        baseData.falta = client.estado === 'Instalación en Proceso' 
+          ? (client.falta_instalacion || 'No especificado')
+          : ''
+      }
+
+      baseData.oferta = ofertaTexto
+
+      return baseData
+    })
+
+    // Definir columnas base
+    const baseColumns = [
+      { header: 'No.', key: 'numero', width: 4 },
+      { header: 'Nombre', key: 'nombre', width: 14 },
+      { header: 'Teléfono', key: 'telefono', width: 14 },
+      { header: 'Provincia', key: 'provincia', width: 12 },
+      { header: 'Municipio', key: 'municipio', width: 12 },
+      { header: 'Dirección', key: 'direccion', width: 38 },
+    ]
+
+    // Si hay clientes con "Instalación en Proceso", agregar columna "Falta"
+    if (tieneInstalacionEnProceso) {
+      baseColumns.push({ header: 'Falta', key: 'falta', width: 20 })
+    }
+
+    // Agregar columna de oferta al final
+    baseColumns.push({ header: 'Oferta', key: 'oferta', width: 23.57 })
+
+    return {
+      title: `Suncar SRL: ${titulo}`,
+      subtitle: `Fecha: ${new Date().toLocaleDateString('es-ES')}`,
+      columns: baseColumns,
+      data: exportData
+    }
+  }
+
   // Mostrar loader mientras se cargan los datos iniciales
   if (initialLoading) {
     return <PageLoader moduleName="Clientes" text="Cargando lista de clientes..." />
@@ -264,6 +492,16 @@ export default function ClientesPage() {
           onDelete={handleDeleteClient}
           onViewLocation={handleViewClientLocation}
           loading={loading}
+          onFiltersChange={setAppliedFilters}
+          exportButtons={
+            filteredClients.length > 0 ? (
+              <ExportButtons
+                exportOptions={getExportOptions()}
+                baseFilename="clientes"
+                variant="compact"
+              />
+            ) : undefined
+          }
         />
         {/* Modal de creacion de cliente */}
         <Dialog open={isCreateClientDialogOpen} onOpenChange={setIsCreateClientDialogOpen}>
