@@ -152,4 +152,16 @@ export class ClienteService {
       method: 'DELETE',
     })
   }
+
+  static async getClientesConAverias(): Promise<Cliente[]> {
+    const response = await apiRequest<Cliente[]>(`/clientes/con-averias`)
+    
+    if (Array.isArray(response)) {
+      console.log('📦 Clientes con averías:', response.length)
+      return response
+    }
+
+    console.warn('⚠️ Unexpected response format from backend:', response)
+    return []
+  }
 }

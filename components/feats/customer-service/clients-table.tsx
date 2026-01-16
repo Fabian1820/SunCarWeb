@@ -22,6 +22,7 @@ import {
   Plus,
   Search,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react"
 import { ReportsTable } from "@/components/feats/reports/reports-table"
 import { ReporteService } from "@/lib/api-services"
@@ -32,6 +33,7 @@ import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas"
 import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table"
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog"
 import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog"
+import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-averias-dialog"
 import type {
   OfertaPersonalizada,
   OfertaPersonalizadaCreateRequest,
@@ -141,6 +143,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
   const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false)
   const [editingOferta, setEditingOferta] = useState<OfertaPersonalizada | null>(null)
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false)
+  const [showAveriasDialog, setShowAveriasDialog] = useState(false)
+  const [clientForAverias, setClientForAverias] = useState<Cliente | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState({
     estado: [] as string[],
@@ -313,6 +317,66 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
     setIsCreateOfertaOpen(false)
     setIsEditOfertaOpen(false)
     setEditingOferta(null)
+  }
+
+  const openAveriasCliente = (client: Cliente) => {
+    setClientForAverias(client)
+    setShowAveriasDialog(true)
+  }
+
+  const closeAveriasDialog = () => {
+    setShowAveriasDialog(false)
+    setClientForAverias(null)
+  }
+
+  const handleAveriasSuccess = async () => {
+    // Refrescar la lista de clientes para actualizar el estado de averías
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('refreshClientsTable'))
+    }
+  }
+
+  // Actualizar clientForAverias cuando cambie la lista de clientes
+  useEffect(() => {
+    if (clientForAverias) {
+      // Buscar el cliente actualizado en la lista
+      const clienteActualizado = clients.find(c => c.numero === clientForAverias.numero)
+      if (clienteActualizado) {
+        setClientForAverias(clienteActualizado)
+      }
+    }
+  }, [clients, clientForAverias])
+
+  // Función para obtener el estado de averías de un cliente
+  const getAveriaStatus = (client: Cliente) => {
+    const averias = client.averias || []
+    
+    // Sin averías
+    if (averias.length === 0) {
+      return {
+        color: 'text-gray-600 hover:text-gray-700 hover:bg-gray-50',
+        title: 'Gestionar averías',
+        hasPendientes: false
+      }
+    }
+    
+    // Verificar si tiene averías pendientes
+    const tienePendientes = averias.some(a => a.estado === 'Pendiente')
+    
+    if (tienePendientes) {
+      return {
+        color: 'text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-300',
+        title: 'Tiene averías pendientes',
+        hasPendientes: true
+      }
+    }
+    
+    // Todas las averías están solucionadas
+    return {
+      color: 'text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-300',
+      title: 'Todas las averías solucionadas',
+      hasPendientes: false
+    }
   }
 
   const handleCreateOfertaCliente = async (payload: OfertaPersonalizadaCreateRequest) => {
@@ -707,6 +771,15 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openAveriasCliente(client)}
+                              className={getAveriaStatus(client).color}
+                              title={getAveriaStatus(client).title}
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleViewClientDetails(client)}
                               className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                               title="Ver detalles"
@@ -861,6 +934,19 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
         cliente={clientForDetails}
         onViewMap={handleViewClientLocation}
       />
+
+      {/* Modal de gestión de averías */}
+      {clientForAverias && (
+        <GestionarAveriasDialog
+          open={showAveriasDialog}
+          onOpenChange={(open) => {
+            setShowAveriasDialog(open)
+            if (!open) closeAveriasDialog()
+          }}
+          cliente={clientForAverias}
+          onSuccess={handleAveriasSuccess}
+        />
+      )}
     </>
   )
 }

@@ -23,3 +23,4 @@ export { CalculoEnergeticoService } from './services/feats/calculo-energetico/ca
 export { ArticuloTiendaService } from './services/feats/articulos-tienda/articulo-tienda-service'
 export { EstadisticasService } from './services/feats/estadisticas/estadisticas-service'
 export { InventarioService } from './services/feats/inventario/inventario-service'
+export { AveriaService } from './services/feats/averias/averia-service'

@@ -1,4 +1,5 @@
 import type { ElementoPersonalizado, OfertaEmbebida, OfertaAsignacion } from '../leads/lead-types'
+import type { Averia } from '../averias/averia-types'
 
 export interface Cliente {
   id?: string  // ID de MongoDB (transformado desde _id por el backend)
@@ -29,6 +30,7 @@ export interface Cliente {
   metodo_pago?: string
   moneda?: string
   falta_instalacion?: string  // Qué le falta a la instalación (solo para estado "Instalación en proceso")
+  averias?: Averia[]  // Array de averías del cliente
 }
 
 export interface ClienteResponse {

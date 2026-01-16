@@ -6,9 +6,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Textarea } from "@/components/shared/molecule/textarea"
-import { Search, Phone, MapPin, Package, User, FileText, ArrowRight, Edit } from "lucide-react"
+import { Search, Phone, MapPin, Package, User, FileText, ArrowRight } from "lucide-react"
 import type { InstalacionNueva } from "@/lib/types/feats/instalaciones/instalaciones-types"
 import { ClienteService, LeadService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
@@ -32,9 +30,6 @@ export function InstalacionesNuevasTable({
   const [fechaDesde, setFechaDesde] = useState("")
   const [fechaHasta, setFechaHasta] = useState("")
   
-  const [selectedInstalacion, setSelectedInstalacion] = useState<InstalacionNueva | null>(null)
-  const [isEditElementosDialogOpen, setIsEditElementosDialogOpen] = useState(false)
-  const [elementosValue, setElementosValue] = useState("")
   const [isUpdating, setIsUpdating] = useState(false)
 
   // Actualizar filtros cuando cambien
@@ -52,12 +47,10 @@ export function InstalacionesNuevasTable({
     setIsUpdating(true)
     try {
       if (instalacion.tipo === 'lead') {
-        // Para leads, actualizar el estado
         await LeadService.updateLead(instalacion.id, {
           estado: "Instalación en Proceso"
         })
       } else {
-        // Para clientes, actualizar el estado
         await ClienteService.actualizarCliente(instalacion.numero!, {
           estado: "Instalación en Proceso"
         })
@@ -73,69 +66,6 @@ export function InstalacionesNuevasTable({
       toast({
         title: "Error",
         description: error.message || "No se pudo actualizar el estado",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUpdating(false)
-    }
-  }
-
-  // Abrir diálogo para editar elementos personalizados
-  const handleEditElementos = (instalacion: InstalacionNueva) => {
-    setSelectedInstalacion(instalacion)
-    // Obtener elementos personalizados del lead/cliente (no de la oferta)
-    const elementosArray = instalacion.original.elementos_personalizados || []
-    // Convertir array de objetos a string para mostrar en textarea
-    const elementosTexto = elementosArray.map(e => `${e.descripcion} (x${e.cantidad})`).join('\n')
-    setElementosValue(elementosTexto)
-    setIsEditElementosDialogOpen(true)
-  }
-
-  // Guardar cambios en elementos personalizados
-  const handleSaveElementos = async () => {
-    if (!selectedInstalacion) return
-    
-    setIsUpdating(true)
-    try {
-      // Convertir el texto a array de ElementoPersonalizado
-      const lineas = elementosValue.split('\n').filter(l => l.trim())
-      const elementosArray = lineas.map(linea => {
-        // Intentar extraer cantidad si está en formato "descripcion (xN)"
-        const match = linea.match(/^(.+?)\s*\(x(\d+)\)\s*$/)
-        if (match) {
-          return {
-            descripcion: match[1].trim(),
-            cantidad: parseInt(match[2])
-          }
-        }
-        // Si no tiene cantidad, usar 1 por defecto
-        return {
-          descripcion: linea.trim(),
-          cantidad: 1
-        }
-      })
-
-      if (selectedInstalacion.tipo === 'lead') {
-        await LeadService.updateLead(selectedInstalacion.id, {
-          elementos_personalizados: elementosArray
-        })
-      } else {
-        await ClienteService.actualizarCliente(selectedInstalacion.numero!, {
-          elementos_personalizados: elementosArray
-        })
-      }
-      
-      toast({
-        title: "Actualizado",
-        description: "Elementos personalizados actualizados correctamente",
-      })
-      setIsEditElementosDialogOpen(false)
-      onRefresh()
-    } catch (error: any) {
-      console.error('Error al actualizar elementos:', error)
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo actualizar",
         variant: "destructive",
       })
     } finally {
@@ -309,15 +239,6 @@ export function InstalacionesNuevasTable({
                     >
                       <ArrowRight className="h-4 w-4" />
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                      onClick={() => handleEditElementos(instalacion)}
-                      title="Editar elementos personalizados"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -375,15 +296,6 @@ export function InstalacionesNuevasTable({
                         >
                           <ArrowRight className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="border-orange-300 text-orange-700 hover:bg-orange-50"
-                          onClick={() => handleEditElementos(instalacion)}
-                          title="Editar elementos personalizados"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
                       </div>
                     </td>
                   </tr>
@@ -393,49 +305,6 @@ export function InstalacionesNuevasTable({
           </div>
         </CardContent>
       </Card>
-
-      {/* Diálogo para editar elementos personalizados */}
-      <Dialog open={isEditElementosDialogOpen} onOpenChange={setIsEditElementosDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Editar Elementos Personalizados</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>{selectedInstalacion?.tipo === 'lead' ? 'Lead' : 'Cliente'}: {selectedInstalacion?.nombre}</Label>
-            </div>
-            <div>
-              <Label htmlFor="elementos">Elementos Personalizados</Label>
-              <Textarea
-                id="elementos"
-                value={elementosValue}
-                onChange={(e) => setElementosValue(e.target.value)}
-                placeholder="Escribe cada elemento en una línea. Ej:&#10;Cable adicional 10m (x2)&#10;Estructura reforzada (x1)&#10;Protector de sobretensión"
-                rows={6}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Formato: Descripción (xCantidad). Si no especificas cantidad, se asume 1.
-              </p>
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditElementosDialogOpen(false)}
-                disabled={isUpdating}
-              >
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveElementos}
-                disabled={isUpdating}
-                className="bg-gradient-to-r from-orange-500 to-orange-600"
-              >
-                {isUpdating ? "Guardando..." : "Guardar"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </>
   )
 }
