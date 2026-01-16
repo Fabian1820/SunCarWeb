@@ -89,16 +89,32 @@ export class FacturaService {
         params.append('skip', skip.toString());
         params.append('limit', limit.toString());
 
-        const response = await fetch(`${this.baseUrl}?${params}`, {
+        const url = `${this.baseUrl}?${params}`;
+        console.log('📡 Listando facturas:', url);
+        console.log('🔐 Headers:', this.getHeaders());
+
+        const response = await fetch(url, {
             method: 'GET',
             headers: this.getHeaders(),
         });
 
+        console.log('📨 Response status:', response.status);
+
         if (!response.ok) {
-            throw new Error('Error listando facturas');
+            let errorDetail = 'Error listando facturas';
+            try {
+                const errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+                errorDetail = errorData.detail || errorData.message || errorDetail;
+            } catch (e) {
+                console.error('❌ No se pudo parsear el error:', e);
+            }
+            throw new Error(errorDetail);
         }
 
-        return response.json();
+        const data = await response.json();
+        console.log('✅ Facturas recibidas:', data?.length || 0);
+        return data;
     }
 
     /**
@@ -213,16 +229,32 @@ export class FacturaService {
         if (filters?.nombre_cliente) params.append('nombre_cliente', filters.nombre_cliente);
         if (filters?.estado) params.append('estado', filters.estado);
 
-        const response = await fetch(`${this.baseUrl}/stats?${params}`, {
+        const url = `${this.baseUrl}/stats?${params}`;
+        console.log('📡 Obteniendo stats:', url);
+        console.log('🔐 Headers:', this.getHeaders());
+
+        const response = await fetch(url, {
             method: 'GET',
             headers: this.getHeaders(),
         });
 
+        console.log('📨 Response status:', response.status);
+
         if (!response.ok) {
-            throw new Error('Error obteniendo estadísticas');
+            let errorDetail = 'Error obteniendo estadísticas';
+            try {
+                const errorData = await response.json();
+                console.error('❌ Error data:', errorData);
+                errorDetail = errorData.detail || errorData.message || errorDetail;
+            } catch (e) {
+                console.error('❌ No se pudo parsear el error:', e);
+            }
+            throw new Error(errorDetail);
         }
 
-        return response.json();
+        const data = await response.json();
+        console.log('✅ Stats recibidas:', data);
+        return data;
     }
 }
 

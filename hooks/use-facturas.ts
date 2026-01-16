@@ -23,32 +23,47 @@ export function useFacturas() {
      * Cargar facturas con filtros
      */
     const cargarFacturas = useCallback(async (customFilters?: FacturaFilters) => {
+        if (!token) {
+            console.log('⚠️ No hay token disponible, saltando carga de facturas')
+            return
+        }
+        
         setLoading(true)
         setError(null)
         try {
             const filtersToUse = customFilters || filters
+            console.log('🔄 Cargando facturas con filtros:', filtersToUse)
             const data = await facturaService.listarFacturas(filtersToUse)
+            console.log('✅ Facturas cargadas:', data?.length || 0)
             setFacturas(data)
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Error cargando facturas')
-            console.error('Error cargando facturas:', err)
+            const errorMessage = err instanceof Error ? err.message : 'Error cargando facturas'
+            setError(errorMessage)
+            console.error('❌ Error cargando facturas:', err)
         } finally {
             setLoading(false)
         }
-    }, [filters])
+    }, [filters, token])
 
     /**
      * Cargar estadísticas
      */
     const cargarStats = useCallback(async (customFilters?: FacturaFilters) => {
+        if (!token) {
+            console.log('⚠️ No hay token disponible, saltando carga de stats')
+            return
+        }
+        
         try {
             const filtersToUse = customFilters || filters
+            console.log('🔄 Cargando stats con filtros:', filtersToUse)
             const data = await facturaService.obtenerStats(filtersToUse)
+            console.log('✅ Stats cargadas:', data)
             setStats(data)
         } catch (err) {
-            console.error('Error cargando stats:', err)
+            console.error('❌ Error cargando stats:', err)
         }
-    }, [filters])
+    }, [filters, token])
 
     /**
      * Recargar datos (facturas y stats)
@@ -59,15 +74,20 @@ export function useFacturas() {
 
     // Configurar token y cargar datos cuando esté disponible
     useEffect(() => {
+        console.log('🔄 useFacturas - Token cambió:', token ? 'Presente' : 'Ausente');
+        
         if (!token) {
+            console.log('⚠️ No hay token, limpiando servicio');
             facturaService.setToken(null)
             lastTokenRef.current = null
             return
         }
 
+        console.log('✅ Configurando token en servicio de facturas');
         facturaService.setToken(token)
 
         if (lastTokenRef.current !== token) {
+            console.log('🔄 Token nuevo detectado, recargando datos');
             lastTokenRef.current = token
             recargar()
         }
