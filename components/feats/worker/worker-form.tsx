@@ -106,7 +106,7 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
             id="worker-name"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="Nombre completo del trabajador"
+            placeholder="Ej: Juan Pérez García"
             className={errors.name ? "border-red-300" : ""}
           />
           {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
@@ -119,48 +119,85 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
             id="worker-ci"
             value={formData.ci}
             onChange={(e) => setFormData({ ...formData, ci: e.target.value })}
-            placeholder="CI del trabajador"
+            placeholder="Ej: 12345678"
             className={errors.ci ? "border-red-300" : ""}
           />
           {errors.ci && <p className="text-red-600 text-sm mt-1">{errors.ci}</p>}
         </div>
         <div>
           <Label htmlFor="worker-password" className="text-sm font-medium text-gray-700 mb-2 block">
-            Contraseña (solo para jefe, opcional)
+            Rol del Instalador
           </Label>
-          <div className="relative">
-            <Input
-              id="worker-password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handlePasswordChange}
-              placeholder="Contraseña para jefe de brigada"
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4 text-gray-400" />
-              ) : (
-                <Eye className="h-4 w-4 text-gray-400" />
-              )}
-            </button>
+          <div className="space-y-3">
+            <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="radio"
+                id="role-worker"
+                name="role"
+                checked={!formData.password}
+                onChange={() => setFormData({ ...formData, password: '', integrantes: [] })}
+                className="mt-1"
+              />
+              <label htmlFor="role-worker" className="flex-1 cursor-pointer">
+                <div className="font-medium text-gray-900">Instalador Regular</div>
+                <div className="text-sm text-gray-600">Trabajador sin permisos de jefe de brigada</div>
+              </label>
+            </div>
+            <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="radio"
+                id="role-leader"
+                name="role"
+                checked={!!formData.password}
+                onChange={() => setFormData({ ...formData, password: ' ', brigadeId: '' })}
+                className="mt-1"
+              />
+              <label htmlFor="role-leader" className="flex-1 cursor-pointer">
+                <div className="font-medium text-gray-900">Jefe de Brigada</div>
+                <div className="text-sm text-gray-600">Instalador con permisos de jefe y contraseña</div>
+              </label>
+            </div>
           </div>
         </div>
+        {formData.password && (
+          <div>
+            <Label htmlFor="worker-password-input" className="text-sm font-medium text-gray-700 mb-2 block">
+              Contraseña para Jefe de Brigada *
+            </Label>
+            <div className="relative">
+              <Input
+                id="worker-password-input"
+                type={showPassword ? "text" : "password"}
+                value={formData.password.trim()}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                placeholder="Ingrese contraseña"
+                className="pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-4 w-4 text-gray-400" />
+                ) : (
+                  <Eye className="h-4 w-4 text-gray-400" />
+                )}
+              </button>
+            </div>
+          </div>
+        )}
         {!formData.password && (
           <div>
             <Label htmlFor="brigade-select" className="text-sm font-medium text-gray-700 mb-2 block">
-              Brigada (opcional)
+              Asignar a Brigada (opcional)
             </Label>
             <Select
               value={formData.brigadeId}
               onValueChange={(value) => setFormData({ ...formData, brigadeId: value })}
             >
               <SelectTrigger className={errors.brigadeId ? "border-red-300" : ""}>
-                <SelectValue placeholder="Seleccionar brigada" />
+                <SelectValue placeholder="Sin asignar a brigada" />
               </SelectTrigger>
               <SelectContent>
                 {brigades.map((brigade) => (
@@ -209,13 +246,13 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm text-center py-4">
-                  No hay trabajadores disponibles para asignar
+                  No hay instaladores disponibles para asignar
                 </p>
               )}
             </div>
             {formData.integrantes.length > 0 && (
               <p className="text-xs text-gray-600 mt-1">
-                Seleccionados: {formData.integrantes.length} trabajador{formData.integrantes.length !== 1 ? 'es' : ''}
+                Seleccionados: {formData.integrantes.length} instalador{formData.integrantes.length !== 1 ? 'es' : ''}
               </p>
             )}
           </div>
@@ -232,7 +269,7 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
           className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
         >
           <Save className="mr-2 h-4 w-4" />
-          Crear
+          Crear Instalador
         </Button>
       </div>
     </form>

@@ -49,6 +49,8 @@ export function TrabajadoresTable({
 
   const [isRemovePasswordLoading, setIsRemovePasswordLoading] = useState<string | null>(null)
   const [confirmRemovePassword, setConfirmRemovePassword] = useState<Trabajador | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<Trabajador | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const hasPassword = (worker: Trabajador) => Boolean(worker.tiene_contraseña)
 
@@ -141,12 +143,33 @@ export function TrabajadoresTable({
     }
   }
 
+  const handleDelete = async (worker: Trabajador) => {
+    setIsDeleting(true)
+    try {
+      await TrabajadorService.eliminarTrabajador(worker.CI)
+      toast({
+        title: "Instalador eliminado",
+        description: `El instalador ${worker.nombre} ha sido eliminado correctamente.`,
+      })
+      onRefresh()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo eliminar el instalador",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDeleting(false)
+      setConfirmDelete(null)
+    }
+  }
+
   if (trabajadores.length === 0) {
     return (
       <div className="text-center py-12">
         <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No se encontraron trabajadores</h3>
-        <p className="text-gray-600">No hay trabajadores que coincidan con los filtros aplicados.</p>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">No se encontraron instaladores</h3>
+        <p className="text-gray-600">No hay instaladores que coincidan con los filtros aplicados.</p>
       </div>
     )
   }
@@ -162,8 +185,8 @@ export function TrabajadoresTable({
           size="icon"
           className="border-green-300 text-green-700 hover:bg-green-50 touch-manipulation"
           onClick={openHorasTodosDialog}
-          title="Calcular horas trabajadas de todos los trabajadores"
-          aria-label="Calcular horas trabajadas de todos los trabajadores"
+          title="Calcular horas trabajadas de todos los instaladores"
+          aria-label="Calcular horas trabajadas de todos los instaladores"
         >
           <Clock className="h-5 w-5" />
           <span className="sr-only">Calcular horas trabajadas (todos)</span>
@@ -252,6 +275,17 @@ export function TrabajadoresTable({
                   aria-label="Calcular horas trabajadas"
                 >
                   <Clock className="h-5 w-5" />
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setConfirmDelete(worker)}
+                  className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
+                  title="Eliminar instalador"
+                  aria-label="Eliminar instalador"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
             </CardContent>
@@ -351,6 +385,16 @@ export function TrabajadoresTable({
                     >
                       <Clock className="h-5 w-5" />
                     </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setConfirmDelete(worker)}
+                      className="border-red-300 text-red-700 hover:bg-red-50"
+                      title="Eliminar instalador"
+                      aria-label="Eliminar instalador"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </td>
               </tr>
@@ -362,7 +406,7 @@ export function TrabajadoresTable({
       <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Detalles del Trabajador</DialogTitle>
+            <DialogTitle>Detalles del Instalador</DialogTitle>
           </DialogHeader>
           {selectedWorker && (
             <div className="space-y-6">
@@ -466,7 +510,7 @@ export function TrabajadoresTable({
       <Dialog open={isHorasTodosDialogOpen} onOpenChange={setIsHorasTodosDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Horas trabajadas de todos los trabajadores</DialogTitle>
+            <DialogTitle>Horas trabajadas de todos los instaladores</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-[1fr,1fr,auto] gap-2 items-end">
@@ -583,6 +627,57 @@ export function TrabajadoresTable({
                 </span>
                 <span className="sr-only">
                   {isRemovePasswordLoading === confirmRemovePassword.CI ? "Eliminando..." : "Eliminar contraseña"}
+                </span>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {confirmDelete && (
+        <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Confirmar eliminación de instalador</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p>
+                ¿Estás seguro de que quieres eliminar al instalador{" "}
+                <span className="font-semibold">{confirmDelete.nombre}</span> (CI: {confirmDelete.CI})?
+              </p>
+              <p className="text-sm text-red-600">
+                Esta acción es permanente y no se puede deshacer. Se eliminará toda la información del instalador.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDelete(null)}
+                disabled={isDeleting}
+                size="icon"
+                className="w-10 sm:w-auto sm:px-4 touch-manipulation"
+                title="Cancelar"
+                aria-label="Cancelar"
+              >
+                <X className="h-4 w-4" />
+                <span className="hidden sm:inline">Cancelar</span>
+                <span className="sr-only">Cancelar</span>
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => handleDelete(confirmDelete)}
+                disabled={isDeleting}
+                size="icon"
+                className="w-10 sm:w-auto sm:px-4 touch-manipulation"
+                title="Eliminar instalador"
+                aria-label="Eliminar instalador"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {isDeleting ? "Eliminando..." : "Eliminar instalador"}
+                </span>
+                <span className="sr-only">
+                  {isDeleting ? "Eliminando..." : "Eliminar instalador"}
                 </span>
               </Button>
             </DialogFooter>

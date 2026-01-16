@@ -91,10 +91,11 @@ export class ClienteService {
   }
 
   static async actualizarCliente(numero: string, data: ClienteUpdateData): Promise<ClienteResponse> {
-    const payload = cleanPayload(data)
+    // No usar cleanPayload para elementos_personalizados
+    // El backend necesita recibir el campo aunque esté vacío
     return apiRequest<ClienteResponse>(`/clientes/${encodeURIComponent(numero)}`, {
       method: 'PATCH',
-      body: JSON.stringify(payload),
+      body: JSON.stringify(data),
     })
   }
 

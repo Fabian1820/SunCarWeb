@@ -35,6 +35,7 @@ export interface ActualizarTrabajadorRRHHRequest {
   alimentacion?: number
   dias_trabajables?: number
   dias_no_trabajados?: number[]
+  is_brigadista?: boolean
 }
 
 export interface CrearTrabajadorRRHHRequest {

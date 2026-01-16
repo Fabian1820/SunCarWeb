@@ -28,6 +28,7 @@ import {
     Calculator,
     RotateCcw,
     Receipt,
+    Wrench,
     MessageSquare,
     ShoppingBag,
     BarChart3
@@ -37,7 +38,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/s
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
 import { ReporteService, ClienteService, InventarioService } from "@/lib/api-services"
 import { Loader } from "@/components/shared/atom/loader"
-import { Wrench, Zap } from "lucide-react"
+import { Zap } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -118,9 +119,17 @@ export default function Dashboard() {
             id: 'trabajadores',
             href: '/trabajadores',
             icon: UserPlus,
-            title: 'Gestionar Trabajadores',
+            title: 'Gestionar Instaladores',
             description: 'Administrar personal y asignaciones.',
             color: 'blue-600',
+        },
+        {
+            id: 'instalaciones',
+            href: '/instalaciones',
+            icon: Wrench,
+            title: 'Gestionar Instalaciones',
+            description: 'Instalaciones en proceso, nuevas y averías.',
+            color: 'purple-600',
         },
         {
             id: 'leads',
