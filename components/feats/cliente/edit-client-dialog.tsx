@@ -8,6 +8,7 @@ import { Textarea } from "@/components/shared/molecule/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader2, MapPin } from "lucide-react"
+import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector"
 import type { Cliente, ClienteUpdateData } from "@/lib/api-types"
 import { useAuth } from "@/contexts/auth-context"
 import { apiRequest } from "@/lib/api-config"
@@ -645,15 +646,17 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                   <div>
                     <Label htmlFor="estado">Estado</Label>
                     <Select
-                      key={`estado-${client.id}-${formData.estado}`}
                       value={formData.estado}
                       onValueChange={(value) => handleInputChange('estado', value)}
                     >
                       <SelectTrigger id="estado" className="text-gray-900">
-                        <SelectValue placeholder="Seleccionar estado" />
+                        <SelectValue placeholder="Seleccionar estado">
+                          {formData.estado || "Seleccionar estado"}
+                        </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Equipo instalado con éxito">Equipo instalado con éxito</SelectItem>
+                        <SelectItem value="Esperando equipo">Esperando equipo</SelectItem>
                         <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
                         <SelectItem value="Instalación en Proceso">Instalación en Proceso</SelectItem>
                       </SelectContent>
@@ -899,33 +902,15 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <Label htmlFor="inversor">Inversor</Label>
-                    <Select
-                      value={oferta.inversor_codigo && inversores.length > 0 ? String(oferta.inversor_codigo) : ''}
-                      onValueChange={(value) => {
-                        setOferta(prev => ({ ...prev, inversor_codigo: value }))
-                      }}
-                      disabled={loadingMateriales || inversores.length === 0}
-                    >
-                      <SelectTrigger id="inversor" className="text-gray-900">
-                        <SelectValue 
-                          placeholder={
-                            loadingMateriales 
-                              ? "Cargando..." 
-                              : inversores.length === 0 
-                              ? "No hay inversores disponibles" 
-                              : "Seleccionar inversor"
-                          } 
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {inversores.map((inv, index) => (
-                          <SelectItem key={`inv-${inv.codigo}-${index}`} value={String(inv.codigo)}>
-                            {inv.descripcion}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MaterialSearchSelector
+                      label="Inversor"
+                      materials={inversores}
+                      value={oferta.inversor_codigo}
+                      onChange={(value) => setOferta(prev => ({ ...prev, inversor_codigo: value }))}
+                      placeholder="Buscar inversor por nombre o código..."
+                      disabled={loadingMateriales}
+                      loading={loadingMateriales}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="inversor_cantidad">Cantidad</Label>
@@ -942,33 +927,15 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <Label htmlFor="bateria">Batería</Label>
-                    <Select
-                      value={oferta.bateria_codigo && baterias.length > 0 ? String(oferta.bateria_codigo) : ''}
-                      onValueChange={(value) => {
-                        setOferta(prev => ({ ...prev, bateria_codigo: value }))
-                      }}
-                      disabled={loadingMateriales || baterias.length === 0}
-                    >
-                      <SelectTrigger id="bateria" className="text-gray-900">
-                        <SelectValue 
-                          placeholder={
-                            loadingMateriales 
-                              ? "Cargando..." 
-                              : baterias.length === 0 
-                              ? "No hay baterías disponibles" 
-                              : "Seleccionar batería"
-                          } 
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {baterias.map((bat, index) => (
-                          <SelectItem key={`bat-${bat.codigo}-${index}`} value={String(bat.codigo)}>
-                            {bat.descripcion}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MaterialSearchSelector
+                      label="Batería"
+                      materials={baterias}
+                      value={oferta.bateria_codigo}
+                      onChange={(value) => setOferta(prev => ({ ...prev, bateria_codigo: value }))}
+                      placeholder="Buscar batería por nombre o código..."
+                      disabled={loadingMateriales}
+                      loading={loadingMateriales}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="bateria_cantidad">Cantidad</Label>
@@ -985,33 +952,15 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="md:col-span-2">
-                    <Label htmlFor="panel">Panel</Label>
-                    <Select
-                      value={oferta.panel_codigo && paneles.length > 0 ? String(oferta.panel_codigo) : ''}
-                      onValueChange={(value) => {
-                        setOferta(prev => ({ ...prev, panel_codigo: value }))
-                      }}
-                      disabled={loadingMateriales || paneles.length === 0}
-                    >
-                      <SelectTrigger id="panel" className="text-gray-900">
-                        <SelectValue 
-                          placeholder={
-                            loadingMateriales 
-                              ? "Cargando..." 
-                              : paneles.length === 0 
-                              ? "No hay paneles disponibles" 
-                              : "Seleccionar panel"
-                          } 
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] overflow-y-auto">
-                        {paneles.map((pan, index) => (
-                          <SelectItem key={`pan-${pan.codigo}-${index}`} value={String(pan.codigo)}>
-                            {pan.descripcion}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MaterialSearchSelector
+                      label="Panel"
+                      materials={paneles}
+                      value={oferta.panel_codigo}
+                      onChange={(value) => setOferta(prev => ({ ...prev, panel_codigo: value }))}
+                      placeholder="Buscar panel por nombre o código..."
+                      disabled={loadingMateriales}
+                      loading={loadingMateriales}
+                    />
                   </div>
                   <div>
                     <Label htmlFor="panel_cantidad">Cantidad</Label>

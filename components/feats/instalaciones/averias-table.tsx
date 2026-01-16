@@ -5,8 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/mo
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Badge } from "@/components/shared/atom/badge"
+import { Button } from "@/components/shared/atom/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Search, Phone, MapPin, Package, AlertTriangle } from "lucide-react"
+import { Toaster } from "@/components/shared/molecule/toaster"
+import { Search, Phone, MapPin, Package, AlertTriangle, CheckCircle, Edit2, Plus } from "lucide-react"
+import { AveriaService } from "@/lib/api-services"
+import { useToast } from "@/hooks/use-toast"
+import { CrearAveriaDialog } from "./crear-averia-dialog"
 import type { Cliente } from "@/lib/api-types"
 
 interface AveriasTableProps {
@@ -22,10 +27,13 @@ export function AveriasTable({
   onFiltersChange,
   onRefresh,
 }: AveriasTableProps) {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [fechaDesde, setFechaDesde] = useState("")
   const [fechaHasta, setFechaHasta] = useState("")
   const [estadoAveria, setEstadoAveria] = useState<"todas" | "pendientes" | "solucionadas">("pendientes")
+  const [updatingAveria, setUpdatingAveria] = useState<string | null>(null)
+  const [showCrearAveriaDialog, setShowCrearAveriaDialog] = useState(false)
 
   // Actualizar filtros cuando cambien
   useEffect(() => {
@@ -67,6 +75,34 @@ export function AveriasTable({
   // Función para obtener el color del borde según el estado
   const getBorderColor = (estado: string) => {
     return estado === 'Pendiente' ? 'border-red-400' : 'border-green-400'
+  }
+
+  // Función para cambiar el estado de una avería
+  const handleCambiarEstado = async (clienteNumero: string, averiaId: string, estadoActual: string) => {
+    const nuevoEstado = estadoActual === 'Pendiente' ? 'Solucionada' : 'Pendiente'
+    
+    setUpdatingAveria(averiaId)
+    try {
+      await AveriaService.actualizarAveria(clienteNumero, averiaId, {
+        estado: nuevoEstado,
+      })
+
+      toast({
+        title: "Estado actualizado",
+        description: `La avería se marcó como ${nuevoEstado.toLowerCase()}`,
+      })
+
+      // Refrescar la lista
+      onRefresh()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo actualizar el estado",
+        variant: "destructive",
+      })
+    } finally {
+      setUpdatingAveria(null)
+    }
   }
 
   // Formatear ofertas para mostrar
@@ -120,7 +156,16 @@ export function AveriasTable({
       {/* Filtros */}
       <Card className="mb-6 border-l-4 border-l-red-600">
         <CardHeader>
-          <CardTitle>Filtros de Búsqueda</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>Filtros de Búsqueda</CardTitle>
+            <Button
+              onClick={() => setShowCrearAveriaDialog(true)}
+              className="bg-gradient-to-r from-red-500 to-red-600"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Nueva Avería
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -228,19 +273,44 @@ export function AveriasTable({
                         const averiasFiltered = filtrarAverias(client.averias || [])
                         return averiasFiltered.length > 0 ? (
                           averiasFiltered.map((averia, idx) => (
-                            <div key={averia.id || idx} className={`border-l-2 ${getBorderColor(averia.estado)} pl-3`}>
-                              <p className="text-sm text-gray-900 font-medium">{averia.descripcion}</p>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Badge 
-                                  variant="outline" 
-                                  className={getBadgeColor(averia.estado)}
+                            <div key={averia.id || idx} className={`border-l-2 ${getBorderColor(averia.estado)} pl-3 pr-2 py-2 bg-gray-50 rounded-r`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-900 font-medium">{averia.descripcion}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={getBadgeColor(averia.estado)}
+                                    >
+                                      {averia.estado === 'Pendiente' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                                      {averia.estado === 'Solucionada' && <CheckCircle className="h-3 w-3 mr-1" />}
+                                      {averia.estado}
+                                    </Badge>
+                                    <span className="text-xs text-gray-500">
+                                      {new Date(averia.fecha_reporte).toLocaleDateString('es-ES')}
+                                    </span>
+                                  </div>
+                                </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className={`h-7 w-7 flex-shrink-0 ${
+                                    averia.estado === 'Pendiente'
+                                      ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                                      : 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
+                                  }`}
+                                  onClick={() => handleCambiarEstado(client.numero, averia.id, averia.estado)}
+                                  disabled={updatingAveria === averia.id}
+                                  title={averia.estado === 'Pendiente' ? 'Marcar como solucionada' : 'Marcar como pendiente'}
                                 >
-                                  {averia.estado === 'Pendiente' && <AlertTriangle className="h-3 w-3 mr-1" />}
-                                  {averia.estado}
-                                </Badge>
-                                <span className="text-xs text-gray-500">
-                                  {new Date(averia.fecha_reporte).toLocaleDateString('es-ES')}
-                                </span>
+                                  {updatingAveria === averia.id ? (
+                                    <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                  ) : averia.estado === 'Pendiente' ? (
+                                    <CheckCircle className="h-4 w-4" />
+                                  ) : (
+                                    <Edit2 className="h-4 w-4" />
+                                  )}
+                                </Button>
                               </div>
                             </div>
                           ))
@@ -292,19 +362,44 @@ export function AveriasTable({
                           const averiasFiltered = filtrarAverias(client.averias || [])
                           return averiasFiltered.length > 0 ? (
                             averiasFiltered.map((averia, idx) => (
-                              <div key={averia.id || idx} className={`border-l-2 ${getBorderColor(averia.estado)} pl-3`}>
-                                <p className="text-sm text-gray-900 font-medium">{averia.descripcion}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge 
-                                    variant="outline" 
-                                    className={getBadgeColor(averia.estado)}
+                              <div key={averia.id || idx} className={`border-l-2 ${getBorderColor(averia.estado)} pl-3 pr-2 py-2 bg-gray-50 rounded-r`}>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-900 font-medium">{averia.descripcion}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                      <Badge 
+                                        variant="outline" 
+                                        className={getBadgeColor(averia.estado)}
+                                      >
+                                        {averia.estado === 'Pendiente' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                                        {averia.estado === 'Solucionada' && <CheckCircle className="h-3 w-3 mr-1" />}
+                                        {averia.estado}
+                                      </Badge>
+                                      <span className="text-xs text-gray-500">
+                                        {new Date(averia.fecha_reporte).toLocaleDateString('es-ES')}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    className={`h-7 w-7 flex-shrink-0 ${
+                                      averia.estado === 'Pendiente'
+                                        ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                                        : 'text-orange-600 hover:text-orange-700 hover:bg-orange-50'
+                                    }`}
+                                    onClick={() => handleCambiarEstado(client.numero, averia.id, averia.estado)}
+                                    disabled={updatingAveria === averia.id}
+                                    title={averia.estado === 'Pendiente' ? 'Marcar como solucionada' : 'Marcar como pendiente'}
                                   >
-                                    {averia.estado === 'Pendiente' && <AlertTriangle className="h-3 w-3 mr-1" />}
-                                    {averia.estado}
-                                  </Badge>
-                                  <span className="text-xs text-gray-500">
-                                    {new Date(averia.fecha_reporte).toLocaleDateString('es-ES')}
-                                  </span>
+                                    {updatingAveria === averia.id ? (
+                                      <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    ) : averia.estado === 'Pendiente' ? (
+                                      <CheckCircle className="h-4 w-4" />
+                                    ) : (
+                                      <Edit2 className="h-4 w-4" />
+                                    )}
+                                  </Button>
                                 </div>
                               </div>
                             ))
@@ -321,6 +416,15 @@ export function AveriasTable({
           </div>
         </CardContent>
       </Card>
+
+      {/* Dialog para crear nueva avería */}
+      <CrearAveriaDialog
+        open={showCrearAveriaDialog}
+        onOpenChange={setShowCrearAveriaDialog}
+        onSuccess={onRefresh}
+      />
+
+      <Toaster />
     </>
   )
 }

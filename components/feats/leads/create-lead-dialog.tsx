@@ -7,6 +7,7 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader2 } from "lucide-react"
+import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector"
 import type { LeadCreateData } from "@/lib/api-types"
 import { useAuth } from "@/contexts/auth-context"
 import { apiRequest } from "@/lib/api-config"
@@ -761,38 +762,15 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
           {/* Fila 1: Inversor y Cantidad */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <Label htmlFor="inversor">Inversor</Label>
-              <Select
-                value={oferta.inversor_codigo ? `${oferta.inversor_codigo}-idx${inversores.findIndex(inv => String(inv.codigo) === oferta.inversor_codigo)}` : ''}
-                onValueChange={(value) => {
-                  // Extraer el código real (antes de -idx)
-                  const codigo = value.replace(/-idx\d+$/, '')
-                  setOferta(prev => ({ ...prev, inversor_codigo: codigo }))
-                }}
-                disabled={loadingMateriales || inversores.length === 0}
-              >
-                <SelectTrigger id="inversor" className="text-gray-900">
-                  <SelectValue 
-                    placeholder={
-                      loadingMateriales 
-                        ? "Cargando..." 
-                        : inversores.length === 0 
-                        ? "No hay inversores disponibles" 
-                        : "Seleccionar inversor"
-                    } 
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  {inversores.map((inv, index) => {
-                    const uniqueValue = `${inv.codigo}-idx${index}`
-                    return (
-                      <SelectItem key={uniqueValue} value={uniqueValue}>
-                        {inv.descripcion}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <MaterialSearchSelector
+                label="Inversor"
+                materials={inversores}
+                value={oferta.inversor_codigo}
+                onChange={(value) => setOferta(prev => ({ ...prev, inversor_codigo: value }))}
+                placeholder="Buscar inversor por nombre o código..."
+                disabled={loadingMateriales}
+                loading={loadingMateriales}
+              />
             </div>
             <div>
               <Label htmlFor="inversor_cantidad">Cantidad</Label>
@@ -810,38 +788,15 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
           {/* Fila 2: Batería y Cantidad */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <Label htmlFor="bateria">Batería</Label>
-              <Select
-                value={oferta.bateria_codigo ? `${oferta.bateria_codigo}-idx${baterias.findIndex(bat => String(bat.codigo) === oferta.bateria_codigo)}` : ''}
-                onValueChange={(value) => {
-                  // Extraer el código real (antes de -idx)
-                  const codigo = value.replace(/-idx\d+$/, '')
-                  setOferta(prev => ({ ...prev, bateria_codigo: codigo }))
-                }}
-                disabled={loadingMateriales || baterias.length === 0}
-              >
-                <SelectTrigger id="bateria" className="text-gray-900">
-                  <SelectValue 
-                    placeholder={
-                      loadingMateriales 
-                        ? "Cargando..." 
-                        : baterias.length === 0 
-                        ? "No hay baterías disponibles" 
-                        : "Seleccionar batería"
-                    } 
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  {baterias.map((bat, index) => {
-                    const uniqueValue = `${bat.codigo}-idx${index}`
-                    return (
-                      <SelectItem key={uniqueValue} value={uniqueValue}>
-                        {bat.descripcion}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <MaterialSearchSelector
+                label="Batería"
+                materials={baterias}
+                value={oferta.bateria_codigo}
+                onChange={(value) => setOferta(prev => ({ ...prev, bateria_codigo: value }))}
+                placeholder="Buscar batería por nombre o código..."
+                disabled={loadingMateriales}
+                loading={loadingMateriales}
+              />
             </div>
             <div>
               <Label htmlFor="bateria_cantidad">Cantidad</Label>
@@ -859,38 +814,15 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
           {/* Fila 3: Panel y Cantidad */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <Label htmlFor="panel">Panel</Label>
-              <Select
-                value={oferta.panel_codigo ? `${oferta.panel_codigo}-idx${paneles.findIndex(pan => String(pan.codigo) === oferta.panel_codigo)}` : ''}
-                onValueChange={(value) => {
-                  // Extraer el código real (antes de -idx)
-                  const codigo = value.replace(/-idx\d+$/, '')
-                  setOferta(prev => ({ ...prev, panel_codigo: codigo }))
-                }}
-                disabled={loadingMateriales || paneles.length === 0}
-              >
-                <SelectTrigger id="panel" className="text-gray-900">
-                  <SelectValue 
-                    placeholder={
-                      loadingMateriales 
-                        ? "Cargando..." 
-                        : paneles.length === 0 
-                        ? "No hay paneles disponibles" 
-                        : "Seleccionar panel"
-                    } 
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  {paneles.map((pan, index) => {
-                    const uniqueValue = `${pan.codigo}-idx${index}`
-                    return (
-                      <SelectItem key={uniqueValue} value={uniqueValue}>
-                        {pan.descripcion}
-                      </SelectItem>
-                    )
-                  })}
-                </SelectContent>
-              </Select>
+              <MaterialSearchSelector
+                label="Panel"
+                materials={paneles}
+                value={oferta.panel_codigo}
+                onChange={(value) => setOferta(prev => ({ ...prev, panel_codigo: value }))}
+                placeholder="Buscar panel por nombre o código..."
+                disabled={loadingMateriales}
+                loading={loadingMateriales}
+              />
             </div>
             <div>
               <Label htmlFor="panel_cantidad">Cantidad</Label>

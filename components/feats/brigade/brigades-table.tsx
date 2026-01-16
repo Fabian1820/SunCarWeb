@@ -264,17 +264,7 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
 	                  </Button>
 	                </div>
 
-	                <div className="grid grid-cols-3 gap-2">
-	                  <Button
-	                    variant="outline"
-	                    className="h-11 w-full border-blue-300 text-blue-700 hover:bg-blue-50 opacity-50 cursor-not-allowed touch-manipulation"
-	                    disabled
-	                    title="Editar brigada (Próximamente)"
-	                    aria-label="Editar brigada (Próximamente)"
-	                  >
-	                    <Edit className="h-4 w-4" />
-	                    <span className="sr-only">Editar</span>
-	                  </Button>
+	                <div className="grid grid-cols-2 gap-2">
 	                  <Button
 	                    variant="outline"
 	                    className="h-11 w-full border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
@@ -391,16 +381,6 @@ export function BrigadesTable({ brigades, onEdit, onDelete, onRemoveWorker, onRe
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(brigade)}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50 opacity-50 cursor-not-allowed"
-                      disabled
-                      title="Editar brigada (Próximamente)"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
