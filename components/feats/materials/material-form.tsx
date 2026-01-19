@@ -70,6 +70,25 @@ export function MaterialForm({
   const [categoryPhoto, setCategoryPhoto] = useState<File | null>(null)
   const [categoryVendible, setCategoryVendible] = useState(true)
 
+  useEffect(() => {
+    if (!initialData) return
+
+    setFormData({
+      codigo: initialData.codigo?.toString() || "",
+      categoria: initialData.categoria || "",
+      descripcion: initialData.descripcion || "",
+      um: initialData.um || "",
+      precio: initialData.precio ?? undefined,
+      nombre: initialData.nombre || "",
+      marca_id: initialData.marca_id || undefined,
+      foto: null,
+      potenciaKW: initialData.potenciaKW ?? undefined,
+    })
+    setFotoUrl(initialData.foto || null)
+    setFotoPreview(initialData.foto || null)
+    setCambiarFoto(false)
+  }, [initialData])
+
   // Categorías que requieren marca y potencia
   const categoriasEspeciales = ['BATERÍAS', 'INVERSORES', 'PANELES']
   const requiereMarcaYPotencia = categoriasEspeciales.includes(formData.categoria)
