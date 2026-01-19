@@ -58,7 +58,16 @@ export class MaterialService {
 
   static async addMaterialToProduct(
     productoId: string,
-    material: { codigo: string; descripcion: string; um: string; precio?: number }
+    material: { 
+      codigo: string
+      descripcion: string
+      um: string
+      precio?: number
+      nombre?: string
+      marca_id?: string
+      foto?: string
+      potenciaKW?: number
+    }
   ): Promise<boolean> {
     console.log('[MaterialService] Agregando material a producto:', { productoId, material })
     try {
@@ -139,7 +148,16 @@ export class MaterialService {
   static async editMaterialInProduct(
     productoId: string,
     materialCodigo: string,
-    data: { codigo: string | number; descripcion: string; um: string; precio?: number }
+    data: { 
+      codigo: string | number
+      descripcion: string
+      um: string
+      precio?: number
+      nombre?: string
+      marca_id?: string
+      foto?: string
+      potenciaKW?: number
+    }
   ): Promise<boolean> {
     console.log('[MaterialService] Editando material:', { productoId, materialCodigo, data })
     try {

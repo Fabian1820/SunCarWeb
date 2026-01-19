@@ -5,6 +5,10 @@ export interface BackendMaterial {
   descripcion: string
   um: string
   precio?: number
+  nombre?: string
+  marca_id?: string
+  foto?: string
+  potenciaKW?: number
 }
 
 export interface BackendCatalogoProductos {
@@ -25,6 +29,10 @@ export interface MaterialItem {
   descripcion: string
   um: string
   precio?: number
+  nombre?: string
+  marca_id?: string
+  foto?: string
+  potenciaKW?: number
 }
 
 export interface MaterialCategory {
@@ -43,6 +51,9 @@ export interface Material {
   um: string
   precio?: number
   foto?: string
+  nombre?: string
+  marca_id?: string
+  potenciaKW?: number
 }
 
 export interface MaterialFormData {
@@ -51,6 +62,10 @@ export interface MaterialFormData {
   descripcion: string
   um: string
   precio?: number
+  nombre?: string
+  marca_id?: string
+  foto?: File | null
+  potenciaKW?: number
 }
 
 export interface MaterialFilters {
@@ -71,6 +86,10 @@ export interface CreateMaterialRequest {
   descripcion: string
   um: string
   precio?: number
+  nombre?: string
+  marca_id?: string
+  foto?: string
+  potenciaKW?: number
 }
 
 export interface UpdateCategoryRequest {
@@ -95,7 +114,10 @@ export function transformBackendToFrontend(catalogos: BackendCatalogoProductos[]
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
-        foto: catalogo.foto,
+        foto: material.foto || catalogo.foto,
+        nombre: material.nombre,
+        marca_id: material.marca_id,
+        potenciaKW: material.potenciaKW,
       })
     })
   })
@@ -119,7 +141,10 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
-        foto: category.foto,
+        foto: material.foto || category.foto,
+        nombre: material.nombre,
+        marca_id: material.marca_id,
+        potenciaKW: material.potenciaKW,
       })
     })
   })

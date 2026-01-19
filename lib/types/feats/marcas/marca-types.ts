@@ -1,12 +1,18 @@
 // Tipos para el módulo de Marcas
 
 /**
+ * Tipos de material válidos
+ */
+export type TipoMaterial = 'BATERÍAS' | 'INVERSORES' | 'PANELES' | 'OTRO'
+
+/**
  * Entidad Marca (nomenclador de marcas)
  */
 export interface Marca {
   id?: string
   nombre: string
   descripcion?: string
+  tipos_material: TipoMaterial[]
   is_active: boolean
 }
 
@@ -16,6 +22,7 @@ export interface Marca {
 export interface MarcaCreateRequest {
   nombre: string
   descripcion?: string
+  tipos_material: TipoMaterial[]
   is_active?: boolean
 }
 
@@ -25,6 +32,7 @@ export interface MarcaCreateRequest {
 export interface MarcaUpdateRequest {
   nombre?: string
   descripcion?: string
+  tipos_material?: TipoMaterial[]
   is_active?: boolean
 }
 
@@ -34,4 +42,5 @@ export interface MarcaUpdateRequest {
 export interface MarcaSimplificada {
   id: string
   nombre: string
+  tipos_material: TipoMaterial[]
 }

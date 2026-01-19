@@ -11,9 +11,11 @@ import type {
 export class MarcaService {
   /**
    * Obtiene todas las marcas
+   * @param tipoMaterial - Filtro opcional por tipo de material
    */
-  static async getMarcas(): Promise<Marca[]> {
-    const response = await apiRequest<{ success: boolean; data: Marca[] }>('/marcas/')
+  static async getMarcas(tipoMaterial?: string): Promise<Marca[]> {
+    const url = tipoMaterial ? `/marcas/?tipo_material=${tipoMaterial}` : '/marcas/'
+    const response = await apiRequest<{ success: boolean; data: Marca[] }>(url)
     return response.data || []
   }
 
@@ -27,14 +29,16 @@ export class MarcaService {
 
   /**
    * Obtiene marcas simplificadas (solo id y nombre) para dropdowns
+   * @param tipoMaterial - Filtro opcional por tipo de material
    */
-  static async getMarcasSimplificadas(): Promise<MarcaSimplificada[]> {
-    const marcas = await this.getMarcas()
+  static async getMarcasSimplificadas(tipoMaterial?: string): Promise<MarcaSimplificada[]> {
+    const marcas = await this.getMarcas(tipoMaterial)
     return marcas
       .filter((m) => m.is_active && m.id)
       .map((m) => ({
         id: m.id!,
         nombre: m.nombre,
+        tipos_material: m.tipos_material,
       }))
   }
 

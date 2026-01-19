@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { Edit, Trash2, Package, DollarSign, Image as ImageIcon } from "lucide-react"
+import { Edit, Trash2, Package, DollarSign } from "lucide-react"
 import type { Material } from "@/lib/material-types"
 
 interface MaterialsTableProps {
@@ -30,6 +30,9 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Código</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Categoría</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Material</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Marca</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Potencia</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Unidad</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Precio</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
@@ -40,9 +43,22 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
             <tr key={`${material.codigo}-${material.categoria}-${index}`} className="border-b border-gray-100 hover:bg-gray-50">
               <td className="py-4 px-4">
                 <div className="flex items-center space-x-3">
-                  <div className="bg-amber-100 p-2 rounded-lg">
-                    <Package className="h-4 w-4 text-amber-700" />
-                  </div>
+                  {material.foto ? (
+                    <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-100">
+                      <img 
+                        src={material.foto} 
+                        alt={material.nombre || material.descripcion}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/placeholder.svg'
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="bg-amber-100 p-2 rounded-lg">
+                      <Package className="h-4 w-4 text-amber-700" />
+                    </div>
+                  )}
                   <div>
                     <p className="font-semibold text-gray-900">{material.codigo}</p>
                   </div>
@@ -59,6 +75,29 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                 </div>
               </td>
               <td className="py-4 px-4">
+                {material.nombre ? (
+                  <span className="text-sm font-medium text-gray-900">{material.nombre}</span>
+                ) : (
+                  <span className="text-sm text-gray-400">-</span>
+                )}
+              </td>
+              <td className="py-4 px-4">
+                {material.marca_id ? (
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                    ID: {material.marca_id.slice(0, 8)}...
+                  </Badge>
+                ) : (
+                  <span className="text-sm text-gray-400">-</span>
+                )}
+              </td>
+              <td className="py-4 px-4">
+                {material.potenciaKW ? (
+                  <span className="text-sm font-medium text-gray-900">{material.potenciaKW} KW</span>
+                ) : (
+                  <span className="text-sm text-gray-400">-</span>
+                )}
+              </td>
+              <td className="py-4 px-4">
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   {material.um}
                 </Badge>
@@ -67,7 +106,7 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                 <div className="flex items-center space-x-2">
                   <DollarSign className="h-4 w-4 text-gray-400" />
                   <span className="text-sm font-medium text-gray-900">
-                    {material.precio ? `$${material.precio.toFixed(2)}` : 'N/A'}
+                    {material.precio ? `${material.precio.toFixed(2)}` : 'N/A'}
                   </span>
                 </div>
               </td>

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
@@ -9,10 +9,12 @@ import { Textarea } from "@/components/shared/molecule/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
 import { Switch } from "@/components/shared/molecule/switch"
-import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle, Package } from "lucide-react"
+import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle, Package, Upload, Image as ImageIcon } from "lucide-react"
 import { FileUpload } from "@/components/shared/molecule/file-upload"
 import type { Material, MaterialFormData } from "@/lib/material-types"
 import { useToast } from "@/hooks/use-toast"
+import { useMarcas } from "@/hooks/use-marcas"
+import { useUploadFoto } from "@/hooks/use-upload-foto"
 
 interface MaterialFormProps {
   initialData?: Material
@@ -34,13 +36,26 @@ export function MaterialForm({
   isEditing = false,
 }: MaterialFormProps) {
   const { toast } = useToast()
+  const { marcasSimplificadas, loading: loadingMarcas } = useMarcas()
+  const { uploadFoto, uploading: uploadingFoto, error: uploadError } = useUploadFoto()
+  
   const [formData, setFormData] = useState<MaterialFormData>({
     codigo: initialData?.codigo.toString() || "",
     categoria: initialData?.categoria || "",
     descripcion: initialData?.descripcion || "",
     um: initialData?.um || "",
     precio: initialData?.precio ?? undefined,
+    nombre: initialData?.nombre || "",
+    marca_id: initialData?.marca_id || undefined,
+    foto: null,
+    potenciaKW: initialData?.potenciaKW ?? undefined,
   })
+  
+  const [fotoFile, setFotoFile] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(initialData?.foto || null)
+  const [fotoUrl, setFotoUrl] = useState<string | null>(initialData?.foto || null)
+  const [cambiarFoto, setCambiarFoto] = useState(false)
+  
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [success, setSuccess] = useState<string | null>(null)
@@ -54,6 +69,48 @@ export function MaterialForm({
   const [isNewCategory, setIsNewCategory] = useState(false)
   const [categoryPhoto, setCategoryPhoto] = useState<File | null>(null)
   const [categoryVendible, setCategoryVendible] = useState(true)
+
+  // Categorías que requieren marca y potencia
+  const categoriasEspeciales = ['BATERÍAS', 'INVERSORES', 'PANELES']
+  const requiereMarcaYPotencia = categoriasEspeciales.includes(formData.categoria)
+
+  // Filtrar marcas según la categoría seleccionada
+  const marcasFiltradas = marcasSimplificadas.filter(marca => 
+    marca.tipos_material.includes(formData.categoria as any)
+  )
+
+  // Manejar cambio de archivo de foto
+  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    
+    if (!file) {
+      setFotoFile(null)
+      setFotoPreview(fotoUrl)
+      return
+    }
+
+    // Validar que sea imagen
+    if (!file.type.startsWith('image/')) {
+      setError('El archivo debe ser una imagen')
+      return
+    }
+
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('La imagen no debe superar 5MB')
+      return
+    }
+
+    setFotoFile(file)
+    setError(null)
+
+    // Crear preview
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setFotoPreview(reader.result as string)
+    }
+    reader.readAsDataURL(file)
+  }
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -71,6 +128,17 @@ export function MaterialForm({
     if (!formData.um) {
       newErrors.um = "Selecciona una unidad de medida"
     }
+    
+    // Validar marca y potencia solo para categorías especiales
+    if (requiereMarcaYPotencia) {
+      if (!formData.marca_id) {
+        newErrors.marca_id = "La marca es requerida para esta categoría"
+      }
+      if (!formData.potenciaKW || formData.potenciaKW <= 0) {
+        newErrors.potenciaKW = "La potencia en KW es requerida para esta categoría"
+      }
+    }
+    
     setError(null)
     return Object.keys(newErrors).length === 0 ? null : newErrors
   }
@@ -86,6 +154,18 @@ export function MaterialForm({
     }
     setIsSubmitting(true)
     try {
+      // 1. Subir foto si hay un archivo nuevo
+      let finalFotoUrl = fotoUrl
+      if (fotoFile) {
+        try {
+          finalFotoUrl = await uploadFoto(fotoFile)
+          setFotoUrl(finalFotoUrl)
+        } catch (uploadErr: any) {
+          throw new Error(`Error al subir la foto: ${uploadErr.message}`)
+        }
+      }
+
+      // 2. Preparar datos del material
       if (onSubmit) {
         const materialData = {
           codigo: Number(formData.codigo),
@@ -93,6 +173,12 @@ export function MaterialForm({
           descripcion: formData.descripcion,
           um: formData.um,
           precio: formData.precio,
+          nombre: formData.nombre,
+          foto: finalFotoUrl || undefined,
+          ...(requiereMarcaYPotencia && {
+            marca_id: formData.marca_id,
+            potenciaKW: formData.potenciaKW,
+          }),
           // Datos adicionales para nueva categoría
           ...(isNewCategory && {
             isNewCategory: true,
@@ -102,7 +188,20 @@ export function MaterialForm({
         }
         await onSubmit(materialData as any)
         if (!isEditing) {
-          setFormData({ codigo: "", categoria: "", descripcion: "", um: "", precio: undefined })
+          setFormData({ 
+            codigo: "", 
+            categoria: "", 
+            descripcion: "", 
+            um: "", 
+            precio: undefined,
+            nombre: "",
+            marca_id: undefined,
+            foto: null,
+            potenciaKW: undefined,
+          })
+          setFotoFile(null)
+          setFotoPreview(null)
+          setFotoUrl(null)
           setIsNewCategory(false)
           setCategoryPhoto(null)
           setCategoryVendible(true)
@@ -158,30 +257,75 @@ export function MaterialForm({
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Información Básica */}
         <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Código */}
+            <div>
+              <Label htmlFor="material-codigo" className="text-sm font-medium text-gray-700 mb-2 block">
+                Código *
+              </Label>
+              <Input
+                id="material-codigo"
+                value={formData.codigo}
+                onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                placeholder="Ej: 5401090096"
+                className={error && !formData.codigo ? "border-red-300" : ""}
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
+
+            {/* Nombre */}
+            <div>
+              <Label htmlFor="material-nombre" className="text-sm font-medium text-gray-700 mb-2 block">
+                Nombre del Producto
+              </Label>
+              <Input
+                id="material-nombre"
+                value={formData.nombre || ""}
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                placeholder="Ej: Huawei SUN2000-10KTL-M1"
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
+          </div>
+
+          {/* Descripción */}
           <div>
-            <Label htmlFor="material-codigo" className="text-sm font-medium text-gray-700 mb-2 block">
-              Código del Material *
+            <Label htmlFor="material-descripcion" className="text-sm font-medium text-gray-700 mb-2 block">
+              Descripción *
             </Label>
-            <Input
-              id="material-codigo"
-              value={formData.codigo}
-              onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-              placeholder="Ej: 5401090096"
-              className={error && !formData.codigo ? "border-red-300" : ""}
+            <Textarea
+              id="material-descripcion"
+              value={formData.descripcion}
+              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              placeholder="Ej: Estructura para montaje de módulo fotovoltáico..."
+              className={error && !formData.descripcion ? "border-red-300" : ""}
+              rows={3}
+              disabled={isSubmitting || uploadingFoto}
             />
           </div>
+
+          {/* Categoría */}
           <div>
             <Label htmlFor="material-categoria" className="text-sm font-medium text-gray-700 mb-2 block">
               Categoría *
             </Label>
             <div className="flex space-x-2">
               <Select value={formData.categoria} onValueChange={(value) => {
-                setFormData({ ...formData, categoria: value })
+                setFormData({ 
+                  ...formData, 
+                  categoria: value,
+                  // Limpiar marca y potencia si cambia a una categoría que no los requiere
+                  ...((!categoriasEspeciales.includes(value)) && {
+                    marca_id: undefined,
+                    potenciaKW: undefined,
+                  })
+                })
                 // Detectar si es una categoría existente o nueva
                 setIsNewCategory(!localCategories.includes(value))
               }}>
-                <SelectTrigger className={`flex-1 ${error && !formData.categoria ? "border-red-300" : ""}`}>
+                <SelectTrigger className={`flex-1 ${error && !formData.categoria ? "border-red-300" : ""}`} disabled={isSubmitting || uploadingFoto}>
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
                 <SelectContent>
@@ -194,7 +338,7 @@ export function MaterialForm({
               </Select>
               <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="sm">
+                  <Button type="button" variant="outline" size="sm" disabled={isSubmitting || uploadingFoto}>
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
@@ -221,7 +365,7 @@ export function MaterialForm({
                       </Button>
                       <Button type="button" onClick={addNewCategory} disabled={isCreatingCategory || !newCategory.trim()}>
                         {isCreatingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                        Agregar Categoría
+                        Agregar
                       </Button>
                     </div>
                   </div>
@@ -229,91 +373,250 @@ export function MaterialForm({
               </Dialog>
             </div>
           </div>
-          <div>
-            <Label htmlFor="material-descripcion" className="text-sm font-medium text-gray-700 mb-2 block">
-              Descripción del Material *
-            </Label>
-            <Textarea
-              id="material-descripcion"
-              value={formData.descripcion}
-              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-              placeholder="Ej: Estructura para montaje de módulo fotovoltáico..."
-              className={error && !formData.descripcion ? "border-red-300" : ""}
-              rows={3}
-            />
-          </div>
-          <div>
-            <Label htmlFor="material-um" className="text-sm font-medium text-gray-700 mb-2 block">
-              Unidad de Medida *
-            </Label>
-            <div className="flex space-x-2">
-              <Select value={formData.um} onValueChange={(value) => setFormData({ ...formData, um: value })}>
-                <SelectTrigger className={`flex-1 ${error && !formData.um ? "border-red-300" : ""}`}>
-                  <SelectValue placeholder="Seleccionar unidad" />
-                </SelectTrigger>
-                <SelectContent>
-                  {localUnits.map((unit) => (
-                    <SelectItem key={unit} value={unit}>
-                      {unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Dialog open={isAddUnitDialogOpen} onOpenChange={setIsAddUnitDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="sm">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Agregar Nueva Unidad de Medida</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="new-unit" className="text-sm font-medium text-gray-700 mb-2 block">
-                        Unidad de Medida
-                      </Label>
-                      <Input
-                        id="new-unit"
-                        value={newUnit}
-                        onChange={(e) => setNewUnit(e.target.value)}
-                        placeholder="Ej: u, m, kg, etc."
-                      />
-                    </div>
-                    <div className="flex justify-end space-x-3">
-                      <Button type="button" variant="outline" onClick={() => setIsAddUnitDialogOpen(false)}>
-                        Cancelar
-                      </Button>
-                      <Button type="button" onClick={addNewUnit} disabled={!newUnit.trim()}>
-                        <Plus className="h-4 w-4" />
-                        Agregar Unidad
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+
+          {/* Campos técnicos SOLO para BATERÍAS, INVERSORES y PANELES */}
+          {requiereMarcaYPotencia && (
+            <div className="space-y-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <div className="flex items-center space-x-2">
+                <Package className="h-5 w-5 text-amber-600" />
+                <h3 className="text-lg font-semibold text-amber-900">Información Técnica Requerida</h3>
+              </div>
+              <p className="text-sm text-amber-700">
+                Esta categoría requiere información técnica adicional.
+              </p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Potencia */}
+                <div>
+                  <Label htmlFor="material-potencia" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Potencia (KW) *
+                  </Label>
+                  <Input
+                    id="material-potencia"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.potenciaKW ?? ""}
+                    onChange={(e) => {
+                      const value = e.target.value
+                      setFormData({
+                        ...formData,
+                        potenciaKW: value === "" ? undefined : parseFloat(value) || 0
+                      })
+                    }}
+                    placeholder="Ej: 10.0"
+                    className={error && !formData.potenciaKW ? "border-red-300" : ""}
+                    disabled={isSubmitting || uploadingFoto}
+                  />
+                </div>
+
+                {/* Marca */}
+                <div>
+                  <Label htmlFor="material-marca" className="text-sm font-medium text-gray-700 mb-2 block">
+                    Marca *
+                  </Label>
+                  <Select 
+                    value={formData.marca_id} 
+                    onValueChange={(value) => setFormData({ ...formData, marca_id: value })}
+                    disabled={loadingMarcas || isSubmitting || uploadingFoto}
+                  >
+                    <SelectTrigger className={`${error && !formData.marca_id ? "border-red-300" : ""}`}>
+                      <SelectValue placeholder={loadingMarcas ? "Cargando marcas..." : "Seleccionar marca"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {marcasFiltradas.length === 0 ? (
+                        <div className="p-2 text-sm text-gray-500">
+                          No hay marcas disponibles para esta categoría
+                        </div>
+                      ) : (
+                        marcasFiltradas.map((marca) => (
+                          <SelectItem key={marca.id} value={marca.id}>
+                            {marca.nombre}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <Label htmlFor="material-precio" className="text-sm font-medium text-gray-700 mb-2 block">
-              Precio (opcional)
+          )}
+
+          {/* Foto del Material */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700">
+              Foto del Producto
             </Label>
-            <Input
-              id="material-precio"
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.precio ?? ""}
-              onChange={(e) => {
-                const value = e.target.value
-                setFormData({
-                  ...formData,
-                  precio: value === "" ? undefined : parseFloat(value) || 0
-                })
-              }}
-              placeholder="0.00"
-            />
+            
+            {/* Foto actual (solo en modo edición) */}
+            {isEditing && fotoUrl && !cambiarFoto && (
+              <div className="space-y-3">
+                <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
+                  <img 
+                    src={fotoUrl} 
+                    alt="Foto actual" 
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/placeholder.svg'
+                    }}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCambiarFoto(true)}
+                  disabled={isSubmitting || uploadingFoto}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Cambiar Foto
+                </Button>
+              </div>
+            )}
+
+            {/* Input de archivo (crear o cambiar foto) */}
+            {(!isEditing || !fotoUrl || cambiarFoto) && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFotoChange}
+                    disabled={isSubmitting || uploadingFoto}
+                    className="flex-1"
+                  />
+                  {cambiarFoto && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCambiarFoto(false)
+                        setFotoFile(null)
+                        setFotoPreview(fotoUrl)
+                      }}
+                      disabled={isSubmitting || uploadingFoto}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">
+                  Formatos: JPG, PNG, GIF. Máximo 5MB
+                </p>
+              </div>
+            )}
+
+            {/* Preview de la foto */}
+            {fotoPreview && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Vista Previa</Label>
+                <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
+                  <img 
+                    src={fotoPreview} 
+                    alt="Preview" 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Indicador de subida */}
+            {uploadingFoto && (
+              <div className="flex items-center gap-2 text-sm text-blue-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Subiendo foto...</span>
+              </div>
+            )}
+
+            {/* Error de subida */}
+            {uploadError && (
+              <div className="flex items-center gap-2 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4" />
+                <span>{uploadError}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Precio y Unidad de Medida */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Precio */}
+            <div>
+              <Label htmlFor="material-precio" className="text-sm font-medium text-gray-700 mb-2 block">
+                Precio
+              </Label>
+              <Input
+                id="material-precio"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.precio ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setFormData({
+                    ...formData,
+                    precio: value === "" ? undefined : parseFloat(value) || 0
+                  })
+                }}
+                placeholder="0.00"
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
+
+            {/* Unidad de Medida */}
+            <div>
+              <Label htmlFor="material-um" className="text-sm font-medium text-gray-700 mb-2 block">
+                Unidad de Medida *
+              </Label>
+              <div className="flex space-x-2">
+                <Select value={formData.um} onValueChange={(value) => setFormData({ ...formData, um: value })}>
+                  <SelectTrigger className={`flex-1 ${error && !formData.um ? "border-red-300" : ""}`} disabled={isSubmitting || uploadingFoto}>
+                    <SelectValue placeholder="Seleccionar unidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {localUnits.map((unit) => (
+                      <SelectItem key={unit} value={unit}>
+                        {unit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Dialog open={isAddUnitDialogOpen} onOpenChange={setIsAddUnitDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button type="button" variant="outline" size="sm" disabled={isSubmitting || uploadingFoto}>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Agregar Nueva Unidad de Medida</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="new-unit" className="text-sm font-medium text-gray-700 mb-2 block">
+                          Unidad de Medida
+                        </Label>
+                        <Input
+                          id="new-unit"
+                          value={newUnit}
+                          onChange={(e) => setNewUnit(e.target.value)}
+                          placeholder="Ej: u, m, kg, etc."
+                        />
+                      </div>
+                      <div className="flex justify-end space-x-3">
+                        <Button type="button" variant="outline" onClick={() => setIsAddUnitDialogOpen(false)}>
+                          Cancelar
+                        </Button>
+                        <Button type="button" onClick={addNewUnit} disabled={!newUnit.trim()}>
+                          <Plus className="h-4 w-4" />
+                          Agregar
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </div>
           </div>
 
           {/* Campos adicionales para nueva categoría */}
@@ -379,4 +682,3 @@ export function MaterialForm({
     </>
   )
 }
-

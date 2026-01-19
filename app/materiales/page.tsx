@@ -7,13 +7,14 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Switch } from "@/components/shared/molecule/switch"
 import { Package, Plus, Search, AlertCircle, Loader2, RefreshCw, Grid, List } from "lucide-react"
 import { MaterialsTable } from "@/components/feats/materials/materials-table"
 import { CategoriesTable } from "@/components/feats/materials/categories-table"
 import { MaterialForm } from "@/components/feats/materials/material-form"
 import { EditCategoryForm } from "@/components/feats/materials/edit-category-form"
 import { DuplicatesDashboard } from "@/components/feats/materials/duplicates-dashboard"
+import { MarcasManagement } from "@/components/feats/materials/marcas-management"
+import { MarcaForm } from "@/components/feats/materials/marca-form"
 import { useMaterials } from "@/hooks/use-materials"
 import type { Material, BackendCatalogoProductos } from "@/lib/material-types"
 import { PageLoader } from "@/components/shared/atom/page-loader"
@@ -32,7 +33,7 @@ export default function MaterialesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [materialToDelete, setMaterialToDelete] = useState<Material | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [viewMode, setViewMode] = useState<"materials" | "categories">("materials")
+  const [viewMode, setViewMode] = useState<"materials" | "categories" | "marcas">("materials")
   const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState<BackendCatalogoProductos | null>(null)
   const [duplicatesChecked, setDuplicatesChecked] = useState(false)
@@ -40,12 +41,26 @@ export default function MaterialesPage() {
   const [isDuplicatesDashboardOpen, setIsDuplicatesDashboardOpen] = useState(false)
   const duplicateToastIdRef = useRef<string | null>(null)
 
+  // Estados para marcas
+  const [marcas, setMarcas] = useState<any[]>([])
+  const [marcasLoading, setMarcasLoading] = useState(false)
+  const [isAddMarcaDialogOpen, setIsAddMarcaDialogOpen] = useState(false)
+  const [isEditMarcaDialogOpen, setIsEditMarcaDialogOpen] = useState(false)
+  const [isDeleteMarcaDialogOpen, setIsDeleteMarcaDialogOpen] = useState(false)
+  const [editingMarca, setEditingMarca] = useState<any>(null)
+  const [deletingMarca, setDeletingMarca] = useState<any>(null)
+  const [deleteMarcaLoading, setDeleteMarcaLoading] = useState(false)
+
   const addMaterial = async (material: Omit<Material, "id">) => {
     const categoria = (material as any).categoria
     const codigo = (material as any).codigo
     const descripcion = (material as any).descripcion
     const um = (material as any).um
     const precio = (material as any).precio
+    const nombre = (material as any).nombre
+    const foto = (material as any).foto // Ya es una URL de MinIO
+    const marca_id = (material as any).marca_id
+    const potenciaKW = (material as any).potenciaKW
     const isNewCategory = (material as any).isNewCategory
     const categoryPhoto = (material as any).categoryPhoto
     const categoryVendible = (material as any).categoryVendible
@@ -64,7 +79,11 @@ export default function MaterialesPage() {
             codigo: String(codigo),
             descripcion,
             um,
-            precio: precio || 0
+            precio: precio || 0,
+            ...(nombre && { nombre }),
+            ...(foto && { foto }), // URL de MinIO
+            ...(marca_id && { marca_id }),
+            ...(potenciaKW && { potenciaKW }),
           }]
         })
       } else {
@@ -83,7 +102,11 @@ export default function MaterialesPage() {
           codigo: String(codigo),
           descripcion,
           um,
-          precio: precio
+          precio: precio,
+          ...(nombre && { nombre }),
+          ...(foto && { foto }), // URL de MinIO
+          ...(marca_id && { marca_id }),
+          ...(potenciaKW && { potenciaKW }),
         }, categoria)
       }
 
@@ -109,6 +132,11 @@ export default function MaterialesPage() {
     const descripcion = (updatedMaterial as any).descripcion
     const um = (updatedMaterial as any).um
     const precio = (updatedMaterial as any).precio
+    const nombre = (updatedMaterial as any).nombre
+    const foto = (updatedMaterial as any).foto // Ya es una URL de MinIO
+    const marca_id = (updatedMaterial as any).marca_id
+    const potenciaKW = (updatedMaterial as any).potenciaKW
+    
     // Buscar producto y material original
     const producto = catalogs.find(c => c.categoria === categoria)
     if (!producto) {
@@ -121,7 +149,16 @@ export default function MaterialesPage() {
     }
     const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
     try {
-      await editMaterialInProduct(producto.id, materialCodigo, { codigo, descripcion, um, precio }, categoria)
+      await editMaterialInProduct(producto.id, materialCodigo, { 
+        codigo, 
+        descripcion, 
+        um, 
+        precio,
+        ...(nombre && { nombre }),
+        ...(foto && { foto }), // URL de MinIO
+        ...(marca_id && { marca_id }),
+        ...(potenciaKW && { potenciaKW }),
+      }, categoria)
       toast({
         title: "Éxito",
         description: 'Material actualizado exitosamente',
@@ -302,6 +339,107 @@ export default function MaterialesPage() {
     setIsAddDialogOpen(false);
   };
 
+  // Cargar marcas cuando se cambia a la vista de marcas
+  useEffect(() => {
+    if (viewMode === "marcas") {
+      loadMarcas()
+    }
+  }, [viewMode])
+
+  const loadMarcas = async () => {
+    setMarcasLoading(true)
+    try {
+      const { MarcaService } = await import("@/lib/services/feats/marcas/marca-service")
+      const data = await MarcaService.getMarcas()
+      setMarcas(data)
+    } catch (err) {
+      console.error('Error loading marcas:', err)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las marcas",
+        variant: "destructive",
+      })
+    } finally {
+      setMarcasLoading(false)
+    }
+  }
+
+  const handleCreateMarca = async (data: any) => {
+    try {
+      const { MarcaService } = await import("@/lib/services/feats/marcas/marca-service")
+      await MarcaService.createMarca(data)
+      toast({
+        title: "Éxito",
+        description: "Marca creada exitosamente",
+      })
+      setIsAddMarcaDialogOpen(false)
+      await loadMarcas()
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo crear la marca",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleUpdateMarca = async (data: any) => {
+    if (!editingMarca?.id) return
+
+    try {
+      const { MarcaService } = await import("@/lib/services/feats/marcas/marca-service")
+      await MarcaService.updateMarca(editingMarca.id, data)
+      toast({
+        title: "Éxito",
+        description: "Marca actualizada exitosamente",
+      })
+      setIsEditMarcaDialogOpen(false)
+      setEditingMarca(null)
+      await loadMarcas()
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo actualizar la marca",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteMarca = async () => {
+    if (!deletingMarca?.id) return
+
+    setDeleteMarcaLoading(true)
+    try {
+      const { MarcaService } = await import("@/lib/services/feats/marcas/marca-service")
+      await MarcaService.deleteMarca(deletingMarca.id)
+      toast({
+        title: "Éxito",
+        description: "Marca eliminada exitosamente",
+      })
+      setIsDeleteMarcaDialogOpen(false)
+      setDeletingMarca(null)
+      await loadMarcas()
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo eliminar la marca",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleteMarcaLoading(false)
+    }
+  }
+
+  const openEditMarcaDialog = (marca: any) => {
+    setEditingMarca(marca)
+    setIsEditMarcaDialogOpen(true)
+  }
+
+  const openDeleteMarcaDialog = (marca: any) => {
+    setDeletingMarca(marca)
+    setIsDeleteMarcaDialogOpen(true)
+  }
+
   if (loading) {
     return <PageLoader moduleName="Materiales" text="Cargando catálogo de materiales..." />
   }
@@ -337,132 +475,184 @@ export default function MaterialesPage() {
 	        badge={{ text: "Recursos", className: "bg-emerald-100 text-emerald-800" }}
 	        className="bg-white shadow-sm border-b border-orange-100"
 	        actions={
-	          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-	            <DialogTrigger asChild>
-	              <Button
-	                size="icon"
-	                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 touch-manipulation"
-	                aria-label="Agregar material"
-	                title="Agregar material"
-	              >
-	                <Plus className="h-4 w-4 sm:mr-2" />
-	                <span className="hidden sm:inline">Agregar Material</span>
-	                <span className="sr-only">Agregar material</span>
-	              </Button>
-	            </DialogTrigger>
-	            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-	              <DialogHeader>
-	                <DialogTitle>Agregar Nuevo Material</DialogTitle>
-	              </DialogHeader>
-	              <MaterialForm
-	                onSubmit={addMaterial}
-	                onCancel={handleCloseModal}
-	                onClose={handleCloseModal}
-	                existingCategories={categories}
-	                existingUnits={units}
-	              />
-	            </DialogContent>
-	          </Dialog>
+	          viewMode === "materials" ? (
+	            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+	              <DialogTrigger asChild>
+	                <Button
+	                  size="icon"
+	                  className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 touch-manipulation"
+	                  aria-label="Agregar material"
+	                  title="Agregar material"
+	                >
+	                  <Plus className="h-4 w-4 sm:mr-2" />
+	                  <span className="hidden sm:inline">Agregar Material</span>
+	                  <span className="sr-only">Agregar material</span>
+	                </Button>
+	              </DialogTrigger>
+	              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+	                <DialogHeader>
+	                  <DialogTitle>Agregar Nuevo Material</DialogTitle>
+	                </DialogHeader>
+	                <MaterialForm
+	                  onSubmit={addMaterial}
+	                  onCancel={handleCloseModal}
+	                  onClose={handleCloseModal}
+	                  existingCategories={categories}
+	                  existingUnits={units}
+	                />
+	              </DialogContent>
+	            </Dialog>
+	          ) : viewMode === "marcas" ? (
+	            <Dialog open={isAddMarcaDialogOpen} onOpenChange={setIsAddMarcaDialogOpen}>
+	              <DialogTrigger asChild>
+	                <Button
+	                  size="icon"
+	                  className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 touch-manipulation"
+	                  aria-label="Agregar marca"
+	                  title="Agregar marca"
+	                >
+	                  <Plus className="h-4 w-4 sm:mr-2" />
+	                  <span className="hidden sm:inline">Agregar Marca</span>
+	                  <span className="sr-only">Agregar marca</span>
+	                </Button>
+	              </DialogTrigger>
+	              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+	                <DialogHeader>
+	                  <DialogTitle>Agregar Nueva Marca</DialogTitle>
+	                </DialogHeader>
+	                <MarcaForm
+	                  onSubmit={handleCreateMarca}
+	                  onCancel={() => setIsAddMarcaDialogOpen(false)}
+	                />
+	              </DialogContent>
+	            </Dialog>
+	          ) : null
 	        }
 	      />
 
 	      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
 	        <div className="space-y-6">
-	          {/* Filters and Search */}
-	          <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
-            <CardContent className="pt-6">
-              <div className="flex flex-col lg:flex-row gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
-                    {viewMode === "materials" ? "Buscar Material" : "Buscar Categoría"}
-                  </Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="search"
-                      placeholder={viewMode === "materials" ? "Buscar por código o descripción..." : "Buscar por nombre de categoría..."}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                {viewMode === "materials" && (
-                  <div className="lg:w-48">
-                    <Label htmlFor="category-filter" className="text-sm font-medium text-gray-700 mb-2 block">
-                      Filtrar por Categoría
+	          {/* View Toggle - Selector de vistas */}
+	          <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
+	            <CardContent className="pt-6">
+	              <div className="flex items-center justify-between">
+	                <div className="flex items-center gap-4 flex-wrap">
+	                  <Button
+	                    variant={viewMode === "materials" ? "default" : "outline"}
+	                    onClick={() => setViewMode("materials")}
+	                    className={viewMode === "materials" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+	                  >
+	                    <List className="h-4 w-4 mr-2" />
+	                    Materiales
+	                  </Button>
+	                  <Button
+	                    variant={viewMode === "categories" ? "default" : "outline"}
+	                    onClick={() => setViewMode("categories")}
+	                    className={viewMode === "categories" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+	                  >
+	                    <Grid className="h-4 w-4 mr-2" />
+	                    Categorías
+	                  </Button>
+	                  <Button
+	                    variant={viewMode === "marcas" ? "default" : "outline"}
+	                    onClick={() => setViewMode("marcas")}
+	                    className={viewMode === "marcas" ? "bg-emerald-600 hover:bg-emerald-700" : ""}
+	                  >
+	                    <Package className="h-4 w-4 mr-2" />
+	                    Marcas
+	                  </Button>
+	                </div>
+	              </div>
+	            </CardContent>
+	          </Card>
+
+	          {/* Filters and Search - Solo para materiales y categorías */}
+	          {viewMode !== "marcas" && (
+	            <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
+              <CardContent className="pt-6">
+                <div className="flex flex-col lg:flex-row gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
+                      {viewMode === "materials" ? "Buscar Material" : "Buscar Categoría"}
                     </Label>
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Todas las categorías" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas las categorías</SelectItem>
-                        {categories.map((category, idx) => (
-                          <SelectItem key={category || idx} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="search"
+                        placeholder={viewMode === "materials" ? "Buscar por código o descripción..." : "Buscar por nombre de categoría..."}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* View Toggle */}
-          <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <List className="h-5 w-5 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">Vista por Materiales</span>
-                  </div>
-                  <Switch
-                    checked={viewMode === "categories"}
-                    onCheckedChange={(checked) => setViewMode(checked ? "categories" : "materials")}
-                  />
-                  <div className="flex items-center space-x-2">
-                    <Grid className="h-5 w-5 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">Vista por Categorías</span>
-                  </div>
+                  {viewMode === "materials" && (
+                    <div className="lg:w-48">
+                      <Label htmlFor="category-filter" className="text-sm font-medium text-gray-700 mb-2 block">
+                        Filtrar por Categoría
+                      </Label>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Todas las categorías" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todas las categorías</SelectItem>
+                          {categories.map((category, idx) => (
+                            <SelectItem key={category || idx} value={category}>
+                              {category}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Dynamic Table */}
-          <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
-            <CardHeader>
-              <CardTitle>
-                {viewMode === "materials" ? "Catálogo de Materiales" : "Catálogo de Categorías"}
-              </CardTitle>
-              <CardDescription>
-                {viewMode === "materials"
-                  ? `Mostrando ${filteredMaterials.length} de ${materials.length} materiales`
-                  : `Mostrando ${filteredCategories.length} de ${catalogs.length} categorías`
-                }
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {viewMode === "materials" ? (
-                <MaterialsTable
-                  key={`${searchTerm}-${selectedCategory}-${materials.length}`}
-                  materials={filteredMaterials}
-                  onEdit={openEditDialog}
-                  onDelete={deleteMaterial}
-                />
-              ) : (
-                <CategoriesTable
-                  key={`${searchTerm}-${catalogs.length}`}
-                  categories={filteredCategories}
-                  onEdit={openEditCategoryDialog}
-                />
-              )}
-            </CardContent>
-          </Card>
+          {/* Dynamic Content */}
+          {viewMode === "marcas" ? (
+            <MarcasManagement
+              marcas={marcas}
+              loading={marcasLoading}
+              onEdit={openEditMarcaDialog}
+              onDelete={openDeleteMarcaDialog}
+            />
+          ) : (
+            <>
+              {/* Dynamic Table */}
+              <Card className="border-0 shadow-md border-l-4 border-l-emerald-600">
+                <CardHeader>
+                  <CardTitle>
+                    {viewMode === "materials" ? "Catálogo de Materiales" : "Catálogo de Categorías"}
+                  </CardTitle>
+                  <CardDescription>
+                    {viewMode === "materials"
+                      ? `Mostrando ${filteredMaterials.length} de ${materials.length} materiales`
+                      : `Mostrando ${filteredCategories.length} de ${catalogs.length} categorías`
+                    }
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {viewMode === "materials" ? (
+                    <MaterialsTable
+                      key={`${searchTerm}-${selectedCategory}-${materials.length}`}
+                      materials={filteredMaterials}
+                      onEdit={openEditDialog}
+                      onDelete={deleteMaterial}
+                    />
+                  ) : (
+                    <CategoriesTable
+                      key={`${searchTerm}-${catalogs.length}`}
+                      categories={filteredCategories}
+                      onEdit={openEditCategoryDialog}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
 
         {/* Edit Dialog */}
@@ -526,6 +716,37 @@ export default function MaterialesPage() {
           open={isDuplicatesDashboardOpen}
           onOpenChange={setIsDuplicatesDashboardOpen}
           duplicates={duplicates}
+        />
+
+        {/* Edit Marca Dialog */}
+        <Dialog open={isEditMarcaDialogOpen} onOpenChange={setIsEditMarcaDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Editar Marca</DialogTitle>
+            </DialogHeader>
+            {editingMarca && (
+              <MarcaForm
+                initialData={editingMarca}
+                onSubmit={handleUpdateMarca}
+                onCancel={() => {
+                  setIsEditMarcaDialogOpen(false)
+                  setEditingMarca(null)
+                }}
+                isEditing
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Marca Dialog */}
+        <ConfirmDeleteDialog
+          open={isDeleteMarcaDialogOpen}
+          onOpenChange={setIsDeleteMarcaDialogOpen}
+          title="Eliminar Marca"
+          message={`¿Estás seguro de que quieres eliminar la marca "${deletingMarca?.nombre}"? Esta acción no se puede deshacer.`}
+          onConfirm={handleDeleteMarca}
+          confirmText="Eliminar Marca"
+          isLoading={deleteMarcaLoading}
         />
       </main>
       <Toaster />

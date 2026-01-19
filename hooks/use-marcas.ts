@@ -31,10 +31,8 @@ export function useMarcas(): UseMarcasReturn {
     setLoading(true)
     setError(null)
     try {
-      const [allMarcas, simplificadas] = await Promise.all([
-        MarcaService.getMarcas(),
-        MarcaService.getMarcasSimplificadas(),
-      ])
+      const allMarcas = await MarcaService.getMarcas()
+      const simplificadas = await MarcaService.getMarcasSimplificadas()
       setMarcas(Array.isArray(allMarcas) ? allMarcas : [])
       setMarcasSimplificadas(Array.isArray(simplificadas) ? simplificadas : [])
     } catch (err) {
