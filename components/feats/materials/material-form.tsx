@@ -467,31 +467,32 @@ export function MaterialForm({
               Foto del Producto
             </Label>
             
-            {/* Foto actual (solo en modo edición) */}
-            {isEditing && fotoUrl && !cambiarFoto && (
-              <div className="space-y-3">
-                <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                  <img 
-                    src={fotoUrl} 
-                    alt="Foto actual" 
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = '/placeholder.svg'
-                    }}
-                  />
+            <div className="flex flex-col md:flex-row md:items-start gap-6">
+              {/* Foto actual (solo en modo edición) */}
+              {isEditing && fotoUrl && !cambiarFoto && (
+                <div className="space-y-3">
+                  <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <img 
+                      src={fotoUrl} 
+                      alt="Foto actual" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder.svg'
+                      }}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCambiarFoto(true)}
+                    disabled={isSubmitting || uploadingFoto}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Cambiar Foto
+                  </Button>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCambiarFoto(true)}
-                  disabled={isSubmitting || uploadingFoto}
-                >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Cambiar Foto
-                </Button>
-              </div>
-            )}
+              )}
 
             {/* Input de archivo (crear o cambiar foto) */}
             {(!isEditing || !fotoUrl || cambiarFoto) && (
@@ -526,19 +527,20 @@ export function MaterialForm({
               </div>
             )}
 
-            {/* Preview de la foto */}
-            {fotoPreview && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Vista Previa</Label>
-                <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                  <img 
-                    src={fotoPreview} 
-                    alt="Preview" 
-                    className="w-full h-full object-cover"
-                  />
+              {/* Preview de la foto */}
+              {fotoPreview && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">Vista Previa</Label>
+                  <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
+                    <img 
+                      src={fotoPreview} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Indicador de subida */}
             {uploadingFoto && (
