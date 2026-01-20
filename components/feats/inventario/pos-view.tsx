@@ -559,21 +559,29 @@ export function PosView({ tiendaId }: PosViewProps) {
                         onClick={() => agregarProductoAOrden(material)}
                       >
                         <CardContent className="p-3">
-                          <div className="relative aspect-[4/3] bg-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                          <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden border border-slate-200">
                             {material.foto ? (
-                              <img 
-                                src={material.foto} 
-                                alt={material.descripcion}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                                }}
-                              />
-                            ) : null}
-                            <Package className={`h-10 w-10 text-slate-300 ${material.foto ? 'hidden' : ''}`} />
+                              <>
+                                <img 
+                                  src={material.foto} 
+                                  alt={material.descripcion}
+                                  className="w-full h-full object-contain p-2"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const fallback = target.nextElementSibling as HTMLElement;
+                                    if (fallback) fallback.classList.remove('hidden');
+                                  }}
+                                />
+                                <div className="hidden w-full h-full items-center justify-center">
+                                  <Package className="h-12 w-12 text-slate-300" />
+                                </div>
+                              </>
+                            ) : (
+                              <Package className="h-12 w-12 text-slate-300" />
+                            )}
                             {cantidadesPorMaterial.get(material.codigo?.toString() ?? "") ? (
-                              <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-semibold px-2 py-0.5 shadow-md">
+                              <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white">
                                 {cantidadesPorMaterial.get(material.codigo.toString())}
                               </span>
                             ) : null}

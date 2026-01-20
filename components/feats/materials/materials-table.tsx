@@ -44,15 +44,21 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
               <td className="py-3 px-2">
                 <div className="flex items-center space-x-2">
                   {material.foto ? (
-                    <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0 border border-gray-200">
                       <img 
                         src={material.foto} 
                         alt={material.nombre || material.descripcion}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-contain p-1"
                         onError={(e) => {
-                          (e.target as HTMLImageElement).src = '/placeholder.svg'
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const fallback = target.nextElementSibling as HTMLElement;
+                          if (fallback) fallback.style.display = 'flex';
                         }}
                       />
+                      <div className="absolute inset-0 bg-amber-100 items-center justify-center hidden">
+                        <Package className="h-5 w-5 text-amber-700" />
+                      </div>
                     </div>
                   ) : (
                     <div className="bg-amber-100 p-1.5 rounded-lg flex-shrink-0">
