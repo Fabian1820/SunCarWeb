@@ -107,22 +107,6 @@ export function InstalacionesNuevasTable({
   const countLeads = instalaciones.filter(i => i.tipo === 'lead').length
   const countClientes = instalaciones.filter(i => i.tipo === 'cliente').length
 
-  if (instalaciones.length === 0 && !loading) {
-    return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No hay instalaciones nuevas
-          </h3>
-          <p className="text-gray-600">
-            No se encontraron leads ni clientes pendientes de instalación
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <>
       {/* Filtros */}
@@ -198,6 +182,18 @@ export function InstalacionesNuevasTable({
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {instalaciones.length === 0 && !loading ? (
+            <div className="p-12 text-center">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No hay instalaciones nuevas
+              </h3>
+              <p className="text-gray-600">
+                No se encontraron leads ni clientes pendientes de instalación
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Vista móvil */}
           <div className="md:hidden space-y-3">
             {instalaciones.map((instalacion) => (
@@ -303,6 +299,8 @@ export function InstalacionesNuevasTable({
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
     </>

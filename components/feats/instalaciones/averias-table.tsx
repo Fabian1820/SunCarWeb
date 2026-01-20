@@ -135,22 +135,6 @@ export function AveriasTable({
     }).join(" | ")
   }
 
-  if (clients.length === 0 && !loading) {
-    return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No hay averías pendientes
-          </h3>
-          <p className="text-gray-600">
-            No se encontraron clientes con averías sin resolver
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <>
       {/* Filtros */}
@@ -243,6 +227,20 @@ export function AveriasTable({
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {clients.length === 0 && !loading ? (
+            <div className="p-12 text-center">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No hay averías
+              </h3>
+              <p className="text-gray-600">
+                {estadoAveria === 'pendientes' && 'No se encontraron clientes con averías pendientes'}
+                {estadoAveria === 'solucionadas' && 'No se encontraron clientes con averías solucionadas'}
+                {estadoAveria === 'todas' && 'No se encontraron clientes con averías'}
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Vista móvil */}
           <div className="md:hidden space-y-3">
             {clients.map((client) => (
@@ -414,6 +412,8 @@ export function AveriasTable({
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
 

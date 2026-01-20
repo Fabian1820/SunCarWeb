@@ -130,22 +130,6 @@ export function InstalacionesEnProcesoTable({
     }
   }
 
-  if (clients.length === 0 && !loading) {
-    return (
-      <Card>
-        <CardContent className="p-12 text-center">
-          <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            No hay instalaciones en proceso
-          </h3>
-          <p className="text-gray-600">
-            No se encontraron clientes con instalación en proceso
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <>
       {/* Filtros */}
@@ -198,6 +182,18 @@ export function InstalacionesEnProcesoTable({
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {clients.length === 0 && !loading ? (
+            <div className="p-12 text-center">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                No hay instalaciones en proceso
+              </h3>
+              <p className="text-gray-600">
+                No se encontraron clientes con instalación en proceso
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Vista móvil */}
           <div className="md:hidden space-y-3">
             {clients.map((client) => (
@@ -310,6 +306,8 @@ export function InstalacionesEnProcesoTable({
               </tbody>
             </table>
           </div>
+          </>
+          )}
         </CardContent>
       </Card>
 
