@@ -29,8 +29,8 @@ export function TiendasTable({ tiendas, onEdit, onDelete, onView }: TiendasTable
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Tienda</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Código</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacenes</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
@@ -48,7 +48,23 @@ export function TiendasTable({ tiendas, onEdit, onDelete, onView }: TiendasTable
                 <span className="text-sm text-gray-700">{tienda.codigo || "-"}</span>
               </td>
               <td className="py-4 px-4">
-                <span className="text-sm text-gray-700">{tienda.almacen_nombre || tienda.almacen_id}</span>
+                {tienda.almacenes && tienda.almacenes.length > 0 ? (
+                  <div className="flex flex-wrap gap-1">
+                    {tienda.almacenes.map((almacen) => (
+                      <Badge
+                        key={almacen.id}
+                        variant="outline"
+                        className="bg-blue-50 text-blue-700 border-blue-200 text-xs"
+                      >
+                        {almacen.nombre}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-sm text-gray-500">
+                    {tienda.almacen_nombre || tienda.almacen_id || "Sin almacenes"}
+                  </span>
+                )}
               </td>
               <td className="py-4 px-4">
                 <Badge

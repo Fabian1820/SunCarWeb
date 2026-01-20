@@ -1,6 +1,7 @@
 export type {
   InventarioMovimientoTipo,
   Almacen,
+  AlmacenInfo,
   Tienda,
   StockItem,
   MovimientoInventario,

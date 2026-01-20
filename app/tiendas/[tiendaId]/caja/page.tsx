@@ -12,6 +12,8 @@ import { RouteGuard } from "@/components/auth/route-guard"
 import { X, DollarSign, Minus, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { PosView } from "@/components/feats/inventario/pos-view"
+import { useCaja } from "@/hooks/use-caja"
+import { Loader } from "@/components/shared/atom/loader"
 
 interface Denominacion {
   valor: number
@@ -23,12 +25,14 @@ export default function CajaPage() {
   const router = useRouter()
   const tiendaId = params.tiendaId as string
   const { toast } = useToast()
+  
+  const { sesionActiva, loading, abrirSesion } = useCaja(tiendaId)
 
-  const [isAperturaDialogOpen, setIsAperturaDialogOpen] = useState(true)
+  const [isAperturaDialogOpen, setIsAperturaDialogOpen] = useState(false)
   const [isCalculadoraOpen, setIsCalculadoraOpen] = useState(false)
-  const [cajaAbierta, setCajaAbierta] = useState(false)
   const [efectivoApertura, setEfectivoApertura] = useState("")
   const [notaApertura, setNotaApertura] = useState("")
+  const [abriendo, setAbriendo] = useState(false)
 
   const [denominaciones, setDenominaciones] = useState<Denominacion[]>([
     { valor: 100, cantidad: 0 },
@@ -71,7 +75,14 @@ export default function CajaPage() {
     setIsCalculadoraOpen(false)
   }
 
-  const handleAbrirCaja = () => {
+  // Verificar si hay sesión activa al cargar
+  useEffect(() => {
+    if (!loading && !sesionActiva) {
+      setIsAperturaDialogOpen(true)
+    }
+  }, [loading, sesionActiva])
+
+  const handleAbrirCaja = async () => {
     if (!efectivoApertura || parseFloat(efectivoApertura) < 0) {
       toast({
         title: "Error",
@@ -81,14 +92,15 @@ export default function CajaPage() {
       return
     }
 
-    // TODO: Llamar al endpoint del backend para abrir caja
-    toast({
-      title: "Caja abierta",
-      description: `Caja registradora abierta con $${parseFloat(efectivoApertura).toFixed(2)}`,
-    })
-    
-    setCajaAbierta(true)
-    setIsAperturaDialogOpen(false)
+    try {
+      setAbriendo(true)
+      await abrirSesion(parseFloat(efectivoApertura), notaApertura)
+      setIsAperturaDialogOpen(false)
+    } catch (error) {
+      // El error ya se muestra en el hook
+    } finally {
+      setAbriendo(false)
+    }
   }
 
   const handleDescartar = () => {
@@ -100,12 +112,22 @@ export default function CajaPage() {
     setEfectivoApertura("")
   }
 
+  if (loading) {
+    return (
+      <RouteGuard requiredModule={`tienda:${tiendaId}`}>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
+          <Loader />
+        </div>
+      </RouteGuard>
+    )
+  }
+
   return (
     <RouteGuard requiredModule={`tienda:${tiendaId}`}>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
 <main className="max-w-full h-screen box-border flex min-h-0">
-          {cajaAbierta ? (
-            <PosView tiendaId={tiendaId} />
+          {sesionActiva ? (
+            <PosView tiendaId={tiendaId} sesionId={sesionActiva.id} />
           ) : (
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
               <Card>
@@ -193,13 +215,15 @@ export default function CajaPage() {
               <div className="flex gap-3 pt-2">
                 <Button
                   onClick={handleAbrirCaja}
+                  disabled={abriendo}
                   className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700"
                 >
-                  Abrir caja registradora
+                  {abriendo ? "Abriendo..." : "Abrir caja registradora"}
                 </Button>
                 <Button
                   variant="outline"
                   onClick={handleDescartar}
+                  disabled={abriendo}
                   className="h-12 px-8 text-base"
                 >
                   Descartar

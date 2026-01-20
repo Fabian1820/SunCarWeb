@@ -65,7 +65,21 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
   const [loadingMateriales, setLoadingMateriales] = useState(false)
   
   // Estado para controlar si se está usando fuente personalizada
-  const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(false)
+  const fuentesBase = ['Página Web', 'Instagram', 'Facebook', 'Directo', 'Mensaje de Whatsapp', 'Visita']
+  
+  // Estado para fuentes dinámicas (incluye las personalizadas)
+  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
+    // Si el cliente tiene una fuente personalizada, agregarla a la lista
+    if (client.fuente && !fuentesBase.includes(client.fuente)) {
+      return [...fuentesBase, client.fuente]
+    }
+    return fuentesBase
+  })
+  
+  const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(() => {
+    // Si la fuente del cliente no está en las opciones base, usar input personalizado
+    return client.fuente ? !fuentesBase.includes(client.fuente) : false
+  })
 
   const [clientLatLng, setClientLatLng] = useState<{ lat: string, lng: string }>({ 
     lat: '', 
@@ -202,6 +216,15 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
         fecha_instalacion: client.fecha_instalacion || '',
         falta_instalacion: client.falta_instalacion || '',
       })
+      
+      // Actualizar el estado de fuente personalizada
+      const esFuentePersonalizada = client.fuente ? !fuentesBase.includes(client.fuente) : false
+      setUsandoFuentePersonalizada(esFuentePersonalizada)
+      
+      // Si es una fuente personalizada, agregarla a la lista si no está
+      if (client.fuente && !fuentesBase.includes(client.fuente) && !fuentesDisponibles.includes(client.fuente)) {
+        setFuentesDisponibles(prev => [...prev, client.fuente])
+      }
       
       console.log('✅ FormData actualizado con estado:', estadoNormalizado)
       
@@ -680,13 +703,12 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                           <SelectValue placeholder="Seleccionar fuente" />
                         </SelectTrigger>
                         <SelectContent className="max-h-[300px] overflow-y-auto">
-                          <SelectItem value="Pagina Web">Pagina Web</SelectItem>
-                          <SelectItem value="Instagram">Instagram</SelectItem>
-                          <SelectItem value="Facebook">Facebook</SelectItem>
-                          <SelectItem value="Directo">Directo</SelectItem>
-                          <SelectItem value="Mensaje de Whatsapp">Mensaje de Whatsapp</SelectItem>
-                          <SelectItem value="Visita">Visita</SelectItem>
-                          <SelectItem value="__custom__">Otra (escribir manualmente)</SelectItem>
+                          {fuentesDisponibles.map((fuente) => (
+                            <SelectItem key={fuente} value={fuente}>
+                              {fuente}
+                            </SelectItem>
+                          ))}
+                          <SelectItem value="__custom__">✏️ Otra (escribir manualmente)</SelectItem>
                         </SelectContent>
                       </Select>
                     ) : (
@@ -704,12 +726,15 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                           variant="outline"
                           size="sm"
                           onClick={() => {
+                            // Si hay una fuente personalizada escrita, agregarla a la lista
+                            if (formData.fuente && !fuentesDisponibles.includes(formData.fuente)) {
+                              setFuentesDisponibles(prev => [...prev, formData.fuente])
+                            }
                             setUsandoFuentePersonalizada(false)
-                            handleInputChange('fuente', '')
                           }}
                           className="text-xs"
                         >
-                          Volver a opciones predefinidas
+                          ← Volver a opciones predefinidas
                         </Button>
                       </div>
                     )}

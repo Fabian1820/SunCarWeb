@@ -6,9 +6,9 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Switch } from "@/components/shared/molecule/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { Checkbox } from "@/components/shared/molecule/checkbox"
 import { Save, X, Loader2, AlertCircle } from "lucide-react"
-import type { Almacen, Tienda, TiendaCreateData } from "@/lib/inventario-types"
+import type { Almacen, Tienda, TiendaCreateData, AlmacenInfo } from "@/lib/inventario-types"
 
 interface TiendaFormProps {
   initialData?: Tienda
@@ -24,7 +24,7 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
     codigo: initialData?.codigo || "",
     direccion: initialData?.direccion || "",
     telefono: initialData?.telefono || "",
-    almacen_id: initialData?.almacen_id || "",
+    almacenes: initialData?.almacenes || [],
     activo: initialData?.activo ?? true,
   })
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +36,7 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
       codigo: initialData?.codigo || "",
       direccion: initialData?.direccion || "",
       telefono: initialData?.telefono || "",
-      almacen_id: initialData?.almacen_id || "",
+      almacenes: initialData?.almacenes || [],
       activo: initialData?.activo ?? true,
     })
     setError(null)
@@ -46,13 +46,34 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
     return [...almacenes].sort((a, b) => a.nombre.localeCompare(b.nombre))
   }, [almacenes])
 
+  const handleAlmacenToggle = (almacen: Almacen) => {
+    const almacenInfo: AlmacenInfo = {
+      id: almacen.id!,
+      nombre: almacen.nombre
+    }
+    
+    const existe = formData.almacenes.find(a => a.id === almacenInfo.id)
+    
+    if (existe) {
+      setFormData({
+        ...formData,
+        almacenes: formData.almacenes.filter(a => a.id !== almacenInfo.id)
+      })
+    } else {
+      setFormData({
+        ...formData,
+        almacenes: [...formData.almacenes, almacenInfo]
+      })
+    }
+  }
+
   const validate = () => {
     if (!formData.nombre.trim()) {
       setError("El nombre de la tienda es requerido")
       return false
     }
-    if (!formData.almacen_id) {
-      setError("Selecciona un almacen para la tienda")
+    if (formData.almacenes.length === 0) {
+      setError("Selecciona al menos un almacén para la tienda")
       return false
     }
     setError(null)
@@ -89,28 +110,54 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
         </div>
 
         <div>
-          <Label className="text-sm font-medium text-gray-700 mb-2 block">Almacen asignado *</Label>
-          <Select
-            value={formData.almacen_id}
-            onValueChange={(value) => setFormData({ ...formData, almacen_id: value })}
-          >
-            <SelectTrigger className={error && !formData.almacen_id ? "border-red-300" : ""}>
-              <SelectValue placeholder="Seleccionar almacen" />
-            </SelectTrigger>
-            <SelectContent>
-              {almacenesOrdenados.map((almacen) => (
-                <SelectItem key={almacen.id || almacen.nombre} value={almacen.id || almacen.nombre}>
-                  {almacen.nombre}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label className="text-sm font-medium text-gray-700 mb-3 block">
+            Almacenes asociados * ({formData.almacenes.length} seleccionados)
+          </Label>
+          <div className={`border rounded-lg p-4 space-y-3 max-h-64 overflow-y-auto ${
+            error && formData.almacenes.length === 0 ? "border-red-300" : ""
+          }`}>
+            {almacenesOrdenados.length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No hay almacenes disponibles. Crea un almacén primero.
+              </p>
+            ) : (
+              almacenesOrdenados.map((almacen) => (
+                <div
+                  key={almacen.id}
+                  className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-md transition-colors"
+                >
+                  <Checkbox
+                    id={`almacen-${almacen.id}`}
+                    checked={formData.almacenes.some(a => a.id === almacen.id)}
+                    onCheckedChange={() => handleAlmacenToggle(almacen)}
+                  />
+                  <label
+                    htmlFor={`almacen-${almacen.id}`}
+                    className="flex-1 cursor-pointer text-sm"
+                  >
+                    <span className="font-medium">{almacen.nombre}</span>
+                    {almacen.codigo && (
+                      <span className="text-gray-500 ml-2">({almacen.codigo})</span>
+                    )}
+                    {almacen.direccion && (
+                      <span className="block text-xs text-gray-500 mt-1">{almacen.direccion}</span>
+                    )}
+                  </label>
+                </div>
+              ))
+            )}
+          </div>
+          {formData.almacenes.length > 0 && (
+            <p className="text-xs text-gray-500 mt-2">
+              Los productos se podrán vender desde cualquiera de estos almacenes
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="tienda-codigo" className="text-sm font-medium text-gray-700 mb-2 block">
-              Codigo
+              Código
             </Label>
             <Input
               id="tienda-codigo"
@@ -121,7 +168,7 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
           </div>
           <div>
             <Label htmlFor="tienda-telefono" className="text-sm font-medium text-gray-700 mb-2 block">
-              Telefono
+              Teléfono
             </Label>
             <Input
               id="tienda-telefono"
@@ -134,7 +181,7 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
 
         <div>
           <Label htmlFor="tienda-direccion" className="text-sm font-medium text-gray-700 mb-2 block">
-            Direccion
+            Dirección
           </Label>
           <Input
             id="tienda-direccion"
@@ -159,7 +206,7 @@ export function TiendaForm({ initialData, almacenes, onSubmit, onCancel, isEditi
       {error ? (
         <div className="flex items-center text-red-600">
           <AlertCircle className="h-4 w-4 mr-2" />
-          <span>{error}</span>
+          <span className="text-sm">{error}</span>
         </div>
       ) : null}
 

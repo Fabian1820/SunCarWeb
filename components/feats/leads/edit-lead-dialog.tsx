@@ -63,7 +63,21 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
   const [loadingMateriales, setLoadingMateriales] = useState(false)
   
   // Estado para controlar si se está usando fuente personalizada
-  const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(false)
+  const fuentesBase = ['Página Web', 'Instagram', 'Facebook', 'Directo', 'Mensaje de Whatsapp', 'Visita']
+  
+  // Estado para fuentes dinámicas (incluye las personalizadas)
+  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
+    // Si el lead tiene una fuente personalizada, agregarla a la lista
+    if (lead.fuente && !fuentesBase.includes(lead.fuente)) {
+      return [...fuentesBase, lead.fuente]
+    }
+    return fuentesBase
+  })
+  
+  const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(() => {
+    // Si la fuente del lead no está en las opciones base, usar input personalizado
+    return lead.fuente ? !fuentesBase.includes(lead.fuente) : false
+  })
 
   // Estados para la oferta (inicializar con la primera oferta del lead si existe)
   const [oferta, setOferta] = useState({
@@ -159,6 +173,15 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         metodo_pago: lead.metodo_pago || '',
         moneda: lead.moneda || '',
       })
+      
+      // Actualizar el estado de fuente personalizada
+      const esFuentePersonalizada = lead.fuente ? !fuentesBase.includes(lead.fuente) : false
+      setUsandoFuentePersonalizada(esFuentePersonalizada)
+      
+      // Si es una fuente personalizada, agregarla a la lista si no está
+      if (lead.fuente && !fuentesBase.includes(lead.fuente) && !fuentesDisponibles.includes(lead.fuente)) {
+        setFuentesDisponibles(prev => [...prev, lead.fuente])
+      }
       
       console.log('✅ FormData.estado establecido a:', lead.estado || '')
       
@@ -646,12 +669,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                         <SelectValue placeholder="Seleccionar fuente" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px] overflow-y-auto">
-                        <SelectItem value="Página Web">Página Web</SelectItem>
-                        <SelectItem value="Instagram">Instagram</SelectItem>
-                        <SelectItem value="Facebook">Facebook</SelectItem>
-                        <SelectItem value="Directo">Directo</SelectItem>
-                        <SelectItem value="Mensaje de Whatsapp">Mensaje de Whatsapp</SelectItem>
-                        <SelectItem value="Visita">Visita</SelectItem>
+                        {fuentesDisponibles.map((fuente) => (
+                          <SelectItem key={fuente} value={fuente}>
+                            {fuente}
+                          </SelectItem>
+                        ))}
                         <SelectItem value="__custom__">✏️ Otra (escribir manualmente)</SelectItem>
                       </SelectContent>
                     </Select>
@@ -670,8 +692,11 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                         variant="outline"
                         size="sm"
                         onClick={() => {
+                          // Si hay una fuente personalizada escrita, agregarla a la lista
+                          if (formData.fuente && !fuentesDisponibles.includes(formData.fuente)) {
+                            setFuentesDisponibles(prev => [...prev, formData.fuente])
+                          }
                           setUsandoFuentePersonalizada(false)
-                          handleInputChange('fuente', '')
                         }}
                         className="text-xs"
                       >

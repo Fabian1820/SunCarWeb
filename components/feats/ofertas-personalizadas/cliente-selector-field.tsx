@@ -26,6 +26,7 @@ interface ClienteSelectorFieldProps {
   onClienteChange: (value: string) => void
   onLeadChange: (value: string) => void
   label?: string
+  showContactTypeToggle?: boolean
 }
 
 type ClienteWithId = Cliente & { id?: string }
@@ -38,6 +39,7 @@ export function ClienteSelectorField({
   onClienteChange,
   onLeadChange,
   label = 'Destinatario',
+  showContactTypeToggle = true,
 }: ClienteSelectorFieldProps) {
   const [clientes, setClientes] = useState<ClienteWithId[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
@@ -160,28 +162,30 @@ export function ClienteSelectorField({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <Label>{label}</Label>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant={contactType === 'cliente' ? 'default' : 'outline'}
-            size="sm"
-            className="flex items-center gap-2"
-            onClick={() => onContactTypeChange('cliente')}
-          >
-            <User className="h-4 w-4" />
-            Cliente
-          </Button>
-          <Button
-            type="button"
-            variant={contactType === 'lead' ? 'default' : 'outline'}
-            size="sm"
-            className="flex items-center gap-2"
-            onClick={() => onContactTypeChange('lead')}
-          >
-            <UserPlus className="h-4 w-4" />
-            Lead
-          </Button>
-        </div>
+        {showContactTypeToggle ? (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={contactType === 'cliente' ? 'default' : 'outline'}
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={() => onContactTypeChange('cliente')}
+            >
+              <User className="h-4 w-4" />
+              Cliente
+            </Button>
+            <Button
+              type="button"
+              variant={contactType === 'lead' ? 'default' : 'outline'}
+              size="sm"
+              className="flex items-center gap-2"
+              onClick={() => onContactTypeChange('lead')}
+            >
+              <UserPlus className="h-4 w-4" />
+              Lead
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {/* Campo de búsqueda */}

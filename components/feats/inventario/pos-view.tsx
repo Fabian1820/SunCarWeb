@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Button } from "@/components/shared/atom/button"
@@ -8,9 +8,16 @@ import { Input } from "@/components/shared/atom/input"
 import { Badge } from "@/components/shared/atom/badge"
 import { Package, Plus, ScanLine, Search, ShoppingCart, DollarSign } from "lucide-react"
 import { useMaterials } from "@/hooks/use-materials"
+import { useInventario } from "@/hooks/use-inventario"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { EntradaSalidaEfectivoDialog } from "./entrada-salida-efectivo-dialog"
+import { CierreCajaDialog } from "./cierre-caja-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useCaja } from "@/hooks/use-caja"
+import { PagoDialog } from "./pago-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { cajaService } from "@/lib/services/feats/caja/caja-service"
+import type { ItemOrden as ItemOrdenBackend, OrdenCompra } from "@/lib/types/feats/caja-types"
 
 interface Producto {
   id: string
@@ -26,6 +33,7 @@ interface ItemOrden {
   precio: number
   cantidad: number
   categoria: string
+  almacen_id: string  // Almacén del cual se descuenta
 }
 
 interface Orden {
@@ -38,24 +46,81 @@ interface Orden {
 
 interface PosViewProps {
   tiendaId: string
+  sesionId: string
 }
 
-export function PosView({ tiendaId }: PosViewProps) {
+export function PosView({ tiendaId, sesionId }: PosViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [categoriaActiva, setCategoriaActiva] = useState("Todos")
   const [isEfectivoDialogOpen, setIsEfectivoDialogOpen] = useState(false)
+  const [isPagoDialogOpen, setIsPagoDialogOpen] = useState(false)
+  const [isCierreDialogOpen, setIsCierreDialogOpen] = useState(false)
+  const [isOrdenesDialogOpen, setIsOrdenesDialogOpen] = useState(false)
   const [ordenes, setOrdenes] = useState<Orden[]>([])
   const [ordenActiva, setOrdenActiva] = useState<string | null>(null)
+  const [ordenesBackend, setOrdenesBackend] = useState<OrdenCompra[]>([])
+  const [cargandoOrdenesBackend, setCargandoOrdenesBackend] = useState(false)
+  const [ordenSearch, setOrdenSearch] = useState("")
+  const [ordenEstado, setOrdenEstado] = useState("todas")
+  const [ordenSeleccionadaId, setOrdenSeleccionadaId] = useState<string | null>(null)
   const [itemSeleccionado, setItemSeleccionado] = useState<string | null>(null)
   const [tecladoModo, setTecladoModo] = useState<"cantidad" | "impuesto" | "descuento">("cantidad")
   const [tecladoInput, setTecladoInput] = useState("")
-  const [impuestoPorcentaje, setImpuestoPorcentaje] = useState(0)
+  const [impuestoPorcentaje, setImpuestoPorcentaje] = useState(16)
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0)
+  const [almacenId, setAlmacenId] = useState<string>("")
   const router = useRouter()
   const { toast } = useToast()
+  const { sesionActiva, registrarMovimiento, crearOrden, procesarPago, cerrarSesion } = useCaja(tiendaId)
   
   // Obtener categorías y materiales desde el backend
   const { categories, materials, loading: loadingCategories } = useMaterials()
+  const { almacenes, tiendas, stock, refetchStock, loading: loadingAlmacenes } = useInventario()
+  
+  // Obtener almacenes de la tienda actual desde la relación tienda->almacenes
+  const almacenesTienda = useMemo(() => {
+    const tienda = tiendas.find(t => t.id === tiendaId)
+    if (!tienda || !tienda.almacenes) return []
+    
+    // Mapear los IDs de almacenes de la tienda a los objetos completos
+    return tienda.almacenes
+      .map(almacenInfo => almacenes.find(a => a.id === almacenInfo.id))
+      .filter((a): a is NonNullable<typeof a> => a !== undefined)
+  }, [almacenes, tiendas, tiendaId])
+
+  // Seleccionar automáticamente el primer almacén si solo hay uno
+  useEffect(() => {
+    if (almacenesTienda.length === 1 && !almacenId) {
+      setAlmacenId(almacenesTienda[0].id)
+    }
+  }, [almacenesTienda, almacenId])
+
+  // Cargar stock cuando se selecciona un almacén
+  useEffect(() => {
+    if (almacenId) {
+      refetchStock(almacenId)
+    }
+  }, [almacenId, refetchStock])
+
+  // Obtener materiales con stock en el almacén seleccionado
+  const materialesConStock = useMemo(() => {
+    if (!almacenId) return []
+    
+    // Filtrar stock del almacén seleccionado
+    const stockAlmacen = stock.filter(s => s.almacen_id === almacenId && s.cantidad > 0)
+    
+    // Mapear a materiales con información de stock
+    return stockAlmacen
+      .map(stockItem => {
+        const material = materials.find(m => m.codigo.toString() === stockItem.material_codigo)
+        if (!material) return null
+        return {
+          ...material,
+          stock_disponible: stockItem.cantidad
+        }
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null)
+  }, [almacenId, stock, materials])
   
   // Agregar "Todos" al inicio de las categorías
   const categorias = useMemo(() => ["Todos", ...categories], [categories])
@@ -118,8 +183,28 @@ export function PosView({ tiendaId }: PosViewProps) {
       return
     }
 
+    if (!almacenId) {
+      toast({
+        title: "Selecciona un almacén",
+        description: "Debes seleccionar un almacén antes de agregar productos",
+        variant: "destructive",
+      })
+      return
+    }
+
     const materialCodigo = material.codigo.toString()
     const cantidadPrev = ordenActual?.items.find(item => item.materialCodigo === materialCodigo)?.cantidad ?? 0
+    const nuevaCantidad = cantidadPrev + 1
+
+    // Validar stock disponible
+    if (material.stock_disponible && nuevaCantidad > material.stock_disponible) {
+      toast({
+        title: "Stock insuficiente",
+        description: `Solo hay ${material.stock_disponible} unidades disponibles`,
+        variant: "destructive",
+      })
+      return
+    }
 
     setOrdenes(prev => prev.map(orden => {
       if (orden.id !== ordenActiva) return orden
@@ -135,7 +220,7 @@ export function PosView({ tiendaId }: PosViewProps) {
             : item
         )
       } else {
-        // Agregar nuevo item
+        // Agregar nuevo item con el almacén seleccionado
         nuevosItems = [
           ...orden.items,
           {
@@ -143,7 +228,8 @@ export function PosView({ tiendaId }: PosViewProps) {
             descripcion: material.descripcion,
             precio: material.precio || 0,
             cantidad: 1,
-            categoria: material.categoria
+            categoria: material.categoria,
+            almacen_id: almacenId  // Asignar almacén seleccionado
           }
         ]
       }
@@ -159,7 +245,7 @@ export function PosView({ tiendaId }: PosViewProps) {
 
     setItemSeleccionado(materialCodigo)
     setTecladoModo("cantidad")
-    setTecladoInput(String(cantidadPrev + 1))
+    setTecladoInput(String(nuevaCantidad))
   }
 
   // Eliminar item de la orden
@@ -184,6 +270,17 @@ export function PosView({ tiendaId }: PosViewProps) {
   const cambiarCantidadItem = (materialCodigo: string, nuevaCantidad: number) => {
     if (!ordenActiva || nuevaCantidad < 0) return
 
+    // Validar stock disponible
+    const materialConStock = materialesConStock.find(m => m.codigo.toString() === materialCodigo)
+    if (materialConStock && materialConStock.stock_disponible && nuevaCantidad > materialConStock.stock_disponible) {
+      toast({
+        title: "Stock insuficiente",
+        description: `Solo hay ${materialConStock.stock_disponible} unidades disponibles`,
+        variant: "destructive",
+      })
+      return
+    }
+
     setOrdenes(prev => prev.map(orden => {
       if (orden.id !== ordenActiva) return orden
 
@@ -203,16 +300,18 @@ export function PosView({ tiendaId }: PosViewProps) {
     }))
   }
 
-  // Filtrar materiales por búsqueda y categoría
+  // Filtrar materiales por búsqueda y categoría (solo si hay almacén seleccionado)
   const productosFiltrados = useMemo(() => {
-    return materials.filter((material) => {
+    if (!almacenId) return [] // No mostrar productos si no hay almacén seleccionado
+    
+    return materialesConStock.filter((material) => {
       const matchCategoria = categoriaActiva === "Todos" || material.categoria === categoriaActiva
       const matchSearch = 
         material.codigo.toString().toLowerCase().includes(searchQuery.toLowerCase()) ||
         material.descripcion.toLowerCase().includes(searchQuery.toLowerCase())
       return matchCategoria && matchSearch
     })
-  }, [materials, categoriaActiva, searchQuery])
+  }, [materialesConStock, categoriaActiva, searchQuery, almacenId])
 
   const itemActual = useMemo(() => {
     if (!ordenActual || !itemSeleccionado) return null
@@ -228,13 +327,209 @@ export function PosView({ tiendaId }: PosViewProps) {
     return map
   }, [ordenActual])
 
-  const handleEfectivoConfirm = (tipo: "entrada" | "salida", monto: number, motivo: string) => {
-    // TODO: Llamar al endpoint del backend para registrar el movimiento
-    toast({
-      title: tipo === "entrada" ? "Entrada registrada" : "Salida registrada",
-      description: `${tipo === "entrada" ? "Entrada" : "Salida"} de $${monto.toFixed(2)} registrada correctamente`,
-    })
-    setIsEfectivoDialogOpen(false)
+  const handleEfectivoConfirm = async (tipo: "entrada" | "salida", monto: number, motivo: string) => {
+    try {
+      await registrarMovimiento(tipo, monto, motivo)
+      setIsEfectivoDialogOpen(false)
+    } catch (error) {
+      // El error ya se muestra en el hook
+    }
+  }
+
+  const handleProcesarPago = async (
+    metodoPago: any,
+    pagos: any[],
+    clienteData?: {
+      cliente_id?: string
+      cliente_nombre?: string
+      cliente_ci?: string
+      cliente_telefono?: string
+    }
+  ) => {
+    if (!ordenActual) {
+      toast({
+        title: "Error",
+        description: "No hay orden activa",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Verificar que todos los items tengan almacén asignado
+    const itemsSinAlmacen = ordenActual.items.filter(item => !item.almacen_id)
+    if (itemsSinAlmacen.length > 0) {
+      toast({
+        title: "Error",
+        description: "Todos los items deben tener un almacén asignado",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // Crear la orden en el backend con almacén por item
+      const items: Omit<ItemOrdenBackend, 'subtotal'>[] = ordenActual.items.map(item => ({
+        material_codigo: item.materialCodigo,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio,
+        categoria: item.categoria,
+        almacen_id: item.almacen_id,
+      }))
+
+      const ordenBackend = await crearOrden(
+        items,
+        impuestoPorcentaje,
+        descuentoPorcentaje,
+        clienteData
+      )
+
+      // Procesar el pago - el backend usará el almacén especificado
+      // Nota: Como cada item puede tener su propio almacén, usamos el primer almacén
+      // para la orden general, pero el backend debería manejar múltiples almacenes
+      const primerAlmacen = ordenActual.items[0].almacen_id
+      await procesarPago(ordenBackend.id, metodoPago, pagos, primerAlmacen)
+
+      // Limpiar la orden local
+      setOrdenes(prev => prev.filter(o => o.id !== ordenActiva))
+      setOrdenActiva(null)
+      setItemSeleccionado(null)
+      setTecladoInput("")
+      setIsPagoDialogOpen(false)
+
+      toast({
+        title: "Venta completada",
+        description: `Orden ${ordenBackend.numero_orden} procesada exitosamente`,
+      })
+    } catch (error) {
+      // El error ya se muestra en el hook
+    }
+  }
+
+  const handleAbrirPago = () => {
+    if (!ordenActual || ordenActual.items.length === 0) {
+      toast({
+        title: "Sin productos",
+        description: "Agrega productos a la orden primero",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Verificar que todos los items tengan almacén
+    const itemsSinAlmacen = ordenActual.items.filter(item => !item.almacen_id)
+    if (itemsSinAlmacen.length > 0) {
+      toast({
+        title: "Almacén requerido",
+        description: "Todos los productos deben tener un almacén asignado",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsPagoDialogOpen(true)
+  }
+
+  const handleVerOrdenes = async () => {
+    if (!sesionActiva) {
+      toast({
+        title: "Sin sesión activa",
+        description: "No hay una sesión de caja abierta.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setCargandoOrdenesBackend(true)
+      const ordenes = await cajaService.listarOrdenes({
+        sesion_caja_id: sesionActiva.id,
+        tienda_id: tiendaId,
+      })
+      setOrdenesBackend(ordenes)
+      setOrdenSeleccionadaId(ordenes[0]?.id ?? null)
+      setIsOrdenesDialogOpen(true)
+    } catch (error: any) {
+      const errorMsg = error?.response?.data?.detail || error?.message || "Error al cargar órdenes"
+      toast({
+        title: "Error",
+        description: errorMsg,
+        variant: "destructive",
+      })
+    } finally {
+      setCargandoOrdenesBackend(false)
+    }
+  }
+
+  const ordenSeleccionada = useMemo(
+    () => ordenesBackend.find((orden) => orden.id === ordenSeleccionadaId) || null,
+    [ordenesBackend, ordenSeleccionadaId]
+  )
+
+  const ordenesFiltradas = useMemo(() => {
+    const search = ordenSearch.trim().toLowerCase()
+    const estado = ordenEstado === "todas" ? "" : ordenEstado
+
+    return ordenesBackend
+      .filter((orden) => {
+        if (estado && orden.estado !== estado) return false
+        if (!search) return true
+        const parts = [
+          orden.numero_orden,
+          orden.cliente_nombre,
+          orden.cliente_telefono,
+          orden.metodo_pago,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+        return parts.includes(search)
+      })
+      .sort((a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime())
+  }, [ordenesBackend, ordenSearch, ordenEstado])
+
+  useEffect(() => {
+    if (!ordenesFiltradas.length) {
+      setOrdenSeleccionadaId(null)
+      return
+    }
+    if (!ordenSeleccionadaId || !ordenesFiltradas.some((orden) => orden.id === ordenSeleccionadaId)) {
+      setOrdenSeleccionadaId(ordenesFiltradas[0].id)
+    }
+  }, [ordenesFiltradas, ordenSeleccionadaId])
+
+  const getOrdenEstadoBadge = (estado: string) => {
+    const base = "text-xs whitespace-nowrap px-3 py-1.5"
+    if (estado === "pagada") return `${base} bg-emerald-100 text-emerald-800`
+    if (estado === "cancelada") return `${base} bg-rose-100 text-rose-800`
+    return `${base} bg-amber-100 text-amber-800`
+  }
+
+  const getCambioOrden = (orden: OrdenCompra | null) => {
+    if (!orden) return 0
+    const pagoEfectivo = orden.pagos?.find((pago) => pago.metodo === "efectivo")
+    if (pagoEfectivo?.cambio) return pagoEfectivo.cambio
+    if (pagoEfectivo?.monto_recibido) return Math.max(0, pagoEfectivo.monto_recibido - orden.total)
+    return 0
+  }
+
+  const calcularTotalConImpuestosDescuentos = () => {
+    if (!ordenActual) return 0
+    const subtotal = ordenActual.total
+    const descuento = subtotal * (descuentoPorcentaje / 100)
+    const base = subtotal - descuento
+    const impuesto = base * (impuestoPorcentaje / 100)
+    return base + impuesto
+  }
+
+  const handleCerrarCaja = async (efectivoCierre: number, notas: string) => {
+    try {
+      await cerrarSesion(efectivoCierre, notas)
+      setIsCierreDialogOpen(false)
+      router.push(`/tiendas/${tiendaId}`)
+    } catch (error) {
+      // El error ya se muestra en el hook
+    }
   }
 
   const aplicarValorTeclado = (next: string) => {
@@ -303,45 +598,67 @@ export function PosView({ tiendaId }: PosViewProps) {
   }
 
   return (
-    <div className="flex h-full flex-col bg-slate-100" data-tienda-id={tiendaId}>
+    <div className="flex w-full flex-1 min-h-0 flex-col bg-slate-100" data-tienda-id={tiendaId}>
       <div className="w-full h-full flex flex-col min-h-0">
         {/* Sección principal de órdenes y productos */}
         <div className="flex-1 min-h-0 flex flex-col bg-white m-4 mt-2 rounded-lg border border-slate-200 shadow-sm overflow-hidden">
           {/* Barra de órdenes con buscador integrado */}
           <div className="flex-shrink-0 border-b">
-            <div className="flex flex-wrap items-center gap-3 px-6 py-2">
+            <div className="flex items-center justify-between gap-2 px-4 py-2">
               {/* Botones de órdenes a la izquierda */}
               <div className="flex items-center gap-2">
                 <Button 
                   variant="default" 
                   size="sm"
-                  className="bg-orange-600 hover:bg-orange-700 h-9"
+                  className="bg-orange-600 hover:bg-orange-700 h-9 px-3"
                   onClick={crearNuevaOrden}
                 >
                   <Plus className="h-4 w-4 mr-1" />
-                  Nueva orden
+                  Nueva
                 </Button>
 
-                <Button variant="outline" size="sm" className="h-9">
+                <Button variant="outline" size="sm" className="h-9 px-3" onClick={handleVerOrdenes}>
                   <ShoppingCart className="h-4 w-4 mr-1" />
-                  Ver órdenes
+                  Órdenes
                 </Button>
               </div>
 
-              {/* Buscador, filtro y botones a la derecha */}
-              <div className="w-full lg:w-auto lg:ml-auto flex flex-wrap items-center gap-3">
-                <div className="relative w-full sm:w-[280px]">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              {/* Controles a la derecha */}
+              <div className="flex items-center gap-2">
+                {/* Buscador */}
+                <div className="relative w-[200px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
                   <Input
-                    placeholder="Buscar productos..."
+                    placeholder="Buscar..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 bg-slate-50 text-sm"
+                    className="pl-8 h-9 bg-slate-50 text-sm"
                   />
                 </div>
 
+                {/* Selector de almacén */}
+                <Select value={almacenId} onValueChange={setAlmacenId}>
+                  <SelectTrigger className={`w-[200px] h-9 ${!almacenId ? 'border-orange-300 bg-orange-50' : ''}`}>
+                    <SelectValue placeholder="Seleccionar almacén" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {almacenesTienda.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">
+                        No hay almacenes
+                      </div>
+                    ) : (
+                      almacenesTienda.map((almacen) => (
+                        <SelectItem key={almacen.id} value={almacen.id}>
+                          {almacen.nombre}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+
+                {/* Categoría */}
                 <Select value={categoriaActiva} onValueChange={setCategoriaActiva}>
-                  <SelectTrigger className="w-full sm:w-[180px] h-9">
+                  <SelectTrigger className="w-[140px] h-9">
                     <SelectValue placeholder="Categoría" />
                   </SelectTrigger>
                   <SelectContent>
@@ -353,25 +670,28 @@ export function PosView({ tiendaId }: PosViewProps) {
                   </SelectContent>
                 </Select>
 
-                <Button variant="outline" size="icon" className="h-9 w-9">
+                {/* Botón scanner */}
+                <Button variant="outline" size="icon" className="h-9 w-9 flex-shrink-0">
                   <ScanLine className="h-4 w-4" />
                 </Button>
 
+                {/* Entrada/Salida */}
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="h-9"
+                  className="h-9 px-3 flex-shrink-0"
                   onClick={() => setIsEfectivoDialogOpen(true)}
                 >
                   <DollarSign className="h-4 w-4 mr-1" />
-                  Entrada/Salida de efectivo
+                  Entrada/Salida
                 </Button>
 
+                {/* Cerrar caja */}
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-9 text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                  onClick={() => router.push(`/tiendas/${tiendaId}`)}
+                  className="h-9 px-3 text-orange-600 hover:text-orange-700 hover:bg-orange-50 flex-shrink-0"
+                  onClick={() => setIsCierreDialogOpen(true)}
                 >
                   Cerrar caja
                 </Button>
@@ -529,7 +849,10 @@ export function PosView({ tiendaId }: PosViewProps) {
                       })}
                     </div>
                     <div className="grid grid-cols-2 gap-3 mt-3 w-full">
-                      <Button className="h-10 bg-orange-600 hover:bg-orange-700 text-base">
+                      <Button 
+                        className="h-10 bg-orange-600 hover:bg-orange-700 text-base"
+                        onClick={handleAbrirPago}
+                      >
                         Pago
                       </Button>
                       <Button variant="outline" className="h-10 text-slate-700 bg-white text-base">
@@ -549,8 +872,25 @@ export function PosView({ tiendaId }: PosViewProps) {
             </div>
 
             {/* Area principal de productos con scroll */}
-            <div className="w-full flex-1 min-h-0 overflow-y-auto">
-              <div className="px-6 py-5">
+            <div className="w-full flex-1 min-h-0 overflow-y-auto bg-white">
+              {!almacenId ? (
+                <div className="flex items-center justify-center min-h-full text-gray-400">
+                  <div className="text-center">
+                    <Package className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+                    <p className="text-lg font-medium text-gray-600 mb-2">Selecciona un almacén</p>
+                    <p className="text-sm text-gray-500">Elige un almacén para ver los productos disponibles</p>
+                  </div>
+                </div>
+              ) : productosFiltrados.length === 0 ? (
+                <div className="flex items-center justify-center min-h-full text-gray-400">
+                  <div className="text-center">
+                    <Package className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-base font-medium text-gray-600 mb-1">No hay productos con stock</p>
+                    <p className="text-sm text-gray-500">Este almacén no tiene productos disponibles</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="px-6 py-5 min-h-full">
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                     {productosFiltrados.map((material) => (
                       <Card
@@ -585,11 +925,20 @@ export function PosView({ tiendaId }: PosViewProps) {
                                 {cantidadesPorMaterial.get(material.codigo.toString())}
                               </span>
                             ) : null}
+                            {/* Badge de stock disponible */}
+                            <span className="absolute bottom-2 left-2 rounded-md bg-green-600 text-white text-xs font-semibold px-2 py-0.5 shadow-md">
+                              Stock: {material.stock_disponible}
+                            </span>
                           </div>
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <h3 className="font-medium text-sm line-clamp-2 min-h-[40px] text-slate-900">
                               {material.descripcion}
                             </h3>
+                          </div>
+                          <div className="mt-auto flex items-center justify-between gap-2">
+                            <p className="text-base font-semibold text-orange-600">
+                              ${material.precio ? material.precio.toFixed(2) : '0.00'}
+                            </p>
                             <Badge
                               variant="outline"
                               className="text-xs border border-blue-200 text-blue-700 bg-blue-50 flex-shrink-0"
@@ -597,23 +946,12 @@ export function PosView({ tiendaId }: PosViewProps) {
                               {material.categoria}
                             </Badge>
                           </div>
-                          <div className="mt-auto">
-                            <p className="text-base font-semibold text-orange-600">
-                              ${material.precio ? material.precio.toFixed(2) : '0.00'}
-                            </p>
-                          </div>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
-
-                  {productosFiltrados.length === 0 && (
-                    <div className="text-center py-12 text-gray-500">
-                      <p>No se encontraron materiales</p>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -624,7 +962,207 @@ export function PosView({ tiendaId }: PosViewProps) {
           onOpenChange={setIsEfectivoDialogOpen}
           onConfirm={handleEfectivoConfirm}
         />
-      </div>
-    )
-}
 
+        {/* Diálogo de Pago */}
+        <PagoDialog
+          open={isPagoDialogOpen}
+          onOpenChange={setIsPagoDialogOpen}
+          total={calcularTotalConImpuestosDescuentos()}
+          onConfirm={handleProcesarPago}
+        />
+
+
+        
+        <Dialog open={isOrdenesDialogOpen} onOpenChange={setIsOrdenesDialogOpen}>
+          <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-hidden">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">Órdenes</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 lg:grid-cols-[1.45fr_1fr] gap-6 max-h-[72vh] overflow-hidden">
+              <div className="border-2 border-gray-300 rounded-lg bg-white shadow-sm flex flex-col min-h-0">
+                <div className="p-4 border-b-2 border-gray-200">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900">Órdenes de la sesión</h3>
+                        <p className="text-sm text-gray-500">Mostrando {ordenesFiltradas.length} órdenes</p>
+                      </div>
+                      <div className="flex gap-3 w-full lg:w-auto">
+                        <div className="relative flex-1 lg:w-[260px]">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                          <Input
+                            placeholder="Buscar órdenes..."
+                            value={ordenSearch}
+                            onChange={(e) => setOrdenSearch(e.target.value)}
+                            className="pl-10 h-10 text-gray-900 placeholder:text-gray-400"
+                          />
+                        </div>
+                        <Select value={ordenEstado} onValueChange={setOrdenEstado}>
+                          <SelectTrigger className="h-10 w-[160px]">
+                            <SelectValue placeholder="Estado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="todas">Todas</SelectItem>
+                            <SelectItem value="pendiente">Pendiente</SelectItem>
+                            <SelectItem value="pagada">Pagada</SelectItem>
+                            <SelectItem value="cancelada">Cancelada</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto">
+                  {cargandoOrdenesBackend ? (
+                    <div className="p-6 text-sm text-gray-500">Cargando órdenes...</div>
+                  ) : ordenesFiltradas.length === 0 ? (
+                    <div className="p-6 text-sm text-gray-500">No hay órdenes registradas.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Fecha</th>
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Orden</th>
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Cliente</th>
+                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">Total</th>
+                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Estado</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                          {ordenesFiltradas.map((orden) => (
+                            <tr
+                              key={orden.id}
+                              className={`cursor-pointer transition-colors ${
+                                ordenSeleccionadaId === orden.id ? "bg-emerald-50" : "hover:bg-gray-50"
+                              }`}
+                              onClick={() => setOrdenSeleccionadaId(orden.id)}
+                            >
+                              <td className="py-4 px-3">
+                                <div>
+                                  <p className="font-semibold text-gray-900 text-sm">
+                                    {new Date(orden.fecha_creacion).toLocaleDateString("es-ES")}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {new Date(orden.fecha_creacion).toLocaleTimeString("es-ES", {
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </p>
+                                </div>
+                              </td>
+                              <td className="py-4 px-3">
+                                <div>
+                                  <p className="font-semibold text-gray-900 text-sm">{orden.numero_orden}</p>
+                                  <p className="text-xs text-gray-500">{orden.sesion_caja_id.slice(-8)}</p>
+                                </div>
+                              </td>
+                              <td className="py-4 px-3">
+                                <p className="text-sm text-gray-900">
+                                  {orden.cliente_nombre || "Cliente sin nombre"}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {orden.cliente_telefono || "Sin teléfono"}
+                                </p>
+                              </td>
+                              <td className="py-4 px-3 text-right">
+                                <span className="font-semibold text-gray-900 text-sm">
+                                  {formatCurrency(orden.total)}
+                                </span>
+                              </td>
+                              <td className="py-4 px-3 text-right">
+                                <Badge className={getOrdenEstadoBadge(orden.estado)}>
+                                  {orden.estado}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-2 border-gray-300 rounded-lg bg-white shadow-sm flex flex-col min-h-0">
+                <div className="p-4 border-b-2 border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-900">Detalle de orden</h3>
+                  <p className="text-sm text-gray-500">Recibo de la orden seleccionada</p>
+                </div>
+                <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
+                  {!ordenSeleccionada ? (
+                    <div className="text-sm text-gray-500">Selecciona una orden para ver el detalle.</div>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        {ordenSeleccionada.items.map((item) => (
+                          <div key={`${item.material_codigo}-${item.descripcion}`} className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm text-gray-900">
+                                <span className="font-semibold mr-2">{item.cantidad}</span>
+                                {item.descripcion}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {formatCurrency(item.precio_unitario)} / unidad
+                              </p>
+                            </div>
+                            <div className="text-sm font-semibold text-gray-900">
+                              {formatCurrency(item.subtotal)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-gray-600">
+                          <span>Subtotal</span>
+                          <span>{formatCurrency(ordenSeleccionada.subtotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-gray-600">
+                          <span>Impuestos</span>
+                          <span>{formatCurrency(ordenSeleccionada.impuesto_monto)}</span>
+                        </div>
+                        {ordenSeleccionada.descuento_monto > 0 && (
+                          <div className="flex items-center justify-between text-gray-600">
+                            <span>Descuento</span>
+                            <span>-{formatCurrency(ordenSeleccionada.descuento_monto)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between text-lg font-bold text-gray-900">
+                          <span>Total</span>
+                          <span>{formatCurrency(ordenSeleccionada.total)}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-gray-600">
+                          <span>Método de pago</span>
+                          <span className="capitalize">{ordenSeleccionada.metodo_pago || "Sin definir"}</span>
+                        </div>
+                        {getCambioOrden(ordenSeleccionada) > 0 && (
+                          <div className="flex items-center justify-between text-gray-600">
+                            <span>Cambio</span>
+                            <span>{formatCurrency(getCambioOrden(ordenSeleccionada))}</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+
+        {/* Diálogo de Cierre de Caja */}
+        <CierreCajaDialog
+          open={isCierreDialogOpen}
+          onOpenChange={setIsCierreDialogOpen}
+          sesion={sesionActiva}
+          onConfirm={handleCerrarCaja}
+        />
+      </div>
+    </div>
+  )
+}

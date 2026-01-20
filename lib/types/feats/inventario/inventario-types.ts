@@ -10,15 +10,22 @@ export interface Almacen {
   activo?: boolean
 }
 
+export interface AlmacenInfo {
+  id: string
+  nombre: string
+}
+
 export interface Tienda {
   id?: string
   nombre: string
   codigo?: string
   direccion?: string
   telefono?: string
-  almacen_id: string
-  almacen_nombre?: string
+  almacenes: AlmacenInfo[]  // Múltiples almacenes
   activo?: boolean
+  // Campos legacy para compatibilidad (deprecated)
+  almacen_id?: string
+  almacen_nombre?: string
 }
 
 export interface StockItem {
@@ -68,7 +75,7 @@ export interface TiendaCreateData {
   codigo?: string
   direccion?: string
   telefono?: string
-  almacen_id: string
+  almacenes: AlmacenInfo[]  // Múltiples almacenes
   activo?: boolean
 }
 
@@ -88,6 +95,7 @@ export interface MovimientoCreateData {
 export interface VentaItem {
   material_codigo: string
   cantidad: number
+  almacen_id: string  // Almacén del cual se descuenta
 }
 
 export interface VentaCreateData {
