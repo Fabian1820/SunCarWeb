@@ -559,10 +559,21 @@ export function PosView({ tiendaId }: PosViewProps) {
                         onClick={() => agregarProductoAOrden(material)}
                       >
                         <CardContent className="p-3">
-                          <div className="relative aspect-[4/3] bg-slate-100 rounded-lg mb-3 flex items-center justify-center">
-                            <Package className="h-10 w-10 text-slate-300" />
+                          <div className="relative aspect-[4/3] bg-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden">
+                            {material.foto ? (
+                              <img 
+                                src={material.foto} 
+                                alt={material.descripcion}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                  (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <Package className={`h-10 w-10 text-slate-300 ${material.foto ? 'hidden' : ''}`} />
                             {cantidadesPorMaterial.get(material.codigo?.toString() ?? "") ? (
-                              <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-semibold px-2 py-0.5">
+                              <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-semibold px-2 py-0.5 shadow-md">
                                 {cantidadesPorMaterial.get(material.codigo.toString())}
                               </span>
                             ) : null}
@@ -573,7 +584,7 @@ export function PosView({ tiendaId }: PosViewProps) {
                             </h3>
                             <Badge
                               variant="outline"
-                              className="text-xs border border-blue-200 text-blue-700 bg-blue-50"
+                              className="text-xs border border-blue-200 text-blue-700 bg-blue-50 flex-shrink-0"
                             >
                               {material.categoria}
                             </Badge>
