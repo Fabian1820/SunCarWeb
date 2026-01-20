@@ -105,12 +105,26 @@ export class OrdenTrabajoService {
       ? `${orden.brigada.lider.nombre}`.trim()
       : 'Sin asignar'
 
+    // Información adicional del cliente si existe
+    let infoCliente = `👤 Cliente: ${nombreCliente}\n`
+    infoCliente += `📍 N° Cliente: ${orden.cliente.numero}\n`
+    
+    // Agregar datos del cliente directo si existen
+    if (orden.cliente_nombre) {
+      infoCliente += `\n👥 *Datos del Cliente:*\n`
+      infoCliente += `   Nombre: ${orden.cliente_nombre}\n`
+      if (orden.cliente_ci) {
+        infoCliente += `   CI: ${orden.cliente_ci}\n`
+      }
+      if (orden.cliente_telefono) {
+        infoCliente += `   Teléfono: ${orden.cliente_telefono}\n`
+      }
+    }
+
     return `📋 *ORDEN DE TRABAJO*
 
 🔧 Tipo: ${orden.tipo_reporte.toUpperCase()}
-👤 Cliente: ${nombreCliente}
-📍 N° Cliente: ${orden.cliente.numero}
-👷 Brigada: ${nombreBrigada}
+${infoCliente}👷 Brigada: ${nombreBrigada}
 📅 Fecha de ejecución: ${fechaFormateada}
 ${orden.comentarios ? `\n💬 Comentarios:\n${orden.comentarios}\n` : ''}${
       orden.comentario_transporte ? `\n🚌 Transporte:\n${orden.comentario_transporte}\n` : ''

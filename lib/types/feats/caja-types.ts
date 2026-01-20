@@ -65,6 +65,7 @@ export interface OrdenCompra {
   tienda_id: string;
   cliente_id?: string | null;
   cliente_nombre?: string | null;
+  cliente_ci?: string | null;
   cliente_telefono?: string | null;
   fecha_creacion: string;
   fecha_pago: string | null;

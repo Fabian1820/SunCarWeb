@@ -14,6 +14,8 @@ import { EntradaSalidaEfectivoDialog } from "./entrada-salida-efectivo-dialog"
 import { CierreCajaDialog } from "./cierre-caja-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useCaja } from "@/hooks/use-caja"
+import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
+import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 import { PagoDialog } from "./pago-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { cajaService } from "@/lib/services/feats/caja/caja-service"
@@ -60,6 +62,8 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
   const [ordenActiva, setOrdenActiva] = useState<string | null>(null)
   const [ordenesBackend, setOrdenesBackend] = useState<OrdenCompra[]>([])
   const [cargandoOrdenesBackend, setCargandoOrdenesBackend] = useState(false)
+  const [clientesCaja, setClientesCaja] = useState<Cliente[]>([])
+  const [cargandoClientesCaja, setCargandoClientesCaja] = useState(false)
   const [ordenSearch, setOrdenSearch] = useState("")
   const [ordenEstado, setOrdenEstado] = useState("todas")
   const [ordenSeleccionadaId, setOrdenSeleccionadaId] = useState<string | null>(null)
@@ -447,6 +451,17 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
         tienda_id: tiendaId,
       })
       setOrdenesBackend(ordenes)
+      if (!clientesCaja.length && !cargandoClientesCaja) {
+        setCargandoClientesCaja(true)
+        try {
+          const data = await ClienteService.getClientes()
+          setClientesCaja(Array.isArray(data) ? data : [])
+        } catch (error) {
+          setClientesCaja([])
+        } finally {
+          setCargandoClientesCaja(false)
+        }
+      }
       setOrdenSeleccionadaId(ordenes[0]?.id ?? null)
       setIsOrdenesDialogOpen(true)
     } catch (error: any) {
@@ -488,6 +503,40 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
       .sort((a, b) => new Date(b.fecha_creacion).getTime() - new Date(a.fecha_creacion).getTime())
   }, [ordenesBackend, ordenSearch, ordenEstado])
 
+  const clientesPorId = useMemo(() => {
+    const map = new Map<string, string>()
+    clientesCaja.forEach((cliente) => {
+      if (cliente.id) map.set(cliente.id, cliente.nombre)
+      if (cliente.numero) map.set(cliente.numero, cliente.nombre)
+    })
+    return map
+  }, [clientesCaja])
+
+  const resolveClienteNombre = (orden: OrdenCompra) => {
+    if (orden.cliente_id) {
+      return clientesPorId.get(orden.cliente_id) || orden.cliente_nombre || "Cliente instaladora"
+    }
+    return orden.cliente_nombre || "Cliente sin nombre"
+  }
+
+  const getClienteDatosOrden = (orden: OrdenCompra | null) => {
+    if (!orden) return null
+    let nombre = resolveClienteNombre(orden)
+    let ci = orden.cliente_ci
+    let telefono = orden.cliente_telefono
+    if (orden.cliente_id) {
+      const clienteInstaladora = clientesCaja.find(
+        (cliente) => cliente.id === orden.cliente_id || cliente.numero === orden.cliente_id
+      )
+      if (clienteInstaladora) {
+        nombre = clienteInstaladora.nombre || nombre
+        ci = clienteInstaladora.carnet_identidad || ci
+        telefono = clienteInstaladora.telefono || telefono
+      }
+    }
+    return { nombre, ci, telefono }
+  }
+
   useEffect(() => {
     if (!ordenesFiltradas.length) {
       setOrdenSeleccionadaId(null)
@@ -511,6 +560,11 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
     if (pagoEfectivo?.cambio) return pagoEfectivo.cambio
     if (pagoEfectivo?.monto_recibido) return Math.max(0, pagoEfectivo.monto_recibido - orden.total)
     return 0
+  }
+
+  const getPagoEfectivoOrden = (orden: OrdenCompra | null) => {
+    if (!orden) return null
+    return orden.pagos?.find((pago) => pago.metodo === "efectivo") || null
   }
 
   const calcularTotalConImpuestosDescuentos = () => {
@@ -596,6 +650,8 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
   const formatInputValue = (value: number) => {
     return value.toFixed(2).replace(".", ",")
   }
+
+  const clienteDatosSeleccionada = getClienteDatosOrden(ordenSeleccionada)
 
   return (
     <div className="flex w-full flex-1 min-h-0 flex-col bg-slate-100" data-tienda-id={tiendaId}>
@@ -1022,10 +1078,9 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                       <table className="w-full">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Fecha</th>
-                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Orden</th>
-                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Cliente</th>
-                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">Total</th>
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Fecha</th>
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[36%]">Cliente</th>
+                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Total</th>
                             <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Estado</th>
                           </tr>
                         </thead>
@@ -1052,18 +1107,25 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                                 </div>
                               </td>
                               <td className="py-4 px-3">
-                                <div>
-                                  <p className="font-semibold text-gray-900 text-sm">{orden.numero_orden}</p>
-                                  <p className="text-xs text-gray-500">{orden.sesion_caja_id.slice(-8)}</p>
-                                </div>
-                              </td>
-                              <td className="py-4 px-3">
-                                <p className="text-sm text-gray-900">
-                                  {orden.cliente_nombre || "Cliente sin nombre"}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {orden.cliente_telefono || "Sin teléfono"}
-                                </p>
+                                {orden.cliente_id ? (
+                                  <div>
+                                    <p className="text-sm text-gray-900 font-medium">
+                                      {resolveClienteNombre(orden)}
+                                    </p>
+                                    {orden.cliente_telefono ? (
+                                      <p className="text-xs text-gray-500">{orden.cliente_telefono}</p>
+                                    ) : null}
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <p className="text-sm text-gray-900">
+                                      {resolveClienteNombre(orden)}
+                                    </p>
+                                    {orden.cliente_telefono ? (
+                                      <p className="text-xs text-gray-500">{orden.cliente_telefono}</p>
+                                    ) : null}
+                                  </div>
+                                )}
                               </td>
                               <td className="py-4 px-3 text-right">
                                 <span className="font-semibold text-gray-900 text-sm">
@@ -1093,61 +1155,139 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                   {!ordenSeleccionada ? (
                     <div className="text-sm text-gray-500">Selecciona una orden para ver el detalle.</div>
                   ) : (
-                    <>
-                      <div className="space-y-2">
-                        {ordenSeleccionada.items.map((item) => (
-                          <div key={`${item.material_codigo}-${item.descripcion}`} className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm text-gray-900">
-                                <span className="font-semibold mr-2">{item.cantidad}</span>
-                                {item.descripcion}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {formatCurrency(item.precio_unitario)} / unidad
-                              </p>
-                            </div>
-                            <div className="text-sm font-semibold text-gray-900">
-                              {formatCurrency(item.subtotal)}
-                            </div>
-                          </div>
-                        ))}
+                    <div className="rounded-xl border-2 border-slate-200 bg-gradient-to-b from-white via-white to-slate-50 shadow-sm p-5 space-y-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.3em] text-slate-500">Comprobante</p>
+                          <h4 className="text-lg font-bold text-slate-900">
+                            Orden #{ordenSeleccionada.numero_orden}
+                          </h4>
+                        </div>
+                        <Badge className={getOrdenEstadoBadge(ordenSeleccionada.estado)}>
+                          {ordenSeleccionada.estado}
+                        </Badge>
                       </div>
 
-                      <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
-                        <div className="flex items-center justify-between text-gray-600">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-600">
+                          <span>Fecha</span>
+                          <span className="font-semibold text-slate-900">
+                            {new Date(ordenSeleccionada.fecha_creacion).toLocaleDateString("es-ES")}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-3 py-2 text-slate-600">
+                          <span>Hora</span>
+                          <span className="font-semibold text-slate-900">
+                            {new Date(ordenSeleccionada.fecha_creacion).toLocaleTimeString("es-ES", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {clienteDatosSeleccionada ? (
+                        <div className="rounded-lg border border-slate-200 bg-white p-4">
+                          <h5 className="text-sm font-semibold text-slate-700 mb-2">Datos del cliente</h5>
+                          <div className="space-y-1 text-sm">
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span>Nombre</span>
+                              <span className="font-semibold text-slate-900">
+                                {clienteDatosSeleccionada.nombre}
+                              </span>
+                            </div>
+                            {clienteDatosSeleccionada.ci ? (
+                              <div className="flex items-center justify-between text-slate-600">
+                                <span>CI</span>
+                                <span className="text-slate-900">{clienteDatosSeleccionada.ci}</span>
+                              </div>
+                            ) : null}
+                            {clienteDatosSeleccionada.telefono ? (
+                              <div className="flex items-center justify-between text-slate-600">
+                                <span>Telefono</span>
+                                <span className="text-slate-900">{clienteDatosSeleccionada.telefono}</span>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-white p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="text-sm font-semibold text-slate-700">Productos</h5>
+                          <span className="text-xs text-slate-500">
+                            {ordenSeleccionada.items.length} item(s)
+                          </span>
+                        </div>
+                        <div className="divide-y divide-slate-100">
+                          {ordenSeleccionada.items.map((item) => (
+                            <div
+                              key={`${item.material_codigo}-${item.descripcion}`}
+                              className="flex items-start justify-between gap-3 py-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm text-slate-900">
+                                  <span className="font-semibold mr-2">{item.cantidad}x</span>
+                                  {item.descripcion}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {formatCurrency(item.precio_unitario)} / unidad
+                                </p>
+                              </div>
+                              <div className="text-sm font-semibold text-slate-900">
+                                {formatCurrency(item.subtotal)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-slate-600">
                           <span>Subtotal</span>
                           <span>{formatCurrency(ordenSeleccionada.subtotal)}</span>
                         </div>
-                        <div className="flex items-center justify-between text-gray-600">
+                        <div className="flex items-center justify-between text-slate-600">
                           <span>Impuestos</span>
                           <span>{formatCurrency(ordenSeleccionada.impuesto_monto)}</span>
                         </div>
                         {ordenSeleccionada.descuento_monto > 0 && (
-                          <div className="flex items-center justify-between text-gray-600">
+                          <div className="flex items-center justify-between text-slate-600">
                             <span>Descuento</span>
                             <span>-{formatCurrency(ordenSeleccionada.descuento_monto)}</span>
                           </div>
                         )}
-                        <div className="flex items-center justify-between text-lg font-bold text-gray-900">
-                          <span>Total</span>
+                        <div className="flex items-center justify-between text-base font-bold text-slate-900 pt-2 border-t border-dashed border-slate-200">
+                          <span>Monto total</span>
                           <span>{formatCurrency(ordenSeleccionada.total)}</span>
                         </div>
                       </div>
 
-                      <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
-                        <div className="flex items-center justify-between text-gray-600">
-                          <span>Método de pago</span>
-                          <span className="capitalize">{ordenSeleccionada.metodo_pago || "Sin definir"}</span>
+                      <div className="rounded-lg border border-slate-200 bg-white p-4 space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Metodo de pago</span>
+                          <span className="capitalize text-slate-900">
+                            {ordenSeleccionada.metodo_pago || "Sin definir"}
+                          </span>
                         </div>
+                        {getPagoEfectivoOrden(ordenSeleccionada)?.monto_recibido ? (
+                          <div className="flex items-center justify-between text-slate-600">
+                            <span>Recibido</span>
+                            <span className="text-slate-900">
+                              {formatCurrency(getPagoEfectivoOrden(ordenSeleccionada)?.monto_recibido || 0)}
+                            </span>
+                          </div>
+                        ) : null}
                         {getCambioOrden(ordenSeleccionada) > 0 && (
-                          <div className="flex items-center justify-between text-gray-600">
+                          <div className="flex items-center justify-between text-slate-600">
                             <span>Cambio</span>
-                            <span>{formatCurrency(getCambioOrden(ordenSeleccionada))}</span>
+                            <span className="text-slate-900">{formatCurrency(getCambioOrden(ordenSeleccionada))}</span>
                           </div>
                         )}
                       </div>
-                    </>
+                    </div>
                   )}
+
                 </div>
               </div>
             </div>
