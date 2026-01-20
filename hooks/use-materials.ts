@@ -21,7 +21,7 @@ interface UseMaterialsReturn {
   editMaterialInProduct: (
     productoId: string,
     materialCodigo: string,
-    data: { codigo: string | number, descripcion: string, um: string, precio?: number },
+    data: { codigo: string | number, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number },
     categoria?: string
   ) => Promise<boolean>
 }
@@ -149,27 +149,55 @@ export function useMaterials(): UseMaterialsReturn {
     }
   }
 
-  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string, precio?: number }, categoria?: string) => {
+  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }, categoria?: string) => {
     try {
+      console.log('[useMaterials] Editing material:', { productoId, materialCodigo, data, categoria });
+      
       const ok = await MaterialService.editMaterialInProduct(productoId, materialCodigo, data)
       console.log('[useMaterials] Edit result:', ok);
+      
       if (!ok) {
         throw new Error('Error al actualizar el material');
       }
-      // Actualización optimista: mapear y reemplazar
-      setMaterials(prev => prev.map(m => {
-        const sameCode = String(m.codigo) === String(materialCodigo)
-        const sameCategory = categoria ? m.categoria === categoria : true
-        if (sameCode && sameCategory) {
-          return { ...m, codigo: data.codigo as any, descripcion: data.descripcion, um: data.um, precio: data.precio }
-        }
-        return m
-      }))
+      
+      // Actualización optimista: mapear y reemplazar con TODOS los campos
+      setMaterials(prev => {
+        const updated = prev.map(m => {
+          const sameCode = String(m.codigo) === String(materialCodigo)
+          const sameCategory = categoria ? m.categoria === categoria : true
+          
+          if (sameCode && sameCategory) {
+            console.log('[useMaterials] Updating material:', m.codigo, 'with data:', data);
+            // Crear nuevo objeto con todos los campos actualizados
+            const updatedMaterial = { 
+              ...m, 
+              codigo: Number(data.codigo),
+              descripcion: data.descripcion, 
+              um: data.um, 
+              precio: data.precio ?? m.precio,
+              nombre: data.nombre ?? m.nombre,
+              foto: data.foto ?? m.foto,
+              marca_id: data.marca_id ?? m.marca_id,
+              potenciaKW: data.potenciaKW ?? m.potenciaKW,
+            };
+            console.log('[useMaterials] Updated material:', updatedMaterial);
+            return updatedMaterial;
+          }
+          return m;
+        });
+        
+        console.log('[useMaterials] Materials updated, count:', updated.length);
+        return updated;
+      });
+      
       // Actualizar catálogo local
       setCatalogs(prev => prev.map(c => c.id === (productoId as any) ? {
         ...c,
-        materiales: (c.materiales as any[] || []).map(mat => String(mat.codigo) === String(materialCodigo) ? { ...mat, ...data } : mat)
-      } : c))
+        materiales: (c.materiales as any[] || []).map(mat => 
+          String(mat.codigo) === String(materialCodigo) ? { ...mat, ...data } : mat
+        )
+      } : c));
+      
       return true;
     } catch (error) {
       console.error('[useMaterials] Error editing material:', error);

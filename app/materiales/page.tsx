@@ -154,11 +154,12 @@ export default function MaterialesPage() {
         descripcion, 
         um, 
         precio,
-        ...(nombre && { nombre }),
-        ...(foto && { foto }), // URL de MinIO
-        ...(marca_id && { marca_id }),
-        ...(potenciaKW && { potenciaKW }),
+        nombre,
+        foto,
+        marca_id,
+        potenciaKW,
       }, categoria)
+      
       toast({
         title: "Éxito",
         description: 'Material actualizado exitosamente',
@@ -637,7 +638,6 @@ export default function MaterialesPage() {
                 <CardContent>
                   {viewMode === "materials" ? (
                     <MaterialsTable
-                      key={`${searchTerm}-${selectedCategory}-${materials.length}`}
                       materials={filteredMaterials}
                       onEdit={openEditDialog}
                       onDelete={deleteMaterial}
