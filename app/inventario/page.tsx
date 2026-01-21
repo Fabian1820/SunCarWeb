@@ -208,6 +208,8 @@ export default function InventarioPage() {
         backButton={
           activeTab === "tiendas"
             ? { href: "/tiendas-suncarventas", label: "Volver a Tiendas" }
+            : activeTab === "almacenes"
+            ? { href: "/almacenes-suncar", label: "Volver a Almacenes" }
             : undefined
         }
         actions={

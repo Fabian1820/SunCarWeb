@@ -143,6 +143,10 @@ export default function AlmacenDetallePage() {
           subtitle={almacen.direccion || "Gestión de entradas y salidas"}
           badge={{ text: "Inventario", className: "bg-orange-100 text-orange-800" }}
           className="bg-white shadow-sm border-b border-orange-100"
+          backButton={{
+            href: "/almacenes-suncar",
+            label: "Volver a Almacenes"
+          }}
           actions={
             <div className="flex flex-wrap gap-2">
               <Button onClick={() => setIsEntradaDialogOpen(true)}>

@@ -4,7 +4,6 @@ import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Switch } from "@/components/shared/molecule/switch"
 import { Label } from "@/components/shared/atom/label"
 import {
     Sun,
@@ -33,10 +32,10 @@ import {
     ShoppingBag,
     BarChart3
 } from "lucide-react"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useLayoutEffect, useRef, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR"
-import { ReporteService, ClienteService, InventarioService } from "@/lib/api-services"
+import { ReporteService, ClienteService } from "@/lib/api-services"
 import { Loader } from "@/components/shared/atom/loader"
 import { Zap } from "lucide-react"
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
@@ -44,7 +43,6 @@ import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { useAuth } from "@/contexts/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
-import type { Almacen, Tienda } from "@/lib/inventario-types"
 
 export default function Dashboard() {
     const { hasPermission, user, loadModulosPermitidos } = useAuth()
@@ -54,9 +52,6 @@ export default function Dashboard() {
     const [recentReports, setRecentReports] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [clients, setClients] = useState<any[]>([])
-    const [tiendas, setTiendas] = useState<Tienda[]>([])
-    const [almacenes, setAlmacenes] = useState<Almacen[]>([])
-    const [showDynamicModules, setShowDynamicModules] = useState(true)
     const headerRef = useRef<HTMLElement | null>(null)
     const [headerHeight, setHeaderHeight] = useState<number>(120)
 
@@ -64,46 +59,6 @@ export default function Dashboard() {
     useEffect(() => {
         loadModulosPermitidos()
     }, [user])
-
-    useEffect(() => {
-        if (typeof window === "undefined") return
-        const stored = localStorage.getItem("dashboard_show_dynamic_modules")
-        if (stored !== null) {
-            setShowDynamicModules(stored === "true")
-        }
-    }, [])
-
-    useEffect(() => {
-        if (typeof window === "undefined") return
-        localStorage.setItem("dashboard_show_dynamic_modules", String(showDynamicModules))
-    }, [showDynamicModules])
-
-    const loadDynamicModules = useCallback(async () => {
-        if (!user) return
-        try {
-            const [tiendasData, almacenesData] = await Promise.all([
-                InventarioService.getTiendas(),
-                InventarioService.getAlmacenes(),
-            ])
-            setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
-            setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
-        } catch (error) {
-            console.error("Error loading tiendas/almacenes:", error)
-            setTiendas([])
-            setAlmacenes([])
-        }
-    }, [user])
-
-    useEffect(() => {
-        loadDynamicModules()
-    }, [loadDynamicModules])
-
-    useEffect(() => {
-        if (typeof window === "undefined") return
-        const handler = () => loadDynamicModules()
-        window.addEventListener("refreshDynamicModules", handler)
-        return () => window.removeEventListener("refreshDynamicModules", handler)
-    }, [loadDynamicModules])
 
     // Definir todos los módulos con sus configuraciones
     const allModules = [
@@ -154,6 +109,14 @@ export default function Dashboard() {
             title: 'Inventario y Almacenes',
             description: 'Controlar almacenes, stock y movimientos.',
             color: 'orange-600',
+        },
+        {
+            id: 'almacenes-suncar',
+            href: '/almacenes-suncar',
+            icon: Package,
+            title: 'Almacenes Suncar',
+            description: 'Gestión de almacenes y control de inventario.',
+            color: 'blue-600',
         },
         {
             id: 'tiendas-suncarventas',
@@ -269,23 +232,10 @@ export default function Dashboard() {
         },
     ]
 
-    // No mostrar módulos individuales de tiendas en el dashboard principal
-    // ya que están dentro del módulo padre "Tiendas Suncar Ventas"
+    // No mostrar módulos individuales de tiendas ni almacenes en el dashboard principal
+    // ya que están dentro de sus módulos padre
     const tiendaModules: any[] = []
-
-    const almacenModules = showDynamicModules
-        ? almacenes
-            .filter((almacen) => Boolean(almacen.id))
-            .map((almacen) => ({
-                id: `almacen-${almacen.id}`,
-                permission: `almacen:${almacen.id}`,
-                href: `/almacenes/${almacen.id}`,
-                icon: Package,
-                title: `Almacén: ${almacen.nombre}`,
-                description: "Entradas, salidas y stock",
-                color: 'orange-600',
-            }))
-        : []
+    const almacenModules: any[] = []
 
     // Módulos solo para superAdmin
     const superAdminModules = user?.is_superAdmin ? [
@@ -441,16 +391,6 @@ export default function Dashboard() {
                                     Bienvenido, <span className="font-semibold">{user.nombre}</span> - {user.rol}
                                 </p>
                             )}
-                        </div>
-                        <div className="flex items-center justify-center sm:justify-end gap-2">
-                            <Switch
-                                id="toggle-dynamic-modules"
-                                checked={showDynamicModules}
-                                onCheckedChange={setShowDynamicModules}
-                            />
-                            <Label htmlFor="toggle-dynamic-modules" className="text-sm text-gray-700">
-                                Mostrar almacenes
-                            </Label>
                         </div>
                     </div>
 
