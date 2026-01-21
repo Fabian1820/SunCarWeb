@@ -9,9 +9,47 @@ interface MaterialsTableProps {
   materials: Material[]
   onEdit: (material: Material) => void
   onDelete: (id: string) => void
+  marcas?: any[]
 }
 
-export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTableProps) {
+export function MaterialsTable({ materials, onEdit, onDelete, marcas = [] }: MaterialsTableProps) {
+  // Función para obtener el nombre de la marca por ID
+  const getMarcaNombre = (marcaId: string | undefined): string | null => {
+    if (!marcaId || marcas.length === 0) return null
+    const marca = marcas.find(m => m.id === marcaId)
+    return marca?.nombre || null
+  }
+
+  // Función para generar un color único basado en el ID de la marca
+  const getMarcaColor = (marcaId: string): { bg: string; text: string; border: string } => {
+    const colors = [
+      { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200' },
+      { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+      { bg: 'bg-pink-50', text: 'text-pink-700', border: 'border-pink-200' },
+      { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200' },
+      { bg: 'bg-cyan-50', text: 'text-cyan-700', border: 'border-cyan-200' },
+      { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200' },
+      { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+      { bg: 'bg-lime-50', text: 'text-lime-700', border: 'border-lime-200' },
+      { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+      { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200' },
+      { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200' },
+      { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+      { bg: 'bg-fuchsia-50', text: 'text-fuchsia-700', border: 'border-fuchsia-200' },
+      { bg: 'bg-violet-50', text: 'text-violet-700', border: 'border-violet-200' },
+      { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200' },
+    ]
+    
+    // Generar un índice basado en el hash del ID
+    let hash = 0
+    for (let i = 0; i < marcaId.length; i++) {
+      hash = marcaId.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const index = Math.abs(hash) % colors.length
+    
+    return colors[index]
+  }
+
   if (materials.length === 0) {
     return (
       <div className="text-center py-12">
@@ -27,13 +65,12 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
       <table className="w-full table-fixed">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">Código</th>
-            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">Categoría</th>
+            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">Código</th>
+            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[130px]">Categoría</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900">Material</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">Nombre</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Marca</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Potencia</th>
-            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[80px]">Unidad</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Precio</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">Acciones</th>
           </tr>
@@ -66,14 +103,16 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{material.codigo}</p>
+                    <p className="font-semibold text-gray-900 text-sm whitespace-nowrap">{material.codigo}</p>
                   </div>
                 </div>
               </td>
               <td className="py-3 px-2">
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs whitespace-nowrap">
-                  {material.categoria}
-                </Badge>
+                <div className="max-w-[130px]">
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs inline-block max-w-full truncate">
+                    {material.categoria}
+                  </Badge>
+                </div>
               </td>
               <td className="py-3 px-2">
                 <div className="min-w-0">
@@ -89,9 +128,21 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
               </td>
               <td className="py-3 px-2">
                 {material.marca_id ? (
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                    ID: {material.marca_id.slice(0, 6)}
-                  </Badge>
+                  (() => {
+                    const marcaNombre = getMarcaNombre(material.marca_id)
+                    const colorClasses = getMarcaColor(material.marca_id)
+                    return marcaNombre ? (
+                      <div className="max-w-[100px]">
+                        <Badge variant="outline" className={`${colorClasses.bg} ${colorClasses.text} ${colorClasses.border} text-xs inline-block max-w-full truncate`}>
+                          {marcaNombre}
+                        </Badge>
+                      </div>
+                    ) : (
+                      <Badge variant="outline" className={`${colorClasses.bg} ${colorClasses.text} ${colorClasses.border} text-xs`}>
+                        ID: {material.marca_id.slice(0, 6)}
+                      </Badge>
+                    )
+                  })()
                 ) : (
                   <span className="text-sm text-gray-400">-</span>
                 )}
@@ -102,11 +153,6 @@ export function MaterialsTable({ materials, onEdit, onDelete }: MaterialsTablePr
                 ) : (
                   <span className="text-sm text-gray-400">-</span>
                 )}
-              </td>
-              <td className="py-3 px-2">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs">
-                  {material.um}
-                </Badge>
               </td>
               <td className="py-3 px-2">
                 <div className="flex items-center space-x-1">

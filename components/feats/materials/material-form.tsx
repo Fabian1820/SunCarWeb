@@ -89,6 +89,16 @@ export function MaterialForm({
     setCambiarFoto(false)
   }, [initialData])
 
+  // Sincronizar categorías cuando cambien desde el padre
+  useEffect(() => {
+    setLocalCategories(existingCategories)
+  }, [existingCategories])
+
+  // Sincronizar unidades cuando cambien desde el padre
+  useEffect(() => {
+    setLocalUnits(existingUnits)
+  }, [existingUnits])
+
   // Categorías que requieren marca y potencia
   const categoriasEspeciales = ['BATERÍAS', 'INVERSORES', 'PANELES']
   const requiereMarcaYPotencia = categoriasEspeciales.includes(formData.categoria)

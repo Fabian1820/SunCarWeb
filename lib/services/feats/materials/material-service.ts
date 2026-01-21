@@ -47,7 +47,11 @@ export class MaterialService {
       method: 'POST',
       body: JSON.stringify({ categoria }),
     })
-    return result.producto_id || result.id || result.data?.id || 'success'
+    const productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    if (!productoId) {
+      throw new Error('No se pudo determinar el ID de la categoria creada')
+    }
+    return productoId
   }
 
   static async createProduct(categoria: string, materiales: any[] = []): Promise<string> {
@@ -55,7 +59,11 @@ export class MaterialService {
       method: 'POST',
       body: JSON.stringify({ categoria, materiales }),
     })
-    return result.producto_id || result.id || result.data?.id || 'success'
+    const productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    if (!productoId) {
+      throw new Error('No se pudo determinar el ID del producto creado')
+    }
+    return productoId
   }
 
   static async addMaterialToProduct(
@@ -224,7 +232,11 @@ export class MaterialService {
       body: formData,
       headers: {} // Let the browser set Content-Type for FormData
     })
-    return result.producto_id || result.id || result.data?.id || 'success'
+    const productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    if (!productoId) {
+      throw new Error('No se pudo determinar el ID de la categoria creada')
+    }
+    return productoId
   }
 
   static async updateCategoryWithPhoto(productoId: string, data: UpdateCategoryRequest): Promise<boolean> {

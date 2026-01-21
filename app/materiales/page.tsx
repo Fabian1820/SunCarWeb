@@ -23,7 +23,7 @@ import { Toaster } from "@/components/shared/molecule/toaster"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 
 export default function MaterialesPage() {
-  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct, createCategory, addMaterialToProduct } = useMaterials()
+  const { materials, categories, loading, error, refetch, catalogs, deleteMaterialByCodigo, editMaterialInProduct, createCategory, addMaterialToProduct, refetchBackground, registerNewCategory } = useMaterials()
   const { toast, dismiss } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -86,6 +86,17 @@ export default function MaterialesPage() {
             ...(potenciaKW && { potenciaKW }),
           }]
         })
+        registerNewCategory(categoria, productoId, {
+          codigo: String(codigo),
+          descripcion,
+          um,
+          precio: precio || 0,
+          nombre: nombre || undefined,
+          foto: foto || undefined,
+          marca_id: marca_id || undefined,
+          potenciaKW: potenciaKW || undefined,
+        })
+        await refetchBackground()
       } else {
         // Encontrar o crear el producto por categoría
         let producto = catalogs.find(c => c.categoria === categoria)
@@ -137,33 +148,76 @@ export default function MaterialesPage() {
     const marca_id = (updatedMaterial as any).marca_id
     const potenciaKW = (updatedMaterial as any).potenciaKW
     
-    // Buscar producto y material original
-    const producto = catalogs.find(c => c.categoria === categoria)
-    if (!producto) {
-      toast({
-        title: "Error",
-        description: 'No se encontró el producto para este material',
-        variant: "destructive",
-      });
-      return;
-    }
     const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
+    const categoriaOriginal = editingMaterial?.categoria
+    const categoriaChanged = categoriaOriginal !== categoria
+
     try {
-      await editMaterialInProduct(producto.id, materialCodigo, { 
-        codigo, 
-        descripcion, 
-        um, 
-        precio,
-        nombre,
-        foto,
-        marca_id,
-        potenciaKW,
-      }, categoria)
+      if (categoriaChanged) {
+        // Si cambió la categoría, eliminar de la antigua y agregar a la nueva
+        console.log('[updateMaterial] Categoría cambió de', categoriaOriginal, 'a', categoria)
+        
+        // 1. Eliminar de la categoría antigua
+        await deleteMaterialByCodigo(materialCodigo, categoriaOriginal)
+        
+        // 2. Buscar o crear el producto de la nueva categoría
+        let productoNuevo = catalogs.find(c => c.categoria === categoria)
+        let productoNuevoId = productoNuevo?.id
+        
+        if (!productoNuevoId) {
+          console.log('[updateMaterial] Creando nueva categoría:', categoria)
+          productoNuevoId = await createCategory(categoria)
+          console.log('[updateMaterial] Nueva categoría creada con ID:', productoNuevoId)
+        }
+        
+        // 3. Agregar el material a la nueva categoría
+        console.log('[updateMaterial] Agregando material a categoría:', categoria)
+        await addMaterialToProduct(productoNuevoId, {
+          codigo: String(codigo),
+          descripcion,
+          um,
+          precio: precio || 0,
+          nombre: nombre || undefined,
+          foto: foto || undefined,
+          marca_id: marca_id || undefined,
+          potenciaKW: potenciaKW || undefined,
+        }, categoria)
+        
+        console.log('[updateMaterial] Material agregado exitosamente')
+        
+        toast({
+          title: "Éxito",
+          description: 'Material movido a nueva categoría exitosamente',
+        })
+      } else {
+        // Si no cambió la categoría, actualizar normalmente
+        const producto = catalogs.find(c => c.categoria === categoria)
+        if (!producto) {
+          toast({
+            title: "Error",
+            description: 'No se encontró el producto para este material',
+            variant: "destructive",
+          })
+          return
+        }
+        
+        await editMaterialInProduct(producto.id, materialCodigo, { 
+          codigo, 
+          descripcion, 
+          um, 
+          precio,
+          nombre,
+          foto,
+          marca_id,
+          potenciaKW,
+        }, categoria)
+        
+        toast({
+          title: "Éxito",
+          description: 'Material actualizado exitosamente',
+        })
+      }
       
-      toast({
-        title: "Éxito",
-        description: 'Material actualizado exitosamente',
-      });
       setIsEditDialogOpen(false)
       setEditingMaterial(null)
     } catch (err: any) {
@@ -171,7 +225,7 @@ export default function MaterialesPage() {
         title: "Error",
         description: err.message || 'Error al actualizar material',
         variant: "destructive",
-      });
+      })
     }
   }
 
@@ -340,12 +394,10 @@ export default function MaterialesPage() {
     setIsAddDialogOpen(false);
   };
 
-  // Cargar marcas cuando se cambia a la vista de marcas
+  // Cargar marcas al inicio
   useEffect(() => {
-    if (viewMode === "marcas") {
-      loadMarcas()
-    }
-  }, [viewMode])
+    loadMarcas()
+  }, [])
 
   const loadMarcas = async () => {
     setMarcasLoading(true)
@@ -641,6 +693,7 @@ export default function MaterialesPage() {
                       materials={filteredMaterials}
                       onEdit={openEditDialog}
                       onDelete={deleteMaterial}
+                      marcas={marcas}
                     />
                   ) : (
                     <CategoriesTable
@@ -663,6 +716,7 @@ export default function MaterialesPage() {
             </DialogHeader>
             {editingMaterial && (
               <MaterialForm
+                key={`edit-${editingMaterial.codigo}-${categories.length}`}
                 initialData={editingMaterial}
                 onSubmit={updateMaterial}
                 onCancel={() => {

@@ -10,11 +10,17 @@ interface UseMaterialsReturn {
   loading: boolean
   error: string | null
   refetch: () => Promise<void>
+  refetchBackground: () => Promise<void>
+  registerNewCategory: (
+    categoria: string,
+    productoId: string,
+    material: { codigo: string, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }
+  ) => void
   createCategory: (categoria: string) => Promise<string>
   createProduct: (categoria: string, materiales?: any[]) => Promise<string>
   addMaterialToProduct: (
     productoId: string,
-    material: { codigo: string, descripcion: string, um: string, precio?: number },
+    material: { codigo: string, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number },
     categoria?: string
   ) => Promise<boolean>
   deleteMaterialByCodigo: (materialCodigo: string, categoria?: string) => Promise<boolean>
@@ -103,7 +109,7 @@ export function useMaterials(): UseMaterialsReturn {
     return id
   }
 
-  const addMaterialToProduct = async (productoId: string, material: { codigo: string, descripcion: string, um: string, precio?: number }, categoria?: string) => {
+  const addMaterialToProduct = async (productoId: string, material: { codigo: string, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }, categoria?: string) => {
     console.log('[useMaterials] Adding material:', { productoId, material, categoria });
 
     try {
@@ -117,13 +123,17 @@ export function useMaterials(): UseMaterialsReturn {
       setMaterials(prev => {
         console.log('[useMaterials] Current materials before add:', prev.length);
         const newMaterial: Material = {
-          id: `${productoId}_${material.codigo}`, // Generar ID único
-          codigo: Number(material.codigo), // Convertir a número
+          id: `${productoId}_${material.codigo}`,
+          codigo: Number(material.codigo),
           descripcion: material.descripcion,
           um: material.um,
           precio: material.precio,
           categoria: categoria || '',
-        } as any
+          nombre: material.nombre,
+          foto: material.foto,
+          marca_id: material.marca_id,
+          potenciaKW: material.potenciaKW,
+        } as Material
         console.log('[useMaterials] New material to add:', newMaterial);
 
         // Evitar duplicados por código/categoría
@@ -147,6 +157,52 @@ export function useMaterials(): UseMaterialsReturn {
       console.error('[useMaterials] Error adding material:', error);
       throw error;
     }
+  }
+
+  const registerNewCategory = (
+    categoria: string,
+    productoId: string,
+    material: { codigo: string, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }
+  ) => {
+    setRawCategories(prev => {
+      if (prev.some(c => c.categoria === categoria)) return prev
+      return [...prev, { id: productoId, categoria }]
+    })
+    setCategories(prev => (prev.includes(categoria) ? prev : [...prev, categoria]))
+
+    setCatalogs(prev => {
+      const exists = prev.some(c => c.id === productoId || c.categoria === categoria)
+      if (!exists) {
+        return [...prev, { id: productoId, categoria, materiales: [material] } as any]
+      }
+      return prev.map(c => {
+        if (c.id !== productoId && c.categoria !== categoria) return c
+        const materiales = [...((c.materiales as any[]) || [])]
+        const hasMaterial = materiales.some(m => String(m.codigo) === String(material.codigo))
+        if (!hasMaterial) {
+          materiales.push(material)
+        }
+        return { ...c, categoria, materiales }
+      })
+    })
+
+    setMaterials(prev => {
+      const exists = prev.some(m => String(m.codigo) === String(material.codigo) && m.categoria === categoria)
+      if (exists) return prev
+      const newMaterial: Material = {
+        id: `${productoId}_${material.codigo}`,
+        codigo: Number(material.codigo),
+        descripcion: material.descripcion,
+        um: material.um,
+        precio: material.precio,
+        categoria,
+        nombre: material.nombre,
+        foto: material.foto,
+        marca_id: material.marca_id,
+        potenciaKW: material.potenciaKW,
+      } as Material
+      return [newMaterial, ...prev]
+    })
   }
 
   const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }, categoria?: string) => {
@@ -239,6 +295,7 @@ export function useMaterials(): UseMaterialsReturn {
     refetch: fetchData,
     // @ts-expect-error Exponer método interno sin romper la API existente
     refetchBackground: silentRefetch,
+    registerNewCategory,
     createCategory,
     createProduct,
     addMaterialToProduct,
