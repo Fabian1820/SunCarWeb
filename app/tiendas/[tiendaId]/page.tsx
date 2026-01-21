@@ -120,6 +120,10 @@ export default function TiendaDetallePage() {
           subtitle={almacen ? `Almacén asociado: ${almacen.nombre}` : "Sin almacén asignado"}
           badge={{ text: "Gestión", className: "bg-orange-100 text-orange-800" }}
           className="bg-white shadow-sm border-b border-orange-100"
+          backButton={{
+            href: "/tiendas-suncarventas",
+            label: "Volver a Tiendas"
+          }}
         />
 
         <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">

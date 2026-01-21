@@ -151,35 +151,16 @@ export default function Dashboard() {
             id: 'inventario',
             href: '/inventario',
             icon: Package,
-            title: 'Inventario y Tiendas',
-            description: 'Controlar almacenes, stock y movimientos de tienda.',
+            title: 'Inventario y Almacenes',
+            description: 'Controlar almacenes, stock y movimientos.',
             color: 'orange-600',
         },
         {
-            id: 'almacenes',
-            permission: 'inventario',
-            href: '/inventario?tab=almacenes',
-            icon: Package,
-            title: 'Almacenes',
-            description: 'Gestionar almacenes y sus responsables.',
-            color: 'orange-600',
-        },
-        {
-            id: 'tiendas',
-            permission: 'inventario',
-            href: '/inventario?tab=tiendas',
+            id: 'tiendas-suncarventas',
+            href: '/tiendas-suncarventas',
             icon: ShoppingBag,
-            title: 'Tiendas',
-            description: 'Registrar sucursales y su almacén asociado.',
-            color: 'orange-600',
-        },
-        {
-            id: 'movimientos',
-            permission: 'inventario',
-            href: '/inventario?tab=movimientos',
-            icon: RotateCcw,
-            title: 'Movimientos',
-            description: 'Registrar entradas, salidas y transferencias.',
+            title: 'Tiendas Suncar Ventas',
+            description: 'Gestión de tiendas y puntos de venta.',
             color: 'orange-600',
         },
         {
@@ -288,21 +269,9 @@ export default function Dashboard() {
         },
     ]
 
-    const tiendaModules = showDynamicModules
-        ? tiendas
-            .filter((tienda) => Boolean(tienda.id))
-            .map((tienda) => ({
-                id: `tienda-${tienda.id}`,
-                permission: `tienda:${tienda.id}`,
-                href: `/tiendas/${tienda.id}`,
-                icon: ShoppingBag,
-                title: `Tienda: ${tienda.nombre}`,
-                description: tienda.almacen_nombre
-                    ? `Ventas · Almacén ${tienda.almacen_nombre}`
-                    : "Ventas y stock",
-                color: 'orange-600',
-            }))
-        : []
+    // No mostrar módulos individuales de tiendas en el dashboard principal
+    // ya que están dentro del módulo padre "Tiendas Suncar Ventas"
+    const tiendaModules: any[] = []
 
     const almacenModules = showDynamicModules
         ? almacenes
@@ -480,7 +449,7 @@ export default function Dashboard() {
                                 onCheckedChange={setShowDynamicModules}
                             />
                             <Label htmlFor="toggle-dynamic-modules" className="text-sm text-gray-700">
-                                Mostrar tiendas y almacenes
+                                Mostrar almacenes
                             </Label>
                         </div>
                     </div>

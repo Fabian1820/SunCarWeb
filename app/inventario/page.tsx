@@ -205,6 +205,11 @@ export default function InventarioPage() {
         subtitle="Controla almacenes, tiendas, stock y movimientos"
         badge={{ text: "Operaciones", className: "bg-orange-100 text-orange-800" }}
         className="bg-white shadow-sm border-b border-orange-100"
+        backButton={
+          activeTab === "tiendas"
+            ? { href: "/tiendas-suncarventas", label: "Volver a Tiendas" }
+            : undefined
+        }
         actions={
           <Button
             variant="outline"
