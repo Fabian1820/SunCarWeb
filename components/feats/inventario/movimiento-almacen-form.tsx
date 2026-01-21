@@ -5,10 +5,16 @@ import { useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import { Save, AlertCircle, Loader2 } from "lucide-react"
+import { Save, AlertCircle, Loader2, Plus } from "lucide-react"
 import type { Almacen, MovimientoCreateData } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
-import { MaterialCombobox } from "@/components/feats/inventario/material-combobox"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select"
 
 interface MovimientoAlmacenFormProps {
   almacen: Almacen
@@ -83,13 +89,35 @@ export function MovimientoAlmacenForm({
 
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-2 block">Material *</Label>
-          <MaterialCombobox
-            materials={materiales}
-            value={materialCodigo}
-            onValueChange={setMaterialCodigo}
-            placeholder="Buscar material"
-            onCreateRequested={tipo === "entrada" ? onCreateMaterial : undefined}
-          />
+          <Select value={materialCodigo} onValueChange={setMaterialCodigo}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecciona un material" />
+            </SelectTrigger>
+            <SelectContent>
+              {materiales.map((material) => (
+                <SelectItem key={material.codigo} value={String(material.codigo)}>
+                  {material.codigo} - {material.descripcion}
+                </SelectItem>
+              ))}
+              {materiales.length === 0 && (
+                <SelectItem value="no-materiales" disabled>
+                  No hay materiales disponibles
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          {tipo === "entrada" && onCreateMaterial && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full mt-2"
+              onClick={() => onCreateMaterial("")}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear nuevo material
+            </Button>
+          )}
         </div>
 
         <div>

@@ -20,6 +20,7 @@ import { PagoDialog } from "./pago-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { cajaService } from "@/lib/services/feats/caja/caja-service"
 import type { ItemOrden as ItemOrdenBackend, OrdenCompra } from "@/lib/types/feats/caja-types"
+import { ReciboService } from "@/lib/services/feats/caja/recibo-service"
 
 interface Producto {
   id: string
@@ -392,7 +393,45 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
       // Nota: Como cada item puede tener su propio almacén, usamos el primer almacén
       // para la orden general, pero el backend debería manejar múltiples almacenes
       const primerAlmacen = ordenActual.items[0].almacen_id
-      await procesarPago(ordenBackend.id, metodoPago, pagos, primerAlmacen)
+      const resultadoPago = await procesarPago(ordenBackend.id, metodoPago, pagos, primerAlmacen)
+
+      // Refrescar el stock del almacén para actualizar las cantidades disponibles
+      await refetchStock(almacenId)
+
+      // Guardar el recibo automáticamente en la carpeta seleccionada
+      try {
+        const tiendaActual = tiendas.find(t => t.id === tiendaId)
+        
+        if (ReciboService.tieneCarpetaSeleccionada()) {
+          // Guardar automáticamente en la carpeta seleccionada
+          await ReciboService.guardarReciboAutomatico({
+            orden: resultadoPago.orden,
+            nombreTienda: tiendaActual?.nombre || 'SUNCAR BOLIVIA',
+            direccionTienda: tiendaActual?.direccion,
+            telefonoTienda: tiendaActual?.telefono,
+          })
+          
+          toast({
+            title: "Recibo guardado",
+            description: "El recibo se guardó automáticamente en la carpeta configurada",
+          })
+        } else {
+          // Si no hay carpeta seleccionada, descargar normalmente
+          ReciboService.descargarRecibo({
+            orden: resultadoPago.orden,
+            nombreTienda: tiendaActual?.nombre || 'SUNCAR BOLIVIA',
+            direccionTienda: tiendaActual?.direccion,
+            telefonoTienda: tiendaActual?.telefono,
+          })
+        }
+      } catch (errorRecibo: any) {
+        console.error('Error al guardar recibo:', errorRecibo)
+        toast({
+          title: "Error al guardar recibo",
+          description: errorRecibo.message || "No se pudo guardar el recibo automáticamente",
+          variant: "destructive",
+        })
+      }
 
       // Limpiar la orden local
       setOrdenes(prev => prev.filter(o => o.id !== ordenActiva))
@@ -1078,22 +1117,25 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                       <table className="w-full">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">Fecha</th>
-                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[36%]">Cliente</th>
-                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Total</th>
-                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Estado</th>
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">Fecha</th>
+                            <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[30%]">Cliente</th>
+                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[18%]">Total</th>
+                            <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[18%]">Estado</th>
+                            <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[14%]">Acción</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                           {ordenesFiltradas.map((orden) => (
                             <tr
                               key={orden.id}
-                              className={`cursor-pointer transition-colors ${
+                              className={`transition-colors ${
                                 ordenSeleccionadaId === orden.id ? "bg-emerald-50" : "hover:bg-gray-50"
                               }`}
-                              onClick={() => setOrdenSeleccionadaId(orden.id)}
                             >
-                              <td className="py-4 px-3">
+                              <td 
+                                className="py-4 px-3 cursor-pointer"
+                                onClick={() => setOrdenSeleccionadaId(orden.id)}
+                              >
                                 <div>
                                   <p className="font-semibold text-gray-900 text-sm">
                                     {new Date(orden.fecha_creacion).toLocaleDateString("es-ES")}
@@ -1106,7 +1148,10 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                                   </p>
                                 </div>
                               </td>
-                              <td className="py-4 px-3">
+                              <td 
+                                className="py-4 px-3 cursor-pointer"
+                                onClick={() => setOrdenSeleccionadaId(orden.id)}
+                              >
                                 {orden.cliente_id ? (
                                   <div>
                                     <p className="text-sm text-gray-900 font-medium">
@@ -1127,15 +1172,42 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                                   </div>
                                 )}
                               </td>
-                              <td className="py-4 px-3 text-right">
+                              <td 
+                                className="py-4 px-3 text-right cursor-pointer"
+                                onClick={() => setOrdenSeleccionadaId(orden.id)}
+                              >
                                 <span className="font-semibold text-gray-900 text-sm">
                                   {formatCurrency(orden.total)}
                                 </span>
                               </td>
-                              <td className="py-4 px-3 text-right">
+                              <td 
+                                className="py-4 px-3 text-right cursor-pointer"
+                                onClick={() => setOrdenSeleccionadaId(orden.id)}
+                              >
                                 <Badge className={getOrdenEstadoBadge(orden.estado)}>
                                   {orden.estado}
                                 </Badge>
+                              </td>
+                              <td className="py-4 px-3 text-center">
+                                {orden.estado === 'pagada' && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-2 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const tiendaActual = tiendas.find(t => t.id === tiendaId)
+                                      ReciboService.descargarRecibo({
+                                        orden,
+                                        nombreTienda: tiendaActual?.nombre || 'SUNCAR BOLIVIA',
+                                        direccionTienda: tiendaActual?.direccion,
+                                        telefonoTienda: tiendaActual?.telefono,
+                                      })
+                                    }}
+                                  >
+                                    Descargar
+                                  </Button>
+                                )}
                               </td>
                             </tr>
                           ))}
@@ -1148,8 +1220,47 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
 
               <div className="border-2 border-gray-300 rounded-lg bg-white shadow-sm flex flex-col min-h-0">
                 <div className="p-4 border-b-2 border-gray-200">
-                  <h3 className="text-xl font-bold text-gray-900">Detalle de orden</h3>
-                  <p className="text-sm text-gray-500">Recibo de la orden seleccionada</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-900">Detalle de orden</h3>
+                      <p className="text-sm text-gray-500">Recibo de la orden seleccionada</p>
+                    </div>
+                    {ordenSeleccionada && ordenSeleccionada.estado === 'pagada' && (
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const tiendaActual = tiendas.find(t => t.id === tiendaId)
+                            ReciboService.descargarRecibo({
+                              orden: ordenSeleccionada,
+                              nombreTienda: tiendaActual?.nombre || 'SUNCAR BOLIVIA',
+                              direccionTienda: tiendaActual?.direccion,
+                              telefonoTienda: tiendaActual?.telefono,
+                            })
+                          }}
+                        >
+                          Descargar
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-700"
+                          onClick={() => {
+                            const tiendaActual = tiendas.find(t => t.id === tiendaId)
+                            ReciboService.imprimirRecibo({
+                              orden: ordenSeleccionada,
+                              nombreTienda: tiendaActual?.nombre || 'SUNCAR BOLIVIA',
+                              direccionTienda: tiendaActual?.direccion,
+                              telefonoTienda: tiendaActual?.telefono,
+                            })
+                          }}
+                        >
+                          Imprimir
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                   {!ordenSeleccionada ? (
@@ -1301,6 +1412,9 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
           onOpenChange={setIsCierreDialogOpen}
           sesion={sesionActiva}
           onConfirm={handleCerrarCaja}
+          nombreTienda={tiendas.find(t => t.id === tiendaId)?.nombre}
+          direccionTienda={tiendas.find(t => t.id === tiendaId)?.direccion}
+          telefonoTienda={tiendas.find(t => t.id === tiendaId)?.telefono}
         />
       </div>
     </div>

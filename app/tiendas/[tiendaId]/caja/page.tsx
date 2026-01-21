@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast"
 import { PosView } from "@/components/feats/inventario/pos-view"
 import { useCaja } from "@/hooks/use-caja"
 import { Loader } from "@/components/shared/atom/loader"
+import { SeleccionarCarpetaRecibosDialog } from "@/components/feats/inventario/seleccionar-carpeta-recibos-dialog"
 
 interface Denominacion {
   valor: number
@@ -29,6 +30,7 @@ export default function CajaPage() {
   const { sesionActiva, loading, abrirSesion } = useCaja(tiendaId)
 
   const [isAperturaDialogOpen, setIsAperturaDialogOpen] = useState(false)
+  const [isCarpetaDialogOpen, setIsCarpetaDialogOpen] = useState(false)
   const [isCalculadoraOpen, setIsCalculadoraOpen] = useState(false)
   const [efectivoApertura, setEfectivoApertura] = useState("")
   const [notaApertura, setNotaApertura] = useState("")
@@ -96,6 +98,9 @@ export default function CajaPage() {
       setAbriendo(true)
       await abrirSesion(parseFloat(efectivoApertura), notaApertura)
       setIsAperturaDialogOpen(false)
+      
+      // Mostrar diálogo de selección de carpeta después de abrir la caja
+      setIsCarpetaDialogOpen(true)
     } catch (error) {
       // El error ya se muestra en el hook
     } finally {
@@ -110,6 +115,20 @@ export default function CajaPage() {
 
   const handleClearMonto = () => {
     setEfectivoApertura("")
+  }
+
+  const handleCarpetaSeleccionada = () => {
+    toast({
+      title: "Carpeta configurada",
+      description: "Los recibos se guardarán automáticamente en la carpeta seleccionada",
+    })
+  }
+
+  const handleContinuarSinCarpeta = () => {
+    toast({
+      title: "Sin carpeta configurada",
+      description: "Los recibos se descargarán en tu carpeta de descargas predeterminada",
+    })
   }
 
   if (loading) {
@@ -293,6 +312,14 @@ export default function CajaPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Diálogo de selección de carpeta de recibos */}
+        <SeleccionarCarpetaRecibosDialog
+          open={isCarpetaDialogOpen}
+          onOpenChange={setIsCarpetaDialogOpen}
+          onCarpetaSeleccionada={handleCarpetaSeleccionada}
+          onContinuarSinCarpeta={handleContinuarSinCarpeta}
+        />
       </div>
     </RouteGuard>
   )

@@ -32,6 +32,9 @@ export interface SesionCaja {
   total_efectivo: number;
   total_tarjeta: number;
   total_transferencia: number;
+  total_entradas: number;
+  total_salidas: number;
+  cantidad_ordenes?: number; // Cantidad de órdenes en la sesión
   movimientos_efectivo: MovimientoEfectivo[];
   created_at: string;
   updated_at: string;

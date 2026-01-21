@@ -124,6 +124,17 @@ export function PagoDialog({
 
       if (tipoCliente === "instaladora" && trimmedClienteId) {
         clienteData.cliente_id = trimmedClienteId
+        // Obtener datos completos del cliente de instaladora
+        const clienteInstaladora = clientes.find(c => c.id === trimmedClienteId || c.numero === trimmedClienteId)
+        if (clienteInstaladora) {
+          clienteData.cliente_nombre = clienteInstaladora.nombre
+          if (clienteInstaladora.carnet_identidad) {
+            clienteData.cliente_ci = clienteInstaladora.carnet_identidad
+          }
+          if (clienteInstaladora.telefono) {
+            clienteData.cliente_telefono = clienteInstaladora.telefono
+          }
+        }
       } else if (tipoCliente === "directo" && trimmedClienteNombre) {
         clienteData.cliente_nombre = trimmedClienteNombre
         if (trimmedClienteCi) clienteData.cliente_ci = trimmedClienteCi

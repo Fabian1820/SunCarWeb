@@ -21,6 +21,8 @@ export class MaterialService {
         material_key: `${m._id || m.id || m.material_id || cat.id}__${m.codigo}`,
         categoria: cat.categoria,
         producto_id: cat.id,
+        // Asegurar que codigo sea un número
+        codigo: typeof m.codigo === 'number' ? m.codigo : Number(m.codigo),
       }))
     )
   }
