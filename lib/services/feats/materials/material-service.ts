@@ -11,6 +11,26 @@ import type {
 } from '../../../material-types'
 
 export class MaterialService {
+  private static async resolveProductIdByCategory(categoria: string): Promise<string | null> {
+    try {
+      const catalogos = await MaterialService.getAllCatalogs()
+      const found = catalogos.find(cat => cat.categoria === categoria)
+      return found?.id || null
+    } catch (error) {
+      console.error('[MaterialService] Error resolving product id by category:', error)
+      return null
+    }
+  }
+
+  private static async resolveProductIdWithRetry(categoria: string, retries = 3, delayMs = 300): Promise<string | null> {
+    for (let i = 0; i < retries; i += 1) {
+      const id = await MaterialService.resolveProductIdByCategory(categoria)
+      if (id) return id
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+    }
+    return null
+  }
+
   static async getAllMaterials(): Promise<Material[]> {
     const result = await apiRequest<{ data: any[] }>('/productos/')
     return result.data.flatMap((cat: any) =>
@@ -47,7 +67,10 @@ export class MaterialService {
       method: 'POST',
       body: JSON.stringify({ categoria }),
     })
-    const productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    let productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    if (!productoId) {
+      productoId = await MaterialService.resolveProductIdWithRetry(categoria)
+    }
     if (!productoId) {
       throw new Error('No se pudo determinar el ID de la categoria creada')
     }
@@ -59,7 +82,10 @@ export class MaterialService {
       method: 'POST',
       body: JSON.stringify({ categoria, materiales }),
     })
-    const productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    let productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    if (!productoId) {
+      productoId = await MaterialService.resolveProductIdWithRetry(categoria)
+    }
     if (!productoId) {
       throw new Error('No se pudo determinar el ID del producto creado')
     }
@@ -232,7 +258,10 @@ export class MaterialService {
       body: formData,
       headers: {} // Let the browser set Content-Type for FormData
     })
-    const productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    let productoId = result?.producto_id || result?.id || result?.data?.id || result?.data?.producto_id
+    if (!productoId) {
+      productoId = await MaterialService.resolveProductIdWithRetry(data.categoria)
+    }
     if (!productoId) {
       throw new Error('No se pudo determinar el ID de la categoria creada')
     }
