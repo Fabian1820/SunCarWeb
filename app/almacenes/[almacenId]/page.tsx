@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
-import { AlertCircle, RefreshCw, PackagePlus, PackageMinus } from "lucide-react"
+import { AlertCircle, RefreshCw, PackagePlus } from "lucide-react"
 import { Button } from "@/components/shared/atom/button"
 import { StockTable } from "@/components/feats/inventario/stock-table"
 import { MovimientosTable } from "@/components/feats/inventario/movimientos-table"
@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { MovimientoAlmacenForm } from "@/components/feats/inventario/movimiento-almacen-form"
 import { MaterialForm } from "@/components/feats/materials/material-form"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/shared/molecule/tabs"
 
 export default function AlmacenDetallePage() {
   const params = useParams()
@@ -33,8 +34,8 @@ export default function AlmacenDetallePage() {
   const [loadingStock, setLoadingStock] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isEntradaDialogOpen, setIsEntradaDialogOpen] = useState(false)
-  const [isSalidaDialogOpen, setIsSalidaDialogOpen] = useState(false)
   const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("recepciones")
 
   const loadDetalle = async () => {
     setLoading(true)
@@ -147,52 +148,67 @@ export default function AlmacenDetallePage() {
             href: "/almacenes-suncar",
             label: "Volver a Almacenes"
           }}
-          actions={
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setIsEntradaDialogOpen(true)}>
-                <PackagePlus className="h-4 w-4 mr-2" />
-                Registrar entrada
-              </Button>
-              <Button variant="outline" onClick={() => setIsSalidaDialogOpen(true)}>
-                <PackageMinus className="h-4 w-4 mr-2" />
-                Registrar salida
-              </Button>
-            </div>
-          }
         />
 
         <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-          <Card>
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Stock del almacén</CardTitle>
-                <CardDescription>Existencias actuales.</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={refreshStock}>
-                {loadingStock ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refrescar</span>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <StockTable stock={stock} />
-            </CardContent>
-          </Card>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="recepciones">Recepciones</TabsTrigger>
+              <TabsTrigger value="stock">Stock en almacen</TabsTrigger>
+              <TabsTrigger value="historial">Historial de movimiento</TabsTrigger>
+            </TabsList>
 
-          <Card>
-            <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <CardTitle>Historial de movimientos</CardTitle>
-                <CardDescription>Entradas y salidas registradas.</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={refreshMovimientos}>
-                {loadingMovimientos ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                <span className="ml-2">Refrescar</span>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <MovimientosTable movimientos={movimientos} />
-            </CardContent>
-          </Card>
+            <TabsContent value="recepciones" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recepciones</CardTitle>
+                  <CardDescription>Registra entradas al almacen.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => setIsEntradaDialogOpen(true)}>
+                    <PackagePlus className="h-4 w-4 mr-2" />
+                    Registrar entrada
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="stock" className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>Stock del almacen</CardTitle>
+                    <CardDescription>Existencias actuales.</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={refreshStock}>
+                    {loadingStock ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    <span className="ml-2">Refrescar</span>
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <StockTable stock={stock} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="historial" className="space-y-6">
+              <Card>
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>Historial de movimientos</CardTitle>
+                    <CardDescription>Entradas y salidas registradas.</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={refreshMovimientos}>
+                    {loadingMovimientos ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    <span className="ml-2">Refrescar</span>
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <MovimientosTable movimientos={movimientos} />
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </main>
 
         <Dialog open={isEntradaDialogOpen} onOpenChange={setIsEntradaDialogOpen}>
@@ -214,28 +230,6 @@ export default function AlmacenDetallePage() {
                   description: "La entrada fue registrada correctamente.",
                 })
                 setIsEntradaDialogOpen(false)
-                await Promise.all([refreshStock(), refreshMovimientos()])
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isSalidaDialogOpen} onOpenChange={setIsSalidaDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Registrar salida</DialogTitle>
-            </DialogHeader>
-            <MovimientoAlmacenForm
-              almacen={almacen}
-              tipo="salida"
-              materiales={materiales}
-              onSubmit={async (data) => {
-                await InventarioService.createMovimiento(data)
-                toast({
-                  title: "Salida registrada",
-                  description: "La salida fue registrada correctamente.",
-                })
-                setIsSalidaDialogOpen(false)
                 await Promise.all([refreshStock(), refreshMovimientos()])
               }}
             />
