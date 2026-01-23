@@ -159,6 +159,14 @@ export default function Dashboard() {
             color: 'amber-600',
         },
         {
+            id: 'confeccion-ofertas',
+            href: '/confeccion-ofertas',
+            icon: Zap,
+            title: 'Confección de Ofertas',
+            description: 'Confeccionar ofertas fotovoltaicas con materiales y margen.',
+            color: 'amber-600',
+        },
+        {
             id: 'ordenes-trabajo',
             href: '/ordenes-trabajo',
             icon: ClipboardList,
