@@ -94,6 +94,12 @@ export function ConfeccionOfertasView() {
   const [creandoOferta, setCreandoOferta] = useState(false)
   const [ofertaCreada, setOfertaCreada] = useState(false)
   const [ofertaId, setOfertaId] = useState<string>("")
+  const [monedaPago, setMonedaPago] = useState<'USD' | 'EUR' | 'CUP'>('USD')
+  const [tasaCambio, setTasaCambio] = useState<string>("")
+  const [pagoTransferencia, setPagoTransferencia] = useState(false)
+  const [datosCuenta, setDatosCuenta] = useState("")
+  const [aplicaContribucion, setAplicaContribucion] = useState(false)
+  const [porcentajeContribucion, setPorcentajeContribucion] = useState<number>(0)
 
   const normalizeText = (value: string) =>
     value
@@ -301,8 +307,17 @@ export function ConfeccionOfertasView() {
   }, [totalMateriales, margenComercial])
 
   const totalSinRedondeo = useMemo(() => {
-    return subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
-  }, [subtotalConMargen, costoTransportacion, totalElementosPersonalizados, totalCostosExtras])
+    const base = subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+    const contribucion = aplicaContribucion ? base * (porcentajeContribucion / 100) : 0
+    return base + contribucion
+  }, [
+    subtotalConMargen,
+    costoTransportacion,
+    totalElementosPersonalizados,
+    totalCostosExtras,
+    aplicaContribucion,
+    porcentajeContribucion,
+  ])
 
   const precioFinal = useMemo(() => {
     return Math.ceil(totalSinRedondeo)
@@ -424,6 +439,21 @@ export function ConfeccionOfertasView() {
       maximumFractionDigits: 2,
     }).format(value)} $`
   }
+
+  const formatCurrencyWithSymbol = (value: number, symbol: string) => {
+    return `${new Intl.NumberFormat("es-ES", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value)} ${symbol}`
+  }
+
+  const tasaCambioNumero = Number.parseFloat(tasaCambio) || 0
+  const mostrarCambio = monedaPago !== 'USD' && tasaCambioNumero > 0
+  const montoConvertido = mostrarCambio
+    ? monedaPago === 'EUR'
+      ? precioFinal / tasaCambioNumero
+      : precioFinal * tasaCambioNumero
+    : 0
 
   const agregarMaterial = (material: Material) => {
     if (ofertaCreada) {
@@ -1127,7 +1157,7 @@ export function ConfeccionOfertasView() {
       // Preparar datos de la oferta según la documentación del backend
       const ofertaData = {
         tipo_oferta: ofertaGenerica ? 'generica' : 'personalizada',
-        cliente_numero: ofertaGenerica ? undefined : clienteId,
+        cliente_numero: ofertaGenerica ? undefined : (selectedCliente?.numero || clienteId),
         almacen_id: almacenId,
         foto_portada: fotoPortada || undefined,
         estado: estadoOferta,
@@ -1148,7 +1178,12 @@ export function ConfeccionOfertasView() {
           tipo_extra: seccion.tipoExtra,
           categorias_materiales: seccion.categoriasMateriales,
           contenido_escritura: seccion.contenidoEscritura,
-          costos_extras: seccion.costosExtras
+          costos_extras: seccion.costosExtras?.map(costo => ({
+            id: costo.id,
+            descripcion: costo.descripcion,
+            cantidad: costo.cantidad,
+            precio_unitario: costo.precioUnitario,
+          })),
         })) : undefined,
         
         elementos_personalizados: elementosPersonalizados.length > 0 ? elementosPersonalizados.map(elem => ({
@@ -1171,7 +1206,13 @@ export function ConfeccionOfertasView() {
         subtotal_con_margen: subtotalConMargen,
         total_elementos_personalizados: totalElementosPersonalizados,
         total_costos_extras: totalCostosExtras,
-        precio_final: precioFinal
+        precio_final: precioFinal,
+        moneda_pago: monedaPago,
+        tasa_cambio: monedaPago !== 'USD' ? Number.parseFloat(tasaCambio) || 0 : 0,
+        pago_transferencia: pagoTransferencia,
+        datos_cuenta: pagoTransferencia ? datosCuenta : "",
+        aplica_contribucion: aplicaContribucion,
+        porcentaje_contribucion: aplicaContribucion ? porcentajeContribucion : 0
       }
 
       console.log('📤 Enviando oferta al backend:', ofertaData)
@@ -1252,6 +1293,12 @@ export function ConfeccionOfertasView() {
     setInversorSeleccionado("")
     setBateriaSeleccionada("")
     setPanelSeleccionado("")
+    setMonedaPago("USD")
+    setTasaCambio("")
+    setPagoTransferencia(false)
+    setDatosCuenta("")
+    setAplicaContribucion(false)
+    setPorcentajeContribucion(0)
     
     toast({
       title: "Oferta reseteada",
@@ -1952,7 +1999,70 @@ export function ConfeccionOfertasView() {
                         <span className="font-medium">{formatCurrency(totalCostosExtras)}</span>
                       </div>
                     )}
-                    <div className="pt-2 border-t-2 border-emerald-600">
+                    <div className="pt-2 border-t-2 border-emerald-600 space-y-2">
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="checkbox"
+                            checked={pagoTransferencia}
+                            onChange={(e) => {
+                              setPagoTransferencia(e.target.checked)
+                              if (!e.target.checked) setDatosCuenta("")
+                            }}
+                            className="h-4 w-4 rounded border-slate-300"
+                          />
+                          Pago por transferencia
+                        </label>
+                        {pagoTransferencia && (
+                          <div className="space-y-1">
+                            <span className="text-xs text-slate-500">Datos de la cuenta</span>
+                            <Textarea
+                              value={datosCuenta}
+                              onChange={(e) => setDatosCuenta(e.target.value)}
+                              placeholder="Banco, titular, número de cuenta, etc."
+                              className="min-h-[90px]"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between text-sm text-slate-700">
+                        <label className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={aplicaContribucion}
+                            onChange={(e) => {
+                              setAplicaContribucion(e.target.checked)
+                              if (!e.target.checked) setPorcentajeContribucion(0)
+                            }}
+                            className="h-4 w-4 rounded border-slate-300"
+                          />
+                          Aplicar % de Contribución
+                        </label>
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={porcentajeContribucion}
+                          onChange={(e) => setPorcentajeContribucion(Number(e.target.value) || 0)}
+                          className="h-8 w-[110px] text-right bg-white"
+                          placeholder="0.00"
+                          disabled={!aplicaContribucion}
+                        />
+                      </div>
+                      {aplicaContribucion && porcentajeContribucion > 0 && (
+                        <div className="flex items-center justify-between text-sm text-slate-700">
+                          <span>Contribución</span>
+                          <span className="font-medium">
+                            {formatCurrency(
+                              (subtotalConMargen +
+                                costoTransportacion +
+                                totalElementosPersonalizados +
+                                totalCostosExtras) *
+                                (porcentajeContribucion / 100)
+                            )}
+                          </span>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <span className="text-base font-bold text-emerald-900">Precio Final</span>
                         <span className="text-xl font-bold text-emerald-900">
@@ -1965,7 +2075,67 @@ export function ConfeccionOfertasView() {
                         </p>
                       )}
                     </div>
+
+                    <div className="pt-3 border-t border-emerald-200 space-y-2">
+                      <div className="flex items-center justify-between text-sm text-slate-700">
+                        <span>Moneda de pago</span>
+                        <Select
+                          value={monedaPago}
+                          onValueChange={(value) => {
+                            setMonedaPago(value as 'USD' | 'EUR' | 'CUP')
+                            if (value === 'USD') setTasaCambio("")
+                          }}
+                        >
+                          <SelectTrigger className="h-8 w-[140px] bg-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="USD">Dólares (USD)</SelectItem>
+                            <SelectItem value="EUR">Euros (EUR)</SelectItem>
+                            <SelectItem value="CUP">CUP</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {monedaPago !== 'USD' && (
+                        <div className="flex items-center justify-between text-sm text-slate-700">
+                          <span>{monedaPago === 'EUR' ? '1 EUR =' : '1 USD ='}</span>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              value={tasaCambio}
+                              onChange={(e) => {
+                                const next = e.target.value.replace(',', '.')
+                                if (/^\d*([.]?\d{0,4})?$/.test(next)) {
+                                  setTasaCambio(next)
+                                }
+                              }}
+                              placeholder="0.0000"
+                              className="h-8 w-[140px] bg-white text-right"
+                            />
+                            <span className="text-xs font-semibold text-slate-600">
+                              {monedaPago === 'EUR' ? 'USD' : 'CUP'}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                    {mostrarCambio && (
+                      <div className="flex items-center justify-between text-sm text-slate-700">
+                        <span>Precio en {monedaPago}</span>
+                        <span className="font-semibold text-emerald-900">
+                          {formatCurrencyWithSymbol(
+                            montoConvertido,
+                            monedaPago === 'EUR' ? '€' : 'CUP'
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    
                   </div>
+                </div>
                 </div>
 
                 {/* Botón de Crear Oferta */}
@@ -2258,45 +2428,44 @@ export function ConfeccionOfertasView() {
                                   {selectedCount}
                                 </span>
                               ) : null}
+                              {/* Badge de stock disponible */}
+                              {almacenId && 'stock_disponible' in material && typeof (material as any).stock_disponible === 'number' && (
+                                <span className={`absolute bottom-2 left-2 rounded-md text-white text-xs font-semibold px-2 py-0.5 shadow-md ${
+                                  (material as any).stock_disponible > 10
+                                    ? 'bg-emerald-600'
+                                    : (material as any).stock_disponible > 0
+                                    ? 'bg-amber-600'
+                                    : 'bg-red-600'
+                                }`}>
+                                  Stock: {(material as any).stock_disponible}
+                                </span>
+                              )}
                             </div>
                             <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
                               <h3 className="font-medium text-sm line-clamp-2 min-h-[40px] text-slate-900 break-words">
                                 {material.nombre || material.descripcion}
                               </h3>
                             </div>
-                            <div className="mt-auto space-y-2">
-                              <div className="flex items-center justify-between gap-2 min-w-0">
-                                <p className="text-base font-semibold text-orange-600">
-                                  ${material.precio ? material.precio.toFixed(2) : "0.00"}
-                                </p>
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs border border-blue-200 text-blue-700 bg-blue-50 flex-shrink-0 max-w-[60%] truncate"
-                                >
-                                  {material.categoria}
-                                </Badge>
-                              </div>
-                              {almacenId && 'stock_disponible' in material && typeof (material as any).stock_disponible === 'number' && (
-                                <div className="flex items-center justify-between gap-2">
+                            <div className="mt-auto">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                                  <p className="text-base font-semibold text-orange-600 whitespace-nowrap">
+                                    ${material.precio ? material.precio.toFixed(2) : "0.00"}
+                                  </p>
                                   <Badge
                                     variant="outline"
-                                    className={`text-xs flex-shrink-0 ${
-                                      (material as any).stock_disponible > 10
-                                        ? 'border-emerald-300 text-emerald-700 bg-emerald-50'
-                                        : (material as any).stock_disponible > 0
-                                        ? 'border-amber-300 text-amber-700 bg-amber-50'
-                                        : 'border-red-300 text-red-700 bg-red-50'
-                                    }`}
+                                    className="text-xs border border-blue-200 text-blue-700 bg-blue-50 w-fit"
+                                    title={material.categoria}
                                   >
-                                    Stock: {(material as any).stock_disponible}
+                                    {material.categoria}
                                   </Badge>
-                                  {selectedCount > 0 && (
-                                    <Badge className="bg-slate-900 text-white text-xs">
-                                      En oferta: {selectedCount}
-                                    </Badge>
-                                  )}
                                 </div>
-                              )}
+                                {selectedCount > 0 && (
+                                  <Badge className="bg-slate-900 text-white text-xs whitespace-nowrap flex-shrink-0">
+                                    En oferta: {selectedCount}
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </CardContent>
                         </Card>

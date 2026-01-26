@@ -143,6 +143,14 @@ export default function Dashboard() {
             color: 'orange-600',
         },
         {
+            id: 'ofertas-gestion',
+            href: '/ofertas-gestion',
+            icon: Zap,
+            title: 'Gestionar Ofertas',
+            description: 'Confección de ofertas y herramientas de ventas.',
+            color: 'amber-600',
+        },
+        {
             id: 'ofertas',
             href: '/ofertas',
             icon: Tag,
@@ -156,14 +164,6 @@ export default function Dashboard() {
             icon: Sparkles,
             title: 'Ofertas Personalizadas',
             description: 'Crear ofertas personalizadas para clientes.',
-            color: 'amber-600',
-        },
-        {
-            id: 'confeccion-ofertas',
-            href: '/confeccion-ofertas',
-            icon: Zap,
-            title: 'Confección de Ofertas',
-            description: 'Confeccionar ofertas fotovoltaicas con materiales y margen.',
             color: 'amber-600',
         },
         {
