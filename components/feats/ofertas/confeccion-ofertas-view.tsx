@@ -1160,6 +1160,8 @@ export function ConfeccionOfertasView() {
         cliente_numero: ofertaGenerica ? undefined : (selectedCliente?.numero || clienteId),
         almacen_id: almacenId,
         foto_portada: fotoPortada || undefined,
+        // Compatibilidad con endpoint antiguo que espera foto_portada_url
+        foto_portada_url: fotoPortada || undefined,
         estado: estadoOferta,
         
         items: items.map(item => ({
