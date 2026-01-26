@@ -1,11 +1,19 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Package, Search } from "lucide-react"
+import { Package, Search, Lock, CheckCircle, Plus, X, Upload, Image as ImageIcon, Save } from "lucide-react"
 import { Badge } from "@/components/shared/atom/badge"
 import { Input } from "@/components/shared/atom/input"
+import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/shared/molecule/dialog"
+import { Label } from "@/components/shared/atom/label"
+import { Textarea } from "@/components/shared/molecule/textarea"
 import { useMaterials } from "@/hooks/use-materials"
+import { useInventario } from "@/hooks/use-inventario"
+import { useMarcas } from "@/hooks/use-marcas"
+import { useToast } from "@/hooks/use-toast"
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector"
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
 import type { Material } from "@/lib/material-types"
@@ -30,8 +38,28 @@ interface ElementoPersonalizado {
   categoria: string
 }
 
+interface SeccionPersonalizada {
+  id: string
+  label: string
+  tipo: 'materiales' | 'extra'
+  tipoExtra?: 'escritura' | 'costo'
+  categoriasMateriales?: string[]
+  contenidoEscritura?: string
+  costosExtras?: CostoExtra[]
+}
+
+interface CostoExtra {
+  id: string
+  descripcion: string
+  cantidad: number
+  precioUnitario: number
+}
+
 export function ConfeccionOfertasView() {
   const { materials, loading } = useMaterials()
+  const { almacenes, stock, refetchStock, loading: loadingAlmacenes } = useInventario()
+  const { marcas, loading: loadingMarcas } = useMarcas()
+  const { toast } = useToast()
   const [items, setItems] = useState<OfertaItem[]>([])
   const [ofertaGenerica, setOfertaGenerica] = useState(true)
   const [clienteId, setClienteId] = useState("")
@@ -43,6 +71,29 @@ export function ConfeccionOfertasView() {
   const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>([])
   const [mostrarElementosPersonalizados, setMostrarElementosPersonalizados] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [almacenId, setAlmacenId] = useState<string>("")
+  const [reservandoMateriales, setReservandoMateriales] = useState(false)
+  const [materialesReservados, setMaterialesReservados] = useState(false)
+  const [inversorSeleccionado, setInversorSeleccionado] = useState<string>("")
+  const [bateriaSeleccionada, setBateriaSeleccionada] = useState<string>("")
+  const [panelSeleccionado, setPanelSeleccionado] = useState<string>("")
+  const [estadoOferta, setEstadoOferta] = useState<string>("en_revision")
+  const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<SeccionPersonalizada[]>([])
+  const [mostrarDialogoSeccion, setMostrarDialogoSeccion] = useState(false)
+  const [tipoSeccionNueva, setTipoSeccionNueva] = useState<'materiales' | 'extra' | null>(null)
+  const [tipoExtraSeccion, setTipoExtraSeccion] = useState<'escritura' | 'costo' | null>(null)
+  const [nombreSeccionNueva, setNombreSeccionNueva] = useState("")
+  const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState<string[]>([])
+  const [contenidoEscritura, setContenidoEscritura] = useState("")
+  const [mostrarDialogoReserva, setMostrarDialogoReserva] = useState(false)
+  const [tipoReserva, setTipoReserva] = useState<'temporal' | 'definitiva' | null>(null)
+  const [diasReserva, setDiasReserva] = useState(7)
+  const [fechaExpiracionReserva, setFechaExpiracionReserva] = useState<Date | null>(null)
+  const [fotoPortada, setFotoPortada] = useState<string>("")
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const [creandoOferta, setCreandoOferta] = useState(false)
+  const [ofertaCreada, setOfertaCreada] = useState(false)
+  const [ofertaId, setOfertaId] = useState<string>("")
 
   const normalizeText = (value: string) =>
     value
@@ -55,65 +106,125 @@ export function ConfeccionOfertasView() {
       id: "INVERSORES",
       label: "Inversores",
       match: (categoria: string) => categoria.includes("INVERSOR"),
+      esPersonalizada: false,
     },
     {
       id: "BATERIAS",
       label: "Baterias",
       match: (categoria: string) => categoria.includes("BATERIA"),
+      esPersonalizada: false,
     },
     {
       id: "PANELES",
       label: "Paneles",
       match: (categoria: string) => categoria.includes("PANEL"),
+      esPersonalizada: false,
     },
     {
       id: "MPPT",
       label: "MPPT",
       match: (categoria: string) => categoria.includes("MPPT"),
+      esPersonalizada: false,
     },
     {
       id: "ESTRUCTURAS",
       label: "Estructuras",
       match: (categoria: string) => categoria.includes("ESTRUCTURA"),
+      esPersonalizada: false,
     },
     {
       id: "CABLEADO_DC",
       label: "Cableado DC",
       match: (categoria: string) => categoria.includes("CABLE"),
+      esPersonalizada: false,
     },
     {
       id: "CABLEADO_AC",
       label: "Cableado AC",
       match: (categoria: string) => categoria.includes("CABLE"),
+      esPersonalizada: false,
     },
     {
       id: "CANALIZACION",
       label: "Canalizacion",
       match: (categoria: string) => categoria.includes("PVC"),
+      esPersonalizada: false,
     },
     {
       id: "TIERRA",
       label: "Tierra",
       match: (categoria: string) => categoria.includes("TIERRA"),
+      esPersonalizada: false,
     },
     {
       id: "PROTECCIONES_ELECTRICAS",
       label: "Protecciones electricas",
       match: (categoria: string) => categoria.includes("PROTECCION"),
+      esPersonalizada: false,
     },
     {
       id: "MATERIAL_VARIO",
       label: "Material vario",
       match: (categoria: string) => categoria.includes("VARIO"),
+      esPersonalizada: false,
     },
+    // Agregar secciones personalizadas
+    ...seccionesPersonalizadas.map(seccion => ({
+      id: seccion.id,
+      label: seccion.label,
+      match: (categoria: string) => {
+        if (seccion.tipo === 'materiales' && seccion.categoriasMateriales) {
+          return seccion.categoriasMateriales.some(cat => 
+            normalizeText(categoria).includes(normalizeText(cat))
+          )
+        }
+        return false
+      },
+      esPersonalizada: true,
+      seccionData: seccion,
+    })),
   ]
 
   const activeStep = steps[activeStepIndex] ?? steps[0]
 
-  const materialesFiltrados = useMemo(() => {
-    if (!activeStep) return materials
+  // Seleccionar automáticamente el primer almacén si solo hay uno
+  useEffect(() => {
+    if (almacenes.length === 1 && !almacenId) {
+      setAlmacenId(almacenes[0]?.id ?? "")
+    }
+  }, [almacenes, almacenId])
+
+  // Cargar stock cuando se selecciona un almacén
+  useEffect(() => {
+    if (almacenId) {
+      refetchStock(almacenId)
+    }
+  }, [almacenId, refetchStock])
+
+  // Obtener materiales con stock en el almacén seleccionado
+  const materialesConStock = useMemo(() => {
+    if (!almacenId) return materials // Si no hay almacén seleccionado, mostrar todos
     
-    let filtered = materials.filter((material) => {
+    // Filtrar stock del almacén seleccionado
+    const stockAlmacen = stock.filter(s => s.almacen_id === almacenId && s.cantidad > 0)
+    
+    // Mapear a materiales con información de stock
+    return stockAlmacen
+      .map(stockItem => {
+        const material = materials.find(m => m.codigo.toString() === stockItem.material_codigo)
+        if (!material) return null
+        return {
+          ...material,
+          stock_disponible: stockItem.cantidad
+        }
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null)
+  }, [almacenId, stock, materials])
+
+  const materialesFiltrados = useMemo(() => {
+    if (!activeStep) return materialesConStock
+    
+    let filtered = materialesConStock.filter((material) => {
       const categoria = normalizeText(material.categoria ?? "")
       return activeStep.match(categoria)
     })
@@ -134,7 +245,7 @@ export function ConfeccionOfertasView() {
     }
 
     return filtered
-  }, [materials, activeStep, searchQuery])
+  }, [materialesConStock, activeStep, searchQuery])
 
   const cantidadesPorMaterial = useMemo(() => {
     const map = new Map<string, number>()
@@ -173,18 +284,139 @@ export function ConfeccionOfertasView() {
     return elementosPersonalizados.reduce((sum, elem) => sum + elem.precio * elem.cantidad, 0)
   }, [elementosPersonalizados])
 
+  const totalCostosExtras = useMemo(() => {
+    return seccionesPersonalizadas.reduce((sum, seccion) => {
+      if (seccion.tipo === 'extra' && seccion.tipoExtra === 'costo' && seccion.costosExtras) {
+        return sum + seccion.costosExtras.reduce((costoSum, costo) => 
+          costoSum + (costo.cantidad * costo.precioUnitario), 0
+        )
+      }
+      return sum
+    }, 0)
+  }, [seccionesPersonalizadas])
+
   const subtotalConMargen = useMemo(() => {
     if (margenComercial >= 100) return totalMateriales
     return totalMateriales / (1 - margenComercial / 100)
   }, [totalMateriales, margenComercial])
 
   const totalSinRedondeo = useMemo(() => {
-    return subtotalConMargen + costoTransportacion + totalElementosPersonalizados
-  }, [subtotalConMargen, costoTransportacion, totalElementosPersonalizados])
+    return subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+  }, [subtotalConMargen, costoTransportacion, totalElementosPersonalizados, totalCostosExtras])
 
   const precioFinal = useMemo(() => {
     return Math.ceil(totalSinRedondeo)
   }, [totalSinRedondeo])
+
+  // Crear mapa de marcas por ID
+  const marcasMap = useMemo(() => {
+    const map = new Map<string, string>()
+    marcas.forEach(marca => {
+      if (marca.id && marca.nombre) {
+        map.set(marca.id, marca.nombre)
+      }
+    })
+    return map
+  }, [marcas])
+
+  // Generar nombre automático de la oferta
+  const nombreAutomatico = useMemo(() => {
+    const componentes: string[] = []
+
+    // Obtener marca del material usando marca_id
+    const obtenerMarca = (materialCodigo: string): string => {
+      const material = materials.find(m => m.codigo.toString() === materialCodigo)
+      if (!material || !material.marca_id) return ''
+      return marcasMap.get(material.marca_id) || ''
+    }
+
+    // Obtener potencia del material
+    const obtenerPotencia = (materialCodigo: string): number | null => {
+      const material = materials.find(m => m.codigo.toString() === materialCodigo)
+      return material?.potenciaKW || null
+    }
+
+    // 1. INVERSORES - Usar el seleccionado
+    if (inversorSeleccionado) {
+      const inversoresDelTipo = items.filter(
+        item => item.seccion === 'INVERSORES' && item.materialCodigo === inversorSeleccionado
+      )
+      if (inversoresDelTipo.length > 0) {
+        const cantidad = inversoresDelTipo.reduce((sum, inv) => sum + inv.cantidad, 0)
+        const potencia = obtenerPotencia(inversorSeleccionado)
+        const marca = obtenerMarca(inversorSeleccionado)
+        
+        if (potencia && marca) {
+          componentes.push(`${cantidad}x ${potencia}kW Inversor ${marca}`)
+        } else if (potencia) {
+          componentes.push(`${cantidad}x ${potencia}kW Inversor`)
+        } else if (marca) {
+          componentes.push(`${cantidad}x Inversor ${marca}`)
+        } else {
+          componentes.push(`${cantidad}x Inversor`)
+        }
+      }
+    }
+
+    // 2. BATERÍAS - Usar la seleccionada
+    if (bateriaSeleccionada) {
+      const bateriasDelTipo = items.filter(
+        item => item.seccion === 'BATERIAS' && item.materialCodigo === bateriaSeleccionada
+      )
+      if (bateriasDelTipo.length > 0) {
+        const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+        const potencia = obtenerPotencia(bateriaSeleccionada)
+        const marca = obtenerMarca(bateriaSeleccionada)
+        
+        if (potencia && marca) {
+          componentes.push(`${cantidad}x ${potencia}kWh Batería ${marca}`)
+        } else if (potencia) {
+          componentes.push(`${cantidad}x ${potencia}kWh Batería`)
+        } else if (marca) {
+          componentes.push(`${cantidad}x Batería ${marca}`)
+        } else {
+          componentes.push(`${cantidad}x Batería`)
+        }
+      }
+    }
+
+    // 3. PANELES - Usar el seleccionado
+    if (panelSeleccionado) {
+      const panelesDelTipo = items.filter(
+        item => item.seccion === 'PANELES' && item.materialCodigo === panelSeleccionado
+      )
+      if (panelesDelTipo.length > 0) {
+        const cantidad = panelesDelTipo.reduce((sum, pan) => sum + pan.cantidad, 0)
+        const potencia = obtenerPotencia(panelSeleccionado)
+        const marca = obtenerMarca(panelSeleccionado)
+        
+        if (potencia && marca) {
+          // Para paneles, convertir kW a W si es necesario
+          const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
+          componentes.push(`${cantidad}x ${potenciaW}W Paneles ${marca}`)
+        } else if (potencia) {
+          const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
+          componentes.push(`${cantidad}x ${potenciaW}W Paneles`)
+        } else if (marca) {
+          componentes.push(`${cantidad}x Paneles ${marca}`)
+        } else {
+          componentes.push(`${cantidad}x Paneles`)
+        }
+      }
+    }
+
+    // Construir el nombre final
+    if (componentes.length === 0) {
+      return 'Oferta sin componentes principales'
+    } else if (componentes.length === 1) {
+      return `Oferta de ${componentes[0]}`
+    } else if (componentes.length === 2) {
+      return `Oferta de ${componentes[0]} y ${componentes[1]}`
+    } else {
+      const ultimoComponente = componentes.pop()
+      return `Oferta de ${componentes.join(', ')} y ${ultimoComponente}`
+    }
+  }, [items, inversorSeleccionado, bateriaSeleccionada, panelSeleccionado, materials, marcasMap])
 
   const formatCurrency = (value: number) => {
     return `${new Intl.NumberFormat("es-ES", {
@@ -194,9 +426,31 @@ export function ConfeccionOfertasView() {
   }
 
   const agregarMaterial = (material: Material) => {
+    if (ofertaCreada) {
+      toast({
+        title: "Oferta ya creada",
+        description: "No puedes modificar una oferta ya creada. Crea una nueva oferta.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const codigo = material.codigo?.toString()
     if (!codigo) return
     if (!activeStep) return
+    
+    // Validar stock disponible si hay almacén seleccionado
+    if (almacenId && 'stock_disponible' in material) {
+      const itemId = `${activeStep.id}-${codigo}`
+      const cantidadActual = items.find((item) => item.id === itemId)?.cantidad ?? 0
+      const nuevaCantidad = cantidadActual + 1
+      
+      if (nuevaCantidad > (material as any).stock_disponible) {
+        // No agregar si excede el stock
+        return
+      }
+    }
+    
     const itemId = `${activeStep.id}-${codigo}`
 
     setItems((prev) => {
@@ -224,6 +478,15 @@ export function ConfeccionOfertasView() {
   }
 
   const agregarMaterialPersonalizado = (material: Material) => {
+    if (ofertaCreada) {
+      toast({
+        title: "Oferta ya creada",
+        description: "No puedes modificar una oferta ya creada. Crea una nueva oferta.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const codigo = material.codigo?.toString()
     if (!codigo) return
     
@@ -253,6 +516,23 @@ export function ConfeccionOfertasView() {
   }
 
   const actualizarCantidad = (id: string, cantidad: number) => {
+    // Validar stock disponible si hay almacén seleccionado
+    if (almacenId) {
+      const item = items.find((item) => item.id === id)
+      if (item) {
+        const materialConStock = materialesConStock.find(
+          m => m.codigo.toString() === item.materialCodigo
+        )
+        if (materialConStock && 'stock_disponible' in materialConStock) {
+          const stockDisponible = (materialConStock as any).stock_disponible
+          if (cantidad > stockDisponible) {
+            // No permitir cantidad mayor al stock
+            cantidad = stockDisponible
+          }
+        }
+      }
+    }
+    
     setItems((prev) =>
       prev
         .map((item) => (item.id === id ? { ...item, cantidad } : item))
@@ -292,6 +572,197 @@ export function ConfeccionOfertasView() {
     setElementosPersonalizados((prev) => prev.filter((elem) => elem.id !== id))
   }
 
+  const abrirDialogoSeccion = () => {
+    setMostrarDialogoSeccion(true)
+    setTipoSeccionNueva(null)
+    setTipoExtraSeccion(null)
+    setNombreSeccionNueva("")
+    setCategoriasSeleccionadas([])
+    setContenidoEscritura("")
+  }
+
+  const cerrarDialogoSeccion = () => {
+    setMostrarDialogoSeccion(false)
+    setTipoSeccionNueva(null)
+    setTipoExtraSeccion(null)
+    setNombreSeccionNueva("")
+    setCategoriasSeleccionadas([])
+    setContenidoEscritura("")
+  }
+
+  const agregarSeccionPersonalizada = () => {
+    if (!nombreSeccionNueva.trim()) {
+      toast({
+        title: "Nombre requerido",
+        description: "Debes ingresar un nombre para la sección",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!tipoSeccionNueva) {
+      toast({
+        title: "Tipo requerido",
+        description: "Debes seleccionar un tipo de sección",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (tipoSeccionNueva === 'materiales' && categoriasSeleccionadas.length === 0) {
+      toast({
+        title: "Categorías requeridas",
+        description: "Debes seleccionar al menos una categoría de materiales",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (tipoSeccionNueva === 'extra' && !tipoExtraSeccion) {
+      toast({
+        title: "Tipo extra requerido",
+        description: "Debes seleccionar si es escritura o costo",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const nuevaSeccion: SeccionPersonalizada = {
+      id: `CUSTOM_${Date.now()}`,
+      label: nombreSeccionNueva,
+      tipo: tipoSeccionNueva,
+      tipoExtra: tipoSeccionNueva === 'extra' ? tipoExtraSeccion! : undefined,
+      categoriasMateriales: tipoSeccionNueva === 'materiales' ? categoriasSeleccionadas : undefined,
+      contenidoEscritura: tipoSeccionNueva === 'extra' && tipoExtraSeccion === 'escritura' ? contenidoEscritura : undefined,
+      costosExtras: tipoSeccionNueva === 'extra' && tipoExtraSeccion === 'costo' ? [] : undefined,
+    }
+
+    setSeccionesPersonalizadas(prev => [...prev, nuevaSeccion])
+    cerrarDialogoSeccion()
+    
+    toast({
+      title: "Sección agregada",
+      description: `La sección "${nombreSeccionNueva}" ha sido agregada exitosamente`,
+    })
+  }
+
+  const eliminarSeccionPersonalizada = (seccionId: string) => {
+    setSeccionesPersonalizadas(prev => prev.filter(s => s.id !== seccionId))
+    // Eliminar items de esta sección
+    setItems(prev => prev.filter(item => item.seccion !== seccionId))
+    
+    toast({
+      title: "Sección eliminada",
+      description: "La sección personalizada ha sido eliminada",
+    })
+  }
+
+  const actualizarContenidoEscritura = (seccionId: string, contenido: string) => {
+    setSeccionesPersonalizadas(prev => 
+      prev.map(s => s.id === seccionId ? { ...s, contenidoEscritura: contenido } : s)
+    )
+  }
+
+  const agregarCostoExtra = (seccionId: string) => {
+    setSeccionesPersonalizadas(prev => 
+      prev.map(s => {
+        if (s.id === seccionId && s.costosExtras) {
+          return {
+            ...s,
+            costosExtras: [
+              ...s.costosExtras,
+              {
+                id: `COSTO_${Date.now()}`,
+                descripcion: "",
+                cantidad: 1,
+                precioUnitario: 0,
+              }
+            ]
+          }
+        }
+        return s
+      })
+    )
+  }
+
+  const actualizarCostoExtra = (seccionId: string, costoId: string, field: keyof CostoExtra, value: string | number) => {
+    setSeccionesPersonalizadas(prev => 
+      prev.map(s => {
+        if (s.id === seccionId && s.costosExtras) {
+          return {
+            ...s,
+            costosExtras: s.costosExtras.map(c => 
+              c.id === costoId ? { ...c, [field]: value } : c
+            )
+          }
+        }
+        return s
+      })
+    )
+  }
+
+  const eliminarCostoExtra = (seccionId: string, costoId: string) => {
+    setSeccionesPersonalizadas(prev => 
+      prev.map(s => {
+        if (s.id === seccionId && s.costosExtras) {
+          return {
+            ...s,
+            costosExtras: s.costosExtras.filter(c => c.id !== costoId)
+          }
+        }
+        return s
+      })
+    )
+  }
+
+  // Obtener categorías únicas de materiales
+  const categoriasDisponibles = useMemo(() => {
+    const categorias = new Set<string>()
+    materials.forEach(m => {
+      if (m.categoria) {
+        categorias.add(m.categoria)
+      }
+    })
+    return Array.from(categorias).sort()
+  }, [materials])
+
+  // Seleccionar automáticamente el primer material cuando solo hay uno de cada tipo
+  useEffect(() => {
+    const inversores = items.filter(item => item.seccion === 'INVERSORES')
+    const inversoresUnicos = Array.from(new Set(inversores.map(i => i.materialCodigo)))
+    if (inversoresUnicos.length === 1 && !inversorSeleccionado) {
+      setInversorSeleccionado(inversoresUnicos[0])
+    } else if (inversoresUnicos.length === 0) {
+      setInversorSeleccionado("")
+    } else if (!inversoresUnicos.includes(inversorSeleccionado)) {
+      setInversorSeleccionado(inversoresUnicos[0] || "")
+    }
+  }, [items, inversorSeleccionado])
+
+  useEffect(() => {
+    const baterias = items.filter(item => item.seccion === 'BATERIAS')
+    const bateriasUnicas = Array.from(new Set(baterias.map(b => b.materialCodigo)))
+    if (bateriasUnicas.length === 1 && !bateriaSeleccionada) {
+      setBateriaSeleccionada(bateriasUnicas[0])
+    } else if (bateriasUnicas.length === 0) {
+      setBateriaSeleccionada("")
+    } else if (!bateriasUnicas.includes(bateriaSeleccionada)) {
+      setBateriaSeleccionada(bateriasUnicas[0] || "")
+    }
+  }, [items, bateriaSeleccionada])
+
+  useEffect(() => {
+    const paneles = items.filter(item => item.seccion === 'PANELES')
+    const panelesUnicos = Array.from(new Set(paneles.map(p => p.materialCodigo)))
+    if (panelesUnicos.length === 1 && !panelSeleccionado) {
+      setPanelSeleccionado(panelesUnicos[0])
+    } else if (panelesUnicos.length === 0) {
+      setPanelSeleccionado("")
+    } else if (!panelesUnicos.includes(panelSeleccionado)) {
+      setPanelSeleccionado(panelesUnicos[0] || "")
+    }
+  }, [items, panelSeleccionado])
+
   useEffect(() => {
     const loadClientes = async () => {
       setClientesLoading(true)
@@ -312,8 +783,484 @@ export function ConfeccionOfertasView() {
     return clientes.find((cliente) => cliente.id === clienteId || cliente.numero === clienteId) || null
   }, [clientes, clienteId])
 
+  // Determinar si hay múltiples tipos de materiales en cada categoría
+  const tieneMultiplesInversores = useMemo(() => {
+    const inversores = items.filter(item => item.seccion === 'INVERSORES')
+    const inversoresUnicos = Array.from(new Set(inversores.map(i => i.materialCodigo)))
+    return inversoresUnicos.length > 1
+  }, [items])
 
-  if (loading) {
+  const tieneMultiplesBaterias = useMemo(() => {
+    const baterias = items.filter(item => item.seccion === 'BATERIAS')
+    const bateriasUnicas = Array.from(new Set(baterias.map(b => b.materialCodigo)))
+    return bateriasUnicas.length > 1
+  }, [items])
+
+  const tieneMultiplesPaneles = useMemo(() => {
+    const paneles = items.filter(item => item.seccion === 'PANELES')
+    const panelesUnicos = Array.from(new Set(paneles.map(p => p.materialCodigo)))
+    return panelesUnicos.length > 1
+  }, [items])
+
+  const mostrarSelectoresMateriales = useMemo(() => {
+    return tieneMultiplesInversores || tieneMultiplesBaterias || tieneMultiplesPaneles
+  }, [tieneMultiplesInversores, tieneMultiplesBaterias, tieneMultiplesPaneles])
+
+  // Estados disponibles según el tipo de oferta
+  const estadosDisponibles = useMemo(() => {
+    if (ofertaGenerica) {
+      return [
+        { value: 'en_revision', label: 'En Revisión' },
+        { value: 'aprobada_para_enviar', label: 'Aprobada para Enviar' },
+      ]
+    } else {
+      return [
+        { value: 'en_revision', label: 'En Revisión' },
+        { value: 'aprobada_para_enviar', label: 'Aprobada para Enviar' },
+        { value: 'enviada_a_cliente', label: 'Enviada a Cliente' },
+        { value: 'confirmada_por_cliente', label: 'Confirmada por Cliente' },
+        { value: 'reservada', label: 'Reservada' },
+      ]
+    }
+  }, [ofertaGenerica])
+
+  // Resetear estado si cambia el tipo de oferta y el estado actual no es válido
+  useEffect(() => {
+    const estadosValidos = estadosDisponibles.map(e => e.value)
+    if (!estadosValidos.includes(estadoOferta)) {
+      setEstadoOferta('en_revision')
+    }
+  }, [ofertaGenerica, estadosDisponibles, estadoOferta])
+
+  const handleReservarMateriales = async () => {
+    if (!ofertaCreada) {
+      toast({
+        title: "Oferta no creada",
+        description: "Debes crear la oferta antes de reservar materiales",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!almacenId) {
+      toast({
+        title: "Almacén requerido",
+        description: "Debes seleccionar un almacén antes de reservar materiales",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: "Sin materiales",
+        description: "Agrega materiales a la oferta antes de reservar",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Abrir diálogo para seleccionar tipo de reserva
+    setMostrarDialogoReserva(true)
+  }
+
+  const confirmarReserva = async () => {
+    if (!tipoReserva) {
+      toast({
+        title: "Tipo de reserva requerido",
+        description: "Debes seleccionar si la reserva es temporal o definitiva",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (tipoReserva === 'temporal' && diasReserva <= 0) {
+      toast({
+        title: "Días inválidos",
+        description: "Debes especificar al menos 1 día para la reserva temporal",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setReservandoMateriales(true)
+    setMostrarDialogoReserva(false)
+
+    try {
+      // Calcular fecha de expiración si es temporal
+      let fechaExpiracion: Date | null = null
+      if (tipoReserva === 'temporal') {
+        fechaExpiracion = new Date()
+        fechaExpiracion.setDate(fechaExpiracion.getDate() + diasReserva)
+      }
+
+      // TODO: Implementar llamada al backend cuando esté disponible
+      // const response = await fetch('/api/ofertas/confeccion/', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({
+      //     tipo_oferta: ofertaGenerica ? 'generica' : 'personalizada',
+      //     cliente_id: ofertaGenerica ? null : clienteId,
+      //     almacen_id: almacenId,
+      //     items: items,
+      //     elementos_personalizados: elementosPersonalizados,
+      //     margen_comercial: margenComercial,
+      //     costo_transportacion: costoTransportacion,
+      //     total_materiales: totalMateriales,
+      //     subtotal_con_margen: subtotalConMargen,
+      //     total_elementos_personalizados: totalElementosPersonalizados,
+      //     precio_final: precioFinal,
+      //     tipo_reserva: tipoReserva,
+      //     dias_reserva: tipoReserva === 'temporal' ? diasReserva : null,
+      //     fecha_expiracion_reserva: fechaExpiracion?.toISOString()
+      //   })
+      // })
+      // const oferta = await response.json()
+      
+      // Luego reservar los materiales
+      // await fetch(`/api/ofertas/confeccion/${oferta.id}/reservar-materiales`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ 
+      //     notas: 'Reserva desde confección de ofertas',
+      //     tipo_reserva: tipoReserva,
+      //     fecha_expiracion: fechaExpiracion?.toISOString()
+      //   })
+      // })
+
+      // Simulación temporal hasta que el backend esté listo
+      await new Promise(resolve => setTimeout(resolve, 1500))
+      
+      setMaterialesReservados(true)
+      setFechaExpiracionReserva(fechaExpiracion)
+      
+      toast({
+        title: "Materiales reservados",
+        description: tipoReserva === 'temporal' 
+          ? `Se han reservado ${items.length} materiales por ${diasReserva} días`
+          : `Se han reservado ${items.length} materiales de forma definitiva`,
+      })
+
+      // Refrescar el stock
+      await refetchStock(almacenId)
+    } catch (error: any) {
+      console.error('Error al reservar materiales:', error)
+      toast({
+        title: "Error al reservar",
+        description: error.message || "No se pudieron reservar los materiales",
+        variant: "destructive",
+      })
+    } finally {
+      setReservandoMateriales(false)
+    }
+  }
+
+  const cancelarReserva = async () => {
+    if (!materialesReservados) return
+
+    try {
+      // TODO: Implementar llamada al backend
+      // await fetch(`/api/ofertas/confeccion/${ofertaId}/liberar-materiales`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' }
+      // })
+
+      // Simulación temporal
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      setMaterialesReservados(false)
+      setFechaExpiracionReserva(null)
+      setTipoReserva(null)
+
+      toast({
+        title: "Reserva cancelada",
+        description: "Los materiales han sido liberados y están disponibles nuevamente",
+      })
+
+      // Refrescar el stock
+      if (almacenId) {
+        await refetchStock(almacenId)
+      }
+    } catch (error: any) {
+      console.error('Error al cancelar reserva:', error)
+      toast({
+        title: "Error al cancelar",
+        description: error.message || "No se pudo cancelar la reserva",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const cerrarDialogoReserva = () => {
+    setMostrarDialogoReserva(false)
+    setTipoReserva(null)
+    setDiasReserva(7)
+  }
+
+  const handleSubirFotoPortada = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    // Validar tipo de archivo
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Archivo inválido",
+        description: "Solo se permiten archivos de imagen",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validar tamaño (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Archivo muy grande",
+        description: "La imagen no debe superar los 5MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSubiendoFoto(true)
+
+    try {
+      // Preparar FormData
+      const formData = new FormData()
+      formData.append('foto', file)
+      formData.append('tipo', 'oferta_portada')
+
+      console.log('📤 Subiendo foto de portada...')
+
+      // Llamada al backend
+      const { apiRequest } = await import('@/lib/api-config')
+      
+      const response = await apiRequest<{
+        success: boolean
+        url: string
+        filename: string
+        size: number
+        content_type: string
+      }>('/ofertas/confeccion/upload-foto-portada', {
+        method: 'POST',
+        body: formData
+      })
+
+      console.log('✅ Foto subida:', response)
+
+      if (response.success && response.url) {
+        setFotoPortada(response.url)
+        toast({
+          title: "Foto subida",
+          description: "La foto de portada se ha cargado exitosamente",
+        })
+      } else {
+        throw new Error('No se recibió la URL de la foto')
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error al subir foto:', error)
+      
+      let errorMessage = "No se pudo subir la imagen"
+      
+      if (error.message) {
+        if (error.message.includes('Archivo inválido') || error.message.includes('muy grande')) {
+          errorMessage = error.message
+        } else if (error.message.includes('Tipo de archivo no soportado')) {
+          errorMessage = "Formato de imagen no soportado. Usa JPG, PNG o WebP"
+        } else if (error.message.includes('Not authenticated')) {
+          errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente"
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      toast({
+        title: "Error al subir foto",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
+
+  const eliminarFotoPortada = () => {
+    setFotoPortada("")
+    toast({
+      title: "Foto eliminada",
+      description: "La foto de portada ha sido eliminada",
+    })
+  }
+
+  const handleCrearOferta = async () => {
+    // Validaciones
+    if (!almacenId) {
+      toast({
+        title: "Almacén requerido",
+        description: "Debes seleccionar un almacén antes de crear la oferta",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (items.length === 0) {
+      toast({
+        title: "Sin materiales",
+        description: "Agrega al menos un material a la oferta",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!ofertaGenerica && !clienteId) {
+      toast({
+        title: "Cliente requerido",
+        description: "Debes seleccionar un cliente para ofertas personalizadas",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setCreandoOferta(true)
+
+    try {
+      // Preparar datos de la oferta según la documentación del backend
+      const ofertaData = {
+        tipo_oferta: ofertaGenerica ? 'generica' : 'personalizada',
+        cliente_numero: ofertaGenerica ? undefined : clienteId,
+        almacen_id: almacenId,
+        foto_portada: fotoPortada || undefined,
+        estado: estadoOferta,
+        
+        items: items.map(item => ({
+          material_codigo: item.materialCodigo,
+          descripcion: item.descripcion,
+          precio: item.precio,
+          cantidad: item.cantidad,
+          categoria: item.categoria,
+          seccion: item.seccion
+        })),
+        
+        secciones_personalizadas: seccionesPersonalizadas.length > 0 ? seccionesPersonalizadas.map(seccion => ({
+          id: seccion.id,
+          label: seccion.label,
+          tipo: seccion.tipo,
+          tipo_extra: seccion.tipoExtra,
+          categorias_materiales: seccion.categoriasMateriales,
+          contenido_escritura: seccion.contenidoEscritura,
+          costos_extras: seccion.costosExtras
+        })) : undefined,
+        
+        elementos_personalizados: elementosPersonalizados.length > 0 ? elementosPersonalizados.map(elem => ({
+          material_codigo: elem.materialCodigo,
+          descripcion: elem.descripcion,
+          precio: elem.precio,
+          cantidad: elem.cantidad,
+          categoria: elem.categoria
+        })) : undefined,
+        
+        componentes_principales: {
+          inversor_seleccionado: inversorSeleccionado || undefined,
+          bateria_seleccionada: bateriaSeleccionada || undefined,
+          panel_seleccionado: panelSeleccionado || undefined
+        },
+        
+        margen_comercial: margenComercial,
+        costo_transportacion: costoTransportacion,
+        total_materiales: totalMateriales,
+        subtotal_con_margen: subtotalConMargen,
+        total_elementos_personalizados: totalElementosPersonalizados,
+        total_costos_extras: totalCostosExtras,
+        precio_final: precioFinal
+      }
+
+      console.log('📤 Enviando oferta al backend:', ofertaData)
+
+      // Llamada al backend usando apiRequest
+      const { apiRequest } = await import('@/lib/api-config')
+      
+      const response = await apiRequest<{
+        success: boolean
+        message: string
+        data: {
+          id: string
+          numero_oferta: string
+          nombre_automatico: string
+          [key: string]: any
+        }
+      }>('/ofertas/confeccion/', {
+        method: 'POST',
+        body: JSON.stringify(ofertaData)
+      })
+
+      console.log('✅ Respuesta del backend:', response)
+
+      if (response.success && response.data) {
+        setOfertaId(response.data.numero_oferta || response.data.id)
+        setOfertaCreada(true)
+
+        toast({
+          title: "Oferta creada exitosamente",
+          description: `${response.data.numero_oferta}: ${response.data.nombre_automatico}`,
+        })
+      } else {
+        throw new Error(response.message || 'Error al crear la oferta')
+      }
+
+    } catch (error: any) {
+      console.error('❌ Error al crear oferta:', error)
+      
+      let errorMessage = "No se pudo crear la oferta"
+      
+      // Parsear mensajes de error comunes del backend
+      if (error.message) {
+        if (error.message.includes('Stock insuficiente')) {
+          errorMessage = error.message
+        } else if (error.message.includes('Cliente') && error.message.includes('no encontrado')) {
+          errorMessage = "El cliente seleccionado no existe"
+        } else if (error.message.includes('Almacén') && error.message.includes('no encontrado')) {
+          errorMessage = "El almacén seleccionado no existe"
+        } else if (error.message.includes('Not authenticated')) {
+          errorMessage = "Sesión expirada. Por favor, inicia sesión nuevamente"
+        } else {
+          errorMessage = error.message
+        }
+      }
+      
+      toast({
+        title: "Error al crear oferta",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    } finally {
+      setCreandoOferta(false)
+    }
+  }
+
+  const resetearOferta = () => {
+    setItems([])
+    setElementosPersonalizados([])
+    setSeccionesPersonalizadas([])
+    setMargenComercial(0)
+    setCostoTransportacion(0)
+    setFotoPortada("")
+    setClienteId("")
+    setEstadoOferta("en_revision")
+    setMaterialesReservados(false)
+    setOfertaCreada(false)
+    setOfertaId("")
+    setInversorSeleccionado("")
+    setBateriaSeleccionada("")
+    setPanelSeleccionado("")
+    
+    toast({
+      title: "Oferta reseteada",
+      description: "Puedes crear una nueva oferta",
+    })
+  }
+
+
+  if (loading || loadingAlmacenes || loadingMarcas) {
     return (
       <div className="flex items-center justify-center h-[60vh] text-sm text-slate-500">
         Cargando materiales...
@@ -330,41 +1277,232 @@ export function ConfeccionOfertasView() {
             <div className="flex-1 overflow-y-auto">
               <div className="sticky top-0 z-10 px-4 py-2 border-b bg-white">
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-slate-900">Presupuesto de Oferta</h3>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-semibold text-slate-900">Presupuesto de Oferta</h3>
+                      {ofertaCreada && (
+                        <Badge className="bg-emerald-600 text-white hover:bg-emerald-600 text-xs">
+                          Creada
+                        </Badge>
+                      )}
+                    </div>
+                    {items.length > 0 && (
+                      <p className="text-sm text-slate-600 mt-1 line-clamp-2">
+                        {nombreAutomatico}
+                      </p>
+                    )}
+                    {ofertaCreada && ofertaId && (
+                      <p className="text-xs text-emerald-700 mt-1">
+                        ID: {ofertaId}
+                      </p>
+                    )}
                   </div>
-                  <Badge className="bg-slate-900 text-white hover:bg-slate-900/90 text-xs">
+                  <Badge className="bg-slate-900 text-white hover:bg-slate-900/90 text-xs flex-shrink-0">
                     {items.length} item(s)
                   </Badge>
                 </div>
               </div>
 
               <div className="px-4 py-3 space-y-3">
+                {/* Foto de Portada - Compacta */}
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <ImageIcon className="h-4 w-4 text-slate-500 flex-shrink-0" />
+                      <p className="text-sm font-semibold text-slate-900">Foto de Portada</p>
+                    </div>
+                    
+                    {fotoPortada ? (
+                      <div className="flex items-center gap-2">
+                        <div className="relative w-20 h-12 rounded overflow-hidden border border-slate-200 bg-slate-50 flex-shrink-0 group">
+                          <img
+                            src={fotoPortada}
+                            alt="Portada"
+                            className="w-full h-full object-cover"
+                          />
+                          <label className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                            <Upload className="h-4 w-4 text-white" />
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleSubirFotoPortada}
+                              className="hidden"
+                              disabled={subiendoFoto}
+                            />
+                          </label>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={eliminarFotoPortada}
+                          className="text-red-600 hover:text-red-700 p-1"
+                          title="Eliminar foto"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-2 px-3 py-1.5 rounded-md border-2 border-dashed border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer transition-colors flex-shrink-0">
+                        {subiendoFoto ? (
+                          <>
+                            <div className="animate-spin h-4 w-4 border-2 border-slate-300 border-t-slate-600 rounded-full" />
+                            <span className="text-xs text-slate-600">Subiendo...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 text-slate-500" />
+                            <span className="text-xs font-medium text-slate-700">Subir foto</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleSubirFotoPortada}
+                          className="hidden"
+                          disabled={subiendoFoto}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Selectores para el nombre automático - Solo si hay múltiples materiales */}
+                {items.length > 0 && mostrarSelectoresMateriales && (
+                  <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-2">
+                    <p className="text-xs font-semibold text-blue-900 mb-2">
+                      Selecciona los materiales para el nombre de la oferta:
+                    </p>
+                    
+                    {/* Selector de Inversor - Solo si hay múltiples */}
+                    {tieneMultiplesInversores && (
+                      <div className="space-y-1">
+                        <label className="text-xs text-blue-700">Inversor:</label>
+                        <Select value={inversorSeleccionado} onValueChange={setInversorSeleccionado}>
+                          <SelectTrigger className="h-8 text-xs bg-white">
+                            <SelectValue placeholder="Seleccionar inversor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from(new Set(items.filter(i => i.seccion === 'INVERSORES').map(i => i.materialCodigo)))
+                              .map(codigo => {
+                                const item = items.find(i => i.materialCodigo === codigo)
+                                const cantidad = items.filter(i => i.materialCodigo === codigo).reduce((sum, i) => sum + i.cantidad, 0)
+                                const material = materials.find(m => m.codigo.toString() === codigo)
+                                return (
+                                  <SelectItem key={codigo} value={codigo}>
+                                    {material?.nombre || item?.descripcion} ({cantidad}x)
+                                  </SelectItem>
+                                )
+                              })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Selector de Batería - Solo si hay múltiples */}
+                    {tieneMultiplesBaterias && (
+                      <div className="space-y-1">
+                        <label className="text-xs text-blue-700">Batería:</label>
+                        <Select value={bateriaSeleccionada} onValueChange={setBateriaSeleccionada}>
+                          <SelectTrigger className="h-8 text-xs bg-white">
+                            <SelectValue placeholder="Seleccionar batería" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from(new Set(items.filter(i => i.seccion === 'BATERIAS').map(i => i.materialCodigo)))
+                              .map(codigo => {
+                                const item = items.find(i => i.materialCodigo === codigo)
+                                const cantidad = items.filter(i => i.materialCodigo === codigo).reduce((sum, i) => sum + i.cantidad, 0)
+                                const material = materials.find(m => m.codigo.toString() === codigo)
+                                return (
+                                  <SelectItem key={codigo} value={codigo}>
+                                    {material?.nombre || item?.descripcion} ({cantidad}x)
+                                  </SelectItem>
+                                )
+                              })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* Selector de Panel - Solo si hay múltiples */}
+                    {tieneMultiplesPaneles && (
+                      <div className="space-y-1">
+                        <label className="text-xs text-blue-700">Paneles:</label>
+                        <Select value={panelSeleccionado} onValueChange={setPanelSeleccionado}>
+                          <SelectTrigger className="h-8 text-xs bg-white">
+                            <SelectValue placeholder="Seleccionar panel" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from(new Set(items.filter(i => i.seccion === 'PANELES').map(i => i.materialCodigo)))
+                              .map(codigo => {
+                                const item = items.find(i => i.materialCodigo === codigo)
+                                const cantidad = items.filter(i => i.materialCodigo === codigo).reduce((sum, i) => sum + i.cantidad, 0)
+                                const material = materials.find(m => m.codigo.toString() === codigo)
+                                return (
+                                  <SelectItem key={codigo} value={codigo}>
+                                    {material?.nombre || item?.descripcion} ({cantidad}x)
+                                  </SelectItem>
+                                )
+                              })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold text-slate-700">Tipo de oferta</span>
                   <div className="flex items-center rounded-md border border-slate-200 bg-slate-50 p-1">
                     <button
                       type="button"
                       onClick={() => {
+                        if (ofertaCreada) return
                         setOfertaGenerica(true)
                         setClienteId("")
                       }}
+                      disabled={ofertaCreada}
                       className={`px-3 py-1 text-sm font-semibold rounded ${
                         ofertaGenerica ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
-                      }`}
+                      } ${ofertaCreada ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       Generica
                     </button>
                     <button
                       type="button"
-                      onClick={() => setOfertaGenerica(false)}
+                      onClick={() => {
+                        if (ofertaCreada) return
+                        setOfertaGenerica(false)
+                      }}
+                      disabled={ofertaCreada}
                       className={`px-3 py-1 text-sm font-semibold rounded ${
                         !ofertaGenerica ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
-                      }`}
+                      } ${ofertaCreada ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       Personalizada
                     </button>
                   </div>
+                </div>
+
+                {/* Selector de Estado */}
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <label className="text-sm font-semibold text-slate-900 mb-2 block">
+                    Estado de la Oferta
+                  </label>
+                  <Select value={estadoOferta} onValueChange={setEstadoOferta}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {estadosDisponibles.map((estado) => (
+                        <SelectItem key={estado.value} value={estado.value}>
+                          {estado.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {!ofertaGenerica && estadoOferta === 'reservada' && (
+                    <p className="text-xs text-amber-600 mt-2">
+                      ⚠️ Al marcar como "Reservada", los materiales se descontarán del stock
+                    </p>
+                  )}
                 </div>
 
                 {!ofertaGenerica && (
@@ -426,17 +1564,20 @@ export function ConfeccionOfertasView() {
                           ? "border-l-4 border-emerald-300 bg-emerald-50/40"
                           : "border-l-4 border-slate-200 bg-white"
 
+                      const esPersonalizada = 'esPersonalizada' in step && step.esPersonalizada
+                      const seccionData = 'seccionData' in step ? step.seccionData as SeccionPersonalizada : null
+
                       return (
                         <div
                           key={step.id}
-                          className={`rounded-md border border-slate-200 px-3 py-2 ${seccionClass}`}
+                          className={`rounded-md border border-slate-200 px-3 py-2 ${seccionClass} ${esPersonalizada ? 'border-purple-300' : ''}`}
                         >
-                          <button
-                            type="button"
-                            onClick={() => setActiveStepIndex(index)}
-                            className="flex w-full items-center justify-between gap-2 text-left"
-                          >
-                            <div className="flex items-center gap-2">
+                          <div className="flex w-full items-center justify-between gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setActiveStepIndex(index)}
+                              className="flex-1 flex items-center gap-2 text-left min-w-0"
+                            >
                               <span className="text-xs font-semibold text-slate-400">
                                 {String(index + 1).padStart(2, "0")}
                               </span>
@@ -447,75 +1588,216 @@ export function ConfeccionOfertasView() {
                               >
                                 {step.label}
                               </span>
+                              {esPersonalizada && (
+                                <Badge variant="outline" className="text-xs border-purple-300 text-purple-700 bg-purple-50">
+                                  {seccionData?.tipo === 'materiales' ? 'Materiales' : seccionData?.tipoExtra === 'escritura' ? 'Texto' : 'Costos'}
+                                </Badge>
+                              )}
                               {tieneItems && (
                                 <span className="text-xs text-slate-500">
                                   {itemsDeSeccion.length} item(s)
                                 </span>
                               )}
+                            </button>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {subtotal > 0 ? (
+                                <span className="text-sm font-semibold text-slate-900">
+                                  {formatCurrency(subtotal)}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-slate-400">
+                                  {esActual ? "Selecciona materiales" : "Sin materiales"}
+                                </span>
+                              )}
+                              {esPersonalizada && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    eliminarSeccionPersonalizada(step.id)
+                                  }}
+                                  className="text-red-600 hover:text-red-700 p-1"
+                                  title="Eliminar sección"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
                             </div>
-                            {subtotal > 0 ? (
-                              <span className="text-sm font-semibold text-slate-900">
-                                {formatCurrency(subtotal)}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-slate-400">
-                                {esActual ? "Selecciona materiales" : "Sin materiales"}
-                              </span>
-                            )}
-                          </button>
+                          </div>
 
                           {expandir && (
                             <div className="mt-2 space-y-2">
-                              {itemsDeSeccion.length > 0 ? (
-                                <>
-                                  <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px] text-sm text-slate-500">
-                                    <span>Material</span>
-                                    <span className="text-right">P. Unit</span>
-                                    <span className="text-center">Cant</span>
-                                    <span className="text-right">Total</span>
-                                  </div>
-                                  {itemsDeSeccion.map((item) => (
-                                    <div
-                                      key={item.id}
-                                      className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px] items-center gap-2"
-                                    >
-                                      <div className="min-w-0">
-                                        <p className="text-sm font-semibold text-slate-900 truncate">
-                                          {item.descripcion}
-                                        </p>
-                                        <p className="text-sm text-slate-500 truncate">{item.categoria}</p>
+                              {/* Sección de escritura */}
+                              {seccionData?.tipo === 'extra' && seccionData.tipoExtra === 'escritura' && (
+                                <div className="space-y-2">
+                                  <Label className="text-sm text-slate-700">Contenido:</Label>
+                                  <Textarea
+                                    value={seccionData.contenidoEscritura || ""}
+                                    onChange={(e) => actualizarContenidoEscritura(step.id, e.target.value)}
+                                    placeholder="Escribe aquí el contenido de esta sección..."
+                                    className="min-h-[100px] text-sm"
+                                  />
+                                </div>
+                              )}
+
+                              {/* Sección de costos extras */}
+                              {seccionData?.tipo === 'extra' && seccionData.tipoExtra === 'costo' && (
+                                <div className="space-y-3">
+                                  {seccionData.costosExtras && seccionData.costosExtras.length > 0 ? (
+                                    <>
+                                      <div className="grid grid-cols-[minmax(0,1fr)_80px_90px_110px_40px] text-sm text-slate-500 gap-2">
+                                        <span>Descripción</span>
+                                        <span className="text-center">Cant</span>
+                                        <span className="text-right">P. Unit</span>
+                                        <span className="text-right">Total</span>
+                                        <span></span>
                                       </div>
-                                      <span className="text-sm text-slate-700 text-right">
-                                        {formatCurrency(item.precio)}
-                                      </span>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        value={item.cantidad.toString()}
-                                        onChange={(e) =>
-                                          actualizarCantidad(item.id, Number(e.target.value) || 0)
-                                        }
-                                        className="h-8 text-center text-sm"
-                                      />
-                                      <span className="text-sm font-semibold text-slate-900 text-right">
-                                        {formatCurrency(item.precio * item.cantidad)}
-                                      </span>
-                                    </div>
-                                  ))}
-                                  <div className="flex items-center justify-end text-sm font-semibold text-slate-900">
-                                    Subtotal: {formatCurrency(subtotal)}
-                                  </div>
+                                      {seccionData.costosExtras.map((costo) => (
+                                        <div
+                                          key={costo.id}
+                                          className="grid grid-cols-[minmax(0,1fr)_80px_90px_110px_40px] items-center gap-2"
+                                        >
+                                          <Input
+                                            type="text"
+                                            value={costo.descripcion}
+                                            onChange={(e) => actualizarCostoExtra(step.id, costo.id, 'descripcion', e.target.value)}
+                                            placeholder="Descripción del costo"
+                                            className="h-8 text-sm"
+                                          />
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            value={costo.cantidad}
+                                            onChange={(e) => actualizarCostoExtra(step.id, costo.id, 'cantidad', Number(e.target.value) || 0)}
+                                            className="h-8 text-center text-sm"
+                                          />
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={costo.precioUnitario}
+                                            onChange={(e) => actualizarCostoExtra(step.id, costo.id, 'precioUnitario', Number(e.target.value) || 0)}
+                                            className="h-8 text-right text-sm"
+                                          />
+                                          <span className="text-sm font-semibold text-slate-900 text-right">
+                                            {formatCurrency(costo.cantidad * costo.precioUnitario)}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => eliminarCostoExtra(step.id, costo.id)}
+                                            className="text-red-600 hover:text-red-700 text-sm"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ))}
+                                      <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => agregarCostoExtra(step.id)}
+                                          className="h-8 text-xs"
+                                        >
+                                          <Plus className="h-3 w-3 mr-1" />
+                                          Agregar costo
+                                        </Button>
+                                        <span className="text-sm font-semibold text-slate-900">
+                                          Subtotal: {formatCurrency(
+                                            seccionData.costosExtras.reduce((sum, c) => sum + (c.cantidad * c.precioUnitario), 0)
+                                          )}
+                                        </span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => agregarCostoExtra(step.id)}
+                                      className="w-full h-8 text-xs"
+                                    >
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Agregar primer costo
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Sección de materiales (normal o personalizada) */}
+                              {(!seccionData || seccionData.tipo === 'materiales') && (
+                                <>
+                                  {itemsDeSeccion.length > 0 ? (
+                                    <>
+                                      <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_40px] text-sm text-slate-500 gap-2">
+                                        <span>Material</span>
+                                        <span className="text-right">P. Unit</span>
+                                        <span className="text-center">Cant</span>
+                                        <span className="text-right">Total</span>
+                                        <span></span>
+                                      </div>
+                                      {itemsDeSeccion.map((item) => (
+                                        <div
+                                          key={item.id}
+                                          className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_40px] items-center gap-2"
+                                        >
+                                          <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900 truncate">
+                                              {materials.find(m => m.codigo.toString() === item.materialCodigo)?.nombre || item.descripcion}
+                                            </p>
+                                            <p className="text-sm text-slate-500 truncate">{item.categoria}</p>
+                                          </div>
+                                          <span className="text-sm text-slate-700 text-right">
+                                            {formatCurrency(item.precio)}
+                                          </span>
+                                          <Input
+                                            type="number"
+                                            min="0"
+                                            value={item.cantidad.toString()}
+                                            onChange={(e) =>
+                                              actualizarCantidad(item.id, Number(e.target.value) || 0)
+                                            }
+                                            className="h-8 text-center text-sm"
+                                          />
+                                          <span className="text-sm font-semibold text-slate-900 text-right">
+                                            {formatCurrency(item.precio * item.cantidad)}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => actualizarCantidad(item.id, 0)}
+                                            className="text-red-600 hover:text-red-700 text-sm"
+                                          >
+                                            ✕
+                                          </button>
+                                        </div>
+                                      ))}
+                                      <div className="flex items-center justify-end text-sm font-semibold text-slate-900">
+                                        Subtotal: {formatCurrency(subtotal)}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <p className="text-sm text-slate-400">
+                                      Selecciona materiales en la columna derecha.
+                                    </p>
+                                  )}
                                 </>
-                              ) : (
-                                <p className="text-sm text-slate-400">
-                                  Selecciona materiales en la columna derecha.
-                                </p>
                               )}
                             </div>
                           )}
                         </div>
                       )
                     })}
+
+                    {/* Botón para agregar sección */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={abrirDialogoSeccion}
+                      className="w-full border-dashed border-2 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Sección Personalizada
+                    </Button>
                   </div>
 
                   {/* Total de Materiales */}
@@ -604,7 +1886,7 @@ export function ConfeccionOfertasView() {
                             >
                               <div className="min-w-0">
                                 <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {elem.descripcion}
+                                  {materials.find(m => m.codigo.toString() === elem.materialCodigo)?.nombre || elem.descripcion}
                                 </p>
                                 <p className="text-sm text-slate-500 truncate">{elem.categoria}</p>
                               </div>
@@ -664,6 +1946,12 @@ export function ConfeccionOfertasView() {
                         <span className="font-medium">{formatCurrency(totalElementosPersonalizados)}</span>
                       </div>
                     )}
+                    {totalCostosExtras > 0 && (
+                      <div className="flex items-center justify-between text-sm text-slate-700">
+                        <span>Costos Extras</span>
+                        <span className="font-medium">{formatCurrency(totalCostosExtras)}</span>
+                      </div>
+                    )}
                     <div className="pt-2 border-t-2 border-emerald-600">
                       <div className="flex items-center justify-between">
                         <span className="text-base font-bold text-emerald-900">Precio Final</span>
@@ -679,14 +1967,194 @@ export function ConfeccionOfertasView() {
                     </div>
                   </div>
                 </div>
+
+                {/* Botón de Crear Oferta */}
+                {!ofertaCreada ? (
+                  <Button
+                    onClick={handleCrearOferta}
+                    disabled={creandoOferta || items.length === 0 || !almacenId || (!ofertaGenerica && !clienteId)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base font-semibold"
+                  >
+                    {creandoOferta ? (
+                      <>
+                        <span className="animate-spin mr-2">⏳</span>
+                        Creando Oferta...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="h-5 w-5 mr-2" />
+                        Crear Oferta
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="rounded-md border-2 border-emerald-600 bg-emerald-50 px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-emerald-900 mb-1">
+                            Oferta Creada Exitosamente
+                          </h4>
+                          <p className="text-xs text-emerald-700 mb-2">
+                            ID: {ofertaId}
+                          </p>
+                          <p className="text-xs text-emerald-700">
+                            {nombreAutomatico}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={resetearOferta}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        Nueva Oferta
+                      </Button>
+                      {!materialesReservados && almacenId && (
+                        <Button
+                          onClick={handleReservarMateriales}
+                          className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <Lock className="h-4 w-4 mr-2" />
+                          Reservar Materiales
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Botón de Reservar Materiales - Solo si la oferta ya está creada */}
+                {ofertaCreada && items.length > 0 && almacenId && !materialesReservados && (
+                  <div className="rounded-md border border-slate-300 bg-slate-50 px-4 py-3">
+                    <p className="text-xs text-slate-600 text-center">
+                      💡 Puedes reservar los materiales usando el botón de arriba
+                    </p>
+                  </div>
+                )}
+
+                {/* Sección de Reserva - Solo visible después de crear la oferta */}
+                {ofertaCreada && items.length > 0 && almacenId && (
+                  <div className="rounded-md border-2 border-blue-600 bg-blue-50 px-4 py-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <Lock className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-semibold text-blue-900 mb-1">
+                            Reservar Materiales del Almacén
+                          </h4>
+                          {materialesReservados ? (
+                            <div className="space-y-2">
+                              <p className="text-xs text-blue-700">
+                                Los materiales de esta oferta están reservados en el almacén
+                              </p>
+                              {fechaExpiracionReserva && (
+                                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                                  ⏰ Reserva temporal hasta: {fechaExpiracionReserva.toLocaleDateString('es-ES', { 
+                                    day: '2-digit', 
+                                    month: '2-digit', 
+                                    year: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                              )}
+                              {!fechaExpiracionReserva && (
+                                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1">
+                                  ✓ Reserva definitiva
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-blue-700">
+                              Reserva los materiales para asegurar su disponibilidad. Puedes elegir una reserva temporal o definitiva.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {materialesReservados ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="font-medium">
+                              {items.length} material{items.length !== 1 ? 'es' : ''} reservado{items.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          {fechaExpiracionReserva && (
+                            <Button
+                              onClick={cancelarReserva}
+                              variant="outline"
+                              className="w-full border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800"
+                            >
+                              <X className="h-4 w-4 mr-2" />
+                              Cancelar Reserva
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        <Button
+                          onClick={handleReservarMateriales}
+                          disabled={reservandoMateriales}
+                          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          {reservandoMateriales ? (
+                            <>
+                              <span className="animate-spin mr-2">⏳</span>
+                              Reservando...
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="h-4 w-4 mr-2" />
+                              Reservar {items.length} Material{items.length !== 1 ? 'es' : ''}
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           {/* Panel derecho: grid de materiales */}
           <div className="w-full flex-1 min-h-0 flex flex-col bg-white">
-            {/* Buscador */}
-            <div className="sticky top-0 z-10 px-6 py-4 border-b bg-white">
+            {/* Buscador y selector de almacén */}
+            <div className="sticky top-0 z-10 px-6 py-4 border-b bg-white space-y-3">
+              {/* Selector de almacén */}
+              <div className="flex items-center gap-3">
+                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                  Almacén:
+                </label>
+                <Select value={almacenId} onValueChange={setAlmacenId}>
+                  <SelectTrigger className={`w-full max-w-[300px] h-9 ${!almacenId ? 'border-orange-300 bg-orange-50' : ''}`}>
+                    <SelectValue placeholder="Seleccionar almacén" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {almacenes.length === 0 ? (
+                      <div className="p-2 text-sm text-gray-500">
+                        No hay almacenes disponibles
+                      </div>
+                    ) : (
+                      almacenes.map((almacen) => (
+                        <SelectItem key={almacen.id} value={almacen.id ?? ""}>
+                          {almacen.nombre}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {almacenId && (
+                  <Badge variant="outline" className="text-xs">
+                    {materialesConStock.length} materiales con stock
+                  </Badge>
+                )}
+              </div>
+
+              {/* Buscador */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
@@ -707,8 +2175,20 @@ export function ConfeccionOfertasView() {
                 )}
               </div>
               {mostrarElementosPersonalizados && (
-                <p className="text-xs text-blue-600 mt-2 font-medium">
+                <p className="text-xs text-blue-600 font-medium">
                   Modo: Elementos Personalizados - Haz clic en un material para agregarlo
+                </p>
+              )}
+              {ofertaCreada && (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-xs text-emerald-700 font-medium">
+                    ✓ Oferta creada - Para modificar, crea una nueva oferta
+                  </p>
+                </div>
+              )}
+              {!almacenId && (
+                <p className="text-xs text-orange-600 font-medium">
+                  ⚠️ Selecciona un almacén para ver los materiales disponibles
                 </p>
               )}
             </div>
@@ -724,6 +2204,8 @@ export function ConfeccionOfertasView() {
                     <p className="text-sm text-gray-500">
                       {searchQuery
                         ? `No hay resultados para "${searchQuery}"`
+                        : activeStep && 'seccionData' in activeStep && activeStep.seccionData?.tipo === 'extra'
+                        ? `Esta es una sección de ${activeStep.seccionData.tipoExtra === 'escritura' ? 'texto' : 'costos extras'}`
                         : `No hay materiales en ${activeStep?.label ?? "esta categoria"}`}
                     </p>
                   </div>
@@ -739,12 +2221,15 @@ export function ConfeccionOfertasView() {
                       return (
                         <Card
                           key={`${material.codigo}-${material.categoria}`}
-                          className="cursor-pointer hover:shadow-lg transition-shadow border border-slate-200 bg-white overflow-hidden"
-                          onClick={() =>
+                          className={`cursor-pointer hover:shadow-lg transition-shadow border border-slate-200 bg-white overflow-hidden ${
+                            ofertaCreada ? 'opacity-50 cursor-not-allowed' : ''
+                          }`}
+                          onClick={() => {
+                            if (ofertaCreada) return
                             mostrarElementosPersonalizados
                               ? agregarMaterialPersonalizado(material)
                               : agregarMaterial(material)
-                          }
+                          }}
                         >
                           <CardContent className="p-3">
                             <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden border border-slate-200">
@@ -776,19 +2261,42 @@ export function ConfeccionOfertasView() {
                             </div>
                             <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
                               <h3 className="font-medium text-sm line-clamp-2 min-h-[40px] text-slate-900 break-words">
-                                {material.descripcion}
+                                {material.nombre || material.descripcion}
                               </h3>
                             </div>
-                            <div className="mt-auto flex items-center justify-between gap-2 min-w-0">
-                              <p className="text-base font-semibold text-orange-600">
-                                ${material.precio ? material.precio.toFixed(2) : "0.00"}
-                              </p>
-                              <Badge
-                                variant="outline"
-                                className="text-xs border border-blue-200 text-blue-700 bg-blue-50 flex-shrink-0 max-w-[60%] truncate"
-                              >
-                                {material.categoria}
-                              </Badge>
+                            <div className="mt-auto space-y-2">
+                              <div className="flex items-center justify-between gap-2 min-w-0">
+                                <p className="text-base font-semibold text-orange-600">
+                                  ${material.precio ? material.precio.toFixed(2) : "0.00"}
+                                </p>
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs border border-blue-200 text-blue-700 bg-blue-50 flex-shrink-0 max-w-[60%] truncate"
+                                >
+                                  {material.categoria}
+                                </Badge>
+                              </div>
+                              {almacenId && 'stock_disponible' in material && typeof (material as any).stock_disponible === 'number' && (
+                                <div className="flex items-center justify-between gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-xs flex-shrink-0 ${
+                                      (material as any).stock_disponible > 10
+                                        ? 'border-emerald-300 text-emerald-700 bg-emerald-50'
+                                        : (material as any).stock_disponible > 0
+                                        ? 'border-amber-300 text-amber-700 bg-amber-50'
+                                        : 'border-red-300 text-red-700 bg-red-50'
+                                    }`}
+                                  >
+                                    Stock: {(material as any).stock_disponible}
+                                  </Badge>
+                                  {selectedCount > 0 && (
+                                    <Badge className="bg-slate-900 text-white text-xs">
+                                      En oferta: {selectedCount}
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
@@ -801,6 +2309,316 @@ export function ConfeccionOfertasView() {
           </div>
         </div>
       </div>
+
+      {/* Diálogo para agregar sección personalizada */}
+      <Dialog open={mostrarDialogoSeccion} onOpenChange={setMostrarDialogoSeccion}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Agregar Sección Personalizada</DialogTitle>
+            <DialogDescription>
+              Crea una nueva sección para materiales específicos, notas adicionales o costos extras en tu oferta.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Nombre de la sección */}
+            <div className="space-y-2">
+              <Label htmlFor="nombre-seccion">Nombre de la sección *</Label>
+              <Input
+                id="nombre-seccion"
+                value={nombreSeccionNueva}
+                onChange={(e) => setNombreSeccionNueva(e.target.value)}
+                placeholder="Ej: Instalación, Mano de obra, Notas adicionales..."
+              />
+            </div>
+
+            {/* Tipo de sección */}
+            <div className="space-y-2">
+              <Label>Tipo de sección *</Label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoSeccionNueva('materiales')
+                    setTipoExtraSeccion(null)
+                  }}
+                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                    tipoSeccionNueva === 'materiales'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <Package className="h-6 w-6 mx-auto mb-2 text-blue-600" />
+                  <p className="font-semibold text-sm">Materiales</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Selecciona categorías de materiales para mostrar
+                  </p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTipoSeccionNueva('extra')
+                    setTipoExtraSeccion(null)
+                  }}
+                  className={`flex-1 p-4 rounded-lg border-2 transition-all ${
+                    tipoSeccionNueva === 'extra'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <Plus className="h-6 w-6 mx-auto mb-2 text-purple-600" />
+                  <p className="font-semibold text-sm">Extra</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Agrega texto o costos adicionales
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Configuración para materiales */}
+            {tipoSeccionNueva === 'materiales' && (
+              <div className="space-y-2">
+                <Label>Categorías de materiales a mostrar *</Label>
+                <div className="border rounded-lg p-3 max-h-[300px] overflow-y-auto space-y-2">
+                  {categoriasDisponibles.length === 0 ? (
+                    <p className="text-sm text-slate-500 text-center py-4">
+                      No hay categorías disponibles
+                    </p>
+                  ) : (
+                    categoriasDisponibles.map((categoria) => (
+                      <label
+                        key={categoria}
+                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={categoriasSeleccionadas.includes(categoria)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCategoriasSeleccionadas(prev => [...prev, categoria])
+                            } else {
+                              setCategoriasSeleccionadas(prev => prev.filter(c => c !== categoria))
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">{categoria}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+                {categoriasSeleccionadas.length > 0 && (
+                  <p className="text-xs text-slate-600">
+                    {categoriasSeleccionadas.length} categoría(s) seleccionada(s)
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Configuración para extras */}
+            {tipoSeccionNueva === 'extra' && (
+              <div className="space-y-3">
+                <Label>Tipo de contenido extra *</Label>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setTipoExtraSeccion('escritura')}
+                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      tipoExtraSeccion === 'escritura'
+                        ? 'border-green-500 bg-green-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <p className="font-semibold text-sm">Solo Escritura</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Campo de texto libre para notas o descripciones
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTipoExtraSeccion('costo')}
+                    className={`flex-1 p-3 rounded-lg border-2 transition-all ${
+                      tipoExtraSeccion === 'costo'
+                        ? 'border-orange-500 bg-orange-50'
+                        : 'border-slate-200 hover:border-slate-300'
+                    }`}
+                  >
+                    <p className="font-semibold text-sm">Costo Extra</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Agrega costos con descripción, cantidad y precio
+                    </p>
+                  </button>
+                </div>
+
+                {tipoExtraSeccion === 'escritura' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="contenido-escritura">Contenido inicial (opcional)</Label>
+                    <Textarea
+                      id="contenido-escritura"
+                      value={contenidoEscritura}
+                      onChange={(e) => setContenidoEscritura(e.target.value)}
+                      placeholder="Puedes agregar contenido inicial o dejarlo vacío para llenarlo después..."
+                      className="min-h-[100px]"
+                    />
+                  </div>
+                )}
+
+                {tipoExtraSeccion === 'costo' && (
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-sm text-slate-600">
+                      Los costos se agregarán después de crear la sección. Podrás añadir múltiples costos con descripción, cantidad y precio unitario.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={cerrarDialogoSeccion}>
+              Cancelar
+            </Button>
+            <Button onClick={agregarSeccionPersonalizada}>
+              Agregar Sección
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para seleccionar tipo de reserva */}
+      <Dialog open={mostrarDialogoReserva} onOpenChange={setMostrarDialogoReserva}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Tipo de Reserva de Materiales</DialogTitle>
+            <DialogDescription>
+              Selecciona si deseas reservar los materiales de forma temporal o definitiva.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              {/* Opción Temporal */}
+              <button
+                type="button"
+                onClick={() => setTipoReserva('temporal')}
+                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                  tipoReserva === 'temporal'
+                    ? 'border-amber-500 bg-amber-50'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+                    tipoReserva === 'temporal' ? 'border-amber-500' : 'border-slate-300'
+                  }`}>
+                    {tipoReserva === 'temporal' && (
+                      <div className="h-3 w-3 rounded-full bg-amber-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm text-slate-900 mb-1">
+                      Reserva Temporal
+                    </p>
+                    <p className="text-xs text-slate-600 mb-2">
+                      Los materiales se reservan por un período específico. Al vencer el plazo, la reserva se cancela automáticamente y los materiales vuelven a estar disponibles.
+                    </p>
+                    {tipoReserva === 'temporal' && (
+                      <div className="mt-3 space-y-2">
+                        <Label htmlFor="dias-reserva" className="text-xs">
+                          Días de reserva:
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="dias-reserva"
+                            type="number"
+                            min="1"
+                            max="365"
+                            value={diasReserva}
+                            onChange={(e) => setDiasReserva(Number(e.target.value) || 1)}
+                            className="h-9 w-24"
+                          />
+                          <span className="text-sm text-slate-600">
+                            días ({diasReserva === 1 ? '1 día' : `${diasReserva} días`})
+                          </span>
+                        </div>
+                        <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                          ⏰ Expira el: {new Date(Date.now() + diasReserva * 24 * 60 * 60 * 1000).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: 'long',
+                            year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </button>
+
+              {/* Opción Definitiva */}
+              <button
+                type="button"
+                onClick={() => setTipoReserva('definitiva')}
+                className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                  tipoReserva === 'definitiva'
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : 'border-slate-200 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 h-5 w-5 rounded-full border-2 flex items-center justify-center ${
+                    tipoReserva === 'definitiva' ? 'border-emerald-500' : 'border-slate-300'
+                  }`}>
+                    {tipoReserva === 'definitiva' && (
+                      <div className="h-3 w-3 rounded-full bg-emerald-500" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-sm text-slate-900 mb-1">
+                      Reserva Definitiva
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      Los materiales se reservan de forma permanente hasta que se complete la oferta o se cancele manualmente. No hay fecha de expiración automática.
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            {/* Resumen de materiales */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold text-slate-700 mb-2">
+                Materiales a reservar:
+              </p>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600">Total de materiales:</span>
+                  <span className="font-semibold text-slate-900">{items.length}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-600">Almacén:</span>
+                  <span className="font-semibold text-slate-900">
+                    {almacenes.find(a => a.id === almacenId)?.nombre || 'N/A'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={cerrarDialogoReserva}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmarReserva}
+              disabled={!tipoReserva}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Lock className="h-4 w-4 mr-2" />
+              Confirmar Reserva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

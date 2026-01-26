@@ -67,8 +67,7 @@ export function MaterialsTable({ materials, onEdit, onDelete, marcas = [] }: Mat
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">Código</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[130px]">Categoría</th>
-            <th className="text-left py-3 px-2 font-semibold text-gray-900">Material</th>
-            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">Nombre</th>
+            <th className="text-left py-3 px-2 font-semibold text-gray-900">Nombre</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Marca</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Potencia</th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Precio</th>
@@ -112,11 +111,6 @@ export function MaterialsTable({ materials, onEdit, onDelete, marcas = [] }: Mat
                   <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs inline-block max-w-full truncate">
                     {material.categoria}
                   </Badge>
-                </div>
-              </td>
-              <td className="py-3 px-2">
-                <div className="min-w-0">
-                  <p className="text-sm text-gray-900 line-clamp-2">{material.descripcion}</p>
                 </div>
               </td>
               <td className="py-3 px-2">

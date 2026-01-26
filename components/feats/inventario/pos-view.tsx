@@ -820,7 +820,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                             </span>
                             <div className="min-w-0">
                               <p className="text-base font-normal text-slate-900 truncate">
-                                {item.descripcion}
+                                {materials.find(m => m.codigo.toString() === item.materialCodigo)?.nombre || item.descripcion}
                               </p>
                             </div>
                           </div>
@@ -1027,7 +1027,7 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
                           </div>
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <h3 className="font-medium text-sm line-clamp-2 min-h-[40px] text-slate-900">
-                              {material.descripcion}
+                              {material.nombre || material.descripcion}
                             </h3>
                           </div>
                           <div className="mt-auto flex items-center justify-between gap-2">
