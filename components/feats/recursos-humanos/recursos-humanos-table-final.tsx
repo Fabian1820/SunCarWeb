@@ -96,6 +96,7 @@ export function RecursosHumanosTableFinal({
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<TrabajadorRRHH | null>(null)
   const [guardando, setGuardando] = useState<{ci: string, campo: string} | null>(null)
   const [salariosCalculados, setSalariosCalculados] = useState<Record<string, number | null>>({})
+  const [filaResaltada, setFilaResaltada] = useState<string | null>(null)
 
   // Recalcular salarios cuando cambien los datos
   useEffect(() => {
@@ -236,7 +237,7 @@ export function RecursosHumanosTableFinal({
 
     if (estaEditando) {
       return (
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-1">
           <Input
             type={tipo}
             value={valores[key] ?? valorActual}
@@ -249,7 +250,7 @@ export function RecursosHumanosTableFinal({
                 setValores({ ...valores, [key]: e.target.value })
               }
             }}
-            className="w-24 h-8 text-sm"
+            className="w-20 h-7 text-sm px-2"
             min={tipo === 'number' ? 0 : undefined}
             step={tipo === 'number' ? step : undefined}
             autoFocus
@@ -265,18 +266,18 @@ export function RecursosHumanosTableFinal({
             size="sm"
             onClick={() => guardarCampo(trabajador.CI, campo)}
             disabled={estaGuardando}
-            className="h-8 px-2 bg-green-600 hover:bg-green-700"
+            className="h-7 w-7 p-0 bg-green-600 hover:bg-green-700"
           >
-            <Check className="h-4 w-4" />
+            <Check className="h-3 w-3" />
           </Button>
           <Button
             size="sm"
             variant="outline"
             onClick={cancelarEdicion}
             disabled={estaGuardando}
-            className="h-8 px-2"
+            className="h-7 w-7 p-0"
           >
-            ✕
+            <span className="text-xs">✕</span>
           </Button>
         </div>
       )
@@ -285,7 +286,7 @@ export function RecursosHumanosTableFinal({
     return (
       <button
         onClick={() => iniciarEdicion(trabajador.CI, campo, valorActual)}
-        className="hover:bg-purple-100 px-2 py-1 rounded transition-colors"
+        className="hover:bg-purple-100 px-1 py-1 rounded transition-colors w-full"
         title="Click para editar (Enter para guardar, Esc para cancelar)"
       >
         {valorActual}
@@ -307,29 +308,41 @@ export function RecursosHumanosTableFinal({
         <table className="w-full">
           <thead>
             <tr className="border-b-2 border-gray-200">
-              <th className="text-left py-3 px-4 font-semibold text-gray-900 sticky left-0 bg-white z-10">Nombre</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-900">Cargo</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Fijo</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">% Est. Variable</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">Salario Fijo</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">Alimentación</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">Días Trabajables</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900">Días No Trabajados</th>
-              <th className="text-center py-3 px-4 font-semibold text-gray-900 bg-green-50">Salario Calculado</th>
-              {!isVistaHistorica && <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>}
+              <th className="text-left py-3 px-3 font-semibold text-gray-900 sticky left-0 bg-white z-10 min-w-[160px]">Nombre</th>
+              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[130px]">Cargo</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Fijo</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Var.</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[100px]">Salario</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[90px]">Aliment.</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">Días T.</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">NT</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 bg-green-50 w-[110px]">Total</th>
+              {!isVistaHistorica && <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] w-[80px]">Acc.</th>}
             </tr>
           </thead>
           <tbody>
             {trabajadores.map((trabajador) => {
               const salarioCalculado = salariosCalculados[trabajador.CI]
+              const estaResaltada = filaResaltada === trabajador.CI
 
               return (
-                <tr key={trabajador.CI} className="border-b border-gray-100 hover:bg-purple-50/50">
-                  {/* Nombre + Asistencia */}
-                  <td className="py-4 px-4 sticky left-0 bg-white z-10">
+                <tr 
+                  key={trabajador.CI} 
+                  className={`border-b border-gray-100 transition-colors duration-150 group ${
+                    estaResaltada ? 'bg-purple-200/60' : 'hover:bg-purple-50/30'
+                  }`}
+                >
+                  {/* Nombre + Asistencia - IMPORTANTE: Más grande */}
+                  <td 
+                    className={`py-3 px-3 sticky left-0 z-10 transition-colors duration-150 cursor-pointer ${
+                      estaResaltada ? 'bg-purple-200/60' : 'bg-white group-hover:bg-purple-50/30'
+                    }`}
+                    onMouseEnter={() => setFilaResaltada(trabajador.CI)}
+                    onMouseLeave={() => setFilaResaltada(null)}
+                  >
                     <div>
                       <p className="font-medium text-gray-900">{trabajador.nombre}</p>
-                      <div className="flex items-center gap-2 mt-1">
+                      <div className="flex items-center gap-1 mt-1">
                         {!trabajador.is_brigadista ? (
                           <AsistenciaBadge
                             estaEnOficina={estadoAsistencia?.get(trabajador.CI) ?? false}
@@ -342,83 +355,101 @@ export function RecursosHumanosTableFinal({
                     </div>
                   </td>
 
-                  {/* Cargo */}
-                  <td className="py-4 px-4 text-center">
+                  {/* Cargo - IMPORTANTE: Más grande */}
+                  <td className={`py-3 px-3 text-left transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? trabajador.cargo : renderCampoEditable(trabajador, 'cargo', trabajador.cargo, 'text')}
                   </td>
 
-                  {/* % Estímulo Fijo - step: 1 */}
-                  <td className="py-4 px-4 text-center">
+                  {/* % Estímulo Fijo - Menos importante: más pequeño */}
+                  <td className={`py-3 px-2 text-center text-sm transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? trabajador.porcentaje_fijo_estimulo : renderCampoEditable(trabajador, 'porcentaje_fijo_estimulo', trabajador.porcentaje_fijo_estimulo, 'number', 1)}
                   </td>
 
-                  {/* % Estímulo Variable - step: 1 */}
-                  <td className="py-4 px-4 text-center">
+                  {/* % Estímulo Variable - Menos importante: más pequeño */}
+                  <td className={`py-3 px-2 text-center text-sm transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? trabajador.porcentaje_variable_estimulo : renderCampoEditable(trabajador, 'porcentaje_variable_estimulo', trabajador.porcentaje_variable_estimulo, 'number', 1)}
                   </td>
 
-                  {/* Salario Fijo - step: 1000 */}
-                  <td className="py-4 px-4 text-center">
+                  {/* Salario Fijo - IMPORTANTE: Tamaño normal */}
+                  <td className={`py-3 px-2 text-center transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? trabajador.salario_fijo : renderCampoEditable(trabajador, 'salario_fijo', trabajador.salario_fijo, 'number', 1000)}
                   </td>
 
-                  {/* Alimentación - step: 1000 */}
-                  <td className="py-4 px-4 text-center">
+                  {/* Alimentación - IMPORTANTE: Tamaño normal */}
+                  <td className={`py-3 px-2 text-center transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? trabajador.alimentacion : renderCampoEditable(trabajador, 'alimentacion', trabajador.alimentacion, 'number', 1000)}
                   </td>
 
-                  {/* Días Trabajables - step: 1 */}
-                  <td className="py-4 px-4 text-center">
+                  {/* Días Trabajables - Menos importante: más pequeño */}
+                  <td className={`py-3 px-2 text-center text-sm transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? trabajador.dias_trabajables : renderCampoEditable(trabajador, 'dias_trabajables', trabajador.dias_trabajables, 'number', 1)}
                   </td>
 
-                  {/* Días No Trabajados */}
-                  <td className="py-4 px-4">
+                  {/* Días No Trabajados - Menos importante: más pequeño */}
+                  <td className={`py-3 px-2 transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
                     {isVistaHistorica ? (
-                      <div className="text-center">
-                        {trabajador.dias_no_trabajados.length} días
+                      <div className="text-center text-sm">
+                        {trabajador.dias_no_trabajados.length}
                       </div>
                     ) : (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => abrirCalendario(trabajador)}
-                        className="w-full border-purple-300 text-purple-700 hover:bg-purple-50"
+                        className="w-full border-purple-300 text-purple-700 hover:bg-purple-50 h-7 text-xs px-1"
                       >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        {trabajador.dias_no_trabajados.length} días
+                        <Calendar className="h-3 w-3" />
+                        <span className="ml-1">{trabajador.dias_no_trabajados.length}</span>
                       </Button>
                     )}
                   </td>
 
-                  {/* Salario Calculado */}
-                  <td className="py-4 px-4 bg-green-50">
+                  {/* Salario Calculado - MUY IMPORTANTE: Más grande y destacado */}
+                  <td className={`py-3 px-2 transition-colors duration-150 ${
+                    estaResaltada ? 'bg-green-200/80' : 'bg-green-50 group-hover:bg-green-100/50'
+                  }`}>
                     <div className="text-center">
                       {salarioCalculado !== null && salarioCalculado !== undefined ? (
-                        <span className="font-bold text-green-700 text-lg">
-                          ${salarioCalculado.toFixed(2)}
+                        <span className="font-bold text-green-700 text-base">
+                          ${salarioCalculado.toFixed(0)}
                         </span>
                       ) : (
-                        <span className="text-gray-400 text-sm italic">
-                          Datos incompletos
+                        <span className="text-gray-400 text-xs italic">
+                          N/A
                         </span>
                       )}
                     </div>
                   </td>
 
-                  {/* Acciones */}
+                  {/* Acciones - Menos importante: iconos pequeños */}
                   {!isVistaHistorica && (
-                    <td className="py-4 px-4">
-                      <div className="flex items-center justify-center gap-2">
+                    <td className={`py-3 px-2 sticky right-0 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] transition-colors duration-150 ${
+                      estaResaltada ? 'bg-purple-200/60' : 'bg-white group-hover:bg-purple-50/30'
+                    }`}>
+                      <div className="flex items-center justify-center gap-1">
                         {onVerDetalles && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => onVerDetalles(trabajador)}
-                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                            title="Ver detalles del trabajador"
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50 h-7 w-7 p-0"
+                            title="Ver detalles"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-3.5 w-3.5" />
                           </Button>
                         )}
                         {onEliminarTrabajador && (
@@ -426,10 +457,10 @@ export function RecursosHumanosTableFinal({
                             variant="ghost"
                             size="sm"
                             onClick={() => onEliminarTrabajador(trabajador.CI, trabajador.nombre)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                            title="Eliminar trabajador"
+                            className="text-red-600 hover:text-red-800 hover:bg-red-50 h-7 w-7 p-0"
+                            title="Eliminar"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
@@ -441,49 +472,51 @@ export function RecursosHumanosTableFinal({
             
             {/* Fila de totales */}
             <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
-              <td colSpan={2} className="py-3 px-4 text-center">
+              <td colSpan={2} className="py-2 px-3 text-center sticky left-0 bg-gray-100 z-10">
                 <span className="text-gray-700">TOTALES</span>
               </td>
-              <td className="py-3 px-4 text-center">
+              <td className="py-2 px-2 text-center text-sm">
                 <span className="text-blue-600">
                   {trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0).toFixed(1)}%
                 </span>
                 {trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0) > 100 && (
-                  <span className="text-red-500 ml-2">⚠️</span>
+                  <span className="text-red-500 ml-1">⚠️</span>
                 )}
               </td>
-              <td className="py-3 px-4 text-center">
+              <td className="py-2 px-2 text-center text-sm">
                 <span className="text-purple-600">
                   {trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0).toFixed(1)}%
                 </span>
                 {trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0) > 100 && (
-                  <span className="text-red-500 ml-2">⚠️</span>
+                  <span className="text-red-500 ml-1">⚠️</span>
                 )}
               </td>
-              <td className="py-3 px-4 text-center">
+              <td className="py-2 px-2 text-center">
                 <span className="text-gray-600">
-                  {trabajadores.reduce((sum, t) => sum + (t.salario_fijo || 0), 0).toFixed(2)}
+                  {trabajadores.reduce((sum, t) => sum + (t.salario_fijo || 0), 0).toFixed(0)}
                 </span>
               </td>
-              <td className="py-3 px-4 text-center">
+              <td className="py-2 px-2 text-center">
                 <span className="text-gray-600">
-                  {trabajadores.reduce((sum, t) => sum + (t.alimentacion || 0), 0).toFixed(2)}
+                  {trabajadores.reduce((sum, t) => sum + (t.alimentacion || 0), 0).toFixed(0)}
                 </span>
               </td>
-              <td className="py-3 px-4 text-center">
+              <td className="py-2 px-2 text-center text-sm">
                 <span className="text-gray-400">-</span>
               </td>
-              <td className="py-3 px-4 text-center">
+              <td className="py-2 px-2 text-center text-sm">
                 <span className="text-gray-400">-</span>
               </td>
-              <td className="py-3 px-4 text-center bg-green-100">
-                <span className="font-bold text-green-800 text-lg">
-                  ${Object.values(salariosCalculados).reduce((sum, salario) => sum + (salario || 0), 0).toFixed(2)}
+              <td className="py-2 px-2 text-center bg-green-100">
+                <span className="font-bold text-green-800 text-base">
+                  ${Object.values(salariosCalculados).reduce((sum, salario) => sum + (salario || 0), 0).toFixed(0)}
                 </span>
               </td>
-              <td className="py-3 px-4 text-center">
-                <span className="text-gray-400">-</span>
-              </td>
+              {!isVistaHistorica && (
+                <td className="py-2 px-2 text-center text-sm sticky right-0 bg-gray-100 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                  <span className="text-gray-400">-</span>
+                </td>
+              )}
             </tr>
           </tbody>
         </table>

@@ -19,6 +19,7 @@ import { ArchivoNominasList } from "@/components/feats/recursos-humanos/archivo-
 import { ArchivoNominaDetail } from "@/components/feats/recursos-humanos/archivo-nomina-detail"
 import { GuardarNominaDialog } from "@/components/feats/recursos-humanos/guardar-nomina-dialog"
 import { NominaNavigation } from "@/components/feats/recursos-humanos/nomina-navigation"
+import { RecursosHumanosFilters } from "@/components/feats/recursos-humanos/recursos-humanos-filters"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { useArchivoRH } from "@/hooks/use-archivo-rh"
@@ -78,6 +79,12 @@ export default function RecursosHumanosPage() {
   const [periodoVisualizando, setPeriodoVisualizando] = useState<{ mes: number; anio: number } | null>(null)
   const [datosNominaHistorica, setDatosNominaHistorica] = useState<ArchivoNominaRH | null>(null)
 
+  // Estados para filtros
+  const [filtros, setFiltros] = useState<{ searchTerm: string; cargoSeleccionado: string }>({
+    searchTerm: "",
+    cargoSeleccionado: ""
+  })
+
   const { toast } = useToast()
 
   // Cargar cargos cuando se cambia a vista de cargos
@@ -102,12 +109,31 @@ export default function RecursosHumanosPage() {
   const estaViendoHistorico = periodoVisualizando !== null
   const mesVisualizando = estaViendoHistorico ? periodoVisualizando!.mes : mesActual
   const anioVisualizando = estaViendoHistorico ? periodoVisualizando!.anio : anioActual
-  const trabajadoresMostrar = estaViendoHistorico
+  const trabajadoresBase = estaViendoHistorico
     ? (datosNominaHistorica?.trabajadores as any as TrabajadorRRHH[] || [])
     : trabajadores
   const ingresoMostrar = estaViendoHistorico
     ? datosNominaHistorica?.ingreso_mensual_monto || 0
     : (ultimoIngreso?.monto || 0)
+
+  // Aplicar filtros a los trabajadores
+  const trabajadoresMostrar = trabajadoresBase.filter((trabajador) => {
+    // Filtro por nombre (búsqueda local)
+    const matchesSearch = filtros.searchTerm === "" || 
+      trabajador.nombre.toLowerCase().includes(filtros.searchTerm.toLowerCase())
+    
+    // Filtro por cargo
+    const matchesCargo = filtros.cargoSeleccionado === "" || 
+      trabajador.cargo === filtros.cargoSeleccionado
+    
+    return matchesSearch && matchesCargo
+  })
+
+  // Obtener lista única de cargos para el filtro
+  const cargosDisponibles = Array.from(new Set(trabajadoresBase.map(t => t.cargo))).sort()
+
+  // Verificar si hay filtros activos
+  const hasActiveFilters = filtros.searchTerm !== "" || filtros.cargoSeleccionado !== ""
 
   const handleActualizarCampo = async (ci: string, campo: string, valor: any) => {
     const result = await actualizarCampoTrabajador(ci, campo as any, valor)
@@ -586,6 +612,11 @@ export default function RecursosHumanosPage() {
                     ? 'Vista consolidada de trabajadores agrupados por cargo con totales sumados de salarios y porcentajes de estímulos.'
                     : 'Historial completo de nóminas guardadas. Las nóminas archivadas son inmutables y no pueden editarse.'
                   }
+                  {vistaActual === 'trabajadores' && hasActiveFilters && (
+                    <span className="block mt-1 text-purple-600 font-medium">
+                      Mostrando {trabajadoresMostrar.length} de {trabajadoresBase.length} trabajadores
+                    </span>
+                  )}
                 </CardDescription>
               </div>
 
@@ -621,6 +652,12 @@ export default function RecursosHumanosPage() {
                     onVolverActual={handleVolverActual}
                   />
                 </div>
+
+                {/* Filtros */}
+                <RecursosHumanosFilters
+                  cargosDisponibles={cargosDisponibles}
+                  onFilterChange={setFiltros}
+                />
 
                 <RecursosHumanosTableFinal
                   trabajadores={trabajadoresMostrar}
