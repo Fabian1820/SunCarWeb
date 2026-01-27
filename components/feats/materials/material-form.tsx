@@ -145,8 +145,6 @@ export function MaterialForm({
     const newErrors: Record<string, string> = {}
     if (!formData.codigo.trim()) {
       newErrors.codigo = "El código es requerido"
-    } else if (isNaN(Number(formData.codigo))) {
-      newErrors.codigo = "El código debe ser un número"
     }
     if (!formData.categoria) {
       newErrors.categoria = "Selecciona una categoría"
@@ -197,7 +195,7 @@ export function MaterialForm({
       // 2. Preparar datos del material
       if (onSubmit) {
         const materialData = {
-          codigo: Number(formData.codigo),
+          codigo: formData.codigo,
           categoria: formData.categoria,
           descripcion: formData.descripcion,
           um: formData.um,
@@ -298,7 +296,7 @@ export function MaterialForm({
                 id="material-codigo"
                 value={formData.codigo}
                 onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
-                placeholder="Ej: 5401090096"
+                placeholder="Ej: ABC123 o 5401090096"
                 className={error && !formData.codigo ? "border-red-300" : ""}
                 disabled={isSubmitting || uploadingFoto}
               />

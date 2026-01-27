@@ -124,7 +124,7 @@ export function useMaterials(): UseMaterialsReturn {
         console.log('[useMaterials] Current materials before add:', prev.length);
         const newMaterial: Material = {
           id: `${productoId}_${material.codigo}`,
-          codigo: Number(material.codigo),
+          codigo: material.codigo,
           descripcion: material.descripcion,
           um: material.um,
           precio: material.precio,
@@ -191,7 +191,7 @@ export function useMaterials(): UseMaterialsReturn {
       if (exists) return prev
       const newMaterial: Material = {
         id: `${productoId}_${material.codigo}`,
-        codigo: Number(material.codigo),
+        codigo: material.codigo,
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
@@ -227,7 +227,7 @@ export function useMaterials(): UseMaterialsReturn {
             // Crear nuevo objeto con todos los campos actualizados
             const updatedMaterial = { 
               ...m, 
-              codigo: Number(data.codigo),
+              codigo: typeof data.codigo === 'string' ? data.codigo : String(data.codigo),
               descripcion: data.descripcion, 
               um: data.um, 
               precio: data.precio ?? m.precio,
