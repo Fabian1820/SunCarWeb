@@ -76,3 +76,8 @@ export type {
   VentaItem,
   VentaCreateData,
 } from './types/feats/inventario/inventario-types'
+
+export type {
+  InstalacionPendiente,
+  PendientesInstalacionFilters,
+} from './types/feats/reportes-comercial/reportes-comercial-types'

@@ -238,6 +238,14 @@ export default function Dashboard() {
             description: 'Análisis de crecimiento mensual y métricas clave.',
             color: 'purple-600',
         },
+        {
+            id: 'reportes-comercial',
+            href: '/reportes-comercial',
+            icon: BarChart3,
+            title: 'Reportes de Comercial',
+            description: 'Reportes y análisis del área comercial.',
+            color: 'indigo-600',
+        },
     ]
 
     // No mostrar módulos individuales de tiendas ni almacenes en el dashboard principal
