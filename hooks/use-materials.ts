@@ -205,11 +205,17 @@ export function useMaterials(): UseMaterialsReturn {
     })
   }
 
-  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string | number, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }, categoria?: string) => {
+  const editMaterialInProduct = async (productoId: string, materialCodigo: string, data: { codigo: string, descripcion: string, um: string, precio?: number, nombre?: string, foto?: string, marca_id?: string, potenciaKW?: number }, categoria?: string) => {
     try {
       console.log('[useMaterials] Editing material:', { productoId, materialCodigo, data, categoria });
       
-      const ok = await MaterialService.editMaterialInProduct(productoId, materialCodigo, data)
+      // Asegurar que el código sea string
+      const payload = {
+        ...data,
+        codigo: String(data.codigo)
+      }
+      
+      const ok = await MaterialService.editMaterialInProduct(productoId, String(materialCodigo), payload)
       console.log('[useMaterials] Edit result:', ok);
       
       if (!ok) {
@@ -223,18 +229,18 @@ export function useMaterials(): UseMaterialsReturn {
           const sameCategory = categoria ? m.categoria === categoria : true
           
           if (sameCode && sameCategory) {
-            console.log('[useMaterials] Updating material:', m.codigo, 'with data:', data);
+            console.log('[useMaterials] Updating material:', m.codigo, 'with data:', payload);
             // Crear nuevo objeto con todos los campos actualizados
             const updatedMaterial = { 
               ...m, 
-              codigo: typeof data.codigo === 'string' ? data.codigo : String(data.codigo),
-              descripcion: data.descripcion, 
-              um: data.um, 
-              precio: data.precio ?? m.precio,
-              nombre: data.nombre ?? m.nombre,
-              foto: data.foto ?? m.foto,
-              marca_id: data.marca_id ?? m.marca_id,
-              potenciaKW: data.potenciaKW ?? m.potenciaKW,
+              codigo: String(payload.codigo),
+              descripcion: payload.descripcion, 
+              um: payload.um, 
+              precio: payload.precio ?? m.precio,
+              nombre: payload.nombre ?? m.nombre,
+              foto: payload.foto ?? m.foto,
+              marca_id: payload.marca_id ?? m.marca_id,
+              potenciaKW: payload.potenciaKW ?? m.potenciaKW,
             };
             console.log('[useMaterials] Updated material:', updatedMaterial);
             return updatedMaterial;
@@ -250,7 +256,7 @@ export function useMaterials(): UseMaterialsReturn {
       setCatalogs(prev => prev.map(c => c.id === (productoId as any) ? {
         ...c,
         materiales: (c.materiales as any[] || []).map(mat => 
-          String(mat.codigo) === String(materialCodigo) ? { ...mat, ...data } : mat
+          String(mat.codigo) === String(materialCodigo) ? { ...mat, ...payload } : mat
         )
       } : c));
       
@@ -263,7 +269,7 @@ export function useMaterials(): UseMaterialsReturn {
 
   const deleteMaterialByCodigo = async (materialCodigo: string, categoria?: string) => {
     try {
-      const ok = await MaterialService.deleteMaterialByCodigo(materialCodigo)
+      const ok = await MaterialService.deleteMaterialByCodigo(String(materialCodigo))
       if (!ok) {
         throw new Error('Error al eliminar el material');
       }

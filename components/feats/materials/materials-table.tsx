@@ -170,7 +170,7 @@ export function MaterialsTable({ materials, onEdit, onDelete, marcas = [] }: Mat
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => onDelete(String(material.codigo))}
+                    onClick={() => onDelete(material.codigo)}
                     className="border-red-300 text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                     title="Eliminar material"
                   >

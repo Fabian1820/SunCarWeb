@@ -41,8 +41,8 @@ export class MaterialService {
         material_key: `${m._id || m.id || m.material_id || cat.id}__${m.codigo}`,
         categoria: cat.categoria,
         producto_id: cat.id,
-        // Asegurar que codigo sea un número
-        codigo: typeof m.codigo === 'number' ? m.codigo : Number(m.codigo),
+        // Asegurar que codigo sea un string
+        codigo: String(m.codigo),
       }))
     )
   }
@@ -148,7 +148,7 @@ export class MaterialService {
     console.log('[MaterialService] Intentando eliminar material por código:', { materialCodigo })
     try {
       const result = await apiRequest<{ success?: boolean; message?: string; detail?: string; error?: string }>(
-        `/productos/materiales/${materialCodigo}`,
+        `/productos/materiales/${encodeURIComponent(materialCodigo)}`,
         {
           method: 'DELETE',
         }
@@ -185,7 +185,7 @@ export class MaterialService {
     productoId: string,
     materialCodigo: string,
     data: { 
-      codigo: string | number
+      codigo: string
       descripcion: string
       um: string
       precio?: number
@@ -197,11 +197,17 @@ export class MaterialService {
   ): Promise<boolean> {
     console.log('[MaterialService] Editando material:', { productoId, materialCodigo, data })
     try {
+      // Asegurar que el código sea string
+      const payload = {
+        ...data,
+        codigo: String(data.codigo)
+      }
+      
       const result = await apiRequest<{ success?: boolean; message?: string; error?: string }>(
-        `/productos/${productoId}/materiales/${materialCodigo}`,
+        `/productos/${productoId}/materiales/${encodeURIComponent(materialCodigo)}`,
         {
           method: 'PUT',
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         }
       )
       console.log('[MaterialService] Respuesta al editar material:', result)

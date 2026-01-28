@@ -138,7 +138,7 @@ export default function MaterialesPage() {
 
   const updateMaterial = async (updatedMaterial: Material | Omit<Material, "id">) => {
     // updatedMaterial puede ser MaterialFormData o Material
-    const codigo = (updatedMaterial as any).codigo
+    const codigo = String((updatedMaterial as any).codigo)
     const categoria = (updatedMaterial as any).categoria
     const descripcion = (updatedMaterial as any).descripcion
     const um = (updatedMaterial as any).um
@@ -148,7 +148,7 @@ export default function MaterialesPage() {
     const marca_id = (updatedMaterial as any).marca_id
     const potenciaKW = (updatedMaterial as any).potenciaKW
     
-    const materialCodigo = editingMaterial?.codigo?.toString() || codigo?.toString()
+    const materialCodigo = String(editingMaterial?.codigo || codigo)
     const categoriaOriginal = editingMaterial?.categoria
     const categoriaChanged = categoriaOriginal !== categoria
 
@@ -173,7 +173,7 @@ export default function MaterialesPage() {
         // 3. Agregar el material a la nueva categoría
         console.log('[updateMaterial] Agregando material a categoría:', categoria)
         await addMaterialToProduct(productoNuevoId, {
-          codigo: String(codigo),
+          codigo: codigo,
           descripcion,
           um,
           precio: precio || 0,
