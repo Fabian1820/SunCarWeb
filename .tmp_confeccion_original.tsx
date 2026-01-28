@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/shared/molecule/dialog"
 import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
-import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useMaterials } from "@/hooks/use-materials"
 import { useInventario } from "@/hooks/use-inventario"
 import { useMarcas } from "@/hooks/use-marcas"
@@ -49,21 +48,11 @@ interface SeccionPersonalizada {
   costosExtras?: CostoExtra[]
 }
 
-const SECCION_AMPLIACION_ID = "AMPLIACION_SISTEMA"
-
 interface CostoExtra {
   id: string
   descripcion: string
   cantidad: number
   precioUnitario: number
-}
-
-interface ServicioOferta {
-  id: string
-  descripcion: string
-  cantidad: number
-  costo: number
-  porcentaje_margen_origen: number
 }
 
 export function ConfeccionOfertasView() {
@@ -78,8 +67,6 @@ export function ConfeccionOfertasView() {
   const [clientesLoading, setClientesLoading] = useState(false)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
   const [margenComercial, setMargenComercial] = useState(0)
-  const [porcentajeMargenMateriales, setPorcentajeMargenMateriales] = useState(50)
-  const [porcentajeMargenInstalacion, setPorcentajeMargenInstalacion] = useState(50)
   const [costoTransportacion, setCostoTransportacion] = useState(0)
   const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>([])
   const [mostrarElementosPersonalizados, setMostrarElementosPersonalizados] = useState(false)
@@ -91,14 +78,7 @@ export function ConfeccionOfertasView() {
   const [bateriaSeleccionada, setBateriaSeleccionada] = useState<string>("")
   const [panelSeleccionado, setPanelSeleccionado] = useState<string>("")
   const [estadoOferta, setEstadoOferta] = useState<string>("en_revision")
-  const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<SeccionPersonalizada[]>([
-    {
-      id: SECCION_AMPLIACION_ID,
-      label: "Ampliación de Sistema",
-      tipo: 'materiales',
-      categoriasMateriales: ["*"],
-    },
-  ])
+  const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<SeccionPersonalizada[]>([])
   const [mostrarDialogoSeccion, setMostrarDialogoSeccion] = useState(false)
   const [tipoSeccionNueva, setTipoSeccionNueva] = useState<'materiales' | 'extra' | null>(null)
   const [tipoExtraSeccion, setTipoExtraSeccion] = useState<'escritura' | 'costo' | null>(null)
@@ -120,8 +100,6 @@ export function ConfeccionOfertasView() {
   const [datosCuenta, setDatosCuenta] = useState("")
   const [aplicaContribucion, setAplicaContribucion] = useState(false)
   const [porcentajeContribucion, setPorcentajeContribucion] = useState<number>(0)
-  const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<Record<string, number>>({})
-  const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
 
   const normalizeText = (value: string) =>
     value
@@ -202,7 +180,6 @@ export function ConfeccionOfertasView() {
       label: seccion.label,
       match: (categoria: string) => {
         if (seccion.tipo === 'materiales' && seccion.categoriasMateriales) {
-          if (seccion.categoriasMateriales.includes("*")) return true
           return seccion.categoriasMateriales.some(cat => 
             normalizeText(categoria).includes(normalizeText(cat))
           )
@@ -215,12 +192,6 @@ export function ConfeccionOfertasView() {
   ]
 
   const activeStep = steps[activeStepIndex] ?? steps[0]
-
-  const seccionLabelMap = useMemo(() => {
-    const map = new Map<string, string>()
-    steps.forEach(step => map.set(step.id, step.label))
-    return map
-  }, [steps])
 
   // Seleccionar automáticamente el primer almacén si solo hay uno
   useEffect(() => {
@@ -330,117 +301,17 @@ export function ConfeccionOfertasView() {
     }, 0)
   }, [seccionesPersonalizadas])
 
-  const margenComercialTotal = useMemo(() => {
-    if (margenComercial <= 0 || margenComercial >= 100) return 0
-    return totalMateriales * (margenComercial / 100) / (1 - margenComercial / 100)
+  const subtotalConMargen = useMemo(() => {
+    if (margenComercial >= 100) return totalMateriales
+    return totalMateriales / (1 - margenComercial / 100)
   }, [totalMateriales, margenComercial])
 
-  const margenParaMateriales = useMemo(() => {
-    return margenComercialTotal * (porcentajeMargenMateriales / 100)
-  }, [margenComercialTotal, porcentajeMargenMateriales])
-
-  const margenParaInstalacion = useMemo(() => {
-    return margenComercialTotal * (porcentajeMargenInstalacion / 100)
-  }, [margenComercialTotal, porcentajeMargenInstalacion])
-
-  const servicios = useMemo<ServicioOferta[]>(() => {
-    if (margenParaInstalacion <= 0) return []
-    return [
-      {
-        id: "SERVICIO_INSTALACION",
-        descripcion: "Servicio de instalación y montaje",
-        cantidad: 1,
-        costo: margenParaInstalacion,
-        porcentaje_margen_origen: porcentajeMargenInstalacion,
-      },
-    ]
-  }, [margenParaInstalacion, porcentajeMargenInstalacion])
-
-  const margenPorMaterial = useMemo(() => {
-    const map = new Map<string, number>()
-    if (margenParaMateriales <= 0 || totalMateriales <= 0) return map
-
-    items.forEach((item) => {
-      const costoItem = item.precio * item.cantidad
-      const porcentaje = porcentajeAsignadoPorItem[item.id]
-      if (typeof porcentaje === "number" && porcentaje > 0) {
-        map.set(item.id, costoItem * (porcentaje / 100))
-      } else {
-        map.set(item.id, 0)
-      }
-    })
-
-    return map
-  }, [items, margenParaMateriales, totalMateriales, porcentajeAsignadoPorItem])
-
-  const totalMargenAsignadoMateriales = useMemo(() => {
-    let total = 0
-    margenPorMaterial.forEach((value) => {
-      total += value
-    })
-    return total
-  }, [margenPorMaterial])
-
-  const porcentajeSugeridoPorMaterial = useMemo(() => {
-    const map = new Map<string, number>()
-    if (margenParaMateriales <= 0 || totalMateriales <= 0) return map
-
-    items.forEach((item) => {
-      const costoItem = item.precio * item.cantidad
-      if (costoItem <= 0) {
-        map.set(item.id, 0)
-        return
-      }
-      const porcentajeActual = porcentajeAsignadoPorItem[item.id] || 0
-      const margenActual = costoItem * (porcentajeActual / 100)
-      const margenRestante = margenParaMateriales - (totalMargenAsignadoMateriales - margenActual)
-      const sugeridoRaw = margenRestante <= 0 ? 0 : (margenRestante / costoItem) * 100
-      const sugerido = Math.min(100, Math.max(0, sugeridoRaw))
-      map.set(item.id, sugerido)
-    })
-
-    return map
-  }, [items, margenParaMateriales, totalMateriales, totalMargenAsignadoMateriales, porcentajeAsignadoPorItem])
-
-  const faltantePorMaterial = useMemo(() => {
-    const map = new Map<string, number>()
-    if (margenParaMateriales <= 0 || totalMateriales <= 0) return map
-
-    items.forEach((item) => {
-      const costoItem = item.precio * item.cantidad
-      if (costoItem <= 0) {
-        map.set(item.id, 0)
-        return
-      }
-      const porcentajeActual = porcentajeAsignadoPorItem[item.id] || 0
-      const margenActual = costoItem * (porcentajeActual / 100)
-      const margenRestante = margenParaMateriales - (totalMargenAsignadoMateriales - margenActual)
-      const sugerido = porcentajeSugeridoPorMaterial.get(item.id) || 0
-      const margenConSugerido = costoItem * (sugerido / 100)
-      map.set(item.id, margenRestante - margenConSugerido)
-    })
-
-    return map
-  }, [
-    items,
-    margenParaMateriales,
-    totalMateriales,
-    totalMargenAsignadoMateriales,
-    porcentajeAsignadoPorItem,
-    porcentajeSugeridoPorMaterial,
-  ])
-
-  const subtotalConMargen = useMemo(() => {
-    return totalMateriales + margenParaMateriales
-  }, [totalMateriales, margenParaMateriales])
-
   const totalSinRedondeo = useMemo(() => {
-    const base = subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+    const base = subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
     const contribucion = aplicaContribucion ? base * (porcentajeContribucion / 100) : 0
     return base + contribucion
   }, [
     subtotalConMargen,
-    margenParaInstalacion,
     costoTransportacion,
     totalElementosPersonalizados,
     totalCostosExtras,
@@ -583,234 +454,6 @@ export function ConfeccionOfertasView() {
       ? precioFinal / tasaCambioNumero
       : precioFinal * tasaCambioNumero
     : 0
-
-  const baseFilenameExport = useMemo(() => {
-    return ofertaId ? `oferta_${ofertaId}` : "oferta_confeccion"
-  }, [ofertaId])
-
-  const totalSinMargen = useMemo(() => {
-    return totalMateriales + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
-  }, [totalMateriales, costoTransportacion, totalElementosPersonalizados, totalCostosExtras])
-
-  const exportOptionsCompleto = useMemo(() => {
-    const rows: any[] = []
-
-    items.forEach((item) => {
-      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
-      const costoItem = item.precio * item.cantidad
-      const porcentaje = porcentajeAsignadoPorItem[item.id] ?? 0
-      const margenItem = margenPorMaterial.get(item.id) || 0
-      rows.push({
-        seccion,
-        tipo: "Material",
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio_unitario: item.precio,
-        porcentaje_margen: porcentaje,
-        margen: margenItem,
-        total: costoItem + margenItem,
-      })
-    })
-
-    elementosPersonalizados.forEach((elem) => {
-      rows.push({
-        seccion: "Personalizados",
-        tipo: "Elemento",
-        descripcion: elem.descripcion,
-        cantidad: elem.cantidad,
-        precio_unitario: elem.precio,
-        porcentaje_margen: "",
-        margen: "",
-        total: elem.precio * elem.cantidad,
-      })
-    })
-
-    seccionesPersonalizadas.forEach((seccion) => {
-      if (seccion.tipo === 'extra' && seccion.tipoExtra === 'costo' && seccion.costosExtras) {
-        seccion.costosExtras.forEach((costo) => {
-          rows.push({
-            seccion: seccion.label,
-            tipo: "Costo extra",
-            descripcion: costo.descripcion,
-            cantidad: costo.cantidad,
-            precio_unitario: costo.precioUnitario,
-            porcentaje_margen: "",
-            margen: "",
-            total: costo.cantidad * costo.precioUnitario,
-          })
-        })
-      }
-    })
-
-    if (margenParaInstalacion > 0) {
-      rows.push({
-        seccion: "Servicios",
-        tipo: "Servicio",
-        descripcion: "Servicio de instalación y montaje",
-        cantidad: 1,
-        precio_unitario: margenParaInstalacion,
-        porcentaje_margen: porcentajeMargenInstalacion,
-        margen: "",
-        total: margenParaInstalacion,
-      })
-    }
-
-    if (costoTransportacion > 0) {
-      rows.push({
-        seccion: "Logística",
-        tipo: "Transportación",
-        descripcion: "Costo de transportación",
-        cantidad: 1,
-        precio_unitario: costoTransportacion,
-        porcentaje_margen: "",
-        margen: "",
-        total: costoTransportacion,
-      })
-    }
-
-    rows.push({
-      seccion: "Totales",
-      tipo: "TOTAL",
-      descripcion: "Precio final",
-      cantidad: "",
-      precio_unitario: "",
-      porcentaje_margen: "",
-      margen: "",
-      total: precioFinal,
-    })
-
-    return {
-      title: "Oferta - Exportación completa",
-      subtitle: nombreAutomatico,
-      columns: [
-        { header: "Sección", key: "seccion", width: 18 },
-        { header: "Tipo", key: "tipo", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 40 },
-        { header: "Cant", key: "cantidad", width: 8 },
-        { header: "P.Unit", key: "precio_unitario", width: 12 },
-        { header: "% Margen", key: "porcentaje_margen", width: 10 },
-        { header: "Margen", key: "margen", width: 12 },
-        { header: "Total", key: "total", width: 12 },
-      ],
-      data: rows,
-    }
-  }, [
-    items,
-    elementosPersonalizados,
-    seccionesPersonalizadas,
-    seccionLabelMap,
-    porcentajeAsignadoPorItem,
-    margenPorMaterial,
-    margenParaInstalacion,
-    porcentajeMargenInstalacion,
-    costoTransportacion,
-    precioFinal,
-    nombreAutomatico,
-  ])
-
-  const exportOptionsSinPrecios = useMemo(() => {
-    const rows: any[] = []
-    items.forEach((item) => {
-      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
-      rows.push({
-        seccion,
-        tipo: "Material",
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-      })
-    })
-
-    rows.push({
-      seccion: "Totales",
-      tipo: "TOTAL",
-      descripcion: "Total sin margen",
-      cantidad: "",
-      total: totalSinMargen,
-    })
-
-    return {
-      title: "Oferta - Cliente sin precios",
-      subtitle: nombreAutomatico,
-      columns: [
-        { header: "Sección", key: "seccion", width: 18 },
-        { header: "Tipo", key: "tipo", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 45 },
-        { header: "Cant", key: "cantidad", width: 8 },
-        { header: "Total", key: "total", width: 12 },
-      ],
-      data: rows,
-    }
-  }, [items, seccionLabelMap, totalSinMargen, nombreAutomatico])
-
-  const exportOptionsClienteConPrecios = useMemo(() => {
-    const rows: any[] = []
-    items.forEach((item) => {
-      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
-      const porcentaje = porcentajeAsignadoPorItem[item.id] ?? 0
-      const unitarioConMargen = item.precio * (1 + porcentaje / 100)
-      rows.push({
-        seccion,
-        tipo: "Material",
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio_unitario: unitarioConMargen,
-        total: unitarioConMargen * item.cantidad,
-      })
-    })
-
-    if (margenParaInstalacion > 0) {
-      rows.push({
-        seccion: "Servicios",
-        tipo: "Servicio",
-        descripcion: "Servicio de instalación y montaje",
-        cantidad: 1,
-        precio_unitario: margenParaInstalacion,
-        total: margenParaInstalacion,
-      })
-    }
-
-    if (costoTransportacion > 0) {
-      rows.push({
-        seccion: "Logística",
-        tipo: "Transportación",
-        descripcion: "Costo de transportación",
-        cantidad: 1,
-        precio_unitario: costoTransportacion,
-        total: costoTransportacion,
-      })
-    }
-
-    rows.push({
-      seccion: "Totales",
-      tipo: "TOTAL",
-      descripcion: "Precio final",
-      cantidad: "",
-      precio_unitario: "",
-      total: precioFinal,
-    })
-
-    return {
-      title: "Oferta - Cliente con precios",
-      subtitle: nombreAutomatico,
-      columns: [
-        { header: "Sección", key: "seccion", width: 18 },
-        { header: "Tipo", key: "tipo", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 40 },
-        { header: "Cant", key: "cantidad", width: 8 },
-        { header: "P.Unit", key: "precio_unitario", width: 12 },
-        { header: "Total", key: "total", width: 12 },
-      ],
-      data: rows,
-    }
-  }, [
-    items,
-    seccionLabelMap,
-    porcentajeAsignadoPorItem,
-    margenParaInstalacion,
-    costoTransportacion,
-    precioFinal,
-    nombreAutomatico,
-  ])
 
   const agregarMaterial = (material: Material) => {
     if (ofertaCreada) {
@@ -1034,14 +677,6 @@ export function ConfeccionOfertasView() {
   }
 
   const eliminarSeccionPersonalizada = (seccionId: string) => {
-    if (seccionId === SECCION_AMPLIACION_ID) {
-      toast({
-        title: "Sección protegida",
-        description: "La sección de Ampliación de Sistema no se puede eliminar",
-        variant: "destructive",
-      })
-      return
-    }
     setSeccionesPersonalizadas(prev => prev.filter(s => s.id !== seccionId))
     // Eliminar items de esta sección
     setItems(prev => prev.filter(item => item.seccion !== seccionId))
@@ -1535,11 +1170,8 @@ export function ConfeccionOfertasView() {
           precio: item.precio,
           cantidad: item.cantidad,
           categoria: item.categoria,
-          seccion: item.seccion,
-          margen_asignado: margenPorMaterial.get(item.id) || 0
+          seccion: item.seccion
         })),
-
-        servicios: servicios.length > 0 ? servicios : undefined,
         
         secciones_personalizadas: seccionesPersonalizadas.length > 0 ? seccionesPersonalizadas.map(seccion => ({
           id: seccion.id,
@@ -1571,11 +1203,6 @@ export function ConfeccionOfertasView() {
         },
         
         margen_comercial: margenComercial,
-        porcentaje_margen_materiales: porcentajeMargenMateriales,
-        porcentaje_margen_instalacion: porcentajeMargenInstalacion,
-        margen_total: margenComercialTotal,
-        margen_materiales: margenParaMateriales,
-        margen_instalacion: margenParaInstalacion,
         costo_transportacion: costoTransportacion,
         total_materiales: totalMateriales,
         subtotal_con_margen: subtotalConMargen,
@@ -1658,8 +1285,6 @@ export function ConfeccionOfertasView() {
     setElementosPersonalizados([])
     setSeccionesPersonalizadas([])
     setMargenComercial(0)
-    setPorcentajeMargenMateriales(50)
-    setPorcentajeMargenInstalacion(50)
     setCostoTransportacion(0)
     setFotoPortada("")
     setClienteId("")
@@ -1676,17 +1301,7 @@ export function ConfeccionOfertasView() {
     setDatosCuenta("")
     setAplicaContribucion(false)
     setPorcentajeContribucion(0)
-    setPorcentajeAsignadoPorItem({})
     
-    setSeccionesPersonalizadas([
-      {
-        id: SECCION_AMPLIACION_ID,
-        label: "Ampliación de Sistema",
-        tipo: 'materiales',
-        categoriasMateriales: ["*"],
-      },
-    ])
-
     toast({
       title: "Oferta reseteada",
       description: "Puedes crear una nueva oferta",
@@ -2000,7 +1615,6 @@ export function ConfeccionOfertasView() {
 
                       const esPersonalizada = 'esPersonalizada' in step && step.esPersonalizada
                       const seccionData = 'seccionData' in step ? step.seccionData as SeccionPersonalizada : null
-                      const puedeEliminar = esPersonalizada && step.id !== SECCION_AMPLIACION_ID
 
                       return (
                         <div
@@ -2044,7 +1658,7 @@ export function ConfeccionOfertasView() {
                                   {esActual ? "Selecciona materiales" : "Sin materiales"}
                                 </span>
                               )}
-                              {puedeEliminar && (
+                              {esPersonalizada && (
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -2164,18 +1778,17 @@ export function ConfeccionOfertasView() {
                                 <>
                                   {itemsDeSeccion.length > 0 ? (
                                     <>
-                                      <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_120px_40px] text-sm text-slate-500 gap-2">
+                                      <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_40px] text-sm text-slate-500 gap-2">
                                         <span>Material</span>
                                         <span className="text-right">P. Unit</span>
                                         <span className="text-center">Cant</span>
                                         <span className="text-right">Total</span>
-                                        <span className="text-right">% sobre costo</span>
                                         <span></span>
                                       </div>
                                       {itemsDeSeccion.map((item) => (
                                         <div
                                           key={item.id}
-                                          className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_120px_40px] items-center gap-2"
+                                          className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_40px] items-center gap-2"
                                         >
                                           <div className="min-w-0">
                                             <p className="text-sm font-semibold text-slate-900 truncate">
@@ -2198,62 +1811,6 @@ export function ConfeccionOfertasView() {
                                           <span className="text-sm font-semibold text-slate-900 text-right">
                                             {formatCurrency(item.precio * item.cantidad)}
                                           </span>
-                                          <div className="flex flex-col items-end gap-1">
-                                            <Input
-                                              type="number"
-                                              min="0"
-                                              step="0.1"
-                                              value={
-                                                typeof porcentajeAsignadoPorItem[item.id] === "number"
-                                                  ? porcentajeAsignadoPorItem[item.id].toString()
-                                                  : ""
-                                              }
-                                              onChange={(e) => {
-                                                const value = e.target.value
-                                                setPorcentajeAsignadoPorItem((prev) => {
-                                                  const next = { ...prev }
-                                                  if (value === "") {
-                                                    delete next[item.id]
-                                                    return next
-                                                  }
-                                                  const parsed = Number(value)
-                                                  if (Number.isNaN(parsed)) {
-                                                    delete next[item.id]
-                                                  } else {
-                                                    next[item.id] = Math.min(100, Math.max(0, parsed))
-                                                  }
-                                                  return next
-                                                })
-                                              }}
-                                              className="h-8 text-right text-sm"
-                                              placeholder="Auto"
-                                            />
-                                            <span className="text-[11px] text-slate-500">
-                                              {typeof porcentajeAsignadoPorItem[item.id] === "number"
-                                                ? `${porcentajeAsignadoPorItem[item.id]}% · ${formatCurrency(margenPorMaterial.get(item.id) || 0)}`
-                                                : `Actual: 0% · ${formatCurrency(0)}`}
-                                            </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const sugerido = porcentajeSugeridoPorMaterial.get(item.id) || 0
-                                                setPorcentajeAsignadoPorItem((prev) => ({
-                                                  ...prev,
-                                                  [item.id]: Number(sugerido.toFixed(2)),
-                                                }))
-                                              }}
-                                              className="text-[11px] text-blue-600 hover:text-blue-700"
-                                            >
-                                              Ajuste sugerido: {(porcentajeSugeridoPorMaterial.get(item.id) || 0).toFixed(2)}%
-                                            </button>
-                                            {Math.abs(faltantePorMaterial.get(item.id) || 0) > 0.01 && (
-                                              <span className="text-[11px] text-amber-600">
-                                                {faltantePorMaterial.get(item.id)! > 0
-                                                  ? `Falta ${formatCurrency(faltantePorMaterial.get(item.id) || 0)}`
-                                                  : `Sobra ${formatCurrency(Math.abs(faltantePorMaterial.get(item.id) || 0))}`}
-                                              </span>
-                                            )}
-                                          </div>
                                           <button
                                             type="button"
                                             onClick={() => actualizarCantidad(item.id, 0)}
@@ -2290,29 +1847,6 @@ export function ConfeccionOfertasView() {
                       <Plus className="h-4 w-4 mr-2" />
                       Agregar Sección Personalizada
                     </Button>
-
-                    {servicios.length > 0 && (
-                      <div className="rounded-md border border-emerald-200 bg-emerald-50/40 px-3 py-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-semibold text-emerald-900">Servicios</span>
-                          <span className="text-sm font-semibold text-emerald-900">
-                            {formatCurrency(margenParaInstalacion)}
-                          </span>
-                        </div>
-                        <div className="mt-2 grid grid-cols-[minmax(0,1fr)_70px_110px] items-center gap-2 text-sm">
-                          <span className="text-slate-700 truncate">
-                            Servicio de instalación y montaje
-                          </span>
-                          <span className="text-center text-slate-600">1</span>
-                          <span className="text-right font-medium text-slate-800">
-                            {formatCurrency(margenParaInstalacion)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-[11px] text-emerald-700">
-                          Calculado desde el % de margen comercial asignado a instalación.
-                        </p>
-                      </div>
-                    )}
                   </div>
 
                   {/* Total de Materiales */}
@@ -2327,15 +1861,14 @@ export function ConfeccionOfertasView() {
                 </div>
 
                 {/* Margen Comercial */}
-                <div className="rounded-md border border-slate-200 bg-white p-3 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <div className="flex items-center justify-between gap-3 mb-2">
                     <label className="text-sm font-semibold text-slate-900">
                       Margen Comercial (%)
                     </label>
                     <Input
                       type="number"
                       min="0"
-                      max="99"
                       step="0.1"
                       value={margenComercial}
                       onChange={(e) => setMargenComercial(Number(e.target.value) || 0)}
@@ -2343,120 +1876,12 @@ export function ConfeccionOfertasView() {
                       placeholder="0"
                     />
                   </div>
-
-                  {margenComercial > 0 && (
-                    <>
-                      <div className="pt-2 border-t border-slate-200 space-y-3">
-                        <p className="text-xs font-semibold text-slate-700">
-                          Distribución del margen comercial:
-                        </p>
-                        
-                        {/* Distribución Materiales */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <label className="text-xs text-slate-600">
-                              Para Materiales (%)
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="1"
-                                value={porcentajeMargenMateriales}
-                                onChange={(e) => {
-                                  const valor = Number(e.target.value) || 0
-                                  const ajustado = Math.min(100, Math.max(0, valor))
-                                  setPorcentajeMargenMateriales(ajustado)
-                                  setPorcentajeMargenInstalacion(100 - ajustado)
-                                }}
-                                className="h-8 w-20 text-right text-xs"
-                              />
-                              <span className="text-xs text-slate-500 w-16">
-                                {formatCurrency(margenParaMateriales)}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {/* Barra de progreso para materiales */}
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-blue-500 transition-all"
-                              style={{ width: `${porcentajeMargenMateriales}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Distribución Instalación */}
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <label className="text-xs text-slate-600">
-                              Para Instalación (%)
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="1"
-                                value={porcentajeMargenInstalacion}
-                                onChange={(e) => {
-                                  const valor = Number(e.target.value) || 0
-                                  const ajustado = Math.min(100, Math.max(0, valor))
-                                  setPorcentajeMargenInstalacion(ajustado)
-                                  setPorcentajeMargenMateriales(100 - ajustado)
-                                }}
-                                className="h-8 w-20 text-right text-xs"
-                              />
-                              <span className="text-xs text-slate-500 w-16">
-                                {formatCurrency(margenParaInstalacion)}
-                              </span>
-                            </div>
-                          </div>
-                          
-                          {/* Barra de progreso para instalación */}
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-emerald-500 transition-all"
-                              style={{ width: `${porcentajeMargenInstalacion}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        {porcentajeMargenMateriales + porcentajeMargenInstalacion !== 100 && (
-                          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                            ⚠️ La suma debe ser 100% (actual: {porcentajeMargenMateriales + porcentajeMargenInstalacion}%)
-                          </p>
-                        )}
-                        {Math.abs(totalMargenAsignadoMateriales - margenParaMateriales) > 0.01 && (
-                          <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                            ⚠️ El margen asignado a materiales ({formatCurrency(totalMargenAsignadoMateriales)}) no coincide con el margen de materiales ({formatCurrency(margenParaMateriales)}).
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="pt-2 border-t border-slate-200 space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-600">Total materiales base</span>
-                          <span className="font-medium text-slate-900">
-                            {formatCurrency(totalMateriales)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-slate-600">Margen total ({margenComercial}%)</span>
-                          <span className="font-medium text-slate-900">
-                            {formatCurrency(margenComercialTotal)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm font-semibold pt-1 border-t border-slate-200">
-                          <span className="text-slate-900">Subtotal con margen</span>
-                          <span className="text-slate-900">
-                            {formatCurrency(subtotalConMargen)}
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  )}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Subtotal con margen</span>
+                    <span className="font-semibold text-slate-900">
+                      {formatCurrency(subtotalConMargen)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Costo de Transportación */}
@@ -2555,21 +1980,9 @@ export function ConfeccionOfertasView() {
                 <div className="rounded-md border-2 border-emerald-600 bg-emerald-50 px-4 py-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm text-slate-700">
-                      <span>Materiales base</span>
-                      <span className="font-medium">{formatCurrency(totalMateriales)}</span>
+                      <span>Materiales + Margen ({margenComercial}%)</span>
+                      <span className="font-medium">{formatCurrency(subtotalConMargen)}</span>
                     </div>
-                    {margenParaMateriales > 0 && (
-                      <div className="flex items-center justify-between text-sm text-slate-700">
-                        <span>Margen sobre materiales ({porcentajeMargenMateriales}%)</span>
-                        <span className="font-medium">{formatCurrency(margenParaMateriales)}</span>
-                      </div>
-                    )}
-                    {margenParaInstalacion > 0 && (
-                      <div className="flex items-center justify-between text-sm text-slate-700">
-                        <span>Servicio de instalación y montaje ({porcentajeMargenInstalacion}%)</span>
-                        <span className="font-medium">{formatCurrency(margenParaInstalacion)}</span>
-                      </div>
-                    )}
                     {costoTransportacion > 0 && (
                       <div className="flex items-center justify-between text-sm text-slate-700">
                         <span>Transportación</span>
@@ -2644,7 +2057,6 @@ export function ConfeccionOfertasView() {
                           <span className="font-medium">
                             {formatCurrency(
                               (subtotalConMargen +
-                                margenParaInstalacion +
                                 costoTransportacion +
                                 totalElementosPersonalizados +
                                 totalCostosExtras) *
@@ -2727,15 +2139,6 @@ export function ConfeccionOfertasView() {
                   </div>
                 </div>
                 </div>
-
-                <Button
-                  onClick={() => setMostrarDialogoExportar(true)}
-                  disabled={items.length === 0}
-                  variant="outline"
-                  className="w-full border-slate-300 text-slate-700 hover:bg-slate-50"
-                >
-                  Exportar oferta
-                </Button>
 
                 {/* Botón de Crear Oferta */}
                 {!ofertaCreada ? (
@@ -3077,62 +2480,6 @@ export function ConfeccionOfertasView() {
           </div>
         </div>
       </div>
-
-      {/* Diálogo para exportar oferta */}
-      <Dialog open={mostrarDialogoExportar} onOpenChange={setMostrarDialogoExportar}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Exportar oferta</DialogTitle>
-            <DialogDescription>
-              Selecciona el tipo de exportación y el formato (Excel o PDF).
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">1) Completo</h4>
-                <p className="text-xs text-slate-600">
-                  Incluye precios, márgenes, servicios y totales.
-                </p>
-              </div>
-              <ExportButtons
-                exportOptions={exportOptionsCompleto}
-                baseFilename={`${baseFilenameExport}_completo`}
-                variant="compact"
-              />
-            </div>
-
-            <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">2) Sin precios</h4>
-                <p className="text-xs text-slate-600">
-                  Solo materiales y cantidades, con total sin margen.
-                </p>
-              </div>
-              <ExportButtons
-                exportOptions={exportOptionsSinPrecios}
-                baseFilename={`${baseFilenameExport}_sin_precios`}
-                variant="compact"
-              />
-            </div>
-
-            <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">3) Cliente con precios</h4>
-                <p className="text-xs text-slate-600">
-                  Precios por material con su % aplicado.
-                </p>
-              </div>
-              <ExportButtons
-                exportOptions={exportOptionsClienteConPrecios}
-                baseFilename={`${baseFilenameExport}_cliente_precios`}
-                variant="compact"
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Diálogo para agregar sección personalizada */}
       <Dialog open={mostrarDialogoSeccion} onOpenChange={setMostrarDialogoSeccion}>
