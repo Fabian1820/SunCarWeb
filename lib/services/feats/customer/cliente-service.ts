@@ -60,6 +60,27 @@ export class ClienteService {
     return []
   }
 
+  static async generarCodigoCliente(params: {
+    marca_letra: string
+    provincia_codigo: string
+    municipio_codigo: string
+  }): Promise<string> {
+    console.log('Calling generarCodigoCliente with params:', params)
+    const response = await apiRequest<{
+      success: boolean
+      message: string
+      codigo_generado: string
+    }>('/clientes/generar-codigo', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    })
+    console.log('ClienteService.generarCodigoCliente response:', response)
+    if (!response.success || !response.codigo_generado) {
+      throw new Error(response.message || 'Error al generar el código de cliente')
+    }
+    return response.codigo_generado
+  }
+
   static async crearCliente(data: ClienteCreateData): Promise<ClienteResponse> {
     const payload = cleanPayload(data)
     return apiRequest<ClienteResponse>(`/clientes/`, {

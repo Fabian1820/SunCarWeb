@@ -130,10 +130,22 @@ export class LeadService {
     }
   }
 
+  static async generarCodigoCliente(leadId: string): Promise<string> {
+    console.log('Calling generarCodigoCliente with ID:', leadId)
+    const response = await apiRequest<{ success: boolean; message: string; codigo_generado: string }>(
+      `/leads/${leadId}/generar-codigo-cliente`
+    )
+    console.log('LeadService.generarCodigoCliente response:', response)
+    if (!response.success || !response.codigo_generado) {
+      throw new Error(response.message || 'Error al generar el código de cliente')
+    }
+    return response.codigo_generado
+  }
+
   static async convertLeadToCliente(leadId: string, payload: LeadConversionRequest): Promise<Cliente> {
     console.log('Calling convertLeadToCliente with ID:', leadId, 'payload:', payload)
     const response = await apiRequest<{ success: boolean; message: string; data: Cliente }>(
-      `/leads/${leadId}/convertir-a-cliente`,
+      `/leads/${leadId}/convertir`,
       {
         method: 'POST',
         body: JSON.stringify(payload),

@@ -36,6 +36,7 @@ export default function LeadsPage() {
     updateLead,
     deleteLead,
     convertLead,
+    generarCodigoCliente,
     uploadLeadComprobante,
     clearError,
   } = useLeads()
@@ -518,6 +519,7 @@ const formatEstado = (estado: string): string => {
                 onEdit={handleEditLead}
                 onDelete={handleDeleteLead}
                 onConvert={handleConvertLead}
+                onGenerarCodigo={generarCodigoCliente}
                 onUploadComprobante={handleUploadLeadComprobante}
                 onDownloadComprobante={handleDownloadLeadComprobante}
                 loading={loading}

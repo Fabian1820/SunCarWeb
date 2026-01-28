@@ -5,6 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog"
 import { downloadFile } from "@/lib/utils/download-file"
@@ -44,6 +45,7 @@ interface LeadsTableProps {
   onEdit: (lead: Lead) => void
   onDelete: (id: string) => void
   onConvert: (lead: Lead, data: LeadConversionRequest) => Promise<void>
+  onGenerarCodigo: (leadId: string) => Promise<string>
   onUploadComprobante: (
     lead: Lead,
     payload: { file: File; metodo_pago?: string; moneda?: string }
@@ -84,6 +86,7 @@ export function LeadsTable({
   onEdit,
   onDelete,
   onConvert,
+  onGenerarCodigo,
   onUploadComprobante,
   onDownloadComprobante,
   loading,
@@ -145,18 +148,56 @@ export function LeadsTable({
     setConversionLoading(false)
   }
 
-  const openConvertDialog = (lead: Lead) => {
+  const openConvertDialog = async (lead: Lead) => {
     setLeadToConvert(lead)
-    setConversionData({
-      numero: '',
-      metodo_pago: lead.metodo_pago || '',
-      moneda: lead.moneda || '',
-      estado: lead.estado || '',
-      fuente: lead.fuente || '',
-      municipio: lead.municipio || '',
-    })
+    setConversionLoading(true)
     setConversionErrors({})
-    setConversionLoading(false)
+    
+    try {
+      // Generar el código de cliente automáticamente
+      const codigoGenerado = await onGenerarCodigo(lead.id || '')
+      
+      // Validar que el código tenga exactamente 10 caracteres
+      // Formato: {Letra}{Provincia}{Municipio}{Consecutivo}
+      // Ejemplo: F020400208 (1 letra + 9 dígitos)
+      if (codigoGenerado.length !== 10) {
+        throw new Error(
+          `El código generado tiene un formato incorrecto. ` +
+          `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
+          `Código recibido: "${codigoGenerado}". ` +
+          `Verifica que el lead tenga:\n` +
+          `- Marca de inversor configurada en el material\n` +
+          `- Provincia y municipio válidos en la base de datos`
+        )
+      }
+      
+      // Validar formato: 1 letra mayúscula + 9 dígitos
+      if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
+        throw new Error(
+          `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
+          `Debe ser 1 letra mayúscula seguida de 9 dígitos.`
+        )
+      }
+      
+      setConversionData({
+        numero: codigoGenerado,
+        carnet_identidad: '',
+        estado: 'Pendiente de instalación',
+      })
+    } catch (error) {
+      console.error('Error generating client code:', error)
+      setConversionErrors({
+        general: error instanceof Error ? error.message : 'Error al generar el código de cliente'
+      })
+      setConversionData({
+        numero: '',
+        carnet_identidad: '',
+        estado: 'Pendiente de instalación',
+      })
+    } finally {
+      setConversionLoading(false)
+    }
+    
     setIsConvertDialogOpen(true)
   }
 
@@ -292,44 +333,12 @@ export function LeadsTable({
       numero: conversionData.numero.trim(),
     }
 
-    if (conversionData.fecha_montaje && conversionData.fecha_montaje.trim()) {
-      payload.fecha_montaje = conversionData.fecha_montaje
-    }
-
-    if (conversionData.latitud !== undefined && `${conversionData.latitud}`.trim() !== '') {
-      payload.latitud = conversionData.latitud
-    }
-
-    if (conversionData.longitud !== undefined && `${conversionData.longitud}`.trim() !== '') {
-      payload.longitud = conversionData.longitud
-    }
-
     if (conversionData.carnet_identidad && conversionData.carnet_identidad.trim()) {
       payload.carnet_identidad = conversionData.carnet_identidad.trim()
     }
 
-    if (conversionData.fecha_instalacion && conversionData.fecha_instalacion.trim()) {
-      payload.fecha_instalacion = conversionData.fecha_instalacion
-    }
-
-    if (conversionData.metodo_pago && conversionData.metodo_pago.trim()) {
-      payload.metodo_pago = conversionData.metodo_pago.trim()
-    }
-
-    if (conversionData.moneda && conversionData.moneda.trim()) {
-      payload.moneda = conversionData.moneda.trim()
-    }
-
     if (conversionData.estado && conversionData.estado.trim()) {
       payload.estado = conversionData.estado.trim()
-    }
-
-    if (conversionData.fuente && conversionData.fuente.trim()) {
-      payload.fuente = conversionData.fuente.trim()
-    }
-
-    if (conversionData.municipio && conversionData.municipio.trim()) {
-      payload.municipio = conversionData.municipio.trim()
     }
 
     return payload
@@ -339,8 +348,22 @@ export function LeadsTable({
     if (!leadToConvert) return
 
     const errors: Record<string, string> = {}
+    
     if (!conversionData.numero || !conversionData.numero.trim()) {
-      errors.numero = 'El número de cliente es obligatorio'
+      errors.numero = 'El código de cliente no se pudo generar. Intenta de nuevo.'
+    }
+    
+    // Validar carnet solo si se proporciona
+    if (conversionData.carnet_identidad && conversionData.carnet_identidad.trim()) {
+      if (conversionData.carnet_identidad.length !== 11) {
+        errors.carnet_identidad = 'El carnet de identidad debe tener exactamente 11 dígitos'
+      } else if (!/^\d{11}$/.test(conversionData.carnet_identidad)) {
+        errors.carnet_identidad = 'El carnet de identidad solo debe contener números'
+      }
+    }
+    
+    if (!conversionData.estado || !conversionData.estado.trim()) {
+      errors.estado = 'Debes seleccionar un estado para el cliente'
     }
 
     if (Object.keys(errors).length > 0) {
@@ -979,68 +1002,56 @@ export function LeadsTable({
 
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="numero_cliente" className="text-xs sm:text-sm">Número de cliente *</Label>
+                    <Label htmlFor="numero_cliente" className="text-xs sm:text-sm">Código de cliente (generado automáticamente)</Label>
                     <Input
                       id="numero_cliente"
-                      placeholder="CLI-2024-001"
                       value={conversionData.numero}
-                      onChange={(event) => handleConversionInputChange('numero', event.target.value)}
-                      className={conversionErrors.numero ? 'border-red-500' : ''}
-                      autoFocus
+                      disabled
+                      className="bg-gray-100 cursor-not-allowed"
                     />
-                    {conversionErrors.numero && (
-                      <p className="text-xs text-red-600 mt-1">{conversionErrors.numero}</p>
-                    )}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Este código se genera automáticamente basado en la marca del inversor, provincia y municipio
+                    </p>
                   </div>
 
                   <div>
                     <Label htmlFor="carnet_identidad" className="text-xs sm:text-sm">Carnet de identidad</Label>
                     <Input
                       id="carnet_identidad"
-                      placeholder="Documento opcional"
+                      placeholder="Ej: 12345678901"
                       value={conversionData.carnet_identidad || ''}
-                      onChange={(event) => handleConversionInputChange('carnet_identidad', event.target.value)}
+                      onChange={(e) => {
+                        // Solo permitir números y máximo 11 dígitos
+                        const value = e.target.value.replace(/\D/g, '').slice(0, 11)
+                        handleConversionInputChange('carnet_identidad', value)
+                      }}
+                      maxLength={11}
+                      className={conversionErrors.carnet_identidad ? 'border-red-500' : ''}
+                      autoFocus
                     />
+                    {conversionErrors.carnet_identidad ? (
+                      <p className="text-xs text-red-600 mt-1">{conversionErrors.carnet_identidad}</p>
+                    ) : (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Opcional - Si se proporciona, debe tener 11 dígitos
+                      </p>
+                    )}
                   </div>
 
                   <div>
-                    <Label htmlFor="fecha_montaje" className="text-xs sm:text-sm">Fecha de inicio de instalación</Label>
-                    <Input
-                      id="fecha_montaje"
-                      type="date"
-                      value={conversionData.fecha_montaje || ''}
-                      onChange={(event) => handleConversionInputChange('fecha_montaje', event.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="fecha_instalacion" className="text-xs sm:text-sm">Fecha de fin de instalación</Label>
-                    <Input
-                      id="fecha_instalacion"
-                      type="date"
-                      value={conversionData.fecha_instalacion || ''}
-                      onChange={(event) => handleConversionInputChange('fecha_instalacion', event.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="metodo_pago_conversion" className="text-xs sm:text-sm">Método de pago</Label>
-                    <Input
-                      id="metodo_pago_conversion"
-                      placeholder="Transferencia, efectivo..."
-                      value={conversionData.metodo_pago || ''}
-                      onChange={(event) => handleConversionInputChange('metodo_pago', event.target.value)}
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="moneda_conversion" className="text-xs sm:text-sm">Moneda</Label>
-                    <Input
-                      id="moneda_conversion"
-                      placeholder="USD, CUP, MLC..."
-                      value={conversionData.moneda || ''}
-                      onChange={(event) => handleConversionInputChange('moneda', event.target.value)}
-                    />
+                    <Label htmlFor="estado_cliente" className="text-xs sm:text-sm">Estado del cliente *</Label>
+                    <Select
+                      value={conversionData.estado || 'Pendiente de instalación'}
+                      onValueChange={(value) => handleConversionInputChange('estado', value)}
+                    >
+                      <SelectTrigger id="estado_cliente">
+                        <SelectValue placeholder="Selecciona un estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
+                        <SelectItem value="Esperando equipo">Esperando equipo</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>

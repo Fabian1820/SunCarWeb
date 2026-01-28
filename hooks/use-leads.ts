@@ -26,6 +26,7 @@ interface UseLeadsReturn {
   updateLead: (id: string, data: LeadUpdateData) => Promise<boolean>
   deleteLead: (id: string) => Promise<boolean>
   convertLead: (id: string, data: LeadConversionRequest) => Promise<Cliente>
+  generarCodigoCliente: (id: string) => Promise<string>
   uploadLeadComprobante: (
     id: string,
     payload: { file: File; metodo_pago?: string; moneda?: string }
@@ -223,6 +224,19 @@ export function useLeads(): UseLeadsReturn {
     }
   }, [loadLeads])
 
+  const generarCodigoCliente = useCallback(async (id: string): Promise<string> => {
+    setError(null)
+    try {
+      const codigo = await LeadService.generarCodigoCliente(id)
+      return codigo
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Error al generar el código de cliente'
+      setError(message)
+      console.error('Error generating client code:', err)
+      throw err instanceof Error ? err : new Error(message)
+    }
+  }, [])
+
   const uploadLeadComprobante = useCallback(
     async (
       id: string,
@@ -281,6 +295,7 @@ export function useLeads(): UseLeadsReturn {
     updateLead,
     deleteLead,
     convertLead,
+    generarCodigoCliente,
     uploadLeadComprobante,
     clearError,
   }

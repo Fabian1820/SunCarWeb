@@ -138,6 +138,9 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
     falta_instalacion: '',
   })
 
+  const [generandoCodigo, setGenerandoCodigo] = useState(false)
+  const [errorCodigo, setErrorCodigo] = useState('')
+
   // Actualizar el comercial cuando el usuario cambie (por si acaso)
   useEffect(() => {
     if (user?.nombre) {
@@ -147,6 +150,148 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
       }))
     }
   }, [user])
+
+  // Generar código automáticamente cuando se tengan provincia, municipio e inversor
+  useEffect(() => {
+    const generarCodigoAutomatico = async () => {
+      // Verificar que tengamos todos los datos necesarios
+      if (!selectedProvinciaCodigo || !formData.municipio || !oferta.inversor_codigo) {
+        // Si falta algún dato, limpiar el código
+        if (formData.numero) {
+          setFormData(prev => ({ ...prev, numero: '' }))
+        }
+        return
+      }
+
+      setGenerandoCodigo(true)
+      setErrorCodigo('')
+
+      try {
+        // Buscar el inversor seleccionado para obtener su descripción completa
+        const inversorSeleccionado = inversores.find(inv => String(inv.codigo) === String(oferta.inversor_codigo))
+        
+        if (!inversorSeleccionado) {
+          throw new Error('No se encontró el inversor seleccionado')
+        }
+
+        // Buscar el municipio seleccionado para obtener su código
+        const municipioSeleccionado = municipios.find(m => m.nombre === formData.municipio)
+        
+        if (!municipioSeleccionado) {
+          throw new Error('No se encontró el municipio seleccionado')
+        }
+
+        // Crear un lead temporal para generar el código
+        // Este lead se usará solo para generar el código y luego se eliminará
+        const leadTemporal = {
+          fecha_contacto: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
+          nombre: formData.nombre || 'Cliente Temporal',
+          telefono: formData.telefono || '+00000000000',
+          estado: 'nuevo',
+          fuente: 'Sistema',
+          direccion: formData.direccion || 'Temporal',
+          provincia_montaje: formData.provincia_montaje,
+          municipio: formData.municipio,
+          comercial: user?.nombre || 'Sistema',
+          ofertas: [{
+            id: 'temp-' + Date.now(),
+            descripcion: inversorSeleccionado.descripcion,
+            descripcion_detallada: inversorSeleccionado.descripcion,
+            inversor_codigo: String(inversorSeleccionado.codigo), // ✅ Campo requerido por el backend
+            inversor_nombre: inversorSeleccionado.descripcion,
+            precio: inversorSeleccionado.precio || 0,
+            precio_cliente: inversorSeleccionado.precio || 0,
+            marca: inversorSeleccionado.descripcion.split(' ')[0], // Primera palabra como marca
+            moneda: 'USD',
+            financiamiento: false,
+            elementos: [],
+            cantidad: 1
+          }]
+        }
+
+        console.log('📝 Creando lead temporal para generar código:', leadTemporal)
+
+        // Crear el lead temporal
+        const responseCrear = await apiRequest<{
+          success: boolean
+          message: string
+          data: { id: string }
+        }>('/leads/', {
+          method: 'POST',
+          body: JSON.stringify(leadTemporal)
+        })
+
+        if (!responseCrear.success || !responseCrear.data?.id) {
+          throw new Error('Error al crear lead temporal')
+        }
+
+        const leadId = responseCrear.data.id
+        console.log('✅ Lead temporal creado con ID:', leadId)
+
+        // Generar el código usando el lead temporal
+        const responseGenerar = await apiRequest<{
+          success: boolean
+          message: string
+          codigo_generado: string
+        }>(`/leads/${leadId}/generar-codigo-cliente`)
+
+        if (!responseGenerar.success || !responseGenerar.codigo_generado) {
+          throw new Error(responseGenerar.message || 'Error al generar el código')
+        }
+
+        const codigoGenerado = responseGenerar.codigo_generado
+        console.log('✅ Código generado:', codigoGenerado)
+
+        // Eliminar el lead temporal
+        try {
+          await apiRequest(`/leads/${leadId}`, {
+            method: 'DELETE'
+          })
+          console.log('✅ Lead temporal eliminado')
+        } catch (error) {
+          console.warn('⚠️ No se pudo eliminar el lead temporal:', error)
+          // No lanzar error, el código ya se generó correctamente
+        }
+
+        // Validar que el código tenga exactamente 10 caracteres
+        if (codigoGenerado.length !== 10) {
+          throw new Error(
+            `El código generado tiene un formato incorrecto. ` +
+            `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
+            `Código recibido: "${codigoGenerado}".`
+          )
+        }
+
+        // Validar formato: 1 letra mayúscula + 9 dígitos
+        if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
+          throw new Error(
+            `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
+            `Debe ser 1 letra mayúscula seguida de 9 dígitos.`
+          )
+        }
+
+        // Actualizar el código en el formulario
+        setFormData(prev => ({
+          ...prev,
+          numero: codigoGenerado
+        }))
+
+        console.log('✅ Código generado automáticamente:', codigoGenerado)
+      } catch (error) {
+        console.error('❌ Error al generar código:', error)
+        const mensaje = error instanceof Error ? error.message : 'Error al generar el código de cliente'
+        setErrorCodigo(mensaje)
+        setFormData(prev => ({ ...prev, numero: '' }))
+      } finally {
+        setGenerandoCodigo(false)
+      }
+    }
+
+    // Solo generar si tenemos los materiales cargados
+    if (!loadingMateriales && inversores.length > 0) {
+      generarCodigoAutomatico()
+    }
+  }, [selectedProvinciaCodigo, formData.municipio, formData.provincia_montaje, formData.nombre, formData.telefono, oferta.inversor_codigo, inversores, municipios, loadingMateriales])
 
   // Cargar provincias al montar el componente
   useEffect(() => {
@@ -578,14 +723,34 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="numero">
-                Codigo de cliente <span className="text-red-500">*</span>
+                Código de cliente <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="numero"
-                value={formData.numero}
-                onChange={(e) => handleInputChange('numero', e.target.value)}
-                className={`text-gray-900 placeholder:text-gray-400 ${errors.numero ? 'border-red-500' : ''}`}
-              />
+              <div className="relative">
+                <Input
+                  id="numero"
+                  value={formData.numero}
+                  readOnly
+                  disabled
+                  className={`text-gray-900 bg-gray-50 ${errors.numero ? 'border-red-500' : ''}`}
+                  placeholder={generandoCodigo ? 'Generando código...' : 'Seleccione provincia, municipio e inversor'}
+                />
+                {generandoCodigo && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+                  </div>
+                )}
+              </div>
+              {errorCodigo && (
+                <p className="text-sm text-red-500 mt-1">{errorCodigo}</p>
+              )}
+              {!errorCodigo && !generandoCodigo && formData.numero && (
+                <p className="text-sm text-green-600 mt-1">✓ Código generado automáticamente</p>
+              )}
+              {!errorCodigo && !generandoCodigo && !formData.numero && (
+                <p className="text-sm text-gray-500 mt-1">
+                  El código se generará automáticamente al seleccionar provincia, municipio e inversor
+                </p>
+              )}
               {errors.numero && (
                 <p className="text-sm text-red-500 mt-1">{errors.numero}</p>
               )}
