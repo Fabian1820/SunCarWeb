@@ -527,12 +527,12 @@ export function ConfeccionOfertasView() {
   }, [totalMateriales, margenComercialTotal])
 
   const totalSinRedondeo = useMemo(() => {
-    const base = subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+    // Base: subtotal con margen (que ya incluye margen de materiales + instalación) + costos adicionales
+    const base = subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
     const contribucion = aplicaContribucion ? base * (porcentajeContribucion / 100) : 0
     return base + contribucion
   }, [
     subtotalConMargen,
-    margenParaInstalacion,
     costoTransportacion,
     totalElementosPersonalizados,
     totalCostosExtras,
@@ -838,7 +838,7 @@ export function ConfeccionOfertasView() {
 
     // Contribución
     if (aplicaContribucion && porcentajeContribucion > 0) {
-      const montoContribucion = (subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras) * (porcentajeContribucion / 100)
+      const montoContribucion = (subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras) * (porcentajeContribucion / 100)
       rows.push({
         material_codigo: "",
         seccion: "PAGO",
@@ -1304,7 +1304,7 @@ export function ConfeccionOfertasView() {
 
       // Contribución
       if (aplicaContribucion && porcentajeContribucion > 0) {
-        const montoContribucion = (subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras) * (porcentajeContribucion / 100)
+        const montoContribucion = (subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras) * (porcentajeContribucion / 100)
         
         rows.push({
           descripcion: `✓ Aplicar ${porcentajeContribucion}% de Contribución`,
