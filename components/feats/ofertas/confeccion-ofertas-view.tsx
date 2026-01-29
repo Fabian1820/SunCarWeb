@@ -1146,7 +1146,9 @@ export function ConfeccionOfertasView() {
           id: itemId,
           materialCodigo: codigo,
           descripcion: material.descripcion,
-          precio: material.precio || 0,
+          precio: (activeStep.id === 'INVERSORES' || activeStep.id === 'BATERIAS') 
+            ? (material.precio || 0) * 0.85 
+            : (material.precio || 0),
           cantidad: 1,
           categoria: material.categoria || "Sin categoria",
           seccion: activeStep.id,
