@@ -8,6 +8,7 @@ import { Input } from "@/components/shared/atom/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader } from "@/components/shared/atom/loader"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
+import { EditarOfertaDialog } from "./editar-oferta-dialog"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
@@ -15,7 +16,7 @@ import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 import type { Almacen } from "@/lib/inventario-types"
-import { Building2, FileText, Package, Search, User, Download } from "lucide-react"
+import { Building2, FileText, Package, Search, User, Download, Edit } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 export function OfertasConfeccionadasView() {
@@ -32,6 +33,8 @@ export function OfertasConfeccionadasView() {
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState<(typeof ofertas)[number] | null>(null)
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
   const [ofertaParaExportar, setOfertaParaExportar] = useState<(typeof ofertas)[number] | null>(null)
+  const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false)
+  const [ofertaParaEditar, setOfertaParaEditar] = useState<(typeof ofertas)[number] | null>(null)
 
   const getEstadoBadge = (estado: string) => {
     const badges = {
@@ -801,6 +804,11 @@ export function OfertasConfeccionadasView() {
     setMostrarDialogoExportar(true)
   }
 
+  const abrirEditar = (oferta: (typeof ofertas)[number]) => {
+    setOfertaParaEditar(oferta)
+    setMostrarDialogoEditar(true)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -948,6 +956,15 @@ export function OfertasConfeccionadasView() {
                   >
                     <Download className="h-3.5 w-3.5 mr-1.5" />
                     Exportar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2"
+                    onClick={() => abrirEditar(oferta)}
+                    title="Editar oferta"
+                  >
+                    <Edit className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="outline"
@@ -1481,6 +1498,19 @@ export function OfertasConfeccionadasView() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Diálogo de Edición */}
+      <EditarOfertaDialog
+        open={mostrarDialogoEditar}
+        onOpenChange={setMostrarDialogoEditar}
+        oferta={ofertaParaEditar}
+        onSuccess={() => {
+          setMostrarDialogoEditar(false)
+          setOfertaParaEditar(null)
+          // Recargar ofertas después de editar
+          window.location.reload()
+        }}
+      />
     </div>
   )
 }

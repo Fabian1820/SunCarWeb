@@ -66,7 +66,17 @@ interface ServicioOferta {
   porcentaje_margen_origen: number
 }
 
-export function ConfeccionOfertasView() {
+interface ConfeccionOfertasViewProps {
+  modoEdicion?: boolean
+  ofertaParaEditar?: any
+  onGuardarExito?: () => void
+}
+
+export function ConfeccionOfertasView({ 
+  modoEdicion = false, 
+  ofertaParaEditar = null,
+  onGuardarExito 
+}: ConfeccionOfertasViewProps = {}) {
   const { materials, loading } = useMaterials()
   const { almacenes, stock, refetchStock, loading: loadingAlmacenes } = useInventario()
   const { marcas, loading: loadingMarcas } = useMarcas()
@@ -233,6 +243,94 @@ export function ConfeccionOfertasView() {
       setAlmacenId(almacenes[0]?.id ?? "")
     }
   }, [almacenes, almacenId])
+
+  // Cargar datos de la oferta en modo edición
+  useEffect(() => {
+    if (modoEdicion && ofertaParaEditar) {
+      console.log('🔄 Cargando oferta para editar:', ofertaParaEditar)
+      
+      // Cargar datos básicos
+      setOfertaGenerica(ofertaParaEditar.tipo === 'generica')
+      setClienteId(ofertaParaEditar.cliente_numero || ofertaParaEditar.cliente_id || "")
+      setAlmacenId(ofertaParaEditar.almacen_id || "")
+      setEstadoOferta(ofertaParaEditar.estado || "en_revision")
+      setFotoPortada(ofertaParaEditar.foto_portada || "")
+      
+      // Cargar items
+      if (ofertaParaEditar.items && Array.isArray(ofertaParaEditar.items)) {
+        const itemsCargados = ofertaParaEditar.items.map((item: any) => ({
+          id: `${item.seccion}-${item.material_codigo}`,
+          materialCodigo: item.material_codigo,
+          descripcion: item.descripcion,
+          precio: item.precio,
+          cantidad: item.cantidad,
+          categoria: item.categoria || "Sin categoria",
+          seccion: item.seccion,
+        }))
+        setItems(itemsCargados)
+      }
+      
+      // Cargar elementos personalizados
+      if (ofertaParaEditar.elementos_personalizados && Array.isArray(ofertaParaEditar.elementos_personalizados)) {
+        const elementosCargados = ofertaParaEditar.elementos_personalizados.map((elem: any, index: number) => ({
+          id: `custom-${elem.material_codigo}-${index}`,
+          materialCodigo: elem.material_codigo,
+          descripcion: elem.descripcion,
+          precio: elem.precio,
+          cantidad: elem.cantidad,
+          categoria: elem.categoria || "Sin categoria",
+        }))
+        setElementosPersonalizados(elementosCargados)
+      }
+      
+      // Cargar secciones personalizadas
+      if (ofertaParaEditar.secciones_personalizadas && Array.isArray(ofertaParaEditar.secciones_personalizadas)) {
+        const seccionesCargadas = ofertaParaEditar.secciones_personalizadas.map((seccion: any) => ({
+          id: seccion.id,
+          label: seccion.label,
+          tipo: seccion.tipo,
+          tipoExtra: seccion.tipo_extra,
+          categoriasMateriales: seccion.categorias_materiales,
+          contenidoEscritura: seccion.contenido_escritura,
+          costosExtras: seccion.costos_extras?.map((costo: any) => ({
+            id: costo.id,
+            descripcion: costo.descripcion,
+            cantidad: costo.cantidad,
+            precioUnitario: costo.precio_unitario,
+          })),
+        }))
+        setSeccionesPersonalizadas(seccionesCargadas)
+      }
+      
+      // Cargar componentes principales
+      if (ofertaParaEditar.componentes_principales) {
+        setInversorSeleccionado(ofertaParaEditar.componentes_principales.inversor_seleccionado || "")
+        setBateriaSeleccionada(ofertaParaEditar.componentes_principales.bateria_seleccionada || "")
+        setPanelSeleccionado(ofertaParaEditar.componentes_principales.panel_seleccionado || "")
+      }
+      
+      // Cargar márgenes y costos
+      setMargenComercial(ofertaParaEditar.margen_comercial || 0)
+      setCostoTransportacion(ofertaParaEditar.costo_transportacion || 0)
+      
+      // Cargar datos de pago
+      setMonedaPago(ofertaParaEditar.moneda_pago || 'USD')
+      setTasaCambio(ofertaParaEditar.tasa_cambio?.toString() || "")
+      setPagoTransferencia(ofertaParaEditar.pago_transferencia || false)
+      setDatosCuenta(ofertaParaEditar.datos_cuenta || "")
+      setAplicaContribucion(ofertaParaEditar.aplica_contribucion || false)
+      setPorcentajeContribucion(ofertaParaEditar.porcentaje_contribucion || 0)
+      
+      // NO marcar como oferta creada en modo edición para permitir modificaciones
+      // Solo guardar el ID para la actualización
+      setOfertaId(ofertaParaEditar.numero_oferta || ofertaParaEditar.id)
+      
+      toast({
+        title: "Oferta cargada",
+        description: "Los datos de la oferta se han cargado correctamente",
+      })
+    }
+  }, [modoEdicion, ofertaParaEditar, toast])
 
   // Cargar stock cuando se selecciona un almacén
   useEffect(() => {
@@ -409,7 +507,7 @@ export function ConfeccionOfertasView() {
         const porcentajeMap = new Map<string, number>()
         const asignadoMap: Record<string, number> = {}
         if (Array.isArray(data?.items)) {
-          data.items.forEach((item) => {
+          data.items.forEach((item: any) => {
             if (!item?.id) return
             margenMap.set(item.id, item.margen_asignado ?? 0)
             if (typeof item.porcentaje_margen_item === "number") {
@@ -1432,7 +1530,7 @@ export function ConfeccionOfertasView() {
   ])
 
   const agregarMaterial = (material: Material) => {
-    if (ofertaCreada) {
+    if (ofertaCreada && !modoEdicion) {
       toast({
         title: "Oferta ya creada",
         description: "No puedes modificar una oferta ya creada. Crea una nueva oferta.",
@@ -1486,7 +1584,7 @@ export function ConfeccionOfertasView() {
   }
 
   const agregarMaterialPersonalizado = (material: Material) => {
-    if (ofertaCreada) {
+    if (ofertaCreada && !modoEdicion) {
       toast({
         title: "Oferta ya creada",
         description: "No puedes modificar una oferta ya creada. Crea una nueva oferta.",
@@ -2206,10 +2304,17 @@ export function ConfeccionOfertasView() {
         porcentaje_contribucion: aplicaContribucion ? porcentajeContribucion : 0
       }
 
-      console.log('📤 Enviando oferta al backend:', ofertaData)
+      console.log(modoEdicion ? '📤 Actualizando oferta:' : '📤 Enviando oferta al backend:', ofertaData)
 
       // Llamada al backend usando apiRequest
       const { apiRequest } = await import('@/lib/api-config')
+      
+      // En modo edición, usar PUT; en modo creación, usar POST
+      const endpoint = modoEdicion && ofertaParaEditar?.id 
+        ? `/ofertas/confeccion/${ofertaParaEditar.id}`
+        : '/ofertas/confeccion/'
+      
+      const method = modoEdicion ? 'PUT' : 'POST'
       
       const response = await apiRequest<{
         success: boolean
@@ -2220,8 +2325,8 @@ export function ConfeccionOfertasView() {
           nombre_automatico: string
           [key: string]: any
         }
-      }>('/ofertas/confeccion/', {
-        method: 'POST',
+      }>(endpoint, {
+        method,
         body: JSON.stringify(ofertaData)
       })
 
@@ -2232,17 +2337,22 @@ export function ConfeccionOfertasView() {
         setOfertaCreada(true)
 
         toast({
-          title: "Oferta creada exitosamente",
+          title: modoEdicion ? "Oferta actualizada exitosamente" : "Oferta creada exitosamente",
           description: `${response.data.numero_oferta}: ${response.data.nombre_automatico}`,
         })
+        
+        // Si estamos en modo edición y hay callback de éxito, llamarlo
+        if (modoEdicion && onGuardarExito) {
+          onGuardarExito()
+        }
       } else {
-        throw new Error(response.message || 'Error al crear la oferta')
+        throw new Error(response.message || (modoEdicion ? 'Error al actualizar la oferta' : 'Error al crear la oferta'))
       }
 
     } catch (error: any) {
-      console.error('❌ Error al crear oferta:', error)
+      console.error(modoEdicion ? '❌ Error al actualizar oferta:' : '❌ Error al crear oferta:', error)
       
-      let errorMessage = "No se pudo crear la oferta"
+      let errorMessage = modoEdicion ? "No se pudo actualizar la oferta" : "No se pudo crear la oferta"
       
       // Parsear mensajes de error comunes del backend
       if (error.message) {
@@ -2260,7 +2370,7 @@ export function ConfeccionOfertasView() {
       }
       
       toast({
-        title: "Error al crear oferta",
+        title: modoEdicion ? "Error al actualizar oferta" : "Error al crear oferta",
         description: errorMessage,
         variant: "destructive",
       })
@@ -2509,27 +2619,27 @@ export function ConfeccionOfertasView() {
                     <button
                       type="button"
                       onClick={() => {
-                        if (ofertaCreada) return
+                        if (ofertaCreada && !modoEdicion) return
                         setOfertaGenerica(true)
                         setClienteId("")
                       }}
-                      disabled={ofertaCreada}
+                      disabled={ofertaCreada && !modoEdicion}
                       className={`px-3 py-1 text-sm font-semibold rounded ${
                         ofertaGenerica ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
-                      } ${ofertaCreada ? "opacity-50 cursor-not-allowed" : ""}`}
+                      } ${(ofertaCreada && !modoEdicion) ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       Generica
                     </button>
                     <button
                       type="button"
                       onClick={() => {
-                        if (ofertaCreada) return
+                        if (ofertaCreada && !modoEdicion) return
                         setOfertaGenerica(false)
                       }}
-                      disabled={ofertaCreada}
+                      disabled={ofertaCreada && !modoEdicion}
                       className={`px-3 py-1 text-sm font-semibold rounded ${
                         !ofertaGenerica ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
-                      } ${ofertaCreada ? "opacity-50 cursor-not-allowed" : ""}`}
+                      } ${(ofertaCreada && !modoEdicion) ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       Personalizada
                     </button>
@@ -3387,8 +3497,8 @@ export function ConfeccionOfertasView() {
                   Exportar oferta
                 </Button>
 
-                {/* Botón de Crear Oferta */}
-                {!ofertaCreada ? (
+                {/* Botón de Crear/Guardar Oferta */}
+                {!ofertaCreada || modoEdicion ? (
                   <Button
                     onClick={handleCrearOferta}
                     disabled={creandoOferta || items.length === 0 || !almacenId || (!ofertaGenerica && !clienteId)}
@@ -3397,12 +3507,12 @@ export function ConfeccionOfertasView() {
                     {creandoOferta ? (
                       <>
                         <span className="animate-spin mr-2">⏳</span>
-                        Creando Oferta...
+                        {modoEdicion ? 'Guardando Oferta...' : 'Creando Oferta...'}
                       </>
                     ) : (
                       <>
                         <Save className="h-5 w-5 mr-2" />
-                        Crear Oferta
+                        {modoEdicion ? 'Guardar Oferta' : 'Crear Oferta'}
                       </>
                     )}
                   </Button>
@@ -3644,7 +3754,7 @@ export function ConfeccionOfertasView() {
                             ofertaCreada ? 'opacity-50 cursor-not-allowed' : ''
                           }`}
                           onClick={() => {
-                            if (ofertaCreada) return
+                            if (ofertaCreada && !modoEdicion) return
                             mostrarElementosPersonalizados
                               ? agregarMaterialPersonalizado(material)
                               : agregarMaterial(material)
