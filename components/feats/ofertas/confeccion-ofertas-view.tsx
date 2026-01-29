@@ -120,6 +120,11 @@ export function ConfeccionOfertasView() {
   const [datosCuenta, setDatosCuenta] = useState("")
   const [aplicaContribucion, setAplicaContribucion] = useState(false)
   const [porcentajeContribucion, setPorcentajeContribucion] = useState<number>(0)
+  const [margenComercialTotal, setMargenComercialTotal] = useState(0)
+  const [margenParaMateriales, setMargenParaMateriales] = useState(0)
+  const [margenParaInstalacion, setMargenParaInstalacion] = useState(0)
+  const [margenPorMaterial, setMargenPorMaterial] = useState<Map<string, number>>(new Map())
+  const [porcentajeMargenPorItem, setPorcentajeMargenPorItem] = useState<Map<string, number>>(new Map())
   const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<Record<string, number>>({})
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
 
@@ -303,13 +308,26 @@ export function ConfeccionOfertasView() {
     return map
   }, [items])
 
+  const margenPorMaterialCalculado = useMemo(() => {
+    const map = new Map<string, number>()
+    items.forEach((item) => {
+      const costoItem = item.precio * item.cantidad
+      const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
+        ? porcentajeAsignadoPorItem[item.id]
+        : (porcentajeMargenPorItem.get(item.id) ?? 0)
+      map.set(item.id, costoItem * (porcentaje / 100))
+    })
+    return map
+  }, [items, porcentajeAsignadoPorItem, porcentajeMargenPorItem])
+
   const subtotalPorSeccion = useMemo(() => {
     const map = new Map<string, number>()
     items.forEach((item) => {
-      map.set(item.seccion, (map.get(item.seccion) ?? 0) + item.precio * item.cantidad)
+      const margenItem = margenPorMaterialCalculado.get(item.id) ?? 0
+      map.set(item.seccion, (map.get(item.seccion) ?? 0) + item.precio * item.cantidad + margenItem)
     })
     return map
-  }, [items])
+  }, [items, margenPorMaterialCalculado])
 
   const totalMateriales = useMemo(() => {
     return items.reduce((sum, item) => sum + item.precio * item.cantidad, 0)
@@ -330,18 +348,96 @@ export function ConfeccionOfertasView() {
     }, 0)
   }, [seccionesPersonalizadas])
 
-  const margenComercialTotal = useMemo(() => {
-    if (margenComercial <= 0 || margenComercial >= 100) return 0
-    return totalMateriales * (margenComercial / 100) / (1 - margenComercial / 100)
-  }, [totalMateriales, margenComercial])
+  useEffect(() => {
+    let cancelled = false
 
-  const margenParaMateriales = useMemo(() => {
-    return margenComercialTotal * (porcentajeMargenMateriales / 100)
-  }, [margenComercialTotal, porcentajeMargenMateriales])
+    const resetMargins = () => {
+      setMargenComercialTotal(0)
+      setMargenParaMateriales(0)
+      setMargenParaInstalacion(0)
+      setMargenPorMaterial(new Map())
+      setPorcentajeMargenPorItem(new Map())
+    }
 
-  const margenParaInstalacion = useMemo(() => {
-    return margenComercialTotal * (porcentajeMargenInstalacion / 100)
-  }, [margenComercialTotal, porcentajeMargenInstalacion])
+    const calcularMargenes = async () => {
+      if (margenComercial <= 0 || margenComercial >= 100 || items.length === 0) {
+        resetMargins()
+        return
+      }
+
+      try {
+        const { apiRequest } = await import('@/lib/api-config')
+        const response = await apiRequest<{
+          success?: boolean
+          data?: {
+            margen_total: number
+            margen_materiales: number
+            margen_instalacion?: number
+            items?: Array<{
+              id: string
+              margen_asignado: number
+              porcentaje_margen_item?: number
+            }>
+          }
+        }>('/ofertas/confeccion/margen-materiales', {
+          method: 'POST',
+          body: JSON.stringify({
+            margen_comercial: margenComercial,
+            porcentaje_margen_materiales: porcentajeMargenMateriales,
+            items: items.map((item) => ({
+              id: item.id,
+              material_codigo: item.materialCodigo,
+              descripcion: item.descripcion,
+              precio: item.precio,
+              cantidad: item.cantidad,
+              categoria: item.categoria,
+              seccion: item.seccion,
+            })),
+          }),
+        })
+
+        if (cancelled) return
+
+        const data = response?.data ?? (response as any)
+        const margenTotal = data?.margen_total ?? 0
+        const margenMateriales = data?.margen_materiales ?? 0
+        const margenInstalacion = typeof data?.margen_instalacion === "number"
+          ? data.margen_instalacion
+          : Math.max(0, margenTotal - margenMateriales)
+
+        const margenMap = new Map<string, number>()
+        const porcentajeMap = new Map<string, number>()
+        const asignadoMap: Record<string, number> = {}
+        if (Array.isArray(data?.items)) {
+          data.items.forEach((item) => {
+            if (!item?.id) return
+            margenMap.set(item.id, item.margen_asignado ?? 0)
+            if (typeof item.porcentaje_margen_item === "number") {
+              porcentajeMap.set(item.id, item.porcentaje_margen_item)
+              asignadoMap[item.id] = item.porcentaje_margen_item
+            }
+          })
+        }
+
+        setMargenComercialTotal(margenTotal)
+        setMargenParaMateriales(margenMateriales)
+        setMargenParaInstalacion(margenInstalacion)
+        setMargenPorMaterial(margenMap)
+        setPorcentajeMargenPorItem(porcentajeMap)
+        setPorcentajeAsignadoPorItem(asignadoMap)
+      } catch (error) {
+        if (cancelled) return
+        console.error('❌ Error al calcular márgenes:', error)
+        resetMargins()
+      }
+    }
+
+    calcularMargenes()
+
+    return () => {
+      cancelled = true
+    }
+  }, [margenComercial, porcentajeMargenMateriales, items])
 
   const servicios = useMemo<ServicioOferta[]>(() => {
     if (margenParaInstalacion <= 0) return []
@@ -356,30 +452,13 @@ export function ConfeccionOfertasView() {
     ]
   }, [margenParaInstalacion, porcentajeMargenInstalacion])
 
-  const margenPorMaterial = useMemo(() => {
-    const map = new Map<string, number>()
-    if (margenParaMateriales <= 0 || totalMateriales <= 0) return map
-
-    items.forEach((item) => {
-      const costoItem = item.precio * item.cantidad
-      const porcentaje = porcentajeAsignadoPorItem[item.id]
-      if (typeof porcentaje === "number" && porcentaje > 0) {
-        map.set(item.id, costoItem * (porcentaje / 100))
-      } else {
-        map.set(item.id, 0)
-      }
-    })
-
-    return map
-  }, [items, margenParaMateriales, totalMateriales, porcentajeAsignadoPorItem])
-
   const totalMargenAsignadoMateriales = useMemo(() => {
     let total = 0
-    margenPorMaterial.forEach((value) => {
+    margenPorMaterialCalculado.forEach((value) => {
       total += value
     })
     return total
-  }, [margenPorMaterial])
+  }, [margenPorMaterialCalculado])
 
   const porcentajeSugeridoPorMaterial = useMemo(() => {
     const map = new Map<string, number>()
@@ -391,7 +470,9 @@ export function ConfeccionOfertasView() {
         map.set(item.id, 0)
         return
       }
-      const porcentajeActual = porcentajeAsignadoPorItem[item.id] || 0
+      const porcentajeActual = typeof porcentajeAsignadoPorItem[item.id] === "number"
+        ? porcentajeAsignadoPorItem[item.id]
+        : (porcentajeMargenPorItem.get(item.id) ?? 0)
       const margenActual = costoItem * (porcentajeActual / 100)
       const margenRestante = margenParaMateriales - (totalMargenAsignadoMateriales - margenActual)
       const sugeridoRaw = margenRestante <= 0 ? 0 : (margenRestante / costoItem) * 100
@@ -400,7 +481,14 @@ export function ConfeccionOfertasView() {
     })
 
     return map
-  }, [items, margenParaMateriales, totalMateriales, totalMargenAsignadoMateriales, porcentajeAsignadoPorItem])
+  }, [
+    items,
+    margenParaMateriales,
+    totalMateriales,
+    totalMargenAsignadoMateriales,
+    porcentajeAsignadoPorItem,
+    porcentajeMargenPorItem,
+  ])
 
   const faltantePorMaterial = useMemo(() => {
     const map = new Map<string, number>()
@@ -412,7 +500,9 @@ export function ConfeccionOfertasView() {
         map.set(item.id, 0)
         return
       }
-      const porcentajeActual = porcentajeAsignadoPorItem[item.id] || 0
+      const porcentajeActual = typeof porcentajeAsignadoPorItem[item.id] === "number"
+        ? porcentajeAsignadoPorItem[item.id]
+        : (porcentajeMargenPorItem.get(item.id) ?? 0)
       const margenActual = costoItem * (porcentajeActual / 100)
       const margenRestante = margenParaMateriales - (totalMargenAsignadoMateriales - margenActual)
       const sugerido = porcentajeSugeridoPorMaterial.get(item.id) || 0
@@ -427,12 +517,13 @@ export function ConfeccionOfertasView() {
     totalMateriales,
     totalMargenAsignadoMateriales,
     porcentajeAsignadoPorItem,
+    porcentajeMargenPorItem,
     porcentajeSugeridoPorMaterial,
   ])
 
   const subtotalConMargen = useMemo(() => {
-    return totalMateriales + margenParaMateriales
-  }, [totalMateriales, margenParaMateriales])
+    return totalMateriales + totalMargenAsignadoMateriales
+  }, [totalMateriales, totalMargenAsignadoMateriales])
 
   const totalSinRedondeo = useMemo(() => {
     const base = subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
@@ -592,36 +683,54 @@ export function ConfeccionOfertasView() {
     return totalMateriales + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
   }, [totalMateriales, costoTransportacion, totalElementosPersonalizados, totalCostosExtras])
 
+  const selectedCliente = useMemo(() => {
+    if (!clienteId) return null
+    return clientes.find((cliente) => cliente.id === clienteId || cliente.numero === clienteId) || null
+  }, [clientes, clienteId])
+
   const exportOptionsCompleto = useMemo(() => {
     const rows: any[] = []
+
+    // Crear mapa de fotos de materiales
+    const fotosMap = new Map<string, string>()
+    items.forEach((item) => {
+      const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
+      if (material?.foto) {
+        fotosMap.set(item.materialCodigo, material.foto)
+      }
+    })
 
     items.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
       const costoItem = item.precio * item.cantidad
-      const porcentaje = porcentajeAsignadoPorItem[item.id] ?? 0
-      const margenItem = margenPorMaterial.get(item.id) || 0
+      const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
+        ? porcentajeAsignadoPorItem[item.id]
+        : (porcentajeMargenPorItem.get(item.id) ?? 0)
+      const margenItem = margenPorMaterialCalculado.get(item.id) || 0
       rows.push({
+        material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
         descripcion: item.descripcion,
         cantidad: item.cantidad,
         precio_unitario: item.precio,
-        porcentaje_margen: porcentaje,
-        margen: margenItem,
-        total: costoItem + margenItem,
+        porcentaje_margen: porcentaje.toFixed(2),
+        margen: margenItem.toFixed(2),
+        total: (costoItem + margenItem).toFixed(2),
       })
     })
 
     elementosPersonalizados.forEach((elem) => {
       rows.push({
+        material_codigo: elem.materialCodigo,
         seccion: "Personalizados",
         tipo: "Elemento",
         descripcion: elem.descripcion,
         cantidad: elem.cantidad,
-        precio_unitario: elem.precio,
+        precio_unitario: elem.precio.toFixed(2),
         porcentaje_margen: "",
         margen: "",
-        total: elem.precio * elem.cantidad,
+        total: (elem.precio * elem.cantidad).toFixed(2),
       })
     })
 
@@ -629,14 +738,15 @@ export function ConfeccionOfertasView() {
       if (seccion.tipo === 'extra' && seccion.tipoExtra === 'costo' && seccion.costosExtras) {
         seccion.costosExtras.forEach((costo) => {
           rows.push({
+            material_codigo: "",
             seccion: seccion.label,
             tipo: "Costo extra",
             descripcion: costo.descripcion,
             cantidad: costo.cantidad,
-            precio_unitario: costo.precioUnitario,
+            precio_unitario: costo.precioUnitario.toFixed(2),
             porcentaje_margen: "",
             margen: "",
-            total: costo.cantidad * costo.precioUnitario,
+            total: (costo.cantidad * costo.precioUnitario).toFixed(2),
           })
         })
       }
@@ -644,31 +754,34 @@ export function ConfeccionOfertasView() {
 
     if (margenParaInstalacion > 0) {
       rows.push({
+        material_codigo: "",
         seccion: "Servicios",
         tipo: "Servicio",
         descripcion: "Servicio de instalación y montaje",
         cantidad: 1,
-        precio_unitario: margenParaInstalacion,
-        porcentaje_margen: porcentajeMargenInstalacion,
+        precio_unitario: margenParaInstalacion.toFixed(2),
+        porcentaje_margen: porcentajeMargenInstalacion.toFixed(2),
         margen: "",
-        total: margenParaInstalacion,
+        total: margenParaInstalacion.toFixed(2),
       })
     }
 
     if (costoTransportacion > 0) {
       rows.push({
+        material_codigo: "",
         seccion: "Logística",
         tipo: "Transportación",
         descripcion: "Costo de transportación",
         cantidad: 1,
-        precio_unitario: costoTransportacion,
+        precio_unitario: costoTransportacion.toFixed(2),
         porcentaje_margen: "",
         margen: "",
-        total: costoTransportacion,
+        total: costoTransportacion.toFixed(2),
       })
     }
 
     rows.push({
+      material_codigo: "",
       seccion: "Totales",
       tipo: "TOTAL",
       descripcion: "Precio final",
@@ -676,8 +789,152 @@ export function ConfeccionOfertasView() {
       precio_unitario: "",
       porcentaje_margen: "",
       margen: "",
-      total: precioFinal,
+      total: precioFinal.toFixed(2),
     })
+
+    // SECCIÓN DE PAGO
+    // Agregar línea vacía para separar
+    rows.push({
+      material_codigo: "",
+      seccion: "",
+      tipo: "",
+      descripcion: "",
+      cantidad: "",
+      precio_unitario: "",
+      porcentaje_margen: "",
+      margen: "",
+      total: "",
+    })
+
+    // Pago por transferencia
+    if (pagoTransferencia) {
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Info",
+        descripcion: "✓ Pago por transferencia",
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: "",
+      })
+      
+      if (datosCuenta) {
+        rows.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Datos",
+          descripcion: "Datos de la cuenta",
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: datosCuenta,
+        })
+      }
+    }
+
+    // Contribución
+    if (aplicaContribucion && porcentajeContribucion > 0) {
+      const montoContribucion = (subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras) * (porcentajeContribucion / 100)
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Info",
+        descripcion: `✓ Aplicar ${porcentajeContribucion}% de Contribución`,
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: "",
+      })
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Monto",
+        descripcion: "Contribución",
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: montoContribucion.toFixed(2),
+      })
+    }
+
+    // Precio Final
+    rows.push({
+      material_codigo: "",
+      seccion: "PAGO",
+      tipo: "TOTAL",
+      descripcion: "Precio Final",
+      cantidad: "",
+      precio_unitario: "",
+      porcentaje_margen: "",
+      margen: "",
+      total: precioFinal.toFixed(2),
+    })
+
+    // Nota de redondeo si aplica
+    if (precioFinal !== totalSinRedondeo) {
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Nota",
+        descripcion: `(Redondeado desde ${totalSinRedondeo.toFixed(2)} $)`,
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: "",
+      })
+    }
+
+    // Conversión de moneda
+    if (monedaPago !== 'USD' && tasaCambioNumero > 0) {
+      const simboloMoneda = monedaPago === 'EUR' ? '€' : 'CUP'
+      const nombreMoneda = monedaPago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+      
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Info",
+        descripcion: "Moneda de pago",
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: nombreMoneda,
+      })
+      
+      const tasaTexto = monedaPago === 'EUR' 
+        ? `1 EUR = ${tasaCambioNumero} USD`
+        : `1 USD = ${tasaCambioNumero} CUP`
+      
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Tasa",
+        descripcion: tasaTexto,
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: "",
+      })
+      
+      rows.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "Conversión",
+        descripcion: `Precio en ${monedaPago}`,
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+      })
+    }
 
     return {
       title: "Oferta - Exportación completa",
@@ -687,25 +944,56 @@ export function ConfeccionOfertasView() {
         { header: "Tipo", key: "tipo", width: 12 },
         { header: "Descripción", key: "descripcion", width: 40 },
         { header: "Cant", key: "cantidad", width: 8 },
-        { header: "P.Unit", key: "precio_unitario", width: 12 },
+        { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
         { header: "% Margen", key: "porcentaje_margen", width: 10 },
-        { header: "Margen", key: "margen", width: 12 },
-        { header: "Total", key: "total", width: 12 },
+        { header: "Margen ($)", key: "margen", width: 12 },
+        { header: "Total ($)", key: "total", width: 12 },
       ],
       data: rows,
+      logoUrl: '/logo.png',
+      clienteData: !ofertaGenerica && selectedCliente ? {
+        numero: selectedCliente.numero || selectedCliente.id,
+        nombre: selectedCliente.nombre,
+        carnet_identidad: selectedCliente.carnet_identidad,
+        telefono: selectedCliente.telefono,
+        provincia_montaje: selectedCliente.provincia_montaje,
+        direccion: selectedCliente.direccion,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: ofertaId,
+        nombre_oferta: nombreAutomatico,
+        tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
     }
   }, [
     items,
     elementosPersonalizados,
     seccionesPersonalizadas,
     seccionLabelMap,
+    porcentajeMargenPorItem,
     porcentajeAsignadoPorItem,
-    margenPorMaterial,
+    margenPorMaterialCalculado,
     margenParaInstalacion,
     porcentajeMargenInstalacion,
     costoTransportacion,
     precioFinal,
     nombreAutomatico,
+    materials,
+    ofertaGenerica,
+    selectedCliente,
+    ofertaId,
+    monedaPago,
+    tasaCambioNumero,
+    montoConvertido,
+    pagoTransferencia,
+    datosCuenta,
+    aplicaContribucion,
+    porcentajeContribucion,
+    subtotalConMargen,
+    totalElementosPersonalizados,
+    totalCostosExtras,
   ])
 
   const exportOptionsSinPrecios = useMemo(() => {
@@ -746,7 +1034,9 @@ export function ConfeccionOfertasView() {
     const rows: any[] = []
     items.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
-      const porcentaje = porcentajeAsignadoPorItem[item.id] ?? 0
+      const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
+        ? porcentajeAsignadoPorItem[item.id]
+        : (porcentajeMargenPorItem.get(item.id) ?? 0)
       const unitarioConMargen = item.precio * (1 + porcentaje / 100)
       rows.push({
         seccion,
@@ -805,6 +1095,7 @@ export function ConfeccionOfertasView() {
   }, [
     items,
     seccionLabelMap,
+    porcentajeMargenPorItem,
     porcentajeAsignadoPorItem,
     margenParaInstalacion,
     costoTransportacion,
@@ -1173,11 +1464,6 @@ export function ConfeccionOfertasView() {
     loadClientes()
   }, [])
 
-  const selectedCliente = useMemo(() => {
-    if (!clienteId) return null
-    return clientes.find((cliente) => cliente.id === clienteId || cliente.numero === clienteId) || null
-  }, [clientes, clienteId])
-
   // Determinar si hay múltiples tipos de materiales en cada categoría
   const tieneMultiplesInversores = useMemo(() => {
     const inversores = items.filter(item => item.seccion === 'INVERSORES')
@@ -1536,7 +1822,7 @@ export function ConfeccionOfertasView() {
           cantidad: item.cantidad,
           categoria: item.categoria,
           seccion: item.seccion,
-          margen_asignado: margenPorMaterial.get(item.id) || 0
+          margen_asignado: margenPorMaterialCalculado.get(item.id) || 0
         })),
 
         servicios: servicios.length > 0 ? servicios : undefined,
@@ -1676,6 +1962,11 @@ export function ConfeccionOfertasView() {
     setDatosCuenta("")
     setAplicaContribucion(false)
     setPorcentajeContribucion(0)
+    setMargenComercialTotal(0)
+    setMargenParaMateriales(0)
+    setMargenParaInstalacion(0)
+    setMargenPorMaterial(new Map())
+    setPorcentajeMargenPorItem(new Map())
     setPorcentajeAsignadoPorItem({})
     
     setSeccionesPersonalizadas([
@@ -2164,18 +2455,18 @@ export function ConfeccionOfertasView() {
                                 <>
                                   {itemsDeSeccion.length > 0 ? (
                                     <>
-                                      <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_120px_40px] text-sm text-slate-500 gap-2">
+                                      <div className="grid grid-cols-[minmax(0,1fr)_90px_80px_120px_120px_40px] text-sm text-slate-500 gap-2">
                                         <span>Material</span>
                                         <span className="text-right">P. Unit</span>
                                         <span className="text-center">Cant</span>
                                         <span className="text-right">Total</span>
-                                        <span className="text-right">% sobre costo</span>
+                                        <span className="text-right">Margen (%)</span>
                                         <span></span>
                                       </div>
                                       {itemsDeSeccion.map((item) => (
                                         <div
                                           key={item.id}
-                                          className="grid grid-cols-[minmax(0,1fr)_90px_80px_110px_120px_40px] items-center gap-2"
+                                          className="grid grid-cols-[minmax(0,1fr)_90px_80px_120px_120px_40px] items-center gap-2"
                                         >
                                           <div className="min-w-0">
                                             <p className="text-sm font-semibold text-slate-900 truncate">
@@ -2195,57 +2486,78 @@ export function ConfeccionOfertasView() {
                                             }
                                             className="h-8 text-center text-sm"
                                           />
-                                          <span className="text-sm font-semibold text-slate-900 text-right">
-                                            {formatCurrency(item.precio * item.cantidad)}
-                                          </span>
-                                          <div className="flex flex-col items-end gap-1">
-                                            <Input
-                                              type="number"
-                                              min="0"
-                                              step="0.1"
-                                              value={
-                                                typeof porcentajeAsignadoPorItem[item.id] === "number"
-                                                  ? porcentajeAsignadoPorItem[item.id].toString()
-                                                  : ""
-                                              }
-                                              onChange={(e) => {
-                                                const value = e.target.value
-                                                setPorcentajeAsignadoPorItem((prev) => {
-                                                  const next = { ...prev }
-                                                  if (value === "") {
-                                                    delete next[item.id]
-                                                    return next
-                                                  }
-                                                  const parsed = Number(value)
-                                                  if (Number.isNaN(parsed)) {
-                                                    delete next[item.id]
-                                                  } else {
-                                                    next[item.id] = Math.min(100, Math.max(0, parsed))
-                                                  }
-                                                  return next
-                                                })
-                                              }}
-                                              className="h-8 text-right text-sm"
-                                              placeholder="Auto"
-                                            />
-                                            <span className="text-[11px] text-slate-500">
-                                              {typeof porcentajeAsignadoPorItem[item.id] === "number"
-                                                ? `${porcentajeAsignadoPorItem[item.id]}% · ${formatCurrency(margenPorMaterial.get(item.id) || 0)}`
-                                                : `Actual: 0% · ${formatCurrency(0)}`}
+                                          <div className="flex flex-col items-end">
+                                            <span className="text-sm font-semibold text-slate-900">
+                                              {formatCurrency(item.precio * item.cantidad)}
                                             </span>
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const sugerido = porcentajeSugeridoPorMaterial.get(item.id) || 0
-                                                setPorcentajeAsignadoPorItem((prev) => ({
-                                                  ...prev,
-                                                  [item.id]: Number(sugerido.toFixed(2)),
-                                                }))
-                                              }}
-                                              className="text-[11px] text-blue-600 hover:text-blue-700"
-                                            >
-                                              Ajuste sugerido: {(porcentajeSugeridoPorMaterial.get(item.id) || 0).toFixed(2)}%
-                                            </button>
+                                            <span className="text-[11px] text-slate-500">
+                                              + {formatCurrency(margenPorMaterialCalculado.get(item.id) || 0)}
+                                            </span>
+                                            <span className="text-[11px] font-semibold text-slate-900">
+                                              {formatCurrency(
+                                                item.precio * item.cantidad + (margenPorMaterialCalculado.get(item.id) || 0)
+                                              )}
+                                            </span>
+                                          </div>
+                                          <div className="flex flex-col items-end gap-1">
+                                            <div className="flex items-center gap-2">
+                                              <span className="text-xs text-slate-500">%</span>
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.1"
+                                                value={
+                                                  typeof porcentajeAsignadoPorItem[item.id] === "number"
+                                                    ? porcentajeAsignadoPorItem[item.id].toString()
+                                                    : (porcentajeMargenPorItem.get(item.id)?.toString() ?? "")
+                                                }
+                                                onChange={(e) => {
+                                                  const value = e.target.value
+                                                  setPorcentajeAsignadoPorItem((prev) => {
+                                                    const next = { ...prev }
+                                                    if (value === "") {
+                                                      delete next[item.id]
+                                                      return next
+                                                    }
+                                                    const parsed = Number(value)
+                                                    if (Number.isNaN(parsed)) {
+                                                      delete next[item.id]
+                                                    } else {
+                                                      next[item.id] = Math.min(100, Math.max(0, parsed))
+                                                    }
+                                                    return next
+                                                  })
+                                                }}
+                                                className="h-8 w-20 text-right text-sm"
+                                                placeholder="Auto"
+                                              />
+                                            </div>
+                                            {(() => {
+                                              const currentPercent = typeof porcentajeAsignadoPorItem[item.id] === "number"
+                                                ? porcentajeAsignadoPorItem[item.id]
+                                                : (porcentajeMargenPorItem.get(item.id) ?? 0)
+                                              const sugerido = porcentajeSugeridoPorMaterial.get(item.id) ?? 0
+                                              const delta = sugerido - currentPercent
+                                              return (
+                                                <>
+                                            <span className="text-[11px] text-slate-500">
+                                                  {`${currentPercent.toFixed(2)}% · ${formatCurrency(margenPorMaterialCalculado.get(item.id) || 0)}`}
+                                            </span>
+                                            {Math.abs(faltantePorMaterial.get(item.id) || 0) > 0.01 && (
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const sugerido = porcentajeSugeridoPorMaterial.get(item.id) || 0
+                                                  setPorcentajeAsignadoPorItem((prev) => ({
+                                                    ...prev,
+                                                    [item.id]: Number(sugerido.toFixed(2)),
+                                                  }))
+                                                }}
+                                                className="text-[11px] text-blue-600 hover:text-blue-700"
+                                              >
+                                                Ajuste recomendado: {sugerido.toFixed(2)}% ({delta >= 0 ? "+" : ""}{delta.toFixed(2)}%)
+                                              </button>
+                                            )}
                                             {Math.abs(faltantePorMaterial.get(item.id) || 0) > 0.01 && (
                                               <span className="text-[11px] text-amber-600">
                                                 {faltantePorMaterial.get(item.id)! > 0
@@ -2253,6 +2565,9 @@ export function ConfeccionOfertasView() {
                                                   : `Sobra ${formatCurrency(Math.abs(faltantePorMaterial.get(item.id) || 0))}`}
                                               </span>
                                             )}
+                                                </>
+                                              )
+                                            })()}
                                           </div>
                                           <button
                                             type="button"
@@ -2431,6 +2746,11 @@ export function ConfeccionOfertasView() {
                         {Math.abs(totalMargenAsignadoMateriales - margenParaMateriales) > 0.01 && (
                           <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                             ⚠️ El margen asignado a materiales ({formatCurrency(totalMargenAsignadoMateriales)}) no coincide con el margen de materiales ({formatCurrency(margenParaMateriales)}).
+                          </p>
+                        )}
+                        {totalMargenAsignadoMateriales - margenParaMateriales > 0.01 && (
+                          <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                            ⛔ Estás por encima de lo acordado: supera el margen de materiales en {formatCurrency(totalMargenAsignadoMateriales - margenParaMateriales)}.
                           </p>
                         )}
                       </div>

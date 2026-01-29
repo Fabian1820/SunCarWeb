@@ -28,6 +28,7 @@ export type EstadoOferta =
   | "enviada_a_cliente"
   | "confirmada_por_cliente"
   | "reservada";
+export type MonedaPago = "USD" | "EUR" | "CUP";
 
 export interface ItemOferta {
   material_codigo: string;
@@ -68,6 +69,17 @@ export interface ComponentesPrincipales {
   bateria_seleccionada?: string;
   panel_seleccionado?: string;
 }
+
+export interface DatosPagoContribucion {
+  aplica_contribucion?: boolean;
+  porcentaje_contribucion?: number;
+  monto_contribucion?: number;
+  moneda_pago?: MonedaPago;
+  tasa_cambio?: number;
+  pago_transferencia?: boolean;
+  datos_cuenta?: string;
+  monto_convertido?: number;
+}
 ```
 
 ---
@@ -105,6 +117,14 @@ export interface ComponentesPrincipales {
     "total_elementos_personalizados": 0.0,
     "total_costos_extras": 0.0,
     "precio_final": 14382.35,
+    "aplica_contribucion": true,
+    "porcentaje_contribucion": 5,
+    "monto_contribucion": 250.0,
+    "moneda_pago": "EUR",
+    "tasa_cambio": 1.08,
+    "monto_convertido": 11574.07,
+    "pago_transferencia": true,
+    "datos_cuenta": "Banco X - Titular Y - Cuenta Z",
     "estado": "en_revision",
     "materiales_reservados": false,
     "fecha_creacion": "2026-01-26T10:30:00Z",
@@ -161,6 +181,14 @@ const ofertas = Array.isArray(data) ? data : data.data;
     "total_elementos_personalizados": 0.0,
     "total_costos_extras": 0.0,
     "precio_final": 14382.35,
+    "aplica_contribucion": true,
+    "porcentaje_contribucion": 5,
+    "monto_contribucion": 250.0,
+    "moneda_pago": "EUR",
+    "tasa_cambio": 1.08,
+    "monto_convertido": 11574.07,
+    "pago_transferencia": true,
+    "datos_cuenta": "Banco X - Titular Y - Cuenta Z",
     "estado": "en_revision",
     "materiales_reservados": false,
     "fecha_creacion": "2026-01-26T10:30:00Z",
@@ -191,6 +219,14 @@ const ofertas = Array.isArray(data) ? data : data.data;
   "total_elementos_personalizados": 0.0,
   "total_costos_extras": 0.0,
   "precio_final": 14382.35,
+  "aplica_contribucion": true,
+  "porcentaje_contribucion": 5,
+  "monto_contribucion": 250.0,
+  "moneda_pago": "EUR",
+  "tasa_cambio": 1.08,
+  "monto_convertido": 11574.07,
+  "pago_transferencia": true,
+  "datos_cuenta": "Banco X - Titular Y - Cuenta Z",
   "cliente_numero": "CLI-001",
   "foto_portada": "https://.../uuid.jpg",
   "estado": "en_revision",
@@ -258,6 +294,70 @@ const ofertas = Array.isArray(data) ? data : data.data;
 
 ---
 
+## 6) Calcular margen comercial distribuido en materiales
+
+**POST** `/api/ofertas/confeccion/margen-materiales`
+
+**Body:**
+
+```json
+{
+  "margen_comercial": 30,
+  "porcentaje_margen_materiales": 50,
+  "items": [
+    {
+      "id": "item-1",
+      "material_codigo": "PANEL-450",
+      "descripcion": "Panel 450W",
+      "precio": 8000,
+      "cantidad": 1,
+      "categoria": "PANELES",
+      "seccion": "PANELES"
+    },
+    {
+      "id": "item-2",
+      "material_codigo": "CABLE-10",
+      "descripcion": "Cableado",
+      "precio": 2000,
+      "cantidad": 1,
+      "categoria": "CABLEADO_DC",
+      "seccion": "CABLEADO_DC"
+    }
+  ]
+}
+```
+
+**Respuesta:**
+
+```json
+{
+  "total_materiales": 10000,
+  "margen_total": 4285.71,
+  "margen_materiales": 2142.86,
+  "items": [
+    {
+      "id": "item-1",
+      "margen_asignado": 1714.29,
+      "porcentaje_margen_item": 21.4286
+    },
+    {
+      "id": "item-2",
+      "margen_asignado": 428.57,
+      "porcentaje_margen_item": 21.4286
+    }
+  ],
+  "redondeo": 2
+}
+```
+
+**Notas:**
+- `margen_comercial` y `porcentaje_margen_materiales` son porcentajes en rango 0-100.
+- La distribucion del margen se hace por categoria con factores de peso internos.
+- Si hay varios materiales en una categoria, todos usan el mismo factor.
+- En categoria `BATERIAS`, el factor se divide entre todos los items de esa categoria.
+
+---
+
 ## Errores comunes
 
 ```json
@@ -276,6 +376,28 @@ const ofertas = Array.isArray(data) ? data : data.data;
 { "detail": "Estado inválido" }
 ```
 
+```json
+{ "detail": "porcentaje_contribucion es requerido cuando aplica_contribucion es true" }
+```
+
+```json
+{ "detail": "tasa_cambio es requerido cuando moneda_pago no es USD" }
+```
+
+```json
+{ "detail": "datos_cuenta es requerido cuando pago_transferencia es true" }
+```
+
+---
+
+## Reglas de validación (resumen)
+
+- `aplica_contribucion = true` → `porcentaje_contribucion` requerido y >= 0.
+- `moneda_pago = USD` → `tasa_cambio` opcional/null.
+- `moneda_pago = EUR` → `tasa_cambio` requerido (1 EUR = tasa_cambio USD).
+- `moneda_pago = CUP` → `tasa_cambio` requerido (1 USD = tasa_cambio CUP).
+- `pago_transferencia = true` → `datos_cuenta` requerido.
+
 ---
 
 ## Helpers (cálculos en frontend)
@@ -287,6 +409,10 @@ export const calcularTotales = (formData: {
   secciones_personalizadas?: SeccionPersonalizada[];
   margen_comercial: number;
   costo_transportacion: number;
+  aplica_contribucion?: boolean;
+  porcentaje_contribucion?: number;
+  moneda_pago?: MonedaPago;
+  tasa_cambio?: number;
 }) => {
   const total_materiales = formData.items.reduce(
     (sum, item) => sum + item.precio * item.cantidad,
@@ -309,20 +435,32 @@ export const calcularTotales = (formData: {
     }, 0);
 
   const subtotal_con_margen = total_materiales / (1 - formData.margen_comercial / 100);
-  const precio_final = Math.ceil(
+  const base =
     subtotal_con_margen +
-      formData.costo_transportacion +
-      total_elementos_personalizados +
-      total_costos_extras
-  );
+    formData.costo_transportacion +
+    total_elementos_personalizados +
+    total_costos_extras;
+  const porcentaje_contribucion = formData.porcentaje_contribucion || 0;
+  const aplica = Boolean(formData.aplica_contribucion);
+  const monto_contribucion = aplica ? base * (porcentaje_contribucion / 100) : 0;
+  const total_sin_redondeo = base + monto_contribucion;
+  const precio_final = Math.ceil(total_sin_redondeo);
+
+  let monto_convertido: number | null = null;
+  if (formData.moneda_pago === "EUR" && formData.tasa_cambio) {
+    monto_convertido = precio_final / formData.tasa_cambio;
+  } else if (formData.moneda_pago === "CUP" && formData.tasa_cambio) {
+    monto_convertido = precio_final * formData.tasa_cambio;
+  }
 
   return {
     total_materiales: Number(total_materiales.toFixed(2)),
     subtotal_con_margen: Number(subtotal_con_margen.toFixed(2)),
     total_elementos_personalizados: Number(total_elementos_personalizados.toFixed(2)),
     total_costos_extras: Number(total_costos_extras.toFixed(2)),
-    precio_final: Number(precio_final.toFixed(2))
+    precio_final: Number(precio_final.toFixed(2)),
+    monto_contribucion: Number(monto_contribucion.toFixed(2)),
+    monto_convertido: monto_convertido === null ? null : Number(monto_convertido.toFixed(2))
   };
 };
 ```
-

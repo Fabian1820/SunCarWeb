@@ -32,6 +32,23 @@ export interface ExportOptions {
   columns: ExportColumn[]
   data: any[]
   logoUrl?: string
+  // Nuevas opciones para ofertas
+  clienteData?: {
+    nombre?: string
+    carnet_identidad?: string
+    telefono?: string
+    provincia_montaje?: string
+    direccion?: string
+    numero?: string
+  }
+  ofertaData?: {
+    numero_oferta?: string
+    nombre_oferta?: string
+    tipo_oferta?: string
+    fecha_creacion?: string
+  }
+  incluirFotos?: boolean
+  fotosMap?: Map<string, string> // Map de material_codigo -> url_foto
 }
 
 /**
@@ -165,122 +182,424 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 }
 
 /**
- * Exporta datos a formato PDF
+ * Exporta datos a formato PDF con soporte para fotos y datos de cliente
+ * Formato similar a la imagen de referencia con tabla de materiales por categoría
  */
 export async function exportToPDF(options: ExportOptions): Promise<void> {
-  const { title, subtitle, filename, columns, data, logoUrl } = options
+  const { title, subtitle, filename, columns, data, logoUrl, clienteData, ofertaData, incluirFotos, fotosMap } = options
 
-  // Crear documento PDF
+  // Crear documento PDF en orientación vertical
   const doc = new jsPDF({
-    orientation: columns.length > 5 ? 'landscape' : 'portrait',
+    orientation: 'portrait',
     unit: 'mm',
     format: 'a4'
   })
 
-  let yPosition = 20
+  const pageWidth = doc.internal.pageSize.getWidth()
+  let yPosition = 10
 
-  // Agregar logo si está disponible
+  // ========== ENCABEZADO ==========
+  // Calcular altura del encabezado basado en el contenido
+  const nombreOferta = ofertaData?.nombre_oferta || subtitle || ''
+  doc.setFontSize(12)
+  doc.setFont('helvetica', 'bold')
+  // Limitar el ancho del texto para que no se superponga con el logo (dejar espacio para logo de ~40mm)
+  const nombreLines = doc.splitTextToSize(nombreOferta, pageWidth - 50)
+  const headerHeight = 20 + (nombreLines.length * 5)
+  
+  // Fondo verde claro para el encabezado
+  doc.setFillColor(200, 230, 201)
+  doc.rect(0, 0, pageWidth, headerHeight, 'F')
+
+  // Logo en la esquina superior derecha (dentro del espacio verde)
   if (logoUrl) {
     try {
       const logoBase64 = await imageToBase64(logoUrl)
       if (logoBase64) {
-        doc.addImage(logoBase64, 'PNG', 15, yPosition, 20, 20)
+        const logoSize = Math.min(headerHeight - 4, 20) // Ajustar al espacio disponible
+        doc.addImage(logoBase64, 'PNG', pageWidth - logoSize - 5, 2, logoSize, logoSize)
       }
     } catch (error) {
       console.error('Error agregando logo al PDF:', error)
     }
   }
 
-  // Agregar encabezado
-  doc.setFontSize(18)
-  doc.setFont('helvetica', 'bold')
-  doc.text('SUNCAR SRL', logoUrl ? 45 : 15, yPosition + 10)
-
-  yPosition += 20
-
-  // Agregar título
+  // Título principal
   doc.setFontSize(14)
-  doc.text(title, 15, yPosition)
-  yPosition += 10
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(0, 0, 0)
+  doc.text('INSTALACIÓN Y MONTAJE DE SISTEMA FOTOVOLTAICO', 10, 8)
 
-  // Agregar subtítulo si existe
-  if (subtitle) {
-    doc.setFontSize(11)
+  // Nombre de la oferta
+  if (nombreOferta) {
+    doc.setFontSize(12)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(nombreLines, 10, 16)
+  }
+
+  yPosition = headerHeight + 5
+
+  // ========== DATOS DEL CLIENTE ==========
+  if (clienteData && clienteData.nombre) {
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
-    doc.text(subtitle, 15, yPosition)
+    doc.setTextColor(0, 0, 0)
+    doc.text(`A la atención de: ${clienteData.nombre}`, 10, yPosition)
     yPosition += 8
   }
 
-  // Agregar fecha
-  doc.setFontSize(9)
-  doc.setFont('helvetica', 'italic')
-  doc.text(`Fecha de generación: ${new Date().toLocaleString('es-ES')}`, 15, yPosition)
-  yPosition += 10
+  // ========== PRESUPUESTO DE MATERIALES ==========
+  // ENCABEZADOS DE COLUMNAS - UNA SOLA VEZ AL INICIO
+  doc.setFillColor(250, 250, 250)
+  doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
+  
+  doc.setFontSize(7)
+  doc.setFont('helvetica', 'bold')
+  doc.setTextColor(100, 100, 100)
+  doc.text('Material', 12, yPosition + 4)
+  doc.text('P. Unit', 85, yPosition + 4, { align: 'right' })
+  doc.text('Cant', 105, yPosition + 4, { align: 'center' })
+  doc.text('Total', 130, yPosition + 4, { align: 'right' })
+  doc.text('Margen (%)', 160, yPosition + 4, { align: 'right' })
+  doc.text('Total Final', pageWidth - 12, yPosition + 4, { align: 'right' })
+  
+  yPosition += 8
 
-  // Preparar datos para la tabla
-  const tableHeaders = columns.map(col => col.header)
-  const tableData = data.map(row => {
-    return columns.map(col => {
-      const value = row[col.key]
-      // Formatear valores
-      if (typeof value === 'number') {
-        // Si parece un monto, formatear como moneda
-        if (col.key.toLowerCase().includes('salario') || 
-            col.key.toLowerCase().includes('monto') ||
-            col.key.toLowerCase().includes('alimentacion')) {
-          return `$${value.toFixed(2)}`
+  // Agrupar datos por sección/categoría
+  const datosPorSeccion = new Map<string, any[]>()
+  data.forEach(row => {
+    // Filtrar filas vacías (separadores)
+    if (!row.descripcion && !row.precio_unitario && !row.cantidad) {
+      return
+    }
+    
+    // Filtrar filas que no son materiales (servicios, totales, etc)
+    if (row.tipo === 'Material' || !row.tipo) {
+      const seccion = row.seccion || 'Sin categoría'
+      if (!datosPorSeccion.has(seccion)) {
+        datosPorSeccion.set(seccion, [])
+      }
+      datosPorSeccion.get(seccion)?.push(row)
+    }
+  })
+
+  // Filtrar secciones vacías
+  for (const [seccion, rows] of Array.from(datosPorSeccion.entries())) {
+    if (rows.length === 0) {
+      datosPorSeccion.delete(seccion)
+    }
+  }
+
+  let seccionIndex = 1
+
+  // Procesar cada sección
+  for (const [seccion, rows] of datosPorSeccion) {
+    // Verificar espacio para nueva sección
+    if (yPosition > doc.internal.pageSize.getHeight() - 80) {
+      doc.addPage()
+      yPosition = 15
+    }
+
+    // Calcular subtotal de la sección
+    const subtotalSeccion = rows.reduce((sum, row) => {
+      const precio = parseFloat(row.precio_unitario) || 0
+      const cantidad = parseFloat(row.cantidad) || 0
+      const margen = parseFloat(row.margen) || 0
+      return sum + (precio * cantidad) + margen
+    }, 0)
+
+    // Encabezado de sección con fondo gris claro
+    doc.setFillColor(245, 245, 245)
+    doc.rect(10, yPosition, pageWidth - 20, 8, 'F')
+    
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text(`${String(seccionIndex).padStart(2, '0')} ${seccion}`, 12, yPosition + 5.5)
+    
+    yPosition += 10
+
+    // Materiales de la sección
+    for (const row of rows) {
+      const rowHeight = 20
+      
+      // Verificar espacio en la página
+      if (yPosition + rowHeight > doc.internal.pageSize.getHeight() - 25) {
+        doc.addPage()
+        yPosition = 15
+      }
+
+      // Fondo blanco alternado
+      doc.setFillColor(255, 255, 255)
+      doc.rect(10, yPosition, pageWidth - 20, rowHeight, 'F')
+
+      // Borde sutil
+      doc.setDrawColor(240, 240, 240)
+      doc.setLineWidth(0.1)
+      doc.rect(10, yPosition, pageWidth - 20, rowHeight)
+
+      // FOTO (si está disponible)
+      if (incluirFotos && fotosMap) {
+        const materialCodigo = row.material_codigo || row.materialCodigo || row.codigo
+        const fotoUrl = fotosMap.get(materialCodigo?.toString())
+        
+        if (fotoUrl) {
+          try {
+            const fotoBase64 = await imageToBase64(fotoUrl)
+            if (fotoBase64) {
+              const fotoSize = 16
+              const fotoX = 12
+              const fotoY = yPosition + (rowHeight - fotoSize) / 2
+              doc.addImage(fotoBase64, 'JPEG', fotoX, fotoY, fotoSize, fotoSize)
+            }
+          } catch (error) {
+            console.error('Error cargando foto:', error)
+          }
         }
-        return value.toFixed(2)
       }
-      if (Array.isArray(value)) {
-        return value.join(', ')
+
+      // NOMBRE DEL MATERIAL
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      const descripcion = row.descripcion || ''
+      // Limitar el ancho para que no se superponga con el precio (hasta columna P.Unit en 85mm)
+      const descripcionLines = doc.splitTextToSize(descripcion, 35)
+      doc.text(descripcionLines.slice(0, 2), 30, yPosition + 8) // Máximo 2 líneas
+
+      // PRECIO UNITARIO
+      doc.setFontSize(8)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(0, 0, 0)
+      const precioUnit = parseFloat(row.precio_unitario) || 0
+      doc.text(`${precioUnit.toFixed(2)} $`, 85, yPosition + 10, { align: 'right' })
+
+      // CANTIDAD
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      const cantidad = row.cantidad || ''
+      doc.text(cantidad.toString(), 105, yPosition + 10, { align: 'center' })
+
+      // TOTAL (sin margen)
+      const totalBase = precioUnit * (parseFloat(cantidad) || 0)
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text(`${totalBase.toFixed(2)} $`, 130, yPosition + 10, { align: 'right' })
+
+      // MARGEN (% y dinero alineados)
+      const porcentaje = parseFloat(row.porcentaje_margen) || 0
+      const margen = parseFloat(row.margen) || 0
+      
+      if (porcentaje > 0 || margen > 0) {
+        // Porcentaje arriba
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(0, 0, 0)
+        doc.text(`${porcentaje.toFixed(2)}%`, 160, yPosition + 8, { align: 'right' })
+        
+        // Monto abajo, alineado con el porcentaje
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100, 100, 100)
+        doc.text(`${margen.toFixed(2)} $`, 160, yPosition + 13, { align: 'right' })
       }
-      return value ?? ''
+
+      // TOTAL FINAL (total + margen)
+      const totalFinal = totalBase + margen
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 10, { align: 'right' })
+
+      yPosition += rowHeight + 1
+    }
+
+    // Subtotal de la sección
+    doc.setFillColor(245, 245, 245)
+    doc.rect(10, yPosition, pageWidth - 20, 7, 'F')
+    
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text('Subtotal:', pageWidth - 60, yPosition + 5)
+    doc.text(`${subtotalSeccion.toFixed(2)} $`, pageWidth - 12, yPosition + 5, { align: 'right' })
+    
+    yPosition += 10
+    seccionIndex++
+  }
+
+  // ========== TOTALES Y SERVICIOS ==========
+  // Buscar servicios, transportación y totales en los datos
+  const servicios = data.filter(row => row.tipo === 'Servicio')
+  const transportacion = data.filter(row => row.tipo === 'Transportación')
+  const totales = data.filter(row => row.tipo === 'TOTAL')
+  const datosPago = data.filter(row => row.seccion === 'PAGO')
+
+  if (servicios.length > 0 || transportacion.length > 0 || totales.length > 0) {
+    yPosition += 5
+    
+    // Servicios
+    servicios.forEach(servicio => {
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(0, 0, 0)
+      doc.text(servicio.descripcion, 12, yPosition)
+      doc.text(`${parseFloat(servicio.total || 0).toFixed(2)} $`, pageWidth - 12, yPosition, { align: 'right' })
+      yPosition += 6
     })
-  })
 
-  // Agregar tabla usando autoTable
-  autoTable(doc, {
-    head: [tableHeaders],
-    body: tableData,
-    startY: yPosition,
-    theme: 'grid',
-    headStyles: {
-      fillColor: [234, 88, 12], // Color naranja de SunCar
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      halign: 'center'
-    },
-    bodyStyles: {
-      fontSize: 9
-    },
-    alternateRowStyles: {
-      fillColor: [255, 247, 237] // Naranja muy claro
-    },
-    columnStyles: columns.reduce((acc, col, index) => {
-      acc[index] = { 
-        cellWidth: col.width ? col.width * 0.8 : 'auto',
-        halign: 'center'
+    // Transportación
+    transportacion.forEach(trans => {
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(0, 0, 0)
+      doc.text(trans.descripcion, 12, yPosition)
+      doc.text(`${parseFloat(trans.total || 0).toFixed(2)} $`, pageWidth - 12, yPosition, { align: 'right' })
+      yPosition += 6
+    })
+
+    // Total final
+    if (totales.length > 0) {
+      yPosition += 3
+      doc.setFillColor(200, 230, 201)
+      doc.rect(10, yPosition, pageWidth - 20, 10, 'F')
+      
+      doc.setFontSize(12)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text('Precio Final', 12, yPosition + 7)
+      doc.text(`${parseFloat(totales[0].total || 0).toFixed(2)} $`, pageWidth - 12, yPosition + 7, { align: 'right' })
+      yPosition += 12
+    }
+  }
+
+  // ========== SECCIÓN DE PAGO ==========
+  if (datosPago.length > 0) {
+    yPosition += 10
+    
+    // Verificar espacio en la página
+    if (yPosition > doc.internal.pageSize.getHeight() - 80) {
+      doc.addPage()
+      yPosition = 15
+    }
+
+    // Línea separadora
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.5)
+    doc.line(10, yPosition, pageWidth - 10, yPosition)
+    yPosition += 8
+
+    datosPago.forEach(pago => {
+      // Saltar el Precio Final duplicado en la sección PAGO
+      if (pago.tipo === 'TOTAL') {
+        return
       }
-      return acc
-    }, {} as any),
-    margin: { top: yPosition, left: 15, right: 15 }
-  })
 
-  // Agregar número de página
+      // Verificar espacio
+      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+        doc.addPage()
+        yPosition = 15
+      }
+
+      if (pago.tipo === 'Info') {
+        if (pago.descripcion.startsWith('✓')) {
+          // Items con checkbox
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(60, 60, 60)
+          doc.text(pago.descripcion.replace('✓', '•'), 12, yPosition)
+          
+          if (pago.total) {
+            doc.setTextColor(0, 0, 0)
+            doc.text(pago.total, pageWidth - 12, yPosition, { align: 'right' })
+          }
+          yPosition += 6
+        } else {
+          // Info regular
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(80, 80, 80)
+          doc.text(pago.descripcion, 12, yPosition)
+          
+          if (pago.total) {
+            doc.setFont('helvetica', 'normal')
+            doc.setTextColor(0, 0, 0)
+            doc.text(pago.total, pageWidth - 12, yPosition, { align: 'right' })
+          }
+          yPosition += 6
+        }
+      } else if (pago.tipo === 'Datos') {
+        // Datos de cuenta indentados
+        doc.setFontSize(8)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(100, 100, 100)
+        const datosLines = doc.splitTextToSize(pago.total || '', pageWidth - 32)
+        doc.text(datosLines, 18, yPosition)
+        yPosition += (datosLines.length * 4) + 4
+      } else if (pago.tipo === 'Monto') {
+        // Monto de contribución
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(60, 60, 60)
+        doc.text(pago.descripcion, 18, yPosition)
+        
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text(pago.total || '', pageWidth - 12, yPosition, { align: 'right' })
+        yPosition += 8
+      } else if (pago.tipo === 'Nota') {
+        // Nota de redondeo
+        doc.setFontSize(7)
+        doc.setFont('helvetica', 'italic')
+        doc.setTextColor(120, 120, 120)
+        doc.text(pago.descripcion, pageWidth - 12, yPosition, { align: 'right' })
+        yPosition += 6
+      } else if (pago.tipo === 'Tasa') {
+        // Tasa de cambio
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(80, 80, 80)
+        doc.text(pago.descripcion, 18, yPosition)
+        yPosition += 6
+      } else if (pago.tipo === 'Conversión') {
+        // Precio convertido
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text(pago.descripcion, 12, yPosition)
+        doc.text(pago.total || '', pageWidth - 12, yPosition, { align: 'right' })
+        yPosition += 8
+      }
+    })
+  }
+
+  // ========== PIE DE PÁGINA ==========
   const pageCount = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
-    doc.setFontSize(8)
+    
+    doc.setDrawColor(200, 200, 200)
+    doc.line(10, doc.internal.pageSize.getHeight() - 12, pageWidth - 10, doc.internal.pageSize.getHeight() - 12)
+    
+    doc.setFontSize(7)
+    doc.setTextColor(100, 100, 100)
     doc.text(
       `Página ${i} de ${pageCount}`,
-      doc.internal.pageSize.getWidth() / 2,
-      doc.internal.pageSize.getHeight() - 10,
+      pageWidth / 2,
+      doc.internal.pageSize.getHeight() - 8,
       { align: 'center' }
+    )
+    
+    doc.text(
+      'SUNCAR SRL - Soluciones en Energía Solar',
+      10,
+      doc.internal.pageSize.getHeight() - 8
     )
   }
 
-  // Descargar archivo
   doc.save(`${filename}.pdf`)
 }
 
