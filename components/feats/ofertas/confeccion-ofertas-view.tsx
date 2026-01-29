@@ -198,7 +198,7 @@ export function ConfeccionOfertasView() {
     {
       id: "MATERIAL_VARIO",
       label: "Material vario",
-      match: (categoria: string) => categoria.includes("VARIO"),
+      match: (categoria: string) => categoria.includes("VARIO") || categoria.includes("PEQUENO"),
       esPersonalizada: false,
     },
     // Agregar secciones personalizadas
