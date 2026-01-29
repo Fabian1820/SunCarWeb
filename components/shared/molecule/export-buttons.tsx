@@ -81,12 +81,12 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
           disabled={exporting !== null}
           variant="outline"
           size="sm"
-          className="border-green-300 text-green-700 hover:bg-green-50"
+          className="border-green-300 text-green-700 hover:bg-green-50 min-w-[90px]"
         >
           {exporting === 'excel' ? (
             <>
               <Download className="mr-2 h-4 w-4 animate-bounce" />
-              Exportando...
+              <span className="text-xs">...</span>
             </>
           ) : (
             <>
@@ -100,12 +100,12 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
           disabled={exporting !== null}
           variant="outline"
           size="sm"
-          className="border-red-300 text-red-700 hover:bg-red-50"
+          className="border-red-300 text-red-700 hover:bg-red-50 min-w-[90px]"
         >
           {exporting === 'pdf' ? (
             <>
               <Download className="mr-2 h-4 w-4 animate-bounce" />
-              Exportando...
+              <span className="text-xs">...</span>
             </>
           ) : (
             <>

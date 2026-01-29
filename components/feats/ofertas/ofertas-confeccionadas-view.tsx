@@ -3,22 +3,25 @@
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/shared/molecule/dialog"
 import { Input } from "@/components/shared/atom/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader } from "@/components/shared/atom/loader"
+import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useMaterials } from "@/hooks/use-materials"
+import { useMarcas } from "@/hooks/use-marcas"
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 import type { Almacen } from "@/lib/inventario-types"
-import { Building2, FileText, Package, Search, User } from "lucide-react"
+import { Building2, FileText, Package, Search, User, Download } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 export function OfertasConfeccionadasView() {
   const { ofertas, loading } = useOfertasConfeccion()
   const { materials } = useMaterials()
+  const { marcas } = useMarcas()
   const [searchQuery, setSearchQuery] = useState("")
   const [estadoFiltro, setEstadoFiltro] = useState("todos")
   const [tipoFiltro, setTipoFiltro] = useState("todas")
@@ -27,6 +30,8 @@ export function OfertasConfeccionadasView() {
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
   const [detalleAbierto, setDetalleAbierto] = useState(false)
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState<(typeof ofertas)[number] | null>(null)
+  const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
+  const [ofertaParaExportar, setOfertaParaExportar] = useState<(typeof ofertas)[number] | null>(null)
 
   const getEstadoBadge = (estado: string) => {
     const badges = {
@@ -204,6 +209,598 @@ export function OfertasConfeccionadasView() {
     return calcularConversion(ofertaSeleccionada)
   }, [ofertaSeleccionada])
 
+  // Crear mapa de marcas por ID
+  const marcasMap = useMemo(() => {
+    const map = new Map<string, string>()
+    marcas.forEach(marca => {
+      if (marca.id && marca.nombre) {
+        map.set(marca.id, marca.nombre)
+      }
+    })
+    return map
+  }, [marcas])
+
+  // Mapa de secciones
+  const seccionLabelMap = useMemo(() => {
+    const map = new Map<string, string>()
+    const secciones = [
+      { id: "INVERSORES", label: "Inversores" },
+      { id: "BATERIAS", label: "Baterías" },
+      { id: "PANELES", label: "Paneles" },
+      { id: "MPPT", label: "MPPT" },
+      { id: "ESTRUCTURAS", label: "Estructuras" },
+      { id: "CABLEADO_DC", label: "Cableado DC" },
+      { id: "CABLEADO_AC", label: "Cableado AC" },
+      { id: "CANALIZACION", label: "Canalización" },
+      { id: "TIERRA", label: "Tierra" },
+      { id: "PROTECCIONES_ELECTRICAS", label: "Protecciones Eléctricas y Gabinetes" },
+      { id: "MATERIAL_VARIO", label: "Material vario" },
+    ]
+    secciones.forEach(s => map.set(s.id, s.label))
+    return map
+  }, [])
+
+  // Generar opciones de exportación para una oferta
+  const generarOpcionesExportacion = (oferta: (typeof ofertas)[number]) => {
+    const cliente = clientePorOferta.get(oferta.cliente_id || "") || clientePorOferta.get(oferta.cliente_numero || "")
+    
+    // Crear mapa de fotos
+    const fotosMap = new Map<string, string>()
+    ;(oferta.items || []).forEach((item) => {
+      const material = materials.find(m => m.codigo.toString() === item.material_codigo)
+      if (material?.foto) {
+        fotosMap.set(item.material_codigo?.toString(), material.foto)
+      }
+    })
+
+    // Generar nombre base del archivo
+    let baseFilename = oferta.nombre
+      .replace(/[^a-zA-Z0-9\s-]/g, '') // Eliminar caracteres especiales
+      .replace(/\s+/g, '_') // Reemplazar espacios por guiones bajos
+      .substring(0, 50) // Limitar longitud
+    
+    // Si es personalizada, agregar nombre del cliente
+    if (oferta.tipo === 'personalizada' && cliente?.nombre) {
+      const nombreCliente = cliente.nombre
+        .replace(/[^a-zA-Z0-9\s-]/g, '')
+        .replace(/\s+/g, '_')
+        .substring(0, 30)
+      baseFilename = `${baseFilename}-${nombreCliente}`
+    }
+
+    // Calcular margen por material (simplificado - en la oferta guardada ya viene calculado)
+    const margenPorMaterial = new Map<string, number>()
+    ;(oferta.items || []).forEach((item) => {
+      // El margen ya está incluido en el precio final de cada item
+      margenPorMaterial.set(item.material_codigo?.toString(), 0)
+    })
+
+    const tasaCambioNumero = oferta.tasa_cambio || 0
+    const montoConvertido = tasaCambioNumero > 0 && oferta.moneda_pago !== 'USD'
+      ? oferta.moneda_pago === 'EUR'
+        ? (oferta.precio_final || 0) / tasaCambioNumero
+        : (oferta.precio_final || 0) * tasaCambioNumero
+      : 0
+
+    // EXPORTACIÓN COMPLETA
+    const rowsCompleto: any[] = []
+    ;(oferta.items || []).forEach((item) => {
+      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+      rowsCompleto.push({
+        material_codigo: item.material_codigo,
+        seccion,
+        tipo: "Material",
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio.toFixed(2),
+        porcentaje_margen: "0.00",
+        margen: "0.00",
+        total: (item.precio * item.cantidad).toFixed(2),
+      })
+    })
+
+    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Logística",
+        tipo: "Transportación",
+        descripcion: "Costo de transportación",
+        cantidad: 1,
+        precio_unitario: oferta.costo_transportacion.toFixed(2),
+        porcentaje_margen: "",
+        margen: "",
+        total: oferta.costo_transportacion.toFixed(2),
+      })
+    }
+
+    rowsCompleto.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "TOTAL",
+      descripcion: "Precio final",
+      cantidad: "",
+      precio_unitario: "",
+      porcentaje_margen: "",
+      margen: "",
+      total: (oferta.precio_final || 0).toFixed(2),
+    })
+
+    // Datos de pago
+    if (oferta.pago_transferencia || oferta.aplica_contribucion || (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0)) {
+      if (oferta.pago_transferencia) {
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "✓ Pago por transferencia",
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+        
+        if (oferta.datos_cuenta) {
+          rowsCompleto.push({
+            material_codigo: "",
+            seccion: "PAGO",
+            tipo: "Datos",
+            descripcion: "Datos de la cuenta",
+            cantidad: "",
+            precio_unitario: "",
+            porcentaje_margen: "",
+            margen: "",
+            total: oferta.datos_cuenta,
+          })
+        }
+      }
+
+      if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+        const totalesCalc = calcularTotalesDetalle(oferta)
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: `✓ Aplicar ${oferta.porcentaje_contribucion}% de Contribución`,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Monto",
+          descripcion: "Contribución",
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: totalesCalc.contribucion.toFixed(2),
+        })
+      }
+
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "TOTAL",
+        descripcion: "Precio Final",
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: (oferta.precio_final || 0).toFixed(2),
+      })
+
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      if (Math.abs(totalesCalc.redondeo) > 0.01) {
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Nota",
+          descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+      }
+
+      if (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0) {
+        const simboloMoneda = oferta.moneda_pago === 'EUR' ? '€' : 'CUP'
+        const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "Moneda de pago",
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: nombreMoneda,
+        })
+        
+        const tasaTexto = oferta.moneda_pago === 'EUR' 
+          ? `1 EUR = ${tasaCambioNumero} USD`
+          : `1 USD = ${tasaCambioNumero} CUP`
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Tasa",
+          descripcion: tasaTexto,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Conversión",
+          descripcion: `Precio en ${oferta.moneda_pago}`,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+        })
+      }
+    }
+
+    const exportOptionsCompleto = {
+      title: "Oferta - Exportación completa",
+      subtitle: oferta.nombre,
+      columns: [
+        { header: "Sección", key: "seccion", width: 18 },
+        { header: "Tipo", key: "tipo", width: 12 },
+        { header: "Descripción", key: "descripcion", width: 40 },
+        { header: "Cant", key: "cantidad", width: 8 },
+        { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
+        { header: "% Margen", key: "porcentaje_margen", width: 10 },
+        { header: "Margen ($)", key: "margen", width: 12 },
+        { header: "Total ($)", key: "total", width: 12 },
+      ],
+      data: rowsCompleto,
+      logoUrl: '/logo.png',
+      clienteData: oferta.tipo === 'personalizada' && cliente ? {
+        numero: cliente.numero || cliente.id,
+        nombre: cliente.nombre,
+        carnet_identidad: cliente.carnet_identidad,
+        telefono: cliente.telefono,
+        provincia_montaje: cliente.provincia_montaje,
+        direccion: cliente.direccion,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre,
+        tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
+    }
+
+    // EXPORTACIÓN SIN PRECIOS
+    const rowsSinPrecios: any[] = []
+    ;(oferta.items || []).forEach((item) => {
+      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+      rowsSinPrecios.push({
+        material_codigo: item.material_codigo,
+        seccion,
+        tipo: "Material",
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+      })
+    })
+
+    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Logística",
+        tipo: "Transportación",
+        descripcion: "Costo de transportación",
+        cantidad: 1,
+      })
+    }
+
+    rowsSinPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "TOTAL",
+      descripcion: "Precio Total",
+      cantidad: "",
+      total: (oferta.precio_final || 0).toFixed(2),
+    })
+
+    // Datos de pago para sin precios
+    if (oferta.pago_transferencia || oferta.aplica_contribucion || (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0)) {
+      if (oferta.pago_transferencia) {
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "✓ Pago por transferencia",
+          cantidad: "",
+        })
+        
+        if (oferta.datos_cuenta) {
+          rowsSinPrecios.push({
+            material_codigo: "",
+            seccion: "PAGO",
+            tipo: "Datos",
+            descripcion: "Datos de la cuenta",
+            cantidad: "",
+            total: oferta.datos_cuenta,
+          })
+        }
+      }
+
+      if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: `✓ Aplicar ${oferta.porcentaje_contribucion}% de Contribución`,
+          cantidad: "",
+        })
+      }
+
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "TOTAL",
+        descripcion: "Precio Final",
+        cantidad: "",
+        total: (oferta.precio_final || 0).toFixed(2),
+      })
+
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      if (Math.abs(totalesCalc.redondeo) > 0.01) {
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Nota",
+          descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
+          cantidad: "",
+        })
+      }
+
+      if (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0) {
+        const simboloMoneda = oferta.moneda_pago === 'EUR' ? '€' : 'CUP'
+        const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+        
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: `Moneda de pago: ${nombreMoneda}`,
+          cantidad: "",
+        })
+        
+        const tasaTexto = oferta.moneda_pago === 'EUR' 
+          ? `Tasa de cambio: 1 EUR = ${tasaCambioNumero} USD`
+          : `Tasa de cambio: 1 USD = ${tasaCambioNumero} CUP`
+        
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Tasa",
+          descripcion: tasaTexto,
+          cantidad: "",
+        })
+        
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Conversión",
+          descripcion: `Precio en ${oferta.moneda_pago}`,
+          cantidad: "",
+          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+        })
+      }
+    }
+
+    const exportOptionsSinPrecios = {
+      title: "Oferta - Cliente sin precios",
+      subtitle: oferta.nombre,
+      columns: [
+        { header: "Material", key: "descripcion", width: 60 },
+        { header: "Cant", key: "cantidad", width: 10 },
+      ],
+      data: rowsSinPrecios,
+      logoUrl: '/logo.png',
+      clienteData: oferta.tipo === 'personalizada' && cliente ? {
+        numero: cliente.numero || cliente.id,
+        nombre: cliente.nombre,
+        carnet_identidad: cliente.carnet_identidad,
+        telefono: cliente.telefono,
+        provincia_montaje: cliente.provincia_montaje,
+        direccion: cliente.direccion,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre,
+        tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
+      sinPrecios: true,
+    }
+
+    // EXPORTACIÓN CLIENTE CON PRECIOS
+    const rowsClienteConPrecios: any[] = []
+    ;(oferta.items || []).forEach((item) => {
+      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+      const totalConMargen = item.precio * item.cantidad
+      
+      rowsClienteConPrecios.push({
+        material_codigo: item.material_codigo,
+        seccion,
+        tipo: "Material",
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        total: totalConMargen.toFixed(2),
+      })
+    })
+
+    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Logística",
+        tipo: "Transportación",
+        descripcion: "Costo de transportación",
+        cantidad: 1,
+        total: oferta.costo_transportacion.toFixed(2),
+      })
+    }
+
+    rowsClienteConPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "TOTAL",
+      descripcion: "PRECIO TOTAL",
+      cantidad: "",
+      total: (oferta.precio_final || 0).toFixed(2),
+    })
+
+    // Datos de pago para cliente con precios
+    if (oferta.pago_transferencia || oferta.aplica_contribucion || (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0)) {
+      if (oferta.pago_transferencia) {
+        rowsClienteConPrecios.push({
+          descripcion: "✓ Pago por transferencia",
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Info",
+        })
+        
+        if (oferta.datos_cuenta) {
+          rowsClienteConPrecios.push({
+            descripcion: "Datos de la cuenta",
+            cantidad: "",
+            total: oferta.datos_cuenta,
+            seccion: "PAGO",
+            tipo: "Datos",
+          })
+        }
+      }
+
+      if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+        const totalesCalc = calcularTotalesDetalle(oferta)
+        
+        rowsClienteConPrecios.push({
+          descripcion: `✓ Aplicar ${oferta.porcentaje_contribucion}% de Contribución`,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Info",
+        })
+        
+        rowsClienteConPrecios.push({
+          descripcion: "Contribución",
+          cantidad: "",
+          total: totalesCalc.contribucion.toFixed(2),
+          seccion: "PAGO",
+          tipo: "Monto",
+        })
+      }
+
+      rowsClienteConPrecios.push({
+        descripcion: "Precio Final",
+        cantidad: "",
+        total: (oferta.precio_final || 0).toFixed(2),
+        seccion: "PAGO",
+        tipo: "TOTAL",
+      })
+
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      if (Math.abs(totalesCalc.redondeo) > 0.01) {
+        rowsClienteConPrecios.push({
+          descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Nota",
+        })
+      }
+
+      if (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0) {
+        const simboloMoneda = oferta.moneda_pago === 'EUR' ? '€' : 'CUP'
+        const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+        
+        rowsClienteConPrecios.push({
+          descripcion: `Moneda de pago: ${nombreMoneda}`,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Info",
+        })
+        
+        const tasaTexto = oferta.moneda_pago === 'EUR' 
+          ? `Tasa de cambio: 1 EUR = ${tasaCambioNumero} USD`
+          : `Tasa de cambio: 1 USD = ${tasaCambioNumero} CUP`
+        
+        rowsClienteConPrecios.push({
+          descripcion: tasaTexto,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Tasa",
+        })
+        
+        rowsClienteConPrecios.push({
+          descripcion: `Precio en ${oferta.moneda_pago}`,
+          cantidad: "",
+          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+          seccion: "PAGO",
+          tipo: "Conversión",
+        })
+      }
+    }
+
+    const exportOptionsClienteConPrecios = {
+      title: "Oferta - Cliente con precios",
+      subtitle: oferta.nombre,
+      columns: [
+        { header: "Material", key: "descripcion", width: 50 },
+        { header: "Cant", key: "cantidad", width: 10 },
+        { header: "Total ($)", key: "total", width: 15 },
+      ],
+      data: rowsClienteConPrecios,
+      logoUrl: '/logo.png',
+      clienteData: oferta.tipo === 'personalizada' && cliente ? {
+        numero: cliente.numero || cliente.id,
+        nombre: cliente.nombre,
+        carnet_identidad: cliente.carnet_identidad,
+        telefono: cliente.telefono,
+        provincia_montaje: cliente.provincia_montaje,
+        direccion: cliente.direccion,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre,
+        tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
+      conPreciosCliente: true,
+    }
+
+    return {
+      exportOptionsCompleto,
+      exportOptionsSinPrecios,
+      exportOptionsClienteConPrecios,
+      baseFilename,
+    }
+  }
+
+  const abrirDialogoExportar = (oferta: (typeof ofertas)[number]) => {
+    setOfertaParaExportar(oferta)
+    setMostrarDialogoExportar(true)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -342,12 +939,20 @@ export function OfertasConfeccionadasView() {
                   </span>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">Oferta confeccionada</span>
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 px-3"
+                    className="h-8 px-3 flex-1"
+                    onClick={() => abrirDialogoExportar(oferta)}
+                  >
+                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    Exportar
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-3 flex-1"
                     onClick={() => abrirDetalle(oferta)}
                   >
                     Ver detalle
@@ -813,6 +1418,67 @@ export function OfertasConfeccionadasView() {
               </div>
             </>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para exportar oferta */}
+      <Dialog open={mostrarDialogoExportar} onOpenChange={setMostrarDialogoExportar}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Exportar oferta</DialogTitle>
+            <DialogDescription>
+              Selecciona el tipo de exportación y el formato (Excel o PDF).
+            </DialogDescription>
+          </DialogHeader>
+
+          {ofertaParaExportar && (() => {
+            const opciones = generarOpcionesExportacion(ofertaParaExportar)
+            return (
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900">1) Completo</h4>
+                    <p className="text-xs text-slate-600">
+                      Incluye precios, márgenes, servicios y totales.
+                    </p>
+                  </div>
+                  <ExportButtons
+                    exportOptions={opciones.exportOptionsCompleto}
+                    baseFilename={`${opciones.baseFilename}_completo`}
+                    variant="compact"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900">2) Sin precios</h4>
+                    <p className="text-xs text-slate-600">
+                      Solo materiales y cantidades, con total sin margen.
+                    </p>
+                  </div>
+                  <ExportButtons
+                    exportOptions={opciones.exportOptionsSinPrecios}
+                    baseFilename={`${opciones.baseFilename}_sin_precios`}
+                    variant="compact"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-900">3) Cliente con precios</h4>
+                    <p className="text-xs text-slate-600">
+                      Precios por material con margen aplicado.
+                    </p>
+                  </div>
+                  <ExportButtons
+                    exportOptions={opciones.exportOptionsClienteConPrecios}
+                    baseFilename={`${opciones.baseFilename}_cliente_precios`}
+                    variant="compact"
+                  />
+                </div>
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
     </div>

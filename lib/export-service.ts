@@ -333,10 +333,17 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     // Calcular subtotal de la sección
     const subtotalSeccion = rows.reduce((sum, row) => {
-      const precio = parseFloat(row.precio_unitario) || 0
-      const cantidad = parseFloat(row.cantidad) || 0
-      const margen = parseFloat(row.margen) || 0
-      return sum + (precio * cantidad) + margen
+      if (conPreciosCliente) {
+        // Para exportación con precios cliente, usar el campo "total" directamente
+        const total = parseFloat(row.total) || 0
+        return sum + total
+      } else {
+        // Para exportación completa, calcular precio * cantidad + margen
+        const precio = parseFloat(row.precio_unitario) || 0
+        const cantidad = parseFloat(row.cantidad) || 0
+        const margen = parseFloat(row.margen) || 0
+        return sum + (precio * cantidad) + margen
+      }
     }, 0)
 
     // Encabezado de sección con fondo gris claro
@@ -502,17 +509,23 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       yPosition += rowHeight + 1
     }
 
-    // Subtotal de la sección
-    doc.setFillColor(245, 245, 245)
-    doc.rect(10, yPosition, pageWidth - 20, 7, 'F')
+    // Subtotal de la sección - NO mostrar si es exportación sin precios
+    if (!sinPrecios) {
+      doc.setFillColor(245, 245, 245)
+      doc.rect(10, yPosition, pageWidth - 20, 7, 'F')
+      
+      doc.setFontSize(9)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text('Subtotal:', pageWidth - 60, yPosition + 5)
+      doc.text(`${subtotalSeccion.toFixed(2)} $`, pageWidth - 12, yPosition + 5, { align: 'right' })
+      
+      yPosition += 10
+    } else {
+      // Sin precios: solo un pequeño espacio entre secciones
+      yPosition += 5
+    }
     
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'bold')
-    doc.setTextColor(0, 0, 0)
-    doc.text('Subtotal:', pageWidth - 60, yPosition + 5)
-    doc.text(`${subtotalSeccion.toFixed(2)} $`, pageWidth - 12, yPosition + 5, { align: 'right' })
-    
-    yPosition += 10
     seccionIndex++
   }
 
