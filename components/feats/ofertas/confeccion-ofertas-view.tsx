@@ -191,8 +191,8 @@ export function ConfeccionOfertasView() {
     },
     {
       id: "PROTECCIONES_ELECTRICAS",
-      label: "Protecciones electricas",
-      match: (categoria: string) => categoria.includes("PROTECCION"),
+      label: "Protecciones y Gabinetes",
+      match: (categoria: string) => categoria.includes("PROTECCION") || categoria.includes("GABINETE"),
       esPersonalizada: false,
     },
     {
