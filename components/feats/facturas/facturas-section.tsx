@@ -70,9 +70,9 @@ export function FacturasSection() {
         )
         const headers = ['Vale', 'Fecha vale', 'Código', 'Descripción', 'Cantidad', 'Precio', 'Subtotal']
         const csvBody = rows
-            .map((r) => [r.vale, r.fecha_vale, r.codigo, `"${(r.descripcion || '').replace(/"/g, '""')}"`, r.cantidad, r.precio, r.subtotal].join(','))
+            .map((r) => [r.vale, r.fecha_vale, r.codigo, `"${(r.descripcion || '').replace(/"/g, '""')}"`, r.cantidad, r.precio, r.subtotal].join(';'))
             .join('\n')
-        const csvContent = [headers.join(','), csvBody].join('\n')
+        const csvContent = [headers.join(';'), csvBody].join('\n')
         
         // Agregar BOM UTF-8 para correcta detección de encoding en Excel
         const BOM = '\uFEFF'
