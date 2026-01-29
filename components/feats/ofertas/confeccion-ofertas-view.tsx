@@ -522,8 +522,9 @@ export function ConfeccionOfertasView() {
   ])
 
   const subtotalConMargen = useMemo(() => {
-    return totalMateriales + totalMargenAsignadoMateriales
-  }, [totalMateriales, totalMargenAsignadoMateriales])
+    // El subtotal con margen incluye TODO el margen comercial (materiales + instalación)
+    return totalMateriales + margenComercialTotal
+  }, [totalMateriales, margenComercialTotal])
 
   const totalSinRedondeo = useMemo(() => {
     const base = subtotalConMargen + margenParaInstalacion + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
