@@ -49,6 +49,8 @@ export interface ExportOptions {
   }
   incluirFotos?: boolean
   fotosMap?: Map<string, string> // Map de material_codigo -> url_foto
+  sinPrecios?: boolean // Indica si es una exportación sin precios
+  conPreciosCliente?: boolean // Indica si es exportación con precios para cliente (Material | Cant | Total)
 }
 
 /**
@@ -186,7 +188,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
  * Formato similar a la imagen de referencia con tabla de materiales por categoría
  */
 export async function exportToPDF(options: ExportOptions): Promise<void> {
-  const { title, subtitle, filename, columns, data, logoUrl, clienteData, ofertaData, incluirFotos, fotosMap } = options
+  const { title, subtitle, filename, columns, data, logoUrl, clienteData, ofertaData, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
 
   // Crear documento PDF en orientación vertical
   const doc = new jsPDF({
@@ -251,20 +253,48 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   // ========== PRESUPUESTO DE MATERIALES ==========
   // ENCABEZADOS DE COLUMNAS - UNA SOLA VEZ AL INICIO
-  doc.setFillColor(250, 250, 250)
-  doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
-  
-  doc.setFontSize(7)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(100, 100, 100)
-  doc.text('Material', 12, yPosition + 4)
-  doc.text('P. Unit', 85, yPosition + 4, { align: 'right' })
-  doc.text('Cant', 105, yPosition + 4, { align: 'center' })
-  doc.text('Total', 130, yPosition + 4, { align: 'right' })
-  doc.text('Margen (%)', 160, yPosition + 4, { align: 'right' })
-  doc.text('Total Final', pageWidth - 12, yPosition + 4, { align: 'right' })
-  
-  yPosition += 8
+  if (!options.sinPrecios && !conPreciosCliente) {
+    // Encabezados completos con precios y márgenes
+    doc.setFillColor(250, 250, 250)
+    doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
+    
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 100, 100)
+    doc.text('Material', 12, yPosition + 4)
+    doc.text('P. Unit', 85, yPosition + 4, { align: 'right' })
+    doc.text('Cant', 105, yPosition + 4, { align: 'center' })
+    doc.text('Total', 130, yPosition + 4, { align: 'right' })
+    doc.text('Margen (%)', 160, yPosition + 4, { align: 'right' })
+    doc.text('Total Final', pageWidth - 12, yPosition + 4, { align: 'right' })
+    
+    yPosition += 8
+  } else if (conPreciosCliente) {
+    // Encabezados con precios para cliente (Material | Cant | Total)
+    doc.setFillColor(250, 250, 250)
+    doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
+    
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 100, 100)
+    doc.text('Material', 12, yPosition + 4)
+    doc.text('Cant', pageWidth - 50, yPosition + 4, { align: 'right' })
+    doc.text('Total', pageWidth - 12, yPosition + 4, { align: 'right' })
+    
+    yPosition += 8
+  } else {
+    // Encabezados simplificados sin precios (Material | Cant)
+    doc.setFillColor(250, 250, 250)
+    doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
+    
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(100, 100, 100)
+    doc.text('Material', 12, yPosition + 4)
+    doc.text('Cant', pageWidth - 12, yPosition + 4, { align: 'right' })
+    
+    yPosition += 8
+  }
 
   // Agrupar datos por sección/categoría
   const datosPorSeccion = new Map<string, any[]>()
@@ -348,10 +378,32 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           try {
             const fotoBase64 = await imageToBase64(fotoUrl)
             if (fotoBase64) {
-              const fotoSize = 16
-              const fotoX = 12
-              const fotoY = yPosition + (rowHeight - fotoSize) / 2
-              doc.addImage(fotoBase64, 'JPEG', fotoX, fotoY, fotoSize, fotoSize)
+              // Cargar la imagen para obtener dimensiones reales
+              const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const image = new Image()
+                image.onload = () => resolve(image)
+                image.onerror = reject
+                image.src = fotoBase64
+              })
+              
+              const containerSize = 16
+              const padding = 2
+              const maxSize = containerSize - (padding * 2)
+              
+              // Calcular dimensiones manteniendo aspect ratio real
+              let imgWidth = img.width
+              let imgHeight = img.height
+              
+              // Escalar para que quepa en el contenedor
+              const scale = Math.min(maxSize / imgWidth, maxSize / imgHeight)
+              imgWidth = imgWidth * scale
+              imgHeight = imgHeight * scale
+              
+              // Centrar la imagen en el contenedor
+              const fotoX = 12 + padding + (maxSize - imgWidth) / 2
+              const fotoY = yPosition + (rowHeight - imgHeight) / 2
+              
+              doc.addImage(fotoBase64, 'JPEG', fotoX, fotoY, imgWidth, imgHeight)
             }
           } catch (error) {
             console.error('Error cargando foto:', error)
@@ -364,55 +416,88 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       const descripcion = row.descripcion || ''
-      // Limitar el ancho para que no se superponga con el precio (hasta columna P.Unit en 85mm)
-      const descripcionLines = doc.splitTextToSize(descripcion, 35)
-      doc.text(descripcionLines.slice(0, 2), 30, yPosition + 8) // Máximo 2 líneas
-
-      // PRECIO UNITARIO
-      doc.setFontSize(8)
-      doc.setFont('helvetica', 'normal')
-      doc.setTextColor(0, 0, 0)
-      const precioUnit = parseFloat(row.precio_unitario) || 0
-      doc.text(`${precioUnit.toFixed(2)} $`, 85, yPosition + 10, { align: 'right' })
-
-      // CANTIDAD
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      const cantidad = row.cantidad || ''
-      doc.text(cantidad.toString(), 105, yPosition + 10, { align: 'center' })
-
-      // TOTAL (sin margen)
-      const totalBase = precioUnit * (parseFloat(cantidad) || 0)
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      doc.text(`${totalBase.toFixed(2)} $`, 130, yPosition + 10, { align: 'right' })
-
-      // MARGEN (% y dinero alineados)
-      const porcentaje = parseFloat(row.porcentaje_margen) || 0
-      const margen = parseFloat(row.margen) || 0
       
-      if (porcentaje > 0 || margen > 0) {
-        // Porcentaje arriba
+      if (!sinPrecios && !conPreciosCliente) {
+        // Con precios completos: limitar ancho para que no se superponga
+        const descripcionLines = doc.splitTextToSize(descripcion, 35)
+        doc.text(descripcionLines.slice(0, 2), 30, yPosition + 8)
+      } else {
+        // Sin precios o con precios cliente: usar más espacio para la descripción
+        const descripcionLines = doc.splitTextToSize(descripcion, pageWidth - 60)
+        doc.text(descripcionLines.slice(0, 2), 30, yPosition + 10)
+      }
+
+      if (!sinPrecios && !conPreciosCliente) {
+        // EXPORTACIÓN COMPLETA CON TODOS LOS PRECIOS Y MÁRGENES
+        // PRECIO UNITARIO
         doc.setFontSize(8)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${porcentaje.toFixed(2)}%`, 160, yPosition + 8, { align: 'right' })
-        
-        // Monto abajo, alineado con el porcentaje
-        doc.setFontSize(7)
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(100, 100, 100)
-        doc.text(`${margen.toFixed(2)} $`, 160, yPosition + 13, { align: 'right' })
-      }
+        const precioUnit = parseFloat(row.precio_unitario) || 0
+        doc.text(`${precioUnit.toFixed(2)} $`, 85, yPosition + 10, { align: 'right' })
 
-      // TOTAL FINAL (total + margen)
-      const totalFinal = totalBase + margen
-      doc.setFontSize(9)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(0, 0, 0)
-      doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 10, { align: 'right' })
+        // CANTIDAD
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        const cantidad = row.cantidad || ''
+        doc.text(cantidad.toString(), 105, yPosition + 10, { align: 'center' })
+
+        // TOTAL (sin margen)
+        const totalBase = precioUnit * (parseFloat(cantidad) || 0)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text(`${totalBase.toFixed(2)} $`, 130, yPosition + 10, { align: 'right' })
+
+        // MARGEN (% y dinero alineados)
+        const porcentaje = parseFloat(row.porcentaje_margen) || 0
+        const margen = parseFloat(row.margen) || 0
+        
+        if (porcentaje > 0 || margen > 0) {
+          // Porcentaje arriba
+          doc.setFontSize(8)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(0, 0, 0)
+          doc.text(`${porcentaje.toFixed(2)}%`, 160, yPosition + 8, { align: 'right' })
+          
+          // Monto abajo, alineado con el porcentaje
+          doc.setFontSize(7)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(100, 100, 100)
+          doc.text(`${margen.toFixed(2)} $`, 160, yPosition + 13, { align: 'right' })
+        }
+
+        // TOTAL FINAL (total + margen)
+        const totalFinal = totalBase + margen
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 10, { align: 'right' })
+      } else if (conPreciosCliente) {
+        // EXPORTACIÓN CON PRECIOS PARA CLIENTE (Material | Cant | Total)
+        // CANTIDAD
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        const cantidad = row.cantidad || ''
+        doc.text(cantidad.toString(), pageWidth - 50, yPosition + 10, { align: 'right' })
+        
+        // TOTAL (con margen incluido)
+        const total = parseFloat(row.total) || 0
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        doc.text(`${total} $`, pageWidth - 12, yPosition + 10, { align: 'right' })
+      } else {
+        // EXPORTACIÓN SIN PRECIOS (Material | Cant)
+        // SOLO CANTIDAD
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        const cantidad = row.cantidad || ''
+        doc.text(cantidad.toString(), pageWidth - 12, yPosition + 10, { align: 'right' })
+      }
 
       yPosition += rowHeight + 1
     }
