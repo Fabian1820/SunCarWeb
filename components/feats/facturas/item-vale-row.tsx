@@ -21,6 +21,7 @@ interface ItemValeRowProps {
     materiales: Material[]
     onChange: (index: number, item: ItemVale) => void
     onRemove: (index: number) => void
+    tipoFactura?: 'instaladora' | 'cliente_directo'
 }
 
 export function ItemValeRow({
@@ -29,6 +30,7 @@ export function ItemValeRow({
     materiales,
     onChange,
     onRemove,
+    tipoFactura,
 }: ItemValeRowProps) {
     const [searchQuery, setSearchQuery] = useState("")
 
@@ -59,15 +61,47 @@ export function ItemValeRow({
     const handleMaterialChange = (materialKey: string) => {
         const material = materiales.find((m, idx) => buildMaterialKey(m, idx) === materialKey)
         if (material) {
+            // Obtener el precio base del material
+            let precioFinal = material.precio || 0
+            const precioOriginal = precioFinal
+            
+            // Aplicar 15% de descuento SOLO si:
+            // 1. El tipo de factura es "instaladora"
+            // 2. La categoría es exactamente "INVERSORES" o "BATERÍAS"
+            if (tipoFactura === 'instaladora') {
+                const categoria = material.categoria?.trim() || ''
+                console.log('🔍 Verificando descuento:', {
+                    tipoFactura,
+                    categoria,
+                    precioOriginal,
+                    aplicaDescuento: categoria === 'INVERSORES' || categoria === 'BATERÍAS'
+                })
+                
+                if (categoria === 'INVERSORES' || categoria === 'BATERÍAS') {
+                    precioFinal = Math.round(precioFinal * 0.85 * 100) / 100 // Aplicar 15% de descuento y redondear a 2 decimales
+                    console.log('✅ Descuento aplicado:', { precioOriginal, precioFinal, descuento: '15%' })
+                }
+            }
+            
             onChange(index, {
                 ...item,
                 material_id: (material as any)._id || material.id || (material as any).material_id || (material as any).producto_id || '',
                 codigo: material.codigo.toString(),
                 descripcion: material.descripcion,
-                precio: material.precio || 0,
+                precio: precioFinal,
             })
         }
     }
+
+    // Verificar si el material actual tiene descuento aplicado
+    const materialActual = materiales.find(
+        (m) =>
+            (((m as any)._id || m.id || (m as any).material_id || (m as any).producto_id) === item.material_id) &&
+            (item.codigo ? String(m.codigo) === String(item.codigo) : true)
+    )
+    const tieneDescuento = tipoFactura === 'instaladora' && materialActual ? 
+        (materialActual.categoria?.trim() === 'INVERSORES' || materialActual.categoria?.trim() === 'BATERÍAS') : 
+        false
 
     const handleFieldChange = (field: keyof ItemVale, value: string | number) => {
         onChange(index, { ...item, [field]: value })
@@ -143,14 +177,21 @@ export function ItemValeRow({
 
             {/* Precio */}
             <div className="col-span-2 space-y-2">
-                <Label className="text-xs">Precio</Label>
+                <Label className="text-xs flex items-center gap-2">
+                    Precio
+                    {tieneDescuento && (
+                        <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-semibold">
+                            -15%
+                        </span>
+                    )}
+                </Label>
                 <Input
                     type="number"
                     step="0.01"
                     value={item.precio}
                     onChange={(e) => handleFieldChange('precio', parseFloat(e.target.value) || 0)}
                     placeholder="0.00"
-                    className="text-right"
+                    className={`text-right ${tieneDescuento ? 'border-green-300 bg-green-50' : ''}`}
                 />
             </div>
 

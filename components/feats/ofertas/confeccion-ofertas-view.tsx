@@ -27,6 +27,8 @@ interface OfertaItem {
   materialCodigo: string
   descripcion: string
   precio: number
+  precioOriginal: number // Precio original del material
+  precioEditado: boolean // Indica si el precio fue editado manualmente
   cantidad: number
   categoria: string
   seccion: string
@@ -102,6 +104,7 @@ export function ConfeccionOfertasView({
   const [porcentajeMargenMateriales, setPorcentajeMargenMateriales] = useState(50)
   const [porcentajeMargenInstalacion, setPorcentajeMargenInstalacion] = useState(50)
   const [costoTransportacion, setCostoTransportacion] = useState(0)
+  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0)
   const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>([])
   const [mostrarElementosPersonalizados, setMostrarElementosPersonalizados] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -295,6 +298,8 @@ export function ConfeccionOfertasView({
           materialCodigo: item.material_codigo,
           descripcion: item.descripcion,
           precio: item.precio,
+          precioOriginal: item.precio_original || item.precio,
+          precioEditado: item.precio_editado || false,
           cantidad: item.cantidad,
           categoria: item.categoria || "Sin categoria",
           seccion: item.seccion,
@@ -344,6 +349,7 @@ export function ConfeccionOfertasView({
       // Cargar márgenes y costos
       setMargenComercial(ofertaACopiar.margen_comercial || 0)
       setCostoTransportacion(ofertaACopiar.costo_transportacion || 0)
+      setDescuentoPorcentaje(ofertaACopiar.descuento_porcentaje || 0)
       
       // Cargar datos de pago
       setMonedaPago(ofertaACopiar.moneda_pago || 'USD')
@@ -660,13 +666,22 @@ export function ConfeccionOfertasView({
     return totalMateriales + margenComercialTotal
   }, [totalMateriales, margenComercialTotal])
 
+  const montoDescuento = useMemo(() => {
+    if (descuentoPorcentaje <= 0) return 0
+    return subtotalConMargen * (descuentoPorcentaje / 100)
+  }, [subtotalConMargen, descuentoPorcentaje])
+
+  const subtotalConDescuento = useMemo(() => {
+    return subtotalConMargen - montoDescuento
+  }, [subtotalConMargen, montoDescuento])
+
   const totalSinRedondeo = useMemo(() => {
-    // Base: subtotal con margen (que ya incluye margen de materiales + instalación) + costos adicionales
-    const base = subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+    // Base: subtotal con descuento aplicado + costos adicionales
+    const base = subtotalConDescuento + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
     const contribucion = aplicaContribucion ? base * (porcentajeContribucion / 100) : 0
     return base + contribucion
   }, [
-    subtotalConMargen,
+    subtotalConDescuento,
     costoTransportacion,
     totalElementosPersonalizados,
     totalCostosExtras,
@@ -818,6 +833,10 @@ export function ConfeccionOfertasView({
     return totalMateriales + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
   }, [totalMateriales, costoTransportacion, totalElementosPersonalizados, totalCostosExtras])
 
+  const totalAntesDeDescuento = useMemo(() => {
+    return subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+  }, [subtotalConMargen, costoTransportacion, totalElementosPersonalizados, totalCostosExtras])
+
   const selectedCliente = useMemo(() => {
     if (!clienteId) return null
     return clientes.find((cliente) => cliente.id === clienteId || cliente.numero === clienteId) || null
@@ -892,6 +911,7 @@ export function ConfeccionOfertasView({
       }
     })
 
+    // Agregar servicios
     if (margenParaInstalacion > 0) {
       rows.push({
         material_codigo: "",
@@ -903,6 +923,21 @@ export function ConfeccionOfertasView({
         porcentaje_margen: porcentajeMargenInstalacion.toFixed(2),
         margen: "",
         total: margenParaInstalacion.toFixed(2),
+      })
+    }
+
+    // Agregar descuento si existe
+    if (descuentoPorcentaje > 0) {
+      rows.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${descuentoPorcentaje}%)`,
+        cantidad: 1,
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: `- ${montoDescuento.toFixed(2)}`,
       })
     }
 
@@ -1134,6 +1169,8 @@ export function ConfeccionOfertasView({
     subtotalConMargen,
     totalElementosPersonalizados,
     totalCostosExtras,
+    descuentoPorcentaje,
+    montoDescuento,
   ])
 
   const exportOptionsSinPrecios = useMemo(() => {
@@ -1166,6 +1203,17 @@ export function ConfeccionOfertasView({
         seccion: "Logística",
         tipo: "Transportación",
         descripcion: "Costo de transportación",
+        cantidad: 1,
+      })
+    }
+
+    // Descuento si aplica
+    if (descuentoPorcentaje > 0) {
+      rows.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${descuentoPorcentaje}%)`,
         cantidad: 1,
       })
     }
@@ -1326,6 +1374,7 @@ export function ConfeccionOfertasView({
     monedaPago,
     tasaCambioNumero,
     montoConvertido,
+    descuentoPorcentaje,
   ])
 
   const exportOptionsClienteConPrecios = useMemo(() => {
@@ -1393,6 +1442,18 @@ export function ConfeccionOfertasView({
         descripcion: "Servicio de instalación y montaje",
         cantidad: 1,
         total: margenParaInstalacion.toFixed(2),
+      })
+    }
+
+    // Descuento si aplica
+    if (descuentoPorcentaje > 0) {
+      rows.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${descuentoPorcentaje}%)`,
+        cantidad: 1,
+        total: `- ${montoDescuento.toFixed(2)}`,
       })
     }
 
@@ -1568,6 +1629,8 @@ export function ConfeccionOfertasView({
     monedaPago,
     tasaCambioNumero,
     montoConvertido,
+    descuentoPorcentaje,
+    montoDescuento,
   ])
 
   const agregarMaterial = (material: Material) => {
@@ -1597,6 +1660,12 @@ export function ConfeccionOfertasView({
     }
     
     const itemId = `${activeStep.id}-${codigo}`
+    
+    // Calcular precio con descuento del 15% para inversores y baterías
+    // Redondear a 2 decimales
+    const precioBase = (activeStep.id === 'INVERSORES' || activeStep.id === 'BATERIAS') 
+      ? Number(((material.precio || 0) * 0.85).toFixed(2))
+      : (material.precio || 0)
 
     setItems((prev) => {
       const existing = prev.find((item) => item.id === itemId)
@@ -1613,9 +1682,9 @@ export function ConfeccionOfertasView({
           id: itemId,
           materialCodigo: codigo,
           descripcion: material.descripcion,
-          precio: (activeStep.id === 'INVERSORES' || activeStep.id === 'BATERIAS') 
-            ? (material.precio || 0) * 0.85 
-            : (material.precio || 0),
+          precio: precioBase,
+          precioOriginal: precioBase,
+          precioEditado: false,
           cantidad: 1,
           categoria: material.categoria || "Sin categoria",
           seccion: activeStep.id,
@@ -1684,6 +1753,34 @@ export function ConfeccionOfertasView({
       prev
         .map((item) => (item.id === id ? { ...item, cantidad } : item))
         .filter((item) => item.cantidad > 0)
+    )
+  }
+
+  const actualizarPrecio = (id: string, nuevoPrecio: number) => {
+    setItems((prev) =>
+      prev.map((item) => 
+        item.id === id 
+          ? { 
+              ...item, 
+              precio: nuevoPrecio,
+              precioEditado: nuevoPrecio !== item.precioOriginal
+            } 
+          : item
+      )
+    )
+  }
+
+  const restaurarPrecioOriginal = (id: string) => {
+    setItems((prev) =>
+      prev.map((item) => 
+        item.id === id 
+          ? { 
+              ...item, 
+              precio: item.precioOriginal,
+              precioEditado: false
+            } 
+          : item
+      )
     )
   }
 
@@ -2339,6 +2436,8 @@ export function ConfeccionOfertasView({
         material_codigo: item.materialCodigo,
         descripcion: item.descripcion,
         precio: item.precio,
+        precio_original: item.precioOriginal,
+        precio_editado: item.precioEditado,
         cantidad: item.cantidad,
         categoria: item.categoria,
         seccion: item.seccion,
@@ -2393,9 +2492,12 @@ export function ConfeccionOfertasView({
       ofertaData.margen_total = margenComercialTotal
       ofertaData.margen_materiales = margenParaMateriales
       ofertaData.margen_instalacion = margenParaInstalacion
+      ofertaData.descuento_porcentaje = descuentoPorcentaje
+      ofertaData.monto_descuento = montoDescuento
       ofertaData.costo_transportacion = costoTransportacion
       ofertaData.total_materiales = totalMateriales
       ofertaData.subtotal_con_margen = subtotalConMargen
+      ofertaData.subtotal_con_descuento = subtotalConDescuento
       ofertaData.total_elementos_personalizados = totalElementosPersonalizados
       ofertaData.total_costos_extras = totalCostosExtras
       ofertaData.precio_final = precioFinal
@@ -2498,6 +2600,7 @@ export function ConfeccionOfertasView({
     setMargenComercial(0)
     setPorcentajeMargenMateriales(50)
     setPorcentajeMargenInstalacion(50)
+    setDescuentoPorcentaje(0)
     setCostoTransportacion(0)
     setFotoPortada("")
     setClienteId("")
@@ -3136,9 +3239,37 @@ export function ConfeccionOfertasView({
                                             </p>
                                             <p className="text-sm text-slate-500 truncate">{item.categoria}</p>
                                           </div>
-                                          <span className="text-sm text-slate-700 text-right">
-                                            {formatCurrency(item.precio)}
-                                          </span>
+                                          <div className="flex flex-col gap-1">
+                                            <div className="relative">
+                                              <Input
+                                                type="number"
+                                                min="0"
+                                                step="0.01"
+                                                value={item.precio.toString()}
+                                                onChange={(e) =>
+                                                  actualizarPrecio(item.id, Number(e.target.value) || 0)
+                                                }
+                                                className={`h-8 text-right text-sm pr-6 ${
+                                                  item.precioEditado ? 'border-amber-400 bg-amber-50' : ''
+                                                }`}
+                                              />
+                                              {item.precioEditado && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => restaurarPrecioOriginal(item.id)}
+                                                  className="absolute right-1 top-1/2 -translate-y-1/2 text-amber-600 hover:text-amber-700"
+                                                  title="Restaurar precio original"
+                                                >
+                                                  ↺
+                                                </button>
+                                              )}
+                                            </div>
+                                            {item.precioEditado && (
+                                              <span className="text-[10px] text-amber-600">
+                                                Original: {formatCurrency(item.precioOriginal)}
+                                              </span>
+                                            )}
+                                          </div>
                                           <Input
                                             type="number"
                                             min="0"
@@ -3441,6 +3572,48 @@ export function ConfeccionOfertasView({
                   )}
                 </div>
 
+                {/* Descuento */}
+                <div className="rounded-md border border-purple-200 bg-purple-50 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-sm font-semibold text-purple-900">
+                      Descuento (%)
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={descuentoPorcentaje}
+                      onChange={(e) => setDescuentoPorcentaje(Number(e.target.value) || 0)}
+                      className="h-9 w-24 text-right bg-white"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  {descuentoPorcentaje > 0 && (
+                    <div className="pt-2 border-t border-purple-200 space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-purple-700">Subtotal antes de descuento</span>
+                        <span className="font-medium text-purple-900">
+                          {formatCurrency(subtotalConMargen)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-purple-700">Descuento ({descuentoPorcentaje}%)</span>
+                        <span className="font-medium text-red-600">
+                          - {formatCurrency(montoDescuento)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm font-semibold pt-1 border-t border-purple-200">
+                        <span className="text-purple-900">Subtotal con descuento</span>
+                        <span className="text-purple-900">
+                          {formatCurrency(subtotalConDescuento)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Costo de Transportación */}
                 <div className="rounded-md border border-slate-200 bg-white p-3">
                   <div className="flex items-center justify-between gap-3">
@@ -3552,6 +3725,12 @@ export function ConfeccionOfertasView({
                         <span className="font-medium">{formatCurrency(margenParaInstalacion)}</span>
                       </div>
                     )}
+                    {descuentoPorcentaje > 0 && (
+                      <div className="flex items-center justify-between text-sm text-purple-700 bg-purple-100 rounded px-2 py-1">
+                        <span>Descuento ({descuentoPorcentaje}%)</span>
+                        <span className="font-medium">- {formatCurrency(montoDescuento)}</span>
+                      </div>
+                    )}
                     {costoTransportacion > 0 && (
                       <div className="flex items-center justify-between text-sm text-slate-700">
                         <span>Transportación</span>
@@ -3625,8 +3804,7 @@ export function ConfeccionOfertasView({
                           <span>Contribución</span>
                           <span className="font-medium">
                             {formatCurrency(
-                              (subtotalConMargen +
-                                margenParaInstalacion +
+                              (subtotalConDescuento +
                                 costoTransportacion +
                                 totalElementosPersonalizados +
                                 totalCostosExtras) *

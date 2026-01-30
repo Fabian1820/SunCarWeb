@@ -17,6 +17,7 @@ interface ValeFormProps {
     onChange: (index: number, vale: Vale) => void
     onRemove: (index: number) => void
     canRemove: boolean
+    tipoFactura?: 'instaladora' | 'cliente_directo'
 }
 
 export function ValeForm({
@@ -26,6 +27,7 @@ export function ValeForm({
     onChange,
     onRemove,
     canRemove,
+    tipoFactura,
 }: ValeFormProps) {
     const getDateValue = () => (vale.fecha ? new Date(vale.fecha).toISOString().slice(0, 10) : "")
 
@@ -132,6 +134,7 @@ export function ValeForm({
                                     materiales={materiales}
                                     onChange={handleItemChange}
                                     onRemove={handleRemoveItem}
+                                    tipoFactura={tipoFactura}
                                 />
                             ))}
                         </div>

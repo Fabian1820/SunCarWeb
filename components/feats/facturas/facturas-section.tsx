@@ -436,6 +436,7 @@ export function FacturasSection() {
                             onChange={(_, vale) => setValeDraft(vale)}
                             onRemove={() => setValeDraft(valeDraft)}
                             canRemove={false}
+                            tipoFactura={facturaForVale?.tipo}
                         />
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={() => setValeDialogOpen(false)}>
