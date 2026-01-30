@@ -1,9 +1,9 @@
-"use client"
+﻿"use client"
 
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/shared/molecule/dialog"
 import { Input } from "@/components/shared/atom/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Loader } from "@/components/shared/atom/loader"
@@ -13,14 +13,15 @@ import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
+import { LeadService } from "@/lib/services/feats/leads/lead-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 import type { Almacen } from "@/lib/inventario-types"
-import { Building2, FileText, Package, Search, User, Download, Edit } from "lucide-react"
+import { Building2, FileText, Package, Search, User, Download, Edit, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 export function OfertasConfeccionadasView() {
-  const { ofertas, loading } = useOfertasConfeccion()
+  const { ofertas, loading, eliminarOferta } = useOfertasConfeccion()
   const { materials } = useMaterials()
   const { marcas } = useMarcas()
   const [searchQuery, setSearchQuery] = useState("")
@@ -28,6 +29,7 @@ export function OfertasConfeccionadasView() {
   const [tipoFiltro, setTipoFiltro] = useState("todas")
   const [almacenFiltro, setAlmacenFiltro] = useState("todos")
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [leads, setLeads] = useState<any[]>([])
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
   const [detalleAbierto, setDetalleAbierto] = useState(false)
   const [ofertaSeleccionada, setOfertaSeleccionada] = useState<(typeof ofertas)[number] | null>(null)
@@ -35,6 +37,9 @@ export function OfertasConfeccionadasView() {
   const [ofertaParaExportar, setOfertaParaExportar] = useState<(typeof ofertas)[number] | null>(null)
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false)
   const [ofertaParaEditar, setOfertaParaEditar] = useState<(typeof ofertas)[number] | null>(null)
+  const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false)
+  const [ofertaParaEliminar, setOfertaParaEliminar] = useState<(typeof ofertas)[number] | null>(null)
+  const [eliminandoOferta, setEliminandoOferta] = useState(false)
 
   const getEstadoBadge = (estado: string) => {
     const badges = {
@@ -88,26 +93,7 @@ export function OfertasConfeccionadasView() {
     return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }))
   }, [almacenes, ofertas])
 
-  const ofertasFiltradas = useMemo(() => {
-    if (!searchQuery.trim()) return ofertas
-    const query = searchQuery.trim().toLowerCase()
-    return ofertas.filter((oferta) => {
-      return (
-        oferta.nombre.toLowerCase().includes(query) ||
-        oferta.cliente_nombre?.toLowerCase().includes(query)
-      )
-    })
-  }, [ofertas, searchQuery])
-
-  const ofertasFiltradasConFiltros = useMemo(() => {
-    return ofertasFiltradas.filter((oferta) => {
-      const matchEstado = estadoFiltro === "todos" || oferta.estado === estadoFiltro
-      const matchTipo = tipoFiltro === "todas" || oferta.tipo === tipoFiltro
-      const matchAlmacen = almacenFiltro === "todos" || oferta.almacen_id === almacenFiltro
-      return matchEstado && matchTipo && matchAlmacen
-    })
-  }, [ofertasFiltradas, estadoFiltro, tipoFiltro, almacenFiltro])
-
+  // Cargar clientes, leads y almacenes
   useEffect(() => {
     const loadClientes = async () => {
       try {
@@ -115,6 +101,14 @@ export function OfertasConfeccionadasView() {
         setClientes(Array.isArray(data) ? data : [])
       } catch (error) {
         setClientes([])
+      }
+    }
+    const loadLeads = async () => {
+      try {
+        const data = await LeadService.getLeads()
+        setLeads(Array.isArray(data) ? data : [])
+      } catch (error) {
+        setLeads([])
       }
     }
     const loadAlmacenes = async () => {
@@ -126,9 +120,11 @@ export function OfertasConfeccionadasView() {
       }
     }
     loadClientes()
+    loadLeads()
     loadAlmacenes()
   }, [])
 
+  // Mapas de búsqueda
   const clienteNombrePorOferta = useMemo(() => {
     const map = new Map<string, string>()
     clientes.forEach((cliente) => {
@@ -141,6 +137,55 @@ export function OfertasConfeccionadasView() {
     })
     return map
   }, [clientes])
+
+  const leadPorId = useMemo(() => {
+    const map = new Map<string, any>()
+    leads.forEach((lead) => {
+      if (lead.id) {
+        map.set(lead.id, lead)
+      }
+    })
+    return map
+  }, [leads])
+
+  // Filtrado de ofertas
+  const ofertasFiltradas = useMemo(() => {
+    if (!searchQuery.trim()) return ofertas
+    const query = searchQuery.trim().toLowerCase()
+    return ofertas.filter((oferta) => {
+      // Buscar en nombre de oferta
+      if (oferta.nombre.toLowerCase().includes(query)) return true
+      
+      // Buscar en nombre de cliente
+      if (oferta.cliente_nombre?.toLowerCase().includes(query)) return true
+      
+      // Buscar en nombre de lead sin agregar
+      if (oferta.nombre_lead_sin_agregar?.toLowerCase().includes(query)) return true
+      
+      // Buscar en nombre de lead
+      if (oferta.lead_nombre?.toLowerCase().includes(query)) return true
+      
+      // Buscar en lead cargado
+      if (oferta.lead_id) {
+        const lead = leadPorId.get(oferta.lead_id)
+        if (lead?.nombre_completo?.toLowerCase().includes(query)) return true
+        if (lead?.nombre?.toLowerCase().includes(query)) return true
+        if (lead?.telefono?.toLowerCase().includes(query)) return true
+        if (lead?.email?.toLowerCase().includes(query)) return true
+      }
+      
+      return false
+    })
+  }, [ofertas, searchQuery, leadPorId])
+
+  const ofertasFiltradasConFiltros = useMemo(() => {
+    return ofertasFiltradas.filter((oferta) => {
+      const matchEstado = estadoFiltro === "todos" || oferta.estado === estadoFiltro
+      const matchTipo = tipoFiltro === "todas" || oferta.tipo === tipoFiltro
+      const matchAlmacen = almacenFiltro === "todos" || oferta.almacen_id === almacenFiltro
+      return matchEstado && matchTipo && matchAlmacen
+    })
+  }, [ofertasFiltradas, estadoFiltro, tipoFiltro, almacenFiltro])
 
   const clientePorOferta = useMemo(() => {
     const map = new Map<string, Cliente>()
@@ -809,6 +854,31 @@ export function OfertasConfeccionadasView() {
     setMostrarDialogoEditar(true)
   }
 
+  const abrirDialogoEliminar = (oferta: (typeof ofertas)[number]) => {
+    setOfertaParaEliminar(oferta)
+    setMostrarDialogoEliminar(true)
+  }
+
+  const confirmarEliminar = async () => {
+    if (!ofertaParaEliminar) return
+
+    setEliminandoOferta(true)
+    try {
+      await eliminarOferta(ofertaParaEliminar.id)
+      setMostrarDialogoEliminar(false)
+      setOfertaParaEliminar(null)
+    } catch (error) {
+      // El error ya se maneja en el hook
+    } finally {
+      setEliminandoOferta(false)
+    }
+  }
+
+  const cancelarEliminar = () => {
+    setMostrarDialogoEliminar(false)
+    setOfertaParaEliminar(null)
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -908,12 +978,12 @@ export function OfertasConfeccionadasView() {
             className="group overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
           >
             <CardContent className="p-0">
-              <div className="relative h-48 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100">
+              <div className="relative h-48 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
                 {oferta.foto_portada ? (
                   <img
                     src={oferta.foto_portada}
                     alt={oferta.nombre}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                    className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.03]"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -925,43 +995,54 @@ export function OfertasConfeccionadasView() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
                 <div className="absolute top-3 left-3 flex flex-wrap gap-2">
                   <Badge className={estadoBadge.className}>{estadoBadge.label}</Badge>
+                  {oferta.nombre_lead_sin_agregar && (
+                    <Badge className="bg-amber-500 text-white border-amber-600 shadow-md">
+                      <span className="mr-1">⚠️</span>
+                      Lead pendiente
+                    </Badge>
+                  )}
                 </div>
               </div>
 
-              <div className="p-4 space-y-3">
-                <h3 className="font-semibold text-base text-slate-900 line-clamp-2 min-h-[48px]">
+              <div className="p-4 flex flex-col h-[180px]">
+                {/* Título - altura fija */}
+                <h3 className="font-semibold text-base text-slate-900 line-clamp-2 h-[48px] mb-3">
                   {oferta.nombre}
                 </h3>
 
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center">
-                    <User className="h-4 w-4 text-slate-600" />
+                {/* Sección de contacto - flex-1 para ocupar espacio disponible */}
+                <div className="flex-1 space-y-1.5 min-h-0">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                      <User className="h-4 w-4 text-slate-600" />
+                    </div>
+                    <span className="truncate">
+                      {oferta.tipo === "personalizada"
+                        ? (oferta.nombre_lead_sin_agregar ||
+                            (oferta.lead_id && leadPorId.get(oferta.lead_id)?.nombre_completo) ||
+                            (oferta.lead_id && leadPorId.get(oferta.lead_id)?.nombre) ||
+                            oferta.lead_nombre ||
+                            oferta.cliente_nombre ||
+                            clienteNombrePorOferta.get(oferta.cliente_id || "") ||
+                            clienteNombrePorOferta.get(oferta.cliente_numero || "") ||
+                            "Contacto no asignado")
+                        : "Oferta Genérica"}
+                    </span>
                   </div>
-                  <span className="truncate">
-                    {oferta.tipo === "personalizada"
-                      ? (oferta.cliente_nombre ||
-                          clienteNombrePorOferta.get(oferta.cliente_id || "") ||
-                          clienteNombrePorOferta.get(oferta.cliente_numero || "") ||
-                          "Cliente no asignado")
-                      : "Oferta Genérica"}
-                  </span>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2">
+                {/* Botones - siempre en la misma posición */}
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 mt-auto">
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 px-3 flex-1"
-                    onClick={() => abrirDialogoExportar(oferta)}
-                  >
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
-                    Exportar
+                    className="h-8 px-2 flex-1" onClick={() => abrirDialogoExportar(oferta)} title="Exportar oferta">
+                    <Download className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 px-2"
-                    onClick={() => abrirEditar(oferta)}
+                    className="h-8 px-2 flex-1" onClick={() => abrirEditar(oferta)}
                     title="Editar oferta"
                   >
                     <Edit className="h-3.5 w-3.5" />
@@ -969,10 +1050,18 @@ export function OfertasConfeccionadasView() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 px-3 flex-1"
-                    onClick={() => abrirDetalle(oferta)}
+                    className="h-8 px-2 flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => abrirDialogoEliminar(oferta)}
+                    title="Eliminar oferta"
                   >
-                    Ver detalle
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 px-2 flex-1"
+                    onClick={() => abrirDetalle(oferta)} title="Ver detalle">
+                    <FileText className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </div>
@@ -998,12 +1087,12 @@ export function OfertasConfeccionadasView() {
                   <div className="space-y-4 pr-1 lg:pr-2 overflow-y-auto max-h-full">
                     <Card className="overflow-hidden border-slate-200">
                       <CardContent className="p-0">
-                        <div className="relative h-52 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100">
+                        <div className="relative h-52 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
                           {ofertaSeleccionada.foto_portada ? (
                             <img
                               src={ofertaSeleccionada.foto_portada}
                               alt={ofertaSeleccionada.nombre}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-contain"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
@@ -1053,20 +1142,100 @@ export function OfertasConfeccionadasView() {
                     {ofertaSeleccionada.tipo === "personalizada" && (
                       <Card className="border-slate-200">
                         <CardContent className="p-4 space-y-3">
-                          <div className="text-sm text-slate-500">Información del cliente</div>
+                          <div className="text-sm text-slate-500">Información del contacto</div>
                           {(() => {
+                            // Prioridad: lead sin agregar > lead > cliente
+                            if (ofertaSeleccionada.nombre_lead_sin_agregar) {
+                              return (
+                                <div className="space-y-3">
+                                  <div className="space-y-2 text-sm text-slate-700">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-500">Tipo</span>
+                                      <span className="font-semibold text-slate-900">Lead (sin agregar)</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-500">Nombre</span>
+                                      <span className="font-semibold text-slate-900">
+                                        {ofertaSeleccionada.nombre_lead_sin_agregar}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Alerta de Lead Sin Agregar */}
+                                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                    <div className="flex items-start gap-2">
+                                      <span className="text-amber-600 text-lg">⚠️</span>
+                                      <div className="flex-1 text-xs text-amber-800">
+                                        <p className="font-semibold mb-1">Lead pendiente de agregar</p>
+                                        <p className="text-amber-700">
+                                          Este contacto aún no está registrado en el sistema. 
+                                          Considera agregarlo como lead o cliente para un mejor seguimiento.
+                                        </p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            }
+                            
+                            if (ofertaSeleccionada.lead_id || ofertaSeleccionada.lead_nombre) {
+                              const lead = leadPorId.get(ofertaSeleccionada.lead_id || "")
+                              return (
+                                <div className="space-y-2 text-sm text-slate-700">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-500">Tipo</span>
+                                    <span className="font-semibold text-slate-900">Lead</span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-slate-500">Nombre</span>
+                                    <span className="font-semibold text-slate-900">
+                                      {lead?.nombre_completo || lead?.nombre || ofertaSeleccionada.lead_nombre || "--"}
+                                    </span>
+                                  </div>
+                                  {(lead?.telefono || ofertaSeleccionada.lead_id) && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-500">{lead?.telefono ? "Teléfono" : "ID"}</span>
+                                      <span className="font-semibold text-slate-900">
+                                        {lead?.telefono || ofertaSeleccionada.lead_id}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {lead?.email && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-500">Email</span>
+                                      <span className="font-semibold text-slate-900">
+                                        {lead.email}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {lead?.provincia && (
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-slate-500">Provincia</span>
+                                      <span className="font-semibold text-slate-900">
+                                        {lead.provincia}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            }
+                            
                             const cliente =
                               clientePorOferta.get(ofertaSeleccionada.cliente_id || "") ||
                               clientePorOferta.get(ofertaSeleccionada.cliente_numero || "")
                             if (!cliente) {
                               return (
                                 <div className="text-sm text-slate-500">
-                                  Cliente no asignado
+                                  Contacto no asignado
                                 </div>
                               )
                             }
                             return (
                               <div className="space-y-2 text-sm text-slate-700">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-slate-500">Tipo</span>
+                                  <span className="font-semibold text-slate-900">Cliente</span>
+                                </div>
                                 <div className="flex items-center justify-between">
                                   <span className="text-slate-500">Nombre</span>
                                   <span className="font-semibold text-slate-900">
@@ -1511,6 +1680,70 @@ export function OfertasConfeccionadasView() {
           window.location.reload()
         }}
       />
+
+      {/* Diálogo de Confirmación de Eliminación */}
+      <Dialog open={mostrarDialogoEliminar} onOpenChange={setMostrarDialogoEliminar}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              ¿Eliminar oferta?
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="pt-4 space-y-3">
+                <p className="text-slate-700">
+                  Estás a punto de eliminar la oferta:
+                </p>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <p className="font-semibold text-slate-900">{ofertaParaEliminar?.nombre}</p>
+                  <p className="text-sm text-slate-600 mt-1">
+                    {ofertaParaEliminar?.numero_oferta || ofertaParaEliminar?.id}
+                  </p>
+                </div>
+                <p className="text-slate-600 text-sm">
+                  Esta acción no se puede deshacer. La oferta será eliminada y se limpiará 
+                  la referencia en el cliente o lead asociado.
+                </p>
+                {ofertaParaEliminar?.estado === 'reservada' && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <p className="text-sm text-amber-800">
+                      <span className="font-semibold">⚠️ Advertencia:</span> Esta oferta tiene estado "Reservada". 
+                      Verifica que no tenga materiales reservados antes de eliminar.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={cancelarEliminar}
+              disabled={eliminandoOferta}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmarEliminar}
+              disabled={eliminandoOferta}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {eliminandoOferta ? (
+                <>
+                  <Loader className="mr-2 h-4 w-4 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Eliminar oferta
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

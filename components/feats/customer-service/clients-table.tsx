@@ -426,11 +426,15 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
     }
     setOfertaSubmitting(true)
     try {
-      const success = await updateOferta(id, {
+      // ✅ SOLUCIÓN: Solo enviar cliente_id, no enviar lead_id
+      // Según documentación en docs/SOLUCION_ERROR_MULTIPLES_CONTACTOS.md
+      const updateData: OfertaPersonalizadaUpdateRequest = {
         ...data,
         cliente_id: clienteId,
-        lead_id: undefined,
-      })
+      }
+      // No agregar lead_id para evitar el error de múltiples contactos
+      
+      const success = await updateOferta(id, updateData)
       toast({
         title: success ? "Oferta actualizada" : "No se pudo actualizar la oferta",
         description: success

@@ -13,6 +13,9 @@ export interface OfertaConfeccion {
   cliente_id?: string
   cliente_numero?: string
   cliente_nombre?: string
+  lead_id?: string
+  lead_nombre?: string
+  nombre_lead_sin_agregar?: string
   foto_portada?: string
   precio_final: number
   total_materiales: number
@@ -80,6 +83,9 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     cliente_id: raw.cliente_id ?? raw.cliente?.id ?? raw.cliente?._id,
     cliente_numero: raw.cliente_numero ?? raw.cliente?.numero,
     cliente_nombre: raw.cliente_nombre ?? raw.cliente?.nombre ?? raw.cliente?.nombre_completo,
+    lead_id: raw.lead_id ?? raw.lead?.id ?? raw.lead?._id,
+    lead_nombre: raw.lead_nombre ?? raw.lead?.nombre_completo ?? raw.lead?.nombre,
+    nombre_lead_sin_agregar: raw.nombre_lead_sin_agregar,
     foto_portada: raw.foto_portada ?? raw.foto_portada_url ?? raw.foto,
     precio_final: raw.precio_final ?? raw.precio ?? 0,
     total_materiales: raw.total_materiales ?? 0,

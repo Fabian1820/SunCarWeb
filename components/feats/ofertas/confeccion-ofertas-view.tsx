@@ -1,14 +1,14 @@
 ﻿"use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Package, Search, Lock, CheckCircle, Plus, X, Upload, Image as ImageIcon, Save } from "lucide-react"
+import { Package, Search, Lock, CheckCircle, Plus, X, Upload, Image as ImageIcon, Save, User } from "lucide-react"
 import { Badge } from "@/components/shared/atom/badge"
 import { Input } from "@/components/shared/atom/input"
+import { Label } from "@/components/shared/atom/label"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/shared/molecule/dialog"
-import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useMaterials } from "@/hooks/use-materials"
@@ -16,7 +16,9 @@ import { useInventario } from "@/hooks/use-inventario"
 import { useMarcas } from "@/hooks/use-marcas"
 import { useToast } from "@/hooks/use-toast"
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector"
+import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selector"
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
+import { LeadService } from "@/lib/services/feats/leads/lead-service"
 import type { Material } from "@/lib/material-types"
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 
@@ -83,9 +85,14 @@ export function ConfeccionOfertasView({
   const { toast } = useToast()
   const [items, setItems] = useState<OfertaItem[]>([])
   const [ofertaGenerica, setOfertaGenerica] = useState(true)
+  const [tipoContacto, setTipoContacto] = useState<'cliente' | 'lead' | 'lead_sin_agregar'>('cliente')
   const [clienteId, setClienteId] = useState("")
+  const [leadId, setLeadId] = useState("")
+  const [nombreLeadSinAgregar, setNombreLeadSinAgregar] = useState("")
   const [clientes, setClientes] = useState<Cliente[]>([])
+  const [leads, setLeads] = useState<any[]>([])
   const [clientesLoading, setClientesLoading] = useState(false)
+  const [leadsLoading, setLeadsLoading] = useState(false)
   const [activeStepIndex, setActiveStepIndex] = useState(0)
   const [margenComercial, setMargenComercial] = useState(0)
   const [porcentajeMargenMateriales, setPorcentajeMargenMateriales] = useState(50)
@@ -251,7 +258,25 @@ export function ConfeccionOfertasView({
       
       // Cargar datos básicos
       setOfertaGenerica(ofertaParaEditar.tipo === 'generica')
-      setClienteId(ofertaParaEditar.cliente_numero || ofertaParaEditar.cliente_id || "")
+      
+      // Determinar el tipo de contacto
+      if (ofertaParaEditar.nombre_lead_sin_agregar) {
+        setTipoContacto('lead_sin_agregar')
+        setNombreLeadSinAgregar(ofertaParaEditar.nombre_lead_sin_agregar)
+        setClienteId("")
+        setLeadId("")
+      } else if (ofertaParaEditar.lead_id) {
+        setTipoContacto('lead')
+        setLeadId(ofertaParaEditar.lead_id)
+        setClienteId("")
+        setNombreLeadSinAgregar("")
+      } else if (ofertaParaEditar.cliente_numero || ofertaParaEditar.cliente_id) {
+        setTipoContacto('cliente')
+        setClienteId(ofertaParaEditar.cliente_numero || ofertaParaEditar.cliente_id || "")
+        setLeadId("")
+        setNombreLeadSinAgregar("")
+      }
+      
       setAlmacenId(ofertaParaEditar.almacen_id || "")
       setEstadoOferta(ofertaParaEditar.estado || "en_revision")
       setFotoPortada(ofertaParaEditar.foto_portada || "")
@@ -786,6 +811,11 @@ export function ConfeccionOfertasView({
     if (!clienteId) return null
     return clientes.find((cliente) => cliente.id === clienteId || cliente.numero === clienteId) || null
   }, [clientes, clienteId])
+
+  const selectedLead = useMemo(() => {
+    if (!leadId) return null
+    return leads.find((lead) => lead.id === leadId) || null
+  }, [leads, leadId])
 
   const exportOptionsCompleto = useMemo(() => {
     const rows: any[] = []
@@ -1889,7 +1919,21 @@ export function ConfeccionOfertasView({
         setClientesLoading(false)
       }
     }
+    
+    const loadLeads = async () => {
+      setLeadsLoading(true)
+      try {
+        const data = await LeadService.getLeads()
+        setLeads(Array.isArray(data) ? data : [])
+      } catch (error) {
+        setLeads([])
+      } finally {
+        setLeadsLoading(false)
+      }
+    }
+    
     loadClientes()
+    loadLeads()
   }, [])
 
   // Determinar si hay múltiples tipos de materiales en cada categoría
@@ -2221,10 +2265,28 @@ export function ConfeccionOfertasView({
       return
     }
 
-    if (!ofertaGenerica && !clienteId) {
+    if (!ofertaGenerica && tipoContacto === 'cliente' && !clienteId) {
       toast({
         title: "Cliente requerido",
         description: "Debes seleccionar un cliente para ofertas personalizadas",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!ofertaGenerica && tipoContacto === 'lead' && !leadId) {
+      toast({
+        title: "Lead requerido",
+        description: "Debes seleccionar un lead para ofertas personalizadas",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!ofertaGenerica && tipoContacto === 'lead_sin_agregar' && !nombreLeadSinAgregar.trim()) {
+      toast({
+        title: "Nombre requerido",
+        description: "Debes ingresar el nombre del lead",
         variant: "destructive",
       })
       return
@@ -2234,28 +2296,52 @@ export function ConfeccionOfertasView({
 
     try {
       // Preparar datos de la oferta según la documentación del backend
-      const ofertaData = {
+      const ofertaData: any = {
         tipo_oferta: ofertaGenerica ? 'generica' : 'personalizada',
-        cliente_numero: ofertaGenerica ? undefined : (selectedCliente?.numero || clienteId),
         almacen_id: almacenId,
-        foto_portada: fotoPortada || undefined,
-        // Compatibilidad con endpoint antiguo que espera foto_portada_url
-        foto_portada_url: fotoPortada || undefined,
-        estado: estadoOferta,
-        
-        items: items.map(item => ({
-          material_codigo: item.materialCodigo,
-          descripcion: item.descripcion,
-          precio: item.precio,
-          cantidad: item.cantidad,
-          categoria: item.categoria,
-          seccion: item.seccion,
-          margen_asignado: margenPorMaterialCalculado.get(item.id) || 0
-        })),
+      }
 
-        servicios: servicios.length > 0 ? servicios : undefined,
-        
-        secciones_personalizadas: seccionesPersonalizadas.length > 0 ? seccionesPersonalizadas.map(seccion => ({
+      // ✅ SOLUCIÓN: Solo agregar el campo de contacto que tiene valor (evitar enviar múltiples contactos)
+      // Según documentación en docs/SOLUCION_ERROR_MULTIPLES_CONTACTOS.md
+      if (!ofertaGenerica) {
+        if (tipoContacto === 'cliente' && (selectedCliente?.numero || clienteId)) {
+          ofertaData.cliente_numero = selectedCliente?.numero || clienteId
+        } else if (tipoContacto === 'lead' && leadId) {
+          ofertaData.lead_id = leadId
+        } else if (tipoContacto === 'lead_sin_agregar' && nombreLeadSinAgregar.trim()) {
+          ofertaData.nombre_lead_sin_agregar = nombreLeadSinAgregar.trim()
+        }
+      }
+
+      // Agregar foto de portada si existe
+      if (fotoPortada) {
+        ofertaData.foto_portada = fotoPortada
+        // Compatibilidad con endpoint antiguo que espera foto_portada_url
+        ofertaData.foto_portada_url = fotoPortada
+      }
+
+      // Agregar estado
+      ofertaData.estado = estadoOferta
+
+      // Agregar items
+      ofertaData.items = items.map(item => ({
+        material_codigo: item.materialCodigo,
+        descripcion: item.descripcion,
+        precio: item.precio,
+        cantidad: item.cantidad,
+        categoria: item.categoria,
+        seccion: item.seccion,
+        margen_asignado: margenPorMaterialCalculado.get(item.id) || 0
+      }))
+
+      // Agregar servicios si existen
+      if (servicios.length > 0) {
+        ofertaData.servicios = servicios
+      }
+
+      // Agregar secciones personalizadas si existen
+      if (seccionesPersonalizadas.length > 0) {
+        ofertaData.secciones_personalizadas = seccionesPersonalizadas.map(seccion => ({
           id: seccion.id,
           label: seccion.label,
           tipo: seccion.tipo,
@@ -2268,41 +2354,48 @@ export function ConfeccionOfertasView({
             cantidad: costo.cantidad,
             precio_unitario: costo.precioUnitario,
           })),
-        })) : undefined,
-        
-        elementos_personalizados: elementosPersonalizados.length > 0 ? elementosPersonalizados.map(elem => ({
+        }))
+      }
+
+      // Agregar elementos personalizados si existen
+      if (elementosPersonalizados.length > 0) {
+        ofertaData.elementos_personalizados = elementosPersonalizados.map(elem => ({
           material_codigo: elem.materialCodigo,
           descripcion: elem.descripcion,
           precio: elem.precio,
           cantidad: elem.cantidad,
           categoria: elem.categoria
-        })) : undefined,
-        
-        componentes_principales: {
-          inversor_seleccionado: inversorSeleccionado || undefined,
-          bateria_seleccionada: bateriaSeleccionada || undefined,
-          panel_seleccionado: panelSeleccionado || undefined
-        },
-        
-        margen_comercial: margenComercial,
-        porcentaje_margen_materiales: porcentajeMargenMateriales,
-        porcentaje_margen_instalacion: porcentajeMargenInstalacion,
-        margen_total: margenComercialTotal,
-        margen_materiales: margenParaMateriales,
-        margen_instalacion: margenParaInstalacion,
-        costo_transportacion: costoTransportacion,
-        total_materiales: totalMateriales,
-        subtotal_con_margen: subtotalConMargen,
-        total_elementos_personalizados: totalElementosPersonalizados,
-        total_costos_extras: totalCostosExtras,
-        precio_final: precioFinal,
-        moneda_pago: monedaPago,
-        tasa_cambio: monedaPago !== 'USD' ? Number.parseFloat(tasaCambio) || 0 : 0,
-        pago_transferencia: pagoTransferencia,
-        datos_cuenta: pagoTransferencia ? datosCuenta : "",
-        aplica_contribucion: aplicaContribucion,
-        porcentaje_contribucion: aplicaContribucion ? porcentajeContribucion : 0
+        }))
       }
+
+      // Agregar componentes principales
+      ofertaData.componentes_principales = {
+        inversor_seleccionado: inversorSeleccionado || undefined,
+        bateria_seleccionada: bateriaSeleccionada || undefined,
+        panel_seleccionado: panelSeleccionado || undefined
+      }
+
+      // Agregar datos de margen y precios
+      ofertaData.margen_comercial = margenComercial
+      ofertaData.porcentaje_margen_materiales = porcentajeMargenMateriales
+      ofertaData.porcentaje_margen_instalacion = porcentajeMargenInstalacion
+      ofertaData.margen_total = margenComercialTotal
+      ofertaData.margen_materiales = margenParaMateriales
+      ofertaData.margen_instalacion = margenParaInstalacion
+      ofertaData.costo_transportacion = costoTransportacion
+      ofertaData.total_materiales = totalMateriales
+      ofertaData.subtotal_con_margen = subtotalConMargen
+      ofertaData.total_elementos_personalizados = totalElementosPersonalizados
+      ofertaData.total_costos_extras = totalCostosExtras
+      ofertaData.precio_final = precioFinal
+
+      // Agregar datos de pago
+      ofertaData.moneda_pago = monedaPago
+      ofertaData.tasa_cambio = monedaPago !== 'USD' ? Number.parseFloat(tasaCambio) || 0 : 0
+      ofertaData.pago_transferencia = pagoTransferencia
+      ofertaData.datos_cuenta = pagoTransferencia ? datosCuenta : ""
+      ofertaData.aplica_contribucion = aplicaContribucion
+      ofertaData.porcentaje_contribucion = aplicaContribucion ? porcentajeContribucion : 0
 
       console.log(modoEdicion ? '📤 Actualizando oferta:' : '📤 Enviando oferta al backend:', ofertaData)
 
@@ -2671,37 +2764,147 @@ export function ConfeccionOfertasView({
                 </div>
 
                 {!ofertaGenerica && (
-                  <div className="space-y-2 rounded-md border border-slate-200 bg-white p-3">
+                  <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3">
                     <div className="flex items-center gap-2">
-                      <Search className="h-4 w-4 text-slate-500" />
-                      <p className="text-sm font-semibold text-slate-900">Cliente</p>
+                      <User className="h-4 w-4 text-slate-500" />
+                      <p className="text-sm font-semibold text-slate-900">Contacto</p>
                     </div>
 
-                    <ClienteSearchSelector
-                      label="Seleccionar cliente"
-                      clients={clientes}
-                      value={clienteId}
-                      onChange={setClienteId}
-                      loading={clientesLoading}
-                    />
+                    {/* Selector de tipo de contacto - Compacto */}
+                    <div className="flex items-center gap-1 p-0.5 bg-slate-100 rounded-md">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoContacto('cliente')
+                          setLeadId("")
+                          setNombreLeadSinAgregar("")
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded transition-all ${
+                          tipoContacto === 'cliente' 
+                            ? "bg-white text-slate-900 shadow-sm" 
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <User className="h-3.5 w-3.5" />
+                        Cliente
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoContacto('lead')
+                          setClienteId("")
+                          setNombreLeadSinAgregar("")
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded transition-all ${
+                          tipoContacto === 'lead' 
+                            ? "bg-white text-slate-900 shadow-sm" 
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Search className="h-3.5 w-3.5" />
+                        Lead
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoContacto('lead_sin_agregar')
+                          setClienteId("")
+                          setLeadId("")
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 text-xs font-medium rounded transition-all ${
+                          tipoContacto === 'lead_sin_agregar' 
+                            ? "bg-white text-slate-900 shadow-sm" 
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Nuevo
+                      </button>
+                    </div>
 
-                    {selectedCliente && (
-                      <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                        <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-200">
-                          <p className="text-sm font-semibold text-slate-900">Datos de cliente</p>
-                          {(selectedCliente.numero || selectedCliente.id) && (
-                            <Badge variant="outline" className="border-slate-300 text-slate-700 text-sm">
-                              #{selectedCliente.numero || selectedCliente.id}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 pt-2 text-sm text-slate-700">
-                          <p><span className="font-semibold text-slate-500">Nombre:</span> {selectedCliente.nombre || "--"}</p>
-                          <p><span className="font-semibold text-slate-500">CI:</span> {selectedCliente.carnet_identidad || "--"}</p>
-                          <p><span className="font-semibold text-slate-500">Telefono:</span> {selectedCliente.telefono || "--"}</p>
-                          <p><span className="font-semibold text-slate-500">Provincia:</span> {selectedCliente.provincia_montaje || "--"}</p>
-                          <p className="sm:col-span-2"><span className="font-semibold text-slate-500">Direccion:</span> {selectedCliente.direccion || "--"}</p>
-                        </div>
+                    {/* Selector de Cliente */}
+                    {tipoContacto === 'cliente' && (
+                      <>
+                        <ClienteSearchSelector
+                          label="Buscar cliente"
+                          clients={clientes}
+                          value={clienteId}
+                          onChange={setClienteId}
+                          loading={clientesLoading}
+                        />
+
+                        {selectedCliente && (
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-emerald-200">
+                              <p className="text-sm font-semibold text-emerald-900">Datos del cliente</p>
+                              {(selectedCliente.numero || selectedCliente.id) && (
+                                <Badge className="bg-emerald-600 text-white hover:bg-emerald-600 text-xs">
+                                  #{selectedCliente.numero || selectedCliente.id}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pt-2 text-sm text-emerald-900">
+                              <p><span className="font-semibold">Nombre:</span> {selectedCliente.nombre || "--"}</p>
+                              <p><span className="font-semibold">CI:</span> {selectedCliente.carnet_identidad || "--"}</p>
+                              <p><span className="font-semibold">Teléfono:</span> {selectedCliente.telefono || "--"}</p>
+                              <p><span className="font-semibold">Provincia:</span> {selectedCliente.provincia_montaje || "--"}</p>
+                              <p className="sm:col-span-2"><span className="font-semibold">Dirección:</span> {selectedCliente.direccion || "--"}</p>
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Selector de Lead */}
+                    {tipoContacto === 'lead' && (
+                      <>
+                        <LeadSearchSelector
+                          label="Buscar lead"
+                          leads={leads}
+                          value={leadId}
+                          onChange={setLeadId}
+                          loading={leadsLoading}
+                        />
+
+                        {selectedLead && (
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3">
+                            <div className="flex items-center justify-between gap-2 pb-2 border-b border-blue-200">
+                              <p className="text-sm font-semibold text-blue-900">Datos del lead</p>
+                              {selectedLead.id && (
+                                <Badge className="bg-blue-600 text-white hover:bg-blue-600 text-xs">
+                                  #{selectedLead.id}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pt-2 text-sm text-blue-900">
+                              <p><span className="font-semibold">Nombre:</span> {selectedLead.nombre_completo || selectedLead.nombre || "--"}</p>
+                              <p><span className="font-semibold">Teléfono:</span> {selectedLead.telefono || "--"}</p>
+                              <p><span className="font-semibold">Email:</span> {selectedLead.email || "--"}</p>
+                              <p><span className="font-semibold">Provincia:</span> {selectedLead.provincia || "--"}</p>
+                              {selectedLead.direccion && (
+                                <p className="sm:col-span-2"><span className="font-semibold">Dirección:</span> {selectedLead.direccion}</p>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Campo para Lead sin agregar */}
+                    {tipoContacto === 'lead_sin_agregar' && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700">
+                          Nombre del contacto
+                        </Label>
+                        <Input
+                          placeholder="Ej: Juan Pérez"
+                          value={nombreLeadSinAgregar}
+                          onChange={(e) => setNombreLeadSinAgregar(e.target.value)}
+                          className="h-10"
+                        />
+                        <p className="text-xs text-slate-500">
+                          💡 Este contacto no se agregará a la base de datos de leads
+                        </p>
                       </div>
                     )}
                   </div>
@@ -3501,7 +3704,14 @@ export function ConfeccionOfertasView({
                 {!ofertaCreada || modoEdicion ? (
                   <Button
                     onClick={handleCrearOferta}
-                    disabled={creandoOferta || items.length === 0 || !almacenId || (!ofertaGenerica && !clienteId)}
+                    disabled={
+                      creandoOferta || 
+                      items.length === 0 || 
+                      !almacenId || 
+                      (!ofertaGenerica && tipoContacto === 'cliente' && !clienteId) ||
+                      (!ofertaGenerica && tipoContacto === 'lead' && !leadId) ||
+                      (!ofertaGenerica && tipoContacto === 'lead_sin_agregar' && !nombreLeadSinAgregar.trim())
+                    }
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base font-semibold"
                   >
                     {creandoOferta ? (
