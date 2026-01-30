@@ -866,11 +866,16 @@ export function ConfeccionOfertasView({
         ? porcentajeAsignadoPorItem[item.id]
         : (porcentajeMargenPorItem.get(item.id) ?? 0)
       const margenItem = margenPorMaterialCalculado.get(item.id) || 0
+      
+      // Buscar el nombre del material
+      const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
+      const nombreMaterial = material?.nombre || item.descripcion
+      
       rows.push({
         material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
-        descripcion: item.descripcion,
+        descripcion: nombreMaterial,
         cantidad: item.cantidad,
         precio_unitario: item.precio,
         porcentaje_margen: porcentaje.toFixed(2),
@@ -1187,11 +1192,16 @@ export function ConfeccionOfertasView({
     
     items.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      // Buscar el nombre del material
+      const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
+      const nombreMaterial = material?.nombre || item.descripcion
+      
       rows.push({
         material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
-        descripcion: item.descripcion,
+        descripcion: nombreMaterial,
         cantidad: item.cantidad,
       })
     })
@@ -1395,11 +1405,15 @@ export function ConfeccionOfertasView({
       const margenItem = margenPorMaterialCalculado.get(item.id) || 0
       const totalConMargen = (item.precio * item.cantidad) + margenItem
       
+      // Buscar el nombre del material
+      const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
+      const nombreMaterial = material?.nombre || item.descripcion
+      
       rows.push({
         material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
-        descripcion: item.descripcion,
+        descripcion: nombreMaterial,
         cantidad: item.cantidad,
         total: totalConMargen.toFixed(2),
       })
@@ -4148,7 +4162,7 @@ export function ConfeccionOfertasView({
                 </div>
               ) : (
                 <div className="px-4 sm:px-6 py-5 min-h-full">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     {materialesFiltrados.map((material) => {
                       const key = mostrarElementosPersonalizados
                         ? `PERSONALIZADO:${material.codigo?.toString() ?? ""}`

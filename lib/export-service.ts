@@ -258,7 +258,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFillColor(250, 250, 250)
     doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
     
-    doc.setFontSize(7)
+    doc.setFontSize(9) // Aumentado de 7 a 9
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(100, 100, 100)
     doc.text('Material', 12, yPosition + 4)
@@ -274,7 +274,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFillColor(250, 250, 250)
     doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
     
-    doc.setFontSize(7)
+    doc.setFontSize(9) // Aumentado de 7 a 9
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(100, 100, 100)
     doc.text('Material', 12, yPosition + 4)
@@ -287,7 +287,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFillColor(250, 250, 250)
     doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
     
-    doc.setFontSize(7)
+    doc.setFontSize(9) // Aumentado de 7 a 9
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(100, 100, 100)
     doc.text('Material', 12, yPosition + 4)
@@ -350,7 +350,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFillColor(245, 245, 245)
     doc.rect(10, yPosition, pageWidth - 20, 8, 'F')
     
-    doc.setFontSize(10)
+    doc.setFontSize(11) // Aumentado de 10 a 11
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
     doc.text(`${String(seccionIndex).padStart(2, '0')} ${seccion}`, 12, yPosition + 5.5)
@@ -359,7 +359,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     // Materiales de la sección
     for (const row of rows) {
-      const rowHeight = 20
+      const rowHeight = 25 // Aumentado de 20 a 25
       
       // Verificar espacio en la página
       if (yPosition + rowHeight > doc.internal.pageSize.getHeight() - 25) {
@@ -376,7 +376,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setLineWidth(0.1)
       doc.rect(10, yPosition, pageWidth - 20, rowHeight)
 
-      // FOTO (si está disponible)
+      // FOTO (si está disponible) - AUMENTADA
       if (incluirFotos && fotosMap) {
         const materialCodigo = row.material_codigo || row.materialCodigo || row.codigo
         const fotoUrl = fotosMap.get(materialCodigo?.toString())
@@ -393,7 +393,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
                 image.src = fotoBase64
               })
               
-              const containerSize = 16
+              const containerSize = 22 // Aumentado de 16 a 22
               const padding = 2
               const maxSize = containerSize - (padding * 2)
               
@@ -418,8 +418,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         }
       }
 
-      // NOMBRE DEL MATERIAL
-      doc.setFontSize(8)
+      // NOMBRE DEL MATERIAL - LETRA AUMENTADA
+      doc.setFontSize(10) // Aumentado de 8 a 10
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       const descripcion = row.descripcion || ''
@@ -427,83 +427,83 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       if (!sinPrecios && !conPreciosCliente) {
         // Con precios completos: limitar ancho para que no se superponga
         const descripcionLines = doc.splitTextToSize(descripcion, 35)
-        doc.text(descripcionLines.slice(0, 2), 30, yPosition + 8)
+        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 10) // Ajustado posición X de 30 a 38 por foto más grande
       } else {
         // Sin precios o con precios cliente: usar más espacio para la descripción
-        const descripcionLines = doc.splitTextToSize(descripcion, pageWidth - 60)
-        doc.text(descripcionLines.slice(0, 2), 30, yPosition + 10)
+        const descripcionLines = doc.splitTextToSize(descripcion, pageWidth - 70)
+        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12) // Ajustado posición X de 30 a 38
       }
 
       if (!sinPrecios && !conPreciosCliente) {
         // EXPORTACIÓN COMPLETA CON TODOS LOS PRECIOS Y MÁRGENES
-        // PRECIO UNITARIO
-        doc.setFontSize(8)
+        // PRECIO UNITARIO - LETRA AUMENTADA
+        doc.setFontSize(10) // Aumentado de 8 a 10
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(0, 0, 0)
         const precioUnit = parseFloat(row.precio_unitario) || 0
-        doc.text(`${precioUnit.toFixed(2)} $`, 85, yPosition + 10, { align: 'right' })
+        doc.text(`${precioUnit.toFixed(2)} $`, 85, yPosition + 12, { align: 'right' })
 
-        // CANTIDAD
-        doc.setFontSize(9)
+        // CANTIDAD - LETRA AUMENTADA
+        doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), 105, yPosition + 10, { align: 'center' })
+        doc.text(cantidad.toString(), 105, yPosition + 12, { align: 'center' })
 
-        // TOTAL (sin margen)
+        // TOTAL (sin margen) - LETRA AUMENTADA
         const totalBase = precioUnit * (parseFloat(cantidad) || 0)
-        doc.setFontSize(9)
+        doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalBase.toFixed(2)} $`, 130, yPosition + 10, { align: 'right' })
+        doc.text(`${totalBase.toFixed(2)} $`, 130, yPosition + 12, { align: 'right' })
 
-        // MARGEN (% y dinero alineados)
+        // MARGEN (% y dinero alineados) - LETRA AUMENTADA
         const porcentaje = parseFloat(row.porcentaje_margen) || 0
         const margen = parseFloat(row.margen) || 0
         
         if (porcentaje > 0 || margen > 0) {
           // Porcentaje arriba
-          doc.setFontSize(8)
+          doc.setFontSize(10) // Aumentado de 8 a 10
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(0, 0, 0)
-          doc.text(`${porcentaje.toFixed(2)}%`, 160, yPosition + 8, { align: 'right' })
+          doc.text(`${porcentaje.toFixed(2)}%`, 160, yPosition + 9, { align: 'right' })
           
           // Monto abajo, alineado con el porcentaje
-          doc.setFontSize(7)
+          doc.setFontSize(9) // Aumentado de 7 a 9
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(100, 100, 100)
-          doc.text(`${margen.toFixed(2)} $`, 160, yPosition + 13, { align: 'right' })
+          doc.text(`${margen.toFixed(2)} $`, 160, yPosition + 15, { align: 'right' })
         }
 
-        // TOTAL FINAL (total + margen)
+        // TOTAL FINAL (total + margen) - LETRA AUMENTADA
         const totalFinal = totalBase + margen
-        doc.setFontSize(9)
+        doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 10, { align: 'right' })
+        doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 12, { align: 'right' })
       } else if (conPreciosCliente) {
         // EXPORTACIÓN CON PRECIOS PARA CLIENTE (Material | Cant | Total)
-        // CANTIDAD
-        doc.setFontSize(9)
+        // CANTIDAD - LETRA AUMENTADA
+        doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), pageWidth - 50, yPosition + 10, { align: 'right' })
+        doc.text(cantidad.toString(), pageWidth - 50, yPosition + 12, { align: 'right' })
         
-        // TOTAL (con margen incluido)
+        // TOTAL (con margen incluido) - LETRA AUMENTADA
         const total = parseFloat(row.total) || 0
-        doc.setFontSize(9)
+        doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${total} $`, pageWidth - 12, yPosition + 10, { align: 'right' })
+        doc.text(`${total} $`, pageWidth - 12, yPosition + 12, { align: 'right' })
       } else {
         // EXPORTACIÓN SIN PRECIOS (Material | Cant)
-        // SOLO CANTIDAD
-        doc.setFontSize(9)
+        // SOLO CANTIDAD - LETRA AUMENTADA
+        doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), pageWidth - 12, yPosition + 10, { align: 'right' })
+        doc.text(cantidad.toString(), pageWidth - 12, yPosition + 12, { align: 'right' })
       }
 
       yPosition += rowHeight + 1
@@ -514,7 +514,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFillColor(245, 245, 245)
       doc.rect(10, yPosition, pageWidth - 20, 7, 'F')
       
-      doc.setFontSize(9)
+      doc.setFontSize(10) // Aumentado de 9 a 10
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       doc.text('Subtotal:', pageWidth - 60, yPosition + 5)
@@ -541,7 +541,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     
     // Servicios
     servicios.forEach(servicio => {
-      doc.setFontSize(9)
+      doc.setFontSize(10) // Aumentado de 9 a 10
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
       doc.text(servicio.descripcion, 12, yPosition)
@@ -551,7 +551,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     // Transportación
     transportacion.forEach(trans => {
-      doc.setFontSize(9)
+      doc.setFontSize(10) // Aumentado de 9 a 10
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
       doc.text(trans.descripcion, 12, yPosition)
@@ -565,7 +565,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFillColor(200, 230, 201)
       doc.rect(10, yPosition, pageWidth - 20, 10, 'F')
       
-      doc.setFontSize(12)
+      doc.setFontSize(13) // Aumentado de 12 a 13
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       doc.text('Precio Final', 12, yPosition + 7)
@@ -605,7 +605,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       if (pago.tipo === 'Info') {
         if (pago.descripcion.startsWith('✓')) {
           // Items con checkbox
-          doc.setFontSize(9)
+          doc.setFontSize(10) // Aumentado de 9 a 10
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(60, 60, 60)
           doc.text(pago.descripcion.replace('✓', '•'), 12, yPosition)
@@ -617,7 +617,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           yPosition += 6
         } else {
           // Info regular
-          doc.setFontSize(9)
+          doc.setFontSize(10) // Aumentado de 9 a 10
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(80, 80, 80)
           doc.text(pago.descripcion, 12, yPosition)
@@ -631,7 +631,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         }
       } else if (pago.tipo === 'Datos') {
         // Datos de cuenta indentados
-        doc.setFontSize(8)
+        doc.setFontSize(9) // Aumentado de 8 a 9
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(100, 100, 100)
         const datosLines = doc.splitTextToSize(pago.total || '', pageWidth - 32)
@@ -639,7 +639,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         yPosition += (datosLines.length * 4) + 4
       } else if (pago.tipo === 'Monto') {
         // Monto de contribución
-        doc.setFontSize(9)
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(60, 60, 60)
         doc.text(pago.descripcion, 18, yPosition)
@@ -650,21 +650,21 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         yPosition += 8
       } else if (pago.tipo === 'Nota') {
         // Nota de redondeo
-        doc.setFontSize(7)
+        doc.setFontSize(8) // Aumentado de 7 a 8
         doc.setFont('helvetica', 'italic')
         doc.setTextColor(120, 120, 120)
         doc.text(pago.descripcion, pageWidth - 12, yPosition, { align: 'right' })
         yPosition += 6
       } else if (pago.tipo === 'Tasa') {
         // Tasa de cambio
-        doc.setFontSize(9)
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(80, 80, 80)
         doc.text(pago.descripcion, 18, yPosition)
         yPosition += 6
       } else if (pago.tipo === 'Conversión') {
         // Precio convertido
-        doc.setFontSize(10)
+        doc.setFontSize(11) // Aumentado de 10 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         doc.text(pago.descripcion, 12, yPosition)

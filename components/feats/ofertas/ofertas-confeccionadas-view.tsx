@@ -316,9 +316,48 @@ export function OfertasConfeccionadasView() {
   const generarOpcionesExportacion = (oferta: (typeof ofertas)[number]) => {
     const cliente = clientePorOferta.get(oferta.cliente_id || "") || clientePorOferta.get(oferta.cliente_numero || "")
     
+    // Orden de secciones (mismo orden que en confección de ofertas)
+    const ordenSeccionesBase = [
+      "INVERSORES",
+      "BATERIAS",
+      "PANELES",
+      "MPPT",
+      "ESTRUCTURAS",
+      "CABLEADO_DC",
+      "CABLEADO_AC",
+      "CANALIZACION",
+      "TIERRA",
+      "PROTECCIONES_ELECTRICAS",
+      "MATERIAL_VARIO",
+    ]
+    
+    // Agregar secciones personalizadas al final si existen
+    const seccionesPersonalizadasOferta = oferta.secciones_personalizadas || []
+    const ordenSecciones = [
+      ...ordenSeccionesBase,
+      ...seccionesPersonalizadasOferta.map((s: any) => s.id)
+    ]
+    
+    // Función para ordenar items por sección
+    const ordenarItemsPorSeccion = (items: any[]) => {
+      return [...items].sort((a, b) => {
+        const indexA = ordenSecciones.indexOf(a.seccion)
+        const indexB = ordenSecciones.indexOf(b.seccion)
+        
+        // Si la sección no está en el orden predefinido, ponerla al final
+        const posA = indexA === -1 ? 999 : indexA
+        const posB = indexB === -1 ? 999 : indexB
+        
+        return posA - posB
+      })
+    }
+    
+    // Ordenar items de la oferta
+    const itemsOrdenados = ordenarItemsPorSeccion(oferta.items || [])
+    
     // Crear mapa de fotos
     const fotosMap = new Map<string, string>()
-    ;(oferta.items || []).forEach((item) => {
+    itemsOrdenados.forEach((item) => {
       const material = materials.find(m => m.codigo.toString() === item.material_codigo)
       if (material?.foto) {
         fotosMap.set(item.material_codigo?.toString(), material.foto)
@@ -342,7 +381,7 @@ export function OfertasConfeccionadasView() {
 
     // Calcular margen por material (simplificado - en la oferta guardada ya viene calculado)
     const margenPorMaterial = new Map<string, number>()
-    ;(oferta.items || []).forEach((item) => {
+    itemsOrdenados.forEach((item) => {
       // El margen ya está incluido en el precio final de cada item
       margenPorMaterial.set(item.material_codigo?.toString(), 0)
     })
@@ -356,13 +395,27 @@ export function OfertasConfeccionadasView() {
 
     // EXPORTACIÓN COMPLETA
     const rowsCompleto: any[] = []
-    ;(oferta.items || []).forEach((item) => {
-      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+    itemsOrdenados.forEach((item) => {
+      // Buscar el label de la sección (puede ser estándar o personalizada)
+      let seccionLabel = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      // Si no está en el mapa estándar, buscar en secciones personalizadas
+      if (seccionLabel === item.seccion && seccionesPersonalizadasOferta.length > 0) {
+        const seccionPersonalizada = seccionesPersonalizadasOferta.find((s: any) => s.id === item.seccion)
+        if (seccionPersonalizada) {
+          seccionLabel = seccionPersonalizada.label
+        }
+      }
+      
+      // Buscar el nombre del material
+      const material = materialesMap.get(item.material_codigo?.toString())
+      const nombreMaterial = material?.nombre || item.descripcion
+      
       rowsCompleto.push({
         material_codigo: item.material_codigo,
-        seccion,
+        seccion: seccionLabel,
         tipo: "Material",
-        descripcion: item.descripcion,
+        descripcion: nombreMaterial,
         cantidad: item.cantidad,
         precio_unitario: item.precio.toFixed(2),
         porcentaje_margen: "0.00",
@@ -561,13 +614,27 @@ export function OfertasConfeccionadasView() {
 
     // EXPORTACIÓN SIN PRECIOS
     const rowsSinPrecios: any[] = []
-    ;(oferta.items || []).forEach((item) => {
-      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+    itemsOrdenados.forEach((item) => {
+      // Buscar el label de la sección (puede ser estándar o personalizada)
+      let seccionLabel = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      // Si no está en el mapa estándar, buscar en secciones personalizadas
+      if (seccionLabel === item.seccion && seccionesPersonalizadasOferta.length > 0) {
+        const seccionPersonalizada = seccionesPersonalizadasOferta.find((s: any) => s.id === item.seccion)
+        if (seccionPersonalizada) {
+          seccionLabel = seccionPersonalizada.label
+        }
+      }
+      
+      // Buscar el nombre del material
+      const material = materialesMap.get(item.material_codigo?.toString())
+      const nombreMaterial = material?.nombre || item.descripcion
+      
       rowsSinPrecios.push({
         material_codigo: item.material_codigo,
-        seccion,
+        seccion: seccionLabel,
         tipo: "Material",
-        descripcion: item.descripcion,
+        descripcion: nombreMaterial,
         cantidad: item.cantidad,
       })
     })
@@ -708,15 +775,28 @@ export function OfertasConfeccionadasView() {
 
     // EXPORTACIÓN CLIENTE CON PRECIOS
     const rowsClienteConPrecios: any[] = []
-    ;(oferta.items || []).forEach((item) => {
-      const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+    itemsOrdenados.forEach((item) => {
+      // Buscar el label de la sección (puede ser estándar o personalizada)
+      let seccionLabel = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      // Si no está en el mapa estándar, buscar en secciones personalizadas
+      if (seccionLabel === item.seccion && seccionesPersonalizadasOferta.length > 0) {
+        const seccionPersonalizada = seccionesPersonalizadasOferta.find((s: any) => s.id === item.seccion)
+        if (seccionPersonalizada) {
+          seccionLabel = seccionPersonalizada.label
+        }
+      }
+      
       const totalConMargen = item.precio * item.cantidad
+      // Buscar el nombre del material
+      const material = materialesMap.get(item.material_codigo?.toString())
+      const nombreMaterial = material?.nombre || item.descripcion
       
       rowsClienteConPrecios.push({
         material_codigo: item.material_codigo,
-        seccion,
+        seccion: seccionLabel,
         tipo: "Material",
-        descripcion: item.descripcion,
+        descripcion: nombreMaterial,
         cantidad: item.cantidad,
         total: totalConMargen.toFixed(2),
       })
