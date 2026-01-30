@@ -4147,8 +4147,8 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
               ) : (
-                <div className="px-6 py-5 min-h-full">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="px-4 sm:px-6 py-5 min-h-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
                     {materialesFiltrados.map((material) => {
                       const key = mostrarElementosPersonalizados
                         ? `PERSONALIZADO:${material.codigo?.toString() ?? ""}`
@@ -4167,7 +4167,7 @@ export function ConfeccionOfertasView({
                               : agregarMaterial(material)
                           }}
                         >
-                          <CardContent className="p-3">
+                          <CardContent className="p-3 flex flex-col h-full">
                             <div className="relative aspect-[4/3] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden border border-slate-200">
                               {material.foto ? (
                                 <>
@@ -4190,13 +4190,16 @@ export function ConfeccionOfertasView({
                                 <Package className="h-12 w-12 text-slate-300" />
                               )}
                               {selectedCount ? (
-                                <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white">
+                                <span className="absolute top-2 right-2 rounded-full bg-orange-600 text-white text-xs font-bold px-2.5 py-1 shadow-lg border-2 border-white z-10">
                                   {selectedCount}
                                 </span>
                               ) : null}
-                              {/* Badge de stock disponible */}
-                              {almacenId && 'stock_disponible' in material && typeof (material as any).stock_disponible === 'number' && (
-                                <span className={`absolute bottom-2 left-2 rounded-md text-white text-xs font-semibold px-2 py-0.5 shadow-md ${
+                            </div>
+                            
+                            {/* Badge de stock disponible - Movido fuera de la imagen */}
+                            {almacenId && 'stock_disponible' in material && typeof (material as any).stock_disponible === 'number' && (
+                              <div className="mb-2">
+                                <span className={`inline-block rounded-md text-white text-xs font-semibold px-2 py-1 shadow-sm ${
                                   (material as any).stock_disponible > 10
                                     ? 'bg-emerald-600'
                                     : (material as any).stock_disponible > 0
@@ -4205,32 +4208,32 @@ export function ConfeccionOfertasView({
                                 }`}>
                                   Stock: {(material as any).stock_disponible}
                                 </span>
-                              )}
-                            </div>
-                            <div className="flex items-start justify-between gap-2 mb-2 min-w-0">
-                              <h3 className="font-medium text-sm line-clamp-2 min-h-[40px] text-slate-900 break-words">
+                              </div>
+                            )}
+                            
+                            <div className="flex-1 flex flex-col min-h-0">
+                              <h3 className="font-medium text-sm line-clamp-2 text-slate-900 break-words mb-2" title={material.nombre || material.descripcion}>
                                 {material.nombre || material.descripcion}
                               </h3>
-                            </div>
-                            <div className="mt-auto">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                                  <p className="text-base font-semibold text-orange-600 whitespace-nowrap">
+                              
+                              <div className="mt-auto space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-base font-semibold text-orange-600">
                                     ${material.precio ? material.precio.toFixed(2) : "0.00"}
                                   </p>
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs border border-blue-200 text-blue-700 bg-blue-50 w-fit"
-                                    title={material.categoria}
-                                  >
-                                    {material.categoria}
-                                  </Badge>
+                                  {selectedCount > 0 && (
+                                    <Badge className="bg-slate-900 text-white text-xs whitespace-nowrap flex-shrink-0">
+                                      En oferta: {selectedCount}
+                                    </Badge>
+                                  )}
                                 </div>
-                                {selectedCount > 0 && (
-                                  <Badge className="bg-slate-900 text-white text-xs whitespace-nowrap flex-shrink-0">
-                                    En oferta: {selectedCount}
-                                  </Badge>
-                                )}
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs border border-blue-200 text-blue-700 bg-blue-50 w-fit max-w-full truncate"
+                                  title={material.categoria}
+                                >
+                                  {material.categoria}
+                                </Badge>
                               </div>
                             </div>
                           </CardContent>
