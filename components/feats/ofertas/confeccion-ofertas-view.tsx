@@ -89,40 +89,69 @@ export function ConfeccionOfertasView({
   const { almacenes, stock, refetchStock, loading: loadingAlmacenes } = useInventario()
   const { marcas, loading: loadingMarcas } = useMarcas()
   const { toast } = useToast()
-  const [items, setItems] = useState<OfertaItem[]>([])
-  const [ofertaGenerica, setOfertaGenerica] = useState(true)
-  const [tipoContacto, setTipoContacto] = useState<'cliente' | 'lead' | 'lead_sin_agregar'>('cliente')
-  const [clienteId, setClienteId] = useState("")
-  const [leadId, setLeadId] = useState("")
-  const [nombreLeadSinAgregar, setNombreLeadSinAgregar] = useState("")
+  
+  // Clave única para localStorage basada en el modo
+  const localStorageKey = useMemo(() => {
+    if (modoEdicion && ofertaParaEditar?.id) {
+      return `oferta-edicion-${ofertaParaEditar.id}`
+    } else if (ofertaParaDuplicar?.id) {
+      return `oferta-duplicar-${ofertaParaDuplicar.id}`
+    } else {
+      return 'oferta-nueva'
+    }
+  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaDuplicar?.id])
+  
+  // Función para cargar estado desde localStorage
+  const cargarEstadoGuardado = () => {
+    try {
+      const estadoGuardado = localStorage.getItem(localStorageKey)
+      if (estadoGuardado) {
+        return JSON.parse(estadoGuardado)
+      }
+    } catch (error) {
+      console.error('Error cargando estado guardado:', error)
+    }
+    return null
+  }
+  
+  const estadoInicial = cargarEstadoGuardado()
+  
+  const [items, setItems] = useState<OfertaItem[]>(estadoInicial?.items || [])
+  const [ofertaGenerica, setOfertaGenerica] = useState(estadoInicial?.ofertaGenerica ?? true)
+  const [tipoContacto, setTipoContacto] = useState<'cliente' | 'lead' | 'lead_sin_agregar'>(estadoInicial?.tipoContacto || 'cliente')
+  const [clienteId, setClienteId] = useState(estadoInicial?.clienteId || "")
+  const [leadId, setLeadId] = useState(estadoInicial?.leadId || "")
+  const [nombreLeadSinAgregar, setNombreLeadSinAgregar] = useState(estadoInicial?.nombreLeadSinAgregar || "")
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [leads, setLeads] = useState<any[]>([])
   const [clientesLoading, setClientesLoading] = useState(false)
   const [leadsLoading, setLeadsLoading] = useState(false)
-  const [activeStepIndex, setActiveStepIndex] = useState(0)
-  const [margenComercial, setMargenComercial] = useState(0)
-  const [porcentajeMargenMateriales, setPorcentajeMargenMateriales] = useState(50)
-  const [porcentajeMargenInstalacion, setPorcentajeMargenInstalacion] = useState(50)
-  const [costoTransportacion, setCostoTransportacion] = useState(0)
-  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(0)
-  const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>([])
+  const [activeStepIndex, setActiveStepIndex] = useState(estadoInicial?.activeStepIndex || 0)
+  const [margenComercial, setMargenComercial] = useState(estadoInicial?.margenComercial || 0)
+  const [porcentajeMargenMateriales, setPorcentajeMargenMateriales] = useState(estadoInicial?.porcentajeMargenMateriales || 50)
+  const [porcentajeMargenInstalacion, setPorcentajeMargenInstalacion] = useState(estadoInicial?.porcentajeMargenInstalacion || 50)
+  const [costoTransportacion, setCostoTransportacion] = useState(estadoInicial?.costoTransportacion || 0)
+  const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(estadoInicial?.descuentoPorcentaje || 0)
+  const [elementosPersonalizados, setElementosPersonalizados] = useState<ElementoPersonalizado[]>(estadoInicial?.elementosPersonalizados || [])
   const [mostrarElementosPersonalizados, setMostrarElementosPersonalizados] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [almacenId, setAlmacenId] = useState<string>("")
+  const [almacenId, setAlmacenId] = useState<string>(estadoInicial?.almacenId || "")
   const [reservandoMateriales, setReservandoMateriales] = useState(false)
   const [materialesReservados, setMaterialesReservados] = useState(false)
-  const [inversorSeleccionado, setInversorSeleccionado] = useState<string>("")
-  const [bateriaSeleccionada, setBateriaSeleccionada] = useState<string>("")
-  const [panelSeleccionado, setPanelSeleccionado] = useState<string>("")
-  const [estadoOferta, setEstadoOferta] = useState<string>("en_revision")
-  const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<SeccionPersonalizada[]>([
-    {
-      id: SECCION_AMPLIACION_ID,
-      label: "Ampliación de Sistema",
-      tipo: 'materiales',
-      categoriasMateriales: ["*"],
-    },
-  ])
+  const [inversorSeleccionado, setInversorSeleccionado] = useState<string>(estadoInicial?.inversorSeleccionado || "")
+  const [bateriaSeleccionada, setBateriaSeleccionada] = useState<string>(estadoInicial?.bateriaSeleccionada || "")
+  const [panelSeleccionado, setPanelSeleccionado] = useState<string>(estadoInicial?.panelSeleccionado || "")
+  const [estadoOferta, setEstadoOferta] = useState<string>(estadoInicial?.estadoOferta || "en_revision")
+  const [seccionesPersonalizadas, setSeccionesPersonalizadas] = useState<SeccionPersonalizada[]>(
+    estadoInicial?.seccionesPersonalizadas || [
+      {
+        id: SECCION_AMPLIACION_ID,
+        label: "Ampliación de Sistema",
+        tipo: 'materiales',
+        categoriasMateriales: ["*"],
+      },
+    ]
+  )
   const [mostrarDialogoSeccion, setMostrarDialogoSeccion] = useState(false)
   const [tipoSeccionNueva, setTipoSeccionNueva] = useState<'materiales' | 'extra' | null>(null)
   const [tipoExtraSeccion, setTipoExtraSeccion] = useState<'escritura' | 'costo' | null>(null)
@@ -133,17 +162,17 @@ export function ConfeccionOfertasView({
   const [tipoReserva, setTipoReserva] = useState<'temporal' | 'definitiva' | null>(null)
   const [diasReserva, setDiasReserva] = useState(7)
   const [fechaExpiracionReserva, setFechaExpiracionReserva] = useState<Date | null>(null)
-  const [fotoPortada, setFotoPortada] = useState<string>("")
+  const [fotoPortada, setFotoPortada] = useState<string>(estadoInicial?.fotoPortada || "")
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   const [creandoOferta, setCreandoOferta] = useState(false)
   const [ofertaCreada, setOfertaCreada] = useState(false)
-  const [ofertaId, setOfertaId] = useState<string>("")
-  const [monedaPago, setMonedaPago] = useState<'USD' | 'EUR' | 'CUP'>('USD')
-  const [tasaCambio, setTasaCambio] = useState<string>("")
-  const [pagoTransferencia, setPagoTransferencia] = useState(false)
-  const [datosCuenta, setDatosCuenta] = useState("")
-  const [aplicaContribucion, setAplicaContribucion] = useState(false)
-  const [porcentajeContribucion, setPorcentajeContribucion] = useState<number>(0)
+  const [ofertaId, setOfertaId] = useState<string>(estadoInicial?.ofertaId || "")
+  const [monedaPago, setMonedaPago] = useState<'USD' | 'EUR' | 'CUP'>(estadoInicial?.monedaPago || 'USD')
+  const [tasaCambio, setTasaCambio] = useState<string>(estadoInicial?.tasaCambio || "")
+  const [pagoTransferencia, setPagoTransferencia] = useState(estadoInicial?.pagoTransferencia || false)
+  const [datosCuenta, setDatosCuenta] = useState(estadoInicial?.datosCuenta || "")
+  const [aplicaContribucion, setAplicaContribucion] = useState(estadoInicial?.aplicaContribucion || false)
+  const [porcentajeContribucion, setPorcentajeContribucion] = useState<number>(estadoInicial?.porcentajeContribucion || 0)
   const [margenComercialTotal, setMargenComercialTotal] = useState(0)
   const [margenParaMateriales, setMargenParaMateriales] = useState(0)
   const [margenParaInstalacion, setMargenParaInstalacion] = useState(0)
@@ -264,6 +293,20 @@ export function ConfeccionOfertasView({
     const ofertaACopiar = modoEdicion ? ofertaParaEditar : ofertaParaDuplicar
     
     if (ofertaACopiar) {
+      // Verificar si hay un estado guardado más reciente
+      const estadoGuardado = cargarEstadoGuardado()
+      if (estadoGuardado && estadoGuardado.timestamp) {
+        const tiempoGuardado = new Date(estadoGuardado.timestamp).getTime()
+        const tiempoActual = new Date().getTime()
+        const diferencia = tiempoActual - tiempoGuardado
+        
+        // Si el estado guardado es de hace menos de 24 horas, usarlo en lugar de la oferta
+        if (diferencia < 24 * 60 * 60 * 1000) {
+          console.log('📦 Usando estado guardado en localStorage')
+          return // Ya se cargó en el estado inicial
+        }
+      }
+      
       console.log(modoEdicion ? '🔄 Cargando oferta para editar:' : '📋 Cargando oferta para duplicar:', ofertaACopiar)
       
       // Cargar datos básicos
@@ -380,6 +423,94 @@ export function ConfeccionOfertasView({
       refetchStock(almacenId)
     }
   }, [almacenId, refetchStock])
+
+  // Guardar estado en localStorage cada vez que cambia
+  useEffect(() => {
+    // No guardar si la oferta ya fue creada o si estamos cargando datos iniciales
+    if (ofertaCreada) return
+    
+    // Esperar un poco antes de guardar para evitar guardar estados intermedios
+    const timeoutId = setTimeout(() => {
+      try {
+        const estadoParaGuardar = {
+          items,
+          ofertaGenerica,
+          tipoContacto,
+          clienteId,
+          leadId,
+          nombreLeadSinAgregar,
+          activeStepIndex,
+          margenComercial,
+          porcentajeMargenMateriales,
+          porcentajeMargenInstalacion,
+          costoTransportacion,
+          descuentoPorcentaje,
+          elementosPersonalizados,
+          almacenId,
+          inversorSeleccionado,
+          bateriaSeleccionada,
+          panelSeleccionado,
+          estadoOferta,
+          seccionesPersonalizadas,
+          fotoPortada,
+          ofertaId,
+          monedaPago,
+          tasaCambio,
+          pagoTransferencia,
+          datosCuenta,
+          aplicaContribucion,
+          porcentajeContribucion,
+          timestamp: new Date().toISOString()
+        }
+        localStorage.setItem(localStorageKey, JSON.stringify(estadoParaGuardar))
+      } catch (error) {
+        console.error('Error guardando estado:', error)
+      }
+    }, 500) // Debounce de 500ms
+    
+    return () => clearTimeout(timeoutId)
+  }, [
+    items,
+    ofertaGenerica,
+    tipoContacto,
+    clienteId,
+    leadId,
+    nombreLeadSinAgregar,
+    activeStepIndex,
+    margenComercial,
+    porcentajeMargenMateriales,
+    porcentajeMargenInstalacion,
+    costoTransportacion,
+    descuentoPorcentaje,
+    elementosPersonalizados,
+    almacenId,
+    inversorSeleccionado,
+    bateriaSeleccionada,
+    panelSeleccionado,
+    estadoOferta,
+    seccionesPersonalizadas,
+    fotoPortada,
+    ofertaId,
+    monedaPago,
+    tasaCambio,
+    pagoTransferencia,
+    datosCuenta,
+    aplicaContribucion,
+    porcentajeContribucion,
+    ofertaCreada,
+    localStorageKey
+  ])
+
+  // Limpiar localStorage cuando se guarda exitosamente la oferta
+  useEffect(() => {
+    if (ofertaCreada) {
+      try {
+        localStorage.removeItem(localStorageKey)
+      } catch (error) {
+        console.error('Error limpiando localStorage:', error)
+      }
+    }
+  }, [ofertaCreada, localStorageKey])
 
   // Obtener materiales con stock en el almacén seleccionado
   const materialesConStock = useMemo(() => {
