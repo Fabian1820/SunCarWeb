@@ -21,7 +21,11 @@ export default function ConfeccionOfertasPage() {
         className="max-w-full h-screen box-border flex min-h-0 px-0 overflow-hidden"
         style={{ paddingTop: "var(--fixed-header-height)" }}
       >
-        <ConfeccionOfertasView onCerrar={() => router.push("/ofertas-gestion/ver-ofertas-confeccionadas")} />
+        <ConfeccionOfertasView 
+          onCerrar={() => {
+            router.push("/ofertas-gestion/ver-ofertas-confeccionadas?refresh=true")
+          }} 
+        />
       </main>
     </div>
   )

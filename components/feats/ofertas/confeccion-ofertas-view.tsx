@@ -71,13 +71,17 @@ interface ServicioOferta {
 interface ConfeccionOfertasViewProps {
   modoEdicion?: boolean
   ofertaParaEditar?: any
+  ofertaParaDuplicar?: any
   onGuardarExito?: () => void
+  onCerrar?: () => void
 }
 
 export function ConfeccionOfertasView({ 
   modoEdicion = false, 
   ofertaParaEditar = null,
-  onGuardarExito 
+  ofertaParaDuplicar = null,
+  onGuardarExito,
+  onCerrar
 }: ConfeccionOfertasViewProps = {}) {
   const { materials, loading } = useMaterials()
   const { almacenes, stock, refetchStock, loading: loadingAlmacenes } = useInventario()
@@ -252,38 +256,41 @@ export function ConfeccionOfertasView({
   }, [almacenes, almacenId])
 
   // Cargar datos de la oferta en modo edición
+  // Cargar datos de la oferta en modo edición o duplicación
   useEffect(() => {
-    if (modoEdicion && ofertaParaEditar) {
-      console.log('🔄 Cargando oferta para editar:', ofertaParaEditar)
+    const ofertaACopiar = modoEdicion ? ofertaParaEditar : ofertaParaDuplicar
+    
+    if (ofertaACopiar) {
+      console.log(modoEdicion ? '🔄 Cargando oferta para editar:' : '📋 Cargando oferta para duplicar:', ofertaACopiar)
       
       // Cargar datos básicos
-      setOfertaGenerica(ofertaParaEditar.tipo === 'generica')
+      setOfertaGenerica(ofertaACopiar.tipo === 'generica')
       
       // Determinar el tipo de contacto
-      if (ofertaParaEditar.nombre_lead_sin_agregar) {
+      if (ofertaACopiar.nombre_lead_sin_agregar) {
         setTipoContacto('lead_sin_agregar')
-        setNombreLeadSinAgregar(ofertaParaEditar.nombre_lead_sin_agregar)
+        setNombreLeadSinAgregar(ofertaACopiar.nombre_lead_sin_agregar)
         setClienteId("")
         setLeadId("")
-      } else if (ofertaParaEditar.lead_id) {
+      } else if (ofertaACopiar.lead_id) {
         setTipoContacto('lead')
-        setLeadId(ofertaParaEditar.lead_id)
+        setLeadId(ofertaACopiar.lead_id)
         setClienteId("")
         setNombreLeadSinAgregar("")
-      } else if (ofertaParaEditar.cliente_numero || ofertaParaEditar.cliente_id) {
+      } else if (ofertaACopiar.cliente_numero || ofertaACopiar.cliente_id) {
         setTipoContacto('cliente')
-        setClienteId(ofertaParaEditar.cliente_numero || ofertaParaEditar.cliente_id || "")
+        setClienteId(ofertaACopiar.cliente_numero || ofertaACopiar.cliente_id || "")
         setLeadId("")
         setNombreLeadSinAgregar("")
       }
       
-      setAlmacenId(ofertaParaEditar.almacen_id || "")
-      setEstadoOferta(ofertaParaEditar.estado || "en_revision")
-      setFotoPortada(ofertaParaEditar.foto_portada || "")
+      setAlmacenId(ofertaACopiar.almacen_id || "")
+      setEstadoOferta(ofertaACopiar.estado || "en_revision")
+      setFotoPortada(ofertaACopiar.foto_portada || "")
       
       // Cargar items
-      if (ofertaParaEditar.items && Array.isArray(ofertaParaEditar.items)) {
-        const itemsCargados = ofertaParaEditar.items.map((item: any) => ({
+      if (ofertaACopiar.items && Array.isArray(ofertaACopiar.items)) {
+        const itemsCargados = ofertaACopiar.items.map((item: any) => ({
           id: `${item.seccion}-${item.material_codigo}`,
           materialCodigo: item.material_codigo,
           descripcion: item.descripcion,
@@ -296,8 +303,8 @@ export function ConfeccionOfertasView({
       }
       
       // Cargar elementos personalizados
-      if (ofertaParaEditar.elementos_personalizados && Array.isArray(ofertaParaEditar.elementos_personalizados)) {
-        const elementosCargados = ofertaParaEditar.elementos_personalizados.map((elem: any, index: number) => ({
+      if (ofertaACopiar.elementos_personalizados && Array.isArray(ofertaACopiar.elementos_personalizados)) {
+        const elementosCargados = ofertaACopiar.elementos_personalizados.map((elem: any, index: number) => ({
           id: `custom-${elem.material_codigo}-${index}`,
           materialCodigo: elem.material_codigo,
           descripcion: elem.descripcion,
@@ -309,8 +316,8 @@ export function ConfeccionOfertasView({
       }
       
       // Cargar secciones personalizadas
-      if (ofertaParaEditar.secciones_personalizadas && Array.isArray(ofertaParaEditar.secciones_personalizadas)) {
-        const seccionesCargadas = ofertaParaEditar.secciones_personalizadas.map((seccion: any) => ({
+      if (ofertaACopiar.secciones_personalizadas && Array.isArray(ofertaACopiar.secciones_personalizadas)) {
+        const seccionesCargadas = ofertaACopiar.secciones_personalizadas.map((seccion: any) => ({
           id: seccion.id,
           label: seccion.label,
           tipo: seccion.tipo,
@@ -328,34 +335,38 @@ export function ConfeccionOfertasView({
       }
       
       // Cargar componentes principales
-      if (ofertaParaEditar.componentes_principales) {
-        setInversorSeleccionado(ofertaParaEditar.componentes_principales.inversor_seleccionado || "")
-        setBateriaSeleccionada(ofertaParaEditar.componentes_principales.bateria_seleccionada || "")
-        setPanelSeleccionado(ofertaParaEditar.componentes_principales.panel_seleccionado || "")
+      if (ofertaACopiar.componentes_principales) {
+        setInversorSeleccionado(ofertaACopiar.componentes_principales.inversor_seleccionado || "")
+        setBateriaSeleccionada(ofertaACopiar.componentes_principales.bateria_seleccionada || "")
+        setPanelSeleccionado(ofertaACopiar.componentes_principales.panel_seleccionado || "")
       }
       
       // Cargar márgenes y costos
-      setMargenComercial(ofertaParaEditar.margen_comercial || 0)
-      setCostoTransportacion(ofertaParaEditar.costo_transportacion || 0)
+      setMargenComercial(ofertaACopiar.margen_comercial || 0)
+      setCostoTransportacion(ofertaACopiar.costo_transportacion || 0)
       
       // Cargar datos de pago
-      setMonedaPago(ofertaParaEditar.moneda_pago || 'USD')
-      setTasaCambio(ofertaParaEditar.tasa_cambio?.toString() || "")
-      setPagoTransferencia(ofertaParaEditar.pago_transferencia || false)
-      setDatosCuenta(ofertaParaEditar.datos_cuenta || "")
-      setAplicaContribucion(ofertaParaEditar.aplica_contribucion || false)
-      setPorcentajeContribucion(ofertaParaEditar.porcentaje_contribucion || 0)
+      setMonedaPago(ofertaACopiar.moneda_pago || 'USD')
+      setTasaCambio(ofertaACopiar.tasa_cambio?.toString() || "")
+      setPagoTransferencia(ofertaACopiar.pago_transferencia || false)
+      setDatosCuenta(ofertaACopiar.datos_cuenta || "")
+      setAplicaContribucion(ofertaACopiar.aplica_contribucion || false)
+      setPorcentajeContribucion(ofertaACopiar.porcentaje_contribucion || 0)
       
-      // NO marcar como oferta creada en modo edición para permitir modificaciones
-      // Solo guardar el ID para la actualización
-      setOfertaId(ofertaParaEditar.numero_oferta || ofertaParaEditar.id)
+      // En modo edición, guardar el ID para la actualización
+      // En modo duplicación, NO guardar el ID para crear una nueva oferta
+      if (modoEdicion) {
+        setOfertaId(ofertaACopiar.numero_oferta || ofertaACopiar.id)
+      }
       
       toast({
-        title: "Oferta cargada",
-        description: "Los datos de la oferta se han cargado correctamente",
+        title: modoEdicion ? "Oferta cargada" : "Oferta lista para duplicar",
+        description: modoEdicion 
+          ? "Los datos de la oferta se han cargado correctamente"
+          : "Modifica los datos y guarda para crear la nueva oferta",
       })
     }
-  }, [modoEdicion, ofertaParaEditar, toast])
+  }, [modoEdicion, ofertaParaEditar, ofertaParaDuplicar, toast])
 
   // Cargar stock cuando se selecciona un almacén
   useEffect(() => {
@@ -2434,9 +2445,17 @@ export function ConfeccionOfertasView({
           description: `${response.data.numero_oferta}: ${response.data.nombre_automatico}`,
         })
         
-        // Si estamos en modo edición y hay callback de éxito, llamarlo
-        if (modoEdicion && onGuardarExito) {
+        // Llamar callback de éxito si existe (tanto en edición como en creación/duplicación)
+        if (onGuardarExito) {
           onGuardarExito()
+        }
+        
+        // Si no estamos en modo edición y hay callback de cerrar, llamarlo después de crear
+        if (!modoEdicion && onCerrar) {
+          // Dar un pequeño delay para que el usuario vea el toast
+          setTimeout(() => {
+            onCerrar()
+          }, 1500)
         }
       } else {
         throw new Error(response.message || (modoEdicion ? 'Error al actualizar la oferta' : 'Error al crear la oferta'))
