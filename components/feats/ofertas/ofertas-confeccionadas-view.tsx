@@ -21,7 +21,7 @@ import { Building2, FileText, Package, Search, User, Download, Edit, Trash2 } fr
 import { useEffect, useMemo, useState } from "react"
 
 export function OfertasConfeccionadasView() {
-  const { ofertas, loading, eliminarOferta } = useOfertasConfeccion()
+  const { ofertas, loading, eliminarOferta, refetch } = useOfertasConfeccion()
   const { materials } = useMaterials()
   const { marcas } = useMarcas()
   const [searchQuery, setSearchQuery] = useState("")
@@ -1677,7 +1677,7 @@ export function OfertasConfeccionadasView() {
           setMostrarDialogoEditar(false)
           setOfertaParaEditar(null)
           // Recargar ofertas después de editar
-          window.location.reload()
+          refetch()
         }}
       />
 
