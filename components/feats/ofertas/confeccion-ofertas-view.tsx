@@ -4293,7 +4293,7 @@ export function ConfeccionOfertasView({
                 </div>
               ) : (
                 <div className="px-4 sm:px-6 py-5 min-h-full">
-                  <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  <div className="grid grid-cols-2 2xl:grid-cols-4 gap-3 sm:gap-4">
                     {materialesFiltrados.map((material) => {
                       const key = mostrarElementosPersonalizados
                         ? `PERSONALIZADO:${material.codigo?.toString() ?? ""}`
