@@ -1269,6 +1269,20 @@ export function ConfeccionOfertasView({
         telefono: selectedCliente.telefono,
         provincia_montaje: selectedCliente.provincia_montaje,
         direccion: selectedCliente.direccion,
+        atencion_de: selectedCliente.nombre, // A la atención de para clientes
+      } : undefined,
+      leadData: !ofertaGenerica && tipoContacto === 'lead' && selectedLead ? {
+        id: selectedLead.id,
+        nombre: selectedLead.nombre_completo || selectedLead.nombre,
+        telefono: selectedLead.telefono,
+        email: selectedLead.email,
+        provincia: selectedLead.provincia,
+        direccion: selectedLead.direccion,
+        atencion_de: selectedLead.nombre_completo || selectedLead.nombre, // A la atención de para leads
+      } : undefined,
+      leadSinAgregarData: !ofertaGenerica && tipoContacto === 'lead_sin_agregar' && nombreLeadSinAgregar ? {
+        nombre: nombreLeadSinAgregar,
+        atencion_de: nombreLeadSinAgregar, // A la atención de para leads sin agregar
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
@@ -1294,6 +1308,9 @@ export function ConfeccionOfertasView({
     materials,
     ofertaGenerica,
     selectedCliente,
+    selectedLead,
+    tipoContacto,
+    nombreLeadSinAgregar,
     ofertaId,
     monedaPago,
     tasaCambioNumero,
@@ -1487,6 +1504,20 @@ export function ConfeccionOfertasView({
         telefono: selectedCliente.telefono,
         provincia_montaje: selectedCliente.provincia_montaje,
         direccion: selectedCliente.direccion,
+        atencion_de: selectedCliente.nombre, // A la atención de para clientes
+      } : undefined,
+      leadData: !ofertaGenerica && tipoContacto === 'lead' && selectedLead ? {
+        id: selectedLead.id,
+        nombre: selectedLead.nombre_completo || selectedLead.nombre,
+        telefono: selectedLead.telefono,
+        email: selectedLead.email,
+        provincia: selectedLead.provincia,
+        direccion: selectedLead.direccion,
+        atencion_de: selectedLead.nombre_completo || selectedLead.nombre, // A la atención de para leads
+      } : undefined,
+      leadSinAgregarData: !ofertaGenerica && tipoContacto === 'lead_sin_agregar' && nombreLeadSinAgregar ? {
+        nombre: nombreLeadSinAgregar,
+        atencion_de: nombreLeadSinAgregar, // A la atención de para leads sin agregar
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
@@ -1505,6 +1536,9 @@ export function ConfeccionOfertasView({
     materials,
     ofertaGenerica,
     selectedCliente,
+    selectedLead,
+    tipoContacto,
+    nombreLeadSinAgregar,
     ofertaId,
     pagoTransferencia,
     datosCuenta,
@@ -1740,6 +1774,20 @@ export function ConfeccionOfertasView({
         telefono: selectedCliente.telefono,
         provincia_montaje: selectedCliente.provincia_montaje,
         direccion: selectedCliente.direccion,
+        atencion_de: selectedCliente.nombre, // A la atención de para clientes
+      } : undefined,
+      leadData: !ofertaGenerica && tipoContacto === 'lead' && selectedLead ? {
+        id: selectedLead.id,
+        nombre: selectedLead.nombre_completo || selectedLead.nombre,
+        telefono: selectedLead.telefono,
+        email: selectedLead.email,
+        provincia: selectedLead.provincia,
+        direccion: selectedLead.direccion,
+        atencion_de: selectedLead.nombre_completo || selectedLead.nombre, // A la atención de para leads
+      } : undefined,
+      leadSinAgregarData: !ofertaGenerica && tipoContacto === 'lead_sin_agregar' && nombreLeadSinAgregar ? {
+        nombre: nombreLeadSinAgregar,
+        atencion_de: nombreLeadSinAgregar, // A la atención de para leads sin agregar
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
@@ -1763,6 +1811,9 @@ export function ConfeccionOfertasView({
     materials,
     ofertaGenerica,
     selectedCliente,
+    selectedLead,
+    tipoContacto,
+    nombreLeadSinAgregar,
     ofertaId,
     pagoTransferencia,
     datosCuenta,
