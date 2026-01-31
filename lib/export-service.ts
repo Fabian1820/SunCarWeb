@@ -286,11 +286,18 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFontSize(9) // Aumentado de 7 a 9
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(100, 100, 100)
-    doc.text('Material', 12, yPosition + 4)
-    doc.text('P. Unit', 85, yPosition + 4, { align: 'right' })
-    doc.text('Cant', 105, yPosition + 4, { align: 'center' })
-    doc.text('Total', 130, yPosition + 4, { align: 'right' })
-    doc.text('Margen (%)', 160, yPosition + 4, { align: 'right' })
+    // Foto: 12-34 (22mm)
+    // Material: 38-78 (40mm)
+    doc.text('Material', 38, yPosition + 4)
+    // P.Unit: 82-100 (18mm)
+    doc.text('P. Unit', 91, yPosition + 4, { align: 'right' })
+    // Cant: 102-115 (13mm)
+    doc.text('Cant', 108, yPosition + 4, { align: 'center' })
+    // Total: 117-135 (18mm)
+    doc.text('Total', 126, yPosition + 4, { align: 'right' })
+    // Margen: 137-165 (28mm)
+    doc.text('Margen (%)', 151, yPosition + 4, { align: 'right' })
+    // Total Final: 167-198 (31mm)
     doc.text('Total Final', pageWidth - 12, yPosition + 4, { align: 'right' })
     
     yPosition += 8
@@ -302,8 +309,12 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFontSize(9) // Aumentado de 7 a 9
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(100, 100, 100)
-    doc.text('Material', 12, yPosition + 4)
-    doc.text('Cant', pageWidth - 50, yPosition + 4, { align: 'right' })
+    // Foto: 12-34 (22mm)
+    // Material: 38-150 (112mm) - mucho más espacio
+    doc.text('Material', 38, yPosition + 4)
+    // Cant: 152-170 (18mm)
+    doc.text('Cant', 161, yPosition + 4, { align: 'right' })
+    // Total: 172-198 (26mm)
     doc.text('Total', pageWidth - 12, yPosition + 4, { align: 'right' })
     
     yPosition += 8
@@ -450,49 +461,49 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       const descripcion = row.descripcion || ''
       
       if (!sinPrecios && !conPreciosCliente) {
-        // Con precios completos: limitar ancho para que no se superponga con precio unitario (posición 85)
-        // Foto termina en 38, precio unitario empieza en 85, dejamos margen de seguridad
-        const anchoDisponible = 85 - 38 - 5 // 42mm de ancho disponible
+        // Con precios completos: limitar ancho para que no se superponga con precio unitario
+        // Foto termina en 34, Material va de 38 a 78 (40mm de ancho)
+        const anchoDisponible = 40 // 40mm de ancho para el material
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 10) // Ajustado posición X de 30 a 38 por foto más grande
+        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 10)
       } else if (conPreciosCliente) {
-        // Con precios cliente: limitar ancho para que no se superponga con cantidad (pageWidth - 50)
-        // Foto termina en 38, cantidad empieza en pageWidth - 50
-        const anchoDisponible = pageWidth - 50 - 38 - 5 // Ancho disponible hasta la cantidad
+        // Con precios cliente: limitar ancho para que no se superponga con cantidad
+        // Foto termina en 34, Material va de 38 a 150 (112mm de ancho)
+        const anchoDisponible = 112 // 112mm de ancho para el material
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12) // Ajustado posición X de 30 a 38
+        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12)
       } else {
         // Sin precios: limitar ancho para que no se superponga con cantidad (pageWidth - 12)
         // Foto termina en 38, cantidad empieza en pageWidth - 12
         const anchoDisponible = pageWidth - 12 - 38 - 5 // Ancho disponible hasta la cantidad
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12) // Ajustado posición X de 30 a 38
+        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12)
       }
 
       if (!sinPrecios && !conPreciosCliente) {
         // EXPORTACIÓN COMPLETA CON TODOS LOS PRECIOS Y MÁRGENES
-        // PRECIO UNITARIO - LETRA AUMENTADA
+        // PRECIO UNITARIO - LETRA AUMENTADA (columna 82-100)
         doc.setFontSize(10) // Aumentado de 8 a 10
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(0, 0, 0)
         const precioUnit = parseFloat(row.precio_unitario) || 0
-        doc.text(`${precioUnit.toFixed(2)} $`, 85, yPosition + 12, { align: 'right' })
+        doc.text(`${precioUnit.toFixed(2)} $`, 91, yPosition + 12, { align: 'right' })
 
-        // CANTIDAD - LETRA AUMENTADA
+        // CANTIDAD - LETRA AUMENTADA (columna 102-115)
         doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), 105, yPosition + 12, { align: 'center' })
+        doc.text(cantidad.toString(), 108, yPosition + 12, { align: 'center' })
 
-        // TOTAL (sin margen) - LETRA AUMENTADA
+        // TOTAL (sin margen) - LETRA AUMENTADA (columna 117-135)
         const totalBase = precioUnit * (parseFloat(cantidad) || 0)
         doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalBase.toFixed(2)} $`, 130, yPosition + 12, { align: 'right' })
+        doc.text(`${totalBase.toFixed(2)} $`, 126, yPosition + 12, { align: 'right' })
 
-        // MARGEN (% y dinero alineados) - LETRA AUMENTADA
+        // MARGEN (% y dinero alineados) - LETRA AUMENTADA (columna 137-165)
         const porcentaje = parseFloat(row.porcentaje_margen) || 0
         const margen = parseFloat(row.margen) || 0
         
@@ -501,16 +512,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           doc.setFontSize(10) // Aumentado de 8 a 10
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(0, 0, 0)
-          doc.text(`${porcentaje.toFixed(2)}%`, 160, yPosition + 9, { align: 'right' })
+          doc.text(`${porcentaje.toFixed(2)}%`, 151, yPosition + 9, { align: 'right' })
           
           // Monto abajo, alineado con el porcentaje
           doc.setFontSize(9) // Aumentado de 7 a 9
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(100, 100, 100)
-          doc.text(`${margen.toFixed(2)} $`, 160, yPosition + 15, { align: 'right' })
+          doc.text(`${margen.toFixed(2)} $`, 151, yPosition + 15, { align: 'right' })
         }
 
-        // TOTAL FINAL (total + margen) - LETRA AUMENTADA
+        // TOTAL FINAL (total + margen) - LETRA AUMENTADA (columna 167-198)
         const totalFinal = totalBase + margen
         doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
@@ -518,14 +529,14 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 12, { align: 'right' })
       } else if (conPreciosCliente) {
         // EXPORTACIÓN CON PRECIOS PARA CLIENTE (Material | Cant | Total)
-        // CANTIDAD - LETRA AUMENTADA
+        // CANTIDAD - LETRA AUMENTADA (columna 152-170)
         doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), pageWidth - 50, yPosition + 12, { align: 'right' })
+        doc.text(cantidad.toString(), 161, yPosition + 12, { align: 'right' })
         
-        // TOTAL (con margen incluido) - LETRA AUMENTADA
+        // TOTAL (con margen incluido) - LETRA AUMENTADA (columna 172-198)
         const total = parseFloat(row.total) || 0
         doc.setFontSize(11) // Aumentado de 9 a 11
         doc.setFont('helvetica', 'bold')

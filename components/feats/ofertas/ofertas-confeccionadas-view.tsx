@@ -315,6 +315,7 @@ export function OfertasConfeccionadasView() {
   // Generar opciones de exportación para una oferta
   const generarOpcionesExportacion = (oferta: (typeof ofertas)[number]) => {
     const cliente = clientePorOferta.get(oferta.cliente_id || "") || clientePorOferta.get(oferta.cliente_numero || "")
+    const lead = oferta.lead_id ? leadPorId.get(oferta.lead_id) : null
     
     // Orden de secciones (mismo orden que en confección de ofertas)
     const ordenSeccionesBase = [
@@ -602,6 +603,20 @@ export function OfertasConfeccionadasView() {
         telefono: cliente.telefono,
         provincia_montaje: cliente.provincia_montaje,
         direccion: cliente.direccion,
+        atencion_de: cliente.nombre,
+      } : undefined,
+      leadData: oferta.tipo === 'personalizada' && lead ? {
+        id: lead.id,
+        nombre: lead.nombre_completo || lead.nombre,
+        telefono: lead.telefono,
+        email: lead.email,
+        provincia: lead.provincia,
+        direccion: lead.direccion,
+        atencion_de: lead.nombre_completo || lead.nombre,
+      } : undefined,
+      leadSinAgregarData: oferta.tipo === 'personalizada' && oferta.nombre_lead_sin_agregar ? {
+        nombre: oferta.nombre_lead_sin_agregar,
+        atencion_de: oferta.nombre_lead_sin_agregar,
       } : undefined,
       ofertaData: {
         numero_oferta: oferta.numero_oferta || oferta.id,
@@ -762,6 +777,20 @@ export function OfertasConfeccionadasView() {
         telefono: cliente.telefono,
         provincia_montaje: cliente.provincia_montaje,
         direccion: cliente.direccion,
+        atencion_de: cliente.nombre,
+      } : undefined,
+      leadData: oferta.tipo === 'personalizada' && lead ? {
+        id: lead.id,
+        nombre: lead.nombre_completo || lead.nombre,
+        telefono: lead.telefono,
+        email: lead.email,
+        provincia: lead.provincia,
+        direccion: lead.direccion,
+        atencion_de: lead.nombre_completo || lead.nombre,
+      } : undefined,
+      leadSinAgregarData: oferta.tipo === 'personalizada' && oferta.nombre_lead_sin_agregar ? {
+        nombre: oferta.nombre_lead_sin_agregar,
+        atencion_de: oferta.nombre_lead_sin_agregar,
       } : undefined,
       ofertaData: {
         numero_oferta: oferta.numero_oferta || oferta.id,
@@ -929,6 +958,20 @@ export function OfertasConfeccionadasView() {
         telefono: cliente.telefono,
         provincia_montaje: cliente.provincia_montaje,
         direccion: cliente.direccion,
+        atencion_de: cliente.nombre,
+      } : undefined,
+      leadData: oferta.tipo === 'personalizada' && lead ? {
+        id: lead.id,
+        nombre: lead.nombre_completo || lead.nombre,
+        telefono: lead.telefono,
+        email: lead.email,
+        provincia: lead.provincia,
+        direccion: lead.direccion,
+        atencion_de: lead.nombre_completo || lead.nombre,
+      } : undefined,
+      leadSinAgregarData: oferta.tipo === 'personalizada' && oferta.nombre_lead_sin_agregar ? {
+        nombre: oferta.nombre_lead_sin_agregar,
+        atencion_de: oferta.nombre_lead_sin_agregar,
       } : undefined,
       ofertaData: {
         numero_oferta: oferta.numero_oferta || oferta.id,
