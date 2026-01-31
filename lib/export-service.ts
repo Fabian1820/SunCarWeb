@@ -450,12 +450,22 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       const descripcion = row.descripcion || ''
       
       if (!sinPrecios && !conPreciosCliente) {
-        // Con precios completos: limitar ancho para que no se superponga
-        const descripcionLines = doc.splitTextToSize(descripcion, 35)
+        // Con precios completos: limitar ancho para que no se superponga con precio unitario (posición 85)
+        // Foto termina en 38, precio unitario empieza en 85, dejamos margen de seguridad
+        const anchoDisponible = 85 - 38 - 5 // 42mm de ancho disponible
+        const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
         doc.text(descripcionLines.slice(0, 2), 38, yPosition + 10) // Ajustado posición X de 30 a 38 por foto más grande
+      } else if (conPreciosCliente) {
+        // Con precios cliente: limitar ancho para que no se superponga con cantidad (pageWidth - 50)
+        // Foto termina en 38, cantidad empieza en pageWidth - 50
+        const anchoDisponible = pageWidth - 50 - 38 - 5 // Ancho disponible hasta la cantidad
+        const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
+        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12) // Ajustado posición X de 30 a 38
       } else {
-        // Sin precios o con precios cliente: usar más espacio para la descripción
-        const descripcionLines = doc.splitTextToSize(descripcion, pageWidth - 70)
+        // Sin precios: limitar ancho para que no se superponga con cantidad (pageWidth - 12)
+        // Foto termina en 38, cantidad empieza en pageWidth - 12
+        const anchoDisponible = pageWidth - 12 - 38 - 5 // Ancho disponible hasta la cantidad
+        const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
         doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12) // Ajustado posición X de 30 a 38
       }
 
