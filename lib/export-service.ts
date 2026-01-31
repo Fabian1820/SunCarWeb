@@ -40,6 +40,20 @@ export interface ExportOptions {
     provincia_montaje?: string
     direccion?: string
     numero?: string
+    atencion_de?: string
+  }
+  leadData?: {
+    id?: string
+    nombre?: string
+    telefono?: string
+    email?: string
+    provincia?: string
+    direccion?: string
+    atencion_de?: string
+  }
+  leadSinAgregarData?: {
+    nombre?: string
+    atencion_de?: string
   }
   ofertaData?: {
     numero_oferta?: string
@@ -188,7 +202,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
  * Formato similar a la imagen de referencia con tabla de materiales por categoría
  */
 export async function exportToPDF(options: ExportOptions): Promise<void> {
-  const { title, subtitle, filename, columns, data, logoUrl, clienteData, ofertaData, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
+  const { title, subtitle, filename, columns, data, logoUrl, clienteData, leadData, leadSinAgregarData, ofertaData, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
 
   // Crear documento PDF en orientación vertical
   const doc = new jsPDF({
@@ -242,12 +256,23 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   yPosition = headerHeight + 5
 
-  // ========== DATOS DEL CLIENTE ==========
-  if (clienteData && clienteData.nombre) {
+  // ========== DATOS DEL CLIENTE / LEAD ==========
+  // Determinar el nombre para "A la atención de"
+  let atencionDe = ''
+  
+  if (clienteData && clienteData.atencion_de) {
+    atencionDe = clienteData.atencion_de
+  } else if (leadData && leadData.atencion_de) {
+    atencionDe = leadData.atencion_de
+  } else if (leadSinAgregarData && leadSinAgregarData.atencion_de) {
+    atencionDe = leadSinAgregarData.atencion_de
+  }
+  
+  if (atencionDe) {
     doc.setFontSize(9)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(0, 0, 0)
-    doc.text(`A la atención de: ${clienteData.nombre}`, 10, yPosition)
+    doc.text(`A la atención de: ${atencionDe}`, 10, yPosition)
     yPosition += 8
   }
 
