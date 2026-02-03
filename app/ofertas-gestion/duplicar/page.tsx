@@ -38,6 +38,9 @@ export default function DuplicarOfertaPage() {
   }
 
   const handleVolver = () => {
+    if (ofertaId) {
+      localStorage.removeItem(`oferta-duplicar-${ofertaId}`)
+    }
     router.push('/ofertas-gestion/ver-ofertas-confeccionadas')
   }
 

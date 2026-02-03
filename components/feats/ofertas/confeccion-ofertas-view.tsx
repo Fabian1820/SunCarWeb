@@ -336,7 +336,7 @@ export function ConfeccionOfertasView({
       }
       
       setAlmacenId(ofertaACopiar.almacen_id || "")
-      setEstadoOferta(ofertaACopiar.estado || "en_revision")
+      setEstadoOferta(modoEdicion ? (ofertaACopiar.estado || "en_revision") : "en_revision")
       setFotoPortada(ofertaACopiar.foto_portada || "")
       
       // Cargar items
