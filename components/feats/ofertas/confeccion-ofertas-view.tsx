@@ -180,6 +180,10 @@ export function ConfeccionOfertasView({
   const [porcentajeMargenPorItem, setPorcentajeMargenPorItem] = useState<Map<string, number>>(new Map())
   const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<Record<string, number>>({})
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
+  
+  // Estados para filtros de exportación
+  const [categoriaFiltroExport, setCategoriaFiltroExport] = useState<string>("todas")
+  const [materialesFiltroExport, setMaterialesFiltroExport] = useState<string[]>([])
 
   const normalizeText = (value: string) =>
     value
@@ -1051,18 +1055,36 @@ export function ConfeccionOfertasView({
   }, [leads, leadId])
 
   const exportOptionsCompleto = useMemo(() => {
+    // Filtrar items según los filtros seleccionados
+    let itemsFiltrados = items
+    
+    if (categoriaFiltroExport !== "todas") {
+      // Filtrar por categoría específica
+      itemsFiltrados = items.filter(item => {
+        const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+        return seccion === categoriaFiltroExport
+      })
+    }
+    
+    if (materialesFiltroExport.length > 0) {
+      // Filtrar por materiales específicos
+      itemsFiltrados = itemsFiltrados.filter(item => 
+        materialesFiltroExport.includes(item.materialCodigo)
+      )
+    }
+    
     const rows: any[] = []
 
     // Crear mapa de fotos de materiales
     const fotosMap = new Map<string, string>()
-    items.forEach((item) => {
+    itemsFiltrados.forEach((item) => {
       const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
       if (material?.foto) {
         fotosMap.set(item.materialCodigo, material.foto)
       }
     })
 
-    items.forEach((item) => {
+    itemsFiltrados.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
       const costoItem = item.precio * item.cantidad
       const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
@@ -1396,21 +1418,39 @@ export function ConfeccionOfertasView({
     totalCostosExtras,
     descuentoPorcentaje,
     montoDescuento,
+    categoriaFiltroExport,
+    materialesFiltroExport,
   ])
 
   const exportOptionsSinPrecios = useMemo(() => {
+    // Filtrar items según los filtros seleccionados
+    let itemsFiltrados = items
+    
+    if (categoriaFiltroExport !== "todas") {
+      itemsFiltrados = items.filter(item => {
+        const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+        return seccion === categoriaFiltroExport
+      })
+    }
+    
+    if (materialesFiltroExport.length > 0) {
+      itemsFiltrados = itemsFiltrados.filter(item => 
+        materialesFiltroExport.includes(item.materialCodigo)
+      )
+    }
+    
     const rows: any[] = []
     
     // Crear mapa de fotos de materiales
     const fotosMap = new Map<string, string>()
-    items.forEach((item) => {
+    itemsFiltrados.forEach((item) => {
       const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
       if (material?.foto) {
         fotosMap.set(item.materialCodigo, material.foto)
       }
     })
     
-    items.forEach((item) => {
+    itemsFiltrados.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
       
       // Buscar el nombre del material
@@ -1622,14 +1662,32 @@ export function ConfeccionOfertasView({
     tasaCambioNumero,
     montoConvertido,
     descuentoPorcentaje,
+    categoriaFiltroExport,
+    materialesFiltroExport,
   ])
 
   const exportOptionsClienteConPrecios = useMemo(() => {
+    // Filtrar items según los filtros seleccionados
+    let itemsFiltrados = items
+    
+    if (categoriaFiltroExport !== "todas") {
+      itemsFiltrados = items.filter(item => {
+        const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+        return seccion === categoriaFiltroExport
+      })
+    }
+    
+    if (materialesFiltroExport.length > 0) {
+      itemsFiltrados = itemsFiltrados.filter(item => 
+        materialesFiltroExport.includes(item.materialCodigo)
+      )
+    }
+    
     const rows: any[] = []
     
     // Crear mapa de fotos de materiales
     const fotosMap = new Map<string, string>()
-    items.forEach((item) => {
+    itemsFiltrados.forEach((item) => {
       const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
       if (material?.foto) {
         fotosMap.set(item.materialCodigo, material.foto)
@@ -1637,7 +1695,7 @@ export function ConfeccionOfertasView({
     })
     
     // Agregar materiales con TODA la estructura (igual que exportación completa)
-    items.forEach((item) => {
+    itemsFiltrados.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
       const margenItem = margenPorMaterialCalculado.get(item.id) || 0
       const totalConMargen = (item.precio * item.cantidad) + margenItem
@@ -1899,6 +1957,9 @@ export function ConfeccionOfertasView({
     montoConvertido,
     descuentoPorcentaje,
     montoDescuento,
+    categoriaFiltroExport,
+    materialesFiltroExport,
+    seccionLabelMap,
   ])
 
   const agregarMaterial = (material: Material) => {
@@ -4521,14 +4582,117 @@ export function ConfeccionOfertasView({
       </div>
 
       {/* Diálogo para exportar oferta */}
-      <Dialog open={mostrarDialogoExportar} onOpenChange={setMostrarDialogoExportar}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <Dialog 
+        open={mostrarDialogoExportar} 
+        onOpenChange={(open) => {
+          setMostrarDialogoExportar(open)
+          if (!open) {
+            // Resetear filtros al cerrar
+            setCategoriaFiltroExport("todas")
+            setMaterialesFiltroExport([])
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Exportar oferta</DialogTitle>
             <DialogDescription>
-              Selecciona el tipo de exportación y el formato (Excel o PDF).
+              Selecciona filtros, tipo de exportación y formato (Excel o PDF).
             </DialogDescription>
           </DialogHeader>
+
+          {/* Filtros de exportación */}
+          <div className="space-y-4 border-b pb-4">
+            <h4 className="text-sm font-semibold text-slate-900">Filtros de exportación</h4>
+            
+            {/* Filtro por categoría */}
+            <div className="space-y-2">
+              <Label htmlFor="categoria-filtro">Categoría</Label>
+              <Select value={categoriaFiltroExport} onValueChange={setCategoriaFiltroExport}>
+                <SelectTrigger id="categoria-filtro">
+                  <SelectValue placeholder="Seleccionar categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas las categorías</SelectItem>
+                  {Array.from(new Set(items.map(item => seccionLabelMap.get(item.seccion) ?? item.seccion)))
+                    .sort()
+                    .map(seccion => (
+                      <SelectItem key={seccion} value={seccion}>
+                        {seccion}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtro por materiales */}
+            {categoriaFiltroExport !== "todas" && (
+              <div className="space-y-2">
+                <Label>Materiales específicos (opcional)</Label>
+                <div className="border rounded-lg p-3 max-h-[200px] overflow-y-auto space-y-2">
+                  {Array.from(new Set(
+                    items
+                      .filter(item => {
+                        const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
+                        return seccion === categoriaFiltroExport
+                      })
+                      .map(item => item.materialCodigo)
+                  )).map(materialCodigo => {
+                    const item = items.find(i => i.materialCodigo === materialCodigo)
+                    if (!item) return null
+                    
+                    const material = materials.find(m => m.codigo.toString() === materialCodigo)
+                    const nombreMaterial = material?.nombre || item.descripcion
+                    const cantidadTotal = items
+                      .filter(i => i.materialCodigo === materialCodigo)
+                      .reduce((sum, i) => sum + i.cantidad, 0)
+                    
+                    return (
+                      <label
+                        key={materialCodigo}
+                        className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={materialesFiltroExport.includes(materialCodigo)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setMaterialesFiltroExport(prev => [...prev, materialCodigo])
+                            } else {
+                              setMaterialesFiltroExport(prev => prev.filter(c => c !== materialCodigo))
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm flex-1">{nombreMaterial}</span>
+                        <span className="text-xs text-slate-500">x{cantidadTotal}</span>
+                      </label>
+                    )
+                  }).filter(Boolean)}
+                </div>
+                {materialesFiltroExport.length > 0 && (
+                  <p className="text-xs text-slate-600">
+                    {materialesFiltroExport.length} material(es) seleccionado(s)
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Botón para limpiar filtros */}
+            {(categoriaFiltroExport !== "todas" || materialesFiltroExport.length > 0) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCategoriaFiltroExport("todas")
+                  setMaterialesFiltroExport([])
+                }}
+                className="w-full"
+              >
+                Limpiar filtros
+              </Button>
+            )}
+          </div>
 
           <div className="grid gap-4 md:grid-cols-3">
             <div className="rounded-lg border border-slate-200 p-4 space-y-3">

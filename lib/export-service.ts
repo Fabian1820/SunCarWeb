@@ -395,7 +395,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     // Materiales de la sección
     for (const row of rows) {
-      const rowHeight = 25 // Aumentado de 20 a 25
+      const rowHeight = 15 // Reducido de 25 a 15 para que quepan más componentes por página
       
       // Verificar espacio en la página
       if (yPosition + rowHeight > doc.internal.pageSize.getHeight() - 25) {
@@ -429,8 +429,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
                 image.src = fotoBase64
               })
               
-              const containerSize = 22 // Aumentado de 16 a 22
-              const padding = 2
+              const containerSize = 14 // Aumentado de 13 a 14 para mejor visibilidad
+              const padding = 1
               const maxSize = containerSize - (padding * 2)
               
               // Calcular dimensiones manteniendo aspect ratio real
@@ -455,7 +455,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       }
 
       // NOMBRE DEL MATERIAL - LETRA AUMENTADA
-      doc.setFontSize(10) // Aumentado de 8 a 10
+      doc.setFontSize(9) // Aumentado de 8 a 9 para mejor legibilidad
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       const descripcion = row.descripcion || ''
@@ -465,91 +465,85 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         // Foto termina en 34, Material va de 38 a 78 (40mm de ancho)
         const anchoDisponible = 40 // 40mm de ancho para el material
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 10)
+        doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
       } else if (conPreciosCliente) {
         // Con precios cliente: limitar ancho para que no se superponga con cantidad
         // Foto termina en 34, Material va de 38 a 150 (112mm de ancho)
         const anchoDisponible = 112 // 112mm de ancho para el material
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12)
+        doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
       } else {
         // Sin precios: limitar ancho para que no se superponga con cantidad (pageWidth - 12)
         // Foto termina en 38, cantidad empieza en pageWidth - 12
         const anchoDisponible = pageWidth - 12 - 38 - 5 // Ancho disponible hasta la cantidad
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 2), 38, yPosition + 12)
+        doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
       }
 
       if (!sinPrecios && !conPreciosCliente) {
         // EXPORTACIÓN COMPLETA CON TODOS LOS PRECIOS Y MÁRGENES
         // PRECIO UNITARIO - LETRA AUMENTADA (columna 82-100)
-        doc.setFontSize(10) // Aumentado de 8 a 10
+        doc.setFontSize(9) // Aumentado de 8 a 9
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(0, 0, 0)
         const precioUnit = parseFloat(row.precio_unitario) || 0
-        doc.text(`${precioUnit.toFixed(2)} $`, 91, yPosition + 12, { align: 'right' })
+        doc.text(`${precioUnit.toFixed(2)} $`, 91, yPosition + 9, { align: 'right' })
 
         // CANTIDAD - LETRA AUMENTADA (columna 102-115)
-        doc.setFontSize(11) // Aumentado de 9 a 11
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), 108, yPosition + 12, { align: 'center' })
+        doc.text(cantidad.toString(), 108, yPosition + 9, { align: 'center' })
 
         // TOTAL (sin margen) - LETRA AUMENTADA (columna 117-135)
         const totalBase = precioUnit * (parseFloat(cantidad) || 0)
-        doc.setFontSize(11) // Aumentado de 9 a 11
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalBase.toFixed(2)} $`, 126, yPosition + 12, { align: 'right' })
+        doc.text(`${totalBase.toFixed(2)} $`, 126, yPosition + 9, { align: 'right' })
 
         // MARGEN (% y dinero alineados) - LETRA AUMENTADA (columna 137-165)
         const porcentaje = parseFloat(row.porcentaje_margen) || 0
         const margen = parseFloat(row.margen) || 0
         
         if (porcentaje > 0 || margen > 0) {
-          // Porcentaje arriba
-          doc.setFontSize(10) // Aumentado de 8 a 10
+          // Porcentaje y monto en una sola línea
+          doc.setFontSize(8.5) // Aumentado de 8 a 8.5
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(0, 0, 0)
-          doc.text(`${porcentaje.toFixed(2)}%`, 151, yPosition + 9, { align: 'right' })
-          
-          // Monto abajo, alineado con el porcentaje
-          doc.setFontSize(9) // Aumentado de 7 a 9
-          doc.setFont('helvetica', 'normal')
-          doc.setTextColor(100, 100, 100)
-          doc.text(`${margen.toFixed(2)} $`, 151, yPosition + 15, { align: 'right' })
+          doc.text(`${porcentaje.toFixed(1)}% (${margen.toFixed(2)} $)`, 151, yPosition + 9, { align: 'right' })
         }
 
         // TOTAL FINAL (total + margen) - LETRA AUMENTADA (columna 167-198)
         const totalFinal = totalBase + margen
-        doc.setFontSize(11) // Aumentado de 9 a 11
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 12, { align: 'right' })
+        doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 9, { align: 'right' })
       } else if (conPreciosCliente) {
         // EXPORTACIÓN CON PRECIOS PARA CLIENTE (Material | Cant | Total)
         // CANTIDAD - LETRA AUMENTADA (columna 152-170)
-        doc.setFontSize(11) // Aumentado de 9 a 11
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), 161, yPosition + 12, { align: 'right' })
+        doc.text(cantidad.toString(), 161, yPosition + 9, { align: 'right' })
         
         // TOTAL (con margen incluido) - LETRA AUMENTADA (columna 172-198)
         const total = parseFloat(row.total) || 0
-        doc.setFontSize(11) // Aumentado de 9 a 11
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${total} $`, pageWidth - 12, yPosition + 12, { align: 'right' })
+        doc.text(`${total} $`, pageWidth - 12, yPosition + 9, { align: 'right' })
       } else {
         // EXPORTACIÓN SIN PRECIOS (Material | Cant)
         // SOLO CANTIDAD - LETRA AUMENTADA
-        doc.setFontSize(11) // Aumentado de 9 a 11
+        doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), pageWidth - 12, yPosition + 12, { align: 'right' })
+        doc.text(cantidad.toString(), pageWidth - 12, yPosition + 9, { align: 'right' })
       }
 
       yPosition += rowHeight + 1
