@@ -180,6 +180,7 @@ export function ConfeccionOfertasView({
   const [porcentajeMargenPorItem, setPorcentajeMargenPorItem] = useState<Map<string, number>>(new Map())
   const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<Record<string, number>>({})
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
+  const [nombreCompletoBackend, setNombreCompletoBackend] = useState<string>("")
   
   // Estados para filtros de exportación
   const [categoriaFiltroExport, setCategoriaFiltroExport] = useState<string>("todas")
@@ -405,6 +406,11 @@ export function ConfeccionOfertasView({
       setDatosCuenta(ofertaACopiar.datos_cuenta || "")
       setAplicaContribucion(ofertaACopiar.aplica_contribucion || false)
       setPorcentajeContribucion(ofertaACopiar.porcentaje_contribucion || 0)
+      
+      // Cargar nombre completo del backend para usar en exportaciones
+      if (ofertaACopiar.nombre_completo) {
+        setNombreCompletoBackend(ofertaACopiar.nombre_completo)
+      }
       
       // En modo edición, guardar el ID para la actualización
       // En modo duplicación, NO guardar el ID para crear una nueva oferta
@@ -913,13 +919,22 @@ export function ConfeccionOfertasView({
 
   // Generar nombre completo para exportaciones (formato largo con marcas)
   const nombreCompletoParaExportar = useMemo(() => {
+    console.log('🔧 Generando nombreCompletoParaExportar...')
+    console.log('  - marcasMap size:', marcasMap.size)
+    console.log('  - inversorSeleccionado:', inversorSeleccionado)
+    console.log('  - bateriaSeleccionada:', bateriaSeleccionada)
+    console.log('  - panelSeleccionado:', panelSeleccionado)
+    
     const componentes: string[] = []
 
     // Obtener marca del material usando marca_id
     const obtenerMarca = (materialCodigo: string): string => {
       const material = materials.find(m => m.codigo.toString() === materialCodigo)
+      console.log(`    - Material ${materialCodigo}:`, material ? `marca_id=${material.marca_id}` : 'no encontrado')
       if (!material || !material.marca_id) return ''
-      return marcasMap.get(material.marca_id) || ''
+      const marca = marcasMap.get(material.marca_id) || ''
+      console.log(`      -> Marca: ${marca}`)
+      return marca
     }
 
     // Obtener potencia del material
@@ -1055,6 +1070,12 @@ export function ConfeccionOfertasView({
   }, [leads, leadId])
 
   const exportOptionsCompleto = useMemo(() => {
+    // Debug: verificar qué nombre se está usando
+    console.log('🔍 Debug exportación:')
+    console.log('  - nombreCompletoBackend:', nombreCompletoBackend)
+    console.log('  - nombreCompletoParaExportar:', nombreCompletoParaExportar)
+    console.log('  - Se usará:', nombreCompletoBackend || nombreCompletoParaExportar)
+    
     // Filtrar items según los filtros seleccionados
     let itemsFiltrados = items
     
@@ -1343,7 +1364,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Exportación completa",
-      subtitle: nombreCompletoParaExportar,
+      subtitle: nombreCompletoBackend || nombreCompletoParaExportar,
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
@@ -1380,7 +1401,7 @@ export function ConfeccionOfertasView({
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreCompletoParaExportar,
+        nombre_oferta: nombreAutomatico, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -1398,7 +1419,9 @@ export function ConfeccionOfertasView({
     porcentajeMargenInstalacion,
     costoTransportacion,
     precioFinal,
+    nombreCompletoBackend,
     nombreCompletoParaExportar,
+    nombreAutomatico,
     materials,
     ofertaGenerica,
     selectedCliente,
@@ -1602,7 +1625,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Cliente sin precios",
-      subtitle: nombreCompletoParaExportar,
+      subtitle: nombreCompletoBackend || nombreCompletoParaExportar,
       columns: [
         { header: "Material", key: "descripcion", width: 60 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -1633,7 +1656,7 @@ export function ConfeccionOfertasView({
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreCompletoParaExportar,
+        nombre_oferta: nombreAutomatico, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -1644,7 +1667,9 @@ export function ConfeccionOfertasView({
     items,
     seccionLabelMap,
     precioFinal,
+    nombreCompletoBackend,
     nombreCompletoParaExportar,
+    nombreAutomatico,
     materials,
     ofertaGenerica,
     selectedCliente,
@@ -1889,7 +1914,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Cliente con precios",
-      subtitle: nombreCompletoParaExportar,
+      subtitle: nombreCompletoBackend || nombreCompletoParaExportar,
       columns: [
         { header: "Material", key: "descripcion", width: 50 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -1921,7 +1946,7 @@ export function ConfeccionOfertasView({
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreCompletoParaExportar,
+        nombre_oferta: nombreAutomatico, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -1937,7 +1962,9 @@ export function ConfeccionOfertasView({
     costoTransportacion,
     precioFinal,
     totalSinRedondeo,
+    nombreCompletoBackend,
     nombreCompletoParaExportar,
+    nombreAutomatico,
     materials,
     ofertaGenerica,
     selectedCliente,
@@ -2874,6 +2901,11 @@ export function ConfeccionOfertasView({
       if (response.success && response.data) {
         setOfertaId(response.data.numero_oferta || response.data.id)
         setOfertaCreada(true)
+        
+        // Guardar el nombre completo del backend para usar en exportaciones
+        if (response.data.nombre_completo) {
+          setNombreCompletoBackend(response.data.nombre_completo)
+        }
 
         toast({
           title: modoEdicion ? "Oferta actualizada exitosamente" : "Oferta creada exitosamente",

@@ -5,6 +5,7 @@ import { apiRequest } from '@/lib/api-config'
 export interface OfertaConfeccion {
   id: string
   nombre: string
+  nombre_completo?: string // Nombre largo descriptivo para exportaciones
   numero_oferta?: string
   tipo: 'generica' | 'personalizada'
   estado: 'en_revision' | 'aprobada_para_enviar' | 'enviada_a_cliente' | 'confirmada_por_cliente' | 'reservada' | 'rechazada' | 'cancelada'
@@ -75,6 +76,7 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
   return {
     id: raw.id ?? raw._id ?? raw.oferta_id ?? '',
     nombre: raw.nombre ?? raw.nombre_automatico ?? raw.nombre_oferta ?? 'Oferta sin nombre',
+    nombre_completo: raw.nombre_completo, // Nombre largo descriptivo
     numero_oferta: raw.numero_oferta,
     tipo: tipo === 'personalizada' ? 'personalizada' : 'generica',
     estado: raw.estado ?? 'en_revision',

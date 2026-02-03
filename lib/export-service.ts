@@ -216,7 +216,15 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   // ========== ENCABEZADO ==========
   // Calcular altura del encabezado basado en el contenido
-  const nombreOferta = ofertaData?.nombre_oferta || subtitle || ''
+  // Usar subtitle (nombre completo) en lugar de nombre_oferta (nombre corto)
+  const nombreOferta = subtitle || ofertaData?.nombre_oferta || ''
+  
+  // Debug: verificar qué nombre se está usando en el PDF
+  console.log('📄 Debug PDF exportación:')
+  console.log('  - subtitle recibido:', subtitle)
+  console.log('  - ofertaData?.nombre_oferta:', ofertaData?.nombre_oferta)
+  console.log('  - nombreOferta final:', nombreOferta)
+  
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
   // Limitar el ancho del texto para que no se superponga con el logo (dejar espacio para logo de ~40mm)
