@@ -8,7 +8,7 @@ export default function ConfeccionOfertasPage() {
   const router = useRouter()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex flex-col">
+    <div className="h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex flex-col overflow-hidden">
       <ModuleHeader
         title="Confección de Ofertas"
         subtitle="Arma ofertas fotovoltaicas con materiales, margen y redondeo final."
@@ -18,7 +18,7 @@ export default function ConfeccionOfertasPage() {
       />
 
       <main
-        className="flex-1 flex flex-col min-h-0"
+        className="flex-1 flex flex-col min-h-0 overflow-hidden"
         style={{ paddingTop: "var(--fixed-header-height)" }}
       >
         <ConfeccionOfertasView 

@@ -179,7 +179,6 @@ export function ConfeccionOfertasView({
   const [margenPorMaterial, setMargenPorMaterial] = useState<Map<string, number>>(new Map())
   const [porcentajeMargenPorItem, setPorcentajeMargenPorItem] = useState<Map<string, number>>(new Map())
   const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<Record<string, number>>({})
-  const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
   const [nombreCompletoBackend, setNombreCompletoBackend] = useState<string>("")
 
   const normalizeText = (value: string) =>
@@ -3268,12 +3267,12 @@ export function ConfeccionOfertasView({
   }
 
   return (
-    <div className="flex w-full flex-1 min-h-0 flex-col bg-slate-100">
-      <div className="w-full h-full flex flex-col min-h-0">
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+    <div className="flex w-full h-screen flex-col bg-slate-100 overflow-hidden">
+      <div className="w-full h-full flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           {/* Lateral izquierdo: configuracion de oferta */}
-          <div className="flex w-full lg:w-[880px] flex-col border-b lg:border-b-0 lg:border-r bg-white flex-shrink-0 overflow-y-auto">
-            <div className="flex-1">
+          <div className="flex w-full lg:w-[880px] flex-col border-b lg:border-b-0 lg:border-r bg-white flex-shrink-0 h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
               <div className="sticky top-0 z-10 px-4 py-2 border-b bg-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -4507,15 +4506,6 @@ export function ConfeccionOfertasView({
                 </div>
                 </div>
 
-                <Button
-                  onClick={() => setMostrarDialogoExportar(true)}
-                  disabled={items.length === 0}
-                  variant="outline"
-                  className="w-full border-slate-300 text-slate-700 hover:bg-slate-50"
-                >
-                  Exportar oferta
-                </Button>
-
                 {/* Botón de Crear/Guardar Oferta */}
                 {!ofertaCreada || modoEdicion ? (
                   <Button
@@ -4676,18 +4666,19 @@ export function ConfeccionOfertasView({
           </div>
 
           {/* Panel derecho: grid de materiales */}
-          <div className="w-full flex-1 min-h-0 flex flex-col bg-white overflow-y-auto">
-            {/* Buscador y selector de almacén */}
-            <div className="sticky top-0 z-10 px-6 py-4 border-b bg-white space-y-3">
-              {/* Selector de almacén */}
-              <div className="flex items-center gap-3">
-                <label className="text-sm font-semibold text-slate-700 whitespace-nowrap">
-                  Almacén:
-                </label>
-                <Select value={almacenId} onValueChange={setAlmacenId}>
-                  <SelectTrigger className={`w-full max-w-[300px] h-9 ${!almacenId ? 'border-orange-300 bg-orange-50' : ''}`}>
-                    <SelectValue placeholder="Seleccionar almacén" />
-                  </SelectTrigger>
+          <div className="w-full flex-1 flex flex-col bg-white h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto">
+              {/* Buscador y selector de almacén */}
+              <div className="sticky top-0 z-10 px-6 py-4 border-b bg-white space-y-3">
+                {/* Selector de almacén */}
+                <div className="flex items-center gap-3">
+                  <label className="text-sm font-semibold text-slate-700 whitespace-nowrap">
+                    Almacén:
+                  </label>
+                  <Select value={almacenId} onValueChange={setAlmacenId}>
+                    <SelectTrigger className={`w-full max-w-[300px] h-9 ${!almacenId ? 'border-orange-300 bg-orange-50' : ''}`}>
+                      <SelectValue placeholder="Seleccionar almacén" />
+                    </SelectTrigger>
                   <SelectContent>
                     {almacenes.length === 0 ? (
                       <div className="p-2 text-sm text-gray-500">
@@ -4866,6 +4857,7 @@ export function ConfeccionOfertasView({
           </div>
         </div>
       </div>
+    </div>
 
       {/* Diálogo para agregar sección personalizada */}
       <Dialog open={mostrarDialogoSeccion} onOpenChange={setMostrarDialogoSeccion}>
