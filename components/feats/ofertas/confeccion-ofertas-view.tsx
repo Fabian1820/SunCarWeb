@@ -856,6 +856,11 @@ export function ConfeccionOfertasView({
       return material?.potenciaKW || null
     }
 
+    // Función para formatear potencia con coma decimal
+    const formatearPotencia = (potencia: number): string => {
+      return potencia.toString().replace('.', ',')
+    }
+
     // 1. INVERSORES - Usar el seleccionado
     if (inversorSeleccionado) {
       const inversoresDelTipo = items.filter(
@@ -866,7 +871,7 @@ export function ConfeccionOfertasView({
         const potencia = obtenerPotencia(inversorSeleccionado)
         
         if (potencia) {
-          componentes.push(`I-${cantidad}x${potencia}kW`)
+          componentes.push(`I-${cantidad}x${formatearPotencia(potencia)}kW`)
         } else {
           componentes.push(`I-${cantidad}x`)
         }
@@ -883,7 +888,7 @@ export function ConfeccionOfertasView({
         const potencia = obtenerPotencia(bateriaSeleccionada)
         
         if (potencia) {
-          componentes.push(`B-${cantidad}x${potencia}kWh`)
+          componentes.push(`B-${cantidad}x${formatearPotencia(potencia)}kWh`)
         } else {
           componentes.push(`B-${cantidad}x`)
         }
@@ -902,7 +907,7 @@ export function ConfeccionOfertasView({
         if (potencia) {
           // Para paneles, convertir kW a W si es necesario
           const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
-          componentes.push(`P-${cantidad}x${potenciaW}W`)
+          componentes.push(`P-${cantidad}x${formatearPotencia(potenciaW)}W`)
         } else {
           componentes.push(`P-${cantidad}x`)
         }
@@ -1039,6 +1044,11 @@ export function ConfeccionOfertasView({
     }).format(value)} ${symbol}`
   }
 
+  // Función helper para formatear números con coma decimal (para exportación)
+  const formatNumberForExport = (value: number, decimals: number = 2): string => {
+    return value.toFixed(decimals).replace('.', ',')
+  }
+
   const tasaCambioNumero = Number.parseFloat(tasaCambio) || 0
   const mostrarCambio = monedaPago !== 'USD' && tasaCambioNumero > 0
   const montoConvertido = mostrarCambio
@@ -1046,10 +1056,6 @@ export function ConfeccionOfertasView({
       ? precioFinal / tasaCambioNumero
       : precioFinal * tasaCambioNumero
     : 0
-
-  const baseFilenameExport = useMemo(() => {
-    return ofertaId ? `oferta_${ofertaId}` : "oferta_confeccion"
-  }, [ofertaId])
 
   const totalSinMargen = useMemo(() => {
     return totalMateriales + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
@@ -1068,6 +1074,47 @@ export function ConfeccionOfertasView({
     if (!leadId) return null
     return leads.find((lead) => lead.id === leadId) || null
   }, [leads, leadId])
+
+  const baseFilenameExport = useMemo(() => {
+    // Generar nombre base del archivo según el tipo de oferta
+    let nombreBase = ""
+    
+    if (ofertaGenerica) {
+      // Para ofertas genéricas: usar el nombre corto (nombreAutomatico)
+      nombreBase = nombreAutomatico || "oferta_generica"
+    } else {
+      // Para ofertas personalizadas: usar nombre corto + nombre del contacto
+      const nombreOferta = nombreAutomatico || "oferta"
+      
+      // Obtener el nombre del contacto según el tipo
+      let nombreContacto = ""
+      if (tipoContacto === 'cliente' && selectedCliente) {
+        nombreContacto = selectedCliente.nombre || selectedCliente.numero || ""
+      } else if (tipoContacto === 'lead' && selectedLead) {
+        nombreContacto = selectedLead.nombre || ""
+      } else if (tipoContacto === 'lead_sin_agregar' && nombreLeadSinAgregar) {
+        nombreContacto = nombreLeadSinAgregar
+      }
+      
+      // Combinar nombre de oferta con nombre de contacto
+      if (nombreContacto) {
+        nombreBase = `${nombreOferta}-${nombreContacto}`
+      } else {
+        nombreBase = nombreOferta
+      }
+    }
+    
+    // Limpiar el nombre para que sea válido como nombre de archivo
+    // Reemplazar caracteres no válidos y espacios múltiples
+    nombreBase = nombreBase
+      .replace(/[<>:"/\\|?*]/g, '') // Eliminar caracteres no válidos en nombres de archivo
+      .replace(/\s+/g, '_') // Reemplazar espacios con guiones bajos
+      .replace(/,\s*/g, '+') // Reemplazar comas con + para el formato I-1x10kW+B-1x10kWh+P-14x590W
+      .replace(/_+/g, '_') // Reemplazar múltiples guiones bajos con uno solo
+      .trim()
+    
+    return nombreBase || "oferta_confeccion"
+  }, [ofertaGenerica, nombreAutomatico, tipoContacto, selectedCliente, selectedLead, nombreLeadSinAgregar])
 
   const exportOptionsCompleto = useMemo(() => {
     // Debug: verificar qué nombre se está usando
@@ -1124,9 +1171,9 @@ export function ConfeccionOfertasView({
         descripcion: nombreMaterial,
         cantidad: item.cantidad,
         precio_unitario: item.precio,
-        porcentaje_margen: porcentaje.toFixed(2),
-        margen: margenItem.toFixed(2),
-        total: (costoItem + margenItem).toFixed(2),
+        porcentaje_margen: formatNumberForExport(porcentaje),
+        margen: formatNumberForExport(margenItem),
+        total: formatNumberForExport(costoItem + margenItem),
       })
     })
 
@@ -1137,10 +1184,10 @@ export function ConfeccionOfertasView({
         tipo: "Elemento",
         descripcion: elem.descripcion,
         cantidad: elem.cantidad,
-        precio_unitario: elem.precio.toFixed(2),
+        precio_unitario: formatNumberForExport(elem.precio),
         porcentaje_margen: "",
         margen: "",
-        total: (elem.precio * elem.cantidad).toFixed(2),
+        total: formatNumberForExport(elem.precio * elem.cantidad),
       })
     })
 
@@ -1153,10 +1200,10 @@ export function ConfeccionOfertasView({
             tipo: "Costo extra",
             descripcion: costo.descripcion,
             cantidad: costo.cantidad,
-            precio_unitario: costo.precioUnitario.toFixed(2),
+            precio_unitario: formatNumberForExport(costo.precioUnitario),
             porcentaje_margen: "",
             margen: "",
-            total: (costo.cantidad * costo.precioUnitario).toFixed(2),
+            total: formatNumberForExport(costo.cantidad * costo.precioUnitario),
           })
         })
       }
@@ -1170,10 +1217,10 @@ export function ConfeccionOfertasView({
         tipo: "Servicio",
         descripcion: "Servicio de instalación y montaje",
         cantidad: 1,
-        precio_unitario: margenParaInstalacion.toFixed(2),
-        porcentaje_margen: porcentajeMargenInstalacion.toFixed(2),
+        precio_unitario: formatNumberForExport(margenParaInstalacion),
+        porcentaje_margen: formatNumberForExport(porcentajeMargenInstalacion),
         margen: "",
-        total: margenParaInstalacion.toFixed(2),
+        total: formatNumberForExport(margenParaInstalacion),
       })
     }
 
@@ -1188,7 +1235,7 @@ export function ConfeccionOfertasView({
         precio_unitario: "",
         porcentaje_margen: "",
         margen: "",
-        total: `- ${montoDescuento.toFixed(2)}`,
+        total: `- ${formatNumberForExport(montoDescuento)}`,
       })
     }
 
@@ -1199,10 +1246,10 @@ export function ConfeccionOfertasView({
         tipo: "Transportación",
         descripcion: "Costo de transportación",
         cantidad: 1,
-        precio_unitario: costoTransportacion.toFixed(2),
+        precio_unitario: formatNumberForExport(costoTransportacion),
         porcentaje_margen: "",
         margen: "",
-        total: costoTransportacion.toFixed(2),
+        total: formatNumberForExport(costoTransportacion),
       })
     }
 
@@ -1215,7 +1262,7 @@ export function ConfeccionOfertasView({
       precio_unitario: "",
       porcentaje_margen: "",
       margen: "",
-      total: precioFinal.toFixed(2),
+      total: formatNumberForExport(precioFinal),
     })
 
     // SECCIÓN DE PAGO
@@ -1284,7 +1331,7 @@ export function ConfeccionOfertasView({
         precio_unitario: "",
         porcentaje_margen: "",
         margen: "",
-        total: montoContribucion.toFixed(2),
+        total: formatNumberForExport(montoContribucion),
       })
     }
 
@@ -1298,7 +1345,7 @@ export function ConfeccionOfertasView({
       precio_unitario: "",
       porcentaje_margen: "",
       margen: "",
-      total: precioFinal.toFixed(2),
+      total: formatNumberForExport(precioFinal),
     })
 
     // Nota de redondeo si aplica
@@ -1307,7 +1354,7 @@ export function ConfeccionOfertasView({
         material_codigo: "",
         seccion: "PAGO",
         tipo: "Nota",
-        descripcion: `(Redondeado desde ${totalSinRedondeo.toFixed(2)} $)`,
+        descripcion: `(Redondeado desde ${formatNumberForExport(totalSinRedondeo)} $)`,
         cantidad: "",
         precio_unitario: "",
         porcentaje_margen: "",
@@ -1358,7 +1405,7 @@ export function ConfeccionOfertasView({
         precio_unitario: "",
         porcentaje_margen: "",
         margen: "",
-        total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+        total: `${formatNumberForExport(montoConvertido)} ${simboloMoneda}`,
       })
     }
 
@@ -1518,7 +1565,7 @@ export function ConfeccionOfertasView({
       tipo: "TOTAL",
       descripcion: "Precio Total",
       cantidad: "",
-      total: precioFinal.toFixed(2),
+      total: formatNumberForExport(precioFinal),
     })
 
     // SECCIÓN DE PAGO
@@ -1572,7 +1619,7 @@ export function ConfeccionOfertasView({
         tipo: "TOTAL",
         descripcion: "Precio Final",
         cantidad: "",
-        total: precioFinal.toFixed(2),
+        total: formatNumberForExport(precioFinal),
       })
 
       // Nota de redondeo si aplica
@@ -1581,7 +1628,7 @@ export function ConfeccionOfertasView({
           material_codigo: "",
           seccion: "PAGO",
           tipo: "Nota",
-          descripcion: `(Redondeado desde ${totalSinRedondeo.toFixed(2)} $)`,
+          descripcion: `(Redondeado desde ${formatNumberForExport(totalSinRedondeo)} $)`,
           cantidad: "",
         })
       }
@@ -1619,7 +1666,7 @@ export function ConfeccionOfertasView({
         tipo: "Conversión",
         descripcion: `Precio en ${monedaPago}`,
         cantidad: "",
-        total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+        total: `${formatNumberForExport(montoConvertido)} ${simboloMoneda}`,
       })
     }
 
@@ -1735,7 +1782,7 @@ export function ConfeccionOfertasView({
         tipo: "Material",
         descripcion: nombreMaterial,
         cantidad: item.cantidad,
-        total: totalConMargen.toFixed(2),
+        total: formatNumberForExport(totalConMargen),
       })
     })
 
@@ -1747,7 +1794,7 @@ export function ConfeccionOfertasView({
         tipo: "Elemento",
         descripcion: elem.descripcion,
         cantidad: elem.cantidad,
-        total: (elem.precio * elem.cantidad).toFixed(2),
+        total: formatNumberForExport(elem.precio * elem.cantidad),
       })
     })
 
@@ -1761,7 +1808,7 @@ export function ConfeccionOfertasView({
             tipo: "Costo extra",
             descripcion: costo.descripcion,
             cantidad: costo.cantidad,
-            total: (costo.cantidad * costo.precioUnitario).toFixed(2),
+            total: formatNumberForExport(costo.cantidad * costo.precioUnitario),
           })
         })
       }
@@ -1775,7 +1822,7 @@ export function ConfeccionOfertasView({
         tipo: "Servicio",
         descripcion: "Servicio de instalación y montaje",
         cantidad: 1,
-        total: margenParaInstalacion.toFixed(2),
+        total: formatNumberForExport(margenParaInstalacion),
       })
     }
 
@@ -1787,7 +1834,7 @@ export function ConfeccionOfertasView({
         tipo: "Descuento",
         descripcion: `Descuento aplicado (${descuentoPorcentaje}%)`,
         cantidad: 1,
-        total: `- ${montoDescuento.toFixed(2)}`,
+        total: `- ${formatNumberForExport(montoDescuento)}`,
       })
     }
 
@@ -1799,7 +1846,7 @@ export function ConfeccionOfertasView({
         tipo: "Transportación",
         descripcion: "Costo de transportación",
         cantidad: 1,
-        total: costoTransportacion.toFixed(2),
+        total: formatNumberForExport(costoTransportacion),
       })
     }
 
@@ -1807,7 +1854,7 @@ export function ConfeccionOfertasView({
     rows.push({
       descripcion: "PRECIO TOTAL",
       cantidad: "",
-      total: precioFinal.toFixed(2),
+      total: formatNumberForExport(precioFinal),
       tipo: "TOTAL",
     })
 
@@ -1851,7 +1898,7 @@ export function ConfeccionOfertasView({
         rows.push({
           descripcion: "Contribución",
           cantidad: "",
-          total: montoContribucion.toFixed(2),
+          total: formatNumberForExport(montoContribucion),
           seccion: "PAGO",
           tipo: "Monto",
         })
@@ -1861,7 +1908,7 @@ export function ConfeccionOfertasView({
       rows.push({
         descripcion: "Precio Final",
         cantidad: "",
-        total: precioFinal.toFixed(2),
+        total: formatNumberForExport(precioFinal),
         seccion: "PAGO",
         tipo: "TOTAL",
       })
@@ -1869,7 +1916,7 @@ export function ConfeccionOfertasView({
       // Nota de redondeo si aplica
       if (precioFinal !== totalSinRedondeo) {
         rows.push({
-          descripcion: `(Redondeado desde ${totalSinRedondeo.toFixed(2)} $)`,
+          descripcion: `(Redondeado desde ${formatNumberForExport(totalSinRedondeo)} $)`,
           cantidad: "",
           // NO incluir total
           seccion: "PAGO",
@@ -1905,7 +1952,7 @@ export function ConfeccionOfertasView({
         rows.push({
           descripcion: `Precio en ${monedaPago}`,
           cantidad: "",
-          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+          total: `${formatNumberForExport(montoConvertido)} ${simboloMoneda}`,
           seccion: "PAGO",
           tipo: "Conversión",
         })
@@ -4625,11 +4672,11 @@ export function ConfeccionOfertasView({
           }
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Exportar oferta</DialogTitle>
             <DialogDescription>
-              Selecciona filtros, tipo de exportación y formato (Excel o PDF).
+              Selecciona el tipo de exportación y el formato deseado (Excel o PDF).
             </DialogDescription>
           </DialogHeader>
 
@@ -4726,45 +4773,63 @@ export function ConfeccionOfertasView({
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">1) Completo</h4>
-                <p className="text-xs text-slate-600">
-                  Incluye precios, márgenes, servicios y totales.
+          <div className="grid gap-4 md:grid-cols-3 pt-4">
+            {/* Opción 1: Completo */}
+            <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold">
+                    1
+                  </div>
+                  <h4 className="text-sm font-bold text-blue-900">Completo</h4>
+                </div>
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  Incluye todos los detalles: precios unitarios, márgenes, servicios y totales.
                 </p>
               </div>
               <ExportButtons
                 exportOptions={exportOptionsCompleto}
-                baseFilename={`${baseFilenameExport}_completo`}
+                baseFilename={baseFilenameExport}
                 variant="compact"
               />
             </div>
 
-            <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">2) Sin precios</h4>
-                <p className="text-xs text-slate-600">
-                  Solo materiales y cantidades, con total sin margen.
+            {/* Opción 2: Sin precios */}
+            <div className="rounded-lg border-2 border-green-200 bg-green-50 p-4 space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold">
+                    2
+                  </div>
+                  <h4 className="text-sm font-bold text-green-900">Sin precios</h4>
+                </div>
+                <p className="text-xs text-green-700 leading-relaxed">
+                  Solo materiales y cantidades. Ideal para presupuestos preliminares.
                 </p>
               </div>
               <ExportButtons
                 exportOptions={exportOptionsSinPrecios}
-                baseFilename={`${baseFilenameExport}_sin_precios`}
+                baseFilename={baseFilenameExport}
                 variant="compact"
               />
             </div>
 
-            <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-              <div>
-                <h4 className="text-sm font-semibold text-slate-900">3) Cliente con precios</h4>
-                <p className="text-xs text-slate-600">
-                  Precios por material con su % aplicado.
+            {/* Opción 3: Cliente con precios */}
+            <div className="rounded-lg border-2 border-purple-200 bg-purple-50 p-4 space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold">
+                    3
+                  </div>
+                  <h4 className="text-sm font-bold text-purple-900">Cliente con precios</h4>
+                </div>
+                <p className="text-xs text-purple-700 leading-relaxed">
+                  Materiales con precios finales. Perfecto para enviar al cliente.
                 </p>
               </div>
               <ExportButtons
                 exportOptions={exportOptionsClienteConPrecios}
-                baseFilename={`${baseFilenameExport}_cliente_precios`}
+                baseFilename={baseFilenameExport}
                 variant="compact"
               />
             </div>

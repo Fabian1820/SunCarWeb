@@ -19,6 +19,14 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import ExcelJS from 'exceljs'
 
+/**
+ * Formatea un número para usar coma como separador decimal
+ * Asegura que 8.0 se muestre como "8,0" y no como "80"
+ */
+function formatNumberWithComma(value: number, decimals: number = 2): string {
+  return value.toFixed(decimals).replace('.', ',')
+}
+
 export interface ExportColumn {
   header: string
   key: string
@@ -495,7 +503,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(0, 0, 0)
         const precioUnit = parseFloat(row.precio_unitario) || 0
-        doc.text(`${precioUnit.toFixed(2)} $`, 91, yPosition + 9, { align: 'right' })
+        doc.text(`${formatNumberWithComma(precioUnit)} $`, 91, yPosition + 9, { align: 'right' })
 
         // CANTIDAD - LETRA AUMENTADA (columna 102-115)
         doc.setFontSize(10) // Aumentado de 9 a 10
@@ -509,7 +517,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalBase.toFixed(2)} $`, 126, yPosition + 9, { align: 'right' })
+        doc.text(`${formatNumberWithComma(totalBase)} $`, 126, yPosition + 9, { align: 'right' })
 
         // MARGEN (% y dinero alineados) - LETRA AUMENTADA (columna 137-165)
         const porcentaje = parseFloat(row.porcentaje_margen) || 0
@@ -520,7 +528,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           doc.setFontSize(8.5) // Aumentado de 8 a 8.5
           doc.setFont('helvetica', 'normal')
           doc.setTextColor(0, 0, 0)
-          doc.text(`${porcentaje.toFixed(1)}% (${margen.toFixed(2)} $)`, 151, yPosition + 9, { align: 'right' })
+          doc.text(`${formatNumberWithComma(porcentaje, 1)}% (${formatNumberWithComma(margen)} $)`, 151, yPosition + 9, { align: 'right' })
         }
 
         // TOTAL FINAL (total + margen) - LETRA AUMENTADA (columna 167-198)
@@ -528,7 +536,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.setFontSize(10) // Aumentado de 9 a 10
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${totalFinal.toFixed(2)} $`, pageWidth - 12, yPosition + 9, { align: 'right' })
+        doc.text(`${formatNumberWithComma(totalFinal)} $`, pageWidth - 12, yPosition + 9, { align: 'right' })
       } else if (conPreciosCliente) {
         // EXPORTACIÓN CON PRECIOS PARA CLIENTE (Material | Cant | Total)
         // CANTIDAD - LETRA AUMENTADA (columna 152-170)
@@ -566,7 +574,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       doc.text('Subtotal:', pageWidth - 60, yPosition + 5)
-      doc.text(`${subtotalSeccion.toFixed(2)} $`, pageWidth - 12, yPosition + 5, { align: 'right' })
+      doc.text(`${formatNumberWithComma(subtotalSeccion)} $`, pageWidth - 12, yPosition + 5, { align: 'right' })
       
       yPosition += 10
     } else {
@@ -593,7 +601,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
       doc.text(servicio.descripcion, 12, yPosition)
-      doc.text(`${parseFloat(servicio.total || 0).toFixed(2)} $`, pageWidth - 12, yPosition, { align: 'right' })
+      doc.text(`${formatNumberWithComma(parseFloat(servicio.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
       yPosition += 6
     })
 
@@ -603,7 +611,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
       doc.text(trans.descripcion, 12, yPosition)
-      doc.text(`${parseFloat(trans.total || 0).toFixed(2)} $`, pageWidth - 12, yPosition, { align: 'right' })
+      doc.text(`${formatNumberWithComma(parseFloat(trans.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
       yPosition += 6
     })
 
@@ -617,7 +625,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       doc.text('Precio Final', 12, yPosition + 7)
-      doc.text(`${parseFloat(totales[0].total || 0).toFixed(2)} $`, pageWidth - 12, yPosition + 7, { align: 'right' })
+      doc.text(`${formatNumberWithComma(parseFloat(totales[0].total || 0))} $`, pageWidth - 12, yPosition + 7, { align: 'right' })
       yPosition += 12
     }
   }

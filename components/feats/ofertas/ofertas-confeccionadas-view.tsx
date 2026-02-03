@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader } from "@/components/shared/atom/loader"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { EditarOfertaDialog } from "./editar-oferta-dialog"
+import { ExportSelectionDialog } from "./export-selection-dialog"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
@@ -367,19 +368,34 @@ export function OfertasConfeccionadasView() {
       }
     })
 
-    // Generar nombre base del archivo
+    // Generar nombre base del archivo usando el mismo formato que en confección
     let baseFilename = oferta.nombre
-      .replace(/[^a-zA-Z0-9\s-]/g, '') // Eliminar caracteres especiales
-      .replace(/\s+/g, '_') // Reemplazar espacios por guiones bajos
-      .substring(0, 50) // Limitar longitud
+      .replace(/[<>:"/\\|?*]/g, '') // Eliminar caracteres no válidos en nombres de archivo
+      .replace(/\s+/g, '_') // Reemplazar espacios con guiones bajos
+      .replace(/,\s*/g, '+') // Reemplazar comas con + para el formato I-1x10kW+B-1x10kWh+P-14x590W
+      .replace(/_+/g, '_') // Reemplazar múltiples guiones bajos con uno solo
+      .trim()
     
-    // Si es personalizada, agregar nombre del cliente
-    if (oferta.tipo === 'personalizada' && cliente?.nombre) {
-      const nombreCliente = cliente.nombre
-        .replace(/[^a-zA-Z0-9\s-]/g, '')
-        .replace(/\s+/g, '_')
-        .substring(0, 30)
-      baseFilename = `${baseFilename}-${nombreCliente}`
+    // Si es personalizada, agregar nombre del cliente/lead
+    if (oferta.tipo === 'personalizada') {
+      let nombreContacto = ""
+      
+      if (cliente?.nombre) {
+        nombreContacto = cliente.nombre
+      } else if (lead?.nombre_completo || lead?.nombre) {
+        nombreContacto = lead.nombre_completo || lead.nombre
+      } else if (oferta.nombre_lead_sin_agregar) {
+        nombreContacto = oferta.nombre_lead_sin_agregar
+      }
+      
+      if (nombreContacto) {
+        const nombreLimpio = nombreContacto
+          .replace(/[<>:"/\\|?*]/g, '')
+          .replace(/\s+/g, '_')
+          .replace(/_+/g, '_')
+          .trim()
+        baseFilename = `${baseFilename}-${nombreLimpio}`
+      }
     }
 
     // Calcular margen por material (simplificado - en la oferta guardada ya viene calculado)
@@ -1770,65 +1786,14 @@ export function OfertasConfeccionadasView() {
       </Dialog>
 
       {/* Diálogo para exportar oferta */}
-      <Dialog open={mostrarDialogoExportar} onOpenChange={setMostrarDialogoExportar}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Exportar oferta</DialogTitle>
-            <DialogDescription>
-              Selecciona el tipo de exportación y el formato (Excel o PDF).
-            </DialogDescription>
-          </DialogHeader>
-
-          {ofertaParaExportar && (() => {
-            const opciones = generarOpcionesExportacion(ofertaParaExportar)
-            return (
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">1) Completo</h4>
-                    <p className="text-xs text-slate-600">
-                      Incluye precios, márgenes, servicios y totales.
-                    </p>
-                  </div>
-                  <ExportButtons
-                    exportOptions={opciones.exportOptionsCompleto}
-                    baseFilename={`${opciones.baseFilename}_completo`}
-                    variant="compact"
-                  />
-                </div>
-
-                <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">2) Sin precios</h4>
-                    <p className="text-xs text-slate-600">
-                      Solo materiales y cantidades, con total sin margen.
-                    </p>
-                  </div>
-                  <ExportButtons
-                    exportOptions={opciones.exportOptionsSinPrecios}
-                    baseFilename={`${opciones.baseFilename}_sin_precios`}
-                    variant="compact"
-                  />
-                </div>
-
-                <div className="rounded-lg border border-slate-200 p-4 space-y-3">
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-900">3) Cliente con precios</h4>
-                    <p className="text-xs text-slate-600">
-                      Precios por material con margen aplicado.
-                    </p>
-                  </div>
-                  <ExportButtons
-                    exportOptions={opciones.exportOptionsClienteConPrecios}
-                    baseFilename={`${opciones.baseFilename}_cliente_precios`}
-                    variant="compact"
-                  />
-                </div>
-              </div>
-            )
-          })()}
-        </DialogContent>
-      </Dialog>
+      {ofertaParaExportar && (
+        <ExportSelectionDialog
+          open={mostrarDialogoExportar}
+          onOpenChange={setMostrarDialogoExportar}
+          oferta={ofertaParaExportar}
+          exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
+        />
+      )}
 
       {/* Diálogo de Edición */}
       <EditarOfertaDialog
