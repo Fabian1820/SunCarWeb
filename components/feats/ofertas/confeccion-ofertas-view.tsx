@@ -821,7 +821,8 @@ export function ConfeccionOfertasView({
   ])
 
   const precioFinal = useMemo(() => {
-    return Math.ceil(totalSinRedondeo)
+    // Redondear al múltiplo de 10 más cercano hacia arriba
+    return Math.ceil(totalSinRedondeo / 10) * 10
   }, [totalSinRedondeo])
 
   // Crear mapa de marcas por ID
@@ -835,8 +836,79 @@ export function ConfeccionOfertasView({
     return map
   }, [marcas])
 
-  // Generar nombre automático de la oferta
+  // Generar nombre automático de la oferta (formato compacto para UI)
   const nombreAutomatico = useMemo(() => {
+    const componentes: string[] = []
+
+    // Obtener potencia del material
+    const obtenerPotencia = (materialCodigo: string): number | null => {
+      const material = materials.find(m => m.codigo.toString() === materialCodigo)
+      return material?.potenciaKW || null
+    }
+
+    // 1. INVERSORES - Usar el seleccionado
+    if (inversorSeleccionado) {
+      const inversoresDelTipo = items.filter(
+        item => item.seccion === 'INVERSORES' && item.materialCodigo === inversorSeleccionado
+      )
+      if (inversoresDelTipo.length > 0) {
+        const cantidad = inversoresDelTipo.reduce((sum, inv) => sum + inv.cantidad, 0)
+        const potencia = obtenerPotencia(inversorSeleccionado)
+        
+        if (potencia) {
+          componentes.push(`I-${cantidad}x${potencia}kW`)
+        } else {
+          componentes.push(`I-${cantidad}x`)
+        }
+      }
+    }
+
+    // 2. BATERÍAS - Usar la seleccionada
+    if (bateriaSeleccionada) {
+      const bateriasDelTipo = items.filter(
+        item => item.seccion === 'BATERIAS' && item.materialCodigo === bateriaSeleccionada
+      )
+      if (bateriasDelTipo.length > 0) {
+        const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+        const potencia = obtenerPotencia(bateriaSeleccionada)
+        
+        if (potencia) {
+          componentes.push(`B-${cantidad}x${potencia}kWh`)
+        } else {
+          componentes.push(`B-${cantidad}x`)
+        }
+      }
+    }
+
+    // 3. PANELES - Usar el seleccionado
+    if (panelSeleccionado) {
+      const panelesDelTipo = items.filter(
+        item => item.seccion === 'PANELES' && item.materialCodigo === panelSeleccionado
+      )
+      if (panelesDelTipo.length > 0) {
+        const cantidad = panelesDelTipo.reduce((sum, pan) => sum + pan.cantidad, 0)
+        const potencia = obtenerPotencia(panelSeleccionado)
+        
+        if (potencia) {
+          // Para paneles, convertir kW a W si es necesario
+          const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
+          componentes.push(`P-${cantidad}x${potenciaW}W`)
+        } else {
+          componentes.push(`P-${cantidad}x`)
+        }
+      }
+    }
+
+    // Construir el nombre final
+    if (componentes.length === 0) {
+      return 'Oferta sin componentes principales'
+    } else {
+      return componentes.join(', ')
+    }
+  }, [items, inversorSeleccionado, bateriaSeleccionada, panelSeleccionado, materials])
+
+  // Generar nombre completo para exportaciones (formato largo con marcas)
+  const nombreCompletoParaExportar = useMemo(() => {
     const componentes: string[] = []
 
     // Obtener marca del material usando marca_id
@@ -1249,7 +1321,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Exportación completa",
-      subtitle: nombreAutomatico,
+      subtitle: nombreCompletoParaExportar,
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
@@ -1286,7 +1358,7 @@ export function ConfeccionOfertasView({
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreAutomatico,
+        nombre_oferta: nombreCompletoParaExportar,
         tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -1304,7 +1376,7 @@ export function ConfeccionOfertasView({
     porcentajeMargenInstalacion,
     costoTransportacion,
     precioFinal,
-    nombreAutomatico,
+    nombreCompletoParaExportar,
     materials,
     ofertaGenerica,
     selectedCliente,
@@ -1490,7 +1562,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Cliente sin precios",
-      subtitle: nombreAutomatico,
+      subtitle: nombreCompletoParaExportar,
       columns: [
         { header: "Material", key: "descripcion", width: 60 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -1521,7 +1593,7 @@ export function ConfeccionOfertasView({
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreAutomatico,
+        nombre_oferta: nombreCompletoParaExportar,
         tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -1532,7 +1604,7 @@ export function ConfeccionOfertasView({
     items,
     seccionLabelMap,
     precioFinal,
-    nombreAutomatico,
+    nombreCompletoParaExportar,
     materials,
     ofertaGenerica,
     selectedCliente,
@@ -1759,7 +1831,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Cliente con precios",
-      subtitle: nombreAutomatico,
+      subtitle: nombreCompletoParaExportar,
       columns: [
         { header: "Material", key: "descripcion", width: 50 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -1791,7 +1863,7 @@ export function ConfeccionOfertasView({
       } : undefined,
       ofertaData: {
         numero_oferta: ofertaId,
-        nombre_oferta: nombreAutomatico,
+        nombre_oferta: nombreCompletoParaExportar,
         tipo_oferta: ofertaGenerica ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -1807,7 +1879,7 @@ export function ConfeccionOfertasView({
     costoTransportacion,
     precioFinal,
     totalSinRedondeo,
-    nombreAutomatico,
+    nombreCompletoParaExportar,
     materials,
     ofertaGenerica,
     selectedCliente,
@@ -2680,6 +2752,10 @@ export function ConfeccionOfertasView({
         bateria_seleccionada: bateriaSeleccionada || undefined,
         panel_seleccionado: panelSeleccionado || undefined
       }
+
+      // Agregar nombres de la oferta
+      ofertaData.nombre_oferta = nombreAutomatico // Nombre corto para mostrar en UI
+      ofertaData.nombre_completo = nombreCompletoParaExportar // Nombre completo para exportaciones
 
       // Agregar datos de margen y precios
       ofertaData.margen_comercial = margenComercial

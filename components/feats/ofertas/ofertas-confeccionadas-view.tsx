@@ -583,7 +583,7 @@ export function OfertasConfeccionadasView() {
 
     const exportOptionsCompleto = {
       title: "Oferta - Exportación completa",
-      subtitle: oferta.nombre,
+      subtitle: oferta.nombre_completo || oferta.nombre,
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
@@ -620,7 +620,7 @@ export function OfertasConfeccionadasView() {
       } : undefined,
       ofertaData: {
         numero_oferta: oferta.numero_oferta || oferta.id,
-        nombre_oferta: oferta.nombre,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -763,7 +763,7 @@ export function OfertasConfeccionadasView() {
 
     const exportOptionsSinPrecios = {
       title: "Oferta - Cliente sin precios",
-      subtitle: oferta.nombre,
+      subtitle: oferta.nombre_completo || oferta.nombre,
       columns: [
         { header: "Material", key: "descripcion", width: 60 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -794,7 +794,7 @@ export function OfertasConfeccionadasView() {
       } : undefined,
       ofertaData: {
         numero_oferta: oferta.numero_oferta || oferta.id,
-        nombre_oferta: oferta.nombre,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
@@ -943,7 +943,7 @@ export function OfertasConfeccionadasView() {
 
     const exportOptionsClienteConPrecios = {
       title: "Oferta - Cliente con precios",
-      subtitle: oferta.nombre,
+      subtitle: oferta.nombre_completo || oferta.nombre,
       columns: [
         { header: "Material", key: "descripcion", width: 50 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -975,7 +975,7 @@ export function OfertasConfeccionadasView() {
       } : undefined,
       ofertaData: {
         numero_oferta: oferta.numero_oferta || oferta.id,
-        nombre_oferta: oferta.nombre,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
       },
       incluirFotos: true,
