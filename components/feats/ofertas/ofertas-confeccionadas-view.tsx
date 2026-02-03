@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Loader } from "@/components/shared/atom/loader"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { EditarOfertaDialog } from "./editar-oferta-dialog"
-import { DuplicarOfertaDialog } from "./duplicar-oferta-dialog"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
@@ -20,8 +19,10 @@ import type { Cliente } from "@/lib/types/feats/customer/cliente-types"
 import type { Almacen } from "@/lib/inventario-types"
 import { Building2, FileText, Package, Search, User, Download, Edit, Trash2, Copy } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 
 export function OfertasConfeccionadasView() {
+  const router = useRouter()
   const { ofertas, loading, eliminarOferta, refetch } = useOfertasConfeccion()
   const { materials } = useMaterials()
   const { marcas } = useMarcas()
@@ -38,8 +39,6 @@ export function OfertasConfeccionadasView() {
   const [ofertaParaExportar, setOfertaParaExportar] = useState<(typeof ofertas)[number] | null>(null)
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false)
   const [ofertaParaEditar, setOfertaParaEditar] = useState<(typeof ofertas)[number] | null>(null)
-  const [mostrarDialogoDuplicar, setMostrarDialogoDuplicar] = useState(false)
-  const [ofertaParaDuplicar, setOfertaParaDuplicar] = useState<(typeof ofertas)[number] | null>(null)
   const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false)
   const [ofertaParaEliminar, setOfertaParaEliminar] = useState<(typeof ofertas)[number] | null>(null)
   const [eliminandoOferta, setEliminandoOferta] = useState(false)
@@ -1001,9 +1000,8 @@ export function OfertasConfeccionadasView() {
     setMostrarDialogoEditar(true)
   }
 
-  const abrirDuplicar = (oferta: (typeof ofertas)[number]) => {
-    setOfertaParaDuplicar(oferta)
-    setMostrarDialogoDuplicar(true)
+  const irADuplicar = (oferta: (typeof ofertas)[number]) => {
+    router.push(`/ofertas-gestion/duplicar?id=${oferta.id}`)
   }
 
   const abrirDialogoEliminar = (oferta: (typeof ofertas)[number]) => {
@@ -1195,7 +1193,7 @@ export function OfertasConfeccionadasView() {
                     variant="outline"
                     size="sm"
                     className="h-8 px-2 flex-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    onClick={() => abrirDuplicar(oferta)}
+                    onClick={() => irADuplicar(oferta)}
                     title="Duplicar oferta"
                   >
                     <Copy className="h-3.5 w-3.5" />
@@ -1838,19 +1836,6 @@ export function OfertasConfeccionadasView() {
           setMostrarDialogoEditar(false)
           setOfertaParaEditar(null)
           // Recargar ofertas después de editar
-          refetch()
-        }}
-      />
-
-      {/* Diálogo de Duplicación */}
-      <DuplicarOfertaDialog
-        open={mostrarDialogoDuplicar}
-        onOpenChange={setMostrarDialogoDuplicar}
-        oferta={ofertaParaDuplicar}
-        onSuccess={() => {
-          setMostrarDialogoDuplicar(false)
-          setOfertaParaDuplicar(null)
-          // Recargar ofertas después de duplicar
           refetch()
         }}
       />
