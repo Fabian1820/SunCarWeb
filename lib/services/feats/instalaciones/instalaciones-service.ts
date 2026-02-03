@@ -82,7 +82,7 @@ export const InstalacionesService = {
    * Obtiene todos los leads y clientes con estado "Pendiente de Instalación"
    */
   async getPendientesInstalacion(): Promise<PendientesInstalacionResponse> {
-    return apiRequest<PendientesInstalacionResponse>('/pendientes-instalacion/', {
+    return apiRequest<PendientesInstalacionResponse>('/clientes/pendientes-instalacion', {
       method: 'GET',
     })
   },
