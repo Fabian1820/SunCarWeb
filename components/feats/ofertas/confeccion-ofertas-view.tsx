@@ -3016,10 +3016,10 @@ export function ConfeccionOfertasView({
   return (
     <div className="flex w-full flex-1 min-h-0 flex-col bg-slate-100">
       <div className="w-full h-full flex flex-col min-h-0">
-        <div className="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
           {/* Lateral izquierdo: configuracion de oferta */}
-          <div className="flex w-full lg:w-[880px] flex-col border-b lg:border-b-0 lg:border-r bg-white flex-shrink-0">
-            <div className="flex-1 overflow-y-auto">
+          <div className="flex w-full lg:w-[880px] flex-col border-b lg:border-b-0 lg:border-r bg-white flex-shrink-0 overflow-y-auto">
+            <div className="flex-1">
               <div className="sticky top-0 z-10 px-4 py-2 border-b bg-white">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -4422,7 +4422,7 @@ export function ConfeccionOfertasView({
           </div>
 
           {/* Panel derecho: grid de materiales */}
-          <div className="w-full flex-1 min-h-0 flex flex-col bg-white">
+          <div className="w-full flex-1 min-h-0 flex flex-col bg-white overflow-y-auto">
             {/* Buscador y selector de almacén */}
             <div className="sticky top-0 z-10 px-6 py-4 border-b bg-white space-y-3">
               {/* Selector de almacén */}
@@ -4494,7 +4494,7 @@ export function ConfeccionOfertasView({
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 px-6 py-4">
               {materialesFiltrados.length === 0 ? (
                 <div className="flex items-center justify-center min-h-full text-gray-400">
                   <div className="text-center">

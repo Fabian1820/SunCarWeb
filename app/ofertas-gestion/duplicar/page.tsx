@@ -50,7 +50,7 @@ export default function DuplicarOfertaPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex flex-col">
       <ModuleHeader
         title="Duplicar Oferta"
         subtitle={`Creando nueva oferta basada en: ${ofertaParaDuplicar.nombre}`}
@@ -68,7 +68,7 @@ export default function DuplicarOfertaPage() {
         }
       />
 
-      <main className="content-with-fixed-header">
+      <main className="flex-1 flex flex-col min-h-0" style={{ paddingTop: "var(--fixed-header-height)" }}>
         <ConfeccionOfertasView 
           modoEdicion={false}
           ofertaParaDuplicar={ofertaParaDuplicar}

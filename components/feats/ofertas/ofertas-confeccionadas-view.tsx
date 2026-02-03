@@ -126,24 +126,27 @@ export function OfertasConfeccionadasView() {
     loadAlmacenes()
   }, [])
 
-  // Recargar ofertas cuando la página se vuelve visible o recibe focus
+  // Recargar ofertas solo cuando la página se vuelve visible después de estar oculta por más de 5 minutos
   useEffect(() => {
+    let lastHiddenTime: number | null = null
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        refetch()
+      if (document.visibilityState === 'hidden') {
+        lastHiddenTime = Date.now()
+      } else if (document.visibilityState === 'visible' && lastHiddenTime) {
+        const timeDiff = Date.now() - lastHiddenTime
+        // Solo refrescar si estuvo oculta por más de 5 minutos (300000 ms)
+        if (timeDiff > 300000) {
+          refetch()
+        }
+        lastHiddenTime = null
       }
     }
 
-    const handleFocus = () => {
-      refetch()
-    }
-
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
     }
   }, [refetch])
 
