@@ -54,7 +54,7 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
       await exportToPDF({
         ...exportOptions,
         filename,
-        logoUrl: '/logo.png'
+        logoUrl: '/logo Suncar.png'
       })
 
       toast({

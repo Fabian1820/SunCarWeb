@@ -341,6 +341,12 @@ export function ConfeccionOfertasView({
       
       // Cargar items
       if (ofertaACopiar.items && Array.isArray(ofertaACopiar.items)) {
+        console.log('🔍 Cargando items de oferta:', {
+          items_count: ofertaACopiar.items.length,
+          primer_item_completo: ofertaACopiar.items[0],
+          tiene_margen_asignado: ofertaACopiar.items[0]?.margen_asignado
+        })
+        
         const itemsCargados = ofertaACopiar.items.map((item: any) => ({
           id: `${item.seccion}-${item.material_codigo}`,
           materialCodigo: item.material_codigo,
@@ -353,6 +359,43 @@ export function ConfeccionOfertasView({
           seccion: item.seccion,
         }))
         setItems(itemsCargados)
+        
+        // Cargar márgenes asignados de cada item
+        const margenMap = new Map<string, number>()
+        const porcentajeMap = new Map<string, number>()
+        ofertaACopiar.items.forEach((item: any) => {
+          const itemId = `${item.seccion}-${item.material_codigo}`
+          
+          console.log(`  Procesando item ${itemId}:`, {
+            margen_asignado: item.margen_asignado,
+            tipo: typeof item.margen_asignado,
+            precio: item.precio,
+            cantidad: item.cantidad
+          })
+          
+          if (typeof item.margen_asignado === 'number') {
+            margenMap.set(itemId, item.margen_asignado)
+            
+            // Calcular porcentaje desde el margen asignado
+            const costoItem = item.precio * item.cantidad
+            if (costoItem > 0 && item.margen_asignado > 0) {
+              const porcentaje = (item.margen_asignado / costoItem) * 100
+              porcentajeMap.set(itemId, porcentaje)
+              console.log(`    ✅ Margen guardado: ${item.margen_asignado}, Porcentaje: ${porcentaje}%`)
+            }
+          } else {
+            console.log(`    ⚠️ No tiene margen_asignado o no es número`)
+          }
+        })
+        
+        console.log('📥 Márgenes cargados desde oferta:', {
+          margenMap_size: margenMap.size,
+          margenMap_entries: Array.from(margenMap.entries()),
+          porcentajeMap_size: porcentajeMap.size
+        })
+        
+        setMargenPorMaterial(margenMap)
+        setPorcentajeMargenPorItem(porcentajeMap)
       }
       
       // Cargar elementos personalizados
@@ -590,16 +633,43 @@ export function ConfeccionOfertasView({
   }, [items])
 
   const margenPorMaterialCalculado = useMemo(() => {
+    console.log('🔧 Calculando margenPorMaterialCalculado:', {
+      items_count: items.length,
+      margenPorMaterial_size: margenPorMaterial.size,
+      margenPorMaterial_entries: Array.from(margenPorMaterial.entries()),
+      porcentajeAsignadoPorItem: porcentajeAsignadoPorItem,
+      porcentajeMargenPorItem_size: porcentajeMargenPorItem.size
+    })
+    
     const map = new Map<string, number>()
     items.forEach((item) => {
-      const costoItem = item.precio * item.cantidad
-      const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
-        ? porcentajeAsignadoPorItem[item.id]
-        : (porcentajeMargenPorItem.get(item.id) ?? 0)
-      map.set(item.id, costoItem * (porcentaje / 100))
+      // Primero intentar usar el margen guardado en margenPorMaterial (viene de la BD)
+      const margenGuardado = margenPorMaterial.get(item.id)
+      
+      console.log(`  Item ${item.id} (${item.descripcion}):`, {
+        margenGuardado,
+        tiene_margen_guardado: typeof margenGuardado === 'number' && margenGuardado > 0
+      })
+      
+      if (typeof margenGuardado === 'number' && margenGuardado > 0) {
+        // Usar el margen que viene de la BD
+        console.log(`    ✅ Usando margen guardado: ${margenGuardado}`)
+        map.set(item.id, margenGuardado)
+      } else {
+        // Si no hay margen guardado, calcularlo desde el porcentaje
+        const costoItem = item.precio * item.cantidad
+        const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
+          ? porcentajeAsignadoPorItem[item.id]
+          : (porcentajeMargenPorItem.get(item.id) ?? 0)
+        const margenCalculado = costoItem * (porcentaje / 100)
+        console.log(`    ⚠️ Calculando margen: ${margenCalculado} (${porcentaje}% de ${costoItem})`)
+        map.set(item.id, margenCalculado)
+      }
     })
+    
+    console.log('🔧 Resultado margenPorMaterialCalculado:', Array.from(map.entries()))
     return map
-  }, [items, porcentajeAsignadoPorItem, porcentajeMargenPorItem])
+  }, [items, porcentajeAsignadoPorItem, porcentajeMargenPorItem, margenPorMaterial])
 
   const subtotalPorSeccion = useMemo(() => {
     const map = new Map<string, number>()
@@ -690,13 +760,30 @@ export function ConfeccionOfertasView({
         const porcentajeMap = new Map<string, number>()
         const asignadoMap: Record<string, number> = {}
         if (Array.isArray(data?.items)) {
+          console.log('📥 Cargando márgenes desde BD:', {
+            items_count: data.items.length,
+            primer_item: data.items[0]
+          })
+          
           data.items.forEach((item: any) => {
             if (!item?.id) return
+            
+            console.log(`  Item ${item.id}:`, {
+              margen_asignado: item.margen_asignado,
+              porcentaje_margen_item: item.porcentaje_margen_item
+            })
+            
             margenMap.set(item.id, item.margen_asignado ?? 0)
             if (typeof item.porcentaje_margen_item === "number") {
               porcentajeMap.set(item.id, item.porcentaje_margen_item)
               asignadoMap[item.id] = item.porcentaje_margen_item
             }
+          })
+          
+          console.log('📥 Resultado de carga:', {
+            margenMap_size: margenMap.size,
+            margenMap_entries: Array.from(margenMap.entries()),
+            porcentajeMap_size: porcentajeMap.size
           })
         }
 
@@ -1155,10 +1242,25 @@ export function ConfeccionOfertasView({
     itemsFiltrados.forEach((item) => {
       const seccion = seccionLabelMap.get(item.seccion) ?? item.seccion
       const costoItem = item.precio * item.cantidad
-      const porcentaje = typeof porcentajeAsignadoPorItem[item.id] === "number"
-        ? porcentajeAsignadoPorItem[item.id]
-        : (porcentajeMargenPorItem.get(item.id) ?? 0)
-      const margenItem = margenPorMaterialCalculado.get(item.id) || 0
+      
+      // Obtener el margen asignado directamente (viene de la BD)
+      const margenAsignado = margenPorMaterial.get(item.id) || 0
+      
+      // Calcular el porcentaje desde el margen asignado
+      const porcentajeCalculado = costoItem > 0 && margenAsignado > 0 
+        ? (margenAsignado / costoItem) * 100 
+        : 0
+      
+      // Debug
+      console.log('📊 Item para exportación:', {
+        id: item.id,
+        descripcion: item.descripcion,
+        costoItem,
+        margenAsignado,
+        porcentajeCalculado,
+        margenPorMaterial_tiene: margenPorMaterial.has(item.id),
+        margenPorMaterial_valor: margenPorMaterial.get(item.id)
+      })
       
       // Buscar el nombre del material
       const material = materials.find(m => m.codigo.toString() === item.materialCodigo)
@@ -1171,9 +1273,9 @@ export function ConfeccionOfertasView({
         descripcion: nombreMaterial,
         cantidad: item.cantidad,
         precio_unitario: item.precio,
-        porcentaje_margen: formatNumberForExport(porcentaje),
-        margen: formatNumberForExport(margenItem),
-        total: formatNumberForExport(costoItem + margenItem),
+        porcentaje_margen: formatNumberForExport(porcentajeCalculado),
+        margen: formatNumberForExport(margenAsignado),
+        total: formatNumberForExport(costoItem + margenAsignado),
       })
     })
 
@@ -1415,15 +1517,15 @@ export function ConfeccionOfertasView({
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 40 },
+        { header: "Descripción", key: "descripcion", width: 45 },
         { header: "Cant", key: "cantidad", width: 8 },
         { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
-        { header: "% Margen", key: "porcentaje_margen", width: 10 },
-        { header: "Margen ($)", key: "margen", width: 12 },
-        { header: "Total ($)", key: "total", width: 12 },
+        { header: "% Margen", key: "porcentaje_margen", width: 8 },
+        { header: "Margen ($)", key: "margen", width: 14 },
+        { header: "Total ($)", key: "total", width: 14 },
       ],
       data: rows,
-      logoUrl: '/logo.png',
+      logoUrl: '/logo Suncar.png',
       clienteData: !ofertaGenerica && selectedCliente ? {
         numero: selectedCliente.numero || selectedCliente.id,
         nombre: selectedCliente.nombre,
@@ -1453,6 +1555,59 @@ export function ConfeccionOfertasView({
       },
       incluirFotos: true,
       fotosMap,
+      componentesPrincipales: (() => {
+        const componentes: any = {}
+        
+        // Buscar inversor
+        const itemInversor = items.find(item => item.seccion === 'INVERSORES')
+        if (itemInversor) {
+          const material = materials.find(m => m.codigo.toString() === itemInversor.materialCodigo)
+          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+          const marcaId = material?.marca_id
+          const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
+          
+          componentes.inversor = {
+            codigo: itemInversor.materialCodigo,
+            cantidad: itemInversor.cantidad,
+            potencia: potencia,
+            marca: marca
+          }
+        }
+        
+        // Buscar batería
+        const itemBateria = items.find(item => item.seccion === 'BATERIAS')
+        if (itemBateria) {
+          const material = materials.find(m => m.codigo.toString() === itemBateria.materialCodigo)
+          const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                                material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+          const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+          
+          componentes.bateria = {
+            codigo: itemBateria.materialCodigo,
+            cantidad: itemBateria.cantidad,
+            capacidad: capacidad
+          }
+        }
+        
+        // Buscar panel
+        const itemPanel = items.find(item => item.seccion === 'PANELES')
+        if (itemPanel) {
+          const material = materials.find(m => m.codigo.toString() === itemPanel.materialCodigo)
+          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+          
+          componentes.panel = {
+            codigo: itemPanel.materialCodigo,
+            cantidad: itemPanel.cantidad,
+            potencia: potencia
+          }
+        }
+        
+        return componentes
+      })(),
     }
   }, [
     items,
@@ -1470,6 +1625,7 @@ export function ConfeccionOfertasView({
     nombreCompletoParaExportar,
     nombreAutomatico,
     materials,
+    marcas,
     ofertaGenerica,
     selectedCliente,
     selectedLead,
@@ -1678,7 +1834,7 @@ export function ConfeccionOfertasView({
         { header: "Cant", key: "cantidad", width: 10 },
       ],
       data: rows,
-      logoUrl: '/logo.png',
+      logoUrl: '/logo Suncar.png',
       clienteData: !ofertaGenerica && selectedCliente ? {
         numero: selectedCliente.numero || selectedCliente.id,
         nombre: selectedCliente.nombre,
@@ -1709,6 +1865,56 @@ export function ConfeccionOfertasView({
       incluirFotos: true,
       fotosMap,
       sinPrecios: true, // Indicar que es exportación sin precios
+      componentesPrincipales: (() => {
+        const componentes: any = {}
+        
+        const itemInversor = items.find(item => item.seccion === 'INVERSORES')
+        if (itemInversor) {
+          const material = materials.find(m => m.codigo.toString() === itemInversor.materialCodigo)
+          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+          const marcaId = material?.marca_id
+          const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
+          
+          componentes.inversor = {
+            codigo: itemInversor.materialCodigo,
+            cantidad: itemInversor.cantidad,
+            potencia: potencia,
+            marca: marca
+          }
+        }
+        
+        const itemBateria = items.find(item => item.seccion === 'BATERIAS')
+        if (itemBateria) {
+          const material = materials.find(m => m.codigo.toString() === itemBateria.materialCodigo)
+          const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                                material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+          const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+          
+          componentes.bateria = {
+            codigo: itemBateria.materialCodigo,
+            cantidad: itemBateria.cantidad,
+            capacidad: capacidad
+          }
+        }
+        
+        const itemPanel = items.find(item => item.seccion === 'PANELES')
+        if (itemPanel) {
+          const material = materials.find(m => m.codigo.toString() === itemPanel.materialCodigo)
+          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+          
+          componentes.panel = {
+            codigo: itemPanel.materialCodigo,
+            cantidad: itemPanel.cantidad,
+            potencia: potencia
+          }
+        }
+        
+        return componentes
+      })(),
     }
   }, [
     items,
@@ -1718,6 +1924,7 @@ export function ConfeccionOfertasView({
     nombreCompletoParaExportar,
     nombreAutomatico,
     materials,
+    marcas,
     ofertaGenerica,
     selectedCliente,
     selectedLead,
@@ -1968,7 +2175,7 @@ export function ConfeccionOfertasView({
         { header: "Total ($)", key: "total", width: 15 },
       ],
       data: rows,
-      logoUrl: '/logo.png',
+      logoUrl: '/logo Suncar.png',
       clienteData: !ofertaGenerica && selectedCliente ? {
         numero: selectedCliente.numero || selectedCliente.id,
         nombre: selectedCliente.nombre,
@@ -1999,6 +2206,56 @@ export function ConfeccionOfertasView({
       incluirFotos: true,
       fotosMap,
       conPreciosCliente: true, // Indicar que es exportación con precios para cliente
+      componentesPrincipales: (() => {
+        const componentes: any = {}
+        
+        const itemInversor = items.find(item => item.seccion === 'INVERSORES')
+        if (itemInversor) {
+          const material = materials.find(m => m.codigo.toString() === itemInversor.materialCodigo)
+          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+          const marcaId = material?.marca_id
+          const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
+          
+          componentes.inversor = {
+            codigo: itemInversor.materialCodigo,
+            cantidad: itemInversor.cantidad,
+            potencia: potencia,
+            marca: marca
+          }
+        }
+        
+        const itemBateria = items.find(item => item.seccion === 'BATERIAS')
+        if (itemBateria) {
+          const material = materials.find(m => m.codigo.toString() === itemBateria.materialCodigo)
+          const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                                material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+          const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+          
+          componentes.bateria = {
+            codigo: itemBateria.materialCodigo,
+            cantidad: itemBateria.cantidad,
+            capacidad: capacidad
+          }
+        }
+        
+        const itemPanel = items.find(item => item.seccion === 'PANELES')
+        if (itemPanel) {
+          const material = materials.find(m => m.codigo.toString() === itemPanel.materialCodigo)
+          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+          
+          componentes.panel = {
+            codigo: itemPanel.materialCodigo,
+            cantidad: itemPanel.cantidad,
+            potencia: potencia
+          }
+        }
+        
+        return componentes
+      })(),
     }
   }, [
     items,
@@ -2013,6 +2270,7 @@ export function ConfeccionOfertasView({
     nombreCompletoParaExportar,
     nombreAutomatico,
     materials,
+    marcas,
     ofertaGenerica,
     selectedCliente,
     selectedLead,

@@ -69,6 +69,24 @@ export interface ExportOptions {
     tipo_oferta?: string
     fecha_creacion?: string
   }
+  componentesPrincipales?: {
+    inversor?: {
+      codigo: string
+      cantidad: number
+      potencia: number
+      marca?: string
+    }
+    bateria?: {
+      codigo: string
+      cantidad: number
+      capacidad: number
+    }
+    panel?: {
+      codigo: string
+      cantidad: number
+      potencia: number
+    }
+  }
   incluirFotos?: boolean
   fotosMap?: Map<string, string> // Map de material_codigo -> url_foto
   sinPrecios?: boolean // Indica si es una exportación sin precios
@@ -210,7 +228,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
  * Formato similar a la imagen de referencia con tabla de materiales por categoría
  */
 export async function exportToPDF(options: ExportOptions): Promise<void> {
-  const { title, subtitle, filename, columns, data, logoUrl, clienteData, leadData, leadSinAgregarData, ofertaData, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
+  const { title, subtitle, filename, columns, data, logoUrl, clienteData, leadData, leadSinAgregarData, ofertaData, componentesPrincipales, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
 
   // Crear documento PDF en orientación vertical
   const doc = new jsPDF({
@@ -220,27 +238,56 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   })
 
   const pageWidth = doc.internal.pageSize.getWidth()
-  let yPosition = 10
+  let yPosition = 2 // Reducido de 5 a 2 - muy cerca del borde
 
   // ========== ENCABEZADO ==========
+  // Generar descripción del sistema basado en componentes principales
+  let descripcionSistema = ''
+  
+  if (componentesPrincipales) {
+    const partes: string[] = []
+    
+    // Inversor
+    if (componentesPrincipales.inversor) {
+      const totalKW = (componentesPrincipales.inversor.cantidad * componentesPrincipales.inversor.potencia).toFixed(2)
+      partes.push(`${totalKW} KW DE INVERSOR`)
+    }
+    
+    // Batería
+    if (componentesPrincipales.bateria) {
+      const totalKWH = (componentesPrincipales.bateria.cantidad * componentesPrincipales.bateria.capacidad).toFixed(2)
+      partes.push(`${totalKWH} KWH DE BATERÍA`)
+    }
+    
+    // Paneles
+    if (componentesPrincipales.panel) {
+      const totalKW = ((componentesPrincipales.panel.cantidad * componentesPrincipales.panel.potencia) / 1000).toFixed(2)
+      partes.push(`${totalKW} KW EN PANELES`)
+    }
+    
+    if (partes.length > 0) {
+      descripcionSistema = `SISTEMA FOTOVOLTAICO COMPUESTO POR ${partes.join(', ')}.`
+      
+      // Agregar fabricante si está disponible
+      if (componentesPrincipales.inversor?.marca) {
+        descripcionSistema += ` FABRICANTE ${componentesPrincipales.inversor.marca.toUpperCase()}`
+      }
+    }
+  }
+  
+  // Si no hay componentes principales, usar el subtitle como fallback
+  if (!descripcionSistema && subtitle) {
+    descripcionSistema = subtitle.toUpperCase()
+  }
+  
   // Calcular altura del encabezado basado en el contenido
-  // Usar subtitle (nombre completo) en lugar de nombre_oferta (nombre corto)
-  const nombreOferta = subtitle || ofertaData?.nombre_oferta || ''
-  
-  // Debug: verificar qué nombre se está usando en el PDF
-  console.log('📄 Debug PDF exportación:')
-  console.log('  - subtitle recibido:', subtitle)
-  console.log('  - ofertaData?.nombre_oferta:', ofertaData?.nombre_oferta)
-  console.log('  - nombreOferta final:', nombreOferta)
-  
-  doc.setFontSize(12)
+  doc.setFontSize(10)
   doc.setFont('helvetica', 'bold')
-  // Limitar el ancho del texto para que no se superponga con el logo (dejar espacio para logo de ~40mm)
-  const nombreLines = doc.splitTextToSize(nombreOferta, pageWidth - 50)
-  const headerHeight = 20 + (nombreLines.length * 5)
+  const descripcionLines = doc.splitTextToSize(descripcionSistema, pageWidth - 40) // Aumentado de 50 a 40 para más ancho de texto
+  const headerHeight = 18 + (descripcionLines.length * 4.5) // Reducido de 22
   
-  // Fondo verde claro para el encabezado
-  doc.setFillColor(200, 230, 201)
+  // Fondo verde claro para el encabezado - Color exacto del ejemplo: RGB(189, 215, 176)
+  doc.setFillColor(189, 215, 176)
   doc.rect(0, 0, pageWidth, headerHeight, 'F')
 
   // Logo en la esquina superior derecha (dentro del espacio verde)
@@ -248,26 +295,27 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     try {
       const logoBase64 = await imageToBase64(logoUrl)
       if (logoBase64) {
-        const logoSize = Math.min(headerHeight - 4, 20) // Ajustar al espacio disponible
-        doc.addImage(logoBase64, 'PNG', pageWidth - logoSize - 5, 2, logoSize, logoSize)
+        const logoSize = 28 // Tamaño del logo
+        const logoY = 0.5 // Más arriba, reducido de 1 a 0.5
+        doc.addImage(logoBase64, 'PNG', pageWidth - logoSize - 2, logoY, logoSize, logoSize)
       }
     } catch (error) {
       console.error('Error agregando logo al PDF:', error)
     }
   }
 
-  // Título principal
-  doc.setFontSize(14)
+  // Título principal - OFERTA en mayúsculas y más robusto
+  doc.setFontSize(20)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0, 0, 0)
-  doc.text('INSTALACIÓN Y MONTAJE DE SISTEMA FOTOVOLTAICO', 10, 8)
+  doc.text('OFERTA', 5, 8)
 
-  // Nombre de la oferta
-  if (nombreOferta) {
-    doc.setFontSize(12)
+  // Descripción del sistema
+  if (descripcionSistema) {
+    doc.setFontSize(10)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
-    doc.text(nombreLines, 10, 16)
+    doc.text(descripcionLines, 5, 16) // Bajado de 15 a 16 para más espacio hacia abajo
   }
 
   yPosition = headerHeight + 5
@@ -285,8 +333,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   }
   
   if (atencionDe) {
-    doc.setFontSize(9)
-    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(11) // Aumentado de 9 a 11 para que sea más grande
+    doc.setFont('helvetica', 'bold') // Cambiado de 'normal' a 'bold' para más énfasis
     doc.setTextColor(0, 0, 0)
     doc.text(`A la atención de: ${atencionDe}`, 10, yPosition)
     yPosition += 8
@@ -299,21 +347,23 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFillColor(250, 250, 250)
     doc.rect(10, yPosition, pageWidth - 20, 6, 'F')
     
-    doc.setFontSize(9) // Aumentado de 7 a 9
+    doc.setFontSize(9)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(100, 100, 100)
+    
+    // Layout optimizado - P. Unit, Total y Margen centrados:
     // Foto: 12-34 (22mm)
-    // Material: 38-78 (40mm)
+    // Material: 38-95 (57mm) - MÁS ANCHO
     doc.text('Material', 38, yPosition + 4)
-    // P.Unit: 82-100 (18mm)
-    doc.text('P. Unit', 91, yPosition + 4, { align: 'right' })
-    // Cant: 102-115 (13mm)
-    doc.text('Cant', 108, yPosition + 4, { align: 'center' })
-    // Total: 117-135 (18mm)
-    doc.text('Total', 126, yPosition + 4, { align: 'right' })
-    // Margen: 137-165 (28mm)
-    doc.text('Margen (%)', 151, yPosition + 4, { align: 'right' })
-    // Total Final: 167-198 (31mm)
+    // P.Unit: 97-113 (16mm) - CENTRADO en su columna
+    doc.text('P. Unit', 105, yPosition + 4, { align: 'center' })
+    // Cant: 115-125 (10mm) - CENTRADA (bien)
+    doc.text('Cant', 120, yPosition + 4, { align: 'center' })
+    // Total: 127-153 (26mm) - CENTRADO en el medio de la columna
+    doc.text('Total', 140, yPosition + 4, { align: 'center' })
+    // Margen: 155-175 (20mm) - CENTRADO en su columna (solo dinero, sin %)
+    doc.text('Margen', 165, yPosition + 4, { align: 'center' })
+    // Total Final: 177-198 (21mm) - PEGADO a Margen
     doc.text('Total Final', pageWidth - 12, yPosition + 4, { align: 'right' })
     
     yPosition += 8
@@ -377,8 +427,9 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   // Procesar cada sección
   for (const [seccion, rows] of datosPorSeccion) {
-    // Verificar espacio para nueva sección
-    if (yPosition > doc.internal.pageSize.getHeight() - 80) {
+    // Verificar espacio para nueva sección (solo encabezado + al menos 1 material)
+    const espacioNecesario = 8 + 15 + 7 // Encabezado + 1 material + subtotal
+    if (yPosition + espacioNecesario > doc.internal.pageSize.getHeight() - 30) {
       doc.addPage()
       yPosition = 15
     }
@@ -405,7 +456,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFontSize(11) // Aumentado de 10 a 11
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
-    doc.text(`${String(seccionIndex).padStart(2, '0')} ${seccion}`, 12, yPosition + 5.5)
+    doc.text(seccion, 12, yPosition + 5.5) // Quitado el número de sección
     
     yPosition += 10
 
@@ -413,8 +464,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     for (const row of rows) {
       const rowHeight = 15 // Reducido de 25 a 15 para que quepan más componentes por página
       
-      // Verificar espacio en la página
-      if (yPosition + rowHeight > doc.internal.pageSize.getHeight() - 25) {
+      // Verificar espacio en la página (dejar margen para pie de página)
+      if (yPosition + rowHeight > doc.internal.pageSize.getHeight() - 30) {
         doc.addPage()
         yPosition = 15
       }
@@ -471,114 +522,132 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       }
 
       // NOMBRE DEL MATERIAL - LETRA AUMENTADA
-      doc.setFontSize(9) // Aumentado de 8 a 9 para mejor legibilidad
+      doc.setFontSize(9)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       const descripcion = row.descripcion || ''
       
+      // Variable para determinar la posición Y de los demás campos
+      let camposYPosition = yPosition + 9 // Posición por defecto (1 línea)
+      
       if (!sinPrecios && !conPreciosCliente) {
         // Con precios completos: limitar ancho para que no se superponga con precio unitario
-        // Foto termina en 34, Material va de 38 a 78 (40mm de ancho)
-        const anchoDisponible = 40 // 40mm de ancho para el material
+        const anchoDisponible = 57 // 57mm de ancho para el material - MÁS ANCHO
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
-        doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
+        // Mostrar hasta 2 líneas del nombre completo
+        if (descripcionLines.length === 1) {
+          doc.text(descripcionLines[0], 38, yPosition + 9)
+          camposYPosition = yPosition + 9 // Centrado vertical
+        } else {
+          doc.text(descripcionLines[0], 38, yPosition + 7)
+          doc.text(descripcionLines[1], 38, yPosition + 11)
+          camposYPosition = yPosition + 9 // Centrado entre las 2 líneas
+        }
       } else if (conPreciosCliente) {
         // Con precios cliente: limitar ancho para que no se superponga con cantidad
-        // Foto termina en 34, Material va de 38 a 150 (112mm de ancho)
         const anchoDisponible = 112 // 112mm de ancho para el material
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
         doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
+        camposYPosition = yPosition + 9
       } else {
-        // Sin precios: limitar ancho para que no se superponga con cantidad (pageWidth - 12)
-        // Foto termina en 38, cantidad empieza en pageWidth - 12
-        const anchoDisponible = pageWidth - 12 - 38 - 5 // Ancho disponible hasta la cantidad
+        // Sin precios: limitar ancho para que no se superponga con cantidad
+        const anchoDisponible = pageWidth - 12 - 38 - 5
         const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
         doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
+        camposYPosition = yPosition + 9
       }
 
       if (!sinPrecios && !conPreciosCliente) {
         // EXPORTACIÓN COMPLETA CON TODOS LOS PRECIOS Y MÁRGENES
-        // PRECIO UNITARIO - LETRA AUMENTADA (columna 82-100)
-        doc.setFontSize(9) // Aumentado de 8 a 9
+        // PRECIO UNITARIO - CENTRADO en su columna
+        doc.setFontSize(9)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(0, 0, 0)
         const precioUnit = parseFloat(row.precio_unitario) || 0
-        doc.text(`${formatNumberWithComma(precioUnit)} $`, 91, yPosition + 9, { align: 'right' })
+        doc.text(`${formatNumberWithComma(precioUnit)} $`, 105, camposYPosition, { align: 'center' })
 
-        // CANTIDAD - LETRA AUMENTADA (columna 102-115)
-        doc.setFontSize(10) // Aumentado de 9 a 10
+        // CANTIDAD - CENTRADA (bien)
+        doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), 108, yPosition + 9, { align: 'center' })
+        doc.text(cantidad.toString(), 120, camposYPosition, { align: 'center' })
 
-        // TOTAL (sin margen) - LETRA AUMENTADA (columna 117-135)
+        // TOTAL (sin margen) - CENTRADO en su columna
         const totalBase = precioUnit * (parseFloat(cantidad) || 0)
-        doc.setFontSize(10) // Aumentado de 9 a 10
+        doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${formatNumberWithComma(totalBase)} $`, 126, yPosition + 9, { align: 'right' })
+        doc.text(`${formatNumberWithComma(totalBase)} $`, 140, camposYPosition, { align: 'center' })
 
-        // MARGEN (% y dinero alineados) - LETRA AUMENTADA (columna 137-165)
-        const porcentaje = parseFloat(row.porcentaje_margen) || 0
-        const margen = parseFloat(row.margen) || 0
+        // MARGEN - CENTRADO en su columna (solo dinero, sin %)
+        const margenStr = row.margen?.toString() || ''
         
-        if (porcentaje > 0 || margen > 0) {
-          // Porcentaje y monto en una sola línea
-          doc.setFontSize(8.5) // Aumentado de 8 a 8.5
-          doc.setFont('helvetica', 'normal')
+        // Convertir de formato "8,5" a número (reemplazar coma por punto)
+        const margen = margenStr ? parseFloat(margenStr.replace(',', '.')) : 0
+        
+        if (margen > 0) {
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'bold')
           doc.setTextColor(0, 0, 0)
-          doc.text(`${formatNumberWithComma(porcentaje, 1)}% (${formatNumberWithComma(margen)} $)`, 151, yPosition + 9, { align: 'right' })
+          doc.text(`${formatNumberWithComma(margen)} $`, 165, camposYPosition, { align: 'center' })
+        } else {
+          // Mostrar guion si no hay margen
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(100, 100, 100)
+          doc.text('-', 165, camposYPosition, { align: 'center' })
         }
 
-        // TOTAL FINAL (total + margen) - LETRA AUMENTADA (columna 167-198)
+        // TOTAL FINAL (total + margen) - PEGADO a Margen
         const totalFinal = totalBase + margen
-        doc.setFontSize(10) // Aumentado de 9 a 10
+        doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${formatNumberWithComma(totalFinal)} $`, pageWidth - 12, yPosition + 9, { align: 'right' })
+        doc.text(`${formatNumberWithComma(totalFinal)} $`, pageWidth - 12, camposYPosition, { align: 'right' })
       } else if (conPreciosCliente) {
         // EXPORTACIÓN CON PRECIOS PARA CLIENTE (Material | Cant | Total)
-        // CANTIDAD - LETRA AUMENTADA (columna 152-170)
-        doc.setFontSize(10) // Aumentado de 9 a 10
+        // CANTIDAD
+        doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), 161, yPosition + 9, { align: 'right' })
+        doc.text(cantidad.toString(), 161, camposYPosition, { align: 'right' })
         
-        // TOTAL (con margen incluido) - LETRA AUMENTADA (columna 172-198)
+        // TOTAL (con margen incluido)
         const total = parseFloat(row.total) || 0
-        doc.setFontSize(10) // Aumentado de 9 a 10
+        doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
-        doc.text(`${total} $`, pageWidth - 12, yPosition + 9, { align: 'right' })
+        doc.text(`${total} $`, pageWidth - 12, camposYPosition, { align: 'right' })
       } else {
         // EXPORTACIÓN SIN PRECIOS (Material | Cant)
-        // SOLO CANTIDAD - LETRA AUMENTADA
-        doc.setFontSize(10) // Aumentado de 9 a 10
+        // SOLO CANTIDAD
+        doc.setFontSize(10)
         doc.setFont('helvetica', 'bold')
         doc.setTextColor(0, 0, 0)
         const cantidad = row.cantidad || ''
-        doc.text(cantidad.toString(), pageWidth - 12, yPosition + 9, { align: 'right' })
+        doc.text(cantidad.toString(), pageWidth - 12, camposYPosition, { align: 'right' })
       }
 
       yPosition += rowHeight + 1
     }
 
-    // Subtotal de la sección - NO mostrar si es exportación sin precios
-    if (!sinPrecios) {
+    // Subtotal de la sección - NO mostrar si es exportación sin precios O si solo hay 1 material
+    if (!sinPrecios && rows.length > 1) {
       doc.setFillColor(245, 245, 245)
       doc.rect(10, yPosition, pageWidth - 20, 7, 'F')
       
-      doc.setFontSize(10) // Aumentado de 9 a 10
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
-      doc.text('Subtotal:', pageWidth - 60, yPosition + 5)
+      // Alinear "Subtotal:" centrado en la columna Margen
+      doc.text('Subtotal:', 165, yPosition + 5, { align: 'center' })
       doc.text(`${formatNumberWithComma(subtotalSeccion)} $`, pageWidth - 12, yPosition + 5, { align: 'right' })
       
       yPosition += 10
     } else {
-      // Sin precios: solo un pequeño espacio entre secciones
+      // Sin precios o solo 1 material: solo un pequeño espacio entre secciones
       yPosition += 5
     }
     
@@ -594,6 +663,12 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   if (servicios.length > 0 || transportacion.length > 0 || totales.length > 0) {
     yPosition += 5
+    
+    // Verificar espacio para servicios y totales (dejar margen para pie de página)
+    if (yPosition > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage()
+      yPosition = 15
+    }
     
     // Servicios
     servicios.forEach(servicio => {
@@ -618,7 +693,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     // Total final
     if (totales.length > 0) {
       yPosition += 3
-      doc.setFillColor(200, 230, 201)
+      doc.setFillColor(189, 215, 176) // Mismo color verde del encabezado
       doc.rect(10, yPosition, pageWidth - 20, 10, 'F')
       
       doc.setFontSize(13) // Aumentado de 12 a 13
@@ -634,8 +709,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   if (datosPago.length > 0) {
     yPosition += 10
     
-    // Verificar espacio en la página
-    if (yPosition > doc.internal.pageSize.getHeight() - 80) {
+    // Verificar espacio en la página (dejar margen para pie de página)
+    if (yPosition > doc.internal.pageSize.getHeight() - 60) {
       doc.addPage()
       yPosition = 15
     }
@@ -652,8 +727,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         return
       }
 
-      // Verificar espacio
-      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+      // Verificar espacio (dejar margen para pie de página)
+      if (yPosition > doc.internal.pageSize.getHeight() - 30) {
         doc.addPage()
         yPosition = 15
       }

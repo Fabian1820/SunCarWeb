@@ -412,6 +412,68 @@ export function OfertasConfeccionadasView() {
         : (oferta.precio_final || 0) * tasaCambioNumero
       : 0
 
+    // Extraer componentes principales de los items
+    const componentesPrincipales: any = {}
+    
+    // Buscar inversor (sección INVERSORES)
+    const itemsInversores = itemsOrdenados.filter(item => item.seccion === 'INVERSORES')
+    if (itemsInversores.length > 0) {
+      const inversor = itemsInversores[0]
+      const material = materials.find(m => m.codigo.toString() === inversor.material_codigo)
+      
+      // Extraer potencia del nombre/descripción (buscar patrón como "10kW" o "10 kW")
+      const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                           material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+      const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+      
+      // Buscar marca del inversor
+      const marcaId = material?.marca_id
+      const marca = marcaId ? marcasMap.get(marcaId) : undefined
+      
+      componentesPrincipales.inversor = {
+        codigo: inversor.material_codigo,
+        cantidad: inversor.cantidad,
+        potencia: potencia,
+        marca: marca
+      }
+    }
+    
+    // Buscar batería (sección BATERIAS)
+    const itemsBaterias = itemsOrdenados.filter(item => item.seccion === 'BATERIAS')
+    if (itemsBaterias.length > 0) {
+      const bateria = itemsBaterias[0]
+      const material = materials.find(m => m.codigo.toString() === bateria.material_codigo)
+      
+      // Extraer capacidad del nombre/descripción (buscar patrón como "10kWh" o "10 kWh")
+      const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                            material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+      const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+      
+      componentesPrincipales.bateria = {
+        codigo: bateria.material_codigo,
+        cantidad: bateria.cantidad,
+        capacidad: capacidad
+      }
+    }
+    
+    // Buscar paneles (sección PANELES)
+    const itemsPaneles = itemsOrdenados.filter(item => item.seccion === 'PANELES')
+    if (itemsPaneles.length > 0) {
+      const panel = itemsPaneles[0]
+      const material = materials.find(m => m.codigo.toString() === panel.material_codigo)
+      
+      // Extraer potencia del nombre/descripción (buscar patrón como "590W" o "590 W")
+      const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                           material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+      const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+      
+      componentesPrincipales.panel = {
+        codigo: panel.material_codigo,
+        cantidad: panel.cantidad,
+        potencia: potencia
+      }
+    }
+
     // EXPORTACIÓN COMPLETA
     const rowsCompleto: any[] = []
     itemsOrdenados.forEach((item) => {
@@ -430,6 +492,15 @@ export function OfertasConfeccionadasView() {
       const material = materialesMap.get(item.material_codigo?.toString())
       const nombreMaterial = material?.nombre || item.descripcion
       
+      // Obtener margen asignado desde el item (viene de la BD)
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      
+      // Calcular porcentaje desde el margen asignado
+      const porcentajeMargen = costoItem > 0 && margenAsignado > 0
+        ? (margenAsignado / costoItem) * 100
+        : 0
+      
       rowsCompleto.push({
         material_codigo: item.material_codigo,
         seccion: seccionLabel,
@@ -437,9 +508,9 @@ export function OfertasConfeccionadasView() {
         descripcion: nombreMaterial,
         cantidad: item.cantidad,
         precio_unitario: item.precio.toFixed(2),
-        porcentaje_margen: "0.00",
-        margen: "0.00",
-        total: (item.precio * item.cantidad).toFixed(2),
+        porcentaje_margen: `${porcentajeMargen.toFixed(2)}%`,
+        margen: margenAsignado.toFixed(2),
+        total: (costoItem + margenAsignado).toFixed(2),
       })
     })
 
@@ -605,15 +676,15 @@ export function OfertasConfeccionadasView() {
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
-        { header: "Descripción", key: "descripcion", width: 40 },
+        { header: "Descripción", key: "descripcion", width: 45 },
         { header: "Cant", key: "cantidad", width: 8 },
         { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
-        { header: "% Margen", key: "porcentaje_margen", width: 10 },
-        { header: "Margen ($)", key: "margen", width: 12 },
-        { header: "Total ($)", key: "total", width: 12 },
+        { header: "% Margen", key: "porcentaje_margen", width: 8 },
+        { header: "Margen ($)", key: "margen", width: 14 },
+        { header: "Total ($)", key: "total", width: 14 },
       ],
       data: rowsCompleto,
-      logoUrl: '/logo.png',
+      logoUrl: '/logo Suncar.png',
       clienteData: oferta.tipo === 'personalizada' && cliente ? {
         numero: cliente.numero || cliente.id,
         nombre: cliente.nombre,
@@ -643,6 +714,7 @@ export function OfertasConfeccionadasView() {
       },
       incluirFotos: true,
       fotosMap,
+      componentesPrincipales,
     }
 
     // EXPORTACIÓN SIN PRECIOS
@@ -787,7 +859,7 @@ export function OfertasConfeccionadasView() {
         { header: "Cant", key: "cantidad", width: 10 },
       ],
       data: rowsSinPrecios,
-      logoUrl: '/logo.png',
+      logoUrl: '/logo Suncar.png',
       clienteData: oferta.tipo === 'personalizada' && cliente ? {
         numero: cliente.numero || cliente.id,
         nombre: cliente.nombre,
@@ -818,6 +890,7 @@ export function OfertasConfeccionadasView() {
       incluirFotos: true,
       fotosMap,
       sinPrecios: true,
+      componentesPrincipales,
     }
 
     // EXPORTACIÓN CLIENTE CON PRECIOS
@@ -834,7 +907,11 @@ export function OfertasConfeccionadasView() {
         }
       }
       
-      const totalConMargen = item.precio * item.cantidad
+      // Calcular el total con margen incluido
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      const totalConMargen = costoItem + margenAsignado
+      
       // Buscar el nombre del material
       const material = materialesMap.get(item.material_codigo?.toString())
       const nombreMaterial = material?.nombre || item.descripcion
@@ -968,7 +1045,7 @@ export function OfertasConfeccionadasView() {
         { header: "Total ($)", key: "total", width: 15 },
       ],
       data: rowsClienteConPrecios,
-      logoUrl: '/logo.png',
+      logoUrl: '/logo Suncar.png',
       clienteData: oferta.tipo === 'personalizada' && cliente ? {
         numero: cliente.numero || cliente.id,
         nombre: cliente.nombre,
@@ -999,6 +1076,7 @@ export function OfertasConfeccionadasView() {
       incluirFotos: true,
       fotosMap,
       conPreciosCliente: true,
+      componentesPrincipales,
     }
 
     return {
