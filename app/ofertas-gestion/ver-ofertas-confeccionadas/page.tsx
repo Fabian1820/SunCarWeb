@@ -25,11 +25,9 @@ export default function VerOfertasConfeccionadasPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
-        title="Ver Ofertas Confeccionadas"
+        title="Gestionar Ofertas"
         subtitle="Consulta las ofertas confeccionadas en formato de cards."
         badge={{ text: "Ventas", className: "bg-amber-100 text-amber-800" }}
-        backHref="/ofertas-gestion"
-        backLabel="Volver a Gestión de Ofertas"
         actions={
           <Button
             onClick={() => router.push("/ofertas-gestion/confeccion")}
