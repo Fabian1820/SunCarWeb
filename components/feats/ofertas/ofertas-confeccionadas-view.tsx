@@ -1781,17 +1781,20 @@ export function OfertasConfeccionadasView() {
                               </div>
 
                               {seccion.tipo === "extra" && seccion.tipo_extra === "escritura" && seccion.contenido_escritura && (
-                                <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
-                                  <div className="flex items-center gap-3 p-3">
-                                    <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center">
-                                      <FileText className="h-6 w-6 text-slate-300" />
+                                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                  <div className="flex items-start gap-3 mb-3">
+                                    <div className="h-10 w-10 rounded-lg border border-slate-200 bg-white flex items-center justify-center flex-shrink-0">
+                                      <FileText className="h-5 w-5 text-slate-400" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-slate-900">Contenido</p>
-                                      <p className="text-xs text-slate-500 line-clamp-2">
-                                        {seccion.contenido_escritura}
-                                      </p>
+                                      <p className="text-sm font-semibold text-slate-900">Contenido de texto</p>
+                                      <p className="text-xs text-slate-500">Sección personalizada</p>
                                     </div>
+                                  </div>
+                                  <div className="bg-white rounded-lg border border-slate-200 p-3">
+                                    <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">
+                                      {seccion.contenido_escritura}
+                                    </p>
                                   </div>
                                 </div>
                               )}

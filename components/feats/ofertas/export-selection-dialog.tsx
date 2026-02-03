@@ -1,5 +1,12 @@
 "use client"
 
+/**
+ * ExportSelectionDialog - Versión con checkboxes expandibles
+ * IMPORTANTE: Este componente SIEMPRE debe mostrar checkboxes al lado de cada categoría
+ * con flechitas expandibles para ver los materiales. NO usar versión con select.
+ * Versión: 2.0 - Expandible con checkboxes
+ */
+
 import { useState, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
@@ -42,6 +49,31 @@ export function ExportSelectionDialog({
     return grupos
   }, [oferta])
 
+  // Crear secciones especiales (secciones personalizadas y servicio de instalación)
+  const seccionesEspeciales = useMemo(() => {
+    const secciones: Array<{ id: string; label: string; tipo: 'personalizada' | 'servicio' }> = []
+    
+    // Agregar secciones personalizadas
+    oferta.secciones_personalizadas?.forEach((s: any) => {
+      secciones.push({
+        id: s.id,
+        label: s.label,
+        tipo: 'personalizada'
+      })
+    })
+    
+    // Agregar servicio de instalación si existe
+    if (oferta.servicio_instalacion && oferta.servicio_instalacion.precio > 0) {
+      secciones.push({
+        id: 'SERVICIO_INSTALACION',
+        label: 'Servicio de Instalación',
+        tipo: 'servicio'
+      })
+    }
+    
+    return secciones
+  }, [oferta])
+
   // Obtener labels de secciones
   const seccionLabels = useMemo(() => {
     const labels = new Map<string, string>()
@@ -75,6 +107,9 @@ export function ExportSelectionDialog({
   )
   const [materialesSeleccionados, setMaterialesSeleccionados] = useState<Set<string>>(
     new Set(oferta.items?.map((item: any) => item.material_codigo?.toString()) || [])
+  )
+  const [seccionesEspecialesSeleccionadas, setSeccionesEspecialesSeleccionadas] = useState<Set<string>>(
+    new Set(seccionesEspeciales.map(s => s.id))
   )
   const [seccionesExpandidas, setSeccionesExpandidas] = useState<Set<string>>(new Set())
 
@@ -144,11 +179,13 @@ export function ExportSelectionDialog({
     setMaterialesSeleccionados(
       new Set(oferta.items?.map((item: any) => item.material_codigo?.toString()) || [])
     )
+    setSeccionesEspecialesSeleccionadas(new Set(seccionesEspeciales.map(s => s.id)))
   }
 
   const deseleccionarTodo = () => {
     setSeccionesSeleccionadas(new Set())
     setMaterialesSeleccionados(new Set())
+    setSeccionesEspecialesSeleccionadas(new Set())
   }
 
   // Generar opciones de exportación filtradas
@@ -159,7 +196,21 @@ export function ExportSelectionDialog({
         if (item.material_codigo) {
           return materialesSeleccionados.has(item.material_codigo?.toString())
         }
-        // Mantener items que no son materiales (totales, transportación, etc.)
+        
+        // Si es servicio de instalación, verificar si está seleccionado
+        if (item.tipo === "Servicio" || item.descripcion?.includes("Servicio de instalación")) {
+          return seccionesEspecialesSeleccionadas.has('SERVICIO_INSTALACION')
+        }
+        
+        // Si es una sección personalizada, verificar si está seleccionada
+        const seccionPersonalizada = oferta.secciones_personalizadas?.find((s: any) => 
+          item.seccion === s.label || item.descripcion?.includes(s.label)
+        )
+        if (seccionPersonalizada) {
+          return seccionesEspecialesSeleccionadas.has(seccionPersonalizada.id)
+        }
+        
+        // Mantener items que no son materiales ni secciones especiales (totales, transportación, etc.)
         return true
       })
     }
@@ -178,14 +229,16 @@ export function ExportSelectionDialog({
         data: filtrarItems(exportOptions.exportOptionsClienteConPrecios.data),
       },
     }
-  }, [exportOptions, materialesSeleccionados])
+  }, [exportOptions, materialesSeleccionados, seccionesEspecialesSeleccionadas, oferta])
 
   const totalMaterialesSeleccionados = materialesSeleccionados.size
   const totalMateriales = oferta.items?.length || 0
+  const totalSeccionesEspecialesSeleccionadas = seccionesEspecialesSeleccionadas.size
+  const totalSeccionesEspeciales = seccionesEspeciales.length
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
+      <DialogContent className="max-w-6xl h-[85vh] flex flex-col" data-version="expandable-v2">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold">Exportar Oferta</DialogTitle>
           <DialogDescription>
@@ -216,6 +269,11 @@ export function ExportSelectionDialog({
             </div>
             <div className="text-sm font-medium text-slate-700">
               {totalMaterialesSeleccionados} de {totalMateriales} materiales seleccionados
+              {totalSeccionesEspeciales > 0 && (
+                <span className="ml-2 text-blue-600">
+                  + {totalSeccionesEspecialesSeleccionadas} de {totalSeccionesEspeciales} secciones adicionales
+                </span>
+              )}
             </div>
           </div>
 
@@ -296,6 +354,89 @@ export function ExportSelectionDialog({
                   </div>
                 )
               })}
+
+              {/* Secciones especiales (personalizadas y servicio de instalación) */}
+              {seccionesEspeciales.length > 0 && (
+                <>
+                  <div className="pt-4 pb-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-slate-200" />
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                        Secciones Adicionales
+                      </span>
+                      <div className="h-px flex-1 bg-slate-200" />
+                    </div>
+                  </div>
+
+                  {seccionesEspeciales.map((seccion) => {
+                    const isSelected = seccionesEspecialesSeleccionadas.has(seccion.id)
+                    
+                    // Obtener información específica según el tipo
+                    let contenido = null
+                    let icono = null
+                    
+                    if (seccion.tipo === 'servicio') {
+                      const servicio = oferta.servicio_instalacion
+                      icono = <span className="text-lg">🔧</span>
+                      contenido = (
+                        <div className="text-xs text-slate-600 mt-1">
+                          <div>Precio: ${servicio.precio.toFixed(2)}</div>
+                          {servicio.descripcion && (
+                            <div className="text-slate-500 mt-0.5">{servicio.descripcion}</div>
+                          )}
+                        </div>
+                      )
+                    } else if (seccion.tipo === 'personalizada') {
+                      const seccionData = oferta.secciones_personalizadas?.find((s: any) => s.id === seccion.id)
+                      icono = <span className="text-lg">📦</span>
+                      if (seccionData?.elementos && seccionData.elementos.length > 0) {
+                        contenido = (
+                          <div className="text-xs text-slate-600 mt-1">
+                            <div>{seccionData.elementos.length} elemento(s)</div>
+                            <div className="text-slate-500 mt-0.5">
+                              Total: ${seccionData.elementos.reduce((sum: number, el: any) => 
+                                sum + (el.precio_unitario * el.cantidad), 0
+                              ).toFixed(2)}
+                            </div>
+                          </div>
+                        )
+                      }
+                    }
+
+                    return (
+                      <div key={seccion.id} className="border border-slate-200 rounded-lg overflow-hidden bg-gradient-to-r from-blue-50 to-indigo-50">
+                        <div className="bg-white/80 hover:bg-white transition-colors">
+                          <div className="flex items-start gap-3 p-3">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => {
+                                const nuevas = new Set(seccionesEspecialesSeleccionadas)
+                                if (nuevas.has(seccion.id)) {
+                                  nuevas.delete(seccion.id)
+                                } else {
+                                  nuevas.add(seccion.id)
+                                }
+                                setSeccionesEspecialesSeleccionadas(nuevas)
+                              }}
+                              className="mt-0.5"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                {icono}
+                                <span className="font-semibold text-slate-900">{seccion.label}</span>
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                                  {seccion.tipo === 'servicio' ? 'Servicio' : 'Personalizada'}
+                                </span>
+                              </div>
+                              {contenido}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
             </div>
           </ScrollArea>
 
