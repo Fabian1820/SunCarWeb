@@ -66,6 +66,10 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
   const [showMapModal, setShowMapModal] = useState(false)
   const [clientLatLng, setClientLatLng] = useState<{ lat: string, lng: string }>({ lat: '', lng: '' })
   
+  // Estado para equipo propio
+  const [equipoPropio, setEquipoPropio] = useState<boolean | undefined>(undefined)
+  const [mostrarPreguntaEquipoPropio, setMostrarPreguntaEquipoPropio] = useState(false)
+  
   // Estados para la oferta
   const [oferta, setOferta] = useState({
     inversor_codigo: '',
@@ -151,132 +155,229 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
     }
   }, [user])
 
-  // Generar código automáticamente cuando se tengan provincia, municipio e inversor
+  // Generar código automáticamente cuando se tengan provincia, municipio e inversor (o equipo propio)
   useEffect(() => {
     const generarCodigoAutomatico = async () => {
-      // Verificar que tengamos todos los datos necesarios
-      if (!selectedProvinciaCodigo || !formData.municipio || !oferta.inversor_codigo) {
+      // Verificar que tengamos provincia y municipio
+      if (!selectedProvinciaCodigo || !formData.municipio) {
         // Si falta algún dato, limpiar el código
+        if (formData.numero) {
+          setFormData(prev => ({ ...prev, numero: '' }))
+        }
+        setMostrarPreguntaEquipoPropio(false)
+        return
+      }
+
+      // Verificar si hay inversor seleccionado
+      const tieneInversor = oferta.inversor_codigo && oferta.inversor_codigo.trim() !== ''
+      
+      // Si no hay inversor y no se ha respondido sobre equipo propio, mostrar pregunta
+      if (!tieneInversor && equipoPropio === undefined) {
+        setMostrarPreguntaEquipoPropio(true)
         if (formData.numero) {
           setFormData(prev => ({ ...prev, numero: '' }))
         }
         return
       }
 
+      // Si no hay inversor y se indicó que NO es equipo propio, no generar código
+      if (!tieneInversor && equipoPropio === false) {
+        setMostrarPreguntaEquipoPropio(true)
+        setErrorCodigo('Debes seleccionar un inversor para generar el código del cliente')
+        if (formData.numero) {
+          setFormData(prev => ({ ...prev, numero: '' }))
+        }
+        return
+      }
+
+      // Si llegamos aquí, podemos generar el código
+      // Caso 1: Tiene inversor
+      // Caso 2: No tiene inversor pero equipoPropio === true
+      
+      if (!tieneInversor && !equipoPropio) {
+        // No debería llegar aquí, pero por seguridad
+        return
+      }
+
       setGenerandoCodigo(true)
       setErrorCodigo('')
+      setMostrarPreguntaEquipoPropio(false)
 
       try {
-        // Buscar el inversor seleccionado para obtener su descripción completa
-        const inversorSeleccionado = inversores.find(inv => String(inv.codigo) === String(oferta.inversor_codigo))
-        
-        if (!inversorSeleccionado) {
-          throw new Error('No se encontró el inversor seleccionado')
-        }
+        if (equipoPropio) {
+          // Generar código con prefijo P para equipo propio
+          // Crear lead temporal sin inversor
+          const leadTemporal = {
+            fecha_contacto: new Date().toISOString().split('T')[0],
+            nombre: formData.nombre || 'Cliente Temporal',
+            telefono: formData.telefono || '+00000000000',
+            estado: 'nuevo',
+            fuente: 'Sistema',
+            direccion: formData.direccion || 'Temporal',
+            provincia_montaje: formData.provincia_montaje,
+            municipio: formData.municipio,
+            comercial: user?.nombre || 'Sistema',
+            ofertas: [] // Sin ofertas para equipo propio
+          }
 
-        // Buscar el municipio seleccionado para obtener su código
-        const municipioSeleccionado = municipios.find(m => m.nombre === formData.municipio)
-        
-        if (!municipioSeleccionado) {
-          throw new Error('No se encontró el municipio seleccionado')
-        }
+          console.log('📝 Creando lead temporal para equipo propio:', leadTemporal)
 
-        // Crear un lead temporal para generar el código
-        // Este lead se usará solo para generar el código y luego se eliminará
-        const leadTemporal = {
-          fecha_contacto: new Date().toISOString().split('T')[0], // Formato YYYY-MM-DD
-          nombre: formData.nombre || 'Cliente Temporal',
-          telefono: formData.telefono || '+00000000000',
-          estado: 'nuevo',
-          fuente: 'Sistema',
-          direccion: formData.direccion || 'Temporal',
-          provincia_montaje: formData.provincia_montaje,
-          municipio: formData.municipio,
-          comercial: user?.nombre || 'Sistema',
-          ofertas: [{
-            id: 'temp-' + Date.now(),
-            descripcion: inversorSeleccionado.descripcion,
-            descripcion_detallada: inversorSeleccionado.descripcion,
-            inversor_codigo: String(inversorSeleccionado.codigo), // ✅ Campo requerido por el backend
-            inversor_nombre: inversorSeleccionado.descripcion,
-            precio: inversorSeleccionado.precio || 0,
-            precio_cliente: inversorSeleccionado.precio || 0,
-            marca: inversorSeleccionado.descripcion.split(' ')[0], // Primera palabra como marca
-            moneda: 'USD',
-            financiamiento: false,
-            elementos: [],
-            cantidad: 1
-          }]
-        }
-
-        console.log('📝 Creando lead temporal para generar código:', leadTemporal)
-
-        // Crear el lead temporal
-        const responseCrear = await apiRequest<{
-          success: boolean
-          message: string
-          data: { id: string }
-        }>('/leads/', {
-          method: 'POST',
-          body: JSON.stringify(leadTemporal)
-        })
-
-        if (!responseCrear.success || !responseCrear.data?.id) {
-          throw new Error('Error al crear lead temporal')
-        }
-
-        const leadId = responseCrear.data.id
-        console.log('✅ Lead temporal creado con ID:', leadId)
-
-        // Generar el código usando el lead temporal
-        const responseGenerar = await apiRequest<{
-          success: boolean
-          message: string
-          codigo_generado: string
-        }>(`/leads/${leadId}/generar-codigo-cliente`)
-
-        if (!responseGenerar.success || !responseGenerar.codigo_generado) {
-          throw new Error(responseGenerar.message || 'Error al generar el código')
-        }
-
-        const codigoGenerado = responseGenerar.codigo_generado
-        console.log('✅ Código generado:', codigoGenerado)
-
-        // Eliminar el lead temporal
-        try {
-          await apiRequest(`/leads/${leadId}`, {
-            method: 'DELETE'
+          const responseCrear = await apiRequest<{
+            success: boolean
+            message: string
+            data: { id: string }
+          }>('/leads/', {
+            method: 'POST',
+            body: JSON.stringify(leadTemporal)
           })
-          console.log('✅ Lead temporal eliminado')
-        } catch (error) {
-          console.warn('⚠️ No se pudo eliminar el lead temporal:', error)
-          // No lanzar error, el código ya se generó correctamente
+
+          if (!responseCrear.success || !responseCrear.data?.id) {
+            throw new Error('Error al crear lead temporal')
+          }
+
+          const leadId = responseCrear.data.id
+          console.log('✅ Lead temporal creado con ID:', leadId)
+
+          // Generar código con equipo_propio=true
+          const responseGenerar = await apiRequest<{
+            success: boolean
+            message: string
+            codigo_generado: string
+          }>(`/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`)
+
+          if (!responseGenerar.success || !responseGenerar.codigo_generado) {
+            throw new Error(responseGenerar.message || 'Error al generar el código')
+          }
+
+          const codigoGenerado = responseGenerar.codigo_generado
+          console.log('✅ Código generado para equipo propio:', codigoGenerado)
+
+          // Eliminar el lead temporal
+          try {
+            await apiRequest(`/leads/${leadId}`, {
+              method: 'DELETE'
+            })
+            console.log('✅ Lead temporal eliminado')
+          } catch (error) {
+            console.warn('⚠️ No se pudo eliminar el lead temporal:', error)
+          }
+
+          // Validar formato P + 9 dígitos
+          if (codigoGenerado.length !== 10 || !/^P\d{9}$/.test(codigoGenerado)) {
+            throw new Error(
+              `El código generado tiene un formato incorrecto: "${codigoGenerado}". ` +
+              `Debe ser P seguido de 9 dígitos.`
+            )
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            numero: codigoGenerado
+          }))
+
+          console.log('✅ Código generado automáticamente para equipo propio:', codigoGenerado)
+        } else {
+          // Generar código normal con inversor
+          const inversorSeleccionado = inversores.find(inv => String(inv.codigo) === String(oferta.inversor_codigo))
+          
+          if (!inversorSeleccionado) {
+            throw new Error('No se encontró el inversor seleccionado')
+          }
+
+          const municipioSeleccionado = municipios.find(m => m.nombre === formData.municipio)
+          
+          if (!municipioSeleccionado) {
+            throw new Error('No se encontró el municipio seleccionado')
+          }
+
+          const leadTemporal = {
+            fecha_contacto: new Date().toISOString().split('T')[0],
+            nombre: formData.nombre || 'Cliente Temporal',
+            telefono: formData.telefono || '+00000000000',
+            estado: 'nuevo',
+            fuente: 'Sistema',
+            direccion: formData.direccion || 'Temporal',
+            provincia_montaje: formData.provincia_montaje,
+            municipio: formData.municipio,
+            comercial: user?.nombre || 'Sistema',
+            ofertas: [{
+              id: 'temp-' + Date.now(),
+              descripcion: inversorSeleccionado.descripcion,
+              descripcion_detallada: inversorSeleccionado.descripcion,
+              inversor_codigo: String(inversorSeleccionado.codigo),
+              inversor_nombre: inversorSeleccionado.descripcion,
+              precio: inversorSeleccionado.precio || 0,
+              precio_cliente: inversorSeleccionado.precio || 0,
+              marca: inversorSeleccionado.descripcion.split(' ')[0],
+              moneda: 'USD',
+              financiamiento: false,
+              elementos: [],
+              cantidad: 1
+            }]
+          }
+
+          console.log('📝 Creando lead temporal para generar código:', leadTemporal)
+
+          const responseCrear = await apiRequest<{
+            success: boolean
+            message: string
+            data: { id: string }
+          }>('/leads/', {
+            method: 'POST',
+            body: JSON.stringify(leadTemporal)
+          })
+
+          if (!responseCrear.success || !responseCrear.data?.id) {
+            throw new Error('Error al crear lead temporal')
+          }
+
+          const leadId = responseCrear.data.id
+          console.log('✅ Lead temporal creado con ID:', leadId)
+
+          const responseGenerar = await apiRequest<{
+            success: boolean
+            message: string
+            codigo_generado: string
+          }>(`/leads/${leadId}/generar-codigo-cliente`)
+
+          if (!responseGenerar.success || !responseGenerar.codigo_generado) {
+            throw new Error(responseGenerar.message || 'Error al generar el código')
+          }
+
+          const codigoGenerado = responseGenerar.codigo_generado
+          console.log('✅ Código generado:', codigoGenerado)
+
+          try {
+            await apiRequest(`/leads/${leadId}`, {
+              method: 'DELETE'
+            })
+            console.log('✅ Lead temporal eliminado')
+          } catch (error) {
+            console.warn('⚠️ No se pudo eliminar el lead temporal:', error)
+          }
+
+          if (codigoGenerado.length !== 10) {
+            throw new Error(
+              `El código generado tiene un formato incorrecto. ` +
+              `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
+              `Código recibido: "${codigoGenerado}".`
+            )
+          }
+
+          if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
+            throw new Error(
+              `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
+              `Debe ser 1 letra mayúscula seguida de 9 dígitos.`
+            )
+          }
+
+          setFormData(prev => ({
+            ...prev,
+            numero: codigoGenerado
+          }))
+
+          console.log('✅ Código generado automáticamente:', codigoGenerado)
         }
-
-        // Validar que el código tenga exactamente 10 caracteres
-        if (codigoGenerado.length !== 10) {
-          throw new Error(
-            `El código generado tiene un formato incorrecto. ` +
-            `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
-            `Código recibido: "${codigoGenerado}".`
-          )
-        }
-
-        // Validar formato: 1 letra mayúscula + 9 dígitos
-        if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
-          throw new Error(
-            `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
-            `Debe ser 1 letra mayúscula seguida de 9 dígitos.`
-          )
-        }
-
-        // Actualizar el código en el formulario
-        setFormData(prev => ({
-          ...prev,
-          numero: codigoGenerado
-        }))
-
-        console.log('✅ Código generado automáticamente:', codigoGenerado)
       } catch (error) {
         console.error('❌ Error al generar código:', error)
         const mensaje = error instanceof Error ? error.message : 'Error al generar el código de cliente'
@@ -291,7 +392,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
     if (!loadingMateriales && inversores.length > 0) {
       generarCodigoAutomatico()
     }
-  }, [selectedProvinciaCodigo, formData.municipio, formData.provincia_montaje, formData.nombre, formData.telefono, oferta.inversor_codigo, inversores, municipios, loadingMateriales])
+  }, [selectedProvinciaCodigo, formData.municipio, formData.provincia_montaje, formData.nombre, formData.telefono, oferta.inversor_codigo, equipoPropio, inversores, municipios, loadingMateriales])
 
   // Cargar provincias al montar el componente
   useEffect(() => {
@@ -674,6 +775,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
         latitud: clientLatLng.lat || undefined,
         longitud: clientLatLng.lng || undefined,
         ofertas: [ofertaToSend],
+        equipo_propio: equipoPropio,  // ✅ Agregar campo equipo_propio
       }
 
       await onSubmit(sanitizeClientData(clientDataWithOferta))
@@ -732,7 +834,7 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
                   readOnly
                   disabled
                   className={`text-gray-900 bg-gray-50 ${errors.numero ? 'border-red-500' : ''}`}
-                  placeholder={generandoCodigo ? 'Generando código...' : 'Seleccione provincia, municipio e inversor'}
+                  placeholder={generandoCodigo ? 'Generando código...' : 'Seleccione provincia, municipio e inversor (o marque equipo propio)'}
                 />
                 {generandoCodigo && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -744,9 +846,12 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
                 <p className="text-sm text-red-500 mt-1">{errorCodigo}</p>
               )}
               {!errorCodigo && !generandoCodigo && formData.numero && (
-                <p className="text-sm text-green-600 mt-1">✓ Código generado automáticamente</p>
+                <p className="text-sm text-green-600 mt-1">
+                  ✓ Código generado automáticamente
+                  {equipoPropio && ' (Equipo propio - Prefijo P)'}
+                </p>
               )}
-              {!errorCodigo && !generandoCodigo && !formData.numero && (
+              {!errorCodigo && !generandoCodigo && !formData.numero && !mostrarPreguntaEquipoPropio && (
                 <p className="text-sm text-gray-500 mt-1">
                   El código se generará automáticamente al seleccionar provincia, municipio e inversor
                 </p>
@@ -765,6 +870,43 @@ export function CreateClientDialog({ onSubmit, onCancel, isLoading }: CreateClie
               />
             </div>
           </div>
+
+          {/* Pregunta sobre equipo propio - solo si no hay inversor */}
+          {mostrarPreguntaEquipoPropio && (
+            <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
+              <Label className="text-sm font-semibold text-amber-900 mb-3 block">
+                ¿El equipo es propio del cliente?
+              </Label>
+              <p className="text-xs text-amber-700 mb-3">
+                No has seleccionado un inversor. Si el cliente ya tiene su propio equipo instalado, 
+                el código empezará con "P". Si necesita equipo, debes seleccionar un inversor.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={`flex-1 ${equipoPropio === true ? 'bg-amber-100 border-amber-500 border-2' : 'border-amber-300'} hover:bg-amber-100`}
+                  onClick={() => {
+                    setEquipoPropio(true)
+                    setErrorCodigo('')
+                  }}
+                >
+                  {equipoPropio === true && '✓ '}Sí, es propio
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={`flex-1 ${equipoPropio === false ? 'bg-amber-100 border-amber-500 border-2' : 'border-amber-300'} hover:bg-amber-100`}
+                  onClick={() => {
+                    setEquipoPropio(false)
+                    setErrorCodigo('Debes seleccionar un inversor para generar el código del cliente')
+                  }}
+                >
+                  {equipoPropio === false && '✓ '}No, necesita equipo
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* 3. Estado y Fuente */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

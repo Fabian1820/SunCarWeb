@@ -91,6 +91,7 @@ export interface ExportOptions {
   fotosMap?: Map<string, string> // Map de material_codigo -> url_foto
   sinPrecios?: boolean // Indica si es una exportación sin precios
   conPreciosCliente?: boolean // Indica si es exportación con precios para cliente (Material | Cant | Total)
+  terminosCondiciones?: string // HTML de términos y condiciones
 }
 
 /**
@@ -805,6 +806,74 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     })
   }
 
+  // ========== TÉRMINOS Y CONDICIONES ==========
+  if (options.terminosCondiciones) {
+    // Agregar nueva página para términos
+    doc.addPage()
+    yPosition = 15
+
+    // Título de términos
+    doc.setFontSize(14)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text('TÉRMINOS Y CONDICIONES', pageWidth / 2, yPosition, { align: 'center' })
+    yPosition += 10
+
+    // Línea separadora
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.5)
+    doc.line(10, yPosition, pageWidth - 10, yPosition)
+    yPosition += 8
+
+    // Convertir HTML a texto plano
+    const textoPlano = htmlToPlainText(options.terminosCondiciones)
+    
+    // Dividir en párrafos
+    const parrafos = textoPlano.split('\n\n').filter(p => p.trim())
+    
+    doc.setFontSize(9)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(60, 60, 60)
+
+    parrafos.forEach(parrafo => {
+      // Verificar si es un título (texto corto en mayúsculas o que termina con :)
+      const esTitulo = parrafo.length < 50 && (
+        parrafo === parrafo.toUpperCase() || 
+        parrafo.endsWith(':')
+      )
+
+      if (esTitulo) {
+        // Verificar espacio para título
+        if (yPosition > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage()
+          yPosition = 15
+        }
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(10)
+        doc.setTextColor(0, 0, 0)
+        const tituloLines = doc.splitTextToSize(parrafo, pageWidth - 24)
+        doc.text(tituloLines, 12, yPosition)
+        yPosition += (tituloLines.length * 5) + 4
+        
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(9)
+        doc.setTextColor(60, 60, 60)
+      } else {
+        // Verificar espacio para párrafo
+        if (yPosition > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage()
+          yPosition = 15
+        }
+
+        // Texto normal justificado
+        const lines = doc.splitTextToSize(parrafo, pageWidth - 24)
+        doc.text(lines, 12, yPosition, { align: 'justify', maxWidth: pageWidth - 24 })
+        yPosition += (lines.length * 4) + 6
+      }
+    })
+  }
+
   // ========== PIE DE PÁGINA ==========
   const pageCount = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
@@ -830,6 +899,33 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   }
 
   doc.save(`${filename}.pdf`)
+}
+
+/**
+ * Convierte HTML a texto plano para PDF
+ */
+function htmlToPlainText(html: string): string {
+  // Crear elemento temporal
+  if (typeof document !== 'undefined') {
+    const temp = document.createElement('div')
+    temp.innerHTML = html
+    return temp.textContent || temp.innerText || ''
+  }
+  
+  // Fallback para SSR: remover tags HTML básicos
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n\n')
+    .replace(/<\/h[1-6]>/gi, '\n\n')
+    .replace(/<\/li>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/🔹/g, '•')
+    .trim()
 }
 
 /**

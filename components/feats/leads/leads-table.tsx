@@ -45,7 +45,7 @@ interface LeadsTableProps {
   onEdit: (lead: Lead) => void
   onDelete: (id: string) => void
   onConvert: (lead: Lead, data: LeadConversionRequest) => Promise<void>
-  onGenerarCodigo: (leadId: string) => Promise<string>
+  onGenerarCodigo: (leadId: string, equipoPropio?: boolean) => Promise<string>
   onUploadComprobante: (
     lead: Lead,
     payload: { file: File; metodo_pago?: string; moneda?: string }
@@ -143,7 +143,7 @@ export function LeadsTable({
   }
 
   const resetConversionState = () => {
-    setConversionData({ numero: '', metodo_pago: '', moneda: '' })
+    setConversionData({ numero: '', metodo_pago: '', moneda: '', equipo_propio: undefined })
     setConversionErrors({})
     setConversionLoading(false)
   }
@@ -154,6 +154,22 @@ export function LeadsTable({
     setConversionErrors({})
     
     try {
+      // Verificar si el lead tiene inversor asignado
+      const tieneInversor = lead.ofertas && lead.ofertas.length > 0 && lead.ofertas[0].inversor_codigo
+      
+      if (!tieneInversor) {
+        // Si no tiene inversor, preguntar si el equipo es propio
+        setConversionData({
+          numero: '',
+          carnet_identidad: '',
+          estado: 'Pendiente de instalación',
+          equipo_propio: undefined, // Indicar que necesita respuesta
+        })
+        setConversionLoading(false)
+        setIsConvertDialogOpen(true)
+        return
+      }
+      
       // Generar el código de cliente automáticamente
       const codigoGenerado = await onGenerarCodigo(lead.id || '')
       
@@ -183,6 +199,7 @@ export function LeadsTable({
         numero: codigoGenerado,
         carnet_identidad: '',
         estado: 'Pendiente de instalación',
+        equipo_propio: false,
       })
     } catch (error) {
       console.error('Error generating client code:', error)
@@ -193,6 +210,7 @@ export function LeadsTable({
         numero: '',
         carnet_identidad: '',
         estado: 'Pendiente de instalación',
+        equipo_propio: undefined,
       })
     } finally {
       setConversionLoading(false)
@@ -345,6 +363,10 @@ export function LeadsTable({
       payload.estado = conversionData.estado.trim()
     }
 
+    if (conversionData.equipo_propio !== undefined) {
+      payload.equipo_propio = conversionData.equipo_propio
+    }
+
     return payload
   }
 
@@ -352,6 +374,13 @@ export function LeadsTable({
     if (!leadToConvert) return
 
     const errors: Record<string, string> = {}
+    
+    // Verificar si necesita responder sobre equipo propio
+    if (conversionData.equipo_propio === undefined) {
+      errors.general = 'Debes indicar si el equipo es propio del cliente o si necesita asignar un inversor'
+      setConversionErrors(errors)
+      return
+    }
     
     if (!conversionData.numero || !conversionData.numero.trim()) {
       errors.numero = 'El código de cliente no se pudo generar. Intenta de nuevo.'
@@ -1005,6 +1034,62 @@ export function LeadsTable({
                 )}
 
                 <div className="space-y-3">
+                  {/* Pregunta sobre equipo propio - solo si no hay inversor */}
+                  {conversionData.equipo_propio === undefined && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <Label className="text-sm font-semibold text-amber-900 mb-3 block">
+                        ¿El equipo es propio del cliente?
+                      </Label>
+                      <p className="text-xs text-amber-700 mb-3">
+                        Este lead no tiene un inversor asignado. Indica si el cliente ya tiene su propio equipo instalado.
+                      </p>
+                      <div className="flex gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 border-amber-300 hover:bg-amber-100"
+                          onClick={async () => {
+                            setConversionLoading(true)
+                            try {
+                              // Generar código con prefijo P para equipo propio
+                              const codigoGenerado = await onGenerarCodigo(leadToConvert.id || '', true)
+                              
+                              if (codigoGenerado.length !== 10 || !/^P\d{9}$/.test(codigoGenerado)) {
+                                throw new Error('El código generado tiene un formato incorrecto')
+                              }
+                              
+                              setConversionData(prev => ({
+                                ...prev,
+                                numero: codigoGenerado,
+                                equipo_propio: true,
+                              }))
+                            } catch (error) {
+                              setConversionErrors({
+                                general: error instanceof Error ? error.message : 'Error al generar el código'
+                              })
+                            } finally {
+                              setConversionLoading(false)
+                            }
+                          }}
+                        >
+                          Sí, es propio
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 border-amber-300 hover:bg-amber-100"
+                          onClick={() => {
+                            setConversionErrors({
+                              general: 'Debes asignar un inversor al lead antes de convertirlo a cliente. Edita el lead y agrega un inversor en la sección de oferta.'
+                            })
+                          }}
+                        >
+                          No, necesita equipo
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="numero_cliente" className="text-xs sm:text-sm">Código de cliente (generado automáticamente)</Label>
                     <Input
@@ -1014,7 +1099,10 @@ export function LeadsTable({
                       className="bg-gray-100 cursor-not-allowed"
                     />
                     <p className="text-xs text-gray-500 mt-1">
-                      Este código se genera automáticamente basado en la marca del inversor, provincia y municipio
+                      {conversionData.equipo_propio 
+                        ? 'Código con prefijo "P" para equipo propio del cliente'
+                        : 'Este código se genera automáticamente basado en la marca del inversor, provincia y municipio'
+                      }
                     </p>
                   </div>
 

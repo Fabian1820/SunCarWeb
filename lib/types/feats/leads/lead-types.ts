@@ -116,4 +116,5 @@ export interface LeadConversionRequest {
   estado?: string
   fuente?: string
   municipio?: string
+  equipo_propio?: boolean
 }

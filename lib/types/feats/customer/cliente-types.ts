@@ -65,6 +65,7 @@ export interface ClienteCreateData {
   metodo_pago?: string
   moneda?: string
   falta_instalacion?: string  // Qué le falta a la instalación
+  equipo_propio?: boolean  // Si el equipo es propio del cliente (código con P)
 }
 
 export interface ClienteSimpleCreateData {

@@ -130,11 +130,12 @@ export class LeadService {
     }
   }
 
-  static async generarCodigoCliente(leadId: string): Promise<string> {
-    console.log('Calling generarCodigoCliente with ID:', leadId)
-    const response = await apiRequest<{ success: boolean; message: string; codigo_generado: string }>(
-      `/leads/${leadId}/generar-codigo-cliente`
-    )
+  static async generarCodigoCliente(leadId: string, equipoPropio?: boolean): Promise<string> {
+    console.log('Calling generarCodigoCliente with ID:', leadId, 'equipoPropio:', equipoPropio)
+    const url = equipoPropio 
+      ? `/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`
+      : `/leads/${leadId}/generar-codigo-cliente`
+    const response = await apiRequest<{ success: boolean; message: string; codigo_generado: string }>(url)
     console.log('LeadService.generarCodigoCliente response:', response)
     if (!response.success || !response.codigo_generado) {
       throw new Error(response.message || 'Error al generar el código de cliente')

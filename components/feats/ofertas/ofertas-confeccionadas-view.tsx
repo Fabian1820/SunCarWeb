@@ -43,6 +43,7 @@ export function OfertasConfeccionadasView() {
   const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false)
   const [ofertaParaEliminar, setOfertaParaEliminar] = useState<(typeof ofertas)[number] | null>(null)
   const [eliminandoOferta, setEliminandoOferta] = useState(false)
+  const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(null)
 
   const getEstadoBadge = (estado: string) => {
     const badges = {
@@ -125,6 +126,26 @@ export function OfertasConfeccionadasView() {
     loadClientes()
     loadLeads()
     loadAlmacenes()
+  }, [])
+
+  // Cargar términos y condiciones
+  useEffect(() => {
+    const cargarTerminos = async () => {
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+        const response = await fetch(`${API_BASE_URL}/api/terminos-condiciones/activo`)
+        
+        if (response.ok) {
+          const result = await response.json()
+          if (result.success && result.data) {
+            setTerminosCondiciones(result.data.texto)
+          }
+        }
+      } catch (error) {
+        console.error('Error cargando términos y condiciones:', error)
+      }
+    }
+    cargarTerminos()
   }, [])
 
   // Recargar ofertas solo cuando la página se vuelve visible después de estar oculta por más de 5 minutos
@@ -715,6 +736,7 @@ export function OfertasConfeccionadasView() {
       incluirFotos: true,
       fotosMap,
       componentesPrincipales,
+      terminosCondiciones: terminosCondiciones || undefined,
     }
 
     // EXPORTACIÓN SIN PRECIOS
@@ -891,6 +913,7 @@ export function OfertasConfeccionadasView() {
       fotosMap,
       sinPrecios: true,
       componentesPrincipales,
+      terminosCondiciones: terminosCondiciones || undefined,
     }
 
     // EXPORTACIÓN CLIENTE CON PRECIOS
@@ -1077,6 +1100,7 @@ export function OfertasConfeccionadasView() {
       fotosMap,
       conPreciosCliente: true,
       componentesPrincipales,
+      terminosCondiciones: terminosCondiciones || undefined,
     }
 
     return {
