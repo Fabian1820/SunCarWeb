@@ -231,6 +231,9 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 export async function exportToPDF(options: ExportOptions): Promise<void> {
   const { title, subtitle, filename, columns, data, logoUrl, clienteData, leadData, leadSinAgregarData, ofertaData, componentesPrincipales, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
 
+  // Debug: verificar si los términos llegaron
+  console.log('📄 exportToPDF - Términos y condiciones:', options.terminosCondiciones ? 'SÍ (' + options.terminosCondiciones.length + ' caracteres)' : 'NO')
+
   // Crear documento PDF en orientación vertical
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -808,68 +811,200 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   // ========== TÉRMINOS Y CONDICIONES ==========
   if (options.terminosCondiciones) {
-    // Agregar nueva página para términos
-    doc.addPage()
-    yPosition = 15
+    // NO crear nueva página automáticamente, continuar en la misma si hay espacio
+    // Solo agregar espacio si estamos en la misma página que el contenido anterior
+    const espacioNecesario = 30 // Espacio mínimo necesario para el título
+    
+    if (yPosition > doc.internal.pageSize.getHeight() - espacioNecesario) {
+      // Si no hay espacio suficiente, crear nueva página
+      doc.addPage()
+      yPosition = 20
+    } else {
+      // Si hay espacio, agregar separación
+      yPosition += 15
+    }
+    
+    // Márgenes
+    const margenIzq = 15
+    const margenDer = 15
+    const anchoTexto = pageWidth - margenIzq - margenDer
+    // NO reiniciar yPosition aquí, continuar desde donde estaba
 
-    // Título de términos
-    doc.setFontSize(14)
+    // Título principal
+    doc.setFontSize(16)
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
     doc.text('TÉRMINOS Y CONDICIONES', pageWidth / 2, yPosition, { align: 'center' })
-    yPosition += 10
+    yPosition += 12
 
-    // Línea separadora
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.5)
-    doc.line(10, yPosition, pageWidth - 10, yPosition)
-    yPosition += 8
+    // Línea separadora decorativa
+    doc.setDrawColor(189, 215, 176) // Color verde de SunCar
+    doc.setLineWidth(1)
+    doc.line(margenIzq, yPosition, pageWidth - margenDer, yPosition)
+    yPosition += 10
 
     // Convertir HTML a texto plano
     const textoPlano = htmlToPlainText(options.terminosCondiciones)
     
-    // Dividir en párrafos
-    const parrafos = textoPlano.split('\n\n').filter(p => p.trim())
+    // Debug: ver las primeras líneas
+    console.log('📄 Primeras líneas de términos:', textoPlano.split('\n').slice(0, 10))
     
-    doc.setFontSize(9)
+    // Dividir en líneas
+    const lineas = textoPlano.split('\n').filter(l => l.trim())
+    
+    // Configuración de texto normal
+    doc.setFontSize(10) // Aumentado de 9 a 10 para coincidir con el resto del documento
     doc.setFont('helvetica', 'normal')
-    doc.setTextColor(60, 60, 60)
+    doc.setTextColor(50, 50, 50)
 
-    parrafos.forEach(parrafo => {
-      // Verificar si es un título (texto corto en mayúsculas o que termina con :)
-      const esTitulo = parrafo.length < 50 && (
-        parrafo === parrafo.toUpperCase() || 
-        parrafo.endsWith(':')
-      )
-
-      if (esTitulo) {
-        // Verificar espacio para título
-        if (yPosition > doc.internal.pageSize.getHeight() - 30) {
-          doc.addPage()
-          yPosition = 15
+    lineas.forEach((linea, index) => {
+      const lineaTrim = linea.trim()
+      if (!lineaTrim) return
+      
+      // Verificar espacio en la página (dejar margen para pie de página)
+      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+        doc.addPage()
+        yPosition = 20
+      }
+      
+      // Detectar si la línea contiene texto en negrita
+      const tieneNegrita = lineaTrim.includes('[B]') && lineaTrim.includes('[/B]')
+      
+      // Limpiar marcadores de negrita para análisis
+      const lineaLimpia = lineaTrim.replace(/\[B\]|\[\/B\]/g, '')
+      
+      // Detectar tipo de contenido
+      const esTituloPrincipal = lineaLimpia.length < 60 && lineaLimpia === lineaLimpia.toUpperCase() && !lineaLimpia.startsWith('•')
+      const esSubtitulo = lineaLimpia.endsWith(':') && lineaLimpia.length < 40 && !lineaLimpia.startsWith('•') && lineaLimpia.split(' ').length <= 5
+      const esLista = lineaLimpia.startsWith('•') || /^\d+[\.\)]/.test(lineaLimpia)
+      
+      if (esTituloPrincipal) {
+        // TÍTULO PRINCIPAL (mayúsculas)
+        if (index > 0) {
+          yPosition += 5
         }
-
+        
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(10)
+        doc.setFontSize(12) // Aumentado de 11 a 12
         doc.setTextColor(0, 0, 0)
-        const tituloLines = doc.splitTextToSize(parrafo, pageWidth - 24)
-        doc.text(tituloLines, 12, yPosition)
-        yPosition += (tituloLines.length * 5) + 4
+        
+        const tituloLines = doc.splitTextToSize(lineaLimpia, anchoTexto)
+        tituloLines.forEach((line: string) => {
+          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+            doc.addPage()
+            yPosition = 20
+          }
+          doc.text(line, margenIzq, yPosition)
+          yPosition += 6 // Aumentado de 5.5 a 6
+        })
+        
+        yPosition += 2
         
         doc.setFont('helvetica', 'normal')
-        doc.setFontSize(9)
-        doc.setTextColor(60, 60, 60)
-      } else {
-        // Verificar espacio para párrafo
-        if (yPosition > doc.internal.pageSize.getHeight() - 30) {
-          doc.addPage()
-          yPosition = 15
+        doc.setFontSize(10) // Aumentado de 9 a 10
+        doc.setTextColor(50, 50, 50)
+        
+      } else if (esSubtitulo || tieneNegrita) {
+        // SUBTÍTULO o TEXTO EN NEGRITA
+        if (index > 0 && esSubtitulo) {
+          yPosition += 3
         }
-
-        // Texto normal justificado
-        const lines = doc.splitTextToSize(parrafo, pageWidth - 24)
-        doc.text(lines, 12, yPosition, { align: 'justify', maxWidth: pageWidth - 24 })
-        yPosition += (lines.length * 4) + 6
+        
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(11) // Aumentado de 10 a 11 (igual que "A la atención de")
+        doc.setTextColor(0, 0, 0)
+        
+        const subtituloLines = doc.splitTextToSize(lineaLimpia, anchoTexto)
+        subtituloLines.forEach((line: string) => {
+          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+            doc.addPage()
+            yPosition = 20
+          }
+          doc.text(line, margenIzq, yPosition)
+          yPosition += 5.5 // Aumentado de 5 a 5.5
+        })
+        
+        yPosition += 1
+        
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(10) // Aumentado de 9 a 10
+        doc.setTextColor(50, 50, 50)
+        
+      } else if (esLista) {
+        // ITEM DE LISTA con indentación
+        const indentacion = 20
+        const anchoLista = anchoTexto - (indentacion - margenIzq)
+        
+        // Separar el bullet/número del texto
+        let textoLista = lineaLimpia
+        if (lineaLimpia.startsWith('•')) {
+          textoLista = lineaLimpia.substring(1).trim()
+        }
+        
+        const lines = doc.splitTextToSize(textoLista, anchoLista)
+        
+        lines.forEach((line: string, i: number) => {
+          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+            doc.addPage()
+            yPosition = 20
+          }
+          
+          if (i === 0) {
+            // Primera línea con bullet
+            doc.text('•', margenIzq + 2, yPosition)
+            doc.text(line, indentacion, yPosition, { 
+              align: 'left',
+              maxWidth: anchoLista 
+            })
+          } else {
+            // Líneas siguientes indentadas
+            doc.text(line, indentacion, yPosition, { 
+              align: 'left',
+              maxWidth: anchoLista 
+            })
+          }
+          yPosition += 5 // Aumentado de 4.5 a 5
+        })
+        
+        yPosition += 1
+        
+      } else {
+        // TEXTO NORMAL - JUSTIFICADO
+        const lines = doc.splitTextToSize(lineaLimpia, anchoTexto)
+        
+        lines.forEach((line: string, i: number) => {
+          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+            doc.addPage()
+            yPosition = 20
+          }
+          
+          // Justificar todas las líneas excepto la última de cada párrafo
+          if (i < lines.length - 1) {
+            // Línea justificada
+            const palabras = line.split(' ')
+            if (palabras.length > 1) {
+              const anchoLinea = doc.getTextWidth(line)
+              const espacioExtra = (anchoTexto - anchoLinea) / (palabras.length - 1)
+              
+              let xPos = margenIzq
+              palabras.forEach((palabra, idx) => {
+                doc.text(palabra, xPos, yPosition)
+                if (idx < palabras.length - 1) {
+                  xPos += doc.getTextWidth(palabra + ' ') + espacioExtra
+                }
+              })
+            } else {
+              doc.text(line, margenIzq, yPosition)
+            }
+          } else {
+            // Última línea alineada a la izquierda
+            doc.text(line, margenIzq, yPosition)
+          }
+          
+          yPosition += 5 // Aumentado de 4.5 a 5
+        })
+        
+        yPosition += 3 // Aumentado de 2.5 a 3
       }
     })
   }
@@ -903,28 +1038,101 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
 /**
  * Convierte HTML a texto plano para PDF
+ * Maneja correctamente la estructura HTML y preserva el formato
+ * Marca el texto en negrita con [B]...[/B] para procesarlo después
  */
 function htmlToPlainText(html: string): string {
-  // Crear elemento temporal
+  if (!html) return ''
+  
+  // Si estamos en el navegador, usar el DOM
   if (typeof document !== 'undefined') {
     const temp = document.createElement('div')
     temp.innerHTML = html
-    return temp.textContent || temp.innerText || ''
+    
+    // Función recursiva para procesar nodos
+    const processNode = (node: Node): string => {
+      let result = ''
+      
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || ''
+      }
+      
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement
+        const tagName = element.tagName.toLowerCase()
+        
+        // Agregar saltos de línea antes de ciertos elementos
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'div'].includes(tagName)) {
+          result += '\n'
+        }
+        
+        // Marcar texto en negrita
+        if (['strong', 'b'].includes(tagName)) {
+          result += '[B]'
+        }
+        
+        // Procesar hijos
+        element.childNodes.forEach(child => {
+          result += processNode(child)
+        })
+        
+        // Cerrar marca de negrita
+        if (['strong', 'b'].includes(tagName)) {
+          result += '[/B]'
+        }
+        
+        // Agregar saltos de línea después de ciertos elementos
+        if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+          result += '\n'
+        } else if (tagName === 'p') {
+          result += '\n'
+        } else if (tagName === 'br') {
+          result += '\n'
+        } else if (tagName === 'li') {
+          result += '\n'
+        }
+      }
+      
+      return result
+    }
+    
+    let text = processNode(temp)
+    
+    // Limpiar espacios múltiples y líneas vacías excesivas
+    return text
+      .replace(/\n\s*\n\s*\n/g, '\n\n') // Máximo 2 saltos de línea consecutivos
+      .replace(/[ \t]+/g, ' ') // Espacios múltiples a uno solo
+      .replace(/^\s+|\s+$/g, '') // Trim
+      .replace(/🔹/g, '•') // Reemplazar emoji por bullet
   }
   
-  // Fallback para SSR: remover tags HTML básicos
+  // Fallback para SSR: procesamiento manual de HTML
   return html
+    .replace(/<strong[^>]*>|<b[^>]*>/gi, '[B]')
+    .replace(/<\/strong>|<\/b>/gi, '[/B]')
+    .replace(/<h[1-6][^>]*>/gi, '\n\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<p[^>]*>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n\n')
-    .replace(/<\/h[1-6]>/gi, '\n\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<li[^>]*>/gi, '\n• ')
+    .replace(/<\/li>/gi, '')
+    .replace(/<ul[^>]*>|<\/ul>/gi, '\n')
+    .replace(/<ol[^>]*>|<\/ol>/gi, '\n')
+    .replace(/<div[^>]*>/gi, '\n')
+    .replace(/<\/div>/gi, '')
+    .replace(/<em[^>]*>|<\/em>/gi, '')
+    .replace(/<i[^>]*>|<\/i>/gi, '')
+    .replace(/<[^>]+>/g, '') // Remover cualquier otra etiqueta
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
     .replace(/🔹/g, '•')
+    .replace(/\n\s*\n\s*\n/g, '\n\n') // Máximo 2 saltos de línea
+    .replace(/[ \t]+/g, ' ') // Espacios múltiples a uno solo
     .trim()
 }
 

@@ -231,6 +231,13 @@ export function ExportSelectionDialog({
     }
   }, [exportOptions, materialesSeleccionados, seccionesEspecialesSeleccionadas, oferta])
 
+  // Debug: verificar que los términos se están pasando
+  console.log('🔍 ExportSelectionDialog - Términos en exportOptions:', {
+    completo: exportOptions.exportOptionsCompleto.terminosCondiciones ? 'SÍ' : 'NO',
+    sinPrecios: exportOptions.exportOptionsSinPrecios.terminosCondiciones ? 'SÍ' : 'NO',
+    clienteConPrecios: exportOptions.exportOptionsClienteConPrecios.terminosCondiciones ? 'SÍ' : 'NO',
+  })
+
   const totalMaterialesSeleccionados = materialesSeleccionados.size
   const totalMateriales = oferta.items?.length || 0
   const totalSeccionesEspecialesSeleccionadas = seccionesEspecialesSeleccionadas.size

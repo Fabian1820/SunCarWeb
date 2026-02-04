@@ -180,6 +180,7 @@ export function ConfeccionOfertasView({
   const [porcentajeMargenPorItem, setPorcentajeMargenPorItem] = useState<Map<string, number>>(new Map())
   const [porcentajeAsignadoPorItem, setPorcentajeAsignadoPorItem] = useState<Record<string, number>>({})
   const [nombreCompletoBackend, setNombreCompletoBackend] = useState<string>("")
+  const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(null)
 
   const normalizeText = (value: string) =>
     value
@@ -471,6 +472,32 @@ export function ConfeccionOfertasView({
       refetchStock(almacenId)
     }
   }, [almacenId, refetchStock])
+
+  // Cargar términos y condiciones
+  useEffect(() => {
+    const cargarTerminos = async () => {
+      try {
+        const { apiRequest } = await import('@/lib/api-config')
+        const result = await apiRequest<{
+          success: boolean
+          data?: {
+            id: string
+            texto: string
+            activo: boolean
+          }
+        }>('/terminos-condiciones/activo', {
+          method: 'GET'
+        })
+        
+        if (result.success && result.data) {
+          setTerminosCondiciones(result.data.texto)
+        }
+      } catch (error) {
+        console.error('Error cargando términos y condiciones:', error)
+      }
+    }
+    cargarTerminos()
+  }, [])
 
   // Guardar estado en localStorage cada vez que cambia
   useEffect(() => {
@@ -1588,6 +1615,7 @@ export function ConfeccionOfertasView({
         
         return componentes
       })(),
+      terminosCondiciones: terminosCondiciones || undefined,
     }
   }, [
     items,
@@ -1624,6 +1652,7 @@ export function ConfeccionOfertasView({
     totalCostosExtras,
     descuentoPorcentaje,
     montoDescuento,
+    terminosCondiciones,
   ])
 
   const exportOptionsSinPrecios = useMemo(() => {
@@ -1880,6 +1909,7 @@ export function ConfeccionOfertasView({
         
         return componentes
       })(),
+      terminosCondiciones: terminosCondiciones || undefined,
     }
   }, [
     items,
@@ -1906,6 +1936,7 @@ export function ConfeccionOfertasView({
     tasaCambioNumero,
     montoConvertido,
     descuentoPorcentaje,
+    terminosCondiciones,
   ])
 
   const exportOptionsClienteConPrecios = useMemo(() => {
@@ -2206,6 +2237,7 @@ export function ConfeccionOfertasView({
         
         return componentes
       })(),
+      terminosCondiciones: terminosCondiciones || undefined,
     }
   }, [
     items,
@@ -2240,6 +2272,7 @@ export function ConfeccionOfertasView({
     descuentoPorcentaje,
     montoDescuento,
     seccionLabelMap,
+    terminosCondiciones,
   ])
 
   const agregarMaterial = (material: Material) => {

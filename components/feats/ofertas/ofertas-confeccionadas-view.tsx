@@ -132,17 +132,26 @@ export function OfertasConfeccionadasView() {
   useEffect(() => {
     const cargarTerminos = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
-        const response = await fetch(`${API_BASE_URL}/api/terminos-condiciones/activo`)
-        
-        if (response.ok) {
-          const result = await response.json()
-          if (result.success && result.data) {
-            setTerminosCondiciones(result.data.texto)
+        const { apiRequest } = await import('@/lib/api-config')
+        const result = await apiRequest<{
+          success: boolean
+          data?: {
+            id: string
+            texto: string
+            activo: boolean
           }
+        }>('/terminos-condiciones/activo', {
+          method: 'GET'
+        })
+        
+        if (result.success && result.data) {
+          console.log('✅ Términos y condiciones cargados:', result.data.texto.substring(0, 100) + '...')
+          setTerminosCondiciones(result.data.texto)
+        } else {
+          console.warn('⚠️ No se encontraron términos y condiciones activos')
         }
       } catch (error) {
-        console.error('Error cargando términos y condiciones:', error)
+        console.error('❌ Error cargando términos y condiciones:', error)
       }
     }
     cargarTerminos()
@@ -736,7 +745,10 @@ export function OfertasConfeccionadasView() {
       incluirFotos: true,
       fotosMap,
       componentesPrincipales,
-      terminosCondiciones: terminosCondiciones || undefined,
+      terminosCondiciones: (() => {
+        console.log('📄 Pasando términos a exportOptionsCompleto:', terminosCondiciones ? 'SÍ (' + terminosCondiciones.length + ' caracteres)' : 'NO')
+        return terminosCondiciones || undefined
+      })(),
     }
 
     // EXPORTACIÓN SIN PRECIOS
