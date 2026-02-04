@@ -651,21 +651,24 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       
       yPosition += 10
     } else {
-      // Sin precios o solo 1 material: solo un pequeño espacio entre secciones
-      yPosition += 5
+      // Sin precios o solo 1 material: NO agregar espacio extra
+      // yPosition += 5  // QUITADO: No agregar espacio entre secciones cuando no hay subtotal
     }
     
     seccionIndex++
   }
 
   // ========== TOTALES Y SERVICIOS ==========
-  // Buscar servicios, transportación y totales en los datos
+  // Buscar servicios, transportación, descuentos y totales en los datos
   const servicios = data.filter(row => row.tipo === 'Servicio')
   const transportacion = data.filter(row => row.tipo === 'Transportación')
+  const descuentos = data.filter(row => row.tipo === 'Descuento')
   const totales = data.filter(row => row.tipo === 'TOTAL')
   const datosPago = data.filter(row => row.seccion === 'PAGO')
 
-  if (servicios.length > 0 || transportacion.length > 0 || totales.length > 0) {
+  console.log('🔍 DEBUG PDF - Descuentos encontrados:', descuentos.length, descuentos)
+
+  if (servicios.length > 0 || transportacion.length > 0 || descuentos.length > 0 || totales.length > 0) {
     yPosition += 5
     
     // Verificar espacio para servicios y totales (dejar margen para pie de página)
@@ -694,6 +697,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       yPosition += 6
     })
 
+    // Descuentos
+    descuentos.forEach(desc => {
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(220, 38, 38) // Color rojo para destacar el descuento
+      doc.text(desc.descripcion, 12, yPosition)
+      doc.text(desc.total || '', pageWidth - 12, yPosition, { align: 'right' })
+      yPosition += 6
+    })
+
     // Total final
     if (totales.length > 0) {
       yPosition += 3
@@ -714,106 +727,177 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     yPosition += 10
     
     // Verificar espacio en la página (dejar margen para pie de página)
-    if (yPosition > doc.internal.pageSize.getHeight() - 60) {
+    const espacioNecesario = 50 // Aumentado de 30 a 50 para asegurar que haya espacio para título + contenido
+    if (yPosition > doc.internal.pageSize.getHeight() - espacioNecesario) {
       doc.addPage()
-      yPosition = 15
+      yPosition = 20
+    } else {
+      yPosition += 15
     }
 
-    // Línea separadora
-    doc.setDrawColor(200, 200, 200)
-    doc.setLineWidth(0.5)
-    doc.line(10, yPosition, pageWidth - 10, yPosition)
-    yPosition += 8
+    // Márgenes (iguales a términos y condiciones)
+    const margenIzq = 15
+    const margenDer = 15
+    const anchoTexto = pageWidth - margenIzq - margenDer
 
+    // Título principal (igual que términos y condiciones)
+    doc.setFontSize(16)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(0, 0, 0)
+    doc.text('DETALLES DEL PAGO', pageWidth / 2, yPosition, { align: 'center' })
+    yPosition += 5 // Reducido de 8 a 5 para estar más pegado
+
+    // Línea separadora decorativa (igual que términos y condiciones)
+    doc.setDrawColor(189, 215, 176) // Color verde de SunCar
+    doc.setLineWidth(1)
+    doc.line(margenIzq, yPosition, pageWidth - margenDer, yPosition)
+    yPosition += 10
+
+    // Procesar datos de pago
+    let tienePagoTransferencia = false
+    let datosCuentaTexto = ''
+    let tieneContribucion = false
+    let montoContribucion = ''
+    let tieneConversion = false
+    let monedaPago = ''
+    let tasaCambio = ''
+    let precioConvertido = ''
+
+    // Recopilar información
     datosPago.forEach(pago => {
-      // Saltar el Precio Final duplicado en la sección PAGO
-      if (pago.tipo === 'TOTAL') {
-        return
+      if (pago.tipo === 'Info' && pago.descripcion.includes('transferencia')) {
+        tienePagoTransferencia = true
       }
-
-      // Verificar espacio (dejar margen para pie de página)
-      if (yPosition > doc.internal.pageSize.getHeight() - 30) {
-        doc.addPage()
-        yPosition = 15
+      if (pago.tipo === 'Datos') {
+        // Limpiar caracteres de control EXCEPTO saltos de línea (\n = \u000A) y tabulaciones (\t = \u0009)
+        datosCuentaTexto = (pago.total || '').replace(/[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/g, '')
       }
-
-      if (pago.tipo === 'Info') {
-        if (pago.descripcion.startsWith('✓')) {
-          // Items con checkbox
-          doc.setFontSize(10) // Aumentado de 9 a 10
-          doc.setFont('helvetica', 'normal')
-          doc.setTextColor(60, 60, 60)
-          doc.text(pago.descripcion.replace('✓', '•'), 12, yPosition)
-          
-          if (pago.total) {
-            doc.setTextColor(0, 0, 0)
-            doc.text(pago.total, pageWidth - 12, yPosition, { align: 'right' })
-          }
-          yPosition += 6
-        } else {
-          // Info regular
-          doc.setFontSize(10) // Aumentado de 9 a 10
-          doc.setFont('helvetica', 'normal')
-          doc.setTextColor(80, 80, 80)
-          doc.text(pago.descripcion, 12, yPosition)
-          
-          if (pago.total) {
-            doc.setFont('helvetica', 'normal')
-            doc.setTextColor(0, 0, 0)
-            doc.text(pago.total, pageWidth - 12, yPosition, { align: 'right' })
-          }
-          yPosition += 6
-        }
-      } else if (pago.tipo === 'Datos') {
-        // Datos de cuenta indentados
-        doc.setFontSize(9) // Aumentado de 8 a 9
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(100, 100, 100)
-        const datosLines = doc.splitTextToSize(pago.total || '', pageWidth - 32)
-        doc.text(datosLines, 18, yPosition)
-        yPosition += (datosLines.length * 4) + 4
-      } else if (pago.tipo === 'Monto') {
-        // Monto de contribución
-        doc.setFontSize(10) // Aumentado de 9 a 10
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(60, 60, 60)
-        doc.text(pago.descripcion, 18, yPosition)
-        
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(0, 0, 0)
-        doc.text(pago.total || '', pageWidth - 12, yPosition, { align: 'right' })
-        yPosition += 8
-      } else if (pago.tipo === 'Nota') {
-        // Nota de redondeo
-        doc.setFontSize(8) // Aumentado de 7 a 8
-        doc.setFont('helvetica', 'italic')
-        doc.setTextColor(120, 120, 120)
-        doc.text(pago.descripcion, pageWidth - 12, yPosition, { align: 'right' })
-        yPosition += 6
-      } else if (pago.tipo === 'Tasa') {
-        // Tasa de cambio
-        doc.setFontSize(10) // Aumentado de 9 a 10
-        doc.setFont('helvetica', 'normal')
-        doc.setTextColor(80, 80, 80)
-        doc.text(pago.descripcion, 18, yPosition)
-        yPosition += 6
-      } else if (pago.tipo === 'Conversión') {
-        // Precio convertido
-        doc.setFontSize(11) // Aumentado de 10 a 11
-        doc.setFont('helvetica', 'bold')
-        doc.setTextColor(0, 0, 0)
-        doc.text(pago.descripcion, 12, yPosition)
-        doc.text(pago.total || '', pageWidth - 12, yPosition, { align: 'right' })
-        yPosition += 8
+      if (pago.tipo === 'Info' && pago.descripcion.includes('Contribución')) {
+        tieneContribucion = true
+      }
+      if (pago.tipo === 'Monto') {
+        montoContribucion = pago.total || ''
+      }
+      if (pago.tipo === 'Info' && pago.descripcion.includes('Moneda')) {
+        monedaPago = pago.total || ''
+      }
+      if (pago.tipo === 'Tasa') {
+        tasaCambio = pago.descripcion || ''
+      }
+      if (pago.tipo === 'Conversión') {
+        tieneConversion = true
+        precioConvertido = pago.total || ''
       }
     })
+
+    // Configuración de texto
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(50, 50, 50)
+
+    // 1. PAGO POR TRANSFERENCIA
+    if (tienePagoTransferencia) {
+      // Verificar espacio
+      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text('Pago por transferencia', margenIzq, yPosition)
+      yPosition += 6
+
+      if (datosCuentaTexto) {
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(50, 50, 50)
+        
+        // Dividir por saltos de línea para respetar los enters del usuario
+        // Soportar tanto \n como <br> o <br/>
+        let lineas = datosCuentaTexto
+          .replace(/<br\s*\/?>/gi, '\n') // Convertir <br> a \n
+          .split('\n')
+        
+        lineas.forEach((linea: string) => {
+          // Verificar espacio en la página
+          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+            doc.addPage()
+            yPosition = 20
+          }
+          
+          if (!linea.trim()) {
+            // Línea vacía, agregar espacio pequeño
+            yPosition += 3
+          } else {
+            // Escribir la línea tal cual, sin justificación
+            doc.text(linea.trim(), margenIzq, yPosition)
+            yPosition += 5
+          }
+        })
+        
+        yPosition += 5
+      }
+    }
+
+    // 2. CONTRIBUCIÓN
+    if (tieneContribucion && montoContribucion) {
+      // Verificar espacio
+      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text('Contribución', margenIzq, yPosition)
+      
+      doc.setFont('helvetica', 'normal')
+      doc.text(`$${montoContribucion}`, pageWidth - margenDer, yPosition, { align: 'right' })
+      yPosition += 8
+    }
+
+    // 3. CONVERSIÓN DE MONEDA
+    if (tieneConversion && monedaPago) {
+      // Verificar espacio
+      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+        doc.addPage()
+        yPosition = 20
+      }
+
+      // Moneda
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text('Moneda', margenIzq, yPosition)
+      
+      doc.setFont('helvetica', 'normal')
+      doc.text(monedaPago, pageWidth - margenDer, yPosition, { align: 'right' })
+      yPosition += 6
+
+      // Tasa de cambio
+      if (tasaCambio) {
+        doc.setFont('helvetica', 'italic')
+        doc.setFontSize(9)
+        doc.setTextColor(100, 100, 100)
+        doc.text(tasaCambio, margenIzq, yPosition)
+        yPosition += 6
+        doc.setFontSize(10)
+      }
+
+      // Total en moneda convertida
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text('Total', margenIzq, yPosition)
+      
+      doc.text(precioConvertido, pageWidth - margenDer, yPosition, { align: 'right' })
+      yPosition += 8
+    }
   }
 
   // ========== TÉRMINOS Y CONDICIONES ==========
   if (options.terminosCondiciones) {
     // NO crear nueva página automáticamente, continuar en la misma si hay espacio
     // Solo agregar espacio si estamos en la misma página que el contenido anterior
-    const espacioNecesario = 30 // Espacio mínimo necesario para el título
+    const espacioNecesario = 50 // Aumentado de 30 a 50 para asegurar que haya espacio para título + al menos 3 líneas de contenido
     
     if (yPosition > doc.internal.pageSize.getHeight() - espacioNecesario) {
       // Si no hay espacio suficiente, crear nueva página
@@ -835,7 +919,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 0, 0)
     doc.text('TÉRMINOS Y CONDICIONES', pageWidth / 2, yPosition, { align: 'center' })
-    yPosition += 12
+    yPosition += 5 // Reducido de 8 a 5 para estar más pegado
 
     // Línea separadora decorativa
     doc.setDrawColor(189, 215, 176) // Color verde de SunCar

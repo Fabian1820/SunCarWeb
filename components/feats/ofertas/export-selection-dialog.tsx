@@ -7,7 +7,7 @@
  * Versión: 2.0 - Expandible con checkboxes
  */
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/shared/molecule/dialog"
 import { Button } from "@/components/shared/atom/button"
 import { Checkbox } from "@/components/shared/molecule/checkbox"
@@ -113,6 +113,19 @@ export function ExportSelectionDialog({
   )
   const [seccionesExpandidas, setSeccionesExpandidas] = useState<Set<string>>(new Set())
 
+  // Actualizar selección cuando cambie la oferta
+  useEffect(() => {
+    console.log('🔄 Actualizando selección por cambio de oferta:', {
+      items_count: oferta.items?.length || 0,
+      secciones_count: itemsPorSeccion.size,
+      secciones_especiales_count: seccionesEspeciales.length
+    })
+    
+    setSeccionesSeleccionadas(new Set(Array.from(itemsPorSeccion.keys())))
+    setMaterialesSeleccionados(new Set(oferta.items?.map((item: any) => item.material_codigo?.toString()) || []))
+    setSeccionesEspecialesSeleccionadas(new Set(seccionesEspeciales.map(s => s.id)))
+  }, [oferta.id, itemsPorSeccion, seccionesEspeciales, oferta.items])
+
   // Toggle sección
   const toggleSeccion = (seccionId: string) => {
     const nuevasSeleccionadas = new Set(seccionesSeleccionadas)
@@ -191,10 +204,20 @@ export function ExportSelectionDialog({
   // Generar opciones de exportación filtradas
   const opcionesFiltradas = useMemo(() => {
     const filtrarItems = (items: any[]) => {
-      return items.filter(item => {
+      console.log('🔍 Filtrando items:', {
+        total_items: items.length,
+        materiales_seleccionados: materialesSeleccionados.size,
+        secciones_especiales_seleccionadas: seccionesEspecialesSeleccionadas.size
+      })
+      
+      const itemsFiltrados = items.filter(item => {
         // Si es un item de material, verificar si está seleccionado
         if (item.material_codigo) {
-          return materialesSeleccionados.has(item.material_codigo?.toString())
+          const seleccionado = materialesSeleccionados.has(item.material_codigo?.toString())
+          if (!seleccionado) {
+            console.log('❌ Material NO seleccionado:', item.material_codigo, item.descripcion)
+          }
+          return seleccionado
         }
         
         // Si es servicio de instalación, verificar si está seleccionado
@@ -210,9 +233,13 @@ export function ExportSelectionDialog({
           return seccionesEspecialesSeleccionadas.has(seccionPersonalizada.id)
         }
         
-        // Mantener items que no son materiales ni secciones especiales (totales, transportación, etc.)
+        // Mantener items que no son materiales ni secciones especiales (totales, transportación, descuento, etc.)
+        console.log('✅ Manteniendo item no-material:', item.tipo, item.descripcion)
         return true
       })
+      
+      console.log('✅ Items después de filtrar:', itemsFiltrados.length)
+      return itemsFiltrados
     }
 
     return {

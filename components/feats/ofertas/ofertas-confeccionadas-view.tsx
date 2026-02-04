@@ -442,6 +442,14 @@ export function OfertasConfeccionadasView() {
         : (oferta.precio_final || 0) * tasaCambioNumero
       : 0
 
+    // Debug: ver campos de descuento de la oferta
+    console.log('🔍 DEBUG - Oferta completa:', oferta)
+    console.log('🔍 DEBUG - Descuento:', {
+      descuento_porcentaje: oferta.descuento_porcentaje,
+      monto_descuento: oferta.monto_descuento,
+      subtotal_con_descuento: oferta.subtotal_con_descuento,
+    })
+
     // Extraer componentes principales de los items
     const componentesPrincipales: any = {}
     
@@ -555,6 +563,33 @@ export function OfertasConfeccionadasView() {
         porcentaje_margen: "",
         margen: "",
         total: oferta.costo_transportacion.toFixed(2),
+      })
+    }
+
+    // Agregar descuento si existe
+    const descuentoPorcentaje = parseFloat(oferta.descuento_porcentaje as any) || 0
+    const montoDescuento = parseFloat(oferta.monto_descuento as any) || 0
+    
+    console.log('🔍 DEBUG Descuento:', {
+      descuento_porcentaje_original: oferta.descuento_porcentaje,
+      descuento_porcentaje_parseado: descuentoPorcentaje,
+      monto_descuento_original: oferta.monto_descuento,
+      monto_descuento_parseado: montoDescuento,
+      tiene_descuento: descuentoPorcentaje > 0
+    })
+    
+    if (descuentoPorcentaje > 0) {
+      console.log('✅ Agregando descuento al PDF:', montoDescuento)
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${descuentoPorcentaje}%)`,
+        cantidad: 1,
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: `- ${montoDescuento.toFixed(2)}`,
       })
     }
 
@@ -788,6 +823,8 @@ export function OfertasConfeccionadasView() {
       })
     }
 
+    // NO agregar descuento en exportación sin precios
+
     rowsSinPrecios.push({
       material_codigo: "",
       seccion: "Totales",
@@ -971,6 +1008,8 @@ export function OfertasConfeccionadasView() {
         total: oferta.costo_transportacion.toFixed(2),
       })
     }
+
+    // NO agregar descuento en exportación cliente con precios
 
     rowsClienteConPrecios.push({
       material_codigo: "",

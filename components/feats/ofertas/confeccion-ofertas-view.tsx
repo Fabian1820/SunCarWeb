@@ -100,6 +100,14 @@ export function ConfeccionOfertasView({
       return 'oferta-nueva'
     }
   }, [modoEdicion, ofertaParaEditar?.id, ofertaParaDuplicar?.id])
+
+  // Limpiar localStorage al entrar en modo edición para evitar datos desactualizados
+  useEffect(() => {
+    if (modoEdicion && ofertaParaEditar?.id) {
+      console.log('🧹 Limpiando localStorage para modo edición')
+      localStorage.removeItem(localStorageKey)
+    }
+  }, [modoEdicion, ofertaParaEditar?.id, localStorageKey])
   
   // Función para cargar estado desde localStorage
   const cargarEstadoGuardado = () => {
@@ -293,18 +301,32 @@ export function ConfeccionOfertasView({
   useEffect(() => {
     const ofertaACopiar = modoEdicion ? ofertaParaEditar : ofertaParaDuplicar
     
+    console.log('🔍 DEBUG - useEffect oferta:', {
+      modoEdicion,
+      tiene_ofertaParaEditar: !!ofertaParaEditar,
+      tiene_ofertaParaDuplicar: !!ofertaParaDuplicar,
+      ofertaACopiar_id: ofertaACopiar?.id,
+      descuento_en_oferta: ofertaACopiar?.descuento_porcentaje,
+    })
+    
     if (ofertaACopiar) {
-      // Verificar si hay un estado guardado más reciente
-      const estadoGuardado = cargarEstadoGuardado()
-      if (estadoGuardado && estadoGuardado.timestamp) {
-        const tiempoGuardado = new Date(estadoGuardado.timestamp).getTime()
-        const tiempoActual = new Date().getTime()
-        const diferencia = tiempoActual - tiempoGuardado
-        
-        // Si el estado guardado es de hace menos de 24 horas, usarlo en lugar de la oferta
-        if (diferencia < 24 * 60 * 60 * 1000) {
-          console.log('📦 Usando estado guardado en localStorage')
-          return // Ya se cargó en el estado inicial
+      // En modo edición, SIEMPRE cargar los datos de la oferta del backend
+      // NO usar localStorage porque puede tener datos desactualizados
+      if (modoEdicion) {
+        console.log('🔄 Modo edición: Cargando datos frescos de la oferta (ignorando localStorage)')
+      } else {
+        // En modo duplicación, verificar si hay un estado guardado más reciente
+        const estadoGuardado = cargarEstadoGuardado()
+        if (estadoGuardado && estadoGuardado.timestamp) {
+          const tiempoGuardado = new Date(estadoGuardado.timestamp).getTime()
+          const tiempoActual = new Date().getTime()
+          const diferencia = tiempoActual - tiempoGuardado
+          
+          // Si el estado guardado es de hace menos de 24 horas, usarlo en lugar de la oferta
+          if (diferencia < 24 * 60 * 60 * 1000) {
+            console.log('📦 Usando estado guardado en localStorage')
+            return // Ya se cargó en el estado inicial
+          }
         }
       }
       
@@ -437,6 +459,12 @@ export function ConfeccionOfertasView({
       setMargenComercial(ofertaACopiar.margen_comercial || 0)
       setCostoTransportacion(ofertaACopiar.costo_transportacion || 0)
       setDescuentoPorcentaje(ofertaACopiar.descuento_porcentaje || 0)
+      
+      console.log('🔍 DEBUG - Cargando descuento al editar:', {
+        descuento_porcentaje: ofertaACopiar.descuento_porcentaje,
+        monto_descuento: ofertaACopiar.monto_descuento,
+        tiene_campo: 'descuento_porcentaje' in ofertaACopiar
+      })
       
       // Cargar datos de pago
       setMonedaPago(ofertaACopiar.moneda_pago || 'USD')
@@ -3147,6 +3175,12 @@ export function ConfeccionOfertasView({
       ofertaData.total_elementos_personalizados = totalElementosPersonalizados
       ofertaData.total_costos_extras = totalCostosExtras
       ofertaData.precio_final = precioFinal
+
+      console.log('💰 DEBUG - Datos de descuento que se envían:', {
+        descuento_porcentaje: descuentoPorcentaje,
+        monto_descuento: montoDescuento,
+        subtotal_con_descuento: subtotalConDescuento,
+      })
 
       // Agregar datos de pago
       ofertaData.moneda_pago = monedaPago
