@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Servicio centralizado de exportación a Excel y PDF
  * 
  * Este servicio proporciona funcionalidades genéricas para exportar tablas
@@ -92,6 +92,19 @@ export interface ExportOptions {
   sinPrecios?: boolean // Indica si es una exportación sin precios
   conPreciosCliente?: boolean // Indica si es exportación con precios para cliente (Material | Cant | Total)
   terminosCondiciones?: string // HTML de términos y condiciones
+  seccionesPersonalizadas?: Array<{
+    id: string
+    label: string
+    tipo: 'extra'
+    tipo_extra: 'escritura' | 'costo'
+    contenido_escritura?: string
+    costos_extras?: Array<{
+      id: string
+      descripcion: string
+      cantidad: number
+      precio_unitario: number
+    }>
+  }>
 }
 
 /**
@@ -257,10 +270,24 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       partes.push(`${totalKW} KW DE INVERSOR`)
     }
     
-    // Batería
-    if (componentesPrincipales.bateria) {
-      const totalKWH = (componentesPrincipales.bateria.cantidad * componentesPrincipales.bateria.capacidad).toFixed(2)
-      partes.push(`${totalKWH} KWH DE BATERÍA`)
+    // Batería - Intentar extraer del nombre de la oferta primero
+    let potenciaBateria = '0.00'
+    if (ofertaData?.nombre_oferta) {
+      // Buscar patrón como "10.24KWH" o "10.24 KWH" en el nombre de la oferta
+      const matchKWH = ofertaData.nombre_oferta.match(/(\d+\.?\d*)\s*KWH/i)
+      if (matchKWH) {
+        potenciaBateria = parseFloat(matchKWH[1]).toFixed(2)
+      }
+    }
+    
+    // Si no se encontró en el nombre, usar componentesPrincipales.bateria como fallback
+    if (potenciaBateria === '0.00' && componentesPrincipales.bateria) {
+      potenciaBateria = (componentesPrincipales.bateria.cantidad * componentesPrincipales.bateria.capacidad).toFixed(2)
+    }
+    
+    // Agregar batería a las partes si hay potencia
+    if (parseFloat(potenciaBateria) > 0) {
+      partes.push(`${potenciaBateria} KWH DE BATERÍA`)
     }
     
     // Paneles
@@ -338,7 +365,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   
   if (atencionDe) {
     doc.setFontSize(11) // Aumentado de 9 a 11 para que sea más grande
-    doc.setFont('helvetica', 'bold') // Cambiado de 'normal' a 'bold' para más énfasis
+    doc.setFont('helvetica', 'normal') // Cambiado de 'bold' a 'normal' para que no esté en negrita
     doc.setTextColor(0, 0, 0)
     doc.text(`A la atención de: ${atencionDe}`, 10, yPosition)
     yPosition += 8
@@ -658,17 +685,159 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     seccionIndex++
   }
 
+  // ========== SECCIONES PERSONALIZADAS DE TIPO COSTO ==========
+  let totalCostosExtras = 0
+  
+  if (options.seccionesPersonalizadas && options.seccionesPersonalizadas.length > 0) {
+    // Procesar secciones de tipo COSTO
+    const seccionesCosto = options.seccionesPersonalizadas.filter(s => s.tipo_extra === 'costo')
+    
+    for (const seccion of seccionesCosto) {
+      if (!seccion.costos_extras || seccion.costos_extras.length === 0) continue
+      
+      // Verificar espacio para nueva sección
+      const espacioNecesario = 15 + 20
+      if (yPosition + espacioNecesario > doc.internal.pageSize.getHeight() - 30) {
+        doc.addPage()
+        yPosition = 15
+      }
+
+      // Encabezado de sección personalizada con fondo gris claro
+      doc.setFillColor(245, 245, 245)
+      doc.rect(10, yPosition, pageWidth - 20, 8, 'F')
+      
+      doc.setFontSize(11)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text(seccion.label, 12, yPosition + 5.5)
+      
+      yPosition += 10
+
+      // Procesar cada costo extra como si fuera un material
+      for (const costo of seccion.costos_extras) {
+        const rowHeight = 15
+        
+        // Verificar espacio en la página
+        if (yPosition + rowHeight > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage()
+          yPosition = 15
+        }
+
+        // Fondo blanco
+        doc.setFillColor(255, 255, 255)
+        doc.rect(10, yPosition, pageWidth - 20, rowHeight, 'F')
+
+        // Borde sutil
+        doc.setDrawColor(240, 240, 240)
+        doc.setLineWidth(0.1)
+        doc.rect(10, yPosition, pageWidth - 20, rowHeight)
+
+        // NOMBRE DEL COSTO (donde iría la foto y el nombre del material)
+        doc.setFontSize(9)
+        doc.setFont('helvetica', 'bold')
+        doc.setTextColor(0, 0, 0)
+        const descripcion = costo.descripcion || ''
+        
+        let camposYPosition = yPosition + 9
+
+        if (!sinPrecios && !conPreciosCliente) {
+          // Con precios completos
+          const anchoDisponible = 57
+          const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
+          if (descripcionLines.length === 1) {
+            doc.text(descripcionLines[0], 38, yPosition + 9)
+          } else {
+            doc.text(descripcionLines[0], 38, yPosition + 7)
+            doc.text(descripcionLines[1], 38, yPosition + 11)
+          }
+
+          // PRECIO UNITARIO
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(0, 0, 0)
+          const precioUnit = parseFloat(costo.precio_unitario.toString()) || 0
+          doc.text(`${formatNumberWithComma(precioUnit)} $`, 105, camposYPosition, { align: 'center' })
+
+          // CANTIDAD
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(0, 0, 0)
+          doc.text(costo.cantidad.toString(), 120, camposYPosition, { align: 'center' })
+
+          // TOTAL BASE
+          const totalBase = precioUnit * costo.cantidad
+          totalCostosExtras += totalBase
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(0, 0, 0)
+          doc.text(`${formatNumberWithComma(totalBase)} $`, 140, camposYPosition, { align: 'center' })
+
+          // MARGEN (vacío para costos extras)
+          doc.setFontSize(9)
+          doc.setFont('helvetica', 'normal')
+          doc.setTextColor(100, 100, 100)
+          doc.text('-', 165, camposYPosition, { align: 'center' })
+
+          // TOTAL FINAL (igual al total base)
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(0, 0, 0)
+          doc.text(`${formatNumberWithComma(totalBase)} $`, pageWidth - 12, camposYPosition, { align: 'right' })
+
+        } else if (conPreciosCliente) {
+          // Con precios cliente
+          const anchoDisponible = 112
+          const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
+          doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
+
+          // CANTIDAD
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(0, 0, 0)
+          doc.text(costo.cantidad.toString(), 161, camposYPosition, { align: 'right' })
+
+          // TOTAL
+          const precioUnit = parseFloat(costo.precio_unitario.toString()) || 0
+          const total = precioUnit * costo.cantidad
+          totalCostosExtras += total
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(0, 0, 0)
+          doc.text(`${total} $`, pageWidth - 12, camposYPosition, { align: 'right' })
+
+        } else {
+          // Sin precios
+          const anchoDisponible = pageWidth - 12 - 38 - 5
+          const descripcionLines = doc.splitTextToSize(descripcion, anchoDisponible)
+          doc.text(descripcionLines.slice(0, 1), 38, yPosition + 9)
+
+          // CANTIDAD
+          doc.setFontSize(10)
+          doc.setFont('helvetica', 'bold')
+          doc.setTextColor(0, 0, 0)
+          doc.text(costo.cantidad.toString(), pageWidth - 12, camposYPosition, { align: 'right' })
+        }
+
+        yPosition += rowHeight + 1
+      }
+
+      yPosition += 5
+    }
+  }
+
   // ========== TOTALES Y SERVICIOS ==========
-  // Buscar servicios, transportación, descuentos y totales en los datos
+  // Buscar servicios, transportación, contribución, descuentos y totales en los datos
+  const subtotales = data.filter(row => row.tipo === 'Subtotal')
   const servicios = data.filter(row => row.tipo === 'Servicio')
   const transportacion = data.filter(row => row.tipo === 'Transportación')
+  const contribuciones = data.filter(row => row.tipo === 'Contribucion')
   const descuentos = data.filter(row => row.tipo === 'Descuento')
   const totales = data.filter(row => row.tipo === 'TOTAL')
   const datosPago = data.filter(row => row.seccion === 'PAGO')
 
   console.log('🔍 DEBUG PDF - Descuentos encontrados:', descuentos.length, descuentos)
 
-  if (servicios.length > 0 || transportacion.length > 0 || descuentos.length > 0 || totales.length > 0) {
+  if (subtotales.length > 0 || servicios.length > 0 || transportacion.length > 0 || contribuciones.length > 0 || descuentos.length > 0 || totales.length > 0) {
     yPosition += 5
     
     // Verificar espacio para servicios y totales (dejar margen para pie de página)
@@ -677,43 +846,79 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       yPosition = 15
     }
     
-    // Servicios
-    servicios.forEach(servicio => {
-      doc.setFontSize(10) // Aumentado de 9 a 10
-      doc.setFont('helvetica', 'normal')
+    // Subtotales (como Total de materiales) - NO MOSTRAR en exportación sin precios
+    if (!sinPrecios) {
+      subtotales.forEach(subtotal => {
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal') // Cambiado de 'bold' a 'normal'
+        doc.setTextColor(0, 0, 0)
+        doc.text(subtotal.descripcion, 12, yPosition)
+        doc.text(`${formatNumberWithComma(parseFloat(subtotal.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
+        yPosition += 5 // Reducido de 8 a 5
+      })
+    }
+    
+    // AGREGAR TOTAL DE COSTOS EXTRAS (si hay costos extras y no es sin precios)
+    if (totalCostosExtras > 0 && !sinPrecios) {
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal') // Cambiado de 'bold' a 'normal'
       doc.setTextColor(0, 0, 0)
-      doc.text(servicio.descripcion, 12, yPosition)
-      doc.text(`${formatNumberWithComma(parseFloat(servicio.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
-      yPosition += 6
-    })
+      doc.text('Total costos extras', 12, yPosition)
+      doc.text(`${formatNumberWithComma(totalCostosExtras)} $`, pageWidth - 12, yPosition, { align: 'right' })
+      yPosition += 5 // Reducido de 8 a 5
+    }
+    
+    // Servicios (Costo de instalación) - NO MOSTRAR en exportación sin precios
+    if (!sinPrecios) {
+      servicios.forEach(servicio => {
+        doc.setFontSize(10)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(0, 0, 0)
+        doc.text(servicio.descripcion, 12, yPosition)
+        doc.text(`${formatNumberWithComma(parseFloat(servicio.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
+        yPosition += 5 // Reducido de 6 a 5
+      })
+    }
 
-    // Transportación
+    // Transportación - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN (incluyendo sin precios)
     transportacion.forEach(trans => {
-      doc.setFontSize(10) // Aumentado de 9 a 10
+      doc.setFontSize(10)
       doc.setFont('helvetica', 'normal')
       doc.setTextColor(0, 0, 0)
       doc.text(trans.descripcion, 12, yPosition)
+      
+      // Mostrar precio siempre (incluso en sin precios)
       doc.text(`${formatNumberWithComma(parseFloat(trans.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
-      yPosition += 6
+      yPosition += 5 // Unificado a 5 para todos
     })
 
-    // Descuentos
+    // Contribución - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN (incluyendo sin precios)
+    contribuciones.forEach(contrib => {
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(0, 0, 0)
+      doc.text(contrib.descripcion, 12, yPosition)
+      doc.text(`${formatNumberWithComma(parseFloat(contrib.total || 0))} $`, pageWidth - 12, yPosition, { align: 'right' })
+      yPosition += 5 // Unificado a 5 para todos
+    })
+
+    // Descuentos - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN (incluyendo sin precios)
     descuentos.forEach(desc => {
       doc.setFontSize(10)
-      doc.setFont('helvetica', 'bold')
-      doc.setTextColor(220, 38, 38) // Color rojo para destacar el descuento
+      doc.setFont('helvetica', 'normal') // Cambiado de 'bold' a 'normal'
+      doc.setTextColor(220, 38, 38)
       doc.text(desc.descripcion, 12, yPosition)
       doc.text(desc.total || '', pageWidth - 12, yPosition, { align: 'right' })
-      yPosition += 6
+      yPosition += 5 // Unificado a 5 para todos
     })
 
-    // Total final
+    // Total final - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN (incluyendo sin precios)
     if (totales.length > 0) {
-      yPosition += 3
-      doc.setFillColor(189, 215, 176) // Mismo color verde del encabezado
+      yPosition += 2 // Reducido espacio antes del total
+      doc.setFillColor(189, 215, 176)
       doc.rect(10, yPosition, pageWidth - 20, 10, 'F')
       
-      doc.setFontSize(13) // Aumentado de 12 a 13
+      doc.setFontSize(13)
       doc.setFont('helvetica', 'bold')
       doc.setTextColor(0, 0, 0)
       doc.text('Precio Final', 12, yPosition + 7)
@@ -722,17 +927,92 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
-  // ========== SECCIÓN DE PAGO ==========
-  if (datosPago.length > 0) {
-    yPosition += 10
+  // ========== SECCIONES PERSONALIZADAS DE TIPO TEXTO (ANTES DE DETALLES DE PAGO) ==========
+  if (options.seccionesPersonalizadas && options.seccionesPersonalizadas.length > 0) {
+    const seccionesTexto = options.seccionesPersonalizadas.filter(s => s.tipo_extra === 'escritura')
     
-    // Verificar espacio en la página (dejar margen para pie de página)
-    const espacioNecesario = 50 // Aumentado de 30 a 50 para asegurar que haya espacio para título + contenido
+    for (const seccion of seccionesTexto) {
+      if (!seccion.contenido_escritura) continue
+      
+      // Reducir espacio antes de la sección (de 8 a 5)
+      yPosition += 5
+
+      // Verificar espacio para título + línea + al menos 1 línea de texto (mínimo 30)
+      const espacioNecesario = 30 // Título (16) + línea (1) + espacio (10) + al menos 1 línea de texto (5) = ~32
+      
+      if (yPosition > doc.internal.pageSize.getHeight() - espacioNecesario) {
+        // Si no hay espacio suficiente para título + al menos 1 línea, crear nueva página
+        doc.addPage()
+        yPosition = 20
+      }
+
+      // Márgenes (iguales a términos y condiciones)
+      const margenIzq = 15
+      const margenDer = 15
+      const anchoTexto = pageWidth - margenIzq - margenDer
+
+      // Título principal (igual que términos y condiciones)
+      doc.setFontSize(16)
+      doc.setFont('helvetica', 'bold')
+      doc.setTextColor(0, 0, 0)
+      doc.text(seccion.label.toUpperCase(), pageWidth / 2, yPosition, { align: 'center' })
+      yPosition += 5 // Reducido de 8 a 5 para estar más pegado
+
+      // Línea separadora decorativa (igual que términos y condiciones)
+      doc.setDrawColor(189, 215, 176) // Color verde de SunCar
+      doc.setLineWidth(1)
+      doc.line(margenIzq, yPosition, pageWidth - margenDer, yPosition)
+      yPosition += 10
+
+      // SECCIÓN DE TEXTO - Respetar saltos de línea
+      doc.setFontSize(10)
+      doc.setFont('helvetica', 'normal')
+      doc.setTextColor(50, 50, 50)
+
+      // Dividir el texto por saltos de línea (NO filtrar líneas vacías)
+      const lineas = seccion.contenido_escritura.split('\n')
+      
+      for (const linea of lineas) {
+        // Verificar espacio en la página
+        if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+          doc.addPage()
+          yPosition = 20
+        }
+
+        // Si la línea está vacía, agregar espacio
+        if (linea.trim() === '') {
+          yPosition += 5
+          continue
+        }
+        
+        // Dividir líneas largas
+        const lines = doc.splitTextToSize(linea, anchoTexto)
+        
+        for (const line of lines) {
+          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+            doc.addPage()
+            yPosition = 20
+          }
+          
+          doc.text(line, margenIzq, yPosition)
+          yPosition += 5
+        }
+        
+        yPosition += 2 // Reducido de 3 a 2 para menos espacio entre párrafos
+      }
+    }
+  }
+
+  // ========== SECCIÓN DE PAGO - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN ==========
+  if (datosPago.length > 0) {
+    // Reducir espacio antes de la sección (de 10 a 5)
+    yPosition += 5
+    
+    // Verificar espacio para título + línea + al menos 1 línea de texto (mínimo 30)
+    const espacioNecesario = 30 // Título (16) + línea (1) + espacio (10) + al menos 1 línea de texto (5) = ~32
     if (yPosition > doc.internal.pageSize.getHeight() - espacioNecesario) {
       doc.addPage()
       yPosition = 20
-    } else {
-      yPosition += 15
     }
 
     // Márgenes (iguales a términos y condiciones)
@@ -839,8 +1119,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       }
     }
 
-    // 2. CONTRIBUCIÓN
-    if (tieneContribucion && montoContribucion) {
+    // 2. CONTRIBUCIÓN - ELIMINADA (ahora aparece antes del precio final)
+    if (false && tieneContribucion && montoContribucion) {
       // Verificar espacio
       if (yPosition > doc.internal.pageSize.getHeight() - 25) {
         doc.addPage()
@@ -895,17 +1175,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   // ========== TÉRMINOS Y CONDICIONES ==========
   if (options.terminosCondiciones) {
-    // NO crear nueva página automáticamente, continuar en la misma si hay espacio
-    // Solo agregar espacio si estamos en la misma página que el contenido anterior
-    const espacioNecesario = 50 // Aumentado de 30 a 50 para asegurar que haya espacio para título + al menos 3 líneas de contenido
+    // Reducir espacio antes de la sección (de 15 a 5)
+    yPosition += 5
+    
+    // Verificar espacio para título + línea + al menos 1 línea de texto (mínimo 30)
+    const espacioNecesario = 30 // Título (16) + línea (1) + espacio (10) + al menos 1 línea de texto (5) = ~32
     
     if (yPosition > doc.internal.pageSize.getHeight() - espacioNecesario) {
-      // Si no hay espacio suficiente, crear nueva página
+      // Si no hay espacio suficiente para título + al menos 1 línea, crear nueva página
       doc.addPage()
       yPosition = 20
-    } else {
-      // Si hay espacio, agregar separación
-      yPosition += 15
     }
     
     // Márgenes

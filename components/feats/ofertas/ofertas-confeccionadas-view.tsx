@@ -450,8 +450,75 @@ export function OfertasConfeccionadasView() {
       subtotal_con_descuento: oferta.subtotal_con_descuento,
     })
 
-    // Extraer componentes principales de los items
+    // Extraer componentes principales del nombre_completo de la oferta
     const componentesPrincipales: any = {}
+    const nombreCompleto = oferta.nombre_completo || oferta.nombre || ''
+    
+    console.log('📝 Extrayendo componentes de:', nombreCompleto)
+    
+    // Extraer batería (buscar patrón como "16.0kWh Batería" o "1x 16.0kWh")
+    const bateriaMatch = nombreCompleto.match(/(\d+)x?\s*(\d+(?:\.\d+)?)\s*kwh\s+(?:de\s+)?bater[ií]a/i) ||
+                        nombreCompleto.match(/(\d+(?:\.\d+)?)\s*kwh\s+(?:de\s+)?bater[ií]a/i)
+    
+    if (bateriaMatch) {
+      let cantidad = 1
+      let capacidad = 0
+      
+      if (bateriaMatch[2]) {
+        // Formato: "1x 16.0kWh"
+        cantidad = parseInt(bateriaMatch[1])
+        capacidad = parseFloat(bateriaMatch[2])
+      } else {
+        // Formato: "16.0kWh"
+        capacidad = parseFloat(bateriaMatch[1])
+      }
+      
+      componentesPrincipales.bateria = {
+        cantidad: cantidad,
+        capacidad: capacidad
+      }
+      
+      console.log('🔋 Batería extraída:', componentesPrincipales.bateria)
+    }
+    
+    // Extraer inversor (buscar patrón como "10kW" o "10.0kW")
+    const inversorMatch = nombreCompleto.match(/(\d+(?:\.\d+)?)\s*kw\s+(?:de\s+)?inversor/i)
+    if (inversorMatch) {
+      const potencia = parseFloat(inversorMatch[1])
+      
+      // Buscar marca en el nombre
+      const marcaMatch = nombreCompleto.match(/(?:inversor|fabricante)\s+(\w+)/i)
+      const marca = marcaMatch ? marcaMatch[1] : undefined
+      
+      componentesPrincipales.inversor = {
+        cantidad: 1,
+        potencia: potencia,
+        marca: marca
+      }
+    }
+    
+    // Extraer paneles (buscar patrón como "20x 590W" o "590W Panel")
+    const panelMatch = nombreCompleto.match(/(\d+)x?\s*(\d+(?:\.\d+)?)\s*w\s+(?:de\s+)?panel/i) ||
+                      nombreCompleto.match(/(\d+(?:\.\d+)?)\s*w\s+(?:de\s+)?panel/i)
+    
+    if (panelMatch) {
+      let cantidad = 1
+      let potencia = 0
+      
+      if (panelMatch[2]) {
+        // Formato: "20x 590W"
+        cantidad = parseInt(panelMatch[1])
+        potencia = parseFloat(panelMatch[2])
+      } else {
+        // Formato: "590W"
+        potencia = parseFloat(panelMatch[1])
+      }
+      
+      componentesPrincipales.panel = {
+        cantidad: cantidad,
+        potencia: potencia
+      }
+    }
     
     // Buscar inversor (sección INVERSORES)
     const itemsInversores = itemsOrdenados.filter(item => item.seccion === 'INVERSORES')
@@ -482,10 +549,18 @@ export function OfertasConfeccionadasView() {
       const bateria = itemsBaterias[0]
       const material = materials.find(m => m.codigo.toString() === bateria.material_codigo)
       
-      // Extraer capacidad del nombre/descripción (buscar patrón como "10kWh" o "10 kWh")
+      // Extraer capacidad del nombre/descripción (buscar patrón como "10kWh", "10 kWh", "10.0kWh")
       const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
-                            material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+                            material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
+                            bateria.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
       const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+      
+      console.log('🔋 DEBUG Batería:', {
+        material_nombre: material?.nombre,
+        bateria_descripcion: bateria.descripcion,
+        capacidadMatch,
+        capacidad
+      })
       
       componentesPrincipales.bateria = {
         codigo: bateria.material_codigo,
@@ -552,6 +627,69 @@ export function OfertasConfeccionadasView() {
       })
     })
 
+    // Calcular total de materiales (suma de todos los items)
+    const totalMateriales = itemsOrdenados.reduce((sum, item) => {
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      return sum + costoItem + margenAsignado
+    }, 0)
+
+    // Agregar secciones personalizadas de tipo costo
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            rowsCompleto.push({
+              material_codigo: "",
+              seccion: seccion.label,
+              tipo: "Costo extra",
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+              precio_unitario: costo.precio_unitario.toFixed(2),
+              porcentaje_margen: "",
+              margen: "",
+              total: (costo.cantidad * costo.precio_unitario).toFixed(2),
+            })
+          })
+        }
+      })
+    }
+
+    // Agregar fila de total de materiales
+    rowsCompleto.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "Subtotal",
+      descripcion: "Total de materiales",
+      cantidad: "",
+      precio_unitario: "",
+      porcentaje_margen: "",
+      margen: "",
+      total: totalMateriales.toFixed(2),
+    })
+
+    // Agregar servicio de instalación si existe
+    console.log('🔍 DEBUG - Margen instalación:', {
+      margen_instalacion: oferta.margen_instalacion,
+      tiene_margen: oferta.margen_instalacion && oferta.margen_instalacion > 0,
+      oferta_completa: oferta
+    })
+    
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
+      console.log('✅ Agregando servicio de instalación a rowsCompleto')
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Servicios",
+        tipo: "Servicio",
+        descripcion: "Costo de instalación y puesta en marcha",
+        cantidad: 1,
+        precio_unitario: oferta.margen_instalacion.toFixed(2),
+        porcentaje_margen: "",
+        margen: "",
+        total: oferta.margen_instalacion.toFixed(2),
+      })
+    }
+
     if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
       rowsCompleto.push({
         material_codigo: "",
@@ -577,6 +715,22 @@ export function OfertasConfeccionadasView() {
       monto_descuento_parseado: montoDescuento,
       tiene_descuento: descuentoPorcentaje > 0
     })
+    
+    // Agregar contribución si aplica (ANTES del descuento)
+    if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Contribución",
+        tipo: "Contribucion",
+        descripcion: `Contribución (${oferta.porcentaje_contribucion}%)`,
+        cantidad: 1,
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: totalesCalc.contribucion.toFixed(2),
+      })
+    }
     
     if (descuentoPorcentaje > 0) {
       console.log('✅ Agregando descuento al PDF:', montoDescuento)
@@ -635,32 +789,7 @@ export function OfertasConfeccionadasView() {
         }
       }
 
-      if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
-        const totalesCalc = calcularTotalesDetalle(oferta)
-        rowsCompleto.push({
-          material_codigo: "",
-          seccion: "PAGO",
-          tipo: "Info",
-          descripcion: `✓ Aplicar ${oferta.porcentaje_contribucion}% de Contribución`,
-          cantidad: "",
-          precio_unitario: "",
-          porcentaje_margen: "",
-          margen: "",
-          total: "",
-        })
-        
-        rowsCompleto.push({
-          material_codigo: "",
-          seccion: "PAGO",
-          tipo: "Monto",
-          descripcion: "Contribución",
-          cantidad: "",
-          precio_unitario: "",
-          porcentaje_margen: "",
-          margen: "",
-          total: totalesCalc.contribucion.toFixed(2),
-        })
-      }
+      // Contribución ya se agregó arriba, antes del descuento
 
       rowsCompleto.push({
         material_codigo: "",
@@ -737,7 +866,9 @@ export function OfertasConfeccionadasView() {
 
     const exportOptionsCompleto = {
       title: "Oferta - Exportación completa",
-      subtitle: oferta.nombre_completo || oferta.nombre,
+      subtitle: (oferta.nombre_completo && oferta.nombre_completo !== '0.00' && isNaN(Number(oferta.nombre_completo))) 
+        ? oferta.nombre_completo 
+        : oferta.nombre,
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
@@ -784,6 +915,9 @@ export function OfertasConfeccionadasView() {
         console.log('📄 Pasando términos a exportOptionsCompleto:', terminosCondiciones ? 'SÍ (' + terminosCondiciones.length + ' caracteres)' : 'NO')
         return terminosCondiciones || undefined
       })(),
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
+      ),
     }
 
     // EXPORTACIÓN SIN PRECIOS
@@ -813,6 +947,47 @@ export function OfertasConfeccionadasView() {
       })
     })
 
+    // Agregar secciones personalizadas de tipo costo (sin precios)
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            rowsSinPrecios.push({
+              material_codigo: "",
+              seccion: seccion.label,
+              tipo: "Costo extra",
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+            })
+          })
+        }
+      })
+    }
+
+    // Agregar fila de total de materiales (sin precio en exportación sin precios)
+    rowsSinPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "Subtotal",
+      descripcion: "Total de materiales",
+      cantidad: "",
+    })
+
+    // Agregar servicio de instalación si existe
+    console.log('🔍 DEBUG SIN PRECIOS - Margen instalación:', oferta.margen_instalacion)
+    
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
+      console.log('✅ Agregando servicio de instalación a rowsSinPrecios')
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Servicios",
+        tipo: "Servicio",
+        descripcion: "Costo de instalación y puesta en marcha",
+        cantidad: 1,
+      })
+    }
+
+    // Agregar transportación con su valor
     if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
       rowsSinPrecios.push({
         material_codigo: "",
@@ -820,10 +995,36 @@ export function OfertasConfeccionadasView() {
         tipo: "Transportación",
         descripcion: "Costo de transportación",
         cantidad: 1,
+        total: oferta.costo_transportacion.toFixed(2),
       })
     }
 
-    // NO agregar descuento en exportación sin precios
+    // Agregar contribución con su valor
+    if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Contribución",
+        tipo: "Contribucion",
+        descripcion: `Contribución (${oferta.porcentaje_contribucion}%)`,
+        cantidad: 1,
+        total: totalesCalc.contribucion.toFixed(2),
+      })
+    }
+
+    // Agregar descuento con su valor
+    if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      const montoDescuento = totalesCalc.descuento || oferta.monto_descuento || 0
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${oferta.descuento_porcentaje}%)`,
+        cantidad: 1,
+        total: `- ${montoDescuento.toFixed(2)}`,
+      })
+    }
 
     rowsSinPrecios.push({
       material_codigo: "",
@@ -831,6 +1032,7 @@ export function OfertasConfeccionadasView() {
       tipo: "TOTAL",
       descripcion: "Precio Total",
       cantidad: "",
+      total: (oferta.precio_final || 0).toFixed(2),
       total: (oferta.precio_final || 0).toFixed(2),
     })
 
@@ -895,8 +1097,9 @@ export function OfertasConfeccionadasView() {
           material_codigo: "",
           seccion: "PAGO",
           tipo: "Info",
-          descripcion: `Moneda de pago: ${nombreMoneda}`,
+          descripcion: "Moneda de pago",
           cantidad: "",
+          total: nombreMoneda,
         })
         
         const tasaTexto = oferta.moneda_pago === 'EUR' 
@@ -924,7 +1127,9 @@ export function OfertasConfeccionadasView() {
 
     const exportOptionsSinPrecios = {
       title: "Oferta - Cliente sin precios",
-      subtitle: oferta.nombre_completo || oferta.nombre,
+      subtitle: (oferta.nombre_completo && oferta.nombre_completo !== '0.00' && isNaN(Number(oferta.nombre_completo))) 
+        ? oferta.nombre_completo 
+        : oferta.nombre,
       columns: [
         { header: "Material", key: "descripcion", width: 60 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -963,6 +1168,9 @@ export function OfertasConfeccionadasView() {
       sinPrecios: true,
       componentesPrincipales,
       terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
+      ),
     }
 
     // EXPORTACIÓN CLIENTE CON PRECIOS
@@ -998,6 +1206,80 @@ export function OfertasConfeccionadasView() {
       })
     })
 
+    // Calcular total de materiales para cliente con precios
+    const totalMaterialesCliente = itemsOrdenados.reduce((sum, item) => {
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      return sum + costoItem + margenAsignado
+    }, 0)
+
+    // Calcular total de costos extras para cliente con precios
+    let totalCostosExtrasCliente = 0
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            totalCostosExtrasCliente += costo.cantidad * costo.precio_unitario
+          })
+        }
+      })
+    }
+
+    // Agregar secciones personalizadas de tipo costo
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            rowsClienteConPrecios.push({
+              material_codigo: "",
+              seccion: seccion.label,
+              tipo: "Costo extra",
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+              total: (costo.cantidad * costo.precio_unitario).toFixed(2),
+            })
+          })
+        }
+      })
+    }
+
+    // Agregar fila de total de materiales
+    rowsClienteConPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "Subtotal",
+      descripcion: "Total de materiales",
+      cantidad: "",
+      total: totalMaterialesCliente.toFixed(2),
+    })
+
+    // Agregar total de costos extras si hay
+    if (totalCostosExtrasCliente > 0) {
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Totales",
+        tipo: "Subtotal",
+        descripcion: "Total costos extras",
+        cantidad: "",
+        total: totalCostosExtrasCliente.toFixed(2),
+      })
+    }
+
+    // Agregar servicio de instalación si existe
+    console.log('🔍 DEBUG CLIENTE PRECIOS - Margen instalación:', oferta.margen_instalacion)
+    
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
+      console.log('✅ Agregando servicio de instalación a rowsClienteConPrecios')
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Servicios",
+        tipo: "Servicio",
+        descripcion: "Costo de instalación y puesta en marcha",
+        cantidad: 1,
+        total: oferta.margen_instalacion.toFixed(2),
+      })
+    }
+
     if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
       rowsClienteConPrecios.push({
         material_codigo: "",
@@ -1009,7 +1291,32 @@ export function OfertasConfeccionadasView() {
       })
     }
 
-    // NO agregar descuento en exportación cliente con precios
+    // Agregar contribución si aplica
+    if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Contribución",
+        tipo: "Contribucion",
+        descripcion: `Contribución (${oferta.porcentaje_contribucion}%)`,
+        cantidad: 1,
+        total: totalesCalc.contribucion.toFixed(2),
+      })
+    }
+
+    // Agregar descuento si aplica
+    if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      const montoDescuento = totalesCalc.descuento || oferta.monto_descuento || 0
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${oferta.descuento_porcentaje}%)`,
+        cantidad: 1,
+        total: `- ${montoDescuento.toFixed(2)}`,
+      })
+    }
 
     rowsClienteConPrecios.push({
       material_codigo: "",
@@ -1083,8 +1390,9 @@ export function OfertasConfeccionadasView() {
         const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
         
         rowsClienteConPrecios.push({
-          descripcion: `Moneda de pago: ${nombreMoneda}`,
+          descripcion: "Moneda de pago",
           cantidad: "",
+          total: nombreMoneda,
           seccion: "PAGO",
           tipo: "Info",
         })
@@ -1112,7 +1420,9 @@ export function OfertasConfeccionadasView() {
 
     const exportOptionsClienteConPrecios = {
       title: "Oferta - Cliente con precios",
-      subtitle: oferta.nombre_completo || oferta.nombre,
+      subtitle: (oferta.nombre_completo && oferta.nombre_completo !== '0.00' && isNaN(Number(oferta.nombre_completo))) 
+        ? oferta.nombre_completo 
+        : oferta.nombre,
       columns: [
         { header: "Material", key: "descripcion", width: 50 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -1152,6 +1462,9 @@ export function OfertasConfeccionadasView() {
       conPreciosCliente: true,
       componentesPrincipales,
       terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
+      ),
     }
 
     return {

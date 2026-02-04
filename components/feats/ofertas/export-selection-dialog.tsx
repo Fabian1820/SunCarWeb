@@ -63,7 +63,7 @@ export function ExportSelectionDialog({
     })
     
     // Agregar servicio de instalación si existe
-    if (oferta.servicio_instalacion && oferta.servicio_instalacion.precio > 0) {
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
       secciones.push({
         id: 'SERVICIO_INSTALACION',
         label: 'Servicio de Instalación',
@@ -221,8 +221,18 @@ export function ExportSelectionDialog({
         }
         
         // Si es servicio de instalación, verificar si está seleccionado
-        if (item.tipo === "Servicio" || item.descripcion?.includes("Servicio de instalación")) {
+        if (item.tipo === "Servicio" || item.descripcion?.includes("Servicio de instalación") || item.descripcion?.includes("instalación y puesta en marcha")) {
           return seccionesEspecialesSeleccionadas.has('SERVICIO_INSTALACION')
+        }
+        
+        // Si es subtotal de materiales, siempre mantenerlo
+        if (item.tipo === "Subtotal" && item.descripcion?.includes("Total de materiales")) {
+          return true
+        }
+        
+        // Si es contribución, siempre mantenerla
+        if (item.tipo === "Contribucion") {
+          return true
         }
         
         // Si es una sección personalizada, verificar si está seleccionada
@@ -410,14 +420,12 @@ export function ExportSelectionDialog({
                     let icono = null
                     
                     if (seccion.tipo === 'servicio') {
-                      const servicio = oferta.servicio_instalacion
+                      const margenInstalacion = oferta.margen_instalacion || 0
                       icono = <span className="text-lg">🔧</span>
                       contenido = (
                         <div className="text-xs text-slate-600 mt-1">
-                          <div>Precio: ${servicio.precio.toFixed(2)}</div>
-                          {servicio.descripcion && (
-                            <div className="text-slate-500 mt-0.5">{servicio.descripcion}</div>
-                          )}
+                          <div>Precio: ${margenInstalacion.toFixed(2)}</div>
+                          <div className="text-slate-500 mt-0.5">Costo de instalación y puesta en marcha</div>
                         </div>
                       )
                     } else if (seccion.tipo === 'personalizada') {

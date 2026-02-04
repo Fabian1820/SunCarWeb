@@ -21,6 +21,7 @@ export interface OfertaConfeccion {
   precio_final: number
   total_materiales: number
   margen_comercial: number
+  margen_instalacion?: number
   costo_transportacion: number
   subtotal_con_margen?: number
   descuento_porcentaje?: number
@@ -95,6 +96,7 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     precio_final: raw.precio_final ?? raw.precio ?? 0,
     total_materiales: raw.total_materiales ?? 0,
     margen_comercial: raw.margen_comercial ?? 0,
+    margen_instalacion: raw.margen_instalacion ?? 0,
     costo_transportacion: raw.costo_transportacion ?? 0,
     subtotal_con_margen: raw.subtotal_con_margen ?? 0,
     descuento_porcentaje: raw.descuento_porcentaje ?? 0,

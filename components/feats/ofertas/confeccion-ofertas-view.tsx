@@ -1644,6 +1644,9 @@ export function ConfeccionOfertasView({
         return componentes
       })(),
       terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadas.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipoExtra === 'escritura' || s.tipoExtra === 'costo')
+      ),
     }
   }, [
     items,
@@ -1938,6 +1941,9 @@ export function ConfeccionOfertasView({
         return componentes
       })(),
       terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadas.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipoExtra === 'escritura' || s.tipoExtra === 'costo')
+      ),
     }
   }, [
     items,
@@ -1965,6 +1971,7 @@ export function ConfeccionOfertasView({
     montoConvertido,
     descuentoPorcentaje,
     terminosCondiciones,
+    seccionesPersonalizadas,
   ])
 
   const exportOptionsClienteConPrecios = useMemo(() => {
@@ -2266,6 +2273,9 @@ export function ConfeccionOfertasView({
         return componentes
       })(),
       terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadas.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipoExtra === 'escritura' || s.tipoExtra === 'costo')
+      ),
     }
   }, [
     items,
