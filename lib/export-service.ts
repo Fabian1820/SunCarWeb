@@ -270,23 +270,9 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       partes.push(`${totalKW} KW DE INVERSOR`)
     }
     
-    // Batería - Intentar extraer del nombre de la oferta primero
-    let potenciaBateria = '0.00'
-    if (ofertaData?.nombre_oferta) {
-      // Buscar patrón como "10.24KWH" o "10.24 KWH" en el nombre de la oferta
-      const matchKWH = ofertaData.nombre_oferta.match(/(\d+\.?\d*)\s*KWH/i)
-      if (matchKWH) {
-        potenciaBateria = parseFloat(matchKWH[1]).toFixed(2)
-      }
-    }
-    
-    // Si no se encontró en el nombre, usar componentesPrincipales.bateria como fallback
-    if (potenciaBateria === '0.00' && componentesPrincipales.bateria) {
-      potenciaBateria = (componentesPrincipales.bateria.cantidad * componentesPrincipales.bateria.capacidad).toFixed(2)
-    }
-    
-    // Agregar batería a las partes si hay potencia
-    if (parseFloat(potenciaBateria) > 0) {
+    // Batería - Siempre calcular multiplicando cantidad * capacidad
+    if (componentesPrincipales.bateria) {
+      const potenciaBateria = (componentesPrincipales.bateria.cantidad * componentesPrincipales.bateria.capacidad).toFixed(2)
       partes.push(`${potenciaBateria} KWH DE BATERÍA`)
     }
     
