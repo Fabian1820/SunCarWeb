@@ -173,6 +173,25 @@ export function ClienteDetallesDialog({
                 )}
               </div>
 
+              {/* Fila 4.5: Prioridad */}
+              {cliente.prioridad && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-gray-700">Prioridad</Label>
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${
+                        cliente.prioridad === 'Alta' ? 'bg-red-500' :
+                        cliente.prioridad === 'Baja' ? 'bg-blue-500' :
+                        'bg-orange-500'
+                      }`} />
+                      <span className="text-sm text-gray-900 font-medium">
+                        {cliente.prioridad}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Fila 4.5: Falta Instalación (Condicional) */}
               {cliente.estado === 'Instalación en Proceso' && cliente.falta_instalacion && (
                 <div>

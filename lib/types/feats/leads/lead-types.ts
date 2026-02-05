@@ -53,6 +53,7 @@ export interface Lead {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  prioridad?: "Alta" | "Media" | "Baja"
 }
 
 export interface LeadResponse {
@@ -80,6 +81,7 @@ export interface LeadCreateData {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  prioridad?: "Alta" | "Media" | "Baja"
 }
 
 export interface LeadUpdateData {
@@ -101,6 +103,7 @@ export interface LeadUpdateData {
   comprobante_pago_url?: string
   metodo_pago?: string
   moneda?: string
+  prioridad?: "Alta" | "Media" | "Baja"
 }
 
 export interface LeadConversionRequest {

@@ -12,7 +12,9 @@ import { LeadsTable } from "@/components/feats/leads/leads-table"
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
+import { FuentesManager } from "@/components/shared/molecule/fuentes-manager"
 import { useLeads } from "@/hooks/use-leads"
+import { useFuentesSync } from "@/hooks/use-fuentes-sync"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -40,6 +42,9 @@ export default function LeadsPage() {
     uploadLeadComprobante,
     clearError,
   } = useLeads()
+
+  // Sincronizar fuentes de leads con localStorage
+  useFuentesSync(leads, [], !loading)
 
   const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false)
   const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false)
@@ -96,6 +101,17 @@ export default function LeadsPage() {
       })
     } finally {
       setLoadingAction(false)
+    }
+  }
+
+  const handleUpdateLeadPrioridad = async (leadId: string, prioridad: "Alta" | "Media" | "Baja") => {
+    if (!leadId) return
+    try {
+      await updateLead(leadId, { prioridad })
+      // No mostrar toast aquí, lo maneja la tabla
+    } catch (e) {
+      console.error('Error updating lead priority:', e)
+      throw e // Re-lanzar para que la tabla maneje el error
     }
   }
 
@@ -324,31 +340,34 @@ const formatEstado = (estado: string): string => {
         subtitle="Administrar leads y oportunidades de venta"
         badge={{ text: "Ventas", className: "bg-green-100 text-green-800" }}
         actions={
-          <Dialog open={isCreateLeadDialogOpen} onOpenChange={setIsCreateLeadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                size="icon"
-                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 touch-manipulation"
-                aria-label="Nuevo lead"
-                title="Nuevo lead"
-              >
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Nuevo Lead</span>
-                <span className="sr-only">Nuevo lead</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Crear Nuevo Lead</DialogTitle>
-              </DialogHeader>
-              <CreateLeadDialog
-                onSubmit={handleCreateLead}
-                onCancel={() => setIsCreateLeadDialogOpen(false)}
-                availableSources={availableSources}
-                isLoading={loadingAction}
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <FuentesManager />
+            <Dialog open={isCreateLeadDialogOpen} onOpenChange={setIsCreateLeadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  size="icon"
+                  className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 touch-manipulation"
+                  aria-label="Nuevo lead"
+                  title="Nuevo lead"
+                >
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Nuevo Lead</span>
+                  <span className="sr-only">Nuevo lead</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Crear Nuevo Lead</DialogTitle>
+                </DialogHeader>
+                <CreateLeadDialog
+                  onSubmit={handleCreateLead}
+                  onCancel={() => setIsCreateLeadDialogOpen(false)}
+                  availableSources={availableSources}
+                  isLoading={loadingAction}
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         }
       />
 
@@ -522,6 +541,7 @@ const formatEstado = (estado: string): string => {
                 onGenerarCodigo={generarCodigoCliente}
                 onUploadComprobante={handleUploadLeadComprobante}
                 onDownloadComprobante={handleDownloadLeadComprobante}
+                onUpdatePrioridad={handleUpdateLeadPrioridad}
                 loading={loading}
                 disableActions={loadingAction}
               />

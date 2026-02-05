@@ -31,6 +31,7 @@ export interface Cliente {
   moneda?: string
   falta_instalacion?: string  // Qué le falta a la instalación (solo para estado "Instalación en proceso")
   averias?: Averia[]  // Array de averías del cliente
+  prioridad?: "Alta" | "Media" | "Baja"
 }
 
 export interface ClienteResponse {
@@ -66,6 +67,7 @@ export interface ClienteCreateData {
   moneda?: string
   falta_instalacion?: string  // Qué le falta a la instalación
   equipo_propio?: boolean  // Si el equipo es propio del cliente (código con P)
+  prioridad?: "Alta" | "Media" | "Baja"
 }
 
 export interface ClienteSimpleCreateData {

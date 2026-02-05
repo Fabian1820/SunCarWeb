@@ -7,6 +7,7 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { PrioritySelect } from "@/components/shared/molecule/priority-select"
 import { Loader2, MapPin } from "lucide-react"
 import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector"
 import type { Cliente, ClienteUpdateData } from "@/lib/api-types"
@@ -67,19 +68,64 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
   // Estado para controlar si se está usando fuente personalizada
   const fuentesBase = ['Página Web', 'Instagram', 'Facebook', 'Directo', 'Mensaje de Whatsapp', 'Visita']
   
-  // Estado para fuentes dinámicas (incluye las personalizadas)
+  // Cargar fuentes personalizadas desde localStorage y combinar con la fuente del cliente
   const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
-    // Si el cliente tiene una fuente personalizada, agregarla a la lista
-    if (client.fuente && !fuentesBase.includes(client.fuente)) {
-      return [...fuentesBase, client.fuente]
+    try {
+      const stored = localStorage.getItem('fuentes_personalizadas')
+      let todasLasFuentes = [...fuentesBase]
+      
+      if (stored) {
+        const personalizadas = JSON.parse(stored) as string[]
+        todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])]
+      }
+      
+      // Si el cliente tiene una fuente que no está en la lista, agregarla
+      if (client.fuente && !todasLasFuentes.includes(client.fuente)) {
+        todasLasFuentes.push(client.fuente)
+      }
+      
+      return todasLasFuentes
+    } catch (error) {
+      console.error('Error al cargar fuentes personalizadas:', error)
+      // Si hay error, al menos incluir la fuente del cliente si existe
+      if (client.fuente && !fuentesBase.includes(client.fuente)) {
+        return [...fuentesBase, client.fuente]
+      }
+      return fuentesBase
     }
-    return fuentesBase
   })
   
   const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(() => {
     // Si la fuente del cliente no está en las opciones base, usar input personalizado
     return client.fuente ? !fuentesBase.includes(client.fuente) : false
   })
+
+  // Escuchar cambios en las fuentes desde otros componentes
+  useEffect(() => {
+    const handleFuentesUpdate = () => {
+      try {
+        const stored = localStorage.getItem('fuentes_personalizadas')
+        let todasLasFuentes = [...fuentesBase]
+        
+        if (stored) {
+          const personalizadas = JSON.parse(stored) as string[]
+          todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])]
+        }
+        
+        // Si el cliente tiene una fuente que no está en la lista, agregarla
+        if (client.fuente && !todasLasFuentes.includes(client.fuente)) {
+          todasLasFuentes.push(client.fuente)
+        }
+        
+        setFuentesDisponibles(todasLasFuentes)
+      } catch (error) {
+        console.error('Error al actualizar fuentes:', error)
+      }
+    }
+
+    window.addEventListener('fuentes_updated', handleFuentesUpdate)
+    return () => window.removeEventListener('fuentes_updated', handleFuentesUpdate)
+  }, [client.fuente])
 
   const [clientLatLng, setClientLatLng] = useState<{ lat: string, lng: string }>({ 
     lat: '', 
@@ -162,6 +208,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
     fecha_montaje: client.fecha_montaje || '',
     fecha_instalacion: client.fecha_instalacion || '',
     falta_instalacion: client.falta_instalacion || '',
+    prioridad: client.prioridad || 'Baja',
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -215,6 +262,7 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
         fecha_montaje: client.fecha_montaje || '',
         fecha_instalacion: client.fecha_instalacion || '',
         falta_instalacion: client.falta_instalacion || '',
+        prioridad: client.prioridad || 'Baja',
       })
       
       // Actualizar el estado de fuente personalizada
@@ -246,6 +294,14 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
       }
     }
   }, [open, client, user, provincias])
+
+  // Asignar prioridad automática cuando cambia la fuente
+  useEffect(() => {
+    const fuentesAlta = ["Fernando", "Kelly", "Ale", "Andy"]
+    if (formData.fuente && fuentesAlta.includes(formData.fuente)) {
+      setFormData(prev => ({ ...prev, prioridad: "Alta" }))
+    }
+  }, [formData.fuente])
 
   // Resetear oferta DESPUÉS de que los materiales se hayan cargado
   useEffect(() => {
@@ -727,8 +783,25 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                           size="sm"
                           onClick={() => {
                             // Si hay una fuente personalizada escrita, agregarla a la lista
-                            if (formData.fuente && !fuentesDisponibles.includes(formData.fuente)) {
-                              setFuentesDisponibles(prev => [...prev, formData.fuente])
+                            if (formData.fuente && formData.fuente.trim() !== '' && !fuentesDisponibles.includes(formData.fuente)) {
+                              const nuevasFuentes = [...fuentesDisponibles, formData.fuente]
+                              setFuentesDisponibles(nuevasFuentes)
+                              // Guardar en localStorage solo las personalizadas (sin las base)
+                              const personalizadas = nuevasFuentes.filter(f => !fuentesBase.includes(f))
+                              localStorage.setItem('fuentes_personalizadas', JSON.stringify(personalizadas))
+                              
+                              // Quitar de la lista de excluidas si estaba ahí
+                              try {
+                                const excluidas = JSON.parse(localStorage.getItem('fuentes_excluidas') || '[]') as string[]
+                                const nuevasExcluidas = excluidas.filter(f => f !== formData.fuente)
+                                if (nuevasExcluidas.length !== excluidas.length) {
+                                  localStorage.setItem('fuentes_excluidas', JSON.stringify(nuevasExcluidas))
+                                }
+                              } catch (error) {
+                                console.error('Error al actualizar fuentes excluidas:', error)
+                              }
+                              
+                              window.dispatchEvent(new CustomEvent('fuentes_updated'))
                             }
                             setUsandoFuentePersonalizada(false)
                           }}
@@ -739,6 +812,14 @@ export function EditClientDialog({ open, onOpenChange, client, onSubmit, isLoadi
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Prioridad */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <PrioritySelect
+                    value={formData.prioridad}
+                    onChange={(value) => handleInputChange('prioridad', value)}
+                  />
                 </div>
 
                 {/* Campo condicional: Falta Instalación */}

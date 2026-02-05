@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
+import { PriorityDot } from "@/components/shared/atom/priority-dot"
 import { Label } from "@/components/shared/atom/label"
 import { Input } from "@/components/shared/molecule/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
@@ -51,6 +52,7 @@ interface LeadsTableProps {
     payload: { file: File; metodo_pago?: string; moneda?: string }
   ) => Promise<void>
   onDownloadComprobante?: (lead: Lead) => Promise<void>
+  onUpdatePrioridad?: (leadId: string, prioridad: "Alta" | "Media" | "Baja") => Promise<void>
   loading?: boolean
   disableActions?: boolean
 }
@@ -89,6 +91,7 @@ export function LeadsTable({
   onGenerarCodigo,
   onUploadComprobante,
   onDownloadComprobante,
+  onUpdatePrioridad,
   loading,
   disableActions,
 }: LeadsTableProps) {
@@ -139,6 +142,24 @@ export function LeadsTable({
       onDelete(leadToDelete.id)
       setIsDeleteDialogOpen(false)
       setLeadToDelete(null)
+    }
+  }
+
+  const handlePrioridadChange = async (leadId: string, prioridad: "Alta" | "Media" | "Baja") => {
+    if (onUpdatePrioridad) {
+      try {
+        await onUpdatePrioridad(leadId, prioridad)
+        toast({
+          title: "Prioridad actualizada",
+          description: `La prioridad se cambió a ${prioridad}`,
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar la prioridad",
+          variant: "destructive",
+        })
+      }
     }
   }
 
@@ -591,6 +612,13 @@ export function LeadsTable({
                   </td>
                   <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
                     <div className="flex items-center justify-end space-x-1">
+                      <div className="flex items-center h-7 w-7 justify-center">
+                        <PriorityDot
+                          prioridad={lead.prioridad}
+                          onChange={(prioridad) => lead.id && handlePrioridadChange(lead.id, prioridad)}
+                          disabled={disableActions || !onUpdatePrioridad}
+                        />
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -721,6 +749,25 @@ export function LeadsTable({
                       </p>
                     </div>
                   </div>
+
+                  {/* Fila 3.5: Prioridad */}
+                  {selectedLead.prioridad && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label className="text-gray-700">Prioridad</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full ${
+                            selectedLead.prioridad === 'Alta' ? 'bg-red-500' :
+                            selectedLead.prioridad === 'Baja' ? 'bg-blue-500' :
+                            'bg-orange-500'
+                          }`} />
+                          <span className="text-sm text-gray-900 font-medium">
+                            {selectedLead.prioridad}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Fila 4: Dirección (ancho completo) */}
                   {selectedLead.direccion && (

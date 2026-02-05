@@ -7,6 +7,7 @@ import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { PrioritySelect } from "@/components/shared/molecule/priority-select"
 import { Loader2 } from "lucide-react"
 import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector"
 import type { Lead, LeadUpdateData } from "@/lib/api-types"
@@ -65,19 +66,64 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
   // Estado para controlar si se está usando fuente personalizada
   const fuentesBase = ['Página Web', 'Instagram', 'Facebook', 'Directo', 'Mensaje de Whatsapp', 'Visita']
   
-  // Estado para fuentes dinámicas (incluye las personalizadas)
+  // Cargar fuentes personalizadas desde localStorage y combinar con la fuente del lead
   const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
-    // Si el lead tiene una fuente personalizada, agregarla a la lista
-    if (lead.fuente && !fuentesBase.includes(lead.fuente)) {
-      return [...fuentesBase, lead.fuente]
+    try {
+      const stored = localStorage.getItem('fuentes_personalizadas')
+      let todasLasFuentes = [...fuentesBase]
+      
+      if (stored) {
+        const personalizadas = JSON.parse(stored) as string[]
+        todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])]
+      }
+      
+      // Si el lead tiene una fuente que no está en la lista, agregarla
+      if (lead.fuente && !todasLasFuentes.includes(lead.fuente)) {
+        todasLasFuentes.push(lead.fuente)
+      }
+      
+      return todasLasFuentes
+    } catch (error) {
+      console.error('Error al cargar fuentes personalizadas:', error)
+      // Si hay error, al menos incluir la fuente del lead si existe
+      if (lead.fuente && !fuentesBase.includes(lead.fuente)) {
+        return [...fuentesBase, lead.fuente]
+      }
+      return fuentesBase
     }
-    return fuentesBase
   })
   
   const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(() => {
     // Si la fuente del lead no está en las opciones base, usar input personalizado
     return lead.fuente ? !fuentesBase.includes(lead.fuente) : false
   })
+
+  // Escuchar cambios en las fuentes desde otros componentes
+  useEffect(() => {
+    const handleFuentesUpdate = () => {
+      try {
+        const stored = localStorage.getItem('fuentes_personalizadas')
+        let todasLasFuentes = [...fuentesBase]
+        
+        if (stored) {
+          const personalizadas = JSON.parse(stored) as string[]
+          todasLasFuentes = [...new Set([...fuentesBase, ...personalizadas])]
+        }
+        
+        // Si el lead tiene una fuente que no está en la lista, agregarla
+        if (lead.fuente && !todasLasFuentes.includes(lead.fuente)) {
+          todasLasFuentes.push(lead.fuente)
+        }
+        
+        setFuentesDisponibles(todasLasFuentes)
+      } catch (error) {
+        console.error('Error al actualizar fuentes:', error)
+      }
+    }
+
+    window.addEventListener('fuentes_updated', handleFuentesUpdate)
+    return () => window.removeEventListener('fuentes_updated', handleFuentesUpdate)
+  }, [lead.fuente])
 
   // Estados para la oferta (inicializar con la primera oferta del lead si existe)
   const [oferta, setOferta] = useState({
@@ -133,6 +179,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
     comercial: lead.comercial || user?.nombre || '',
     metodo_pago: lead.metodo_pago || '',
     moneda: lead.moneda || '',
+    prioridad: lead.prioridad || 'Baja',
   })
 
   const estadosDisponibles = [
@@ -172,6 +219,7 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
         comercial: lead.comercial || user?.nombre || '',
         metodo_pago: lead.metodo_pago || '',
         moneda: lead.moneda || '',
+        prioridad: lead.prioridad || 'Baja',
       })
       
       // Actualizar el estado de fuente personalizada
@@ -197,6 +245,14 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
       }
     }
   }, [open, lead, user, provincias])
+
+  // Asignar prioridad automática cuando cambia la fuente
+  useEffect(() => {
+    const fuentesAlta = ["Fernando", "Kelly", "Ale", "Andy"]
+    if (formData.fuente && fuentesAlta.includes(formData.fuente)) {
+      setFormData(prev => ({ ...prev, prioridad: "Alta" }))
+    }
+  }, [formData.fuente])
 
   // Resetear oferta DESPUÉS de que los materiales se hayan cargado
   useEffect(() => {
@@ -693,8 +749,25 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                         size="sm"
                         onClick={() => {
                           // Si hay una fuente personalizada escrita, agregarla a la lista
-                          if (formData.fuente && !fuentesDisponibles.includes(formData.fuente)) {
-                            setFuentesDisponibles(prev => [...prev, formData.fuente])
+                          if (formData.fuente && formData.fuente.trim() !== '' && !fuentesDisponibles.includes(formData.fuente)) {
+                            const nuevasFuentes = [...fuentesDisponibles, formData.fuente]
+                            setFuentesDisponibles(nuevasFuentes)
+                            // Guardar en localStorage solo las personalizadas (sin las base)
+                            const personalizadas = nuevasFuentes.filter(f => !fuentesBase.includes(f))
+                            localStorage.setItem('fuentes_personalizadas', JSON.stringify(personalizadas))
+                            
+                            // Quitar de la lista de excluidas si estaba ahí
+                            try {
+                              const excluidas = JSON.parse(localStorage.getItem('fuentes_excluidas') || '[]') as string[]
+                              const nuevasExcluidas = excluidas.filter(f => f !== formData.fuente)
+                              if (nuevasExcluidas.length !== excluidas.length) {
+                                localStorage.setItem('fuentes_excluidas', JSON.stringify(nuevasExcluidas))
+                              }
+                            } catch (error) {
+                              console.error('Error al actualizar fuentes excluidas:', error)
+                            }
+                            
+                            window.dispatchEvent(new CustomEvent('fuentes_updated'))
                           }
                           setUsandoFuentePersonalizada(false)
                         }}
@@ -706,6 +779,15 @@ export function EditLeadDialog({ open, onOpenChange, lead, onSubmit, isLoading }
                   )}
                 </div>
               </div>
+
+              {/* Prioridad */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <PrioritySelect
+                  value={formData.prioridad}
+                  onChange={(value) => handleInputChange('prioridad', value)}
+                />
+              </div>
+
               <div>
                 <Label htmlFor="direccion">Dirección</Label>
                 <Input

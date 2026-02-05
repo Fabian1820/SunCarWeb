@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
+import { PriorityDot } from "@/components/shared/atom/priority-dot"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
@@ -47,6 +48,7 @@ interface ClientsTableProps {
   onEdit: (client: Cliente) => void
   onDelete: (client: Cliente) => void
   onViewLocation: (client: Cliente) => void
+  onUpdatePrioridad?: (clientId: string, prioridad: "Alta" | "Media" | "Baja") => Promise<void>
   loading?: boolean
   onFiltersChange?: (filters: {
     searchTerm: string
@@ -122,7 +124,7 @@ const parseDateValue = (value?: string) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
-export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loading = false, onFiltersChange, exportButtons }: ClientsTableProps) {
+export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpdatePrioridad, loading = false, onFiltersChange, exportButtons }: ClientsTableProps) {
   const { toast } = useToast()
   const {
     ofertas,
@@ -273,6 +275,24 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
       fechaDesde: "",
       fechaHasta: "",
     })
+  }
+
+  const handlePrioridadChange = async (clientId: string, prioridad: "Alta" | "Media" | "Baja") => {
+    if (onUpdatePrioridad) {
+      try {
+        await onUpdatePrioridad(clientId, prioridad)
+        toast({
+          title: "Prioridad actualizada",
+          description: `La prioridad se cambió a ${prioridad}`,
+        })
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar la prioridad",
+          variant: "destructive",
+        })
+      }
+    }
   }
 
   // Acción para ver reportes de un cliente
@@ -773,6 +793,13 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, loadin
                         </td>
                         <td className="py-4 px-3">
                           <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center h-8 w-8 justify-center">
+                              <PriorityDot
+                                prioridad={client.prioridad}
+                                onChange={(prioridad) => client.id && handlePrioridadChange(client.id, prioridad)}
+                                disabled={!onUpdatePrioridad}
+                              />
+                            </div>
                             <Button
                               variant="ghost"
                               size="sm"

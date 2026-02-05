@@ -8,9 +8,11 @@ import { ClienteService } from "@/lib/api-services"
 import { ClientsTable } from "@/components/feats/customer-service/clients-table"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
+import { useFuentesSync } from "@/hooks/use-fuentes-sync"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog"
+import { FuentesManager } from "@/components/shared/molecule/fuentes-manager"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type {
   Cliente,
@@ -35,6 +37,9 @@ export default function ClientesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [clientToDelete, setClientToDelete] = useState<Cliente | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  
+  // Sincronizar fuentes de clientes con localStorage
+  useFuentesSync([], clients, !initialLoading)
   
   // Estado para capturar los filtros aplicados desde ClientsTable
   const [appliedFilters, setAppliedFilters] = useState({
@@ -124,6 +129,27 @@ export default function ClientesPage() {
         variant: "destructive",
       })
       throw err
+    }
+  }
+
+  // Handler para actualizar solo la prioridad del cliente
+  const handleUpdateClientPrioridad = async (clientId: string, prioridad: "Alta" | "Media" | "Baja") => {
+    try {
+      // Buscar el cliente por su ID de MongoDB
+      const cliente = clients.find(c => c.id === clientId)
+      if (!cliente) {
+        throw new Error("Cliente no encontrado")
+      }
+      
+      const result = await ClienteService.actualizarCliente(cliente.numero, { prioridad })
+      if (!result?.success) {
+        throw new Error(result?.message || "Error al actualizar la prioridad")
+      }
+      await fetchClients()
+      // No mostrar toast aquí, lo maneja la tabla
+    } catch (err: unknown) {
+      console.error('Error updating client priority:', err)
+      throw err // Re-lanzar para que la tabla maneje el error
     }
   }
 
@@ -477,17 +503,20 @@ export default function ClientesPage() {
         badge={{ text: "Servicio", className: "bg-orange-100 text-orange-800" }}
         className="bg-white shadow-sm border-b border-orange-100"
         actions={
-          <Button
-            size="icon"
-            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
-            onClick={() => setIsCreateClientDialogOpen(true)}
-            aria-label="Crear cliente"
-            title="Crear cliente"
-          >
-            <User className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Crear Cliente</span>
-            <span className="sr-only">Crear cliente</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <FuentesManager />
+            <Button
+              size="icon"
+              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
+              onClick={() => setIsCreateClientDialogOpen(true)}
+              aria-label="Crear cliente"
+              title="Crear cliente"
+            >
+              <User className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Crear Cliente</span>
+              <span className="sr-only">Crear cliente</span>
+            </Button>
+          </div>
         }
       />
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
@@ -496,6 +525,7 @@ export default function ClientesPage() {
           onEdit={handleEditClient}
           onDelete={handleDeleteClient}
           onViewLocation={handleViewClientLocation}
+          onUpdatePrioridad={handleUpdateClientPrioridad}
           loading={loading}
           onFiltersChange={setAppliedFilters}
           exportButtons={

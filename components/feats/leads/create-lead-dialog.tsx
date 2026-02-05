@@ -6,6 +6,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
+import { PrioritySelect } from "@/components/shared/molecule/priority-select"
 import { Loader2 } from "lucide-react"
 import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector"
 import type { LeadCreateData } from "@/lib/api-types"
@@ -61,7 +62,44 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
   const [loadingMateriales, setLoadingMateriales] = useState(false)
   
   // Estado para controlar si se está usando fuente personalizada
+  const fuentesBase = ['Página Web', 'Instagram', 'Facebook', 'Directo', 'Mensaje de Whatsapp', 'Visita']
+  
+  // Cargar fuentes personalizadas desde localStorage
+  const [fuentesDisponibles, setFuentesDisponibles] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('fuentes_personalizadas')
+      if (stored) {
+        const personalizadas = JSON.parse(stored) as string[]
+        // Combinar fuentes base con personalizadas, eliminando duplicados
+        return [...new Set([...fuentesBase, ...personalizadas])]
+      }
+    } catch (error) {
+      console.error('Error al cargar fuentes personalizadas:', error)
+    }
+    return fuentesBase
+  })
+  
   const [usandoFuentePersonalizada, setUsandoFuentePersonalizada] = useState(false)
+  
+  // Escuchar cambios en las fuentes desde otros componentes
+  useEffect(() => {
+    const handleFuentesUpdate = () => {
+      try {
+        const stored = localStorage.getItem('fuentes_personalizadas')
+        if (stored) {
+          const personalizadas = JSON.parse(stored) as string[]
+          setFuentesDisponibles([...new Set([...fuentesBase, ...personalizadas])])
+        } else {
+          setFuentesDisponibles(fuentesBase)
+        }
+      } catch (error) {
+        console.error('Error al actualizar fuentes:', error)
+      }
+    }
+
+    window.addEventListener('fuentes_updated', handleFuentesUpdate)
+    return () => window.removeEventListener('fuentes_updated', handleFuentesUpdate)
+  }, [])
   
   // Estados para la oferta
   const [oferta, setOferta] = useState({
@@ -128,6 +166,7 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
     elementos_personalizados: [],
     metodo_pago: '',
     moneda: '',
+    prioridad: 'Baja', // Valor por defecto según documentación
   })
 
   // Actualizar el comercial cuando el usuario cambie (por si acaso)
@@ -139,6 +178,14 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
       }))
     }
   }, [user])
+
+  // Asignar prioridad automática cuando cambia la fuente
+  useEffect(() => {
+    const fuentesAlta = ["Fernando", "Kelly", "Ale", "Andy"]
+    if (formData.fuente && fuentesAlta.includes(formData.fuente)) {
+      setFormData(prev => ({ ...prev, prioridad: "Alta" }))
+    }
+  }, [formData.fuente])
 
   // Cargar provincias al montar el componente
   useEffect(() => {
@@ -655,12 +702,11 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
                     <SelectValue placeholder="Seleccionar fuente" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
-                    <SelectItem value="Página Web">Página Web</SelectItem>
-                    <SelectItem value="Instagram">Instagram</SelectItem>
-                    <SelectItem value="Facebook">Facebook</SelectItem>
-                    <SelectItem value="Directo">Directo</SelectItem>
-                    <SelectItem value="Mensaje de Whatsapp">Mensaje de Whatsapp</SelectItem>
-                    <SelectItem value="Visita">Visita</SelectItem>
+                    {fuentesDisponibles.map((fuente) => (
+                      <SelectItem key={fuente} value={fuente}>
+                        {fuente}
+                      </SelectItem>
+                    ))}
                     <SelectItem value="__custom__">✏️ Otra (escribir manualmente)</SelectItem>
                   </SelectContent>
                 </Select>
@@ -679,8 +725,28 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
                     variant="outline"
                     size="sm"
                     onClick={() => {
+                      // Si hay una fuente personalizada escrita, agregarla a la lista
+                      if (formData.fuente && formData.fuente.trim() !== '' && !fuentesDisponibles.includes(formData.fuente)) {
+                        const nuevasFuentes = [...fuentesDisponibles, formData.fuente]
+                        setFuentesDisponibles(nuevasFuentes)
+                        // Guardar en localStorage solo las personalizadas (sin las base)
+                        const personalizadas = nuevasFuentes.filter(f => !fuentesBase.includes(f))
+                        localStorage.setItem('fuentes_personalizadas', JSON.stringify(personalizadas))
+                        
+                        // Quitar de la lista de excluidas si estaba ahí
+                        try {
+                          const excluidas = JSON.parse(localStorage.getItem('fuentes_excluidas') || '[]') as string[]
+                          const nuevasExcluidas = excluidas.filter(f => f !== formData.fuente)
+                          if (nuevasExcluidas.length !== excluidas.length) {
+                            localStorage.setItem('fuentes_excluidas', JSON.stringify(nuevasExcluidas))
+                          }
+                        } catch (error) {
+                          console.error('Error al actualizar fuentes excluidas:', error)
+                        }
+                        
+                        window.dispatchEvent(new CustomEvent('fuentes_updated'))
+                      }
                       setUsandoFuentePersonalizada(false)
-                      handleInputChange('fuente', '')
                     }}
                     className="text-xs"
                   >
@@ -690,7 +756,14 @@ export function CreateLeadDialog({ onSubmit, onCancel, availableSources = [], is
               )}
             </div>
           </div>
-          {/* 4. Dirección (a lo largo) */}
+          {/* 4. Prioridad */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <PrioritySelect
+              value={formData.prioridad}
+              onChange={(value) => handleInputChange('prioridad', value)}
+            />
+          </div>
+          {/* 5. Dirección (a lo largo) */}
           <div>
             <Label htmlFor="direccion">Dirección</Label>
             <Input
