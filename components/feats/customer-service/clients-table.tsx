@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { PriorityDot } from "@/components/shared/atom/priority-dot"
@@ -36,7 +36,9 @@ import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/cr
 import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog"
 import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-averias-dialog"
 import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog"
+import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
+import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 import type {
   OfertaPersonalizada,
   OfertaPersonalizadaCreateRequest,
@@ -126,6 +128,13 @@ const parseDateValue = (value?: string) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
+const normalizeClienteNumero = (value?: string) =>
+  (value ?? "")
+    .toString()
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+
 export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpdatePrioridad, loading = false, onFiltersChange, exportButtons }: ClientsTableProps) {
   const { toast } = useToast()
   const {
@@ -138,6 +147,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
   const {
     fetchOfertasGenericasAprobadas,
     asignarOfertaACliente,
+    obtenerNumerosClientesConOfertas,
+    obtenerOfertaPorCliente,
   } = useOfertasConfeccion()
   const [selectedClientReports, setSelectedClientReports] = useState<any[] | null>(null)
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null)
@@ -156,6 +167,13 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
   const [clientForAverias, setClientForAverias] = useState<Cliente | null>(null)
   const [showAsignarOfertaDialog, setShowAsignarOfertaDialog] = useState(false)
   const [clientForAsignarOferta, setClientForAsignarOferta] = useState<Cliente | null>(null)
+  const [showVerOfertaDialog, setShowVerOfertaDialog] = useState(false)
+  const [showDetalleOfertaDialog, setShowDetalleOfertaDialog] = useState(false)
+  const [ofertaClienteActual, setOfertaClienteActual] = useState<OfertaConfeccion | null>(null)
+  const [ofertasClienteActuales, setOfertasClienteActuales] = useState<OfertaConfeccion[]>([])
+  const [clientesConOferta, setClientesConOferta] = useState<Set<string>>(new Set())
+  const [cargaSetOfertasTerminada, setCargaSetOfertasTerminada] = useState(false)
+  const [consultandoOfertaCliente, setConsultandoOfertaCliente] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState({
     estado: [] as string[],
@@ -266,6 +284,164 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
     })
   }, [clients, searchTerm, filters])
 
+  const cargarClientesConOfertas = useCallback(async (options?: { skipCache?: boolean; silent?: boolean }) => {
+    if (!options?.silent) {
+      setCargaSetOfertasTerminada(false)
+    }
+    try {
+      const result = await obtenerNumerosClientesConOfertas({ skipCache: options?.skipCache })
+      
+      if (result.success) {
+        const numerosConOferta = new Set(result.numeros_clientes.map(normalizeClienteNumero).filter(Boolean))
+        
+        console.log('✅ Clientes con oferta cargados:', numerosConOferta.size)
+        
+        // Actualizar el set de clientes con oferta
+        setClientesConOferta(numerosConOferta)
+        
+        return true
+      } else {
+        console.warn('⚠️ No se pudo cargar endpoint de clientes con ofertas')
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Error cargando clientes con ofertas:', error)
+      return false
+    } finally {
+      if (!options?.silent) {
+        setCargaSetOfertasTerminada(true)
+      }
+    }
+  }, [obtenerNumerosClientesConOfertas])
+
+  // Verificacion progresiva: DESACTIVADA
+  // Ya no es necesaria porque el endpoint /clientes-con-ofertas nos da toda la info
+  // Esto elimina los 404 "falsos" en la consola del navegador
+  /*
+  useEffect(() => {
+    if (!cargaSetOfertasTerminada) return
+    if (filteredClients.length === 0) return
+    if (verificacionEnProgresoRef.current) return
+
+    const candidatos = filteredClients
+      .map((client) => normalizeClienteNumero(client.numero))
+      .filter(Boolean)
+      .filter((numero) => !numerosOfertaVerificadosRef.current.has(numero))
+      .slice(0, 40)
+
+    if (candidatos.length === 0) return
+
+    verificacionEnProgresoRef.current = true
+    let cancelado = false
+    const concurrencia = 6
+    let indice = 0
+
+    const worker = async () => {
+      while (!cancelado) {
+        const currentIndex = indice
+        indice += 1
+        if (currentIndex >= candidatos.length) return
+
+        const numero = candidatos[currentIndex]
+        numerosOfertaVerificadosRef.current.add(numero)
+        const result = await obtenerOfertaPorCliente(numero)
+        if (cancelado) return
+
+        if (result.success && result.oferta) {
+          setClientesConOferta((prev) => {
+            const next = new Set(prev)
+            next.add(numero)
+            return next
+          })
+        }
+      }
+    }
+
+    const workers = Array.from({ length: Math.min(concurrencia, candidatos.length) }, () => worker())
+    Promise.all(workers).catch((error) => {
+      console.error('Error en verificacion progresiva de ofertas:', error)
+    }).finally(() => {
+      verificacionEnProgresoRef.current = false
+    })
+
+    return () => {
+      cancelado = true
+      verificacionEnProgresoRef.current = false
+    }
+  }, [filteredClients, cargaSetOfertasTerminada, obtenerOfertaPorCliente])
+  */
+
+  // Cargar set de clientes con ofertas al montar el componente
+  // SIEMPRE ignora el cache para obtener datos frescos del servidor
+  useEffect(() => {
+    let activo = true
+    const reintentosMs = [0, 500, 1500, 3000]
+
+    const intentarCarga = async () => {
+      for (const delay of reintentosMs) {
+        if (!activo) return
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          if (!activo) return
+        }
+
+        try {
+          console.log('🔄 Cargando clientes con ofertas desde servidor (ignorando cache)')
+          // IMPORTANTE: skipCache: true para siempre obtener datos frescos al recargar la página
+          const ok = await cargarClientesConOfertas({ skipCache: true })
+          if (ok) {
+            console.log('✅ Clientes con ofertas cargados exitosamente desde servidor')
+            return
+          }
+        } catch (error) {
+          console.error('Error cargando clientes con ofertas:', error)
+          if (activo) setCargaSetOfertasTerminada(true)
+        }
+      }
+    }
+
+    intentarCarga().catch((error) => {
+      console.error('Error en reintentos de clientes con ofertas:', error)
+      if (activo) setCargaSetOfertasTerminada(true)
+    })
+
+    return () => {
+      activo = false
+    }
+  }, [cargarClientesConOfertas])
+
+  useEffect(() => {
+    const handleRefresh = () => {
+      cargarClientesConOfertas().catch((error) => {
+        console.error('Error refrescando clientes con ofertas:', error)
+      })
+    }
+
+    const handleOfertaEliminada = () => {
+      console.log('🗑️ Oferta eliminada - Invalidando cache y recargando')
+      // Invalidar cache
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('clientes_con_ofertas_cache_v2')
+      }
+      // Recargar desde el servidor
+      cargarClientesConOfertas({ skipCache: true }).catch((error) => {
+        console.error('Error refrescando clientes con ofertas:', error)
+      })
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('refreshClientsTable', handleRefresh as EventListener)
+      window.addEventListener('ofertaEliminada', handleOfertaEliminada as EventListener)
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('refreshClientsTable', handleRefresh as EventListener)
+        window.removeEventListener('ofertaEliminada', handleOfertaEliminada as EventListener)
+      }
+    }
+  }, [cargarClientesConOfertas])
+
   const hasActiveFilters =
     searchTerm.trim() ||
     filters.estado.length > 0 ||
@@ -358,9 +534,86 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
     setClientForAverias(null)
   }
 
-  const openAsignarOfertaDialog = (client: Cliente) => {
-    setClientForAsignarOferta(client)
-    setShowAsignarOfertaDialog(true)
+  const openAsignarOfertaDialog = async (client: Cliente) => {
+    try {
+      console.log('Click en boton de oferta para cliente:', client.numero)
+      const numeroCliente = normalizeClienteNumero(client.numero)
+      if (!numeroCliente) {
+        toast({
+          title: "Error",
+          description: "El cliente no tiene numero valido.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!cargaSetOfertasTerminada) {
+        toast({
+          title: "Cargando ofertas",
+          description: "Espera un momento mientras se verifica el estado de ofertas.",
+        })
+        return
+      }
+
+      // SIEMPRE verificar con el servidor, sin importar si está en el set local
+      // Esto asegura que detectemos ofertas eliminadas directamente de la BD
+      console.log('🔍 Verificando oferta en servidor para cliente:', numeroCliente)
+      const result = await obtenerOfertaPorCliente(numeroCliente)
+      console.log('📡 Resultado de verificacion:', result)
+
+      if (result.success && result.oferta) {
+        // Cliente tiene oferta - actualizar set local si no estaba
+        if (!clientesConOferta.has(numeroCliente)) {
+          console.log('✅ Cliente tiene oferta pero no estaba en el set - agregando')
+          setClientesConOferta((prev) => {
+            const next = new Set(prev)
+            next.add(numeroCliente)
+            return next
+          })
+        }
+        
+        const ofertas = result.ofertas?.length ? result.ofertas : [result.oferta]
+        setOfertasClienteActuales(ofertas)
+        setOfertaClienteActual(result.oferta)
+        
+        // Si solo tiene UNA oferta, abrir directamente el diálogo de detalles
+        if (ofertas.length === 1) {
+          setShowDetalleOfertaDialog(true)
+        } else {
+          // Si tiene MÚLTIPLES ofertas, mostrar el listado primero
+          setClientForAsignarOferta(client)
+          setShowVerOfertaDialog(true)
+        }
+        return
+      }
+
+      // Cliente NO tiene oferta
+      if (clientesConOferta.has(numeroCliente)) {
+        // Estaba en el set pero ya no tiene oferta - remover
+        console.log('⚠️ Cliente estaba en el set pero ya no tiene oferta - removiendo')
+        removerClienteDelSet(numeroCliente)
+      }
+
+      if (result.error) {
+        toast({
+          title: "Error al verificar oferta",
+          description: "No se pudo comprobar la oferta del cliente. Intenta nuevamente.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Mostrar diálogo para asignar oferta
+      setClientForAsignarOferta(client)
+      setShowAsignarOfertaDialog(true)
+    } catch (error) {
+      console.error('Error en openAsignarOfertaDialog:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo procesar la oferta de este cliente.",
+        variant: "destructive",
+      })
+    }
   }
 
   const closeAsignarOfertaDialog = () => {
@@ -368,17 +621,115 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
     setClientForAsignarOferta(null)
   }
 
+  const closeVerOfertaDialog = () => {
+    setShowVerOfertaDialog(false)
+    setOfertaClienteActual(null)
+    setOfertasClienteActuales([])
+  }
+
+  const handleVerDetallesOferta = (oferta: OfertaConfeccion) => {
+    // Pasar solo la oferta seleccionada para que abra en modo detalle directo
+    setOfertaClienteActual(oferta)
+    setOfertasClienteActuales([oferta]) // Solo una oferta para modo detalle
+    setShowVerOfertaDialog(false)
+    setShowDetalleOfertaDialog(true)
+  }
+
+  const closeDetalleOfertaDialog = () => {
+    setShowDetalleOfertaDialog(false)
+    setOfertaClienteActual(null)
+  }
+
+  // Función para remover un cliente del set de clientes con oferta
+  const removerClienteDelSet = useCallback((numeroCliente: string) => {
+    const numeroNormalizado = normalizeClienteNumero(numeroCliente)
+    
+    console.log('🗑️ Removiendo cliente del set de ofertas')
+    console.log('📝 Número cliente normalizado:', numeroNormalizado)
+    
+    // Actualizar el estado local
+    setClientesConOferta((prev) => {
+      const next = new Set(prev)
+      const removed = next.delete(numeroNormalizado)
+      console.log('📊 Cliente removido del set:', removed)
+      console.log('📊 Estado actualizado:', Array.from(next))
+      return next
+    })
+
+    // Actualizar también el cache de localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const cachedRaw = localStorage.getItem('clientes_con_ofertas_cache_v2')
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw)
+          const numeros = Array.isArray(cached.numeros) ? cached.numeros : []
+          const index = numeros.indexOf(numeroNormalizado)
+          if (index > -1) {
+            numeros.splice(index, 1)
+            localStorage.setItem('clientes_con_ofertas_cache_v2', JSON.stringify({
+              ts: Date.now(),
+              numeros
+            }))
+            console.log('💾 Cache actualizado - cliente removido')
+          }
+        }
+      } catch (error) {
+        console.error('Error actualizando cache:', error)
+      }
+    }
+  }, [])
+
   const handleAsignarOferta = async (ofertaGenericaId: string) => {
     if (!clientForAsignarOferta) return
 
     const result = await asignarOfertaACliente(ofertaGenericaId, clientForAsignarOferta.numero)
-    
+
     if (result.success) {
-      // Refrescar la lista de clientes
+      const numeroCliente = normalizeClienteNumero(clientForAsignarOferta.numero)
+      
+      console.log('✅ Oferta asignada exitosamente')
+      console.log('📝 Número cliente normalizado:', numeroCliente)
+      console.log('📊 Estado actual antes de actualizar:', Array.from(clientesConOferta))
+      
+      // Actualizar el estado local inmediatamente para que el botón se ponga verde
+      setClientesConOferta((prev) => {
+        const next = new Set(prev)
+        next.add(numeroCliente)
+        console.log('📊 Estado actualizado:', Array.from(next))
+        console.log('✅ Cliente agregado al set:', next.has(numeroCliente))
+        return next
+      })
+
+      // Actualizar también el cache de localStorage para mantener consistencia
       if (typeof window !== 'undefined') {
+        try {
+          const cachedRaw = localStorage.getItem('clientes_con_ofertas_cache_v2')
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw)
+            const numeros = Array.isArray(cached.numeros) ? cached.numeros : []
+            if (!numeros.includes(numeroCliente)) {
+              numeros.push(numeroCliente)
+              localStorage.setItem('clientes_con_ofertas_cache_v2', JSON.stringify({
+                ts: Date.now(),
+                numeros
+              }))
+              console.log('💾 Cache actualizado con nuevo cliente')
+            }
+          }
+        } catch (error) {
+          console.error('Error actualizando cache:', error)
+        }
+
+        // Disparar evento de refresh para otros componentes
         window.dispatchEvent(new CustomEvent('refreshClientsTable'))
       }
+      
       closeAsignarOfertaDialog()
+      
+      toast({
+        title: "✅ Oferta asignada",
+        description: "El cliente ahora tiene una oferta asignada",
+      })
     }
   }
 
@@ -835,11 +1186,37 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openAsignarOfertaDialog(client)}
-                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                              title="Asignar oferta genérica"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setConsultandoOfertaCliente(client.numero)
+                                openAsignarOfertaDialog(client).catch(err => {
+                                  console.error('Error al abrir dialogo:', err)
+                                }).finally(() => {
+                                  setConsultandoOfertaCliente((prev) => (prev === client.numero ? null : prev))
+                                })
+                              }}
+                              disabled={consultandoOfertaCliente === client.numero || !cargaSetOfertasTerminada}
+                              className={(() => {
+                                if (!cargaSetOfertasTerminada) {
+                                  return "text-slate-400 hover:text-slate-500 hover:bg-slate-50"
+                                }
+                                const numeroCliente = normalizeClienteNumero(client.numero)
+                                const tieneOferta = clientesConOferta.has(numeroCliente)
+                                if (tieneOferta) return "text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-300"
+                                return "text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                              })()}
+                              title={(() => {
+                                if (!cargaSetOfertasTerminada) return "Cargando estado de oferta..."
+                                const numeroCliente = normalizeClienteNumero(client.numero)
+                                const tieneOferta = clientesConOferta.has(numeroCliente)
+                                if (tieneOferta) return "Ver oferta asignada"
+                                return "Asignar oferta generica"
+                              })()}
                             >
-                              <FileCheck className="h-4 w-4" />
+                              <FileCheck
+                                className={`h-4 w-4 ${consultandoOfertaCliente === client.numero || !cargaSetOfertasTerminada ? "animate-pulse" : ""}`}
+                              />
                             </Button>
                             <Button
                               variant="ghost"
@@ -1032,6 +1409,35 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
         onAsignar={handleAsignarOferta}
         fetchOfertasGenericas={fetchOfertasGenericasAprobadas}
       />
+
+      {/* Modal de ver oferta del cliente - Reutilizando AsignarOfertaGenericaDialog */}
+      <AsignarOfertaGenericaDialog
+        open={showVerOfertaDialog}
+        onOpenChange={(open) => {
+          setShowVerOfertaDialog(open)
+          if (!open) closeVerOfertaDialog()
+        }}
+        cliente={clientForAsignarOferta || (ofertaClienteActual ? {
+          nombre: ofertaClienteActual.cliente_nombre || '',
+          numero: ofertaClienteActual.cliente_numero || '',
+        } as Cliente : null)}
+        modo="ver"
+        ofertasExistentes={ofertasClienteActuales}
+        onVerDetalles={handleVerDetallesOferta}
+      />
+
+      {/* Modal de detalles completos de una oferta específica */}
+      <VerOfertaClienteDialog
+        open={showDetalleOfertaDialog}
+        onOpenChange={(open) => {
+          setShowDetalleOfertaDialog(open)
+          if (!open) closeDetalleOfertaDialog()
+        }}
+        oferta={ofertaClienteActual}
+        ofertas={ofertasClienteActuales}
+      />
     </>
   )
 }
+
+

@@ -14,8 +14,12 @@ interface AsignarOfertaGenericaDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   cliente: Cliente | null
-  onAsignar: (ofertaGenericaId: string) => Promise<void>
-  fetchOfertasGenericas: () => Promise<OfertaConfeccion[]>
+  onAsignar?: (ofertaGenericaId: string) => Promise<void>
+  fetchOfertasGenericas?: () => Promise<OfertaConfeccion[]>
+  // Nuevos props para modo "ver"
+  modo?: 'asignar' | 'ver'
+  ofertasExistentes?: OfertaConfeccion[]
+  onVerDetalles?: (oferta: OfertaConfeccion) => void
 }
 
 export function AsignarOfertaGenericaDialog({
@@ -24,6 +28,9 @@ export function AsignarOfertaGenericaDialog({
   cliente,
   onAsignar,
   fetchOfertasGenericas,
+  modo = 'asignar',
+  ofertasExistentes = [],
+  onVerDetalles,
 }: AsignarOfertaGenericaDialogProps) {
   const [ofertas, setOfertas] = useState<OfertaConfeccion[]>([])
   const [loading, setLoading] = useState(false)
@@ -31,18 +38,38 @@ export function AsignarOfertaGenericaDialog({
   const [selectedOfertaId, setSelectedOfertaId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
+  const esModoVer = modo === 'ver'
+
+  // Efecto para abrir/cerrar el diálogo
   useEffect(() => {
     if (open) {
-      loadOfertas()
+      if (esModoVer) {
+        // En modo ver, usar las ofertas existentes
+        setOfertas(ofertasExistentes)
+        setLoading(false)
+      } else {
+        // En modo asignar, cargar ofertas genéricas
+        loadOfertas()
+      }
     } else {
       // Limpiar estado al cerrar
       setOfertas([])
       setSelectedOfertaId(null)
       setSearchQuery("")
     }
-  }, [open])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, esModoVer])
+
+  // Efecto separado para actualizar ofertas en modo "ver" cuando cambien
+  useEffect(() => {
+    if (open && esModoVer && ofertasExistentes.length > 0) {
+      setOfertas(ofertasExistentes)
+    }
+  }, [open, esModoVer, ofertasExistentes])
 
   const loadOfertas = async () => {
+    if (!fetchOfertasGenericas) return
+    
     setLoading(true)
     try {
       const data = await fetchOfertasGenericas()
@@ -56,6 +83,8 @@ export function AsignarOfertaGenericaDialog({
   }
 
   const handleAsignar = async (ofertaId: string) => {
+    if (!onAsignar) return
+    
     setAsignando(true)
     setSelectedOfertaId(ofertaId)
     try {
@@ -141,13 +170,25 @@ export function AsignarOfertaGenericaDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <DialogTitle>Asignar Oferta Genérica</DialogTitle>
+          <DialogTitle>
+            {esModoVer ? 'Ofertas del Cliente' : 'Asignar Oferta Genérica'}
+          </DialogTitle>
           <DialogDescription>
             {cliente ? (
               <>
-                Selecciona una oferta genérica aprobada para asignar a{" "}
-                <span className="font-semibold text-gray-900">{cliente.nombre}</span>
-                {" "}({cliente.numero})
+                {esModoVer ? (
+                  <>
+                    Ofertas asignadas a{" "}
+                    <span className="font-semibold text-gray-900">{cliente.nombre}</span>
+                    {" "}({cliente.numero})
+                  </>
+                ) : (
+                  <>
+                    Selecciona una oferta genérica aprobada para asignar a{" "}
+                    <span className="font-semibold text-gray-900">{cliente.nombre}</span>
+                    {" "}({cliente.numero})
+                  </>
+                )}
               </>
             ) : (
               "Selecciona un cliente primero"
@@ -164,10 +205,16 @@ export function AsignarOfertaGenericaDialog({
           <div className="text-center py-12">
             <FileCheck className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No hay ofertas genéricas aprobadas
+              {esModoVer 
+                ? 'No hay ofertas asignadas' 
+                : 'No hay ofertas genéricas aprobadas'
+              }
             </h3>
             <p className="text-gray-600">
-              Crea y aprueba ofertas genéricas para poder asignarlas a clientes.
+              {esModoVer
+                ? 'Este cliente aún no tiene ofertas asignadas.'
+                : 'Crea y aprueba ofertas genéricas para poder asignarlas a clientes.'
+              }
             </p>
           </div>
         ) : (
@@ -305,26 +352,44 @@ export function AsignarOfertaGenericaDialog({
                             )}
                           </div>
 
-                          {/* Botón de asignar - rediseñado */}
+                          {/* Botón de asignar/ver - rediseñado */}
                           <div className="flex-shrink-0 flex items-center">
-                            <Button
-                              onClick={() => handleAsignar(oferta.id)}
-                              disabled={asignando}
-                              size="sm"
-                              className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 h-auto rounded-md shadow-sm"
-                            >
-                              {asignando && selectedOfertaId === oferta.id ? (
-                                <div className="flex items-center gap-1.5">
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  <span className="text-xs font-medium">Asignando...</span>
-                                </div>
-                              ) : (
+                            {esModoVer ? (
+                              <Button
+                                onClick={() => {
+                                  if (onVerDetalles) {
+                                    onVerDetalles(oferta)
+                                  }
+                                }}
+                                size="sm"
+                                variant="outline"
+                                className="px-4 py-2 h-auto rounded-md"
+                              >
                                 <div className="flex items-center gap-1.5">
                                   <FileCheck className="h-3.5 w-3.5" />
-                                  <span className="text-xs font-medium">Asignar</span>
+                                  <span className="text-xs font-medium">Ver Detalles</span>
                                 </div>
-                              )}
-                            </Button>
+                              </Button>
+                            ) : (
+                              <Button
+                                onClick={() => handleAsignar(oferta.id)}
+                                disabled={asignando}
+                                size="sm"
+                                className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 h-auto rounded-md shadow-sm"
+                              >
+                                {asignando && selectedOfertaId === oferta.id ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    <span className="text-xs font-medium">Asignando...</span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-1.5">
+                                    <FileCheck className="h-3.5 w-3.5" />
+                                    <span className="text-xs font-medium">Asignar</span>
+                                  </div>
+                                )}
+                              </Button>
+                            )}
                           </div>
                         </div>
                       </CardContent>
