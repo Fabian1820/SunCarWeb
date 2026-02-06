@@ -166,6 +166,60 @@ export function useOfertasConfeccion() {
     }
   }, [toast, fetchOfertas])
 
+  const fetchOfertasGenericasAprobadas = useCallback(async () => {
+    try {
+      const response = await apiRequest<any>('/ofertas/confeccion/genericas/aprobadas', { method: 'GET' })
+      const rawOfertas = Array.isArray(response)
+        ? response
+        : response?.data ?? response?.results ?? response?.ofertas ?? []
+      return Array.isArray(rawOfertas) ? rawOfertas.map(normalizeOfertaConfeccion) : []
+    } catch (error: any) {
+      console.error('Error fetching ofertas genéricas aprobadas:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudieron cargar las ofertas genéricas',
+        variant: 'destructive',
+      })
+      return []
+    }
+  }, [toast])
+
+  const asignarOfertaACliente = useCallback(async (ofertaGenericaId: string, clienteNumero: string) => {
+    try {
+      const response = await apiRequest<any>('/ofertas/confeccion/asignar-a-cliente', {
+        method: 'POST',
+        body: JSON.stringify({
+          oferta_generica_id: ofertaGenericaId,
+          cliente_numero: clienteNumero,
+        }),
+      })
+
+      if (response?.success) {
+        toast({
+          title: 'Oferta asignada',
+          description: response.message || 'La oferta se asignó correctamente al cliente',
+        })
+
+        await fetchOfertas()
+        return {
+          success: true,
+          ofertaNuevaId: response.oferta_nueva_id,
+          ofertaNueva: response.oferta_nueva,
+        }
+      } else {
+        throw new Error(response?.message || 'No se pudo asignar la oferta')
+      }
+    } catch (error: any) {
+      console.error('Error asignando oferta:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo asignar la oferta al cliente',
+        variant: 'destructive',
+      })
+      return { success: false }
+    }
+  }, [toast, fetchOfertas])
+
   useEffect(() => {
     fetchOfertas()
   }, [fetchOfertas])
@@ -175,5 +229,7 @@ export function useOfertasConfeccion() {
     loading,
     refetch: fetchOfertas,
     eliminarOferta,
+    fetchOfertasGenericasAprobadas,
+    asignarOfertaACliente,
   }
 }

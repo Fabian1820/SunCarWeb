@@ -35,6 +35,8 @@ import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personali
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog"
 import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog"
 import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-averias-dialog"
+import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog"
+import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import type {
   OfertaPersonalizada,
   OfertaPersonalizadaCreateRequest,
@@ -133,6 +135,10 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
     updateOferta,
     deleteOferta,
   } = useOfertasPersonalizadas()
+  const {
+    fetchOfertasGenericasAprobadas,
+    asignarOfertaACliente,
+  } = useOfertasConfeccion()
   const [selectedClientReports, setSelectedClientReports] = useState<any[] | null>(null)
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null)
   const [loadingClientReports, setLoadingClientReports] = useState(false)
@@ -148,6 +154,8 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false)
   const [showAveriasDialog, setShowAveriasDialog] = useState(false)
   const [clientForAverias, setClientForAverias] = useState<Cliente | null>(null)
+  const [showAsignarOfertaDialog, setShowAsignarOfertaDialog] = useState(false)
+  const [clientForAsignarOferta, setClientForAsignarOferta] = useState<Cliente | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filters, setFilters] = useState({
     estado: [] as string[],
@@ -348,6 +356,30 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
   const closeAveriasDialog = () => {
     setShowAveriasDialog(false)
     setClientForAverias(null)
+  }
+
+  const openAsignarOfertaDialog = (client: Cliente) => {
+    setClientForAsignarOferta(client)
+    setShowAsignarOfertaDialog(true)
+  }
+
+  const closeAsignarOfertaDialog = () => {
+    setShowAsignarOfertaDialog(false)
+    setClientForAsignarOferta(null)
+  }
+
+  const handleAsignarOferta = async (ofertaGenericaId: string) => {
+    if (!clientForAsignarOferta) return
+
+    const result = await asignarOfertaACliente(ofertaGenericaId, clientForAsignarOferta.numero)
+    
+    if (result.success) {
+      // Refrescar la lista de clientes
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('refreshClientsTable'))
+      }
+      closeAsignarOfertaDialog()
+    }
   }
 
   const handleAveriasSuccess = async () => {
@@ -803,6 +835,15 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openAsignarOfertaDialog(client)}
+                              className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              title="Asignar oferta genérica"
+                            >
+                              <FileCheck className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => openAveriasCliente(client)}
                               className={getAveriaStatus(client).color}
                               title={getAveriaStatus(client).title}
@@ -979,6 +1020,18 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
           onSuccess={handleAveriasSuccess}
         />
       )}
+
+      {/* Modal de asignar oferta genérica */}
+      <AsignarOfertaGenericaDialog
+        open={showAsignarOfertaDialog}
+        onOpenChange={(open) => {
+          setShowAsignarOfertaDialog(open)
+          if (!open) closeAsignarOfertaDialog()
+        }}
+        cliente={clientForAsignarOferta}
+        onAsignar={handleAsignarOferta}
+        fetchOfertasGenericas={fetchOfertasGenericasAprobadas}
+      />
     </>
   )
 }

@@ -526,10 +526,8 @@ export function OfertasConfeccionadasView() {
       const inversor = itemsInversores[0]
       const material = materials.find(m => m.codigo.toString() === inversor.material_codigo)
       
-      // Extraer potencia del nombre/descripción (buscar patrón como "10kW" o "10 kW")
-      const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
-                           material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
-      const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+      // Usar el campo potenciaKW del material directamente
+      const potencia = material?.potenciaKW || 0
       
       // Buscar marca del inversor
       const marcaId = material?.marca_id
@@ -549,17 +547,15 @@ export function OfertasConfeccionadasView() {
       const bateria = itemsBaterias[0]
       const material = materials.find(m => m.codigo.toString() === bateria.material_codigo)
       
-      // Extraer capacidad del nombre/descripción (buscar patrón como "10kWh", "10 kWh", "10.0kWh")
-      const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
-                            material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
-                            bateria.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
-      const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+      // Usar el campo potenciaKW del material directamente (para baterías es la capacidad en kWh)
+      const capacidad = material?.potenciaKW || 0
       
       console.log('🔋 DEBUG Batería:', {
+        material_codigo: bateria.material_codigo,
         material_nombre: material?.nombre,
-        bateria_descripcion: bateria.descripcion,
-        capacidadMatch,
-        capacidad
+        potenciaKW: material?.potenciaKW,
+        capacidad,
+        cantidad: bateria.cantidad
       })
       
       componentesPrincipales.bateria = {
@@ -575,10 +571,10 @@ export function OfertasConfeccionadasView() {
       const panel = itemsPaneles[0]
       const material = materials.find(m => m.codigo.toString() === panel.material_codigo)
       
-      // Extraer potencia del nombre/descripción (buscar patrón como "590W" o "590 W")
-      const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
-                           material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
-      const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+      // Usar el campo potenciaKW del material directamente
+      // Para paneles, potenciaKW está en kW, pero necesitamos en W para el cálculo
+      const potenciaKW = material?.potenciaKW || 0
+      const potencia = potenciaKW * 1000 // Convertir de kW a W
       
       componentesPrincipales.panel = {
         codigo: panel.material_codigo,
