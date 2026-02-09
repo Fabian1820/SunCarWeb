@@ -1360,6 +1360,21 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
   // ========== PIE DE PÁGINA ==========
   const pageCount = (doc as any).internal.getNumberOfPages()
+  
+  // Obtener fecha y hora de Cuba (UTC-5)
+  const now = new Date()
+  const cubaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Havana' }))
+  const fechaExportacion = cubaTime.toLocaleDateString('es-ES', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric' 
+  })
+  const horaExportacion = cubaTime.toLocaleTimeString('es-ES', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false
+  })
+  
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
     
@@ -1379,6 +1394,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       'SUNCAR SRL - Soluciones en Energía Solar',
       10,
       doc.internal.pageSize.getHeight() - 8
+    )
+    
+    // Fecha y hora de exportación en la esquina inferior derecha
+    doc.setFontSize(6.5)
+    doc.setTextColor(120, 120, 120)
+    doc.text(
+      `Exportado: ${fechaExportacion} ${horaExportacion}`,
+      pageWidth - 10,
+      doc.internal.pageSize.getHeight() - 8,
+      { align: 'right' }
     )
   }
 
