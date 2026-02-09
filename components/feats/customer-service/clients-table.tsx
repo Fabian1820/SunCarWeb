@@ -24,6 +24,7 @@ import {
   Search,
   ChevronDown,
   AlertTriangle,
+  Loader2,
 } from "lucide-react"
 import { ReportsTable } from "@/components/feats/reports/reports-table"
 import { ReporteService } from "@/lib/api-services"
@@ -37,6 +38,8 @@ import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit
 import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-averias-dialog"
 import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog"
 import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog"
+import { DuplicarOfertaDialog } from "@/components/feats/ofertas/duplicar-oferta-dialog"
+import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 import type {
@@ -165,8 +168,17 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false)
   const [showAveriasDialog, setShowAveriasDialog] = useState(false)
   const [clientForAverias, setClientForAverias] = useState<Cliente | null>(null)
+  const [showOfertaFlowDialog, setShowOfertaFlowDialog] = useState(false)
   const [showAsignarOfertaDialog, setShowAsignarOfertaDialog] = useState(false)
   const [clientForAsignarOferta, setClientForAsignarOferta] = useState<Cliente | null>(null)
+  const [tipoOfertaSeleccionada, setTipoOfertaSeleccionada] = useState<"generica" | "personalizada" | "">("")
+  const [accionPersonalizadaSeleccionada, setAccionPersonalizadaSeleccionada] = useState<"nueva" | "duplicar" | "">("")
+  const [showCrearOfertaPersonalizadaDialog, setShowCrearOfertaPersonalizadaDialog] = useState(false)
+  const [showDuplicarOfertaPersonalizadaDialog, setShowDuplicarOfertaPersonalizadaDialog] = useState(false)
+  const [ofertasGenericasAprobadas, setOfertasGenericasAprobadas] = useState<OfertaConfeccion[]>([])
+  const [loadingOfertasGenericasAprobadas, setLoadingOfertasGenericasAprobadas] = useState(false)
+  const [ofertasGenericasAprobadasCargadas, setOfertasGenericasAprobadasCargadas] = useState(false)
+  const [ofertaGenericaParaDuplicarId, setOfertaGenericaParaDuplicarId] = useState("")
   const [showVerOfertaDialog, setShowVerOfertaDialog] = useState(false)
   const [showDetalleOfertaDialog, setShowDetalleOfertaDialog] = useState(false)
   const [ofertaClienteActual, setOfertaClienteActual] = useState<OfertaConfeccion | null>(null)
@@ -190,6 +202,11 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
     if (!clienteId) return []
     return ofertas.filter((o) => o.cliente_id === clienteId)
   }, [ofertas, clientForOfertas])
+
+  const ofertaGenericaParaDuplicar = useMemo(
+    () => ofertasGenericasAprobadas.find((oferta) => oferta.id === ofertaGenericaParaDuplicarId) ?? null,
+    [ofertasGenericasAprobadas, ofertaGenericaParaDuplicarId]
+  )
 
   const availableEstados = CLIENT_ESTADOS
   const availableFuentes = LEAD_FUENTES
@@ -605,7 +622,7 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
 
       // Mostrar diálogo para asignar oferta
       setClientForAsignarOferta(client)
-      setShowAsignarOfertaDialog(true)
+      setShowOfertaFlowDialog(true)
     } catch (error) {
       console.error('Error en openAsignarOfertaDialog:', error)
       toast({
@@ -619,6 +636,110 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
   const closeAsignarOfertaDialog = () => {
     setShowAsignarOfertaDialog(false)
     setClientForAsignarOferta(null)
+  }
+
+  const closeOfertaFlowDialog = () => {
+    setShowOfertaFlowDialog(false)
+    setTipoOfertaSeleccionada("")
+    setAccionPersonalizadaSeleccionada("")
+    setOfertasGenericasAprobadas([])
+    setOfertaGenericaParaDuplicarId("")
+    setOfertasGenericasAprobadasCargadas(false)
+    setLoadingOfertasGenericasAprobadas(false)
+    setClientForAsignarOferta(null)
+  }
+
+  const loadOfertasGenericasAprobadasParaDuplicar = useCallback(async () => {
+    setLoadingOfertasGenericasAprobadas(true)
+    try {
+      const ofertas = await fetchOfertasGenericasAprobadas()
+      setOfertasGenericasAprobadas(ofertas)
+    } catch (error) {
+      console.error("Error cargando ofertas genéricas aprobadas para duplicar:", error)
+      setOfertasGenericasAprobadas([])
+    } finally {
+      setLoadingOfertasGenericasAprobadas(false)
+      setOfertasGenericasAprobadasCargadas(true)
+    }
+  }, [fetchOfertasGenericasAprobadas])
+
+  useEffect(() => {
+    if (!showOfertaFlowDialog) return
+    if (tipoOfertaSeleccionada !== "personalizada") return
+    if (accionPersonalizadaSeleccionada !== "duplicar") return
+    if (ofertasGenericasAprobadasCargadas || loadingOfertasGenericasAprobadas) return
+
+    loadOfertasGenericasAprobadasParaDuplicar().catch((error) => {
+      console.error("Error precargando ofertas genéricas aprobadas:", error)
+    })
+  }, [
+    showOfertaFlowDialog,
+    tipoOfertaSeleccionada,
+    accionPersonalizadaSeleccionada,
+    ofertasGenericasAprobadasCargadas,
+    loadingOfertasGenericasAprobadas,
+    loadOfertasGenericasAprobadasParaDuplicar,
+  ])
+
+  const handleContinuarOfertaFlow = async () => {
+    if (!clientForAsignarOferta) return
+
+    if (!tipoOfertaSeleccionada) {
+      toast({
+        title: "Selecciona el tipo de oferta",
+        description: "Debes elegir si será genérica o personalizada.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (tipoOfertaSeleccionada === "generica") {
+      setShowOfertaFlowDialog(false)
+      setTipoOfertaSeleccionada("")
+      setAccionPersonalizadaSeleccionada("")
+      setOfertasGenericasAprobadas([])
+      setOfertaGenericaParaDuplicarId("")
+      setOfertasGenericasAprobadasCargadas(false)
+      setShowAsignarOfertaDialog(true)
+      return
+    }
+
+    if (!accionPersonalizadaSeleccionada) {
+      toast({
+        title: "Selecciona una acción",
+        description: "Indica si deseas crear una nueva o duplicar y editar una existente.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (accionPersonalizadaSeleccionada === "nueva") {
+      setShowOfertaFlowDialog(false)
+      setTipoOfertaSeleccionada("")
+      setAccionPersonalizadaSeleccionada("")
+      setOfertasGenericasAprobadas([])
+      setOfertaGenericaParaDuplicarId("")
+      setOfertasGenericasAprobadasCargadas(false)
+      setShowCrearOfertaPersonalizadaDialog(true)
+      return
+    }
+
+    if (!ofertaGenericaParaDuplicarId) {
+      toast({
+        title: "Selecciona una oferta genérica",
+        description: "Escoge qué oferta aprobada deseas duplicar y editar.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // NO limpiar ofertasGenericasAprobadas aquí porque se necesita para ofertaGenericaParaDuplicar
+    // Se limpiarán cuando se cierre el diálogo de duplicar
+    setShowOfertaFlowDialog(false)
+    setTipoOfertaSeleccionada("")
+    setAccionPersonalizadaSeleccionada("")
+    setOfertasGenericasAprobadasCargadas(false)
+    setShowDuplicarOfertaPersonalizadaDialog(true)
   }
 
   const closeVerOfertaDialog = () => {
@@ -731,6 +852,17 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
         description: "El cliente ahora tiene una oferta asignada",
       })
     }
+  }
+
+  const handleOfertaPersonalizadaConfeccionSuccess = async () => {
+    setShowCrearOfertaPersonalizadaDialog(false)
+    setShowDuplicarOfertaPersonalizadaDialog(false)
+    setOfertasGenericasAprobadas([])
+    setOfertasGenericasAprobadasCargadas(false)
+    setOfertaGenericaParaDuplicarId("")
+    setClientForAsignarOferta(null)
+
+    await cargarClientesConOfertas({ skipCache: true, silent: true })
   }
 
   const handleAveriasSuccess = async () => {
@@ -1397,6 +1529,288 @@ export function ClientsTable({ clients, onEdit, onDelete, onViewLocation, onUpda
           onSuccess={handleAveriasSuccess}
         />
       )}
+
+      {/* Flujo guiado para elegir tipo de oferta */}
+      <Dialog
+        open={showOfertaFlowDialog}
+        onOpenChange={(open) => {
+          setShowOfertaFlowDialog(open)
+          if (!open) closeOfertaFlowDialog()
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>Asignar oferta</DialogTitle>
+            <DialogDescription>
+              {clientForAsignarOferta
+                ? `${clientForAsignarOferta.nombre} (${clientForAsignarOferta.numero})`
+                : "Selecciona un cliente"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 flex-1 min-h-0 flex flex-col">
+            <div className="space-y-2 flex-shrink-0">
+              <Label>Tipo de oferta</Label>
+              <Select
+                value={tipoOfertaSeleccionada || undefined}
+                onValueChange={(value: "generica" | "personalizada") => {
+                  setTipoOfertaSeleccionada(value)
+                  setAccionPersonalizadaSeleccionada("")
+                  setOfertasGenericasAprobadas([])
+                  setOfertasGenericasAprobadasCargadas(false)
+                  setOfertaGenericaParaDuplicarId("")
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona tipo de oferta" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="generica">Generica</SelectItem>
+                  <SelectItem value="personalizada">Personalizada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {tipoOfertaSeleccionada === "personalizada" && (
+              <div className="space-y-2 flex-shrink-0">
+                <Label>Accion</Label>
+                <Select
+                  value={accionPersonalizadaSeleccionada || undefined}
+                  onValueChange={(value: "nueva" | "duplicar") => {
+                    setAccionPersonalizadaSeleccionada(value)
+                    setOfertasGenericasAprobadas([])
+                    setOfertasGenericasAprobadasCargadas(false)
+                    setOfertaGenericaParaDuplicarId("")
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Crear nueva o duplicar y editar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nueva">Crear nueva</SelectItem>
+                    <SelectItem value="duplicar">Duplicar y editar existente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {tipoOfertaSeleccionada === "personalizada" && accionPersonalizadaSeleccionada === "duplicar" && (
+              <div className="space-y-2 flex-1 min-h-0 flex flex-col">
+                <Label>Selecciona la oferta genérica a duplicar</Label>
+                {loadingOfertasGenericasAprobadas ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                    <span className="ml-3 text-gray-600">Cargando ofertas...</span>
+                  </div>
+                ) : ofertasGenericasAprobadas.length === 0 ? (
+                  <div className="text-center py-8">
+                    <FileCheck className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                    <p className="text-sm text-gray-500">
+                      No hay ofertas genéricas aprobadas para duplicar.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 overflow-y-auto pr-2 min-h-0">
+                    <div className="grid grid-cols-1 gap-2">
+                      {ofertasGenericasAprobadas.map((oferta) => {
+                        const maxItems = (() => {
+                          const items = {
+                            inversor: null as { cantidad: number; descripcion: string } | null,
+                            bateria: null as { cantidad: number; descripcion: string } | null,
+                            panel: null as { cantidad: number; descripcion: string } | null,
+                          }
+                          oferta.items?.forEach((item) => {
+                            const seccion = item.seccion?.toLowerCase() || ''
+                            const itemData = { cantidad: item.cantidad, descripcion: item.descripcion }
+                            if (seccion === 'inversor' || seccion === 'inversores') {
+                              if (!items.inversor || item.cantidad > items.inversor.cantidad) {
+                                items.inversor = itemData
+                              }
+                            } else if (seccion === 'bateria' || seccion === 'baterias' || seccion === 'batería' || seccion === 'baterías') {
+                              if (!items.bateria || item.cantidad > items.bateria.cantidad) {
+                                items.bateria = itemData
+                              }
+                            } else if (seccion === 'panel' || seccion === 'paneles') {
+                              if (!items.panel || item.cantidad > items.panel.cantidad) {
+                                items.panel = itemData
+                              }
+                            }
+                          })
+                          return items
+                        })()
+
+                        const isSelected = ofertaGenericaParaDuplicarId === oferta.id
+
+                        return (
+                          <Card
+                            key={oferta.id}
+                            className={`border cursor-pointer transition-all ${
+                              isSelected
+                                ? 'border-orange-500 bg-orange-50 shadow-md'
+                                : 'hover:shadow-md hover:border-orange-300'
+                            }`}
+                            onClick={() => setOfertaGenericaParaDuplicarId(oferta.id)}
+                          >
+                            <CardContent className="p-2.5">
+                              <div className="flex gap-2.5">
+                                {/* Foto */}
+                                <div className="flex-shrink-0">
+                                  <div className="w-20 h-20 bg-gray-100 rounded-md overflow-hidden relative border">
+                                    {oferta.foto_portada ? (
+                                      <img
+                                        src={oferta.foto_portada}
+                                        alt={oferta.nombre}
+                                        className="w-full h-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center">
+                                        <FileCheck className="h-7 w-7 text-gray-300" />
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Contenido */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1.5">
+                                    <h3 className="font-semibold text-sm text-gray-900 truncate flex-1">
+                                      {oferta.nombre}
+                                    </h3>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <span className="text-sm font-bold text-orange-600">
+                                        {new Intl.NumberFormat('es-ES', {
+                                          style: 'currency',
+                                          currency: oferta.moneda_pago || 'USD',
+                                          minimumFractionDigits: 2,
+                                        }).format(oferta.precio_final)}
+                                      </span>
+                                      <span className="text-gray-400">|</span>
+                                      <span className="text-xs font-semibold text-green-600">
+                                        {oferta.margen_comercial?.toFixed(1)}%
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                                    {maxItems.inversor && (
+                                      <div className="flex items-center gap-1 text-gray-700">
+                                        <span className="font-medium">{maxItems.inversor.cantidad}x</span>
+                                        <span className="truncate max-w-[180px]">{maxItems.inversor.descripcion}</span>
+                                      </div>
+                                    )}
+                                    {maxItems.bateria && (
+                                      <div className="flex items-center gap-1 text-gray-700">
+                                        <span className="font-medium">{maxItems.bateria.cantidad}x</span>
+                                        <span className="truncate max-w-[180px]">{maxItems.bateria.descripcion}</span>
+                                      </div>
+                                    )}
+                                    {maxItems.panel && (
+                                      <div className="flex items-center gap-1 text-gray-700">
+                                        <span className="font-medium">{maxItems.panel.cantidad}x</span>
+                                        <span className="truncate max-w-[180px]">{maxItems.panel.descripcion}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Indicador de selección */}
+                                <div className="flex-shrink-0 flex items-center">
+                                  <div
+                                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                      isSelected
+                                        ? 'border-orange-600 bg-orange-600'
+                                        : 'border-gray-300 bg-white'
+                                    }`}
+                                  >
+                                    {isSelected && (
+                                      <div className="w-2 h-2 bg-white rounded-full" />
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t flex-shrink-0">
+            <Button type="button" variant="outline" onClick={closeOfertaFlowDialog}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={() => handleContinuarOfertaFlow()}>
+              Continuar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de crear oferta personalizada (confección) */}
+      <Dialog
+        open={showCrearOfertaPersonalizadaDialog}
+        onOpenChange={(open) => {
+          setShowCrearOfertaPersonalizadaDialog(open)
+          if (!open) {
+            setOfertasGenericasAprobadas([])
+            setOfertasGenericasAprobadasCargadas(false)
+            setClientForAsignarOferta(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-full w-screen h-screen p-0 m-0 rounded-none border-0 flex flex-col overflow-hidden">
+          <div className="flex-shrink-0 px-6 py-4 border-b bg-white">
+            <DialogTitle className="text-lg font-semibold text-slate-900">
+              Crear oferta personalizada
+            </DialogTitle>
+            {clientForAsignarOferta && (
+              <DialogDescription>
+                Cliente: {clientForAsignarOferta.nombre} ({clientForAsignarOferta.numero})
+              </DialogDescription>
+            )}
+          </div>
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <ConfeccionOfertasView
+              modoEdicion={false}
+              clienteIdInicial={clientForAsignarOferta?.id}
+              tipoContactoInicial="cliente"
+              ofertaGenericaInicial={false}
+              onGuardarExito={() => {
+                handleOfertaPersonalizadaConfeccionSuccess().catch((error) => {
+                  console.error("Error actualizando estado tras crear oferta personalizada:", error)
+                })
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de duplicar y editar oferta genérica aprobada */}
+      <DuplicarOfertaDialog
+        open={showDuplicarOfertaPersonalizadaDialog}
+        onOpenChange={(open) => {
+          setShowDuplicarOfertaPersonalizadaDialog(open)
+          if (!open) {
+            setOfertaGenericaParaDuplicarId("")
+            setOfertasGenericasAprobadas([])
+            setOfertasGenericasAprobadasCargadas(false)
+            setClientForAsignarOferta(null)
+          }
+        }}
+        oferta={ofertaGenericaParaDuplicar}
+        clienteIdInicial={clientForAsignarOferta?.id}
+        tipoContactoInicial="cliente"
+        ofertaGenericaInicial={false}
+        onSuccess={() => {
+          handleOfertaPersonalizadaConfeccionSuccess().catch((error) => {
+            console.error("Error actualizando estado tras duplicar oferta:", error)
+          })
+        }}
+      />
 
       {/* Modal de asignar oferta genérica */}
       <AsignarOfertaGenericaDialog

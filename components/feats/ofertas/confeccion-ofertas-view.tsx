@@ -76,6 +76,9 @@ interface ConfeccionOfertasViewProps {
   ofertaParaDuplicar?: any
   onGuardarExito?: () => void
   onCerrar?: () => void
+  clienteIdInicial?: string
+  tipoContactoInicial?: 'cliente' | 'lead' | 'lead_sin_agregar'
+  ofertaGenericaInicial?: boolean
 }
 
 export function ConfeccionOfertasView({ 
@@ -83,7 +86,10 @@ export function ConfeccionOfertasView({
   ofertaParaEditar = null,
   ofertaParaDuplicar = null,
   onGuardarExito,
-  onCerrar
+  onCerrar,
+  clienteIdInicial,
+  tipoContactoInicial,
+  ofertaGenericaInicial
 }: ConfeccionOfertasViewProps = {}) {
   const { materials, loading } = useMaterials()
   const { almacenes, stock, refetchStock, loading: loadingAlmacenes } = useInventario()
@@ -125,9 +131,9 @@ export function ConfeccionOfertasView({
   const estadoInicial = cargarEstadoGuardado()
   
   const [items, setItems] = useState<OfertaItem[]>(estadoInicial?.items || [])
-  const [ofertaGenerica, setOfertaGenerica] = useState(estadoInicial?.ofertaGenerica ?? true)
-  const [tipoContacto, setTipoContacto] = useState<'cliente' | 'lead' | 'lead_sin_agregar'>(estadoInicial?.tipoContacto || 'cliente')
-  const [clienteId, setClienteId] = useState(estadoInicial?.clienteId || "")
+  const [ofertaGenerica, setOfertaGenerica] = useState(ofertaGenericaInicial !== undefined ? ofertaGenericaInicial : (estadoInicial?.ofertaGenerica ?? true))
+  const [tipoContacto, setTipoContacto] = useState<'cliente' | 'lead' | 'lead_sin_agregar'>(tipoContactoInicial || estadoInicial?.tipoContacto || 'cliente')
+  const [clienteId, setClienteId] = useState(clienteIdInicial || estadoInicial?.clienteId || "")
   const [leadId, setLeadId] = useState(estadoInicial?.leadId || "")
   const [nombreLeadSinAgregar, setNombreLeadSinAgregar] = useState(estadoInicial?.nombreLeadSinAgregar || "")
   const [clientes, setClientes] = useState<Cliente[]>([])

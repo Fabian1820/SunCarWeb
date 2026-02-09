@@ -11,9 +11,20 @@ interface DuplicarOfertaDialogProps {
   onOpenChange: (open: boolean) => void
   oferta: OfertaConfeccion | null
   onSuccess?: () => void
+  clienteIdInicial?: string
+  tipoContactoInicial?: 'cliente' | 'lead' | 'lead_sin_agregar'
+  ofertaGenericaInicial?: boolean
 }
 
-export function DuplicarOfertaDialog({ open, onOpenChange, oferta, onSuccess }: DuplicarOfertaDialogProps) {
+export function DuplicarOfertaDialog({ 
+  open, 
+  onOpenChange, 
+  oferta, 
+  onSuccess,
+  clienteIdInicial,
+  tipoContactoInicial,
+  ofertaGenericaInicial
+}: DuplicarOfertaDialogProps) {
   if (!oferta) return null
 
   return (
@@ -45,6 +56,9 @@ export function DuplicarOfertaDialog({ open, onOpenChange, oferta, onSuccess }: 
           <ConfeccionOfertasView 
             modoEdicion={false}
             ofertaParaDuplicar={oferta}
+            clienteIdInicial={clienteIdInicial}
+            tipoContactoInicial={tipoContactoInicial}
+            ofertaGenericaInicial={ofertaGenericaInicial}
             onGuardarExito={() => {
               onSuccess?.()
               onOpenChange(false)
