@@ -1,20 +1,20 @@
-import type { LeadPendienteInstalacion, ClientePendienteInstalacion } from '@/lib/services/feats/instalaciones/instalaciones-service'
-
-/**
- * Tipo unificado para mostrar instalaciones en la tabla
- * Combina leads y clientes pendientes de instalación
- */
-export interface InstalacionNueva {
-  tipo: 'lead' | 'cliente'
+export interface PendienteVisita {
   id: string
-  numero?: string
+  tipo: 'lead' | 'cliente'
   nombre: string
   telefono: string
   direccion: string
-  ofertas?: any[]
+  provincia: string
   estado: string
+  oferta: string
+  comentario: string
+  fuente: string
+  numero?: string
   fecha_contacto?: string
-  falta_instalacion?: string
-  // Datos originales
-  original: LeadPendienteInstalacion | ClientePendienteInstalacion
+}
+
+export interface PendientesVisitaFilters {
+  searchTerm?: string
+  tipo?: 'todos' | 'leads' | 'clientes'
+  provincia?: string
 }
