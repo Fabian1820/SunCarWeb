@@ -465,6 +465,138 @@ export function useOfertasConfeccion() {
     }
   }, [])
 
+  const obtenerIdsLeadsConOfertas = useCallback(async (options?: { skipCache?: boolean }) => {
+    try {
+      const skipCache = options?.skipCache === true
+      
+      if (skipCache) {
+        console.log('🔄 Ignorando cache - consultando servidor directamente')
+      }
+
+      const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.LEADS_CON_OFERTAS)
+      console.log('🌐 Fetching leads con ofertas desde:', url)
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getCommonHeaders(),
+      })
+
+      if (!response.ok) {
+        console.error('❌ Error en endpoint leads-con-ofertas:', response.status, response.statusText)
+        return { success: false as const, ids_leads: [] as string[] }
+      }
+
+      const data = await response.json()
+      const idsLeads = data?.data?.ids_leads ?? data?.ids_leads ?? []
+      
+      if (!Array.isArray(idsLeads)) {
+        console.error('❌ Respuesta sin array de IDs')
+        return { success: false as const, ids_leads: [] as string[] }
+      }
+
+      console.log('✅ Leads con oferta cargados desde servidor:', idsLeads.length)
+
+      return { success: true as const, ids_leads: idsLeads }
+    } catch (error) {
+      console.error('💥 Error obteniendo IDs de leads con ofertas:', error)
+      return { success: false as const, ids_leads: [] as string[] }
+    }
+  }, [])
+
+  const obtenerOfertaPorLead = useCallback(async (leadId: string) => {
+    try {
+      if (!leadId) {
+        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+      }
+
+      const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_LEAD(leadId))
+      console.log('🌐 Fetching oferta para lead:', leadId)
+      console.log('🔗 URL:', url)
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: getCommonHeaders(),
+      })
+
+      console.log('📡 Response status:', response.status, response.statusText)
+
+      if (response.status === 404) {
+        console.log('ℹ️ Lead sin oferta asignada')
+        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+      }
+
+      if (!response.ok) {
+        console.error('❌ Error en endpoint oferta lead:', response.status)
+        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: true as const }
+      }
+
+      const data = await response.json()
+      console.log('📦 Response data:', data)
+
+      const payload = data?.data ?? data
+      const ofertasRaw = Array.isArray(payload?.ofertas)
+        ? payload.ofertas
+        : Array.isArray(data?.ofertas)
+          ? data.ofertas
+          : []
+
+      if (Array.isArray(ofertasRaw) && ofertasRaw.length > 0) {
+        const ofertas = ofertasRaw.map(normalizeOfertaConfeccion)
+        const total = payload?.total_ofertas ?? ofertas.length
+        console.log('✅ Oferta encontrada para lead:', leadId, '- Total:', total)
+        return {
+          success: true,
+          oferta: ofertas[0] ?? null,
+          ofertas,
+          total,
+          error: false as const,
+        }
+      }
+
+      console.log('ℹ️ Sin ofertas en respuesta para lead:', leadId)
+      return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+    } catch (error: any) {
+      console.error('💥 Error en obtenerOfertaPorLead:', error)
+      return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: true as const }
+    }
+  }, [])
+
+  const asignarOfertaALead = useCallback(async (ofertaGenericaId: string, leadId: string) => {
+    try {
+      const response = await apiRequest<any>('/ofertas/confeccion/asignar-a-lead', {
+        method: 'POST',
+        body: JSON.stringify({
+          oferta_generica_id: ofertaGenericaId,
+          lead_id: leadId,
+        }),
+      })
+
+      if (response?.success) {
+        toast({
+          title: 'Oferta asignada',
+          description: response.message || 'La oferta se asignó correctamente al lead',
+        })
+
+        await fetchOfertas()
+        return {
+          success: true,
+          ofertaNuevaId: response.oferta_nueva_id,
+          ofertaNueva: response.oferta_nueva,
+        }
+      } else {
+        throw new Error(response?.message || 'No se pudo asignar la oferta')
+      }
+    } catch (error: any) {
+      console.error('Error asignando oferta:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo asignar la oferta al lead',
+        variant: 'destructive',
+      })
+      return { success: false }
+    }
+  }, [toast, fetchOfertas])
+
   useEffect(() => {
     fetchOfertas()
   }, [fetchOfertas])
@@ -478,6 +610,9 @@ export function useOfertasConfeccion() {
     asignarOfertaACliente,
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
+    obtenerIdsLeadsConOfertas,
+    obtenerOfertaPorLead,
+    asignarOfertaALead,
   }
 }
 

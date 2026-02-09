@@ -12,6 +12,12 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
   // Obtener todas las ofertas de un cliente
   OFERTAS_CLIENTE: (numero: string) => `${API_BASE}/cliente/${numero}`,
   
+  // Listar leads con ofertas
+  LEADS_CON_OFERTAS: `${API_BASE}/leads-con-ofertas`,
+  
+  // Obtener todas las ofertas de un lead
+  OFERTAS_LEAD: (leadId: string) => `${API_BASE}/lead/${leadId}`,
+  
   // Crear oferta
   CREAR: API_BASE,
   
@@ -29,6 +35,9 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
   
   // Asignar oferta a cliente
   ASIGNAR_A_CLIENTE: `${API_BASE}/asignar-a-cliente`,
+  
+  // Asignar oferta a lead
+  ASIGNAR_A_LEAD: `${API_BASE}/asignar-a-lead`,
 }
 
 /**

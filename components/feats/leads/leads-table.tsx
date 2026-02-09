@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { PriorityDot } from "@/components/shared/atom/priority-dot"
@@ -28,16 +28,21 @@ import {
   Download,
   CreditCard,
   Plus,
+  FileCheck,
 } from "lucide-react"
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas"
+import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table"
 import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog"
 import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog"
+import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog"
+import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog"
 import type {
   OfertaPersonalizada,
   OfertaPersonalizadaCreateRequest,
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types"
+import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useToast } from "@/hooks/use-toast"
 import type { Lead, LeadConversionRequest } from "@/lib/api-types"
 
@@ -103,6 +108,12 @@ export function LeadsTable({
     updateOferta,
     deleteOferta,
   } = useOfertasPersonalizadas()
+  const {
+    fetchOfertasGenericasAprobadas,
+    asignarOfertaALead,
+    obtenerIdsLeadsConOfertas,
+    obtenerOfertaPorLead,
+  } = useOfertasConfeccion()
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -120,12 +131,226 @@ export function LeadsTable({
   const [isEditOfertaOpen, setIsEditOfertaOpen] = useState(false)
   const [editingOferta, setEditingOferta] = useState<OfertaPersonalizada | null>(null)
   const [ofertaSubmitting, setOfertaSubmitting] = useState(false)
+  
+  // Estados para asignar ofertas genéricas
+  const [showAsignarOfertaDialog, setShowAsignarOfertaDialog] = useState(false)
+  const [leadForAsignarOferta, setLeadForAsignarOferta] = useState<Lead | null>(null)
+  const [showVerOfertaDialog, setShowVerOfertaDialog] = useState(false)
+  const [showDetalleOfertaDialog, setShowDetalleOfertaDialog] = useState(false)
+  const [ofertaLeadActual, setOfertaLeadActual] = useState<OfertaConfeccion | null>(null)
+  const [ofertasLeadActuales, setOfertasLeadActuales] = useState<OfertaConfeccion[]>([])
+  const [leadsConOferta, setLeadsConOferta] = useState<Set<string>>(new Set())
+  const [cargaSetOfertasTerminada, setCargaSetOfertasTerminada] = useState(false)
+  const [consultandoOfertaLead, setConsultandoOfertaLead] = useState<string | null>(null)
 
   const ofertasDelLead = useMemo(() => {
     if (!selectedLeadForOfertas) return []
     const leadIdentifiers = [selectedLeadForOfertas.id, selectedLeadForOfertas.telefono].filter(Boolean) as string[]
     return ofertas.filter((o) => o.lead_id && leadIdentifiers.includes(o.lead_id))
   }, [ofertas, selectedLeadForOfertas])
+
+  // Cargar leads con ofertas al montar el componente
+  const cargarLeadsConOfertas = useCallback(async (options?: { skipCache?: boolean; silent?: boolean }) => {
+    if (!options?.silent) {
+      setCargaSetOfertasTerminada(false)
+    }
+    try {
+      const result = await obtenerIdsLeadsConOfertas({ skipCache: options?.skipCache })
+      
+      if (result.success) {
+        const idsConOferta = new Set(result.ids_leads.filter(Boolean))
+        
+        console.log('✅ Leads con oferta cargados:', idsConOferta.size)
+        
+        setLeadsConOferta(idsConOferta)
+        
+        return true
+      } else {
+        console.warn('⚠️ No se pudo cargar endpoint de leads con ofertas')
+        return false
+      }
+    } catch (error) {
+      console.error('❌ Error cargando leads con ofertas:', error)
+      return false
+    } finally {
+      if (!options?.silent) {
+        setCargaSetOfertasTerminada(true)
+      }
+    }
+  }, [obtenerIdsLeadsConOfertas])
+
+  // Cargar set de leads con ofertas al montar el componente
+  useEffect(() => {
+    let activo = true
+    const reintentosMs = [0, 500, 1500, 3000]
+
+    const intentarCarga = async () => {
+      for (const delay of reintentosMs) {
+        if (!activo) return
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          if (!activo) return
+        }
+
+        try {
+          console.log('🔄 Cargando leads con ofertas desde servidor')
+          const ok = await cargarLeadsConOfertas({ skipCache: true })
+          if (ok) {
+            console.log('✅ Leads con ofertas cargados exitosamente desde servidor')
+            return
+          }
+        } catch (error) {
+          console.error('Error cargando leads con ofertas:', error)
+          if (activo) setCargaSetOfertasTerminada(true)
+        }
+      }
+    }
+
+    intentarCarga().catch((error) => {
+      console.error('Error en reintentos de leads con ofertas:', error)
+      if (activo) setCargaSetOfertasTerminada(true)
+    })
+
+    return () => {
+      activo = false
+    }
+  }, [cargarLeadsConOfertas])
+
+  const openAsignarOfertaDialog = async (lead: Lead) => {
+    try {
+      console.log('Click en boton de oferta para lead:', lead.id)
+      const leadId = lead.id
+      if (!leadId) {
+        toast({
+          title: "Error",
+          description: "El lead no tiene ID válido.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (!cargaSetOfertasTerminada) {
+        toast({
+          title: "Cargando ofertas",
+          description: "Espera un momento mientras se verifica el estado de ofertas.",
+        })
+        return
+      }
+
+      // Verificar con el servidor
+      console.log('🔍 Verificando oferta en servidor para lead:', leadId)
+      const result = await obtenerOfertaPorLead(leadId)
+      console.log('📡 Resultado de verificacion:', result)
+
+      if (result.success && result.oferta) {
+        // Lead tiene oferta - actualizar set local si no estaba
+        if (!leadsConOferta.has(leadId)) {
+          console.log('✅ Lead tiene oferta pero no estaba en el set - agregando')
+          setLeadsConOferta((prev) => {
+            const next = new Set(prev)
+            next.add(leadId)
+            return next
+          })
+        }
+        
+        const ofertas = result.ofertas?.length ? result.ofertas : [result.oferta]
+        setOfertasLeadActuales(ofertas)
+        setOfertaLeadActual(result.oferta)
+        
+        // Si solo tiene UNA oferta, abrir directamente el diálogo de detalles
+        if (ofertas.length === 1) {
+          setShowDetalleOfertaDialog(true)
+        } else {
+          // Si tiene MÚLTIPLES ofertas, mostrar el listado primero
+          setLeadForAsignarOferta(lead)
+          setShowVerOfertaDialog(true)
+        }
+        return
+      }
+
+      // Lead NO tiene oferta
+      if (leadsConOferta.has(leadId)) {
+        // Estaba en el set pero ya no tiene oferta - remover
+        console.log('⚠️ Lead estaba en el set pero ya no tiene oferta - removiendo')
+        setLeadsConOferta((prev) => {
+          const next = new Set(prev)
+          next.delete(leadId)
+          return next
+        })
+      }
+
+      if (result.error) {
+        toast({
+          title: "Error al verificar oferta",
+          description: "No se pudo comprobar la oferta del lead. Intenta nuevamente.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Mostrar diálogo para asignar oferta
+      setLeadForAsignarOferta(lead)
+      setShowAsignarOfertaDialog(true)
+    } catch (error) {
+      console.error('Error en openAsignarOfertaDialog:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo procesar la oferta de este lead.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const closeAsignarOfertaDialog = () => {
+    setShowAsignarOfertaDialog(false)
+    setLeadForAsignarOferta(null)
+  }
+
+  const closeVerOfertaDialog = () => {
+    setShowVerOfertaDialog(false)
+    setOfertaLeadActual(null)
+    setOfertasLeadActuales([])
+  }
+
+  const handleVerDetallesOferta = (oferta: OfertaConfeccion) => {
+    setOfertaLeadActual(oferta)
+    setOfertasLeadActuales([oferta])
+    setShowVerOfertaDialog(false)
+    setShowDetalleOfertaDialog(true)
+  }
+
+  const closeDetalleOfertaDialog = () => {
+    setShowDetalleOfertaDialog(false)
+    setOfertaLeadActual(null)
+  }
+
+  const handleAsignarOferta = async (ofertaGenericaId: string) => {
+    if (!leadForAsignarOferta?.id) return
+
+    const result = await asignarOfertaALead(ofertaGenericaId, leadForAsignarOferta.id)
+
+    if (result.success) {
+      const leadId = leadForAsignarOferta.id
+      
+      console.log('✅ Oferta asignada exitosamente')
+      console.log('📝 Lead ID:', leadId)
+      
+      // Actualizar el estado local inmediatamente
+      setLeadsConOferta((prev) => {
+        const next = new Set(prev)
+        next.add(leadId)
+        console.log('📊 Estado actualizado:', Array.from(next))
+        return next
+      })
+      
+      closeAsignarOfertaDialog()
+      
+      toast({
+        title: "✅ Oferta asignada",
+        description: "El lead ahora tiene una oferta asignada",
+      })
+    }
+  }
 
   const openDetailDialog = (lead: Lead) => {
     setSelectedLead(lead)
@@ -619,6 +844,41 @@ export function LeadsTable({
                           disabled={disableActions || !onUpdatePrioridad}
                         />
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setConsultandoOfertaLead(lead.id || null)
+                          openAsignarOfertaDialog(lead).catch(err => {
+                            console.error('Error al abrir dialogo:', err)
+                          }).finally(() => {
+                            setConsultandoOfertaLead((prev) => (prev === lead.id ? null : prev))
+                          })
+                        }}
+                        disabled={consultandoOfertaLead === lead.id || !cargaSetOfertasTerminada}
+                        className={(() => {
+                          if (!cargaSetOfertasTerminada) {
+                            return "text-slate-400 hover:text-slate-500 hover:bg-slate-50 h-7 w-7 p-0"
+                          }
+                          const leadId = lead.id
+                          const tieneOferta = leadId && leadsConOferta.has(leadId)
+                          if (tieneOferta) return "text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-300 h-7 w-7 p-0"
+                          return "text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
+                        })()}
+                        title={(() => {
+                          if (!cargaSetOfertasTerminada) return "Cargando estado de oferta..."
+                          const leadId = lead.id
+                          const tieneOferta = leadId && leadsConOferta.has(leadId)
+                          if (tieneOferta) return "Ver oferta asignada"
+                          return "Asignar oferta generica"
+                        })()}
+                      >
+                        <FileCheck
+                          className={`h-3 w-3 ${consultandoOfertaLead === lead.id || !cargaSetOfertasTerminada ? "animate-pulse" : ""}`}
+                        />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1305,6 +1565,51 @@ export function LeadsTable({
         defaultMetodoPago={leadForComprobante?.metodo_pago}
         defaultMoneda={leadForComprobante?.moneda}
         onSubmit={handleComprobanteSubmit}
+      />
+
+      {/* Modal de asignar oferta genérica */}
+      <AsignarOfertaGenericaDialog
+        open={showAsignarOfertaDialog}
+        onOpenChange={(open) => {
+          setShowAsignarOfertaDialog(open)
+          if (!open) closeAsignarOfertaDialog()
+        }}
+        cliente={leadForAsignarOferta ? {
+          nombre: leadForAsignarOferta.nombre,
+          numero: leadForAsignarOferta.id || '',
+        } as any : null}
+        onAsignar={handleAsignarOferta}
+        fetchOfertasGenericas={fetchOfertasGenericasAprobadas}
+      />
+
+      {/* Modal de ver oferta del lead */}
+      <AsignarOfertaGenericaDialog
+        open={showVerOfertaDialog}
+        onOpenChange={(open) => {
+          setShowVerOfertaDialog(open)
+          if (!open) closeVerOfertaDialog()
+        }}
+        cliente={leadForAsignarOferta ? {
+          nombre: leadForAsignarOferta.nombre,
+          numero: leadForAsignarOferta.id || '',
+        } as any : (ofertaLeadActual ? {
+          nombre: ofertaLeadActual.lead_nombre || '',
+          numero: ofertaLeadActual.lead_id || '',
+        } as any : null)}
+        modo="ver"
+        ofertasExistentes={ofertasLeadActuales}
+        onVerDetalles={handleVerDetallesOferta}
+      />
+
+      {/* Modal de detalles completos de una oferta específica */}
+      <VerOfertaClienteDialog
+        open={showDetalleOfertaDialog}
+        onOpenChange={(open) => {
+          setShowDetalleOfertaDialog(open)
+          if (!open) closeDetalleOfertaDialog()
+        }}
+        oferta={ofertaLeadActual}
+        ofertas={ofertasLeadActuales}
       />
 
       {/* Delete Confirmation Dialog */}
