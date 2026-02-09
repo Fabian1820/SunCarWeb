@@ -81,6 +81,18 @@ export function VerOfertaClienteDialog({
     return ofertasDisponibles[ofertaSeleccionadaIndex] ?? ofertasDisponibles[0]
   }, [ofertasDisponibles, ofertaSeleccionadaIndex])
   
+  // Manejar el cierre del diálogo
+  const handleClose = () => {
+    // Si estamos en modo detalle y hay múltiples ofertas, regresar al listado
+    if (modoVista === "detalle" && ofertasDisponibles.length > 1) {
+      setModoVista("listado")
+      return
+    }
+    
+    // Si estamos en listado o solo hay una oferta, cerrar el diálogo
+    onOpenChange(false)
+  }
+  
   // Crear mapa de materiales para obtener fotos
   const materialesMap = useMemo(() => {
     const map = new Map<string, { foto?: string; nombre?: string; descripcion?: string }>()
@@ -128,7 +140,7 @@ export function VerOfertaClienteDialog({
   if (!oferta) return null
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex flex-wrap items-center gap-2 justify-between">

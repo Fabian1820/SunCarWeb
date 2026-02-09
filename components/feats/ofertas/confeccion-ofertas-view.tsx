@@ -77,6 +77,7 @@ interface ConfeccionOfertasViewProps {
   onGuardarExito?: () => void
   onCerrar?: () => void
   clienteIdInicial?: string
+  leadIdInicial?: string
   tipoContactoInicial?: 'cliente' | 'lead' | 'lead_sin_agregar'
   ofertaGenericaInicial?: boolean
 }
@@ -88,6 +89,7 @@ export function ConfeccionOfertasView({
   onGuardarExito,
   onCerrar,
   clienteIdInicial,
+  leadIdInicial,
   tipoContactoInicial,
   ofertaGenericaInicial
 }: ConfeccionOfertasViewProps = {}) {
@@ -134,7 +136,7 @@ export function ConfeccionOfertasView({
   const [ofertaGenerica, setOfertaGenerica] = useState(ofertaGenericaInicial !== undefined ? ofertaGenericaInicial : (estadoInicial?.ofertaGenerica ?? true))
   const [tipoContacto, setTipoContacto] = useState<'cliente' | 'lead' | 'lead_sin_agregar'>(tipoContactoInicial || estadoInicial?.tipoContacto || 'cliente')
   const [clienteId, setClienteId] = useState(clienteIdInicial || estadoInicial?.clienteId || "")
-  const [leadId, setLeadId] = useState(estadoInicial?.leadId || "")
+  const [leadId, setLeadId] = useState(leadIdInicial || estadoInicial?.leadId || "")
   const [nombreLeadSinAgregar, setNombreLeadSinAgregar] = useState(estadoInicial?.nombreLeadSinAgregar || "")
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [leads, setLeads] = useState<any[]>([])
@@ -313,6 +315,9 @@ export function ConfeccionOfertasView({
       tiene_ofertaParaDuplicar: !!ofertaParaDuplicar,
       ofertaACopiar_id: ofertaACopiar?.id,
       descuento_en_oferta: ofertaACopiar?.descuento_porcentaje,
+      leadIdInicial,
+      clienteIdInicial,
+      tipoContactoInicial,
     })
     
     if (ofertaACopiar) {
@@ -342,7 +347,22 @@ export function ConfeccionOfertasView({
       setOfertaGenerica(ofertaACopiar.tipo === 'generica')
       
       // Determinar el tipo de contacto
-      if (ofertaACopiar.nombre_lead_sin_agregar) {
+      // PRIORIZAR los props iniciales sobre los datos de la oferta cuando se duplica
+      if (!modoEdicion && tipoContactoInicial) {
+        // En modo duplicación, usar los props iniciales
+        setTipoContacto(tipoContactoInicial)
+        if (tipoContactoInicial === 'lead' && leadIdInicial) {
+          setLeadId(leadIdInicial)
+          setClienteId("")
+          setNombreLeadSinAgregar("")
+          console.log('✅ Usando leadIdInicial:', leadIdInicial)
+        } else if (tipoContactoInicial === 'cliente' && clienteIdInicial) {
+          setClienteId(clienteIdInicial)
+          setLeadId("")
+          setNombreLeadSinAgregar("")
+          console.log('✅ Usando clienteIdInicial:', clienteIdInicial)
+        }
+      } else if (ofertaACopiar.nombre_lead_sin_agregar) {
         setTipoContacto('lead_sin_agregar')
         setNombreLeadSinAgregar(ofertaACopiar.nombre_lead_sin_agregar)
         setClienteId("")
@@ -498,7 +518,7 @@ export function ConfeccionOfertasView({
           : "Modifica los datos y guarda para crear la nueva oferta",
       })
     }
-  }, [modoEdicion, ofertaParaEditar, ofertaParaDuplicar, toast])
+  }, [modoEdicion, ofertaParaEditar, ofertaParaDuplicar, leadIdInicial, clienteIdInicial, tipoContactoInicial, toast])
 
   // Cargar stock cuando se selecciona un almacén
   useEffect(() => {
