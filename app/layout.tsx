@@ -1,5 +1,5 @@
 import type React from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { InitialLoaderProvider } from "@/components/shared/atom/initial-loader-provider"
@@ -53,12 +53,13 @@ export const metadata: Metadata = {
     title: 'SUNCAR Administración',
     description: 'Sistema administrativo de SUNCAR para gestión de brigadas, materiales, trabajadores y reportes',
   },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: '#f59e0b',
 }
 
