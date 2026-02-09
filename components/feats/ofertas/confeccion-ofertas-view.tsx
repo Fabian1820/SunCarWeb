@@ -2333,17 +2333,8 @@ export function ConfeccionOfertasView({
     if (!codigo) return
     if (!activeStep) return
     
-    // Validar stock disponible si hay almacén seleccionado
-    if (almacenId && 'stock_disponible' in material) {
-      const itemId = `${activeStep.id}-${codigo}`
-      const cantidadActual = items.find((item) => item.id === itemId)?.cantidad ?? 0
-      const nuevaCantidad = cantidadActual + 1
-      
-      if (nuevaCantidad > (material as any).stock_disponible) {
-        // No agregar si excede el stock
-        return
-      }
-    }
+    // Nota: Ya no validamos stock disponible en el frontend
+    // El backend maneja la lógica de reserva de materiales
     
     const itemId = `${activeStep.id}-${codigo}`
     
@@ -2418,22 +2409,8 @@ export function ConfeccionOfertasView({
   }
 
   const actualizarCantidad = (id: string, cantidad: number) => {
-    // Validar stock disponible si hay almacén seleccionado
-    if (almacenId) {
-      const item = items.find((item) => item.id === id)
-      if (item) {
-        const materialConStock = materialesConStock.find(
-          m => m.codigo.toString() === item.materialCodigo
-        )
-        if (materialConStock && 'stock_disponible' in materialConStock) {
-          const stockDisponible = (materialConStock as any).stock_disponible
-          if (cantidad > stockDisponible) {
-            // No permitir cantidad mayor al stock
-            cantidad = stockDisponible
-          }
-        }
-      }
-    }
+    // Nota: Ya no validamos stock disponible en el frontend
+    // El backend maneja la lógica de reserva de materiales
     
     setItems((prev) =>
       prev
