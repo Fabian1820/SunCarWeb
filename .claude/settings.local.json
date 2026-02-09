@@ -6,7 +6,10 @@
       "Bash(cat package.json)",
       "Bash(xargs -I {} sh -c 'echo \"\"\"\"=== {} ===\"\"\"\" && wc -l {}')",
       "Bash(npm install:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "mcp__acp__Edit",
+      "mcp__acp__Write",
+      "mcp__acp__Bash"
     ],
     "deny": [],
     "ask": []
