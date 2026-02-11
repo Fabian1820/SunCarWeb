@@ -1,47 +1,58 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState } from "react"
-import { Button } from "@/components/shared/atom/button"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Save, X, Eye, EyeOff } from "lucide-react"
-import type { Brigade } from "@/lib/brigade-types"
+import type React from "react";
+import { useState } from "react";
+import { Button } from "@/components/shared/atom/button";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import { Save, X, Eye, EyeOff } from "lucide-react";
+import type { Brigade } from "@/lib/brigade-types";
 
 interface WorkerFormProps {
-  onSubmit: (worker: any) => void
-  onCancel: () => void
-  brigades: Brigade[]
-  workers: any[]
+  onSubmit: (worker: any) => void;
+  onCancel: () => void;
+  brigades: Brigade[];
+  workers: any[];
 }
 
-export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerFormProps) {
+export function WorkerForm({
+  onSubmit,
+  onCancel,
+  brigades,
+  workers,
+}: WorkerFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     ci: "",
     brigadeId: "",
     password: "",
     integrantes: [] as string[],
-  })
+  });
 
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [showPassword, setShowPassword] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = "El nombre es requerido"
+      newErrors.name = "El nombre es requerido";
     }
 
     if (!formData.ci.trim()) {
-      newErrors.ci = "El CI es requerido"
+      newErrors.ci = "El CI es requerido";
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -54,9 +65,9 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
   };
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    if (!validateForm()) return
+    if (!validateForm()) return;
 
     if (!formData.password) {
       // Trabajador normal
@@ -65,14 +76,14 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
           ci: formData.ci,
           name: formData.name,
           brigadeId: formData.brigadeId,
-          mode: 'trabajador_asignar',
-        })
+          mode: "trabajador_asignar",
+        });
       } else {
         onSubmit({
           ci: formData.ci,
           name: formData.name,
-          mode: 'trabajador',
-        })
+          mode: "trabajador",
+        });
       }
     } else {
       // Jefe
@@ -82,24 +93,27 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
           name: formData.name,
           password: formData.password,
           integrantes: formData.integrantes,
-          mode: 'jefe_brigada',
-        })
+          mode: "jefe_brigada",
+        });
       } else {
         onSubmit({
           ci: formData.ci,
           name: formData.name,
           password: formData.password,
-          mode: 'jefe',
-        })
+          mode: "jefe",
+        });
       }
     }
-  }
+  };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-3">
         <div>
-          <Label htmlFor="worker-name" className="text-sm font-medium text-gray-700 mb-2 block">
+          <Label
+            htmlFor="worker-name"
+            className="text-sm font-medium text-gray-700 mb-2 block"
+          >
             Nombre Completo *
           </Label>
           <Input
@@ -109,10 +123,15 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
             placeholder="Ej: Juan Pérez García"
             className={errors.name ? "border-red-300" : ""}
           />
-          {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
+          {errors.name && (
+            <p className="text-red-600 text-sm mt-1">{errors.name}</p>
+          )}
         </div>
         <div>
-          <Label htmlFor="worker-ci" className="text-sm font-medium text-gray-700 mb-2 block">
+          <Label
+            htmlFor="worker-ci"
+            className="text-sm font-medium text-gray-700 mb-2 block"
+          >
             Carnet de Identidad (CI) *
           </Label>
           <Input
@@ -122,46 +141,64 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
             placeholder="Ej: 12345678"
             className={errors.ci ? "border-red-300" : ""}
           />
-          {errors.ci && <p className="text-red-600 text-sm mt-1">{errors.ci}</p>}
+          {errors.ci && (
+            <p className="text-red-600 text-sm mt-1">{errors.ci}</p>
+          )}
         </div>
         <div>
-          <Label htmlFor="worker-password" className="text-sm font-medium text-gray-700 mb-2 block">
+          <Label
+            htmlFor="worker-password"
+            className="text-sm font-medium text-gray-700 mb-2 block"
+          >
             Rol del Instalador
           </Label>
-          <div className="space-y-3">
-            <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+          <div className="space-y-2">
+            <div className="flex items-center space-x-3 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
               <input
                 type="radio"
                 id="role-worker"
                 name="role"
                 checked={!formData.password}
-                onChange={() => setFormData({ ...formData, password: '', integrantes: [] })}
-                className="mt-1"
+                onChange={() =>
+                  setFormData({ ...formData, password: "", integrantes: [] })
+                }
               />
               <label htmlFor="role-worker" className="flex-1 cursor-pointer">
-                <div className="font-medium text-gray-900">Instalador Regular</div>
-                <div className="text-sm text-gray-600">Trabajador sin permisos de jefe de brigada</div>
+                <span className="font-medium text-gray-900 text-sm">
+                  Instalador Regular
+                </span>
+                <span className="text-xs text-gray-500 ml-2">
+                  Sin permisos de jefe
+                </span>
               </label>
             </div>
-            <div className="flex items-start space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+            <div className="flex items-center space-x-3 p-2 border rounded-lg hover:bg-gray-50 cursor-pointer">
               <input
                 type="radio"
                 id="role-leader"
                 name="role"
                 checked={!!formData.password}
-                onChange={() => setFormData({ ...formData, password: ' ', brigadeId: '' })}
-                className="mt-1"
+                onChange={() =>
+                  setFormData({ ...formData, password: " ", brigadeId: "" })
+                }
               />
               <label htmlFor="role-leader" className="flex-1 cursor-pointer">
-                <div className="font-medium text-gray-900">Jefe de Brigada</div>
-                <div className="text-sm text-gray-600">Instalador con permisos de jefe y contraseña</div>
+                <span className="font-medium text-gray-900 text-sm">
+                  Jefe de Brigada
+                </span>
+                <span className="text-xs text-gray-500 ml-2">
+                  Con contraseña y brigada
+                </span>
               </label>
             </div>
           </div>
         </div>
         {formData.password && (
           <div>
-            <Label htmlFor="worker-password-input" className="text-sm font-medium text-gray-700 mb-2 block">
+            <Label
+              htmlFor="worker-password-input"
+              className="text-sm font-medium text-gray-700 mb-2 block"
+            >
               Contraseña para Jefe de Brigada *
             </Label>
             <div className="relative">
@@ -169,7 +206,9 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
                 id="worker-password-input"
                 type={showPassword ? "text" : "password"}
                 value={formData.password.trim()}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
                 placeholder="Ingrese contraseña"
                 className="pr-10"
               />
@@ -189,19 +228,29 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
         )}
         {!formData.password && (
           <div>
-            <Label htmlFor="brigade-select" className="text-sm font-medium text-gray-700 mb-2 block">
+            <Label
+              htmlFor="brigade-select"
+              className="text-sm font-medium text-gray-700 mb-2 block"
+            >
               Asignar a Brigada (opcional)
             </Label>
             <Select
               value={formData.brigadeId}
-              onValueChange={(value) => setFormData({ ...formData, brigadeId: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, brigadeId: value })
+              }
             >
-              <SelectTrigger className={errors.brigadeId ? "border-red-300" : ""}>
+              <SelectTrigger
+                className={errors.brigadeId ? "border-red-300" : ""}
+              >
                 <SelectValue placeholder="Sin asignar a brigada" />
               </SelectTrigger>
               <SelectContent>
                 {brigades.map((brigade) => (
-                  <SelectItem key={brigade.id || brigade.leader.ci} value={brigade.id || brigade.leader.ci}>
+                  <SelectItem
+                    key={brigade.id || brigade.leader.ci}
+                    value={brigade.id || brigade.leader.ci}
+                  >
                     Jefe: {brigade.leader.name} (CI: {brigade.leader.ci})
                   </SelectItem>
                 ))}
@@ -211,38 +260,52 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
         )}
         {formData.password && (
           <div>
-            <Label htmlFor="integrantes-select" className="text-sm font-medium text-gray-700 mb-2 block">
+            <Label
+              htmlFor="integrantes-select"
+              className="text-sm font-medium text-gray-700 mb-2 block"
+            >
               Integrantes de la brigada (opcional)
             </Label>
             <div className="border rounded p-3 max-h-48 overflow-y-auto">
-              {workers.filter(w => !w.tiene_contraseña).length > 0 ? (
+              {workers.filter(
+                (w) => !w.tiene_contraseña && w.is_brigadista === true,
+              ).length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
-                  {workers.filter(w => !w.tiene_contraseña).map(w => (
-                    <label key={w.id || w.CI} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
-                      <input
-                        type="checkbox"
-                        checked={formData.integrantes.includes(w.CI)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({
-                              ...formData,
-                              integrantes: [...formData.integrantes, w.CI]
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              integrantes: formData.integrantes.filter(ci => ci !== w.CI)
-                            });
-                          }
-                        }}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm">
-                        <span className="font-medium">{w.nombre}</span>
-                        <span className="text-gray-500 ml-1">({w.CI})</span>
-                      </span>
-                    </label>
-                  ))}
+                  {workers
+                    .filter(
+                      (w) => !w.tiene_contraseña && w.is_brigadista === true,
+                    )
+                    .map((w) => (
+                      <label
+                        key={w.id || w.CI}
+                        className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={formData.integrantes.includes(w.CI)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFormData({
+                                ...formData,
+                                integrantes: [...formData.integrantes, w.CI],
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                integrantes: formData.integrantes.filter(
+                                  (ci) => ci !== w.CI,
+                                ),
+                              });
+                            }
+                          }}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm">
+                          <span className="font-medium">{w.nombre}</span>
+                          <span className="text-gray-500 ml-1">({w.CI})</span>
+                        </span>
+                      </label>
+                    ))}
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm text-center py-4">
@@ -252,14 +315,15 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
             </div>
             {formData.integrantes.length > 0 && (
               <p className="text-xs text-gray-600 mt-1">
-                Seleccionados: {formData.integrantes.length} instalador{formData.integrantes.length !== 1 ? 'es' : ''}
+                Seleccionados: {formData.integrantes.length} instalador
+                {formData.integrantes.length !== 1 ? "es" : ""}
               </p>
             )}
           </div>
         )}
       </div>
 
-      <div className="flex justify-end space-x-3 pt-6 border-t">
+      <div className="flex justify-end space-x-3 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>
           <X className="mr-2 h-4 w-4" />
           Cancelar
@@ -273,5 +337,5 @@ export function WorkerForm({ onSubmit, onCancel, brigades, workers }: WorkerForm
         </Button>
       </div>
     </form>
-  )
+  );
 }

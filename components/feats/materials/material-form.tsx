@@ -1,29 +1,50 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useState, useEffect } from "react"
-import { Button } from "@/components/shared/atom/button"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { Textarea } from "@/components/shared/molecule/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
-import { Switch } from "@/components/shared/molecule/switch"
-import { Save, X, Plus, Loader2, CheckCircle2, AlertCircle, Package, Upload, Image as ImageIcon } from "lucide-react"
-import { FileUpload } from "@/components/shared/molecule/file-upload"
-import type { Material, MaterialFormData } from "@/lib/material-types"
-import { useToast } from "@/hooks/use-toast"
-import { useMarcas } from "@/hooks/use-marcas"
-import { useUploadFoto } from "@/hooks/use-upload-foto"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/shared/atom/button";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import { Textarea } from "@/components/shared/molecule/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/shared/molecule/dialog";
+import { Switch } from "@/components/shared/molecule/switch";
+import {
+  Save,
+  X,
+  Plus,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Package,
+  Upload,
+  Image as ImageIcon,
+} from "lucide-react";
+import type { Material, MaterialFormData } from "@/lib/material-types";
+import { useToast } from "@/hooks/use-toast";
+import { useMarcas } from "@/hooks/use-marcas";
+import { useUploadFoto } from "@/hooks/use-upload-foto";
 
 interface MaterialFormProps {
-  initialData?: Material
-  onSubmit?: (material: Material | Omit<Material, "id">) => void
-  onCancel: () => void
-  onClose?: () => void
-  existingCategories: string[]
-  existingUnits: string[]
-  isEditing?: boolean
+  initialData?: Material;
+  onSubmit?: (material: Material | Omit<Material, "id">) => void;
+  onCancel: () => void;
+  onClose?: () => void;
+  existingCategories: string[];
+  existingUnits: string[];
+  isEditing?: boolean;
 }
 
 export function MaterialForm({
@@ -35,10 +56,14 @@ export function MaterialForm({
   existingUnits,
   isEditing = false,
 }: MaterialFormProps) {
-  const { toast } = useToast()
-  const { marcasSimplificadas, loading: loadingMarcas } = useMarcas()
-  const { uploadFoto, uploading: uploadingFoto, error: uploadError } = useUploadFoto()
-  
+  const { toast } = useToast();
+  const { marcasSimplificadas, loading: loadingMarcas } = useMarcas();
+  const {
+    uploadFoto,
+    uploading: uploadingFoto,
+    error: uploadError,
+  } = useUploadFoto();
+
   const [formData, setFormData] = useState<MaterialFormData>({
     codigo: initialData?.codigo.toString() || "",
     categoria: initialData?.categoria || "",
@@ -49,29 +74,55 @@ export function MaterialForm({
     marca_id: initialData?.marca_id || undefined,
     foto: null,
     potenciaKW: initialData?.potenciaKW ?? undefined,
-  })
-  
-  const [fotoFile, setFotoFile] = useState<File | null>(null)
-  const [fotoPreview, setFotoPreview] = useState<string | null>(initialData?.foto || null)
-  const [fotoUrl, setFotoUrl] = useState<string | null>(initialData?.foto || null)
-  const [cambiarFoto, setCambiarFoto] = useState(false)
-  
-  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false)
-  const [isAddUnitDialogOpen, setIsAddUnitDialogOpen] = useState(false)
-  const [newCategory, setNewCategory] = useState("")
-  const [newUnit, setNewUnit] = useState("")
-  const [localCategories, setLocalCategories] = useState(existingCategories)
-  const [localUnits, setLocalUnits] = useState(existingUnits)
-  const [isNewCategory, setIsNewCategory] = useState(false)
-  const [categoryPhoto, setCategoryPhoto] = useState<File | null>(null)
-  const [categoryVendible, setCategoryVendible] = useState(true)
+  });
+
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(
+    initialData?.foto || null,
+  );
+  const [fotoUrl, setFotoUrl] = useState<string | null>(
+    initialData?.foto || null,
+  );
+  const [cambiarFoto, setCambiarFoto] = useState(false);
+
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
+  const [isAddUnitDialogOpen, setIsAddUnitDialogOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [newUnit, setNewUnit] = useState("");
+  const [localCategories, setLocalCategories] = useState(existingCategories);
+  const [localUnits, setLocalUnits] = useState(existingUnits);
+  const [isNewCategory, setIsNewCategory] = useState(false);
+
+  // Campos opcionales para web
+  const [habilitarVentaWeb, setHabilitarVentaWeb] = useState(
+    initialData?.habilitar_venta_web ?? false,
+  );
+  const [precioPorCantidad, setPrecioPorCantidad] = useState<
+    { cantidad: string; precio: string }[]
+  >(
+    initialData?.precio_por_cantidad
+      ? Object.entries(initialData.precio_por_cantidad).map(
+          ([cantidad, precio]) => ({ cantidad, precio: String(precio) }),
+        )
+      : [],
+  );
+  const [especificaciones, setEspecificaciones] = useState<
+    { clave: string; valor: string }[]
+  >(
+    initialData?.especificaciones
+      ? Object.entries(initialData.especificaciones).map(([clave, valor]) => ({
+          clave,
+          valor,
+        }))
+      : [],
+  );
 
   useEffect(() => {
-    if (!initialData) return
+    if (!initialData) return;
 
     setFormData({
       codigo: initialData.codigo?.toString() || "",
@@ -83,117 +134,163 @@ export function MaterialForm({
       marca_id: initialData.marca_id || undefined,
       foto: null,
       potenciaKW: initialData.potenciaKW ?? undefined,
-    })
-    setFotoUrl(initialData.foto || null)
-    setFotoPreview(initialData.foto || null)
-    setCambiarFoto(false)
-  }, [initialData])
+    });
+    setFotoUrl(initialData.foto || null);
+    setFotoPreview(initialData.foto || null);
+    setCambiarFoto(false);
+    setHabilitarVentaWeb(initialData.habilitar_venta_web ?? false);
+    setPrecioPorCantidad(
+      initialData.precio_por_cantidad
+        ? Object.entries(initialData.precio_por_cantidad).map(
+            ([cantidad, precio]) => ({ cantidad, precio: String(precio) }),
+          )
+        : [],
+    );
+    setEspecificaciones(
+      initialData.especificaciones
+        ? Object.entries(initialData.especificaciones).map(
+            ([clave, valor]) => ({ clave, valor }),
+          )
+        : [],
+    );
+  }, [initialData]);
 
   // Sincronizar categorías cuando cambien desde el padre
   useEffect(() => {
-    setLocalCategories(existingCategories)
-  }, [existingCategories])
+    setLocalCategories(existingCategories);
+  }, [existingCategories]);
 
   // Sincronizar unidades cuando cambien desde el padre
   useEffect(() => {
-    setLocalUnits(existingUnits)
-  }, [existingUnits])
+    setLocalUnits(existingUnits);
+  }, [existingUnits]);
 
   // Categorías que requieren marca y potencia
-  const categoriasEspeciales = ['BATERÍAS', 'INVERSORES', 'PANELES']
-  const requiereMarcaYPotencia = categoriasEspeciales.includes(formData.categoria)
+  const categoriasEspeciales = ["BATERÍAS", "INVERSORES", "PANELES"];
+  const requiereMarcaYPotencia = categoriasEspeciales.includes(
+    formData.categoria,
+  );
 
   // Filtrar marcas según la categoría seleccionada
-  const marcasFiltradas = marcasSimplificadas.filter(marca => 
-    marca.tipos_material.includes(formData.categoria as any)
-  )
+  const marcasFiltradas = marcasSimplificadas.filter((marca) =>
+    marca.tipos_material.includes(formData.categoria as any),
+  );
 
   // Manejar cambio de archivo de foto
   const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    
+    const file = e.target.files?.[0];
+
     if (!file) {
-      setFotoFile(null)
-      setFotoPreview(fotoUrl)
-      return
+      setFotoFile(null);
+      setFotoPreview(fotoUrl);
+      return;
     }
 
     // Validar que sea imagen
-    if (!file.type.startsWith('image/')) {
-      setError('El archivo debe ser una imagen')
-      return
+    if (!file.type.startsWith("image/")) {
+      setError("El archivo debe ser una imagen");
+      return;
     }
 
     // Validar tamaño (máximo 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('La imagen no debe superar 5MB')
-      return
+      setError("La imagen no debe superar 5MB");
+      return;
     }
 
-    setFotoFile(file)
-    setError(null)
+    setFotoFile(file);
+    setError(null);
 
     // Crear preview
-    const reader = new FileReader()
+    const reader = new FileReader();
     reader.onloadend = () => {
-      setFotoPreview(reader.result as string)
-    }
-    reader.readAsDataURL(file)
-  }
+      setFotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {}
+    const newErrors: Record<string, string> = {};
     if (!formData.codigo.trim()) {
-      newErrors.codigo = "El código es requerido"
+      newErrors.codigo = "El código es requerido";
     }
     if (!formData.categoria) {
-      newErrors.categoria = "Selecciona una categoría"
+      newErrors.categoria = "Selecciona una categoría";
     }
     if (!formData.descripcion.trim()) {
-      newErrors.descripcion = "La descripción es requerida"
+      newErrors.descripcion = "La descripción es requerida";
     }
     if (!formData.um) {
-      newErrors.um = "Selecciona una unidad de medida"
+      newErrors.um = "Selecciona una unidad de medida";
     }
-    
+
     // Validar marca y potencia solo para categorías especiales
     if (requiereMarcaYPotencia) {
       if (!formData.marca_id) {
-        newErrors.marca_id = "La marca es requerida para esta categoría"
+        newErrors.marca_id = "La marca es requerida para esta categoría";
       }
       if (!formData.potenciaKW || formData.potenciaKW <= 0) {
-        newErrors.potenciaKW = "La potencia en KW es requerida para esta categoría"
+        newErrors.potenciaKW =
+          "La potencia en KW es requerida para esta categoría";
       }
     }
-    
-    setError(null)
-    return Object.keys(newErrors).length === 0 ? null : newErrors
-  }
+
+    setError(null);
+    return Object.keys(newErrors).length === 0 ? null : newErrors;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setSuccess(null)
-    setError(null)
-    const errors = validateForm()
+    e.preventDefault();
+    setSuccess(null);
+    setError(null);
+    const errors = validateForm();
     if (errors) {
-      setError("Por favor completa todos los campos correctamente.")
-      return
+      setError("Por favor completa todos los campos correctamente.");
+      return;
     }
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
       // 1. Subir foto si hay un archivo nuevo
-      let finalFotoUrl = fotoUrl
+      let finalFotoUrl = fotoUrl;
       if (fotoFile) {
         try {
-          finalFotoUrl = await uploadFoto(fotoFile)
-          setFotoUrl(finalFotoUrl)
+          finalFotoUrl = await uploadFoto(fotoFile);
+          setFotoUrl(finalFotoUrl);
         } catch (uploadErr: any) {
-          throw new Error(`Error al subir la foto: ${uploadErr.message}`)
+          throw new Error(`Error al subir la foto: ${uploadErr.message}`);
         }
       }
 
       // 2. Preparar datos del material
       if (onSubmit) {
+        // Construir precio_por_cantidad como Record o null
+        const precioPorCantidadObj =
+          precioPorCantidad.length > 0
+            ? precioPorCantidad.reduce(
+                (acc, { cantidad, precio }) => {
+                  if (cantidad.trim() && precio.trim()) {
+                    acc[cantidad.trim()] = parseFloat(precio);
+                  }
+                  return acc;
+                },
+                {} as Record<string, number>,
+              )
+            : null;
+
+        // Construir especificaciones como Record o null
+        const especificacionesObj =
+          especificaciones.length > 0
+            ? especificaciones.reduce(
+                (acc, { clave, valor }) => {
+                  if (clave.trim() && valor.trim()) {
+                    acc[clave.trim()] = valor.trim();
+                  }
+                  return acc;
+                },
+                {} as Record<string, string>,
+              )
+            : null;
+
         const materialData = {
           codigo: formData.codigo,
           categoria: formData.categoria,
@@ -206,37 +303,50 @@ export function MaterialForm({
             marca_id: formData.marca_id,
             potenciaKW: formData.potenciaKW,
           }),
+          // Campos opcionales para web
+          habilitar_venta_web: habilitarVentaWeb,
+          precio_por_cantidad:
+            Object.keys(precioPorCantidadObj || {}).length > 0
+              ? precioPorCantidadObj
+              : null,
+          especificaciones:
+            Object.keys(especificacionesObj || {}).length > 0
+              ? especificacionesObj
+              : null,
           // Datos adicionales para nueva categoría
           ...(isNewCategory && {
             isNewCategory: true,
-            categoryPhoto: categoryPhoto,
-            categoryVendible: categoryVendible
-          })
-        }
-        await onSubmit(materialData as any)
+          }),
+        };
+        await onSubmit(materialData as any);
         if (!isEditing) {
-          setFormData({ 
-            codigo: "", 
-            categoria: "", 
-            descripcion: "", 
-            um: "", 
+          setFormData({
+            codigo: "",
+            categoria: "",
+            descripcion: "",
+            um: "",
             precio: undefined,
             nombre: "",
             marca_id: undefined,
             foto: null,
             potenciaKW: undefined,
-          })
-          setFotoFile(null)
-          setFotoPreview(null)
-          setFotoUrl(null)
-          setIsNewCategory(false)
-          setCategoryPhoto(null)
-          setCategoryVendible(true)
+          });
+          setFotoFile(null);
+          setFotoPreview(null);
+          setFotoUrl(null);
+          setIsNewCategory(false);
+          setHabilitarVentaWeb(false);
+          setPrecioPorCantidad([]);
+          setEspecificaciones([]);
         }
         if (onClose) onClose();
       }
     } catch (err: any) {
-      const errorMessage = err.message || (isEditing ? "Error al actualizar el material" : "Error al guardar el material");
+      const errorMessage =
+        err.message ||
+        (isEditing
+          ? "Error al actualizar el material"
+          : "Error al guardar el material");
       setError(errorMessage);
       // Solo mostrar toast si no es edición (el padre ya maneja los toasts para edición)
       if (!isEditing) {
@@ -247,39 +357,39 @@ export function MaterialForm({
         });
       }
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const addNewCategory = async () => {
     if (newCategory.trim() && !localCategories.includes(newCategory.trim())) {
-      setIsCreatingCategory(true)
+      setIsCreatingCategory(true);
       try {
         // Actualizar localmente y marcar como nueva categoría
-        const trimmedCategory = newCategory.trim()
-        setLocalCategories([...localCategories, trimmedCategory])
-        setFormData({ ...formData, categoria: trimmedCategory })
-        setNewCategory("")
-        setIsAddCategoryDialogOpen(false)
-        setIsNewCategory(true) // Marcar como nueva categoría
+        const trimmedCategory = newCategory.trim();
+        setLocalCategories([...localCategories, trimmedCategory]);
+        setFormData({ ...formData, categoria: trimmedCategory });
+        setNewCategory("");
+        setIsAddCategoryDialogOpen(false);
+        setIsNewCategory(true); // Marcar como nueva categoría
       } catch (err: any) {
-        setError(err.message || "Error al crear la categoría")
+        setError(err.message || "Error al crear la categoría");
       } finally {
-        setIsCreatingCategory(false)
+        setIsCreatingCategory(false);
       }
     }
-  }
+  };
 
   const addNewUnit = () => {
     if (newUnit.trim() && !localUnits.includes(newUnit.trim())) {
-      const trimmedUnit = newUnit.trim()
-      const updatedUnits = [...localUnits, trimmedUnit]
-      setLocalUnits(updatedUnits)
-      setFormData({ ...formData, um: trimmedUnit })
-      setNewUnit("")
-      setIsAddUnitDialogOpen(false)
+      const trimmedUnit = newUnit.trim();
+      const updatedUnits = [...localUnits, trimmedUnit];
+      setLocalUnits(updatedUnits);
+      setFormData({ ...formData, um: trimmedUnit });
+      setNewUnit("");
+      setIsAddUnitDialogOpen(false);
     }
-  }
+  };
 
   return (
     <>
@@ -289,13 +399,18 @@ export function MaterialForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Código */}
             <div>
-              <Label htmlFor="material-codigo" className="text-sm font-medium text-gray-700 mb-2 block">
+              <Label
+                htmlFor="material-codigo"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
                 Código *
               </Label>
               <Input
                 id="material-codigo"
                 value={formData.codigo}
-                onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, codigo: e.target.value })
+                }
                 placeholder="Ej: ABC123 o 5401090096"
                 className={error && !formData.codigo ? "border-red-300" : ""}
                 disabled={isSubmitting || uploadingFoto}
@@ -304,13 +419,18 @@ export function MaterialForm({
 
             {/* Nombre */}
             <div>
-              <Label htmlFor="material-nombre" className="text-sm font-medium text-gray-700 mb-2 block">
+              <Label
+                htmlFor="material-nombre"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
                 Nombre del Producto
               </Label>
               <Input
                 id="material-nombre"
                 value={formData.nombre || ""}
-                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, nombre: e.target.value })
+                }
                 placeholder="Ej: Huawei SUN2000-10KTL-M1"
                 disabled={isSubmitting || uploadingFoto}
               />
@@ -319,13 +439,18 @@ export function MaterialForm({
 
           {/* Descripción */}
           <div>
-            <Label htmlFor="material-descripcion" className="text-sm font-medium text-gray-700 mb-2 block">
+            <Label
+              htmlFor="material-descripcion"
+              className="text-sm font-medium text-gray-700 mb-2 block"
+            >
               Descripción *
             </Label>
             <Textarea
               id="material-descripcion"
               value={formData.descripcion}
-              onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, descripcion: e.target.value })
+              }
               placeholder="Ej: Estructura para montaje de módulo fotovoltáico..."
               className={error && !formData.descripcion ? "border-red-300" : ""}
               rows={3}
@@ -335,24 +460,33 @@ export function MaterialForm({
 
           {/* Categoría */}
           <div>
-            <Label htmlFor="material-categoria" className="text-sm font-medium text-gray-700 mb-2 block">
+            <Label
+              htmlFor="material-categoria"
+              className="text-sm font-medium text-gray-700 mb-2 block"
+            >
               Categoría *
             </Label>
             <div className="flex space-x-2">
-              <Select value={formData.categoria} onValueChange={(value) => {
-                setFormData({ 
-                  ...formData, 
-                  categoria: value,
-                  // Limpiar marca y potencia si cambia a una categoría que no los requiere
-                  ...((!categoriasEspeciales.includes(value)) && {
-                    marca_id: undefined,
-                    potenciaKW: undefined,
-                  })
-                })
-                // Detectar si es una categoría existente o nueva
-                setIsNewCategory(!localCategories.includes(value))
-              }}>
-                <SelectTrigger className={`flex-1 ${error && !formData.categoria ? "border-red-300" : ""}`} disabled={isSubmitting || uploadingFoto}>
+              <Select
+                value={formData.categoria}
+                onValueChange={(value) => {
+                  setFormData({
+                    ...formData,
+                    categoria: value,
+                    // Limpiar marca y potencia si cambia a una categoría que no los requiere
+                    ...(!categoriasEspeciales.includes(value) && {
+                      marca_id: undefined,
+                      potenciaKW: undefined,
+                    }),
+                  });
+                  // Detectar si es una categoría existente o nueva
+                  setIsNewCategory(!localCategories.includes(value));
+                }}
+              >
+                <SelectTrigger
+                  className={`flex-1 ${error && !formData.categoria ? "border-red-300" : ""}`}
+                  disabled={isSubmitting || uploadingFoto}
+                >
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
                 <SelectContent>
@@ -363,9 +497,17 @@ export function MaterialForm({
                   ))}
                 </SelectContent>
               </Select>
-              <Dialog open={isAddCategoryDialogOpen} onOpenChange={setIsAddCategoryDialogOpen}>
+              <Dialog
+                open={isAddCategoryDialogOpen}
+                onOpenChange={setIsAddCategoryDialogOpen}
+              >
                 <DialogTrigger asChild>
-                  <Button type="button" variant="outline" size="sm" disabled={isSubmitting || uploadingFoto}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isSubmitting || uploadingFoto}
+                  >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </DialogTrigger>
@@ -375,7 +517,10 @@ export function MaterialForm({
                   </DialogHeader>
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="new-category" className="text-sm font-medium text-gray-700 mb-2 block">
+                      <Label
+                        htmlFor="new-category"
+                        className="text-sm font-medium text-gray-700 mb-2 block"
+                      >
                         Nombre de la Categoría
                       </Label>
                       <Input
@@ -387,11 +532,24 @@ export function MaterialForm({
                       />
                     </div>
                     <div className="flex justify-end space-x-3">
-                      <Button type="button" variant="outline" onClick={() => setIsAddCategoryDialogOpen(false)} disabled={isCreatingCategory}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setIsAddCategoryDialogOpen(false)}
+                        disabled={isCreatingCategory}
+                      >
                         Cancelar
                       </Button>
-                      <Button type="button" onClick={addNewCategory} disabled={isCreatingCategory || !newCategory.trim()}>
-                        {isCreatingCategory ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      <Button
+                        type="button"
+                        onClick={addNewCategory}
+                        disabled={isCreatingCategory || !newCategory.trim()}
+                      >
+                        {isCreatingCategory ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Plus className="h-4 w-4" />
+                        )}
                         Agregar
                       </Button>
                     </div>
@@ -406,16 +564,21 @@ export function MaterialForm({
             <div className="space-y-4 p-4 bg-amber-50 rounded-lg border border-amber-200">
               <div className="flex items-center space-x-2">
                 <Package className="h-5 w-5 text-amber-600" />
-                <h3 className="text-lg font-semibold text-amber-900">Información Técnica Requerida</h3>
+                <h3 className="text-lg font-semibold text-amber-900">
+                  Información Técnica Requerida
+                </h3>
               </div>
               <p className="text-sm text-amber-700">
                 Esta categoría requiere información técnica adicional.
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Potencia */}
                 <div>
-                  <Label htmlFor="material-potencia" className="text-sm font-medium text-gray-700 mb-2 block">
+                  <Label
+                    htmlFor="material-potencia"
+                    className="text-sm font-medium text-gray-700 mb-2 block"
+                  >
                     Potencia (KW) *
                   </Label>
                   <Input
@@ -425,30 +588,46 @@ export function MaterialForm({
                     min="0"
                     value={formData.potenciaKW ?? ""}
                     onChange={(e) => {
-                      const value = e.target.value
+                      const value = e.target.value;
                       setFormData({
                         ...formData,
-                        potenciaKW: value === "" ? undefined : parseFloat(value) || 0
-                      })
+                        potenciaKW:
+                          value === "" ? undefined : parseFloat(value) || 0,
+                      });
                     }}
                     placeholder="Ej: 10.0"
-                    className={error && !formData.potenciaKW ? "border-red-300" : ""}
+                    className={
+                      error && !formData.potenciaKW ? "border-red-300" : ""
+                    }
                     disabled={isSubmitting || uploadingFoto}
                   />
                 </div>
 
                 {/* Marca */}
                 <div>
-                  <Label htmlFor="material-marca" className="text-sm font-medium text-gray-700 mb-2 block">
+                  <Label
+                    htmlFor="material-marca"
+                    className="text-sm font-medium text-gray-700 mb-2 block"
+                  >
                     Marca *
                   </Label>
-                  <Select 
-                    value={formData.marca_id} 
-                    onValueChange={(value) => setFormData({ ...formData, marca_id: value })}
+                  <Select
+                    value={formData.marca_id}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, marca_id: value })
+                    }
                     disabled={loadingMarcas || isSubmitting || uploadingFoto}
                   >
-                    <SelectTrigger className={`${error && !formData.marca_id ? "border-red-300" : ""}`}>
-                      <SelectValue placeholder={loadingMarcas ? "Cargando marcas..." : "Seleccionar marca"} />
+                    <SelectTrigger
+                      className={`${error && !formData.marca_id ? "border-red-300" : ""}`}
+                    >
+                      <SelectValue
+                        placeholder={
+                          loadingMarcas
+                            ? "Cargando marcas..."
+                            : "Seleccionar marca"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {marcasFiltradas.length === 0 ? (
@@ -474,18 +653,18 @@ export function MaterialForm({
             <Label className="text-sm font-medium text-gray-700">
               Foto del Producto
             </Label>
-            
+
             <div className="flex flex-col md:flex-row md:items-start gap-6">
               {/* Foto actual (solo en modo edición) */}
               {isEditing && fotoUrl && !cambiarFoto && (
                 <div className="space-y-3">
                   <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                    <img 
-                      src={fotoUrl} 
-                      alt="Foto actual" 
+                    <img
+                      src={fotoUrl}
+                      alt="Foto actual"
                       className="w-full h-full object-cover"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder.svg'
+                        (e.target as HTMLImageElement).src = "/placeholder.svg";
                       }}
                     />
                   </div>
@@ -502,47 +681,49 @@ export function MaterialForm({
                 </div>
               )}
 
-            {/* Input de archivo (crear o cambiar foto) */}
-            {(!isEditing || !fotoUrl || cambiarFoto) && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFotoChange}
-                    disabled={isSubmitting || uploadingFoto}
-                    className="flex-1"
-                  />
-                  {cambiarFoto && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setCambiarFoto(false)
-                        setFotoFile(null)
-                        setFotoPreview(fotoUrl)
-                      }}
+              {/* Input de archivo (crear o cambiar foto) */}
+              {(!isEditing || !fotoUrl || cambiarFoto) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFotoChange}
                       disabled={isSubmitting || uploadingFoto}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
+                      className="flex-1"
+                    />
+                    {cambiarFoto && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCambiarFoto(false);
+                          setFotoFile(null);
+                          setFotoPreview(fotoUrl);
+                        }}
+                        disabled={isSubmitting || uploadingFoto}
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Formatos: JPG, PNG, GIF. Máximo 5MB
+                  </p>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Formatos: JPG, PNG, GIF. Máximo 5MB
-                </p>
-              </div>
-            )}
+              )}
 
               {/* Preview de la foto */}
               {fotoPreview && (
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Vista Previa</Label>
+                  <Label className="text-sm font-medium text-gray-700">
+                    Vista Previa
+                  </Label>
                   <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                    <img 
-                      src={fotoPreview} 
-                      alt="Preview" 
+                    <img
+                      src={fotoPreview}
+                      alt="Preview"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -571,7 +752,10 @@ export function MaterialForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Precio */}
             <div>
-              <Label htmlFor="material-precio" className="text-sm font-medium text-gray-700 mb-2 block">
+              <Label
+                htmlFor="material-precio"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
                 Precio
               </Label>
               <Input
@@ -581,11 +765,11 @@ export function MaterialForm({
                 min="0"
                 value={formData.precio ?? ""}
                 onChange={(e) => {
-                  const value = e.target.value
+                  const value = e.target.value;
                   setFormData({
                     ...formData,
-                    precio: value === "" ? undefined : parseFloat(value) || 0
-                  })
+                    precio: value === "" ? undefined : parseFloat(value) || 0,
+                  });
                 }}
                 placeholder="0.00"
                 disabled={isSubmitting || uploadingFoto}
@@ -594,12 +778,23 @@ export function MaterialForm({
 
             {/* Unidad de Medida */}
             <div>
-              <Label htmlFor="material-um" className="text-sm font-medium text-gray-700 mb-2 block">
+              <Label
+                htmlFor="material-um"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
                 Unidad de Medida *
               </Label>
               <div className="flex space-x-2">
-                <Select value={formData.um} onValueChange={(value) => setFormData({ ...formData, um: value })}>
-                  <SelectTrigger className={`flex-1 ${error && !formData.um ? "border-red-300" : ""}`} disabled={isSubmitting || uploadingFoto}>
+                <Select
+                  value={formData.um}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, um: value })
+                  }
+                >
+                  <SelectTrigger
+                    className={`flex-1 ${error && !formData.um ? "border-red-300" : ""}`}
+                    disabled={isSubmitting || uploadingFoto}
+                  >
                     <SelectValue placeholder="Seleccionar unidad" />
                   </SelectTrigger>
                   <SelectContent>
@@ -610,9 +805,17 @@ export function MaterialForm({
                     ))}
                   </SelectContent>
                 </Select>
-                <Dialog open={isAddUnitDialogOpen} onOpenChange={setIsAddUnitDialogOpen}>
+                <Dialog
+                  open={isAddUnitDialogOpen}
+                  onOpenChange={setIsAddUnitDialogOpen}
+                >
                   <DialogTrigger asChild>
-                    <Button type="button" variant="outline" size="sm" disabled={isSubmitting || uploadingFoto}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isSubmitting || uploadingFoto}
+                    >
                       <Plus className="h-4 w-4" />
                     </Button>
                   </DialogTrigger>
@@ -622,7 +825,10 @@ export function MaterialForm({
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <Label htmlFor="new-unit" className="text-sm font-medium text-gray-700 mb-2 block">
+                        <Label
+                          htmlFor="new-unit"
+                          className="text-sm font-medium text-gray-700 mb-2 block"
+                        >
                           Unidad de Medida
                         </Label>
                         <Input
@@ -633,10 +839,18 @@ export function MaterialForm({
                         />
                       </div>
                       <div className="flex justify-end space-x-3">
-                        <Button type="button" variant="outline" onClick={() => setIsAddUnitDialogOpen(false)}>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setIsAddUnitDialogOpen(false)}
+                        >
                           Cancelar
                         </Button>
-                        <Button type="button" onClick={addNewUnit} disabled={!newUnit.trim()}>
+                        <Button
+                          type="button"
+                          onClick={addNewUnit}
+                          disabled={!newUnit.trim()}
+                        >
                           <Plus className="h-4 w-4" />
                           Agregar
                         </Button>
@@ -648,43 +862,163 @@ export function MaterialForm({
             </div>
           </div>
 
-          {/* Campos adicionales para nueva categoría */}
-          {isNewCategory && (
-            <div className="space-y-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+          {/* Campos opcionales para web */}
+          <div className="space-y-4 p-4 bg-sky-50 rounded-lg border border-sky-200">
+            <div className="flex items-center space-x-2">
+              <Package className="h-5 w-5 text-sky-600" />
+              <h3 className="text-lg font-semibold text-sky-900">
+                Campos Opcionales para Web
+              </h3>
+            </div>
+            <p className="text-sm text-sky-700">
+              Configura estos campos si deseas mostrar este material en la
+              tienda web.
+            </p>
+
+            <div className="space-y-4">
+              {/* Toggle habilitar venta web */}
               <div className="flex items-center space-x-2">
-                <Package className="h-5 w-5 text-blue-600" />
-                <h3 className="text-lg font-semibold text-blue-900">Configuración de Nueva Categoría</h3>
-              </div>
-              <p className="text-sm text-blue-700">
-                Como estás creando una nueva categoría, puedes configurar sus propiedades adicionales:
-              </p>
-              
-              <div className="space-y-4">
-                <FileUpload
-                  id="category-photo"
-                  label="Foto de la Categoría (opcional)"
-                  accept="image/*"
-                  value={categoryPhoto}
-                  onChange={setCategoryPhoto}
-                  maxSizeInMB={10}
-                  showPreview={true}
+                <Switch
+                  id="habilitar-venta-web"
+                  checked={habilitarVentaWeb}
+                  onCheckedChange={setHabilitarVentaWeb}
                   disabled={isSubmitting}
                 />
+                <Label htmlFor="habilitar-venta-web" className="cursor-pointer">
+                  Habilitar venta web
+                </Label>
+              </div>
 
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="category-vendible"
-                    checked={categoryVendible}
-                    onCheckedChange={setCategoryVendible}
-                    disabled={isSubmitting}
-                  />
-                  <Label htmlFor="category-vendible" className="cursor-pointer">
-                    Esta categoría es vendible
-                  </Label>
-                </div>
+              {/* Especificaciones */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Especificaciones
+                </Label>
+                {especificaciones.map((spec, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      placeholder="Clave (ej: Voltaje)"
+                      value={spec.clave}
+                      onChange={(e) => {
+                        const updated = [...especificaciones];
+                        updated[index].clave = e.target.value;
+                        setEspecificaciones(updated);
+                      }}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                    />
+                    <Input
+                      placeholder="Valor (ej: 48V)"
+                      value={spec.valor}
+                      onChange={(e) => {
+                        const updated = [...especificaciones];
+                        updated[index].valor = e.target.value;
+                        setEspecificaciones(updated);
+                      }}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setEspecificaciones(
+                          especificaciones.filter((_, i) => i !== index),
+                        )
+                      }
+                      disabled={isSubmitting}
+                      className="text-red-600 border-red-300 hover:bg-red-50 h-10 w-10 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setEspecificaciones([
+                      ...especificaciones,
+                      { clave: "", valor: "" },
+                    ])
+                  }
+                  disabled={isSubmitting}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Agregar Especificacion
+                </Button>
+              </div>
+
+              {/* Precio por cantidad */}
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Precio por Cantidad
+                </Label>
+                {precioPorCantidad.map((item, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <Input
+                      placeholder="Cantidad (ej: 10)"
+                      value={item.cantidad}
+                      onChange={(e) => {
+                        const updated = [...precioPorCantidad];
+                        updated[index].cantidad = e.target.value;
+                        setPrecioPorCantidad(updated);
+                      }}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                      type="number"
+                      min="1"
+                    />
+                    <Input
+                      placeholder="Precio (ej: 1400.00)"
+                      value={item.precio}
+                      onChange={(e) => {
+                        const updated = [...precioPorCantidad];
+                        updated[index].precio = e.target.value;
+                        setPrecioPorCantidad(updated);
+                      }}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setPrecioPorCantidad(
+                          precioPorCantidad.filter((_, i) => i !== index),
+                        )
+                      }
+                      disabled={isSubmitting}
+                      className="text-red-600 border-red-300 hover:bg-red-50 h-10 w-10 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setPrecioPorCantidad([
+                      ...precioPorCantidad,
+                      { cantidad: "", precio: "" },
+                    ])
+                  }
+                  disabled={isSubmitting}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Agregar Precio
+                </Button>
               </div>
             </div>
-          )}
+          </div>
         </div>
         {error && (
           <div className="flex items-center text-red-600 mt-2">
@@ -699,15 +1033,24 @@ export function MaterialForm({
           </div>
         )}
         <div className="flex justify-end space-x-3">
-          <Button type="button" variant="outline" onClick={onClose || onCancel} disabled={isSubmitting}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose || onCancel}
+            disabled={isSubmitting}
+          >
             Cancelar
           </Button>
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {isSubmitting ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
             Guardar
           </Button>
         </div>
       </form>
     </>
-  )
+  );
 }
