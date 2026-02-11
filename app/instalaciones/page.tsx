@@ -3,13 +3,21 @@
 import { useState } from "react"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { Wrench, Clock, AlertTriangle } from "lucide-react"
+import { Wrench, Clock, AlertTriangle, MapPin } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function InstalacionesPage() {
   const router = useRouter()
 
   const opciones = [
+    {
+      id: 'pendientes-visita',
+      title: 'Pendientes de Visita',
+      description: 'Leads y clientes que requieren visita',
+      icon: MapPin,
+      color: 'orange',
+      href: '/instalaciones/pendientes-visita'
+    },
     {
       id: 'en-proceso',
       title: 'Instalaciones en Proceso',
@@ -38,6 +46,12 @@ export default function InstalacionesPage() {
 
   const getColorClasses = (color: string) => {
     const colors = {
+      orange: {
+        bg: 'bg-orange-50',
+        border: 'border-orange-200',
+        icon: 'text-orange-600',
+        hover: 'hover:bg-orange-100'
+      },
       blue: {
         bg: 'bg-blue-50',
         border: 'border-blue-200',
@@ -69,7 +83,7 @@ export default function InstalacionesPage() {
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {opciones.map((opcion) => {
             const Icon = opcion.icon
             const colors = getColorClasses(opcion.color)

@@ -6,8 +6,13 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
+import { PriorityDot } from "@/components/shared/atom/priority-dot"
 import { Search, Phone, MapPin, Package, User, FileText, MessageSquare } from "lucide-react"
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types"
+import { useToast } from "@/hooks/use-toast"
+import { apiRequest } from "@/lib/api-config"
+import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog"
+import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 
 interface PendientesVisitaTableProps {
   pendientes: PendienteVisita[]
@@ -23,6 +28,10 @@ export function PendientesVisitaTable({
   const [searchTerm, setSearchTerm] = useState("")
   const [tipoFilter, setTipoFilter] = useState<"todos" | "leads" | "clientes">("todos")
   const [provinciaFilter, setProvinciaFilter] = useState("todas")
+  const [ofertaDialogOpen, setOfertaDialogOpen] = useState(false)
+  const [pendienteSeleccionado, setPendienteSeleccionado] = useState<PendienteVisita | null>(null)
+  const [ofertaCargada, setOfertaCargada] = useState<OfertaConfeccion | null>(null)
+  const { toast } = useToast()
 
   // Filtrar pendientes
   const pendientesFiltrados = useMemo(() => {
@@ -72,6 +81,45 @@ export function PendientesVisitaTable({
   const handleAgregarResultado = (pendiente: PendienteVisita) => {
     // TODO: Implementar diálogo para agregar resultados de la visita
     console.log('Agregar resultado para:', pendiente)
+  }
+
+  const handleVerOferta = async (pendiente: PendienteVisita) => {
+    try {
+      setPendienteSeleccionado(pendiente)
+      
+      // Cargar oferta según el tipo
+      let response
+      if (pendiente.tipo === 'lead') {
+        response = await apiRequest<any>(`/ofertas/confeccion/lead/${pendiente.id}`)
+      } else {
+        response = await apiRequest<any>(`/ofertas/confeccion/cliente/${pendiente.numero}`)
+      }
+
+      if (!response?.success || !response.data) {
+        toast({
+          title: "Sin oferta",
+          description: `Este ${pendiente.tipo === 'lead' ? 'lead' : 'cliente'} no tiene oferta asignada.`,
+          variant: "default",
+        })
+        return
+      }
+
+      // Guardar la oferta y abrir el diálogo
+      if (pendiente.tipo === 'lead' && response.data.ofertas && response.data.ofertas.length > 0) {
+        setOfertaCargada(response.data.ofertas[0])
+      } else if (pendiente.tipo === 'cliente') {
+        setOfertaCargada(response.data)
+      }
+      
+      setOfertaDialogOpen(true)
+    } catch (error: any) {
+      console.error('Error al cargar oferta:', error)
+      toast({
+        title: "Sin oferta",
+        description: `Este ${pendiente.tipo === 'lead' ? 'lead' : 'cliente'} no tiene oferta asignada.`,
+        variant: "default",
+      })
+    }
   }
 
   return (
@@ -188,14 +236,31 @@ export function PendientesVisitaTable({
                           <p className="text-gray-700">{pendiente.provincia}</p>
                         </div>
                         <div>
-                          <p className="text-xs text-gray-500">Fuente:</p>
-                          <p className="text-gray-700">{pendiente.fuente || 'N/A'}</p>
+                          <p className="text-xs text-gray-500">Municipio:</p>
+                          <p className="text-gray-700">{pendiente.municipio || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Comercial:</p>
+                          <p className="text-gray-700">{pendiente.comercial || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Prioridad:</p>
+                          <Badge 
+                            variant="outline"
+                            className={
+                              pendiente.prioridad === 'Alta' ? 'bg-red-50 text-red-700' :
+                              pendiente.prioridad === 'Media' ? 'bg-yellow-50 text-yellow-700' :
+                              'bg-gray-50 text-gray-700'
+                            }
+                          >
+                            {pendiente.prioridad}
+                          </Badge>
                         </div>
                       </div>
                       
                       <div>
-                        <p className="text-xs text-gray-500 mb-1">Oferta:</p>
-                        <p className="text-sm text-gray-700">{pendiente.oferta}</p>
+                        <p className="text-xs text-gray-500 mb-1">Fuente:</p>
+                        <p className="text-sm text-gray-700">{pendiente.fuente || 'N/A'}</p>
                       </div>
                       
                       {pendiente.comentario && (
@@ -208,10 +273,10 @@ export function PendientesVisitaTable({
                       <Button
                         onClick={() => handleAgregarResultado(pendiente)}
                         size="sm"
-                        className="w-full bg-orange-600 hover:bg-orange-700"
+                        className="w-full bg-orange-600 hover:bg-orange-700 text-xs h-8"
                       >
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Agregar Resultado de Visita
+                        <MessageSquare className="h-3 w-3 mr-1" />
+                        Agregar Resultado
                       </Button>
                     </CardContent>
                   </Card>
@@ -220,64 +285,85 @@ export function PendientesVisitaTable({
 
               {/* Vista escritorio */}
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Teléfono</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Dirección</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Provincia</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Oferta</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Comentario</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Fuente</th>
-                      <th className="text-center py-3 px-4 font-semibold text-gray-900">Acciones</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-16">Tipo</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-32">Nombre</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-28">Teléfono</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-64">Dirección</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-32">Ubicación</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-20">Com.</th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-56">Comentario</th>
+                      <th className="text-center py-2 px-2 font-semibold text-gray-900 w-12">P</th>
+                      <th className="text-center py-2 px-2 font-semibold text-gray-900 w-48">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pendientesFiltrados.map((pendiente) => (
                       <tr key={pendiente.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-4 px-4">
+                        <td className="py-2 px-2">
                           <Badge 
                             variant={pendiente.tipo === 'lead' ? 'default' : 'secondary'}
                             className={pendiente.tipo === 'lead' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}
                           >
-                            {pendiente.tipo === 'lead' ? 'Lead' : 'Cliente'}
+                            {pendiente.tipo === 'lead' ? 'L' : 'C'}
                           </Badge>
                         </td>
-                        <td className="py-4 px-4">
+                        <td className="py-2 px-2">
                           <p className="font-semibold text-gray-900">{pendiente.nombre}</p>
                           {pendiente.numero && (
                             <p className="text-xs text-gray-500">#{pendiente.numero}</p>
                           )}
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">{pendiente.telefono}</p>
+                        <td className="py-2 px-2">
+                          <p className="text-gray-700">{pendiente.telefono}</p>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">{pendiente.direccion}</p>
+                        <td className="py-2 px-2">
+                          <p className="text-gray-700">{pendiente.direccion || 'N/A'}</p>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">{pendiente.provincia}</p>
+                        <td className="py-2 px-2">
+                          <p className="text-gray-900 font-medium">{pendiente.provincia}</p>
+                          <p className="text-xs text-gray-500">{pendiente.municipio || 'N/A'}</p>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">{pendiente.oferta}</p>
+                        <td className="py-2 px-2">
+                          <p className="text-xs text-gray-700 truncate">
+                            {pendiente.comercial ? pendiente.comercial.split(' ')[0] : 'N/A'}
+                          </p>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">{pendiente.comentario || 'N/A'}</p>
+                        <td className="py-2 px-2">
+                          <p className="text-xs text-gray-700 whitespace-normal break-words">
+                            {pendiente.comentario || 'N/A'}
+                          </p>
                         </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">{pendiente.fuente || 'N/A'}</p>
+                        <td className="py-2 px-2 text-center">
+                          <div className="flex items-center h-7 w-7 justify-center mx-auto">
+                            <PriorityDot
+                              prioridad={pendiente.prioridad as "Alta" | "Media" | "Baja"}
+                              onChange={(prioridad) => console.log('Cambiar prioridad:', pendiente.id, prioridad)}
+                              disabled={false}
+                            />
+                          </div>
                         </td>
-                        <td className="py-4 px-4 text-center">
-                          <Button
-                            onClick={() => handleAgregarResultado(pendiente)}
-                            size="sm"
-                            className="bg-orange-600 hover:bg-orange-700"
-                          >
-                            <MessageSquare className="h-4 w-4 mr-2" />
-                            Agregar Resultado
-                          </Button>
+                        <td className="py-2 px-2">
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              onClick={() => handleVerOferta(pendiente)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-7 px-2"
+                            >
+                              Ver Oferta
+                            </Button>
+                            <Button
+                              onClick={() => handleAgregarResultado(pendiente)}
+                              size="sm"
+                              className="bg-orange-600 hover:bg-orange-700 text-xs h-7 px-2"
+                            >
+                              <MessageSquare className="h-3 w-3 mr-1" />
+                              Resultado
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -288,6 +374,14 @@ export function PendientesVisitaTable({
           )}
         </CardContent>
       </Card>
+
+      {/* Diálogo para ver oferta */}
+      <VerOfertaClienteDialog
+        open={ofertaDialogOpen}
+        onOpenChange={setOfertaDialogOpen}
+        oferta={ofertaCargada}
+        ofertas={[]}
+      />
     </>
   )
 }
