@@ -493,11 +493,14 @@ export function CompletarVisitaDialog({
         }
       }
 
+      const resultadoParaBackend =
+        resultado || (tieneOferta === false ? "estudio_sin_oferta" : null);
+
       if (crearYCompletarDirecto && pendiente.tipo === "lead") {
         const createPayload = {
           lead_id: leadId,
           motivo: pendiente.comentario?.trim() || "Visita técnica",
-          resultado: resultado || "sin_oferta",
+          resultado: resultadoParaBackend,
         };
 
         await apiRequest("/visitas/", {
@@ -531,7 +534,7 @@ export function CompletarVisitaDialog({
         const payload = {
           estado: "completada",
           fecha_completada: new Date().toISOString(),
-          resultado: resultado || "sin_oferta",
+          resultado: resultadoParaBackend,
           nuevo_estado: nuevoEstado,
           tiene_oferta: Boolean(tieneOferta),
           evidencia_texto: evidenciaTexto.trim() || undefined,
