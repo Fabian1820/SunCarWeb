@@ -135,6 +135,8 @@ export default function PendientesVisitaPage() {
       <ModuleHeader
         title="Pendientes de Visita"
         subtitle="Leads y clientes pendientes de instalación que requieren visita"
+        backHref="/instalaciones"
+        backLabel="Volver a Instalaciones"
         badge={{
           text: "Instalaciones",
           className: "bg-orange-100 text-orange-800",
