@@ -1,5 +1,17 @@
 # Leads API - Documentación Actualizada
 
+## ⚠️ IMPORTANTE: Campo `motivo_visita`
+
+El campo `motivo_visita` es un **campo temporal** que:
+- ✅ Se envía en el request body cuando `estado = "Pendiente de visita"`
+- ✅ Se usa para crear automáticamente un registro en la colección `visitas`
+- ❌ **NO se guarda** en el documento del lead
+- ❌ **NO se retorna** en la respuesta
+
+**Ver documentación completa:** `docs/BACKEND_CREAR_VISITA_AUTOMATICA.md`
+
+---
+
 ## Diferencias con la Versión Anterior
 
 ### Campos Nuevos
@@ -8,6 +20,7 @@
 - **`comercial`**: Nombre del comercial que atiende al lead (opcional)
 - **`ofertas`**: Lista de ofertas embebidas con cantidad. Cada oferta incluye un snapshot completo de la oferta en el momento de la solicitud
 - **`elementos_personalizados`**: Lista de elementos personalizados con descripción y cantidad
+- **`motivo_visita`**: Campo temporal para crear visitas (NO se guarda en lead)
 
 ### Campos Eliminados
 - **`necesidad`**: Ahora se usa el campo `comentario` en su lugar
@@ -79,6 +92,11 @@ interface Lead {
   ofertas: OfertaAsignacion[];      // Al crear/actualizar: solo envías el ID de oferta + cantidad
   elementos_personalizados: ElementoPersonalizado[];  // Elementos personalizados
 
+  // Campo temporal para crear visitas (NO se guarda en lead)
+  motivo_visita?: string;           // Solo se envía cuando estado = "Pendiente de visita"
+                                    // Se usa para crear un registro en colección "visitas"
+                                    // NO se guarda en el lead, NO se retorna en respuesta
+
   // NOTA: Al OBTENER un lead, las ofertas vienen como OfertaEmbebida[]
 }
 ```
@@ -100,6 +118,7 @@ interface Lead {
 - `comercial` (string): Nombre del comercial que atiende al lead
 - `ofertas` (array): Lista de ofertas a asignar. Cada oferta requiere solo `oferta_id` (string) y `cantidad` (number)
 - `elementos_personalizados` (array): Lista de elementos personalizados solicitados
+- `motivo_visita` (string): **Campo temporal** - Se envía cuando `estado = "Pendiente de visita"`. El backend crea automáticamente un registro en `visitas` con este motivo. **NO se guarda en el lead**.
 
 ---
 

@@ -1,84 +1,90 @@
-import type { ElementoPersonalizado, OfertaEmbebida, OfertaAsignacion } from '../leads/lead-types'
-import type { Averia } from '../averias/averia-types'
+import type {
+  ElementoPersonalizado,
+  OfertaEmbebida,
+  OfertaAsignacion,
+} from "../leads/lead-types";
+import type { Averia } from "../averias/averia-types";
 
 export interface Cliente {
-  id?: string  // ID de MongoDB (transformado desde _id por el backend)
-  numero: string
-  nombre: string
-  direccion: string
-  telefono?: string
-  telefono_adicional?: string
-  fecha_contacto?: string
-  estado?: string
-  fuente?: string
-  referencia?: string
-  pais_contacto?: string
-  comentario?: string
-  provincia_montaje?: string
-  municipio?: string
-  comercial?: string
-  ofertas?: OfertaEmbebida[]
-  elementos_personalizados?: ElementoPersonalizado[]
-  latitud?: number | string
-  longitud?: number | string
-  carnet_identidad?: string
-  fecha_instalacion?: string
-  fecha_montaje?: string
-  created_at?: string
-  updated_at?: string
-  comprobante_pago_url?: string
-  metodo_pago?: string
-  moneda?: string
-  falta_instalacion?: string  // Qué le falta a la instalación (solo para estado "Instalación en proceso")
-  averias?: Averia[]  // Array de averías del cliente
-  prioridad?: "Alta" | "Media" | "Baja"
+  id?: string; // ID de MongoDB (transformado desde _id por el backend)
+  numero: string;
+  nombre: string;
+  direccion: string;
+  telefono?: string;
+  telefono_adicional?: string;
+  fecha_contacto?: string;
+  estado?: string;
+  fuente?: string;
+  referencia?: string;
+  pais_contacto?: string;
+  comentario?: string;
+  provincia_montaje?: string;
+  municipio?: string;
+  comercial?: string;
+  ofertas?: OfertaEmbebida[];
+  elementos_personalizados?: ElementoPersonalizado[];
+  latitud?: number | string;
+  longitud?: number | string;
+  carnet_identidad?: string;
+  fecha_instalacion?: string;
+  fecha_montaje?: string;
+  created_at?: string;
+  updated_at?: string;
+  comprobante_pago_url?: string;
+  metodo_pago?: string;
+  moneda?: string;
+  falta_instalacion?: string; // Qué le falta a la instalación (solo para estado "Instalación en proceso")
+  averias?: Averia[]; // Array de averías del cliente
+  prioridad?: "Alta" | "Media" | "Baja";
+  motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
 }
 
 export interface ClienteResponse {
-  success: boolean
-  message: string
-  data: Cliente | Cliente[] | null
+  success: boolean;
+  message: string;
+  data: Cliente | Cliente[] | null;
 }
 
 export interface ClienteCreateData {
-  numero: string
-  nombre: string
-  direccion: string
-  telefono?: string
-  telefono_adicional?: string
-  fecha_contacto?: string
-  estado?: string
-  fuente?: string
-  referencia?: string
-  pais_contacto?: string
-  comentario?: string
-  provincia_montaje?: string
-  municipio?: string
-  comercial?: string
-  ofertas?: OfertaAsignacion[]  // Al crear: solo enviar oferta_id + cantidad
-  elementos_personalizados?: ElementoPersonalizado[]
-  latitud?: number | string
-  longitud?: number | string
-  carnet_identidad?: string
-  fecha_instalacion?: string
-  fecha_montaje?: string
-  comprobante_pago_url?: string
-  metodo_pago?: string
-  moneda?: string
-  falta_instalacion?: string  // Qué le falta a la instalación
-  equipo_propio?: boolean  // Si el equipo es propio del cliente (código con P)
-  prioridad?: "Alta" | "Media" | "Baja"
+  numero: string;
+  nombre: string;
+  direccion: string;
+  telefono?: string;
+  telefono_adicional?: string;
+  fecha_contacto?: string;
+  estado?: string;
+  fuente?: string;
+  referencia?: string;
+  pais_contacto?: string;
+  comentario?: string;
+  provincia_montaje?: string;
+  municipio?: string;
+  comercial?: string;
+  ofertas?: OfertaAsignacion[]; // Al crear: solo enviar oferta_id + cantidad
+  elementos_personalizados?: ElementoPersonalizado[];
+  latitud?: number | string;
+  longitud?: number | string;
+  carnet_identidad?: string;
+  fecha_instalacion?: string;
+  fecha_montaje?: string;
+  comprobante_pago_url?: string;
+  metodo_pago?: string;
+  moneda?: string;
+  falta_instalacion?: string; // Qué le falta a la instalación
+  equipo_propio?: boolean; // Si el equipo es propio del cliente (código con P)
+  prioridad?: "Alta" | "Media" | "Baja";
+  motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
 }
 
 export interface ClienteSimpleCreateData {
-  numero: string
-  nombre: string
-  direccion: string
-  telefono?: string
-  comprobante_pago_url?: string
-  metodo_pago?: string
-  moneda?: string
-  falta_instalacion?: string  // Qué le falta a la instalación
+  numero: string;
+  nombre: string;
+  direccion: string;
+  telefono?: string;
+  comprobante_pago_url?: string;
+  metodo_pago?: string;
+  moneda?: string;
+  falta_instalacion?: string; // Qué le falta a la instalación
 }
 
-export type ClienteUpdateData = Partial<ClienteCreateData>
+export type ClienteUpdateData = Partial<ClienteCreateData>;
