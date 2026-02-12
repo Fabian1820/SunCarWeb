@@ -122,6 +122,8 @@ export function PendientesVisitaTable({
   const handleVerOferta = async (pendiente: PendienteVisita) => {
     try {
       setPendienteSeleccionado(pendiente);
+      setOfertaCargada(null);
+      setOfertaDialogOpen(false);
 
       // Cargar oferta según el tipo
       let response;
@@ -144,20 +146,33 @@ export function PendientesVisitaTable({
         return;
       }
 
-      // Guardar la oferta y abrir el diálogo
+      // Guardar la oferta y abrir el diálogo solo si realmente existe
+      let ofertaEncontrada: OfertaConfeccion | null = null;
       if (
         pendiente.tipo === "lead" &&
         response.data.ofertas &&
         response.data.ofertas.length > 0
       ) {
-        setOfertaCargada(response.data.ofertas[0]);
+        ofertaEncontrada = response.data.ofertas[0];
       } else if (pendiente.tipo === "cliente") {
-        setOfertaCargada(response.data);
+        ofertaEncontrada = response.data;
       }
 
+      if (!ofertaEncontrada) {
+        toast({
+          title: "Sin oferta",
+          description: `Este ${pendiente.tipo === "lead" ? "lead" : "cliente"} no tiene oferta asignada.`,
+          variant: "default",
+        });
+        return;
+      }
+
+      setOfertaCargada(ofertaEncontrada);
       setOfertaDialogOpen(true);
     } catch (error: any) {
       console.error("Error al cargar oferta:", error);
+      setOfertaCargada(null);
+      setOfertaDialogOpen(false);
       toast({
         title: "Sin oferta",
         description: `Este ${pendiente.tipo === "lead" ? "lead" : "cliente"} no tiene oferta asignada.`,
