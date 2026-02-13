@@ -53,11 +53,12 @@ interface ArchivoSubido {
   file: File;
 }
 
-const MB = 1024 * 1024;
-const MAX_IMAGE_DIMENSION = 1920;
+const MAX_IMAGE_DIMENSION = 1280;
 const FILE_UPLOAD_CONCURRENCY = 3;
 const IMAGE_COMPRESSION_CONCURRENCY = 2;
 const FILES_PER_UPLOAD_REQUEST = 4;
+const MAX_COMPRESSED_IMAGE_SIZE_MB = 0.25;
+const IMAGE_COMPRESSION_QUALITY = 0.45;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
@@ -350,25 +351,21 @@ export function CompletarVisitaDialog({
 
   const optimizeFile = async (file: File): Promise<File> => {
     if (!file.type.startsWith("image/")) return file;
-
-    let shouldCompress = file.size > 1 * MB;
-    if (!shouldCompress) {
-      try {
-        const { width, height } = await getImageDimensions(file);
-        shouldCompress =
-          width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION;
-      } catch {
-        return file;
+    let maxWidthOrHeight = MAX_IMAGE_DIMENSION;
+    try {
+      const { width, height } = await getImageDimensions(file);
+      if (width <= 960 && height <= 960) {
+        maxWidthOrHeight = 960;
       }
+    } catch {
+      // Si no podemos leer dimensiones, comprimimos igual con límite por defecto.
     }
-
-    if (!shouldCompress) return file;
 
     try {
       return await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: MAX_IMAGE_DIMENSION,
-        initialQuality: 0.75,
+        maxSizeMB: MAX_COMPRESSED_IMAGE_SIZE_MB,
+        maxWidthOrHeight,
+        initialQuality: IMAGE_COMPRESSION_QUALITY,
         useWebWorker: true,
       });
     } catch {
