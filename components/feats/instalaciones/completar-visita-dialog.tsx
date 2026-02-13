@@ -521,10 +521,6 @@ export function CompletarVisitaDialog({
         archivos.forEach((archivo) => {
           formData.append("files", archivo.file, archivo.file.name);
         });
-        // Compatibilidad con backends que esperan "file" cuando llega un solo archivo.
-        if (archivos.length === 1) {
-          formData.append("file", archivos[0].file, archivos[0].file.name);
-        }
 
         await apiRequest(
           `/visitas/${visitaId}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
@@ -546,6 +542,7 @@ export function CompletarVisitaDialog({
         }
         if (evidenciaTexto.trim()) {
           createPayload.evidencia_texto = evidenciaTexto.trim();
+          createPayload.notas = evidenciaTexto.trim();
         }
 
         const createResponse = await apiRequest<any>("/visitas/", {
@@ -589,6 +586,7 @@ export function CompletarVisitaDialog({
         }
         if (evidenciaTexto.trim()) {
           updatePayload.evidencia_texto = evidenciaTexto.trim();
+          updatePayload.notas = evidenciaTexto.trim();
         }
         if (resultado === "necesita_material_extra") {
           updatePayload.materiales_extra = materialesSeleccionados.map((m) => {
@@ -621,16 +619,18 @@ export function CompletarVisitaDialog({
         );
       }
 
-      await subirArchivosVisita(
-        visitaIdParaArchivos,
-        "estudio_energetico",
-        estudioEnergetico,
-      );
-      await subirArchivosVisita(
-        visitaIdParaArchivos,
-        "evidencia",
-        evidenciaArchivos,
-      );
+      await Promise.all([
+        subirArchivosVisita(
+          visitaIdParaArchivos,
+          "estudio_energetico",
+          estudioEnergetico,
+        ),
+        subirArchivosVisita(
+          visitaIdParaArchivos,
+          "evidencia",
+          evidenciaArchivos,
+        ),
+      ]);
 
       toast({
         title: "Visita completada",
