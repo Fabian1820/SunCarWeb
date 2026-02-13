@@ -133,8 +133,8 @@ export default function PendientesVisitaPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50">
       <ModuleHeader
-        title="Pendientes de Visita"
-        subtitle="Leads y clientes pendientes de instalación que requieren visita"
+        title="Visitas"
+        subtitle="Gestiona visitas pendientes, realizadas y el histórico completo"
         backHref="/instalaciones"
         backLabel="Volver a Instalaciones"
         badge={{
