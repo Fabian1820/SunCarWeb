@@ -25,6 +25,7 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
+import imageCompression from "browser-image-compression";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
 import { MaterialService } from "@/lib/api-services";
@@ -51,6 +52,10 @@ interface ArchivoSubido {
   url: string;
   file: File;
 }
+
+const MB = 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1920;
+const FILE_UPLOAD_CONCURRENCY = 3;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
@@ -317,6 +322,97 @@ export function CompletarVisitaDialog({
     setMaterialesSeleccionados((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const getImageDimensions = (
+    file: File,
+  ): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const image = new window.Image();
+
+      image.onload = () => {
+        resolve({
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        });
+        URL.revokeObjectURL(objectUrl);
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error("No se pudieron leer dimensiones de la imagen"));
+      };
+
+      image.src = objectUrl;
+    });
+  };
+
+  const optimizeFile = async (file: File): Promise<File> => {
+    if (!file.type.startsWith("image/")) return file;
+
+    let shouldCompress = file.size > 1 * MB;
+    if (!shouldCompress) {
+      try {
+        const { width, height } = await getImageDimensions(file);
+        shouldCompress =
+          width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION;
+      } catch {
+        return file;
+      }
+    }
+
+    if (!shouldCompress) return file;
+
+    try {
+      return await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: MAX_IMAGE_DIMENSION,
+        initialQuality: 0.75,
+        useWebWorker: true,
+      });
+    } catch {
+      return file;
+    }
+  };
+
+  const optimizeFiles = async (files: ArchivoSubido[]): Promise<File[]> => {
+    return Promise.all(files.map((f) => optimizeFile(f.file)));
+  };
+
+  const uploadCategoryFiles = async (
+    visitaId: string,
+    categoria: "estudio_energetico" | "evidencia",
+    archivos: ArchivoSubido[],
+  ) => {
+    if (archivos.length === 0) return;
+
+    const optimizedFiles = await optimizeFiles(archivos);
+    const workerCount = Math.min(
+      FILE_UPLOAD_CONCURRENCY,
+      optimizedFiles.length,
+    );
+    let nextIndex = 0;
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (nextIndex < optimizedFiles.length) {
+        const fileToUpload = optimizedFiles[nextIndex];
+        nextIndex += 1;
+
+        const formData = new FormData();
+        formData.append("files", fileToUpload, fileToUpload.name);
+
+        await apiRequest(
+          `/visitas/${visitaId}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+      }
+    });
+
+    await Promise.all(workers);
+  };
+
   const determinarNuevoEstado = (): string => {
     // Prioridad máxima: Sin oferta asignada
     if (tieneOferta === false) {
@@ -511,26 +607,6 @@ export function CompletarVisitaDialog({
         );
       };
 
-      const subirArchivosVisita = async (
-        visitaId: string,
-        categoria: "estudio_energetico" | "evidencia",
-        archivos: ArchivoSubido[],
-      ) => {
-        if (archivos.length === 0) return;
-        const formData = new FormData();
-        archivos.forEach((archivo) => {
-          formData.append("files", archivo.file, archivo.file.name);
-        });
-
-        await apiRequest(
-          `/visitas/${visitaId}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
-          {
-            method: "POST",
-            body: formData,
-          },
-        );
-      };
-
       if (crearYCompletarDirecto && pendiente.tipo === "lead") {
         const createPayload: Record<string, unknown> = {
           lead_id: String(leadId),
@@ -620,12 +696,12 @@ export function CompletarVisitaDialog({
       }
 
       await Promise.all([
-        subirArchivosVisita(
+        uploadCategoryFiles(
           visitaIdParaArchivos,
           "estudio_energetico",
           estudioEnergetico,
         ),
-        subirArchivosVisita(
+        uploadCategoryFiles(
           visitaIdParaArchivos,
           "evidencia",
           evidenciaArchivos,
