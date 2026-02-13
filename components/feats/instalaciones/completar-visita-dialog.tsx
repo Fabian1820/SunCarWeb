@@ -495,6 +495,41 @@ export function CompletarVisitaDialog({
 
       const resultadoParaBackend =
         resultado || (tieneOferta === false ? "estudio_sin_oferta" : null);
+      let visitaIdParaArchivos: string | null = null;
+
+      const extraerVisitaId = (payload: any): string | null => {
+        const data = payload?.data ?? payload;
+        return (
+          data?.id ??
+          data?._id ??
+          data?.visita_id ??
+          data?.visita?.id ??
+          data?.visita?._id ??
+          payload?.id ??
+          payload?._id ??
+          null
+        );
+      };
+
+      const subirArchivosVisita = async (
+        visitaId: string,
+        categoria: "estudio_energetico" | "evidencia",
+        archivos: ArchivoSubido[],
+      ) => {
+        if (archivos.length === 0) return;
+        const formData = new FormData();
+        archivos.forEach((archivo) => {
+          formData.append("archivos", archivo.file, archivo.file.name);
+        });
+
+        await apiRequest(
+          `/visitas/${visitaId}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+      };
 
       if (crearYCompletarDirecto && pendiente.tipo === "lead") {
         const createPayload: Record<string, unknown> = {
@@ -509,10 +544,11 @@ export function CompletarVisitaDialog({
           createPayload.evidencia_texto = evidenciaTexto.trim();
         }
 
-        await apiRequest("/visitas/", {
+        const createResponse = await apiRequest<any>("/visitas/", {
           method: "POST",
           body: JSON.stringify(createPayload),
         });
+        visitaIdParaArchivos = extraerVisitaId(createResponse);
       } else {
         if (visitas.length === 0) {
           throw new Error("No se encontró una visita para este registro");
@@ -572,7 +608,25 @@ export function CompletarVisitaDialog({
           method: "PUT",
           body: JSON.stringify(updatePayload),
         });
+        visitaIdParaArchivos = String(visitaId);
       }
+
+      if (!visitaIdParaArchivos) {
+        throw new Error(
+          "La visita se actualizó, pero no se pudo identificar su ID para guardar archivos.",
+        );
+      }
+
+      await subirArchivosVisita(
+        visitaIdParaArchivos,
+        "estudio_energetico",
+        estudioEnergetico,
+      );
+      await subirArchivosVisita(
+        visitaIdParaArchivos,
+        "evidencia",
+        evidenciaArchivos,
+      );
 
       toast({
         title: "Visita completada",
