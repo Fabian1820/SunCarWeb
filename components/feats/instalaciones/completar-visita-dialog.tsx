@@ -519,8 +519,12 @@ export function CompletarVisitaDialog({
         if (archivos.length === 0) return;
         const formData = new FormData();
         archivos.forEach((archivo) => {
-          formData.append("archivos", archivo.file, archivo.file.name);
+          formData.append("files", archivo.file, archivo.file.name);
         });
+        // Compatibilidad con backends que esperan "file" cuando llega un solo archivo.
+        if (archivos.length === 1) {
+          formData.append("file", archivos[0].file, archivos[0].file.name);
+        }
 
         await apiRequest(
           `/visitas/${visitaId}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
