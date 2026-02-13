@@ -57,7 +57,7 @@ const MAX_IMAGE_DIMENSION = 500;
 const FILE_UPLOAD_CONCURRENCY = 3;
 const IMAGE_COMPRESSION_CONCURRENCY = 2;
 const FILES_PER_UPLOAD_REQUEST = 4;
-const IMAGE_COMPRESSION_QUALITY = 0.7;
+const IMAGE_COMPRESSION_QUALITY = 0.6;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
