@@ -1,18 +1,20 @@
 "use client"
 
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { Users, TrendingUp, TrendingDown, Zap, Sun } from "lucide-react"
-import type { EstadisticasCrecimiento } from "@/lib/types/feats/estadisticas/estadisticas-types"
+import { Users, TrendingUp, TrendingDown, Zap, Sun, Battery } from "lucide-react"
+import type { EstadisticaLineaTiempoItemFrontend } from "@/lib/types/feats/estadisticas/estadisticas-types"
 
 interface KpiCardsProps {
-  estadisticas: EstadisticasCrecimiento | null
+  estadisticas: EstadisticaLineaTiempoItemFrontend[]
+  selectedYear: number
+  selectedMonth: number
 }
 
-export function KpiCards({ estadisticas }: KpiCardsProps) {
-  if (!estadisticas) {
+export function KpiCards({ estadisticas, selectedYear, selectedMonth }: KpiCardsProps) {
+  if (!estadisticas || estadisticas.length === 0) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
           <Card key={i} className="border-0 shadow-md animate-pulse">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -30,13 +32,36 @@ export function KpiCards({ estadisticas }: KpiCardsProps) {
     )
   }
 
-  const isPositiveChange = estadisticas.diferencia >= 0
+  // Encontrar el mes seleccionado
+  const mesActual = estadisticas.find(e => e.año === selectedYear && e.mes === selectedMonth)
+  
+  // Encontrar el mes anterior
+  let mesAnterior = null
+  const indexActual = estadisticas.findIndex(e => e.año === selectedYear && e.mes === selectedMonth)
+  if (indexActual > 0) {
+    mesAnterior = estadisticas[indexActual - 1]
+  }
+
+  // Si no hay datos del mes seleccionado, usar el último mes disponible
+  const datosActuales = mesActual || estadisticas[estadisticas.length - 1]
+  
+  // Calcular diferencia y porcentaje de cambio
+  let diferencia = 0
+  let porcentajeCambio = 0
+  if (mesAnterior) {
+    diferencia = datosActuales.numeroClientes - mesAnterior.numeroClientes
+    if (mesAnterior.numeroClientes > 0) {
+      porcentajeCambio = (diferencia / mesAnterior.numeroClientes) * 100
+    }
+  }
+
+  const isPositiveChange = diferencia >= 0
 
   const cards = [
     {
       title: "Clientes del Mes",
-      value: estadisticas.clientesMesActual,
-      subtitle: `Acumulados hasta ${estadisticas.mes}/${estadisticas.año}`,
+      value: datosActuales.numeroClientes,
+      subtitle: `${getMesNombre(datosActuales.mes)} ${datosActuales.año}`,
       icon: Users,
       iconBg: "bg-blue-100",
       iconColor: "text-blue-600",
@@ -44,8 +69,8 @@ export function KpiCards({ estadisticas }: KpiCardsProps) {
     },
     {
       title: "Crecimiento Mensual",
-      value: `${isPositiveChange ? '+' : ''}${estadisticas.porcentajeCambio.toFixed(1)}%`,
-      subtitle: `${isPositiveChange ? '+' : ''}${estadisticas.diferencia} vs mes anterior`,
+      value: `${isPositiveChange ? '+' : ''}${porcentajeCambio.toFixed(1)}%`,
+      subtitle: `${isPositiveChange ? '+' : ''}${diferencia} vs mes anterior`,
       icon: isPositiveChange ? TrendingUp : TrendingDown,
       iconBg: isPositiveChange ? "bg-green-100" : "bg-red-100",
       iconColor: isPositiveChange ? "text-green-600" : "text-red-600",
@@ -54,7 +79,7 @@ export function KpiCards({ estadisticas }: KpiCardsProps) {
     },
     {
       title: "Inversores Instalados",
-      value: `${(estadisticas.potenciaInversores / 1000).toFixed(1)} kW`,
+      value: `${datosActuales.potenciaInversores.toFixed(1)} kW`,
       subtitle: "Potencia total de inversores",
       icon: Zap,
       iconBg: "bg-orange-100",
@@ -62,8 +87,17 @@ export function KpiCards({ estadisticas }: KpiCardsProps) {
       borderColor: "border-l-orange-600",
     },
     {
+      title: "Baterías Instaladas",
+      value: `${datosActuales.potenciaBaterias.toFixed(1)} kW`,
+      subtitle: "Potencia total de baterías",
+      icon: Battery,
+      iconBg: "bg-purple-100",
+      iconColor: "text-purple-600",
+      borderColor: "border-l-purple-600",
+    },
+    {
       title: "Paneles Instalados",
-      value: `${(estadisticas.potenciaPaneles / 1000).toFixed(1)} kW`,
+      value: `${datosActuales.potenciaPaneles.toFixed(1)} kW`,
       subtitle: "Potencia total de paneles",
       icon: Sun,
       iconBg: "bg-yellow-100",
@@ -73,7 +107,7 @@ export function KpiCards({ estadisticas }: KpiCardsProps) {
   ]
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       {cards.map((card, index) => {
         const Icon = card.icon
         return (
@@ -100,4 +134,12 @@ export function KpiCards({ estadisticas }: KpiCardsProps) {
       })}
     </div>
   )
+}
+
+function getMesNombre(mesNum: number): string {
+  const meses = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  ]
+  return meses[mesNum - 1] || ""
 }

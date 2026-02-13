@@ -28,12 +28,10 @@ export function useEstadisticas() {
     setError(null)
     try {
       const response = await EstadisticasService.getLineaTiempo(estados)
+      
       if (response && response.success && Array.isArray(response.data)) {
         const converted = response.data.map(convertLineaTiempoToFrontend)
         setTimelineData(converted)
-
-        // Mapear a formato antiguo si es necesario para compatibilidad parcial o migracion gradual
-        // Por ahora mantenemos timelineData separado y actualizaremos los graficos
       } else {
         setError(response?.message || 'Error al cargar línea de tiempo')
       }

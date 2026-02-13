@@ -25,9 +25,9 @@ export class EstadisticasService {
   static async getLineaTiempo(
     estados?: string
   ): Promise<import('../../../types/feats/estadisticas/estadisticas-types').EstadisticaLineaTiempoResponse> {
-    const estadosParam = estados || 'aprobada_para_enviar,confirmada_por_cliente,reservada'
+    const estadosParam = estados || 'confirmada_por_cliente,reservada'
     const response = await apiRequest<import('../../../types/feats/estadisticas/estadisticas-types').EstadisticaLineaTiempoResponse>(
-      `/ofertas-confeccion/resumen-mensual-potencia?estados=${estadosParam}`
+      `/ofertas/confeccion/resumen-mensual-potencia?estados=${estadosParam}`
     )
     return response
   }

@@ -26,15 +26,13 @@ function EstadisticasPageContent() {
   const currentDate = new Date()
   const [año, setAño] = useState(currentDate.getFullYear())
   const [mes, setMes] = useState(currentDate.getMonth() + 1)
-  const [estados, setEstados] = useState('aprobada_para_enviar,confirmada_por_cliente,reservada')
+  const [estados, setEstados] = useState('confirmada_por_cliente,reservada')
 
   const {
     timelineData,
-    selectedMonthStat,
     loading,
     error,
     loadLineaTiempo,
-    loadEstadisticaMensual,
     clearError
   } = useEstadisticas()
   const { toast } = useToast()
@@ -45,7 +43,6 @@ function EstadisticasPageContent() {
 
   const handleConsultar = () => {
     loadLineaTiempo(estados)
-    loadEstadisticaMensual(año, mes)
   }
 
   useEffect(() => {
@@ -133,7 +130,7 @@ function EstadisticasPageContent() {
                   mes={mes}
                   onChangeAño={setAño}
                   onChangeMes={setMes}
-                  onConsultar={() => loadEstadisticaMensual(año, mes)}
+                  onConsultar={() => {}}
                   loading={loading}
                 />
               </div>
@@ -141,7 +138,7 @@ function EstadisticasPageContent() {
           </Card>
 
           {/* KPI Cards */}
-          <KpiCards estadisticas={selectedMonthStat} />
+          <KpiCards estadisticas={timelineData} selectedYear={año} selectedMonth={mes} />
         </section>
 
         {/* ==================== SECCIÓN 2: LÍNEA DE TIEMPO ==================== */}
@@ -178,7 +175,7 @@ function EstadisticasPageContent() {
           )}
 
           {/* Charts Content */}
-          {timelineData.length > 0 && !loading && (
+          {timelineData.length > 0 ? (
             <div className="space-y-6">
               {/* Period Header */}
               <Card className="border-0 shadow-sm bg-gray-50">
@@ -205,10 +202,7 @@ function EstadisticasPageContent() {
               {/* Charts */}
               <EstadisticasCharts estadisticas={timelineData} />
             </div>
-          )}
-
-          {/* Empty State */}
-          {timelineData.length === 0 && !loading && !error && (
+          ) : !loading && !error && (
             <Card className="border-0 shadow-md border-l-4 border-l-gray-400">
               <CardContent className="p-12 text-center">
                 <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
