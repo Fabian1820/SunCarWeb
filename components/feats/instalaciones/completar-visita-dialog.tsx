@@ -497,28 +497,21 @@ export function CompletarVisitaDialog({
         resultado || (tieneOferta === false ? "estudio_sin_oferta" : null);
 
       if (crearYCompletarDirecto && pendiente.tipo === "lead") {
-        const formData = new FormData();
-        formData.append("lead_id", String(leadId));
-        formData.append(
-          "motivo",
-          (pendiente.comentario?.trim() || "Visita técnica").toString(),
-        );
+        const createPayload: Record<string, unknown> = {
+          lead_id: String(leadId),
+          motivo: (pendiente.comentario?.trim() || "Visita técnica").toString(),
+        };
+
         if (resultadoParaBackend) {
-          formData.append("resultado", resultadoParaBackend);
+          createPayload.resultado = resultadoParaBackend;
         }
         if (evidenciaTexto.trim()) {
-          formData.append("evidencia_texto", evidenciaTexto.trim());
+          createPayload.evidencia_texto = evidenciaTexto.trim();
         }
-        estudioEnergetico.forEach((archivo) => {
-          formData.append("archivos", archivo.file, archivo.file.name);
-        });
-        evidenciaArchivos.forEach((archivo) => {
-          formData.append("archivos", archivo.file, archivo.file.name);
-        });
 
         await apiRequest("/visitas/", {
           method: "POST",
-          body: formData,
+          body: JSON.stringify(createPayload),
         });
       } else {
         if (visitas.length === 0) {
@@ -544,34 +537,40 @@ export function CompletarVisitaDialog({
           throw new Error("La visita encontrada no tiene identificador válido");
         }
 
-        const formData = new FormData();
-        formData.append("estado", "completada");
-        formData.append("fecha_completada", new Date().toISOString());
+        const updatePayload: Record<string, unknown> = {
+          estado: "completada",
+          fecha_completada: new Date().toISOString(),
+          nuevo_estado: nuevoEstado,
+          tiene_oferta: Boolean(tieneOferta),
+        };
+
         if (resultadoParaBackend) {
-          formData.append("resultado", resultadoParaBackend);
+          updatePayload.resultado = resultadoParaBackend;
         }
-        formData.append("nuevo_estado", nuevoEstado);
-        formData.append("tiene_oferta", String(Boolean(tieneOferta)));
         if (evidenciaTexto.trim()) {
-          formData.append("evidencia_texto", evidenciaTexto.trim());
+          updatePayload.evidencia_texto = evidenciaTexto.trim();
         }
         if (resultado === "necesita_material_extra") {
-          formData.append(
-            "materiales_extra",
-            JSON.stringify(materialesSeleccionados),
-          );
-        }
+          updatePayload.materiales_extra = materialesSeleccionados.map((m) => {
+            const materialCatalogo = materialesDisponibles.find(
+              (material) => material.id === m.material_id,
+            );
+            const nombreNormalizado =
+              m.nombre?.trim() ||
+              materialCatalogo?.nombre?.trim() ||
+              materialCatalogo?.descripcion?.trim() ||
+              m.codigo;
 
-        estudioEnergetico.forEach((archivo) => {
-          formData.append("archivos", archivo.file, archivo.file.name);
-        });
-        evidenciaArchivos.forEach((archivo) => {
-          formData.append("archivos", archivo.file, archivo.file.name);
-        });
+            return {
+              ...m,
+              nombre: nombreNormalizado,
+            };
+          });
+        }
 
         await apiRequest(`/visitas/${visitaId}`, {
           method: "PUT",
-          body: formData,
+          body: JSON.stringify(updatePayload),
         });
       }
 
