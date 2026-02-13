@@ -19,14 +19,15 @@ export class EstadisticasService {
   }
 
   /**
-   * Obtiene la línea de tiempo de estadísticas
-   * @param periodoMeses - Cantidad de meses para el periodo
+   * Obtiene la línea de tiempo de estadísticas (resumen mensual de potencia y conversión)
+   * @param estados - Estados de ofertas a incluir (opcional)
    */
   static async getLineaTiempo(
-    periodoMeses: number
+    estados?: string
   ): Promise<import('../../../types/feats/estadisticas/estadisticas-types').EstadisticaLineaTiempoResponse> {
+    const estadosParam = estados || 'aprobada_para_enviar,confirmada_por_cliente,reservada'
     const response = await apiRequest<import('../../../types/feats/estadisticas/estadisticas-types').EstadisticaLineaTiempoResponse>(
-      `/clientes/estadisticas/linea-tiempo?periodo_meses=${periodoMeses}`
+      `/ofertas-confeccion/resumen-mensual-potencia?estados=${estadosParam}`
     )
     return response
   }

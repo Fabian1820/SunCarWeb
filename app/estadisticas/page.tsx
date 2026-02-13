@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { BarChart3, Calendar, RefreshCw } from "lucide-react"
 import { useEstadisticas } from "@/hooks/use-estadisticas"
 import { KpiMonthSelector } from "@/components/feats/estadisticas/kpi-month-selector"
-import { TimelinePeriodSelector } from "@/components/feats/estadisticas/timeline-period-selector"
 import { KpiCards } from "@/components/feats/estadisticas/kpi-cards"
 import { EstadisticasCharts } from "@/components/feats/estadisticas/estadisticas-charts"
 import { PageLoader } from "@/components/shared/atom/page-loader"
@@ -27,7 +26,7 @@ function EstadisticasPageContent() {
   const currentDate = new Date()
   const [año, setAño] = useState(currentDate.getFullYear())
   const [mes, setMes] = useState(currentDate.getMonth() + 1)
-  const [cantidadMeses, setCantidadMeses] = useState(6)
+  const [estados, setEstados] = useState('aprobada_para_enviar,confirmada_por_cliente,reservada')
 
   const {
     timelineData,
@@ -45,7 +44,7 @@ function EstadisticasPageContent() {
   }, [])
 
   const handleConsultar = () => {
-    loadLineaTiempo(cantidadMeses)
+    loadLineaTiempo(estados)
     loadEstadisticaMensual(año, mes)
   }
 
@@ -149,12 +148,27 @@ function EstadisticasPageContent() {
         <section>
           <Card className="border-0 shadow-md border-l-4 border-l-orange-600 mb-6">
             <CardHeader className="pb-4">
-              <TimelinePeriodSelector
-                cantidadMeses={cantidadMeses}
-                onChangeCantidadMeses={setCantidadMeses}
-                onConsultar={() => loadLineaTiempo(cantidadMeses)}
-                loading={loading}
-              />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-orange-100 rounded-lg">
+                    <BarChart3 className="h-5 w-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Evolución Temporal</CardTitle>
+                    <CardDescription>Análisis histórico de todas las ofertas</CardDescription>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => loadLineaTiempo(estados)}
+                  disabled={loading}
+                  variant="outline"
+                  size="sm"
+                  className="border-orange-200 hover:bg-orange-50"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Actualizar
+                </Button>
+              </div>
             </CardHeader>
           </Card>
 

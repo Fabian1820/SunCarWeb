@@ -17,7 +17,7 @@ import {
   BarChart,
 } from "recharts"
 import type { EstadisticaLineaTiempoItemFrontend } from "@/lib/types/feats/estadisticas/estadisticas-types"
-import { Users, TrendingUp, Zap, BarChart3 } from "lucide-react"
+import { Users, TrendingUp, Zap, BarChart3, Battery } from "lucide-react"
 
 interface EstadisticasChartsProps {
   estadisticas: EstadisticaLineaTiempoItemFrontend[]
@@ -44,6 +44,7 @@ export function EstadisticasCharts({ estadisticas }: EstadisticasChartsProps) {
       leads: stat.numeroLeads,
       conversion: stat.conversionRate,
       inversores: stat.potenciaInversores,
+      baterias: stat.potenciaBaterias,
       paneles: stat.potenciaPaneles,
       porcentajeCambio: parseFloat(porcentajeCambio.toFixed(2)),
       mes: stat.mes,
@@ -277,7 +278,7 @@ export function EstadisticasCharts({ estadisticas }: EstadisticasChartsProps) {
       </Card>
 
       {/* ==================== CHART 3: Capacidad Instalada ==================== */}
-      <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
+      <Card className="lg:col-span-2 border-0 shadow-md border-l-4 border-l-orange-600">
         <CardHeader className="pb-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
@@ -285,48 +286,55 @@ export function EstadisticasCharts({ estadisticas }: EstadisticasChartsProps) {
             </div>
             <div>
               <CardTitle className="text-base">Capacidad Instalada</CardTitle>
-              <CardDescription>Potencia acumulada en kW</CardDescription>
+              <CardDescription>Potencia acumulada en kW (Inversores, Baterías y Paneles)</CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="mb-3 text-xs text-gray-500 bg-gray-50 p-2 rounded">
-            Muestra la potencia instalada mensualmente, separando inversores y paneles solares.
+            Muestra la potencia instalada mensualmente, separando inversores, baterías y paneles solares.
           </div>
-          <ResponsiveContainer width="100%" height={220}>
-            <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 5, left: -15 }}>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={data} margin={{ top: 10, right: 30, bottom: 20, left: 10 }}>
               <defs>
                 <linearGradient id="colorInversores" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.2} />
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
                 </linearGradient>
+                <linearGradient id="colorBaterias" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                </linearGradient>
                 <linearGradient id="colorPaneles" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#eab308" stopOpacity={0.2} />
+                  <stop offset="5%" stopColor="#eab308" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#eab308" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
               <XAxis
                 dataKey="periodo"
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                stroke="transparent"
+                tick={{ fontSize: 11, fill: '#6b7280' }}
+                stroke="#e5e7eb"
                 tickLine={false}
+                axisLine={{ stroke: '#e5e7eb' }}
               />
               <YAxis
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                stroke="transparent"
+                tick={{ fontSize: 11, fill: '#6b7280' }}
+                stroke="#e5e7eb"
                 tickLine={false}
+                axisLine={false}
               />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#fff",
                   border: "1px solid #e5e7eb",
                   borderRadius: "8px",
-                  fontSize: "11px"
+                  boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                  fontSize: "12px"
                 }}
-                formatter={(value: number) => `${value} kW`}
+                formatter={(value: number) => `${value.toFixed(2)} kW`}
               />
-              <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '15px' }} />
               <Area
                 type="monotone"
                 dataKey="inversores"
@@ -335,6 +343,15 @@ export function EstadisticasCharts({ estadisticas }: EstadisticasChartsProps) {
                 fillOpacity={1}
                 fill="url(#colorInversores)"
                 name="Inversores (kW)"
+              />
+              <Area
+                type="monotone"
+                dataKey="baterias"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorBaterias)"
+                name="Baterías (kW)"
               />
               <Area
                 type="monotone"

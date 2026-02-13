@@ -52,6 +52,7 @@ export interface EstadisticaLineaTiempoItemBackend {
   numero_leads: number
   conversion_rate: number
   potencia_inversores: number
+  potencia_baterias: number
   potencia_paneles: number
 }
 
@@ -68,6 +69,7 @@ export interface EstadisticaLineaTiempoItemFrontend {
   numeroLeads: number
   conversionRate: number
   potenciaInversores: number
+  potenciaBaterias: number
   potenciaPaneles: number
   // Campos calculados para compatibilidad visual si es necesario, o nuevos
   diferencia?: number
@@ -84,6 +86,7 @@ export function convertLineaTiempoToFrontend(
     numeroLeads: backend.numero_leads,
     conversionRate: backend.conversion_rate,
     potenciaInversores: backend.potencia_inversores,
+    potenciaBaterias: backend.potencia_baterias,
     potenciaPaneles: backend.potencia_paneles,
   }
 }

@@ -23,11 +23,11 @@ export function useEstadisticas() {
   /**
    * Carga la línea de tiempo usando el nuevo endpoint
    */
-  const loadLineaTiempo = useCallback(async (periodoMeses: number = 6) => {
+  const loadLineaTiempo = useCallback(async (estados?: string) => {
     setLoading(true)
     setError(null)
     try {
-      const response = await EstadisticasService.getLineaTiempo(periodoMeses)
+      const response = await EstadisticasService.getLineaTiempo(estados)
       if (response && response.success && Array.isArray(response.data)) {
         const converted = response.data.map(convertLineaTiempoToFrontend)
         setTimelineData(converted)
