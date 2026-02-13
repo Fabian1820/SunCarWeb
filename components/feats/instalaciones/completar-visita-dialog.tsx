@@ -56,6 +56,8 @@ interface ArchivoSubido {
 const MB = 1024 * 1024;
 const MAX_IMAGE_DIMENSION = 1920;
 const FILE_UPLOAD_CONCURRENCY = 3;
+const IMAGE_COMPRESSION_CONCURRENCY = 2;
+const FILES_PER_UPLOAD_REQUEST = 4;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
@@ -375,7 +377,22 @@ export function CompletarVisitaDialog({
   };
 
   const optimizeFiles = async (files: ArchivoSubido[]): Promise<File[]> => {
-    return Promise.all(files.map((f) => optimizeFile(f.file)));
+    const optimizedFiles: File[] = new Array(files.length);
+    const workerCount = Math.min(IMAGE_COMPRESSION_CONCURRENCY, files.length);
+    let nextIndex = 0;
+
+    const workers = Array.from({ length: workerCount }, async () => {
+      while (nextIndex < files.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        optimizedFiles[currentIndex] = await optimizeFile(
+          files[currentIndex].file,
+        );
+      }
+    });
+
+    await Promise.all(workers);
+    return optimizedFiles;
   };
 
   const uploadCategoryFiles = async (
@@ -386,19 +403,23 @@ export function CompletarVisitaDialog({
     if (archivos.length === 0) return;
 
     const optimizedFiles = await optimizeFiles(archivos);
-    const workerCount = Math.min(
-      FILE_UPLOAD_CONCURRENCY,
-      optimizedFiles.length,
-    );
+    const batches: File[][] = [];
+    for (let i = 0; i < optimizedFiles.length; i += FILES_PER_UPLOAD_REQUEST) {
+      batches.push(optimizedFiles.slice(i, i + FILES_PER_UPLOAD_REQUEST));
+    }
+
+    const workerCount = Math.min(FILE_UPLOAD_CONCURRENCY, batches.length);
     let nextIndex = 0;
 
     const workers = Array.from({ length: workerCount }, async () => {
-      while (nextIndex < optimizedFiles.length) {
-        const fileToUpload = optimizedFiles[nextIndex];
+      while (nextIndex < batches.length) {
+        const filesBatch = batches[nextIndex];
         nextIndex += 1;
 
         const formData = new FormData();
-        formData.append("files", fileToUpload, fileToUpload.name);
+        filesBatch.forEach((file) => {
+          formData.append("files", file, file.name);
+        });
 
         await apiRequest(
           `/visitas/${visitaId}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
