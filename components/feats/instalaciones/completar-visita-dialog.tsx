@@ -57,8 +57,9 @@ const MAX_IMAGE_DIMENSION = 1280;
 const FILE_UPLOAD_CONCURRENCY = 3;
 const IMAGE_COMPRESSION_CONCURRENCY = 2;
 const FILES_PER_UPLOAD_REQUEST = 4;
-const MAX_COMPRESSED_IMAGE_SIZE_MB = 0.25;
-const IMAGE_COMPRESSION_QUALITY = 0.45;
+const MAX_COMPRESSED_IMAGE_SIZE_MB = 0.12;
+const IMAGE_COMPRESSION_QUALITY = 0.3;
+const IMAGE_COMPRESSION_MAX_ITERATIONS = 20;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
@@ -355,17 +356,22 @@ export function CompletarVisitaDialog({
     try {
       const { width, height } = await getImageDimensions(file);
       if (width <= 960 && height <= 960) {
-        maxWidthOrHeight = 960;
+        maxWidthOrHeight = 800;
       }
     } catch {
       // Si no podemos leer dimensiones, comprimimos igual con límite por defecto.
     }
+
+    const shouldConvertToWebp =
+      file.type !== "image/gif" && file.type !== "image/svg+xml";
 
     try {
       return await imageCompression(file, {
         maxSizeMB: MAX_COMPRESSED_IMAGE_SIZE_MB,
         maxWidthOrHeight,
         initialQuality: IMAGE_COMPRESSION_QUALITY,
+        maxIteration: IMAGE_COMPRESSION_MAX_ITERATIONS,
+        fileType: shouldConvertToWebp ? "image/webp" : undefined,
         useWebWorker: true,
       });
     } catch {
