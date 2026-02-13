@@ -25,10 +25,10 @@ import {
   AlertCircle,
   AlertTriangle,
 } from "lucide-react";
-import imageCompression from "browser-image-compression";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
 import { MaterialService } from "@/lib/api-services";
+import { optimizarImagenParaWeb } from "@/lib/utils/image-optimizer";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
 import type { Material } from "@/lib/material-types";
 
@@ -53,13 +53,11 @@ interface ArchivoSubido {
   file: File;
 }
 
-const MAX_IMAGE_DIMENSION = 1024;
+const MAX_IMAGE_DIMENSION = 500;
 const FILE_UPLOAD_CONCURRENCY = 3;
 const IMAGE_COMPRESSION_CONCURRENCY = 2;
 const FILES_PER_UPLOAD_REQUEST = 4;
-const MAX_COMPRESSED_IMAGE_SIZE_MB = 0.08;
 const IMAGE_COMPRESSION_QUALITY = 0.7;
-const IMAGE_COMPRESSION_MAX_ITERATIONS = 30;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
@@ -326,101 +324,16 @@ export function CompletarVisitaDialog({
     setMaterialesSeleccionados((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const getImageDimensions = (
-    file: File,
-  ): Promise<{ width: number; height: number }> => {
-    return new Promise((resolve, reject) => {
-      const objectUrl = URL.createObjectURL(file);
-      const image = new window.Image();
-
-      image.onload = () => {
-        resolve({
-          width: image.naturalWidth,
-          height: image.naturalHeight,
-        });
-        URL.revokeObjectURL(objectUrl);
-      };
-
-      image.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        reject(new Error("No se pudieron leer dimensiones de la imagen"));
-      };
-
-      image.src = objectUrl;
-    });
-  };
-
-  const getWebpFileName = (fileName: string): string => {
-    return fileName.replace(/\.[^/.]+$/, "") + ".webp";
-  };
-
-  const forceWebpFallback = async (file: File): Promise<File> => {
-    const objectUrl = URL.createObjectURL(file);
-    try {
-      const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new window.Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error("No se pudo convertir a webp"));
-        img.src = objectUrl;
-      });
-
-      const canvas = document.createElement("canvas");
-      canvas.width = image.naturalWidth;
-      canvas.height = image.naturalHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return file;
-
-      ctx.drawImage(image, 0, 0);
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/webp", IMAGE_COMPRESSION_QUALITY),
-      );
-      if (!blob) return file;
-
-      return new File([blob], getWebpFileName(file.name), {
-        type: "image/webp",
-        lastModified: Date.now(),
-      });
-    } catch {
-      return file;
-    } finally {
-      URL.revokeObjectURL(objectUrl);
-    }
-  };
-
   const optimizeFile = async (file: File): Promise<File> => {
     if (!file.type.startsWith("image/")) return file;
-    let maxWidthOrHeight = MAX_IMAGE_DIMENSION;
     try {
-      const { width, height } = await getImageDimensions(file);
-      if (width <= 960 && height <= 960) {
-        maxWidthOrHeight = 720;
-      }
-    } catch {
-      // Si no podemos leer dimensiones, comprimimos igual con límite por defecto.
-    }
-
-    const shouldConvertToWebp =
-      file.type !== "image/gif" && file.type !== "image/svg+xml";
-
-    try {
-      const compressed = await imageCompression(file, {
-        maxSizeMB: MAX_COMPRESSED_IMAGE_SIZE_MB,
-        maxWidthOrHeight,
-        initialQuality: IMAGE_COMPRESSION_QUALITY,
-        maxIteration: IMAGE_COMPRESSION_MAX_ITERATIONS,
-        fileType: shouldConvertToWebp ? "image/webp" : undefined,
-        useWebWorker: true,
+      return await optimizarImagenParaWeb(file, {
+        maxWidth: MAX_IMAGE_DIMENSION,
+        maxHeight: MAX_IMAGE_DIMENSION,
+        quality: IMAGE_COMPRESSION_QUALITY,
+        modoAgresivo: false,
+        outputFormat: "image/webp",
       });
-      if (shouldConvertToWebp && compressed.type !== "image/webp") {
-        return await forceWebpFallback(compressed);
-      }
-      if (shouldConvertToWebp) {
-        return new File([compressed], getWebpFileName(file.name), {
-          type: "image/webp",
-          lastModified: Date.now(),
-        });
-      }
-      return compressed;
     } catch {
       return file;
     }
@@ -468,9 +381,7 @@ export function CompletarVisitaDialog({
 
         const formData = new FormData();
         filesBatch.forEach((file) => {
-          const fileName =
-            file.type === "image/webp" ? getWebpFileName(file.name) : file.name;
-          formData.append("files", file, fileName);
+          formData.append("files", file, file.name);
         });
 
         await apiRequest(
