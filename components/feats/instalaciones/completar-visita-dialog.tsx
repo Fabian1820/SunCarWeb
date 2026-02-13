@@ -497,15 +497,28 @@ export function CompletarVisitaDialog({
         resultado || (tieneOferta === false ? "estudio_sin_oferta" : null);
 
       if (crearYCompletarDirecto && pendiente.tipo === "lead") {
-        const createPayload = {
-          lead_id: leadId,
-          motivo: pendiente.comentario?.trim() || "Visita técnica",
-          resultado: resultadoParaBackend,
-        };
+        const formData = new FormData();
+        formData.append("lead_id", String(leadId));
+        formData.append(
+          "motivo",
+          (pendiente.comentario?.trim() || "Visita técnica").toString(),
+        );
+        if (resultadoParaBackend) {
+          formData.append("resultado", resultadoParaBackend);
+        }
+        if (evidenciaTexto.trim()) {
+          formData.append("evidencia_texto", evidenciaTexto.trim());
+        }
+        estudioEnergetico.forEach((archivo) => {
+          formData.append("archivos", archivo.file, archivo.file.name);
+        });
+        evidenciaArchivos.forEach((archivo) => {
+          formData.append("archivos", archivo.file, archivo.file.name);
+        });
 
         await apiRequest("/visitas/", {
           method: "POST",
-          body: JSON.stringify(createPayload),
+          body: formData,
         });
       } else {
         if (visitas.length === 0) {
@@ -531,24 +544,34 @@ export function CompletarVisitaDialog({
           throw new Error("La visita encontrada no tiene identificador válido");
         }
 
-        const payload = {
-          estado: "completada",
-          fecha_completada: new Date().toISOString(),
-          resultado: resultadoParaBackend,
-          nuevo_estado: nuevoEstado,
-          tiene_oferta: Boolean(tieneOferta),
-          evidencia_texto: evidenciaTexto.trim() || undefined,
-          estudio_energetico_archivos: estudioEnergetico.map((a) => a.nombre),
-          evidencia_archivos: evidenciaArchivos.map((a) => a.nombre),
-          materiales_extra:
-            resultado === "necesita_material_extra"
-              ? materialesSeleccionados
-              : undefined,
-        };
+        const formData = new FormData();
+        formData.append("estado", "completada");
+        formData.append("fecha_completada", new Date().toISOString());
+        if (resultadoParaBackend) {
+          formData.append("resultado", resultadoParaBackend);
+        }
+        formData.append("nuevo_estado", nuevoEstado);
+        formData.append("tiene_oferta", String(Boolean(tieneOferta)));
+        if (evidenciaTexto.trim()) {
+          formData.append("evidencia_texto", evidenciaTexto.trim());
+        }
+        if (resultado === "necesita_material_extra") {
+          formData.append(
+            "materiales_extra",
+            JSON.stringify(materialesSeleccionados),
+          );
+        }
+
+        estudioEnergetico.forEach((archivo) => {
+          formData.append("archivos", archivo.file, archivo.file.name);
+        });
+        evidenciaArchivos.forEach((archivo) => {
+          formData.append("archivos", archivo.file, archivo.file.name);
+        });
 
         await apiRequest(`/visitas/${visitaId}`, {
           method: "PUT",
-          body: JSON.stringify(payload),
+          body: formData,
         });
       }
 
