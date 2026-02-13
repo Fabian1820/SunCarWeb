@@ -53,13 +53,13 @@ interface ArchivoSubido {
   file: File;
 }
 
-const MAX_IMAGE_DIMENSION = 1600;
+const MAX_IMAGE_DIMENSION = 1024;
 const FILE_UPLOAD_CONCURRENCY = 3;
 const IMAGE_COMPRESSION_CONCURRENCY = 2;
 const FILES_PER_UPLOAD_REQUEST = 4;
-const MAX_COMPRESSED_IMAGE_SIZE_MB = 0.6;
+const MAX_COMPRESSED_IMAGE_SIZE_MB = 0.08;
 const IMAGE_COMPRESSION_QUALITY = 0.7;
-const IMAGE_COMPRESSION_MAX_ITERATIONS = 12;
+const IMAGE_COMPRESSION_MAX_ITERATIONS = 30;
 
 type ResultadoType =
   | "oferta_cubre_necesidades"
@@ -393,7 +393,7 @@ export function CompletarVisitaDialog({
     try {
       const { width, height } = await getImageDimensions(file);
       if (width <= 960 && height <= 960) {
-        maxWidthOrHeight = 960;
+        maxWidthOrHeight = 720;
       }
     } catch {
       // Si no podemos leer dimensiones, comprimimos igual con límite por defecto.
