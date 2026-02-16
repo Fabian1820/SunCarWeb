@@ -135,4 +135,19 @@ export class PagosService {
       throw new Error(error.response?.data?.message || 'Error al cargar ofertas confirmadas sin pago')
     }
   }
+
+  /**
+   * Obtiene ofertas confirmadas con saldo pendiente (pagos finales pendientes)
+   */
+  static async getOfertasConfirmadasConSaldoPendiente(): Promise<OfertaConfirmadaSinPago[]> {
+    try {
+      const response = await apiRequest<PagosResponse>('/ofertas/confeccion/personalizadas/confirmadas-con-saldo-pendiente', {
+        method: 'GET',
+      })
+      return response.data || []
+    } catch (error: any) {
+      console.error('[PagosService] Error al obtener ofertas con saldo pendiente:', error)
+      throw new Error(error.response?.data?.message || 'Error al cargar ofertas con saldo pendiente')
+    }
+  }
 }

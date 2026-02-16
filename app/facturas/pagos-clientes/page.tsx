@@ -16,6 +16,7 @@ import {
 import { ArrowLeft, Search, Plus, List, RefreshCw, AlertCircle } from "lucide-react"
 import { usePagos } from "@/hooks/use-pagos"
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table"
+import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table"
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { useToast } from "@/hooks/use-toast"
@@ -23,7 +24,7 @@ import { useToast } from "@/hooks/use-toast"
 type ViewMode = 'anticipos-pendientes' | 'finales-pendientes' | 'todos'
 
 export default function PagosClientesPage() {
-    const { ofertasSinPago, loading, error, refetch } = usePagos()
+    const { ofertasSinPago, ofertasConSaldoPendiente, todosPagos, loading, error, refetch } = usePagos()
     const { toast } = useToast()
     const [viewMode, setViewMode] = useState<ViewMode>('anticipos-pendientes')
     const [searchTerm, setSearchTerm] = useState("")
@@ -31,12 +32,14 @@ export default function PagosClientesPage() {
     const [pagoDialogOpen, setPagoDialogOpen] = useState(false)
     const [selectedOferta, setSelectedOferta] = useState<OfertaConfirmadaSinPago | null>(null)
 
-    // Filtrar ofertas según búsqueda
+    // Filtrar ofertas según búsqueda y vista
     const filteredOfertas = useMemo(() => {
-        if (!searchTerm) return ofertasSinPago
+        const ofertas = viewMode === 'anticipos-pendientes' ? ofertasSinPago : ofertasConSaldoPendiente
+        
+        if (!searchTerm) return ofertas
 
         const term = searchTerm.toLowerCase()
-        return ofertasSinPago.filter((oferta) => {
+        return ofertas.filter((oferta) => {
             const clienteNombre = oferta.cliente?.nombre || oferta.lead?.nombre || oferta.nombre_lead_sin_agregar || ''
             const clienteTelefono = oferta.cliente?.telefono || oferta.lead?.telefono || ''
             
@@ -47,7 +50,7 @@ export default function PagosClientesPage() {
                 oferta.almacen_nombre?.toLowerCase().includes(term)
             )
         })
-    }, [ofertasSinPago, searchTerm])
+    }, [ofertasSinPago, ofertasConSaldoPendiente, searchTerm, viewMode])
 
     const handleRegistrarPago = (oferta: OfertaConfirmadaSinPago) => {
         setSelectedOferta(oferta)
@@ -250,23 +253,24 @@ export default function PagosClientesPage() {
                                 {viewMode === 'anticipos-pendientes' && 
                                     `Mostrando ${filteredOfertas.length} de ${ofertasSinPago.length} ofertas confirmadas sin pago`
                                 }
-                                {viewMode === 'finales-pendientes' && 'Ofertas con anticipo pagado pendientes de pago final'}
-                                {viewMode === 'todos' && 'Historial completo de pagos de clientes'}
+                                {viewMode === 'finales-pendientes' && 
+                                    `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`
+                                }
+                                {viewMode === 'todos' && `Mostrando ${todosPagos.length} pagos registrados`}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {viewMode === 'anticipos-pendientes' ? (
+                            {viewMode === 'todos' ? (
+                                <TodosPagosTable
+                                    pagos={todosPagos}
+                                    loading={loading}
+                                />
+                            ) : (
                                 <AnticiposPendientesTable
                                     ofertas={filteredOfertas}
                                     loading={loading}
                                     onRegistrarPago={handleRegistrarPago}
                                 />
-                            ) : (
-                                <div className="text-center py-12">
-                                    <p className="text-gray-600">
-                                        Módulo en desarrollo. Aquí se mostrarán los pagos de clientes.
-                                    </p>
-                                </div>
                             )}
                         </CardContent>
                     </Card>

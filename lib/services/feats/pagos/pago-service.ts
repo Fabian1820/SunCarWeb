@@ -26,6 +26,24 @@ export interface Pago {
   fecha_creacion: string
 }
 
+export interface PagoConDetalles extends Pago {
+  oferta: {
+    numero_oferta: string
+    nombre_oferta: string
+    precio_final: number
+    monto_pendiente: number
+    estado: string
+  }
+  contacto: {
+    nombre: string
+    telefono?: string
+    carnet?: string
+    direccion?: string
+    codigo: string
+    tipo_contacto: 'cliente' | 'lead' | 'lead_sin_agregar'
+  }
+}
+
 export interface PagoCreateResponse {
   success: boolean
   message: string
@@ -38,6 +56,13 @@ export interface PagosResponse {
   success: boolean
   message: string
   data: Pago[]
+  total: number
+}
+
+export interface PagosConDetallesResponse {
+  success: boolean
+  message: string
+  data: PagoConDetalles[]
   total: number
 }
 
@@ -69,6 +94,30 @@ export class PagoService {
       return response.data || []
     } catch (error: any) {
       console.error('[PagoService] Error al obtener pagos:', error)
+      throw new Error(error.response?.data?.message || 'Error al cargar pagos')
+    }
+  }
+
+  /**
+   * Obtener todos los pagos con detalles completos
+   */
+  static async getAllPagosConDetalles(filters?: {
+    tipo_pago?: 'anticipo' | 'pendiente'
+    metodo_pago?: 'efectivo' | 'transferencia_bancaria' | 'stripe'
+  }): Promise<PagoConDetalles[]> {
+    try {
+      const params = new URLSearchParams()
+      if (filters?.tipo_pago) params.append('tipo_pago', filters.tipo_pago)
+      if (filters?.metodo_pago) params.append('metodo_pago', filters.metodo_pago)
+      
+      const url = `/pagos/completos/con-detalles${params.toString() ? `?${params.toString()}` : ''}`
+      
+      const response = await apiRequest<PagosConDetallesResponse>(url, {
+        method: 'GET',
+      })
+      return response.data || []
+    } catch (error: any) {
+      console.error('[PagoService] Error al obtener pagos con detalles:', error)
       throw new Error(error.response?.data?.message || 'Error al cargar pagos')
     }
   }
