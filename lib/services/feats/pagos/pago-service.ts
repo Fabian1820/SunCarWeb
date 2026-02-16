@@ -6,6 +6,12 @@ export interface PagoCreateData {
   fecha: string
   tipo_pago: 'anticipo' | 'pendiente'
   metodo_pago: 'efectivo' | 'transferencia_bancaria' | 'stripe'
+  moneda?: 'USD' | 'EUR' | 'CUP'
+  tasa_cambio?: number
+  pago_cliente?: boolean
+  nombre_pagador?: string
+  carnet_pagador?: string
+  desglose_billetes?: Record<string, number>
   comprobante_transferencia?: string
   recibido_por?: string
   notas?: string
@@ -16,6 +22,13 @@ export interface Pago {
   id: string
   oferta_id: string
   monto: number
+  moneda: 'USD' | 'EUR' | 'CUP'
+  tasa_cambio: number
+  monto_usd: number
+  pago_cliente: boolean
+  nombre_pagador: string | null
+  carnet_pagador: string | null
+  desglose_billetes: Record<string, number> | null
   fecha: string
   tipo_pago: 'anticipo' | 'pendiente'
   metodo_pago: 'efectivo' | 'transferencia_bancaria' | 'stripe'
@@ -24,6 +37,7 @@ export interface Pago {
   notas?: string
   creado_por?: string
   fecha_creacion: string
+  fecha_actualizacion: string
 }
 
 export interface PagoConDetalles extends Pago {

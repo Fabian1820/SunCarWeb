@@ -7,7 +7,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Textarea } from "@/components/shared/molecule/textarea"
-import { Loader2, Upload } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { PagoService, type PagoCreateData } from "@/lib/services/feats/pagos/pago-service"
 
@@ -28,10 +28,17 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
         fecha: new Date().toISOString().slice(0, 10),
         tipo_pago: 'anticipo' as 'anticipo' | 'pendiente',
         metodo_pago: 'efectivo' as 'efectivo' | 'transferencia_bancaria' | 'stripe',
+        moneda: 'USD' as 'USD' | 'EUR' | 'CUP',
+        tasa_cambio: 1.0,
+        pago_cliente: true,
+        nombre_pagador: '',
+        carnet_pagador: '',
         recibido_por: '',
         comprobante_transferencia: '',
         notas: '',
     })
+
+    const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
@@ -44,6 +51,50 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
             }))
         }
     }, [open])
+
+    // Actualizar tasa de cambio cuando cambia la moneda
+    useEffect(() => {
+        const tasasSugeridas = {
+            USD: 1.0,
+            EUR: 1.08,
+            CUP: 120.0
+        }
+        setFormData(prev => ({
+            ...prev,
+            tasa_cambio: tasasSugeridas[prev.moneda]
+        }))
+        // Limpiar desglose al cambiar moneda
+        setDesgloseBilletes({})
+    }, [formData.moneda])
+
+    // Denominaciones por moneda
+    const getDenominaciones = (moneda: string): string[] => {
+        const denominaciones = {
+            USD: ['100', '50', '20', '10', '5', '1'],
+            EUR: ['500', '200', '100', '50', '20', '10', '5'],
+            CUP: ['1000', '500', '200', '100', '50', '20', '10', '5', '1']
+        }
+        return denominaciones[moneda as keyof typeof denominaciones] || []
+    }
+
+    // Calcular total del desglose
+    const calcularTotalDesglose = (): number => {
+        return Object.entries(desgloseBilletes).reduce((total, [denominacion, cantidad]) => {
+            return total + (parseFloat(denominacion) * cantidad)
+        }, 0)
+    }
+
+    // Actualizar cantidad de una denominación
+    const actualizarDenominacion = (denominacion: string, cantidad: string) => {
+        const cantidadNum = parseInt(cantidad) || 0
+        if (cantidadNum === 0) {
+            const nuevoDesglose = { ...desgloseBilletes }
+            delete nuevoDesglose[denominacion]
+            setDesgloseBilletes(nuevoDesglose)
+        } else {
+            setDesgloseBilletes({ ...desgloseBilletes, [denominacion]: cantidadNum })
+        }
+    }
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -119,6 +170,16 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
             return
         }
 
+        if (formData.tasa_cambio <= 0) {
+            setError('La tasa de cambio debe ser mayor a 0')
+            return
+        }
+
+        if (!formData.pago_cliente && !formData.nombre_pagador.trim()) {
+            setError('Debe ingresar el nombre de quien realiza el pago')
+            return
+        }
+
         if (formData.metodo_pago === 'efectivo' && !formData.recibido_por.trim()) {
             setError('El campo "Recibido por" es obligatorio para pagos en efectivo')
             return
@@ -144,11 +205,25 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                 fecha: formData.fecha,
                 tipo_pago: formData.tipo_pago,
                 metodo_pago: formData.metodo_pago,
+                moneda: formData.moneda,
+                tasa_cambio: formData.tasa_cambio,
+                pago_cliente: formData.pago_cliente,
                 notas: formData.notas || undefined,
+            }
+
+            if (!formData.pago_cliente) {
+                pagoData.nombre_pagador = formData.nombre_pagador
+                if (formData.carnet_pagador.trim()) {
+                    pagoData.carnet_pagador = formData.carnet_pagador
+                }
             }
 
             if (formData.metodo_pago === 'efectivo') {
                 pagoData.recibido_por = formData.recibido_por
+                // Agregar desglose de billetes si existe
+                if (Object.keys(desgloseBilletes).length > 0) {
+                    pagoData.desglose_billetes = desgloseBilletes
+                }
             } else {
                 pagoData.comprobante_transferencia = formData.comprobante_transferencia
             }
@@ -161,11 +236,17 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                 fecha: new Date().toISOString().slice(0, 10),
                 tipo_pago: 'anticipo',
                 metodo_pago: 'efectivo',
+                moneda: 'USD',
+                tasa_cambio: 1.0,
+                pago_cliente: true,
+                nombre_pagador: '',
+                carnet_pagador: '',
                 recibido_por: '',
                 comprobante_transferencia: '',
                 notas: '',
             })
             setSelectedFile(null)
+            setDesgloseBilletes({})
 
             onSuccess()
             onOpenChange(false)
@@ -217,6 +298,50 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                     )}
 
                     <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Moneda */}
+                        <div className="space-y-2">
+                            <Label htmlFor="moneda">
+                                Moneda <span className="text-red-500">*</span>
+                            </Label>
+                            <Select
+                                value={formData.moneda}
+                                onValueChange={(value: 'USD' | 'EUR' | 'CUP') =>
+                                    setFormData({ ...formData, moneda: value })
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="USD">USD - Dólar</SelectItem>
+                                    <SelectItem value="EUR">EUR - Euro</SelectItem>
+                                    <SelectItem value="CUP">CUP - Peso Cubano</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Tasa de Cambio */}
+                        <div className="space-y-2">
+                            <Label htmlFor="tasa_cambio">
+                                Tasa de cambio (con respecto al USD) <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                                id="tasa_cambio"
+                                type="number"
+                                step="0.01"
+                                min="0.01"
+                                value={formData.tasa_cambio}
+                                onChange={(e) => setFormData({ ...formData, tasa_cambio: parseFloat(e.target.value) || 1.0 })}
+                                disabled={formData.moneda === 'USD'}
+                                required
+                            />
+                            {formData.moneda === 'USD' && (
+                                <p className="text-xs text-gray-500">
+                                    La tasa de cambio es 1.0 para USD
+                                </p>
+                            )}
+                        </div>
+
                         {/* Monto */}
                         <div className="space-y-2">
                             <Label htmlFor="monto">
@@ -227,14 +352,20 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                                 type="number"
                                 step="0.01"
                                 min="0.01"
-                                max={oferta.monto_pendiente}
                                 value={formData.monto}
                                 onChange={(e) => setFormData({ ...formData, monto: e.target.value })}
                                 placeholder="0.00"
                                 required
                             />
+                            {formData.moneda !== 'USD' && formData.monto && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                                    <p className="text-sm text-blue-700">
+                                        Equivalente en USD: ${(parseFloat(formData.monto) / formData.tasa_cambio).toFixed(2)}
+                                    </p>
+                                </div>
+                            )}
                             <p className="text-xs text-gray-500">
-                                Máximo: {formatCurrency(oferta.monto_pendiente)}
+                                Máximo pendiente: {formatCurrency(oferta.monto_pendiente)}
                             </p>
                         </div>
 
@@ -274,6 +405,57 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                             </Select>
                         </div>
 
+                        {/* ¿Quién paga? */}
+                        <div className="space-y-3 border-t pt-4">
+                            <div className="flex items-center space-x-2">
+                                <input
+                                    type="checkbox"
+                                    id="pago_cliente"
+                                    checked={formData.pago_cliente}
+                                    onChange={(e) => setFormData({ 
+                                        ...formData, 
+                                        pago_cliente: e.target.checked,
+                                        nombre_pagador: '',
+                                        carnet_pagador: ''
+                                    })}
+                                    className="h-4 w-4 rounded border-gray-300"
+                                />
+                                <Label htmlFor="pago_cliente" className="cursor-pointer">
+                                    El cliente paga directamente
+                                </Label>
+                            </div>
+
+                            {!formData.pago_cliente && (
+                                <div className="space-y-3 pl-6 border-l-2 border-orange-200">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="nombre_pagador">
+                                            Nombre del pagador <span className="text-red-500">*</span>
+                                        </Label>
+                                        <Input
+                                            id="nombre_pagador"
+                                            type="text"
+                                            value={formData.nombre_pagador}
+                                            onChange={(e) => setFormData({ ...formData, nombre_pagador: e.target.value })}
+                                            placeholder="Nombre completo"
+                                            required={!formData.pago_cliente}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="carnet_pagador">
+                                            Carnet del pagador
+                                        </Label>
+                                        <Input
+                                            id="carnet_pagador"
+                                            type="text"
+                                            value={formData.carnet_pagador}
+                                            onChange={(e) => setFormData({ ...formData, carnet_pagador: e.target.value })}
+                                            placeholder="Número de carnet"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Método de Pago */}
                         <div className="space-y-2">
                             <Label htmlFor="metodo_pago">
@@ -298,19 +480,77 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
 
                         {/* Recibido por (solo para efectivo) */}
                         {formData.metodo_pago === 'efectivo' && (
-                            <div className="space-y-2">
-                                <Label htmlFor="recibido_por">
-                                    Recibido por <span className="text-red-500">*</span>
-                                </Label>
-                                <Input
-                                    id="recibido_por"
-                                    type="text"
-                                    value={formData.recibido_por}
-                                    onChange={(e) => setFormData({ ...formData, recibido_por: e.target.value })}
-                                    placeholder="Nombre de quien recibió el pago"
-                                    required
-                                />
-                            </div>
+                            <>
+                                <div className="space-y-2">
+                                    <Label htmlFor="recibido_por">
+                                        Recibido por <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Input
+                                        id="recibido_por"
+                                        type="text"
+                                        value={formData.recibido_por}
+                                        onChange={(e) => setFormData({ ...formData, recibido_por: e.target.value })}
+                                        placeholder="Nombre de quien recibió el pago"
+                                        required
+                                    />
+                                </div>
+
+                                {/* Desglose de Billetes */}
+                                <div className="space-y-3 border-t pt-4">
+                                    <div className="flex items-center justify-between">
+                                        <Label>Desglose de Billetes (opcional)</Label>
+                                        {Object.keys(desgloseBilletes).length > 0 && (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setDesgloseBilletes({})}
+                                                className="text-xs"
+                                            >
+                                                Limpiar
+                                            </Button>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {getDenominaciones(formData.moneda).map((denominacion) => (
+                                            <div key={denominacion} className="space-y-1">
+                                                <Label htmlFor={`billete-${denominacion}`} className="text-xs">
+                                                    {denominacion} {formData.moneda}
+                                                </Label>
+                                                <Input
+                                                    id={`billete-${denominacion}`}
+                                                    type="number"
+                                                    min="0"
+                                                    step="1"
+                                                    value={desgloseBilletes[denominacion] || ''}
+                                                    onChange={(e) => actualizarDenominacion(denominacion, e.target.value)}
+                                                    placeholder="0"
+                                                    className="text-sm"
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {Object.keys(desgloseBilletes).length > 0 && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-sm font-medium text-blue-900">
+                                                    Total del desglose:
+                                                </span>
+                                                <span className="text-sm font-bold text-blue-900">
+                                                    {calcularTotalDesglose().toFixed(2)} {formData.moneda}
+                                                </span>
+                                            </div>
+                                            {formData.monto && Math.abs(calcularTotalDesglose() - parseFloat(formData.monto)) > 0.01 && (
+                                                <p className="text-xs text-orange-600 mt-1">
+                                                    ⚠️ El total del desglose no coincide con el monto del pago
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
 
                         {/* Comprobante archivo (para transferencia) */}

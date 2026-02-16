@@ -80,6 +80,8 @@ export function TodosPagosTable({ pagos, loading }: TodosPagosTableProps) {
                         <TableHead className="w-[160px]">Cliente</TableHead>
                         <TableHead className="w-[100px]">CI</TableHead>
                         <TableHead className="text-right w-[110px]">Monto</TableHead>
+                        <TableHead className="text-right w-[100px]">USD</TableHead>
+                        <TableHead className="w-[140px]">Pagador</TableHead>
                         <TableHead className="w-[100px]">Fecha</TableHead>
                         <TableHead className="w-[100px]">Tipo</TableHead>
                         <TableHead className="w-[120px]">Método</TableHead>
@@ -116,7 +118,34 @@ export function TodosPagosTable({ pagos, loading }: TodosPagosTableProps) {
                             </TableCell>
                             <TableCell className="text-right font-semibold text-sm py-3">
                                 <div className="break-words">
-                                    {formatCurrency(pago.monto)}
+                                    {formatCurrency(pago.monto)} {pago.moneda}
+                                    {pago.moneda !== 'USD' && (
+                                        <div className="text-xs text-gray-500">
+                                            Tasa: {pago.tasa_cambio}
+                                        </div>
+                                    )}
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold text-sm py-3">
+                                <div className="break-words text-green-700">
+                                    {formatCurrency(pago.monto_usd)}
+                                </div>
+                            </TableCell>
+                            <TableCell className="py-3">
+                                <div className="flex flex-col gap-0.5">
+                                    <span className="text-sm break-words">
+                                        {pago.nombre_pagador || pago.contacto.nombre}
+                                    </span>
+                                    {!pago.pago_cliente && (
+                                        <Badge variant="outline" className="bg-orange-50 text-orange-700 w-fit text-xs">
+                                            Tercero
+                                        </Badge>
+                                    )}
+                                    {pago.carnet_pagador && (
+                                        <span className="text-xs text-gray-500">
+                                            CI: {pago.carnet_pagador}
+                                        </span>
+                                    )}
                                 </div>
                             </TableCell>
                             <TableCell className="py-3">
@@ -131,7 +160,25 @@ export function TodosPagosTable({ pagos, loading }: TodosPagosTableProps) {
                             <TableCell className="py-3">
                                 <div className="text-sm break-words max-w-[140px]">
                                     {pago.metodo_pago === 'efectivo' && pago.recibido_por && (
-                                        <span className="text-gray-700">{pago.recibido_por}</span>
+                                        <div className="space-y-1">
+                                            <span className="text-gray-700">{pago.recibido_por}</span>
+                                            {pago.desglose_billetes && Object.keys(pago.desglose_billetes).length > 0 && (
+                                                <details className="text-xs text-gray-600">
+                                                    <summary className="cursor-pointer text-blue-600 hover:underline">
+                                                        Ver desglose
+                                                    </summary>
+                                                    <div className="mt-1 space-y-0.5 pl-2">
+                                                        {Object.entries(pago.desglose_billetes)
+                                                            .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
+                                                            .map(([denominacion, cantidad]) => (
+                                                                <div key={denominacion}>
+                                                                    {cantidad}x {denominacion} {pago.moneda}
+                                                                </div>
+                                                            ))}
+                                                    </div>
+                                                </details>
+                                            )}
+                                        </div>
                                     )}
                                     {(pago.metodo_pago === 'transferencia_bancaria' || pago.metodo_pago === 'stripe') && pago.comprobante_transferencia && (
                                         <a
