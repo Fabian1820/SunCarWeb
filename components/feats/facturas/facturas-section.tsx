@@ -157,17 +157,17 @@ export function FacturasSection() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
 	                        <div className="flex items-center space-x-3">
-	                            <Link href="/">
+	                            <Link href="/facturas">
 	                                <Button
 	                                    variant="ghost"
 	                                    size="icon"
 	                                    className="touch-manipulation h-9 w-9 sm:h-10 sm:w-auto sm:px-4 sm:rounded-md gap-2"
-	                                    aria-label="Volver al Dashboard"
-	                                    title="Volver al Dashboard"
+	                                    aria-label="Volver a Facturación"
+	                                    title="Volver a Facturación"
 	                                >
 	                                    <ArrowLeft className="h-4 w-4 sm:mr-2" />
-	                                    <span className="hidden sm:inline">Volver al Dashboard</span>
-	                                    <span className="sr-only">Volver al Dashboard</span>
+	                                    <span className="hidden sm:inline">Volver a Facturación</span>
+	                                    <span className="sr-only">Volver a Facturación</span>
 	                                </Button>
 	                            </Link>
                             <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
@@ -175,7 +175,7 @@ export function FacturasSection() {
                             </div>
                             <div className="min-w-0">
                                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                                    Gestión de Facturas
+                                    Vales y Facturas de Instaladora
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                                         Finanzas
                                     </span>
