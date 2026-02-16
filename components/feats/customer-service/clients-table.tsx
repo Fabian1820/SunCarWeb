@@ -61,6 +61,8 @@ import { GestionarAveriasDialog } from "@/components/feats/averias/gestionar-ave
 import { AsignarOfertaGenericaDialog } from "@/components/feats/ofertas/asignar-oferta-generica-dialog";
 import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
 import { DuplicarOfertaDialog } from "@/components/feats/ofertas/duplicar-oferta-dialog";
+import { EditarOfertaDialog } from "@/components/feats/ofertas/editar-oferta-dialog";
+import { ExportSelectionDialog } from "@/components/feats/ofertas/export-selection-dialog";
 import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view";
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
@@ -192,6 +194,8 @@ export function ClientsTable({
     asignarOfertaACliente,
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
+    eliminarOferta,
+    refetch: refetchOfertas,
   } = useOfertasConfeccion();
   const [selectedClientReports, setSelectedClientReports] = useState<
     any[] | null
@@ -265,6 +269,16 @@ export function ClientsTable({
   const [consultandoOfertaCliente, setConsultandoOfertaCliente] = useState<
     string | null
   >(null);
+  
+  // Estados para editar/eliminar/exportar ofertas
+  const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
+  const [ofertaParaEditar, setOfertaParaEditar] = useState<OfertaConfeccion | null>(null);
+  const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false);
+  const [ofertaParaEliminar, setOfertaParaEliminar] = useState<OfertaConfeccion | null>(null);
+  const [eliminandoOferta, setEliminandoOferta] = useState(false);
+  const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false);
+  const [ofertaParaExportar, setOfertaParaExportar] = useState<OfertaConfeccion | null>(null);
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     estado: [] as string[],
@@ -899,6 +913,60 @@ export function ClientsTable({
   const closeDetalleOfertaDialog = () => {
     setShowDetalleOfertaDialog(false);
     setOfertaClienteActual(null);
+  };
+
+  // Funciones para manejar ofertas confeccionadas
+  const handleEditarOferta = (oferta: OfertaConfeccion) => {
+    setOfertaParaEditar(oferta);
+    setMostrarDialogoEditar(true);
+    // Cerrar el diálogo de detalles si está abierto
+    setShowDetalleOfertaDialog(false);
+  };
+
+  const handleEliminarOferta = (oferta: OfertaConfeccion) => {
+    setOfertaParaEliminar(oferta);
+    setMostrarDialogoEliminar(true);
+    // Cerrar el diálogo de detalles si está abierto
+    setShowDetalleOfertaDialog(false);
+  };
+
+  const confirmarEliminarOferta = async () => {
+    if (!ofertaParaEliminar) return;
+
+    setEliminandoOferta(true);
+    try {
+      await eliminarOferta(ofertaParaEliminar.id);
+      setMostrarDialogoEliminar(false);
+      setOfertaParaEliminar(null);
+      
+      // Actualizar el estado de clientes con ofertas
+      await cargarClientesConOfertas({ skipCache: true, silent: true });
+      
+      toast({
+        title: "Oferta eliminada",
+        description: "La oferta se eliminó correctamente.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo eliminar la oferta.",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminandoOferta(false);
+    }
+  };
+
+  const cancelarEliminarOferta = () => {
+    setMostrarDialogoEliminar(false);
+    setOfertaParaEliminar(null);
+  };
+
+  const handleExportarOferta = (oferta: OfertaConfeccion) => {
+    setOfertaParaExportar(oferta);
+    setMostrarDialogoExportar(true);
+    // Cerrar el diálogo de detalles si está abierto
+    setShowDetalleOfertaDialog(false);
   };
 
   // Función para remover un cliente del set de clientes con oferta
@@ -2238,7 +2306,84 @@ export function ClientsTable({
         }}
         oferta={ofertaClienteActual}
         ofertas={ofertasClienteActuales}
+        onEditar={handleEditarOferta}
+        onEliminar={handleEliminarOferta}
+        onExportar={handleExportarOferta}
       />
+
+      {/* Diálogo de Edición */}
+      <EditarOfertaDialog
+        open={mostrarDialogoEditar}
+        onOpenChange={setMostrarDialogoEditar}
+        oferta={ofertaParaEditar}
+        onSuccess={async () => {
+          setMostrarDialogoEditar(false);
+          setOfertaParaEditar(null);
+          // Recargar ofertas después de editar
+          await cargarClientesConOfertas({ skipCache: true, silent: true });
+          if (refetchOfertas) refetchOfertas();
+          toast({
+            title: "Oferta actualizada",
+            description: "Los cambios se guardaron correctamente.",
+          });
+        }}
+      />
+
+      {/* Diálogo de Exportación */}
+      <ExportSelectionDialog
+        open={mostrarDialogoExportar}
+        onOpenChange={setMostrarDialogoExportar}
+        oferta={ofertaParaExportar}
+      />
+
+      {/* Diálogo de Eliminación */}
+      <Dialog open={mostrarDialogoEliminar} onOpenChange={setMostrarDialogoEliminar}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              ¿Eliminar oferta?
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+              ¿Estás seguro de que deseas eliminar la oferta{" "}
+              <span className="font-semibold">{ofertaParaEliminar?.nombre}</span>?
+            </p>
+            <p className="text-sm text-slate-600">
+              Esta acción no se puede deshacer.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={cancelarEliminarOferta}
+                disabled={eliminandoOferta}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={confirmarEliminarOferta}
+                disabled={eliminandoOferta}
+              >
+                {eliminandoOferta ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Eliminando...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar oferta
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

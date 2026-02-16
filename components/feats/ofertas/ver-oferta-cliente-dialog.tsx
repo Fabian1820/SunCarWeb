@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/s
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, Building2, Eye, Package } from "lucide-react"
+import { ArrowLeft, Building2, Eye, Package, Download, Edit, Trash2 } from "lucide-react"
 import { useMaterials } from "@/hooks/use-materials"
 import { useEffect, useMemo, useState } from "react"
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
@@ -14,6 +14,9 @@ interface VerOfertaClienteDialogProps {
   onOpenChange: (open: boolean) => void
   oferta: OfertaConfeccion | null
   ofertas?: OfertaConfeccion[]
+  onEditar?: (oferta: OfertaConfeccion) => void
+  onEliminar?: (oferta: OfertaConfeccion) => void
+  onExportar?: (oferta: OfertaConfeccion) => void
 }
 
 const getEstadoBadge = (estado: string) => {
@@ -49,6 +52,9 @@ export function VerOfertaClienteDialog({
   onOpenChange,
   oferta: ofertaInicial,
   ofertas = [],
+  onEditar,
+  onEliminar,
+  onExportar,
 }: VerOfertaClienteDialogProps) {
   const { materials } = useMaterials()
   const [modoVista, setModoVista] = useState<"listado" | "detalle">("detalle")
@@ -137,34 +143,89 @@ export function VerOfertaClienteDialog({
   const conversionDetalle = calcularConversion()
 
   // Early return DESPUÉS de todos los hooks
-  if (!oferta) return null
+  if (!oferta) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>No hay oferta seleccionada</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-slate-500">No se pudo cargar la información de la oferta.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader className="shrink-0">
-          <DialogTitle className="flex flex-wrap items-center gap-2 justify-between">
-            {modoVista === "listado" ? (
-              <span className="text-lg font-semibold">
-                Ofertas del cliente ({ofertasDisponibles.length})
-              </span>
-            ) : (
-              <>
-                <span className="text-lg font-semibold">{oferta.nombre}</span>
-                {ofertasDisponibles.length > 1 && (
+          <div className="flex items-center justify-between gap-4">
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              {modoVista === "listado" ? (
+                <span className="text-lg font-semibold">
+                  Ofertas del cliente ({ofertasDisponibles.length})
+                </span>
+              ) : (
+                <>
+                  <span className="text-lg font-semibold">{oferta.nombre}</span>
+                  {ofertasDisponibles.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setModoVista("listado")}
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-1" />
+                      Volver al listado
+                    </Button>
+                  )}
+                </>
+              )}
+            </DialogTitle>
+            
+            {/* Botones de acción - solo en modo detalle */}
+            {modoVista === "detalle" && oferta && (
+              <div className="flex items-center gap-2">
+                {onExportar && (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => setModoVista("listado")}
+                    onClick={() => onExportar(oferta)}
+                    title="Exportar oferta"
                   >
-                    <ArrowLeft className="h-4 w-4 mr-1" />
-                    Volver al listado
+                    <Download className="h-4 w-4" />
                   </Button>
                 )}
-              </>
+                {onEditar && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEditar(oferta)}
+                    title="Editar oferta"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                )}
+                {onEliminar && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => onEliminar(oferta)}
+                    title="Eliminar oferta"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             )}
-          </DialogTitle>
+          </div>
         </DialogHeader>
 
         {modoVista === "listado" ? (
@@ -198,23 +259,65 @@ export function VerOfertaClienteDialog({
                               )}
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        className="bg-orange-600 hover:bg-orange-700 text-white"
-                        onClick={() => {
-                          setOfertaSeleccionadaIndex(index)
-                          setModoVista("detalle")
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-1" />
-                        Ver
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        {onExportar && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onExportar(ofertaItem)}
+                            title="Exportar oferta"
+                            className="h-8 w-8 p-0"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onEditar && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEditar(ofertaItem)}
+                            title="Editar oferta"
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onEliminar && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 w-8 p-0"
+                            onClick={() => onEliminar(ofertaItem)}
+                            title="Eliminar oferta"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="bg-orange-600 hover:bg-orange-700 text-white"
+                          onClick={() => {
+                            setOfertaSeleccionadaIndex(index)
+                            setModoVista("detalle")
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
+          </div>
+        ) : !oferta ? (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-slate-500">No se pudo cargar la información de la oferta.</p>
           </div>
         ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[360px,1fr] gap-6 flex-1 min-h-0 overflow-hidden">

@@ -344,7 +344,15 @@ export function ConfeccionOfertasView({
       console.log(modoEdicion ? '🔄 Cargando oferta para editar:' : '📋 Cargando oferta para duplicar:', ofertaACopiar)
       
       // Cargar datos básicos
-      setOfertaGenerica(ofertaACopiar.tipo === 'generica')
+      // PRIORIZAR ofertaGenericaInicial cuando se duplica (similar a tipoContactoInicial)
+      if (!modoEdicion && ofertaGenericaInicial !== undefined) {
+        // En modo duplicación, usar el prop inicial para determinar el tipo
+        setOfertaGenerica(ofertaGenericaInicial)
+        console.log('✅ Usando ofertaGenericaInicial:', ofertaGenericaInicial)
+      } else {
+        // En modo edición o sin prop inicial, usar el tipo de la oferta original
+        setOfertaGenerica(ofertaACopiar.tipo === 'generica')
+      }
       
       // Determinar el tipo de contacto
       // PRIORIZAR los props iniciales sobre los datos de la oferta cuando se duplica
