@@ -10,8 +10,10 @@ import {
     TableRow,
 } from "@/components/shared/molecule/table"
 import { Badge } from "@/components/shared/atom/badge"
-import { Loader2, ChevronDown, ChevronRight } from "lucide-react"
+import { Button } from "@/components/shared/atom/button"
+import { Loader2, ChevronDown, ChevronRight, FileText } from "lucide-react"
 import type { OfertaConPagos } from "@/lib/services/feats/pagos/pago-service"
+import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 
 interface TodosPagosTableProps {
     ofertasConPagos: OfertaConPagos[]
@@ -66,6 +68,27 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
             newExpanded.add(ofertaId)
         }
         setExpandedOfertas(newExpanded)
+    }
+
+    const handleExportarComprobante = (oferta: OfertaConPagos, pago: any) => {
+        console.log('Datos del contacto:', oferta.contacto)
+        console.log('Carnet del contacto:', oferta.contacto.carnet)
+        console.log('Pago completo:', pago)
+        
+        ExportComprobanteService.generarComprobantePDF({
+            pago: pago,
+            oferta: {
+                numero_oferta: oferta.numero_oferta,
+                nombre_completo: oferta.nombre_completo,
+                precio_final: oferta.precio_final
+            },
+            contacto: {
+                nombre: oferta.contacto.nombre || 'No especificado',
+                carnet: oferta.contacto.carnet || undefined,
+                telefono: oferta.contacto.telefono || undefined,
+                direccion: oferta.contacto.direccion || undefined
+            }
+        })
     }
 
     if (loading) {
@@ -302,6 +325,22 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                             </span>
                                                                         </div>
                                                                     )}
+                                                                    
+                                                                    {/* Botón de exportar comprobante */}
+                                                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation()
+                                                                                handleExportarComprobante(oferta, pago)
+                                                                            }}
+                                                                            className="w-full"
+                                                                        >
+                                                                            <FileText className="h-4 w-4 mr-2" />
+                                                                            Exportar Comprobante
+                                                                        </Button>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>

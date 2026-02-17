@@ -9,8 +9,10 @@ import {
     TableRow,
 } from "@/components/shared/molecule/table"
 import { Badge } from "@/components/shared/atom/badge"
-import { Loader2 } from "lucide-react"
+import { Button } from "@/components/shared/atom/button"
+import { Loader2, FileText } from "lucide-react"
 import type { OfertaConPagos, Pago } from "@/lib/services/feats/pagos/pago-service"
+import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 
 interface TodosPagosPlanosTableProps {
     ofertasConPagos: OfertaConPagos[]
@@ -21,6 +23,8 @@ interface PagoConOferta extends Pago {
     oferta: {
         numero_oferta: string
         nombre_completo: string
+        precio_final: number
+        monto_pendiente: number
     }
     contacto: {
         nombre: string | null
@@ -28,6 +32,7 @@ interface PagoConOferta extends Pago {
         carnet: string | null
         codigo: string | null
         tipo_contacto: 'cliente' | 'lead' | 'lead_sin_agregar' | null
+        direccion: string | null
     }
 }
 
@@ -38,9 +43,14 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
             ...pago,
             oferta: {
                 numero_oferta: oferta.numero_oferta,
-                nombre_completo: oferta.nombre_completo
+                nombre_completo: oferta.nombre_completo,
+                precio_final: oferta.precio_final,
+                monto_pendiente: oferta.monto_pendiente
             },
-            contacto: oferta.contacto
+            contacto: {
+                ...oferta.contacto,
+                direccion: oferta.contacto.direccion || null
+            }
         }))
     )
 
@@ -86,6 +96,27 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
         return badges[metodo as keyof typeof badges] || <Badge>{metodo}</Badge>
     }
 
+    const handleExportarComprobante = (pago: PagoConOferta) => {
+        console.log('Datos del contacto (planos):', pago.contacto)
+        console.log('Carnet del contacto (planos):', pago.contacto.carnet)
+        console.log('Pago completo (planos):', pago)
+        
+        ExportComprobanteService.generarComprobantePDF({
+            pago: pago,
+            oferta: {
+                numero_oferta: pago.oferta.numero_oferta,
+                nombre_completo: pago.oferta.nombre_completo,
+                precio_final: pago.oferta.precio_final
+            },
+            contacto: {
+                nombre: pago.contacto.nombre || 'No especificado',
+                carnet: pago.contacto.carnet || undefined,
+                telefono: pago.contacto.telefono || undefined,
+                direccion: pago.contacto.direccion || undefined
+            }
+        })
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -115,6 +146,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                         <TableHead className="w-[180px]">Tipo / Método / Desglose</TableHead>
                         <TableHead className="w-[160px]">Cliente/Pagador</TableHead>
                         <TableHead className="w-[140px]">Recibido/Ref</TableHead>
+                        <TableHead className="w-[100px] text-center">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -232,6 +264,17 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                     )}
                                     {!pago.recibido_por && !pago.comprobante_transferencia && '-'}
                                 </div>
+                            </TableCell>
+                            <TableCell className="text-center py-3">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleExportarComprobante(pago)}
+                                    className="h-8 px-2"
+                                    title="Exportar comprobante"
+                                >
+                                    <FileText className="h-4 w-4" />
+                                </Button>
                             </TableCell>
                         </TableRow>
                     ))}
