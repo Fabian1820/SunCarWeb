@@ -6,10 +6,9 @@ export interface OfertaConfirmadaSinPago {
   nombre_automatico: string
   nombre_oferta: string
   nombre_completo: string
-  tipo_oferta: string
   estado: string
   
-  // Información del contacto
+  // Información del contacto (simplificado)
   cliente_numero?: string
   cliente?: {
     numero: string
@@ -23,10 +22,7 @@ export interface OfertaConfirmadaSinPago {
     id: string
     nombre: string
     telefono?: string
-    estado?: string
     direccion?: string
-    provincia_montaje?: string
-    municipio?: string
   }
   nombre_lead_sin_agregar?: string
   
@@ -35,82 +31,17 @@ export interface OfertaConfirmadaSinPago {
   almacen_nombre: string
   foto_portada?: string
   
-  // Items y materiales
-  items: Array<{
-    material_codigo: string
-    descripcion: string
-    precio: number
-    precio_original?: number
-    precio_editado?: boolean
-    cantidad: number
-    categoria?: string
-    seccion?: string
-    margen_asignado?: number
-  }>
-  secciones_personalizadas?: any[]
-  elementos_personalizados?: any[]
-  componentes_principales?: {
-    inversor?: any
-    bateria?: any
-    panel?: any
-  }
-  
-  // Cálculos financieros
-  margen_comercial?: number
-  porcentaje_margen_materiales?: number
-  porcentaje_margen_instalacion?: number
-  margen_total?: number
-  margen_materiales?: number
-  margen_instalacion?: number
-  costo_transportacion?: number
-  total_materiales: number
-  subtotal_con_margen?: number
-  descuento_porcentaje?: number
-  monto_descuento?: number
-  subtotal_con_descuento?: number
-  total_elementos_personalizados?: number
-  total_costos_extras?: number
+  // Cálculos financieros (simplificado)
   precio_final: number
+  monto_pendiente: number
   
   // Pagos
   pagos: string[]
-  monto_pendiente: number
   
-  // Contribución y forma de pago
-  aplica_contribucion?: boolean
-  porcentaje_contribucion?: number
-  monto_contribucion?: number
-  moneda_pago?: string
-  tasa_cambio?: number
-  pago_transferencia?: boolean
-  datos_cuenta?: any
-  monto_convertido?: number
-  
-  // Reserva de materiales
-  materiales_reservados?: boolean
-  reserva_id?: string
-  tipo_reserva?: string
-  fecha_reserva?: string
-  fecha_expiracion?: string
-  fecha_cancelacion?: string
-  motivo_cancelacion?: string
-  
-  // Stock disponible
-  stock_disponible?: Array<{
-    material_codigo: string
-    stock_actual: number
-    cantidad_en_oferta: number
-    suficiente: boolean
-  }>
-  
-  // Días restantes
-  dias_restantes?: number
-  
-  // Auditoría
+  // Auditoría (simplificado)
   notas?: string
   creado_por?: string
   fecha_creacion: string
-  fecha_actualizacion?: string
 }
 
 export interface PagosResponse {

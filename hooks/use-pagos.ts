@@ -6,24 +6,34 @@ export function usePagos() {
   const [ofertasSinPago, setOfertasSinPago] = useState<OfertaConfirmadaSinPago[]>([])
   const [ofertasConSaldoPendiente, setOfertasConSaldoPendiente] = useState<OfertaConfirmadaSinPago[]>([])
   const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [loadingSinPago, setLoadingSinPago] = useState(false)
+  const [loadingConSaldo, setLoadingConSaldo] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchOfertasSinPago = async () => {
+    setLoadingSinPago(true)
     try {
       const data = await PagosService.getOfertasConfirmadasSinPago()
       setOfertasSinPago(data)
     } catch (err: any) {
       console.error('[usePagos] Error:', err)
+      setError(err.message || 'Error al cargar ofertas sin pago')
+    } finally {
+      setLoadingSinPago(false)
     }
   }
 
   const fetchOfertasConSaldoPendiente = async () => {
+    setLoadingConSaldo(true)
     try {
       const data = await PagosService.getOfertasConfirmadasConSaldoPendiente()
       setOfertasConSaldoPendiente(data)
     } catch (err: any) {
       console.error('[usePagos] Error:', err)
+      setError(err.message || 'Error al cargar ofertas con saldo pendiente')
+    } finally {
+      setLoadingConSaldo(false)
     }
   }
 
@@ -39,17 +49,12 @@ export function usePagos() {
   const refetch = async () => {
     setLoading(true)
     setError(null)
-    try {
-      // Solo cargar las ofertas pendientes inicialmente
-      await Promise.all([
-        fetchOfertasSinPago(),
-        fetchOfertasConSaldoPendiente()
-      ])
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar datos')
-    } finally {
-      setLoading(false)
-    }
+    // Cargar en paralelo pero sin esperar a que ambas terminen
+    // Cada una actualiza su estado independientemente
+    fetchOfertasSinPago()
+    fetchOfertasConSaldoPendiente()
+    // Desactivar loading general inmediatamente
+    setLoading(false)
   }
 
   const refetchOfertasConPagos = async () => {
@@ -60,17 +65,20 @@ export function usePagos() {
     }
   }
 
-  useEffect(() => {
-    refetch()
-  }, [])
+  // NO cargar nada automáticamente al montar el hook
+  // La página decidirá qué cargar según la vista activa
 
   return {
     ofertasSinPago,
     ofertasConSaldoPendiente,
     ofertasConPagos,
     loading,
+    loadingSinPago,
+    loadingConSaldo,
     error,
     refetch,
+    refetchOfertasSinPago: fetchOfertasSinPago,
+    refetchOfertasConSaldoPendiente: fetchOfertasConSaldoPendiente,
     refetchOfertasConPagos,
   }
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
@@ -25,7 +25,19 @@ import { useToast } from "@/hooks/use-toast"
 type ViewMode = 'anticipos-pendientes' | 'finales-pendientes' | 'pagos-por-ofertas' | 'todos-pagos'
 
 export default function PagosClientesPage() {
-    const { ofertasSinPago, ofertasConSaldoPendiente, ofertasConPagos, loading, error, refetch, refetchOfertasConPagos } = usePagos()
+    const { 
+        ofertasSinPago, 
+        ofertasConSaldoPendiente, 
+        ofertasConPagos, 
+        loading, 
+        loadingSinPago,
+        loadingConSaldo,
+        error, 
+        refetch, 
+        refetchOfertasSinPago,
+        refetchOfertasConSaldoPendiente,
+        refetchOfertasConPagos 
+    } = usePagos()
     const { toast } = useToast()
     const [viewMode, setViewMode] = useState<ViewMode>('anticipos-pendientes')
     const [searchTerm, setSearchTerm] = useState("")
@@ -64,18 +76,38 @@ export default function PagosClientesPage() {
             title: "Éxito",
             description: "Pago registrado correctamente",
         })
-        refetch()
+        // Solo recargar la vista actual
+        if (viewMode === 'anticipos-pendientes') {
+            refetchOfertasSinPago()
+        } else if (viewMode === 'finales-pendientes') {
+            refetchOfertasConSaldoPendiente()
+        } else if (viewMode === 'pagos-por-ofertas' || viewMode === 'todos-pagos') {
+            refetchOfertasConPagos()
+        }
     }
 
     // Cargar ofertas con pagos solo cuando se cambia a esas vistas
     const handleViewModeChange = async (mode: ViewMode) => {
         setViewMode(mode)
-        if ((mode === 'pagos-por-ofertas' || mode === 'todos-pagos') && ofertasConPagos.length === 0) {
+        
+        // Cargar datos según la vista seleccionada
+        if (mode === 'anticipos-pendientes' && ofertasSinPago.length === 0) {
+            await refetchOfertasSinPago()
+        } else if (mode === 'finales-pendientes' && ofertasConSaldoPendiente.length === 0) {
+            await refetchOfertasConSaldoPendiente()
+        } else if ((mode === 'pagos-por-ofertas' || mode === 'todos-pagos') && ofertasConPagos.length === 0) {
             setLoadingPagos(true)
             await refetchOfertasConPagos()
             setLoadingPagos(false)
         }
     }
+
+    // Cargar datos de la vista inicial al montar el componente
+    useEffect(() => {
+        if (viewMode === 'anticipos-pendientes') {
+            refetchOfertasSinPago()
+        }
+    }, []) // Solo ejecutar una vez al montar
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -114,7 +146,17 @@ export default function PagosClientesPage() {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                onClick={refetch}
+                                onClick={() => {
+                                    // Recargar solo la vista actual
+                                    if (viewMode === 'anticipos-pendientes') {
+                                        refetchOfertasSinPago()
+                                    } else if (viewMode === 'finales-pendientes') {
+                                        refetchOfertasConSaldoPendiente()
+                                    } else if (viewMode === 'pagos-por-ofertas' || viewMode === 'todos-pagos') {
+                                        setLoadingPagos(true)
+                                        refetchOfertasConPagos().finally(() => setLoadingPagos(false))
+                                    }
+                                }}
                                 className="h-9 w-9 touch-manipulation"
                                 aria-label="Recargar"
                                 title="Recargar"
@@ -279,7 +321,7 @@ export default function PagosClientesPage() {
                             ) : (
                                 <AnticiposPendientesTable
                                     ofertas={filteredOfertas}
-                                    loading={loading}
+                                    loading={viewMode === 'anticipos-pendientes' ? loadingSinPago : loadingConSaldo}
                                     onRegistrarPago={handleRegistrarPago}
                                 />
                             )}
