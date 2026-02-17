@@ -486,6 +486,13 @@ export function ExportSelectionDialog({
       return itemsFiltrados
     }
 
+    console.log('🔍 DEBUG opcionesExportacion:', {
+      sinPrecios_original: opcionesExportacion.exportOptionsSinPrecios?.sinPrecios,
+      conPreciosCliente_original: opcionesExportacion.exportOptionsClienteConPrecios?.conPreciosCliente,
+      columns_sinPrecios: opcionesExportacion.exportOptionsSinPrecios?.columns,
+      columns_conPrecios: opcionesExportacion.exportOptionsClienteConPrecios?.columns,
+    })
+    
     return {
       exportOptionsCompleto: {
         ...opcionesExportacion.exportOptionsCompleto,

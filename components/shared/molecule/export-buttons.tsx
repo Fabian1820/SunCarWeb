@@ -51,6 +51,12 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
       setExporting('pdf')
       const filename = generateFilename(baseFilename)
       
+      console.log('🔍 DEBUG ExportButtons - exportOptions:', {
+        sinPrecios: exportOptions.sinPrecios,
+        conPreciosCliente: exportOptions.conPreciosCliente,
+        columns: exportOptions.columns,
+      })
+      
       await exportToPDF({
         ...exportOptions,
         filename,

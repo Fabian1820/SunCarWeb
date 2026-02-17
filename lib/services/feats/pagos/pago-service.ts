@@ -80,6 +80,39 @@ export interface PagosConDetallesResponse {
   total: number
 }
 
+export interface Contacto {
+  nombre: string | null
+  telefono: string | null
+  carnet: string | null
+  direccion: string | null
+  codigo: string | null
+  tipo_contacto: 'cliente' | 'lead' | 'lead_sin_agregar' | null
+}
+
+export interface OfertaConPagos {
+  oferta_id: string
+  numero_oferta: string
+  nombre_automatico: string
+  nombre_completo: string
+  tipo_oferta: string
+  estado: string
+  precio_final: number
+  monto_pendiente: number
+  almacen_id: string
+  almacen_nombre: string | null
+  pagos: Pago[]
+  total_pagado: number
+  cantidad_pagos: number
+  contacto: Contacto
+}
+
+export interface OfertasConPagosResponse {
+  success: boolean
+  message: string
+  data: OfertaConPagos[]
+  total: number
+}
+
 export class PagoService {
   /**
    * Crear un nuevo pago
@@ -154,6 +187,21 @@ export class PagoService {
     } catch (error: any) {
       console.error('[PagoService] Error al eliminar pago:', error)
       throw new Error(error.response?.data?.message || 'Error al eliminar pago')
+    }
+  }
+
+  /**
+   * Obtener todas las ofertas con pagos
+   */
+  static async getOfertasConPagos(): Promise<OfertaConPagos[]> {
+    try {
+      const response = await apiRequest<OfertasConPagosResponse>('/pagos/ofertas-con-pagos', {
+        method: 'GET',
+      })
+      return response.data || []
+    } catch (error: any) {
+      console.error('[PagoService] Error al obtener ofertas con pagos:', error)
+      throw new Error(error.response?.data?.message || 'Error al cargar ofertas con pagos')
     }
   }
 }

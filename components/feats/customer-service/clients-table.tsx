@@ -65,6 +65,8 @@ import { EditarOfertaDialog } from "@/components/feats/ofertas/editar-oferta-dia
 import { ExportSelectionDialog } from "@/components/feats/ofertas/export-selection-dialog";
 import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view";
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { useMaterials } from "@/hooks/use-materials";
+import { useMarcas } from "@/hooks/use-marcas";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type {
   OfertaPersonalizada,
@@ -197,6 +199,8 @@ export function ClientsTable({
     eliminarOferta,
     refetch: refetchOfertas,
   } = useOfertasConfeccion();
+  const { materials } = useMaterials();
+  const { marcas } = useMarcas();
   const [selectedClientReports, setSelectedClientReports] = useState<
     any[] | null
   >(null);
@@ -278,6 +282,7 @@ export function ClientsTable({
   const [eliminandoOferta, setEliminandoOferta] = useState(false);
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false);
   const [ofertaParaExportar, setOfertaParaExportar] = useState<OfertaConfeccion | null>(null);
+  const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(null);
   
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
@@ -815,6 +820,36 @@ export function ClientsTable({
     }
   }, [fetchOfertasGenericasAprobadas]);
 
+  // Cargar términos y condiciones al montar el componente
+  useEffect(() => {
+    const cargarTerminosCondiciones = async () => {
+      try {
+        const { apiRequest } = await import('@/lib/api-config')
+        const result = await apiRequest<{
+          success: boolean
+          data: {
+            id: string
+            texto: string
+            activo: boolean
+          }
+        }>('/terminos-condiciones/activo', {
+          method: 'GET'
+        })
+        
+        if (result.success && result.data) {
+          console.log('✅ Términos y condiciones cargados en clients-table:', result.data.texto.substring(0, 100) + '...')
+          setTerminosCondiciones(result.data.texto)
+        } else {
+          console.warn('⚠️ No se encontraron términos y condiciones activos')
+        }
+      } catch (error) {
+        console.error('❌ Error cargando términos y condiciones:', error)
+      }
+    }
+    
+    cargarTerminosCondiciones()
+  }, [])
+
   useEffect(() => {
     if (!showOfertaFlowDialog) return;
     if (tipoOfertaSeleccionada !== "personalizada") return;
@@ -961,6 +996,999 @@ export function ClientsTable({
     setMostrarDialogoEliminar(false);
     setOfertaParaEliminar(null);
   };
+
+  const generarOpcionesExportacion = useCallback((oferta: OfertaConfeccion) => {
+    console.log('🚀 generarOpcionesExportacion INICIANDO para oferta:', oferta.id)
+    
+    // Importar funciones necesarias desde ofertas-confeccionadas-view
+    const seccionLabelMap = new Map([
+      ["INVERSORES", "Inversores"],
+      ["BATERIAS", "Baterías"],
+      ["PANELES", "Paneles Solares"],
+      ["MPPT", "Controladores MPPT"],
+      ["ESTRUCTURAS", "Estructuras de Montaje"],
+      ["CABLEADO_DC", "Cableado DC"],
+      ["CABLEADO_AC", "Cableado AC"],
+      ["CANALIZACION", "Canalización"],
+      ["TIERRA", "Sistema de Tierra"],
+      ["PROTECCIONES_ELECTRICAS", "Protecciones Eléctricas"],
+      ["MATERIAL_VARIO", "Material Vario"],
+    ])
+
+    const calcularTotalesDetalle = (oferta: OfertaConfeccion) => {
+      const totalMateriales = oferta.total_materiales || 0
+      const margenInstalacion = oferta.margen_instalacion || 0
+      const costoTransportacion = oferta.costo_transportacion || 0
+      const totalElementosPersonalizados = oferta.total_elementos_personalizados || 0
+      const totalCostosExtras = oferta.total_costos_extras || 0
+      
+      const subtotalConMargen = totalMateriales + margenInstalacion
+      const baseParaContribucion = subtotalConMargen + costoTransportacion + totalElementosPersonalizados + totalCostosExtras
+      
+      const contribucion = oferta.aplica_contribucion && oferta.porcentaje_contribucion
+        ? baseParaContribucion * (oferta.porcentaje_contribucion / 100)
+        : 0
+      
+      const subtotalAntesDescuento = baseParaContribucion + contribucion
+      
+      const descuentoPorcentaje = parseFloat(oferta.descuento_porcentaje as any) || 0
+      const montoDescuento = descuentoPorcentaje > 0
+        ? subtotalAntesDescuento * (descuentoPorcentaje / 100)
+        : 0
+      
+      const subtotalConDescuento = subtotalAntesDescuento - montoDescuento
+      const totalSinRedondeo = subtotalConDescuento
+      const precioFinal = Math.ceil(totalSinRedondeo)
+      const redondeo = precioFinal - totalSinRedondeo
+      
+      return {
+        totalMateriales,
+        margenInstalacion,
+        costoTransportacion,
+        totalElementosPersonalizados,
+        totalCostosExtras,
+        subtotalConMargen,
+        contribucion,
+        subtotalAntesDescuento,
+        montoDescuento,
+        subtotalConDescuento,
+        totalSinRedondeo,
+        precioFinal,
+        redondeo,
+      }
+    }
+
+    // Buscar el lead asociado
+    const cliente = clients.find(c => c.id === oferta.cliente_id || c.numero === oferta.cliente_numero)
+    
+    // Crear mapas de materiales y marcas
+    const materialesMap = new Map(materials.map(m => [m.codigo.toString(), m]))
+    const marcasMap = new Map(marcas.map(marca => [marca.id, marca.nombre]))
+    
+    // Orden de secciones
+    const ordenSeccionesBase = [
+      "INVERSORES", "BATERIAS", "PANELES", "MPPT", "ESTRUCTURAS",
+      "CABLEADO_DC", "CABLEADO_AC", "CANALIZACION", "TIERRA",
+      "PROTECCIONES_ELECTRICAS", "MATERIAL_VARIO",
+    ]
+    
+    const seccionesPersonalizadasOferta = oferta.secciones_personalizadas || []
+    const ordenSecciones = [
+      ...ordenSeccionesBase,
+      ...seccionesPersonalizadasOferta.map((s: any) => s.id)
+    ]
+    
+    const ordenarItemsPorSeccion = (items: any[]) => {
+      return [...items].sort((a, b) => {
+        const indexA = ordenSecciones.indexOf(a.seccion)
+        const indexB = ordenSecciones.indexOf(b.seccion)
+        const posA = indexA === -1 ? 999 : indexA
+        const posB = indexB === -1 ? 999 : indexB
+        return posA - posB
+      })
+    }
+    
+    const itemsOrdenados = ordenarItemsPorSeccion(oferta.items || [])
+    
+    // Generar nombre base del archivo
+    let baseFilename = (oferta.nombre || 'oferta')
+      .replace(/[<>:"/\\|?*]/g, '')
+      .replace(/\s+/g, '_')
+      .replace(/,\s*/g, '+')
+      .replace(/_+/g, '_')
+      .trim()
+    
+    if (oferta.tipo === 'personalizada' && cliente) {
+      const nombreContacto = cliente?.nombre || ''
+      if (nombreContacto) {
+        const nombreLimpio = nombreContacto
+          .replace(/[<>:"/\\|?*]/g, '')
+          .replace(/\s+/g, '_')
+          .replace(/_+/g, '_')
+          .trim()
+        baseFilename = `${baseFilename}-${nombreLimpio}`
+      }
+    }
+    
+    const tasaCambioNumero = oferta.tasa_cambio || 0
+    const montoConvertido = tasaCambioNumero > 0 && oferta.moneda_pago !== 'USD'
+      ? oferta.moneda_pago === 'EUR'
+        ? (oferta.precio_final || 0) / tasaCambioNumero
+        : (oferta.precio_final || 0) * tasaCambioNumero
+      : 0
+    
+    // EXPORTACIÓN COMPLETA
+    const rowsCompleto: any[] = []
+    itemsOrdenados.forEach((item) => {
+      let seccionLabel = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      if (seccionLabel === item.seccion && seccionesPersonalizadasOferta.length > 0) {
+        const seccionPersonalizada = seccionesPersonalizadasOferta.find((s: any) => s.id === item.seccion)
+        if (seccionPersonalizada) {
+          seccionLabel = seccionPersonalizada.label
+        }
+      }
+      
+      const material = materialesMap.get(item.material_codigo?.toString())
+      const nombreMaterial = material?.nombre || item.descripcion
+      
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      
+      const porcentajeMargen = costoItem > 0 && margenAsignado > 0
+        ? (margenAsignado / costoItem) * 100
+        : 0
+      
+      rowsCompleto.push({
+        material_codigo: item.material_codigo,
+        seccion: seccionLabel,
+        tipo: "Material",
+        descripcion: nombreMaterial,
+        cantidad: item.cantidad,
+        precio_unitario: item.precio.toFixed(2),
+        porcentaje_margen: `${porcentajeMargen.toFixed(2)}%`,
+        margen: margenAsignado.toFixed(2),
+        total: (costoItem + margenAsignado).toFixed(2),
+      })
+    })
+    
+    const totalMateriales = itemsOrdenados.reduce((sum, item) => {
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      return sum + costoItem + margenAsignado
+    }, 0)
+    
+    // Agregar secciones personalizadas de tipo costo
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            rowsCompleto.push({
+              material_codigo: "",
+              seccion: seccion.label,
+              tipo: "Costo extra",
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+              precio_unitario: costo.precio_unitario.toFixed(2),
+              porcentaje_margen: "",
+              margen: "",
+              total: (costo.cantidad * costo.precio_unitario).toFixed(2),
+            })
+          })
+        }
+      })
+    }
+    
+    rowsCompleto.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "Subtotal",
+      descripcion: "Total de materiales",
+      cantidad: "",
+      precio_unitario: "",
+      porcentaje_margen: "",
+      margen: "",
+      total: totalMateriales.toFixed(2),
+    })
+    
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Servicios",
+        tipo: "Servicio",
+        descripcion: "Costo de instalación y puesta en marcha",
+        cantidad: 1,
+        precio_unitario: oferta.margen_instalacion.toFixed(2),
+        porcentaje_margen: "",
+        margen: "",
+        total: oferta.margen_instalacion.toFixed(2),
+      })
+    }
+    
+    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Logística",
+        tipo: "Transportación",
+        descripcion: "Costo de transportación",
+        cantidad: 1,
+        precio_unitario: oferta.costo_transportacion.toFixed(2),
+        porcentaje_margen: "",
+        margen: "",
+        total: oferta.costo_transportacion.toFixed(2),
+      })
+    }
+    
+    const descuentoPorcentaje = parseFloat(oferta.descuento_porcentaje as any) || 0
+    const montoDescuento = parseFloat(oferta.monto_descuento as any) || 0
+    
+    if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Contribución",
+        tipo: "Contribucion",
+        descripcion: `Contribución (${oferta.porcentaje_contribucion}%)`,
+        cantidad: 1,
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: totalesCalc.contribucion.toFixed(2),
+      })
+    }
+    
+    if (descuentoPorcentaje > 0) {
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${descuentoPorcentaje}%)`,
+        cantidad: 1,
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: `- ${montoDescuento.toFixed(2)}`,
+      })
+    }
+    
+    rowsCompleto.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "TOTAL",
+      descripcion: "Precio final",
+      cantidad: "",
+      precio_unitario: "",
+      porcentaje_margen: "",
+      margen: "",
+      total: (oferta.precio_final || 0).toFixed(2),
+    })
+    
+    if (oferta.pago_transferencia || oferta.aplica_contribucion || (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0)) {
+      if (oferta.pago_transferencia) {
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "✓ Pago por transferencia",
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+        
+        if (oferta.datos_cuenta) {
+          rowsCompleto.push({
+            material_codigo: "",
+            seccion: "PAGO",
+            tipo: "Datos",
+            descripcion: "Datos de la cuenta",
+            cantidad: "",
+            precio_unitario: "",
+            porcentaje_margen: "",
+            margen: "",
+            total: oferta.datos_cuenta,
+          })
+        }
+      }
+      
+      rowsCompleto.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "TOTAL",
+        descripcion: "Precio Final",
+        cantidad: "",
+        precio_unitario: "",
+        porcentaje_margen: "",
+        margen: "",
+        total: (oferta.precio_final || 0).toFixed(2),
+      })
+      
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      if (Math.abs(totalesCalc.redondeo) > 0.01) {
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Nota",
+          descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+      }
+      
+      if (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0) {
+        const simboloMoneda = oferta.moneda_pago === 'EUR' ? '€' : 'CUP'
+        const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "Moneda de pago",
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: nombreMoneda,
+        })
+        
+        const tasaTexto = oferta.moneda_pago === 'EUR' 
+          ? `1 EUR = ${tasaCambioNumero} USD`
+          : `1 USD = ${tasaCambioNumero} CUP`
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Tasa",
+          descripcion: tasaTexto,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: "",
+        })
+        
+        rowsCompleto.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Conversión",
+          descripcion: `Precio en ${oferta.moneda_pago}`,
+          cantidad: "",
+          precio_unitario: "",
+          porcentaje_margen: "",
+          margen: "",
+          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+        })
+      }
+    }
+    
+    // Crear mapa de fotos
+    const fotosMap = new Map<string, string>()
+    itemsOrdenados.forEach((item) => {
+      const material = materials.find(m => m.codigo.toString() === item.material_codigo)
+      if (material?.foto) {
+        fotosMap.set(item.material_codigo?.toString(), material.foto)
+      }
+    })
+
+    // Extraer componentes principales (simplificado para leads)
+    const componentesPrincipales: any = {}
+    const itemsInversores = itemsOrdenados.filter(item => item.seccion === 'INVERSORES')
+    if (itemsInversores.length > 0) {
+      const inversor = itemsInversores[0]
+      const material = materials.find(m => m.codigo.toString() === inversor.material_codigo)
+      const potencia = material?.potenciaKW || 0
+      const marcaId = material?.marca_id
+      const marca = marcaId ? marcasMap.get(marcaId) : undefined
+      
+      componentesPrincipales.inversor = {
+        codigo: inversor.material_codigo,
+        cantidad: inversor.cantidad,
+        potencia: potencia,
+        marca: marca
+      }
+    }
+    
+    const itemsBaterias = itemsOrdenados.filter(item => item.seccion === 'BATERIAS')
+    if (itemsBaterias.length > 0) {
+      const bateria = itemsBaterias[0]
+      const material = materials.find(m => m.codigo.toString() === bateria.material_codigo)
+      const capacidad = material?.potenciaKW || 0
+      
+      componentesPrincipales.bateria = {
+        codigo: bateria.material_codigo,
+        cantidad: bateria.cantidad,
+        capacidad: capacidad
+      }
+    }
+    
+    const itemsPaneles = itemsOrdenados.filter(item => item.seccion === 'PANELES')
+    if (itemsPaneles.length > 0) {
+      const panel = itemsPaneles[0]
+      const material = materials.find(m => m.codigo.toString() === panel.material_codigo)
+      const potenciaKW = material?.potenciaKW || 0
+      const potencia = potenciaKW * 1000
+      
+      componentesPrincipales.panel = {
+        codigo: panel.material_codigo,
+        cantidad: panel.cantidad,
+        potencia: potencia
+      }
+    }
+    
+    const exportOptionsCompleto = {
+      title: "Oferta - Exportación completa",
+      subtitle: (oferta.nombre_completo && oferta.nombre_completo !== '0.00' && isNaN(Number(oferta.nombre_completo))) 
+        ? oferta.nombre_completo 
+        : oferta.nombre,
+      columns: [
+        { header: "Sección", key: "seccion", width: 18 },
+        { header: "Tipo", key: "tipo", width: 12 },
+        { header: "Descripción", key: "descripcion", width: 45 },
+        { header: "Cant", key: "cantidad", width: 8 },
+        { header: "P.Unit ($)", key: "precio_unitario", width: 12 },
+        { header: "% Margen", key: "porcentaje_margen", width: 8 },
+        { header: "Margen ($)", key: "margen", width: 14 },
+        { header: "Total ($)", key: "total", width: 14 },
+      ],
+      data: rowsCompleto,
+      logoUrl: '/logo Suncar.png',
+      clienteData: oferta.tipo === 'personalizada' && cliente ? {
+        numero: cliente.numero || cliente.id,
+        nombre: cliente.nombre,
+        telefono: cliente.telefono,
+        carnet_identidad: cliente.carnet_identidad,
+        provincia_montaje: cliente.provincia_montaje,
+        direccion: cliente.direccion,
+        atencion_de: cliente.nombre,
+      } : undefined,
+      leadSinAgregarData: oferta.tipo === 'personalizada' && oferta.nombre_lead_sin_agregar ? {
+        nombre: oferta.nombre_lead_sin_agregar,
+        atencion_de: oferta.nombre_lead_sin_agregar,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
+        tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
+      componentesPrincipales,
+      terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
+      ),
+    }
+    
+    // EXPORTACIÓN SIN PRECIOS (copiado exactamente de ofertas-confeccionadas-view)
+    const rowsSinPrecios: any[] = []
+    itemsOrdenados.forEach((item) => {
+      let seccionLabel = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      if (seccionLabel === item.seccion && seccionesPersonalizadasOferta.length > 0) {
+        const seccionPersonalizada = seccionesPersonalizadasOferta.find((s: any) => s.id === item.seccion)
+        if (seccionPersonalizada) {
+          seccionLabel = seccionPersonalizada.label
+        }
+      }
+      
+      const material = materialesMap.get(item.material_codigo?.toString())
+      const nombreMaterial = material?.nombre || item.descripcion
+      
+      rowsSinPrecios.push({
+        material_codigo: item.material_codigo,
+        seccion: seccionLabel,
+        tipo: "Material",
+        descripcion: nombreMaterial,
+        cantidad: item.cantidad,
+      })
+    })
+
+    // Agregar secciones personalizadas de tipo costo (sin precios)
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            rowsSinPrecios.push({
+              material_codigo: "",
+              seccion: seccion.label,
+              tipo: "Costo extra",
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+            })
+          })
+        }
+      })
+    }
+
+    rowsSinPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "Subtotal",
+      descripcion: "Total de materiales",
+      cantidad: "",
+    })
+
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Servicios",
+        tipo: "Servicio",
+        descripcion: "Costo de instalación y puesta en marcha",
+        cantidad: 1,
+      })
+    }
+
+    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Logística",
+        tipo: "Transportación",
+        descripcion: "Costo de transportación",
+        cantidad: 1,
+        total: oferta.costo_transportacion.toFixed(2),
+      })
+    }
+
+    if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Contribución",
+        tipo: "Contribucion",
+        descripcion: `Contribución (${oferta.porcentaje_contribucion}%)`,
+        cantidad: 1,
+        total: totalesCalc.contribucion.toFixed(2),
+      })
+    }
+
+    if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      const montoDescuento = totalesCalc.montoDescuento || oferta.monto_descuento || 0
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${oferta.descuento_porcentaje}%)`,
+        cantidad: 1,
+        total: `- ${montoDescuento.toFixed(2)}`,
+      })
+    }
+
+    rowsSinPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "TOTAL",
+      descripcion: "Precio Total",
+      cantidad: "",
+      total: (oferta.precio_final || 0).toFixed(2),
+    })
+
+    // Datos de pago para sin precios
+    if (oferta.pago_transferencia || oferta.aplica_contribucion || (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0)) {
+      if (oferta.pago_transferencia) {
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "✓ Pago por transferencia",
+          cantidad: "",
+        })
+        
+        if (oferta.datos_cuenta) {
+          rowsSinPrecios.push({
+            material_codigo: "",
+            seccion: "PAGO",
+            tipo: "Datos",
+            descripcion: "Datos de la cuenta",
+            cantidad: "",
+            total: oferta.datos_cuenta,
+          })
+        }
+      }
+
+      if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: `✓ Aplicar ${oferta.porcentaje_contribucion}% de Contribución`,
+          cantidad: "",
+        })
+      }
+
+      rowsSinPrecios.push({
+        material_codigo: "",
+        seccion: "PAGO",
+        tipo: "TOTAL",
+        descripcion: "Precio Final",
+        cantidad: "",
+        total: (oferta.precio_final || 0).toFixed(2),
+      })
+
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      if (Math.abs(totalesCalc.redondeo) > 0.01) {
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Nota",
+          descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
+          cantidad: "",
+        })
+      }
+
+      if (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0) {
+        const simboloMoneda = oferta.moneda_pago === 'EUR' ? '€' : 'CUP'
+        const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+        
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Info",
+          descripcion: "Moneda de pago",
+          cantidad: "",
+          total: nombreMoneda,
+        })
+        
+        const tasaTexto = oferta.moneda_pago === 'EUR' 
+          ? `Tasa de cambio: 1 EUR = ${tasaCambioNumero} USD`
+          : `Tasa de cambio: 1 USD = ${tasaCambioNumero} CUP`
+        
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Tasa",
+          descripcion: tasaTexto,
+          cantidad: "",
+        })
+        
+        rowsSinPrecios.push({
+          material_codigo: "",
+          seccion: "PAGO",
+          tipo: "Conversión",
+          descripcion: `Precio en ${oferta.moneda_pago}`,
+          cantidad: "",
+          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+        })
+      }
+    }
+    
+    const exportOptionsSinPrecios = {
+      title: "Oferta - Cliente sin precios",
+      subtitle: (oferta.nombre_completo && oferta.nombre_completo !== '0.00' && isNaN(Number(oferta.nombre_completo))) 
+        ? oferta.nombre_completo 
+        : oferta.nombre,
+      columns: [
+        { header: "Material", key: "descripcion", width: 60 },
+        { header: "Cant", key: "cantidad", width: 10 },
+      ],
+      data: rowsSinPrecios,
+      logoUrl: '/logo Suncar.png',
+      clienteData: oferta.tipo === 'personalizada' && cliente ? {
+        numero: cliente.numero || cliente.id,
+        nombre: cliente.nombre,
+        telefono: cliente.telefono,
+        carnet_identidad: cliente.carnet_identidad,
+        provincia_montaje: cliente.provincia_montaje,
+        direccion: cliente.direccion,
+        atencion_de: cliente.nombre,
+      } : undefined,
+      leadSinAgregarData: oferta.tipo === 'personalizada' && oferta.nombre_lead_sin_agregar ? {
+        nombre: oferta.nombre_lead_sin_agregar,
+        atencion_de: oferta.nombre_lead_sin_agregar,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
+        tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
+      sinPrecios: true,
+      componentesPrincipales,
+      terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
+      ),
+    }
+    
+    console.log('🔍 DEBUG exportOptionsSinPrecios desde leads:', {
+      sinPrecios: exportOptionsSinPrecios.sinPrecios,
+      columns: exportOptionsSinPrecios.columns,
+      dataLength: exportOptionsSinPrecios.data.length,
+      firstRow: exportOptionsSinPrecios.data[0],
+    })
+    
+    // EXPORTACIÓN CLIENTE CON PRECIOS (copiado exactamente de ofertas-confeccionadas-view)
+    const rowsClienteConPrecios: any[] = []
+    itemsOrdenados.forEach((item) => {
+      let seccionLabel = seccionLabelMap.get(item.seccion) ?? item.seccion
+      
+      if (seccionLabel === item.seccion && seccionesPersonalizadasOferta.length > 0) {
+        const seccionPersonalizada = seccionesPersonalizadasOferta.find((s: any) => s.id === item.seccion)
+        if (seccionPersonalizada) {
+          seccionLabel = seccionPersonalizada.label
+        }
+      }
+      
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      const totalConMargen = costoItem + margenAsignado
+      
+      const material = materialesMap.get(item.material_codigo?.toString())
+      const nombreMaterial = material?.nombre || item.descripcion
+      
+      rowsClienteConPrecios.push({
+        material_codigo: item.material_codigo,
+        seccion: seccionLabel,
+        tipo: "Material",
+        descripcion: nombreMaterial,
+        cantidad: item.cantidad,
+        total: totalConMargen.toFixed(2),
+      })
+    })
+
+    const totalMaterialesCliente = itemsOrdenados.reduce((sum, item) => {
+      const margenAsignado = (item as any).margen_asignado || 0
+      const costoItem = item.precio * item.cantidad
+      return sum + costoItem + margenAsignado
+    }, 0)
+
+    let totalCostosExtrasCliente = 0
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            totalCostosExtrasCliente += costo.cantidad * costo.precio_unitario
+          })
+        }
+      })
+    }
+
+    if (seccionesPersonalizadasOferta.length > 0) {
+      seccionesPersonalizadasOferta.forEach((seccion: any) => {
+        if (seccion.tipo === 'extra' && seccion.tipo_extra === 'costo' && seccion.costos_extras) {
+          seccion.costos_extras.forEach((costo: any) => {
+            rowsClienteConPrecios.push({
+              material_codigo: "",
+              seccion: seccion.label,
+              tipo: "Costo extra",
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+              total: (costo.cantidad * costo.precio_unitario).toFixed(2),
+            })
+          })
+        }
+      })
+    }
+
+    rowsClienteConPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "Subtotal",
+      descripcion: "Total de materiales",
+      cantidad: "",
+      total: totalMaterialesCliente.toFixed(2),
+    })
+
+    if (totalCostosExtrasCliente > 0) {
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Totales",
+        tipo: "Subtotal",
+        descripcion: "Total costos extras",
+        cantidad: "",
+        total: totalCostosExtrasCliente.toFixed(2),
+      })
+    }
+
+    if (oferta.margen_instalacion && oferta.margen_instalacion > 0) {
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Servicios",
+        tipo: "Servicio",
+        descripcion: "Costo de instalación y puesta en marcha",
+        cantidad: 1,
+        total: oferta.margen_instalacion.toFixed(2),
+      })
+    }
+
+    if (oferta.costo_transportacion && oferta.costo_transportacion > 0) {
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Logística",
+        tipo: "Transportación",
+        descripcion: "Costo de transportación",
+        cantidad: 1,
+        total: oferta.costo_transportacion.toFixed(2),
+      })
+    }
+
+    if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Contribución",
+        tipo: "Contribucion",
+        descripcion: `Contribución (${oferta.porcentaje_contribucion}%)`,
+        cantidad: 1,
+        total: totalesCalc.contribucion.toFixed(2),
+      })
+    }
+
+    if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      const montoDescuento = totalesCalc.montoDescuento || oferta.monto_descuento || 0
+      rowsClienteConPrecios.push({
+        material_codigo: "",
+        seccion: "Descuento",
+        tipo: "Descuento",
+        descripcion: `Descuento aplicado (${oferta.descuento_porcentaje}%)`,
+        cantidad: 1,
+        total: `- ${montoDescuento.toFixed(2)}`,
+      })
+    }
+
+    rowsClienteConPrecios.push({
+      material_codigo: "",
+      seccion: "Totales",
+      tipo: "TOTAL",
+      descripcion: "PRECIO TOTAL",
+      cantidad: "",
+      total: (oferta.precio_final || 0).toFixed(2),
+    })
+
+    // Datos de pago para cliente con precios
+    if (oferta.pago_transferencia || oferta.aplica_contribucion || (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0)) {
+      if (oferta.pago_transferencia) {
+        rowsClienteConPrecios.push({
+          descripcion: "✓ Pago por transferencia",
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Info",
+        })
+        
+        if (oferta.datos_cuenta) {
+          rowsClienteConPrecios.push({
+            descripcion: "Datos de la cuenta",
+            cantidad: "",
+            total: oferta.datos_cuenta,
+            seccion: "PAGO",
+            tipo: "Datos",
+          })
+        }
+      }
+
+      if (oferta.aplica_contribucion && oferta.porcentaje_contribucion) {
+        const totalesCalc = calcularTotalesDetalle(oferta)
+        
+        rowsClienteConPrecios.push({
+          descripcion: `✓ Aplicar ${oferta.porcentaje_contribucion}% de Contribución`,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Info",
+        })
+        
+        rowsClienteConPrecios.push({
+          descripcion: "Contribución",
+          cantidad: "",
+          total: totalesCalc.contribucion.toFixed(2),
+          seccion: "PAGO",
+          tipo: "Monto",
+        })
+      }
+
+      rowsClienteConPrecios.push({
+        descripcion: "Precio Final",
+        cantidad: "",
+        total: (oferta.precio_final || 0).toFixed(2),
+        seccion: "PAGO",
+        tipo: "TOTAL",
+      })
+
+      const totalesCalc = calcularTotalesDetalle(oferta)
+      if (Math.abs(totalesCalc.redondeo) > 0.01) {
+        rowsClienteConPrecios.push({
+          descripcion: `(Redondeado desde ${totalesCalc.totalSinRedondeo.toFixed(2)} $)`,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Nota",
+        })
+      }
+
+      if (oferta.moneda_pago !== 'USD' && tasaCambioNumero > 0) {
+        const simboloMoneda = oferta.moneda_pago === 'EUR' ? '€' : 'CUP'
+        const nombreMoneda = oferta.moneda_pago === 'EUR' ? 'Euros (EUR)' : 'Pesos Cubanos (CUP)'
+        
+        rowsClienteConPrecios.push({
+          descripcion: "Moneda de pago",
+          cantidad: "",
+          total: nombreMoneda,
+          seccion: "PAGO",
+          tipo: "Info",
+        })
+        
+        const tasaTexto = oferta.moneda_pago === 'EUR' 
+          ? `Tasa de cambio: 1 EUR = ${tasaCambioNumero} USD`
+          : `Tasa de cambio: 1 USD = ${tasaCambioNumero} CUP`
+        
+        rowsClienteConPrecios.push({
+          descripcion: tasaTexto,
+          cantidad: "",
+          seccion: "PAGO",
+          tipo: "Tasa",
+        })
+        
+        rowsClienteConPrecios.push({
+          descripcion: `Precio en ${oferta.moneda_pago}`,
+          cantidad: "",
+          total: `${montoConvertido.toFixed(2)} ${simboloMoneda}`,
+          seccion: "PAGO",
+          tipo: "Conversión",
+        })
+      }
+    }
+    
+    const exportOptionsClienteConPrecios = {
+      title: "Oferta - Cliente con precios",
+      subtitle: (oferta.nombre_completo && oferta.nombre_completo !== '0.00' && isNaN(Number(oferta.nombre_completo))) 
+        ? oferta.nombre_completo 
+        : oferta.nombre,
+      columns: [
+        { header: "Material", key: "descripcion", width: 50 },
+        { header: "Cant", key: "cantidad", width: 10 },
+        { header: "Total ($)", key: "total", width: 15 },
+      ],
+      data: rowsClienteConPrecios,
+      logoUrl: '/logo Suncar.png',
+      clienteData: oferta.tipo === 'personalizada' && cliente ? {
+        numero: cliente.numero || cliente.id,
+        nombre: cliente.nombre,
+        telefono: cliente.telefono,
+        carnet_identidad: cliente.carnet_identidad,
+        provincia_montaje: cliente.provincia_montaje,
+        direccion: cliente.direccion,
+        atencion_de: cliente.nombre,
+      } : undefined,
+      leadSinAgregarData: oferta.tipo === 'personalizada' && oferta.nombre_lead_sin_agregar ? {
+        nombre: oferta.nombre_lead_sin_agregar,
+        atencion_de: oferta.nombre_lead_sin_agregar,
+      } : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
+        tipo_oferta: oferta.tipo === 'generica' ? 'Genérica' : 'Personalizada',
+      },
+      incluirFotos: true,
+      fotosMap,
+      conPreciosCliente: true,
+      componentesPrincipales,
+      terminosCondiciones: terminosCondiciones || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
+        s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
+      ),
+    }
+    
+    const resultado = {
+      baseFilename,
+      exportOptionsCompleto,
+      exportOptionsSinPrecios,
+      exportOptionsClienteConPrecios,
+    }
+    
+    console.log('✅ generarOpcionesExportacion RESULTADO:', {
+      baseFilename: resultado.baseFilename,
+      sinPrecios: resultado.exportOptionsSinPrecios?.sinPrecios,
+      conPreciosCliente: resultado.exportOptionsClienteConPrecios?.conPreciosCliente,
+      columns_sinPrecios: resultado.exportOptionsSinPrecios?.columns?.length,
+      columns_conPrecios: resultado.exportOptionsClienteConPrecios?.columns?.length,
+    })
+    
+    return resultado
+  }, [clients, materials, marcas, terminosCondiciones])
 
   const handleExportarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaExportar(oferta);
@@ -2330,11 +3358,14 @@ export function ClientsTable({
       />
 
       {/* Diálogo de Exportación */}
-      <ExportSelectionDialog
-        open={mostrarDialogoExportar}
-        onOpenChange={setMostrarDialogoExportar}
-        oferta={ofertaParaExportar}
-      />
+      {ofertaParaExportar && (
+        <ExportSelectionDialog
+          open={mostrarDialogoExportar}
+          onOpenChange={setMostrarDialogoExportar}
+          oferta={ofertaParaExportar}
+          exportOptions={generarOpcionesExportacion(ofertaParaExportar)}
+        />
+      )}
 
       {/* Diálogo de Eliminación */}
       <Dialog open={mostrarDialogoEliminar} onOpenChange={setMostrarDialogoEliminar}>

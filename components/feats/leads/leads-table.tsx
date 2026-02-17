@@ -171,6 +171,7 @@ export function LeadsTable({
   const [eliminandoOferta, setEliminandoOferta] = useState(false)
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false)
   const [ofertaParaExportar, setOfertaParaExportar] = useState<OfertaConfeccion | null>(null)
+  const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(null)
 
   const ofertasDelLead = useMemo(() => {
     if (!selectedLeadForOfertas) return []
@@ -263,6 +264,34 @@ export function LeadsTable({
       setOfertasGenericasAprobadasCargadas(true)
     }
   }, [fetchOfertasGenericasAprobadas])
+
+  // Cargar términos y condiciones al montar el componente
+  useEffect(() => {
+    const cargarTerminos = async () => {
+      try {
+        const { apiRequest } = await import('@/lib/api-config')
+        const result = await apiRequest<{
+          success: boolean
+          data: {
+            texto: string
+            activo: boolean
+          }
+        }>('/terminos-condiciones/activo', {
+          method: 'GET'
+        })
+        
+        if (result.success && result.data) {
+          console.log('✅ Términos y condiciones cargados:', result.data.texto.substring(0, 100) + '...')
+          setTerminosCondiciones(result.data.texto)
+        } else {
+          console.warn('⚠️ No se encontraron términos y condiciones activos')
+        }
+      } catch (error) {
+        console.error('❌ Error cargando términos y condiciones:', error)
+      }
+    }
+    cargarTerminos()
+  }, [])
 
   useEffect(() => {
     if (!showOfertaFlowDialog) return
@@ -779,6 +808,8 @@ export function LeadsTable({
 
   // Generar opciones de exportación para una oferta (similar a ofertas-confeccionadas-view)
   const generarOpcionesExportacion = useCallback((oferta: OfertaConfeccion) => {
+    console.log('🚀 generarOpcionesExportacion INICIANDO para oferta:', oferta.id)
+    
     // Importar funciones necesarias desde ofertas-confeccionadas-view
     const seccionLabelMap = new Map([
       ["INVERSORES", "Inversores"],
@@ -1236,7 +1267,7 @@ export function LeadsTable({
       incluirFotos: true,
       fotosMap,
       componentesPrincipales,
-      terminosCondiciones: undefined,
+      terminosCondiciones: terminosCondiciones || undefined,
       seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
         s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
       ),
@@ -1468,7 +1499,7 @@ export function LeadsTable({
       fotosMap,
       sinPrecios: true,
       componentesPrincipales,
-      terminosCondiciones: undefined,
+      terminosCondiciones: terminosCondiciones || undefined,
       seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
         s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
       ),
@@ -1745,19 +1776,29 @@ export function LeadsTable({
       fotosMap,
       conPreciosCliente: true,
       componentesPrincipales,
-      terminosCondiciones: undefined,
+      terminosCondiciones: terminosCondiciones || undefined,
       seccionesPersonalizadas: seccionesPersonalizadasOferta.filter((s: any) => 
         s.tipo === 'extra' && (s.tipo_extra === 'escritura' || s.tipo_extra === 'costo')
       ),
     }
     
-    return {
+    const resultado = {
       baseFilename,
       exportOptionsCompleto,
       exportOptionsSinPrecios,
       exportOptionsClienteConPrecios,
     }
-  }, [leads, materials, marcas])
+    
+    console.log('✅ generarOpcionesExportacion RESULTADO:', {
+      baseFilename: resultado.baseFilename,
+      sinPrecios: resultado.exportOptionsSinPrecios?.sinPrecios,
+      conPreciosCliente: resultado.exportOptionsClienteConPrecios?.conPreciosCliente,
+      columns_sinPrecios: resultado.exportOptionsSinPrecios?.columns?.length,
+      columns_conPrecios: resultado.exportOptionsClienteConPrecios?.columns?.length,
+    })
+    
+    return resultado
+  }, [leads, materials, marcas, terminosCondiciones])
 
   const handleExportarOferta = (oferta: OfertaConfeccion) => {
     setOfertaParaExportar(oferta)

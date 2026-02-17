@@ -17,14 +17,15 @@ import { ArrowLeft, Search, Plus, List, RefreshCw, AlertCircle } from "lucide-re
 import { usePagos } from "@/hooks/use-pagos"
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table"
 import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table"
+import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table"
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { useToast } from "@/hooks/use-toast"
 
-type ViewMode = 'anticipos-pendientes' | 'finales-pendientes' | 'todos'
+type ViewMode = 'anticipos-pendientes' | 'finales-pendientes' | 'pagos-por-ofertas' | 'todos-pagos'
 
 export default function PagosClientesPage() {
-    const { ofertasSinPago, ofertasConSaldoPendiente, todosPagos, loading, error, refetch } = usePagos()
+    const { ofertasSinPago, ofertasConSaldoPendiente, ofertasConPagos, loading, error, refetch } = usePagos()
     const { toast } = useToast()
     const [viewMode, setViewMode] = useState<ViewMode>('anticipos-pendientes')
     const [searchTerm, setSearchTerm] = useState("")
@@ -176,10 +177,22 @@ export default function PagosClientesPage() {
                                         Pagos Finales Pendientes
                                     </Button>
                                     <Button
-                                        variant={viewMode === 'todos' ? "default" : "outline"}
-                                        onClick={() => setViewMode('todos')}
+                                        variant={viewMode === 'pagos-por-ofertas' ? "default" : "outline"}
+                                        onClick={() => setViewMode('pagos-por-ofertas')}
                                         className={
-                                            viewMode === 'todos'
+                                            viewMode === 'pagos-por-ofertas'
+                                                ? "bg-green-600 hover:bg-green-700"
+                                                : ""
+                                        }
+                                    >
+                                        <List className="h-4 w-4 mr-2" />
+                                        Pagos por Ofertas
+                                    </Button>
+                                    <Button
+                                        variant={viewMode === 'todos-pagos' ? "default" : "outline"}
+                                        onClick={() => setViewMode('todos-pagos')}
+                                        className={
+                                            viewMode === 'todos-pagos'
                                                 ? "bg-green-600 hover:bg-green-700"
                                                 : ""
                                         }
@@ -214,29 +227,7 @@ export default function PagosClientesPage() {
                                         />
                                     </div>
                                 </div>
-                                {viewMode === 'todos' && (
-                                    <div className="lg:w-48">
-                                        <Label
-                                            htmlFor="estado-filter"
-                                            className="text-sm font-medium text-gray-700 mb-2 block"
-                                        >
-                                            Filtrar por Estado
-                                        </Label>
-                                        <Select
-                                            value={estadoFilter}
-                                            onValueChange={setEstadoFilter}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Todos los estados" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos los estados</SelectItem>
-                                                <SelectItem value="pendiente">Pendiente</SelectItem>
-                                                <SelectItem value="completado">Completado</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
+
                             </div>
                         </CardContent>
                     </Card>
@@ -247,7 +238,8 @@ export default function PagosClientesPage() {
                             <CardTitle>
                                 {viewMode === 'anticipos-pendientes' && 'Anticipos Pendientes'}
                                 {viewMode === 'finales-pendientes' && 'Pagos Finales Pendientes'}
-                                {viewMode === 'todos' && 'Todos los Pagos'}
+                                {viewMode === 'pagos-por-ofertas' && 'Pagos por Ofertas'}
+                                {viewMode === 'todos-pagos' && 'Todos los Pagos'}
                             </CardTitle>
                             <CardDescription>
                                 {viewMode === 'anticipos-pendientes' && 
@@ -256,13 +248,19 @@ export default function PagosClientesPage() {
                                 {viewMode === 'finales-pendientes' && 
                                     `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`
                                 }
-                                {viewMode === 'todos' && `Mostrando ${todosPagos.length} pagos registrados`}
+                                {viewMode === 'pagos-por-ofertas' && `Mostrando ${ofertasConPagos.length} ofertas con pagos`}
+                                {viewMode === 'todos-pagos' && `Mostrando ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} pagos registrados`}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            {viewMode === 'todos' ? (
+                            {viewMode === 'pagos-por-ofertas' ? (
                                 <TodosPagosTable
-                                    pagos={todosPagos}
+                                    ofertasConPagos={ofertasConPagos}
+                                    loading={loading}
+                                />
+                            ) : viewMode === 'todos-pagos' ? (
+                                <TodosPagosPlanosTable
+                                    ofertasConPagos={ofertasConPagos}
                                     loading={loading}
                                 />
                             ) : (

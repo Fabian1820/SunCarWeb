@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { PagosService, type OfertaConfirmadaSinPago } from '@/lib/services/feats/pagos/pagos-service'
-import { PagoService, type PagoConDetalles } from '@/lib/services/feats/pagos/pago-service'
+import { PagoService, type OfertaConPagos } from '@/lib/services/feats/pagos/pago-service'
 
 export function usePagos() {
   const [ofertasSinPago, setOfertasSinPago] = useState<OfertaConfirmadaSinPago[]>([])
   const [ofertasConSaldoPendiente, setOfertasConSaldoPendiente] = useState<OfertaConfirmadaSinPago[]>([])
-  const [todosPagos, setTodosPagos] = useState<PagoConDetalles[]>([])
+  const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,10 +27,10 @@ export function usePagos() {
     }
   }
 
-  const fetchTodosPagos = async () => {
+  const fetchOfertasConPagos = async () => {
     try {
-      const data = await PagoService.getAllPagosConDetalles()
-      setTodosPagos(data)
+      const data = await PagoService.getOfertasConPagos()
+      setOfertasConPagos(data)
     } catch (err: any) {
       console.error('[usePagos] Error:', err)
     }
@@ -43,7 +43,7 @@ export function usePagos() {
       await Promise.all([
         fetchOfertasSinPago(),
         fetchOfertasConSaldoPendiente(),
-        fetchTodosPagos()
+        fetchOfertasConPagos()
       ])
     } catch (err: any) {
       setError(err.message || 'Error al cargar datos')
@@ -59,7 +59,7 @@ export function usePagos() {
   return {
     ofertasSinPago,
     ofertasConSaldoPendiente,
-    todosPagos,
+    ofertasConPagos,
     loading,
     error,
     refetch,
