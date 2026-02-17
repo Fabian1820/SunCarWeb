@@ -185,11 +185,6 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
             return
         }
 
-        if ((formData.metodo_pago === 'transferencia_bancaria' || formData.metodo_pago === 'stripe') && !formData.comprobante_transferencia.trim()) {
-            setError('El comprobante es obligatorio para transferencias y pagos con Stripe')
-            return
-        }
-
         const fechaPago = new Date(formData.fecha)
         if (fechaPago > new Date()) {
             setError('La fecha no puede ser futura')
@@ -224,7 +219,8 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                 if (Object.keys(desgloseBilletes).length > 0) {
                     pagoData.desglose_billetes = desgloseBilletes
                 }
-            } else {
+            } else if (formData.comprobante_transferencia.trim()) {
+                // Solo agregar comprobante si se proporcionó
                 pagoData.comprobante_transferencia = formData.comprobante_transferencia
             }
 
@@ -564,7 +560,7 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                         {formData.metodo_pago === 'transferencia_bancaria' && (
                             <div className="space-y-2">
                                 <Label htmlFor="comprobante_file">
-                                    Comprobante de Transferencia <span className="text-red-500">*</span>
+                                    Comprobante de Transferencia (opcional)
                                 </Label>
                                 <div className="flex items-center gap-2">
                                     <Input
@@ -592,7 +588,7 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                         {formData.metodo_pago === 'stripe' && (
                             <div className="space-y-2">
                                 <Label htmlFor="comprobante_url">
-                                    URL del Comprobante Stripe <span className="text-red-500">*</span>
+                                    URL del Comprobante Stripe (opcional)
                                 </Label>
                                 <Input
                                     id="comprobante_url"
@@ -602,7 +598,6 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                                         setFormData({ ...formData, comprobante_transferencia: e.target.value })
                                     }
                                     placeholder="https://..."
-                                    required
                                 />
                             </div>
                         )}
