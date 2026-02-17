@@ -40,15 +40,23 @@ export function usePagos() {
     setLoading(true)
     setError(null)
     try {
+      // Solo cargar las ofertas pendientes inicialmente
       await Promise.all([
         fetchOfertasSinPago(),
-        fetchOfertasConSaldoPendiente(),
-        fetchOfertasConPagos()
+        fetchOfertasConSaldoPendiente()
       ])
     } catch (err: any) {
       setError(err.message || 'Error al cargar datos')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const refetchOfertasConPagos = async () => {
+    try {
+      await fetchOfertasConPagos()
+    } catch (err: any) {
+      console.error('[usePagos] Error al cargar ofertas con pagos:', err)
     }
   }
 
@@ -63,5 +71,6 @@ export function usePagos() {
     loading,
     error,
     refetch,
+    refetchOfertasConPagos,
   }
 }

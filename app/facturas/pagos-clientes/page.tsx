@@ -25,13 +25,14 @@ import { useToast } from "@/hooks/use-toast"
 type ViewMode = 'anticipos-pendientes' | 'finales-pendientes' | 'pagos-por-ofertas' | 'todos-pagos'
 
 export default function PagosClientesPage() {
-    const { ofertasSinPago, ofertasConSaldoPendiente, ofertasConPagos, loading, error, refetch } = usePagos()
+    const { ofertasSinPago, ofertasConSaldoPendiente, ofertasConPagos, loading, error, refetch, refetchOfertasConPagos } = usePagos()
     const { toast } = useToast()
     const [viewMode, setViewMode] = useState<ViewMode>('anticipos-pendientes')
     const [searchTerm, setSearchTerm] = useState("")
     const [estadoFilter, setEstadoFilter] = useState("all")
     const [pagoDialogOpen, setPagoDialogOpen] = useState(false)
     const [selectedOferta, setSelectedOferta] = useState<OfertaConfirmadaSinPago | null>(null)
+    const [loadingPagos, setLoadingPagos] = useState(false)
 
     // Filtrar ofertas según búsqueda y vista
     const filteredOfertas = useMemo(() => {
@@ -64,6 +65,16 @@ export default function PagosClientesPage() {
             description: "Pago registrado correctamente",
         })
         refetch()
+    }
+
+    // Cargar ofertas con pagos solo cuando se cambia a esas vistas
+    const handleViewModeChange = async (mode: ViewMode) => {
+        setViewMode(mode)
+        if ((mode === 'pagos-por-ofertas' || mode === 'todos-pagos') && ofertasConPagos.length === 0) {
+            setLoadingPagos(true)
+            await refetchOfertasConPagos()
+            setLoadingPagos(false)
+        }
     }
 
     return (
@@ -154,7 +165,7 @@ export default function PagosClientesPage() {
                                 <div className="flex items-center gap-4 flex-wrap">
                                     <Button
                                         variant={viewMode === 'anticipos-pendientes' ? "default" : "outline"}
-                                        onClick={() => setViewMode('anticipos-pendientes')}
+                                        onClick={() => handleViewModeChange('anticipos-pendientes')}
                                         className={
                                             viewMode === 'anticipos-pendientes'
                                                 ? "bg-green-600 hover:bg-green-700"
@@ -166,7 +177,7 @@ export default function PagosClientesPage() {
                                     </Button>
                                     <Button
                                         variant={viewMode === 'finales-pendientes' ? "default" : "outline"}
-                                        onClick={() => setViewMode('finales-pendientes')}
+                                        onClick={() => handleViewModeChange('finales-pendientes')}
                                         className={
                                             viewMode === 'finales-pendientes'
                                                 ? "bg-green-600 hover:bg-green-700"
@@ -178,7 +189,8 @@ export default function PagosClientesPage() {
                                     </Button>
                                     <Button
                                         variant={viewMode === 'pagos-por-ofertas' ? "default" : "outline"}
-                                        onClick={() => setViewMode('pagos-por-ofertas')}
+                                        onClick={() => handleViewModeChange('pagos-por-ofertas')}
+                                        disabled={loadingPagos}
                                         className={
                                             viewMode === 'pagos-por-ofertas'
                                                 ? "bg-green-600 hover:bg-green-700"
@@ -190,7 +202,8 @@ export default function PagosClientesPage() {
                                     </Button>
                                     <Button
                                         variant={viewMode === 'todos-pagos' ? "default" : "outline"}
-                                        onClick={() => setViewMode('todos-pagos')}
+                                        onClick={() => handleViewModeChange('todos-pagos')}
+                                        disabled={loadingPagos}
                                         className={
                                             viewMode === 'todos-pagos'
                                                 ? "bg-green-600 hover:bg-green-700"
@@ -256,12 +269,12 @@ export default function PagosClientesPage() {
                             {viewMode === 'pagos-por-ofertas' ? (
                                 <TodosPagosTable
                                     ofertasConPagos={ofertasConPagos}
-                                    loading={loading}
+                                    loading={loadingPagos}
                                 />
                             ) : viewMode === 'todos-pagos' ? (
                                 <TodosPagosPlanosTable
                                     ofertasConPagos={ofertasConPagos}
-                                    loading={loading}
+                                    loading={loadingPagos}
                                 />
                             ) : (
                                 <AnticiposPendientesTable
