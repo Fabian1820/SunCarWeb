@@ -353,3 +353,129 @@ The application implements a complete JWT-based authentication system with **dyn
 - No specific test framework configured - check package.json for any additions
 - ESLint configured but errors ignored during builds
 - TypeScript strict mode enabled
+
+
+---
+
+## Análisis del Problema: Nombre de Oferta Incorrecto (Baterías)
+
+### Contexto
+El usuario reporta que al crear una oferta con una batería de 16 kWh, el nombre generado muestra "0.01kWh" en lugar de "16kWh".
+
+### Investigación Realizada
+
+#### 1. Verificación en Base de Datos
+- ✅ El valor en la tabla `materiales` es correcto: `potenciaKW = 16.0`
+- ✅ El campo `potenciaKW` para baterías representa la capacidad en kWh (no en kW)
+
+#### 2. Análisis del Código Frontend
+
+**Generación de Nombres** (`components/feats/ofertas/confeccion-ofertas-view.tsx`):
+
+El frontend genera dos tipos de nombres:
+
+1. **`nombreAutomatico`** (líneas 1223-1303): Formato corto para UI
+   - Ejemplo: "I-1x10kW, B-1x16kWh, P-20x590W"
+
+2. **`nombreCompletoParaExportar`** (líneas 1305-1465): Formato largo con marcas
+   - Ejemplo: "1x 10kW Inversor Growatt, 1x 16kWh Batería Pylontech, 20x 590W Paneles JA Solar"
+
+**Código de Baterías (CORRECTO)**:
+```typescript
+// Líneas 1263-1276 - nombreAutomatico
+if (bateriaSeleccionada) {
+  const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+  const potencia = obtenerPotencia(bateriaSeleccionada)
+  
+  if (potencia) {
+    componentes.push(`B-${cantidad}x${formatearPotencia(potencia)}kWh`)
+  }
+}
+
+// Líneas 1367-1382 - nombreCompletoParaExportar
+if (bateriaSeleccionada) {
+  const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+  const potencia = obtenerPotencia(bateriaSeleccionada)
+  const marca = obtenerMarca(bateriaSeleccionada)
+  
+  if (potencia && marca) {
+    componentes.push(`${cantidad}x ${potencia}kWh Batería ${marca}`)
+  }
+}
+```
+
+**✅ El código usa directamente `material.potenciaKW` sin ninguna conversión para baterías.**
+
+**Función `obtenerPotencia`**:
+```typescript
+const obtenerPotencia = (materialCodigo: string): number | null => {
+  const material = materials.find(m => m.codigo.toString() === materialCodigo)
+  return material?.potenciaKW || null
+}
+```
+
+#### 3. Envío al Backend
+
+El frontend envía ambos nombres al backend (líneas 3431-3432):
+```typescript
+ofertaData.nombre_oferta = nombreAutomatico // Nombre corto
+ofertaData.nombre_completo = nombreCompletoParaExportar // Nombre largo
+```
+
+#### 4. Respuesta del Backend
+
+**🔴 PROBLEMA IDENTIFICADO**: El backend devuelve un `nombre_completo` diferente al enviado.
+
+En la línea 3498, el frontend recibe y guarda el nombre del backend:
+```typescript
+if (response.data.nombre_completo) {
+  setNombreCompletoBackend(response.data.nombre_completo)
+}
+```
+
+### Conclusión
+
+#### El Problema Está en el BACKEND, NO en el Frontend
+
+1. ✅ El frontend genera correctamente: "1x 16kWh Batería Pylontech"
+2. ✅ El frontend envía este nombre al backend
+3. 🔴 El backend devuelve: "1x 0.01kWh Batería Pylontech"
+4. ❌ El frontend usa el nombre del backend para las exportaciones
+
+#### Causa Raíz
+
+El backend está regenerando el nombre de la oferta y aplicando una conversión incorrecta:
+- Toma el valor 16 kWh de la base de datos
+- Lo divide por 1000: `16 / 1000 = 0.016`
+- Lo formatea como "0.01kWh"
+
+### Solución
+
+Necesitas corregir el código del BACKEND que genera el `nombre_completo`. Busca en tu backend:
+
+1. **Archivo/función que genera nombres de ofertas**
+2. **Lógica que procesa baterías**
+3. **Conversión incorrecta**: `potenciaKW / 1000` para baterías
+
+#### Regla Correcta para el Backend:
+- **Inversores**: `potenciaKW` directamente (ya en kW) → "10kW"
+- **Baterías**: `potenciaKW` directamente (ya en kWh) → "16kWh" ← NO DIVIDIR
+- **Paneles**: `potenciaKW * 1000` (convertir kW a W) → "590W"
+
+### Información Necesaria del Backend
+
+Para ayudarte a corregir el backend, necesito:
+
+1. El código del backend que genera `nombre_completo`
+2. El endpoint que recibe la oferta (probablemente `/ofertas/confeccion/`)
+3. El lenguaje/framework del backend (Python/Django, Node.js, etc.)
+
+### Verificación Rápida
+
+Puedes verificar esto agregando un log temporal en el frontend (línea 3432):
+```typescript
+console.log('📤 Nombre enviado al backend:', nombreCompletoParaExportar)
+console.log('📥 Nombre recibido del backend:', response.data.nombre_completo)
+```
+
+Si los valores son diferentes, confirma que el backend está regenerando el nombre incorrectamente.

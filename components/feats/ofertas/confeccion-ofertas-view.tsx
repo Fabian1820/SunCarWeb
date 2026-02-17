@@ -517,8 +517,9 @@ export function ConfeccionOfertasView({
       setAplicaContribucion(ofertaACopiar.aplica_contribucion || false)
       setPorcentajeContribucion(ofertaACopiar.porcentaje_contribucion || 0)
       
-      // Cargar nombre completo del backend para usar en exportaciones
-      if (ofertaACopiar.nombre_completo) {
+      // Cargar nombre completo del backend SOLO en modo edición
+      // En modo duplicación, regenerar el nombre para reflejar los cambios
+      if (modoEdicion && ofertaACopiar.nombre_completo) {
         setNombreCompletoBackend(ofertaACopiar.nombre_completo)
       }
       
@@ -1225,6 +1226,11 @@ export function ConfeccionOfertasView({
     // Obtener potencia del material
     const obtenerPotencia = (materialCodigo: string): number | null => {
       const material = materials.find(m => m.codigo.toString() === materialCodigo)
+      if (!material) {
+        console.warn(`⚠️ [nombreAutomatico] Material no encontrado: ${materialCodigo}`)
+      } else if (!material.potenciaKW) {
+        console.warn(`⚠️ [nombreAutomatico] Material sin potenciaKW: ${materialCodigo} - ${material.nombre}`)
+      }
       return material?.potenciaKW || null
     }
 
@@ -1259,6 +1265,8 @@ export function ConfeccionOfertasView({
         const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
         const potencia = obtenerPotencia(bateriaSeleccionada)
         
+        console.log(`🔋 [nombreAutomatico] Baterías: código=${bateriaSeleccionada}, cantidad=${cantidad}, potencia=${potencia}`)
+        
         if (potencia) {
           componentes.push(`B-${cantidad}x${formatearPotencia(potencia)}kWh`)
         } else {
@@ -1277,8 +1285,8 @@ export function ConfeccionOfertasView({
         const potencia = obtenerPotencia(panelSeleccionado)
         
         if (potencia) {
-          // Para paneles, convertir kW a W si es necesario
-          const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
+          // Para paneles, siempre convertir kW a W
+          const potenciaW = potencia * 1000
           componentes.push(`P-${cantidad}x${formatearPotencia(potenciaW)}W`)
         } else {
           componentes.push(`P-${cantidad}x`)
@@ -1317,6 +1325,11 @@ export function ConfeccionOfertasView({
     // Obtener potencia del material
     const obtenerPotencia = (materialCodigo: string): number | null => {
       const material = materials.find(m => m.codigo.toString() === materialCodigo)
+      if (!material) {
+        console.warn(`⚠️ [nombreCompleto] Material no encontrado: ${materialCodigo}`)
+      } else if (!material.potenciaKW) {
+        console.warn(`⚠️ [nombreCompleto] Material sin potenciaKW: ${materialCodigo} - ${material.nombre}`)
+      }
       return material?.potenciaKW || null
     }
 
@@ -1352,6 +1365,8 @@ export function ConfeccionOfertasView({
         const potencia = obtenerPotencia(bateriaSeleccionada)
         const marca = obtenerMarca(bateriaSeleccionada)
         
+        console.log(`🔋 [nombreCompleto] Baterías: código=${bateriaSeleccionada}, cantidad=${cantidad}, potencia=${potencia}, marca=${marca}`)
+        
         if (potencia && marca) {
           componentes.push(`${cantidad}x ${potencia}kWh Batería ${marca}`)
         } else if (potencia) {
@@ -1375,11 +1390,11 @@ export function ConfeccionOfertasView({
         const marca = obtenerMarca(panelSeleccionado)
         
         if (potencia && marca) {
-          // Para paneles, convertir kW a W si es necesario
-          const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
+          // Para paneles, siempre convertir kW a W
+          const potenciaW = potencia * 1000
           componentes.push(`${cantidad}x ${potenciaW}W Paneles ${marca}`)
         } else if (potencia) {
-          const potenciaW = potencia >= 1 ? potencia * 1000 : potencia
+          const potenciaW = potencia * 1000
           componentes.push(`${cantidad}x ${potenciaW}W Paneles`)
         } else if (marca) {
           componentes.push(`${cantidad}x Paneles ${marca}`)
