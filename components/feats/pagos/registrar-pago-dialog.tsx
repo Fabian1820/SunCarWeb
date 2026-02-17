@@ -56,8 +56,8 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
     useEffect(() => {
         const tasasSugeridas = {
             USD: 1.0,
-            EUR: 1.08,
-            CUP: 120.0
+            EUR: 1.10,  // 1 EUR ≈ 1.10 USD (aproximado)
+            CUP: 0.0083  // 1 CUP ≈ 0.0083 USD (120 CUP = 1 USD)
         }
         setFormData(prev => ({
             ...prev,
@@ -323,7 +323,7 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                         {/* Tasa de Cambio */}
                         <div className="space-y-2">
                             <Label htmlFor="tasa_cambio">
-                                Tasa de cambio (con respecto al USD) <span className="text-red-500">*</span>
+                                Tasa de cambio <span className="text-red-500">*</span>
                             </Label>
                             <Input
                                 id="tasa_cambio"
@@ -335,9 +335,13 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                                 disabled={formData.moneda === 'USD'}
                                 required
                             />
-                            {formData.moneda === 'USD' && (
+                            {formData.moneda === 'USD' ? (
                                 <p className="text-xs text-gray-500">
                                     La tasa de cambio es 1.0 para USD
+                                </p>
+                            ) : (
+                                <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
+                                    💡 Ejemplo: Si 1 {formData.moneda} = {formData.tasa_cambio} USD, entonces {formData.monto || '100'} {formData.moneda} = {((parseFloat(formData.monto) || 100) * formData.tasa_cambio).toFixed(2)} USD
                                 </p>
                             )}
                         </div>
@@ -360,7 +364,10 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                             {formData.moneda !== 'USD' && formData.monto && (
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                                     <p className="text-sm text-blue-700">
-                                        Equivalente en USD: ${(parseFloat(formData.monto) / formData.tasa_cambio).toFixed(2)}
+                                        Equivalente en USD: ${(parseFloat(formData.monto) * formData.tasa_cambio).toFixed(2)}
+                                    </p>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        {formData.monto} {formData.moneda} × {formData.tasa_cambio} = {(parseFloat(formData.monto) * formData.tasa_cambio).toFixed(2)} USD
                                     </p>
                                 </div>
                             )}
