@@ -328,8 +328,8 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                             <Input
                                 id="tasa_cambio"
                                 type="number"
-                                step="0.01"
-                                min="0.01"
+                                step="0.0001"
+                                min="0.0001"
                                 value={formData.tasa_cambio}
                                 onChange={(e) => setFormData({ ...formData, tasa_cambio: parseFloat(e.target.value) || 1.0 })}
                                 disabled={formData.moneda === 'USD'}
@@ -341,7 +341,7 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                                 </p>
                             ) : (
                                 <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
-                                    💡 Ejemplo: Si 1 {formData.moneda} = {formData.tasa_cambio} USD, entonces {formData.monto || '100'} {formData.moneda} = {((parseFloat(formData.monto) || 100) * formData.tasa_cambio).toFixed(2)} USD
+                                    💡 Ejemplo: Si 1 {formData.moneda} = {formData.tasa_cambio.toFixed(4)} USD, entonces {formData.monto || '100'} {formData.moneda} = {((parseFloat(formData.monto) || 100) * formData.tasa_cambio).toFixed(2)} USD
                                 </p>
                             )}
                         </div>
