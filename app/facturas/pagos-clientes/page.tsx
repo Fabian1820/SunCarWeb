@@ -270,12 +270,7 @@ export default function PagosClientesPage() {
                     {/* Content Area */}
                     <Card className="border-0 shadow-md border-l-4 border-l-green-600">
                         <CardHeader>
-                            <CardTitle>
-                                {viewMode === 'anticipos-pendientes' && 'Anticipos Pendientes'}
-                                {viewMode === 'finales-pendientes' && 'Cobros Finales Pendientes'}
-                                {viewMode === 'pagos-por-ofertas' && 'Cobros por Ofertas'}
-                                {viewMode === 'todos-pagos' && 'Todos los Cobros'}
-                            </CardTitle>
+                            <CardTitle>Cobros Clientes</CardTitle>
                             <CardDescription>
                                 {viewMode === 'anticipos-pendientes' && 
                                     `Mostrando ${filteredOfertas.length} de ${ofertasSinPago.length} ofertas confirmadas sin pago`
