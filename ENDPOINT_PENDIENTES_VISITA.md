@@ -13,8 +13,6 @@ Este endpoint devuelve todos los **leads** y **clientes** que tienen el estado *
 - **Autenticación**: Requerida (JWT Bearer Token)
 - **Tags**: `["Pendientes de Visita"]`
 
----
-
 ## Request
 
 ### Headers

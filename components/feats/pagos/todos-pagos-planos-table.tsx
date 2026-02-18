@@ -34,6 +34,7 @@ interface PagoConOferta extends Pago {
         tipo_contacto: 'cliente' | 'lead' | 'lead_sin_agregar' | null
         direccion: string | null
     }
+    pendienteDespuesPago?: number
 }
 
 export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPlanosTableProps) {
@@ -58,6 +59,31 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
     const pagosOrdenados = [...todosPagos].sort((a, b) => 
         new Date(b.fecha).getTime() - new Date(a.fecha).getTime()
     )
+    
+    // Calcular el pendiente después de cada pago
+    const pagosConPendiente = pagosOrdenados.map(pago => {
+        // Encontrar la oferta original
+        const ofertaOriginal = ofertasConPagos.find(o => o.numero_oferta === pago.oferta.numero_oferta)
+        if (!ofertaOriginal) return { ...pago, pendienteDespuesPago: 0 }
+        
+        // Ordenar los pagos de la oferta por fecha
+        const pagosOfertaOrdenados = [...ofertaOriginal.pagos].sort((a, b) => 
+            new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+        )
+        
+        // Encontrar el índice de este pago
+        const indicePago = pagosOfertaOrdenados.findIndex(p => p.id === pago.id)
+        
+        // Calcular total pagado hasta este pago (inclusive)
+        const totalPagadoHastaAqui = pagosOfertaOrdenados
+            .slice(0, indicePago + 1)
+            .reduce((sum, p) => sum + p.monto_usd, 0)
+        
+        // Calcular pendiente después de este pago
+        const pendienteDespuesPago = ofertaOriginal.precio_final - totalPagadoHastaAqui
+        
+        return { ...pago, pendienteDespuesPago }
+    })
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -128,7 +154,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
     if (pagosOrdenados.length === 0) {
         return (
             <div className="text-center py-12">
-                <p className="text-gray-600">No hay pagos registrados</p>
+                <p className="text-gray-600">No hay cobros registrados</p>
             </div>
         )
     }
@@ -138,59 +164,59 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[100px]">ID Pago</TableHead>
-                        <TableHead className="w-[140px]">Fecha</TableHead>
-                        <TableHead className="w-[110px]">N° Oferta</TableHead>
-                        <TableHead className="w-[200px]">Oferta</TableHead>
-                        <TableHead className="text-right w-[140px]">Monto</TableHead>
-                        <TableHead className="w-[180px]">Tipo / Método / Desglose</TableHead>
-                        <TableHead className="w-[160px]">Cliente/Pagador</TableHead>
-                        <TableHead className="w-[140px]">Recibido/Ref</TableHead>
-                        <TableHead className="w-[100px] text-center">Acciones</TableHead>
+                        <TableHead className="w-[80px]">ID</TableHead>
+                        <TableHead className="w-[100px]">Fecha</TableHead>
+                        <TableHead className="w-[130px]">N° Oferta</TableHead>
+                        <TableHead>Oferta</TableHead>
+                        <TableHead className="text-right w-[90px]">Monto Cobrado</TableHead>
+                        <TableHead className="text-right w-[90px]">Pendiente</TableHead>
+                        <TableHead className="w-[120px]">Tipo/Método</TableHead>
+                        <TableHead className="w-[130px]">Cliente/Pagador</TableHead>
+                        <TableHead className="w-[70px]">Recibido</TableHead>
+                        <TableHead className="w-[80px] text-center">Acción</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {pagosOrdenados.map((pago) => (
-                        <TableRow key={pago.id} className="align-top">
+                    {pagosConPendiente.map((pago) => (
+                        <TableRow key={pago.id} className="hover:bg-gray-50">
                             <TableCell className="font-mono text-xs py-3">
-                                <div className="break-words">
-                                    {pago.id.slice(-8)}
-                                </div>
+                                {pago.id.slice(-8)}
                             </TableCell>
-                            <TableCell className="text-sm py-3">
+                            <TableCell className="text-sm py-3 whitespace-nowrap">
                                 {formatDate(pago.fecha)}
                             </TableCell>
                             <TableCell className="font-medium text-sm py-3">
-                                <div className="break-words">
-                                    {pago.oferta.numero_oferta}
-                                </div>
+                                {pago.oferta.numero_oferta}
                             </TableCell>
                             <TableCell className="py-3">
-                                <div className="text-sm text-gray-700 break-words max-w-[200px]">
+                                <div className="text-sm text-gray-700">
                                     {pago.oferta.nombre_completo}
                                 </div>
                             </TableCell>
                             <TableCell className="text-right py-3">
-                                <div className="space-y-1">
-                                    {pago.moneda !== 'USD' && (
-                                        <div className="text-sm text-gray-700">
-                                            {formatCurrency(pago.monto)}
-                                            <span className="text-xs text-gray-500 ml-1">
-                                                {pago.moneda}
-                                            </span>
-                                            <div className="text-xs text-gray-500">
-                                                Tasa: {pago.tasa_cambio}
-                                            </div>
+                                {pago.moneda !== 'USD' ? (
+                                    <div className="text-sm">
+                                        <div className="text-gray-600">
+                                            {formatCurrency(pago.monto)} {pago.moneda}
                                         </div>
-                                    )}
-                                    <div className="font-bold text-sm text-green-700">
-                                        {formatCurrency(pago.monto_usd)} USD
+                                        <div className="font-semibold text-green-700">
+                                            {formatCurrency(pago.monto_usd)}
+                                        </div>
                                     </div>
+                                ) : (
+                                    <div className="font-semibold text-sm text-green-700">
+                                        {formatCurrency(pago.monto_usd)}
+                                    </div>
+                                )}
+                            </TableCell>
+                            <TableCell className="text-right py-3">
+                                <div className="font-semibold text-sm text-orange-700">
+                                    {formatCurrency(pago.pendienteDespuesPago ?? 0)}
                                 </div>
                             </TableCell>
                             <TableCell className="py-3">
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                         {getTipoPagoBadge(pago.tipo_pago)}
                                         {getMetodoPagoBadge(pago.metodo_pago)}
                                     </div>
@@ -199,16 +225,14 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                             <summary className="cursor-pointer text-blue-600 hover:underline">
                                                 Ver desglose
                                             </summary>
-                                            <div className="mt-2 space-y-1 bg-gray-50 rounded p-2 border border-gray-200">
+                                            <div className="mt-1.5 space-y-1 bg-gray-50 rounded p-2 border border-gray-200">
                                                 {Object.entries(pago.desglose_billetes)
                                                     .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
                                                     .map(([denominacion, cantidad]) => (
-                                                        <div key={denominacion} className="flex justify-between">
-                                                            <span>
-                                                                {cantidad}x {denominacion} {pago.moneda}
-                                                            </span>
+                                                        <div key={denominacion} className="flex justify-between text-xs">
+                                                            <span>{cantidad}x {denominacion}</span>
                                                             <span className="font-medium">
-                                                                {formatCurrency(parseFloat(denominacion) * cantidad)}
+                                                                {formatCurrency(parseFloat(denominacion) * (cantidad as number))}
                                                             </span>
                                                         </div>
                                                     ))}
@@ -218,8 +242,8 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                 </div>
                             </TableCell>
                             <TableCell className="py-3">
-                                <div className="flex flex-col max-w-[160px] gap-0.5">
-                                    <span className="font-medium text-sm break-words">
+                                <div className="flex flex-col gap-1">
+                                    <span className="font-medium text-sm">
                                         {pago.nombre_pagador || pago.contacto.nombre || 'No especificado'}
                                     </span>
                                     {!pago.pago_cliente && (
@@ -232,20 +256,10 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                             CI: {pago.carnet_pagador}
                                         </span>
                                     )}
-                                    {pago.contacto.telefono && (
-                                        <span className="text-xs text-gray-600 break-words">
-                                            {pago.contacto.telefono}
-                                        </span>
-                                    )}
-                                    {pago.contacto.codigo && (
-                                        <span className="text-xs text-gray-500">
-                                            {pago.contacto.codigo}
-                                        </span>
-                                    )}
                                 </div>
                             </TableCell>
                             <TableCell className="py-3">
-                                <div className="text-sm break-words max-w-[140px]">
+                                <div className="text-sm">
                                     {pago.metodo_pago === 'efectivo' && pago.recibido_por && (
                                         <span className="text-gray-700">{pago.recibido_por}</span>
                                     )}
@@ -256,7 +270,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                             rel="noopener noreferrer"
                                             className="text-blue-600 hover:underline inline-flex items-center gap-1"
                                         >
-                                            Ver comprobante
+                                            Ver
                                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                             </svg>
@@ -270,7 +284,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                     variant="outline"
                                     size="sm"
                                     onClick={() => handleExportarComprobante(pago)}
-                                    className="h-8 px-2"
+                                    className="h-8 w-8 p-0"
                                     title="Exportar comprobante"
                                 >
                                     <FileText className="h-4 w-4" />

@@ -90,12 +90,10 @@ export class ExportComprobanteService {
     doc.text(`Fecha: ${fechaFormateada}`, margenIzq, y)
     y += 5
 
-    // Línea decorativa separadora
-    doc.setDrawColor(41, 128, 185)
-    doc.setLineWidth(0.5)
+    // Línea separadora simple
+    doc.setDrawColor(200, 200, 200)
+    doc.setLineWidth(0.3)
     doc.line(margenIzq, y, margenDer, y)
-    doc.setLineWidth(0.2)
-    doc.line(margenIzq, y + 1, margenDer, y + 1)
     y += 6
 
     // Entregado por
@@ -112,10 +110,27 @@ export class ExportComprobanteService {
     doc.setFont('helvetica', 'bold')
     doc.text('CI:', margenIzq, y)
     doc.setFont('helvetica', 'normal')
-    // Si pago_cliente es true, usar carnet del contacto; si no, usar carnet_pagador
-    const ci = pago.pago_cliente
-      ? (contacto.carnet || 'No especificado')
-      : (pago.carnet_pagador || contacto.carnet || 'No especificado')
+    
+    // Determinar el CI a mostrar según quién realizó el pago
+    let ci = 'No especificado'
+    
+    if (pago.pago_cliente) {
+      // Pago realizado por el cliente/lead
+      // Para clientes: contacto.carnet tendrá el carnet_identidad
+      // Para leads: contacto.carnet será null
+      if (contacto.carnet && String(contacto.carnet).trim() !== '') {
+        ci = String(contacto.carnet).trim()
+      }
+    } else {
+      // Pago realizado por un tercero (pago_cliente = false)
+      // Prioridad: carnet_pagador > carnet del contacto
+      if (pago.carnet_pagador && String(pago.carnet_pagador).trim() !== '') {
+        ci = String(pago.carnet_pagador).trim()
+      } else if (contacto.carnet && String(contacto.carnet).trim() !== '') {
+        ci = String(contacto.carnet).trim()
+      }
+    }
+    
     doc.text(ci, margenIzq + 30, y)
     y += 8
 
@@ -193,26 +208,19 @@ export class ExportComprobanteService {
 
     y += 1
 
-    // Monto Pendiente (destacado) - sin línea antes
+    // Monto Pendiente (destacado)
     const montoPendiente = oferta.precio_final - pago.monto_usd
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.text('Monto Pendiente:', margenIzq, y)
     doc.text(`${this.formatearMoneda(montoPendiente)} USD`, margenDer, y, { align: 'right' })
-    y += 6
-
-    // Línea doble final
-    doc.setLineWidth(0.5)
-    doc.line(margenIzq, y, margenDer, y)
-    doc.setLineWidth(0.2)
-    doc.line(margenIzq, y + 1, margenDer, y + 1)
     y += 8
 
     // Pie de página
     doc.setFontSize(7)
     doc.setFont('helvetica', 'italic')
     doc.text('Comprobante emitido desde Oficina General de Suncar', 105, y, { align: 'center' })
-    y += 8
+    y += 15
 
     // Líneas de firma
     doc.setFont('helvetica', 'normal')

@@ -42,6 +42,9 @@ export function AnticiposPendientesTable({
     }
 
     const getClienteNombre = (oferta: OfertaConfirmadaSinPago) => {
+        // Priorizar el nuevo formato del backend
+        if (oferta.contacto?.nombre) return oferta.contacto.nombre
+        // Fallback a formato legacy
         if (oferta.cliente?.nombre) return oferta.cliente.nombre
         if (oferta.lead?.nombre) return oferta.lead.nombre
         if (oferta.nombre_lead_sin_agregar) return oferta.nombre_lead_sin_agregar
@@ -49,21 +52,28 @@ export function AnticiposPendientesTable({
     }
 
     const getClienteTelefono = (oferta: OfertaConfirmadaSinPago) => {
+        // Priorizar el nuevo formato del backend
+        if (oferta.contacto?.telefono) return oferta.contacto.telefono
+        // Fallback a formato legacy
         if (oferta.cliente?.telefono) return oferta.cliente.telefono
         if (oferta.lead?.telefono) return oferta.lead.telefono
         return '-'
     }
 
     const getClienteDireccion = (oferta: OfertaConfirmadaSinPago) => {
+        // Priorizar el nuevo formato del backend
+        if (oferta.contacto?.direccion) return oferta.contacto.direccion
+        // Fallback a formato legacy
         if (oferta.cliente?.direccion) return oferta.cliente.direccion
         if (oferta.lead?.direccion) return oferta.lead.direccion
         return '-'
     }
 
     const getClienteCI = (oferta: OfertaConfirmadaSinPago) => {
-        // El backend ahora devuelve carnet_identidad en el objeto cliente
+        // Priorizar el nuevo formato del backend
+        if (oferta.contacto?.carnet) return oferta.contacto.carnet
+        // Fallback a formato legacy
         if (oferta.cliente?.carnet_identidad) return oferta.cliente.carnet_identidad
-        // Fallback al número de cliente si no tiene carnet
         if (oferta.cliente?.numero) return oferta.cliente.numero
         return '-'
     }

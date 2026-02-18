@@ -6,10 +6,64 @@ export interface OfertaConfirmadaSinPago {
   nombre_automatico: string
   nombre_oferta: string
   nombre_completo: string
-  estado: string
+  tipo_oferta: string
   
-  // Información del contacto (simplificado)
-  cliente_numero?: string
+  // Información del contacto (simplificado desde el backend)
+  cliente_numero?: string | null
+  lead_id?: string | null
+  nombre_lead_sin_agregar?: string | null
+  
+  // Almacén
+  almacen_id: string
+  almacen_nombre: string
+  
+  // Cálculos financieros
+  margen_comercial: number
+  porcentaje_margen_materiales: number
+  porcentaje_margen_instalacion: number
+  margen_total: number
+  margen_materiales: number
+  margen_instalacion: number
+  costo_transportacion: number
+  total_materiales: number
+  subtotal_con_margen: number
+  descuento_porcentaje: number
+  monto_descuento: number
+  subtotal_con_descuento: number
+  total_elementos_personalizados: number
+  total_costos_extras: number
+  precio_final: number
+  
+  // Información de pago
+  aplica_contribucion: boolean
+  porcentaje_contribucion: number
+  monto_contribucion: number | null
+  moneda_pago: string
+  tasa_cambio: number | null
+  pago_transferencia: boolean
+  datos_cuenta: string | null
+  monto_convertido: number | null
+  
+  // Pagos
+  pagos: string[]
+  monto_pendiente: number
+  
+  // Auditoría
+  notas?: string | null
+  creado_por?: string | null
+  fecha_creacion: string
+  
+  // Contacto simplificado (nuevo formato del backend)
+  contacto: {
+    nombre: string | null
+    telefono: string | null
+    carnet: string | null
+    direccion: string | null
+    codigo: string | null
+    tipo_contacto: 'cliente' | 'lead' | 'lead_sin_agregar' | null
+  }
+  
+  // Campos legacy para compatibilidad (deprecated)
   cliente?: {
     numero: string
     nombre: string
@@ -17,31 +71,12 @@ export interface OfertaConfirmadaSinPago {
     direccion?: string
     carnet_identidad?: string
   }
-  lead_id?: string
   lead?: {
     id: string
     nombre: string
     telefono?: string
     direccion?: string
   }
-  nombre_lead_sin_agregar?: string
-  
-  // Almacén
-  almacen_id: string
-  almacen_nombre: string
-  foto_portada?: string
-  
-  // Cálculos financieros (simplificado)
-  precio_final: number
-  monto_pendiente: number
-  
-  // Pagos
-  pagos: string[]
-  
-  // Auditoría (simplificado)
-  notas?: string
-  creado_por?: string
-  fecha_creacion: string
 }
 
 export interface PagosResponse {

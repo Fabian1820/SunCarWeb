@@ -134,44 +134,24 @@ export default function PagosClientesPage() {
                             </div>
                             <div className="min-w-0">
                                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                                    Pagos Clientes
+                                    Cobros Clientes
                                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                         Finanzas
                                     </span>
                                 </h1>
-                                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de pagos recibidos</p>
+                                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Gestión de cobros recibidos</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
                             <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                    // Recargar solo la vista actual
-                                    if (viewMode === 'anticipos-pendientes') {
-                                        refetchOfertasSinPago()
-                                    } else if (viewMode === 'finales-pendientes') {
-                                        refetchOfertasConSaldoPendiente()
-                                    } else if (viewMode === 'pagos-por-ofertas' || viewMode === 'todos-pagos') {
-                                        setLoadingPagos(true)
-                                        refetchOfertasConPagos().finally(() => setLoadingPagos(false))
-                                    }
-                                }}
-                                className="h-9 w-9 touch-manipulation"
-                                aria-label="Recargar"
-                                title="Recargar"
-                            >
-                                <RefreshCw className="h-4 w-4" />
-                            </Button>
-                            <Button
                                 size="icon"
                                 className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 touch-manipulation"
-                                aria-label="Registrar pago"
-                                title="Registrar pago"
+                                aria-label="Registrar cobro"
+                                title="Registrar cobro"
                             >
                                 <Plus className="h-4 w-4 sm:mr-2" />
-                                <span className="hidden sm:inline">Registrar Pago</span>
-                                <span className="sr-only">Registrar pago</span>
+                                <span className="hidden sm:inline">Registrar Cobro</span>
+                                <span className="sr-only">Registrar cobro</span>
                             </Button>
                         </div>
                     </div>
@@ -227,7 +207,7 @@ export default function PagosClientesPage() {
                                         }
                                     >
                                         <List className="h-4 w-4 mr-2" />
-                                        Pagos Finales Pendientes
+                                        Cobros Finales Pendientes
                                     </Button>
                                     <Button
                                         variant={viewMode === 'pagos-por-ofertas' ? "default" : "outline"}
@@ -240,7 +220,7 @@ export default function PagosClientesPage() {
                                         }
                                     >
                                         <List className="h-4 w-4 mr-2" />
-                                        Pagos por Ofertas
+                                        Cobros por Ofertas
                                     </Button>
                                     <Button
                                         variant={viewMode === 'todos-pagos' ? "default" : "outline"}
@@ -253,7 +233,7 @@ export default function PagosClientesPage() {
                                         }
                                     >
                                         <List className="h-4 w-4 mr-2" />
-                                        Todos los Pagos
+                                        Todos los Cobros
                                     </Button>
                                 </div>
                             </div>
@@ -269,7 +249,7 @@ export default function PagosClientesPage() {
                                         htmlFor="search"
                                         className="text-sm font-medium text-gray-700 mb-2 block"
                                     >
-                                        Buscar Pago
+                                        Buscar Cobro
                                     </Label>
                                     <div className="relative">
                                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -292,9 +272,9 @@ export default function PagosClientesPage() {
                         <CardHeader>
                             <CardTitle>
                                 {viewMode === 'anticipos-pendientes' && 'Anticipos Pendientes'}
-                                {viewMode === 'finales-pendientes' && 'Pagos Finales Pendientes'}
-                                {viewMode === 'pagos-por-ofertas' && 'Pagos por Ofertas'}
-                                {viewMode === 'todos-pagos' && 'Todos los Pagos'}
+                                {viewMode === 'finales-pendientes' && 'Cobros Finales Pendientes'}
+                                {viewMode === 'pagos-por-ofertas' && 'Cobros por Ofertas'}
+                                {viewMode === 'todos-pagos' && 'Todos los Cobros'}
                             </CardTitle>
                             <CardDescription>
                                 {viewMode === 'anticipos-pendientes' && 
@@ -303,8 +283,8 @@ export default function PagosClientesPage() {
                                 {viewMode === 'finales-pendientes' && 
                                     `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`
                                 }
-                                {viewMode === 'pagos-por-ofertas' && `Mostrando ${ofertasConPagos.length} ofertas con pagos`}
-                                {viewMode === 'todos-pagos' && `Mostrando ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} pagos registrados`}
+                                {viewMode === 'pagos-por-ofertas' && `Mostrando ${ofertasConPagos.length} ofertas con cobros`}
+                                {viewMode === 'todos-pagos' && `Mostrando ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} cobros registrados`}
                             </CardDescription>
                         </CardHeader>
                         <CardContent>

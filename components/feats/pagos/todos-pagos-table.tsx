@@ -71,10 +71,6 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
     }
 
     const handleExportarComprobante = (oferta: OfertaConPagos, pago: any) => {
-        console.log('Datos del contacto:', oferta.contacto)
-        console.log('Carnet del contacto:', oferta.contacto.carnet)
-        console.log('Pago completo:', pago)
-        
         ExportComprobanteService.generarComprobantePDF({
             pago: pago,
             oferta: {
@@ -84,9 +80,9 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
             },
             contacto: {
                 nombre: oferta.contacto.nombre || 'No especificado',
-                carnet: oferta.contacto.carnet || undefined,
-                telefono: oferta.contacto.telefono || undefined,
-                direccion: oferta.contacto.direccion || undefined
+                carnet: oferta.contacto.carnet ?? undefined,
+                telefono: oferta.contacto.telefono ?? undefined,
+                direccion: oferta.contacto.direccion ?? undefined
             }
         })
     }
@@ -102,7 +98,7 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
     if (ofertasConPagos.length === 0) {
         return (
             <div className="text-center py-12">
-                <p className="text-gray-600">No hay pagos registrados</p>
+                <p className="text-gray-600">No hay cobros registrados</p>
             </div>
         )
     }
@@ -117,9 +113,9 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                         <TableHead className="w-[160px]">Cliente</TableHead>
                         <TableHead className="w-[100px]">CI</TableHead>
                         <TableHead className="text-right w-[110px]">Precio Final</TableHead>
-                        <TableHead className="text-right w-[110px]">Total Pagado</TableHead>
+                        <TableHead className="text-right w-[110px]">Total Cobrado</TableHead>
                         <TableHead className="text-right w-[110px]">Pendiente</TableHead>
-                        <TableHead className="w-[80px] text-center">Pagos</TableHead>
+                        <TableHead className="w-[80px] text-center">Cobros</TableHead>
                         <TableHead className="w-[140px]">Almacén</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -199,10 +195,19 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                             <div className="p-4 border-t-2 border-blue-200">
                                                 <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                                     <span className="h-1 w-1 rounded-full bg-blue-600"></span>
-                                                    Detalle de Pagos ({oferta.cantidad_pagos})
+                                                    Detalle de Cobros ({oferta.cantidad_pagos})
                                                 </h4>
                                                 <div className="space-y-3">
-                                                    {oferta.pagos.map((pago, index) => (
+                                                    {oferta.pagos.map((pago, index) => {
+                                                        // Calcular el total pagado hasta este pago (inclusive)
+                                                        const totalPagadoHastaAqui = oferta.pagos
+                                                            .slice(0, index + 1)
+                                                            .reduce((sum, p) => sum + p.monto_usd, 0)
+                                                        
+                                                        // Calcular el pendiente después de este pago
+                                                        const pendienteDespuesPago = oferta.precio_final - totalPagadoHastaAqui
+                                                        
+                                                        return (
                                                         <div 
                                                             key={pago.id} 
                                                             className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
@@ -211,7 +216,7 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                 {/* Columna 1: Información del Pago */}
                                                                 <div className="space-y-2">
                                                                     <div className="flex items-center gap-2 mb-2">
-                                                                        <span className="text-xs font-semibold text-gray-500">PAGO #{index + 1}</span>
+                                                                        <span className="text-xs font-semibold text-gray-500">COBRO #{index + 1}</span>
                                                                         {getTipoPagoBadge(pago.tipo_pago)}
                                                                     </div>
                                                                     <div>
@@ -221,8 +226,8 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                         </span>
                                                                     </div>
                                                                     <div>
-                                                                        <span className="text-xs text-gray-500 block">Monto</span>
-                                                                        <span className="text-sm font-semibold text-gray-900">
+                                                                        <span className="text-xs text-gray-500 block">Monto Cobrado</span>
+                                                                        <span className="text-sm font-semibold text-green-700">
                                                                             {formatCurrency(pago.monto)} {pago.moneda}
                                                                         </span>
                                                                         {pago.moneda !== 'USD' && (
@@ -235,6 +240,12 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                                 = {formatCurrency(pago.monto_usd)} USD
                                                                             </div>
                                                                         )}
+                                                                    </div>
+                                                                    <div>
+                                                                        <span className="text-xs text-gray-500 block">Pendiente después</span>
+                                                                        <span className="text-sm font-semibold text-orange-700">
+                                                                            {formatCurrency(pendienteDespuesPago)} USD
+                                                                        </span>
                                                                     </div>
                                                                 </div>
 
@@ -344,7 +355,8 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    ))}
+                                                        )
+                                                    })}
                                                 </div>
                                             </div>
                                         </TableCell>
