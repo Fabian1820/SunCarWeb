@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
     Table,
     TableBody,
@@ -10,13 +11,15 @@ import {
 } from "@/components/shared/molecule/table"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Loader2, FileText } from "lucide-react"
+import { Loader2, FileText, Pencil } from "lucide-react"
 import type { OfertaConPagos, Pago } from "@/lib/services/feats/pagos/pago-service"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
+import { EditarPagoDialog } from "./editar-pago-dialog"
 
 interface TodosPagosPlanosTableProps {
     ofertasConPagos: OfertaConPagos[]
     loading: boolean
+    onPagoUpdated?: () => void
 }
 
 interface PagoConOferta extends Pago {
@@ -37,7 +40,15 @@ interface PagoConOferta extends Pago {
     pendienteDespuesPago?: number
 }
 
-export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPlanosTableProps) {
+export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated }: TodosPagosPlanosTableProps) {
+    const [editDialogOpen, setEditDialogOpen] = useState(false)
+    const [selectedPago, setSelectedPago] = useState<PagoConOferta | null>(null)
+    
+    console.log('📊 TodosPagosPlanosTable - Ofertas con pagos recibidas:', ofertasConPagos.length)
+    if (ofertasConPagos.length > 0) {
+        console.log('📊 Primer pago de ejemplo:', ofertasConPagos[0]?.pagos[0])
+    }
+    
     // Aplanar todos los pagos de todas las ofertas
     const todosPagos: PagoConOferta[] = ofertasConPagos.flatMap(oferta => 
         oferta.pagos.map(pago => ({
@@ -143,6 +154,20 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
         })
     }
 
+    const handleEditarPago = (pago: PagoConOferta) => {
+        setSelectedPago(pago)
+        setEditDialogOpen(true)
+    }
+
+    const handlePagoEditSuccess = () => {
+        setEditDialogOpen(false)
+        setSelectedPago(null)
+        console.log('🔄 Recargando datos después de editar pago...')
+        if (onPagoUpdated) {
+            onPagoUpdated()
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex items-center justify-center py-12">
@@ -173,7 +198,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                         <TableHead className="w-[120px]">Tipo/Método</TableHead>
                         <TableHead className="w-[130px]">Cliente/Pagador</TableHead>
                         <TableHead className="w-[70px]">Recibido</TableHead>
-                        <TableHead className="w-[80px] text-center">Acción</TableHead>
+                        <TableHead className="w-[120px] text-center">Acciones</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -280,20 +305,42 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading }: TodosPagosPl
                                 </div>
                             </TableCell>
                             <TableCell className="text-center py-3">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleExportarComprobante(pago)}
-                                    className="h-8 w-8 p-0"
-                                    title="Exportar comprobante"
-                                >
-                                    <FileText className="h-4 w-4" />
-                                </Button>
+                                <div className="flex items-center justify-center gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleEditarPago(pago)}
+                                        className="h-8 w-8 p-0"
+                                        title="Editar pago"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => handleExportarComprobante(pago)}
+                                        className="h-8 w-8 p-0"
+                                        title="Exportar comprobante"
+                                    >
+                                        <FileText className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>
             </Table>
+
+            {/* Diálogo de edición de pago */}
+            {selectedPago && (
+                <EditarPagoDialog
+                    open={editDialogOpen}
+                    onOpenChange={setEditDialogOpen}
+                    pago={selectedPago}
+                    oferta={selectedPago.oferta}
+                    onSuccess={handlePagoEditSuccess}
+                />
+            )}
         </div>
     )
 }

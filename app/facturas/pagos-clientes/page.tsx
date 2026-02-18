@@ -297,6 +297,7 @@ export default function PagosClientesPage() {
                                 <TodosPagosPlanosTable
                                     ofertasConPagos={ofertasConPagos}
                                     loading={loadingPagos}
+                                    onPagoUpdated={refetchOfertasConPagos}
                                 />
                             ) : (
                                 <AnticiposPendientesTable

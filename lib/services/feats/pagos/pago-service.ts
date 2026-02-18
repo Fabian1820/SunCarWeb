@@ -170,6 +170,27 @@ export class PagoService {
   }
 
   /**
+   * Actualizar un pago existente
+   */
+  static async actualizarPago(pagoId: string, data: Partial<PagoCreateData>): Promise<{ success: boolean; message: string; pago_id: string }> {
+    try {
+      console.log('[PagoService] Actualizando pago:', pagoId, 'con datos:', data)
+      const response = await apiRequest<{ success: boolean; message: string; pago_id: string }>(
+        `/pagos/${pagoId}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify(data),
+        }
+      )
+      console.log('[PagoService] Respuesta del backend:', response)
+      return response
+    } catch (error: any) {
+      console.error('[PagoService] Error al actualizar pago:', error)
+      throw new Error(error.response?.data?.message || 'Error al actualizar pago')
+    }
+  }
+
+  /**
    * Eliminar un pago
    */
   static async eliminarPago(pagoId: string): Promise<{ success: boolean; monto_pendiente_actualizado: number }> {
