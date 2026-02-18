@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { Search, RefreshCw, DollarSign, TrendingUp, Lock } from "lucide-react"
+import { Search, RefreshCw, DollarSign, TrendingUp, Lock, X } from "lucide-react"
 import type { ResultadoComercial, EstadisticaComercial } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types"
 import { useAuth } from "@/contexts/auth-context"
 
@@ -40,6 +40,8 @@ export function ResultadosComercialTable({
   const [comercialFilter, setComercialFilter] = useState<string>("todos")
   const [mesFilter, setMesFilter] = useState<string>("todos")
   const [anioFilter, setAnioFilter] = useState<string>("todos")
+  const [fechaDesde, setFechaDesde] = useState<string>("")
+  const [fechaHasta, setFechaHasta] = useState<string>("")
 
   // Usuarios con restricciones (solo ven su propio monto)
   const RESTRICTED_USERS = [
@@ -99,24 +101,48 @@ export function ResultadosComercialTable({
         return false
       }
 
-      // Filtro de mes y año
+      // Filtros de fecha
       if (resultado.fecha_primer_pago) {
         const fechaPago = new Date(resultado.fecha_primer_pago)
-        const mes = (fechaPago.getMonth() + 1).toString()
-        const anio = fechaPago.getFullYear().toString()
-
-        if (mesFilter !== "todos" && mes !== mesFilter) {
-          return false
+        
+        // Filtro de fecha desde
+        if (fechaDesde) {
+          const desde = new Date(fechaDesde)
+          desde.setHours(0, 0, 0, 0)
+          if (fechaPago < desde) {
+            return false
+          }
+        }
+        
+        // Filtro de fecha hasta
+        if (fechaHasta) {
+          const hasta = new Date(fechaHasta)
+          hasta.setHours(23, 59, 59, 999)
+          if (fechaPago > hasta) {
+            return false
+          }
         }
 
-        if (anioFilter !== "todos" && anio !== anioFilter) {
-          return false
+        // Filtro de mes (solo si no hay filtros de fecha desde/hasta)
+        if (!fechaDesde && !fechaHasta && mesFilter !== "todos") {
+          const mes = (fechaPago.getMonth() + 1).toString()
+          if (mes !== mesFilter) {
+            return false
+          }
+        }
+
+        // Filtro de año (solo si no hay filtros de fecha desde/hasta)
+        if (!fechaDesde && !fechaHasta && anioFilter !== "todos") {
+          const anio = fechaPago.getFullYear().toString()
+          if (anio !== anioFilter) {
+            return false
+          }
         }
       }
 
       return true
     })
-  }, [resultados, searchTerm, comercialFilter, mesFilter, anioFilter])
+  }, [resultados, searchTerm, comercialFilter, mesFilter, anioFilter, fechaDesde, fechaHasta])
 
   // Calcular estadísticas por comercial
   const estadisticas = useMemo(() => {
@@ -221,7 +247,23 @@ export function ResultadosComercialTable({
       <Card>
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <CardTitle>Resultados por Comercial</CardTitle>
+            <div className="flex items-center gap-4">
+              <CardTitle>Resultados por Comercial</CardTitle>
+              {(fechaDesde || fechaHasta) && (
+                <Button
+                  onClick={() => {
+                    setFechaDesde("")
+                    setFechaHasta("")
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Limpiar fechas
+                </Button>
+              )}
+            </div>
             <Button
               onClick={onRefresh}
               disabled={loading}
@@ -235,58 +277,122 @@ export function ResultadosComercialTable({
         </CardHeader>
         <CardContent>
           {/* Filtros */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-            <div className="relative lg:col-span-2">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar por oferta, cliente o comercial..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+          <div className="space-y-4 mb-6">
+            {/* Primera fila: Búsqueda y Comercial */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar por oferta, cliente o comercial..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+
+              <Select value={comercialFilter} onValueChange={setComercialFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por comercial" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los comerciales</SelectItem>
+                  {comerciales.map((comercial) => (
+                    <SelectItem key={comercial} value={comercial}>
+                      {comercial}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <Select value={comercialFilter} onValueChange={setComercialFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Comercial" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los comerciales</SelectItem>
-                {comerciales.map((comercial) => (
-                  <SelectItem key={comercial} value={comercial}>
-                    {comercial}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Segunda fila: Filtros de fecha */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-600 px-1">Fecha Desde</label>
+                <Input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => {
+                    setFechaDesde(e.target.value)
+                    if (e.target.value) {
+                      setMesFilter("todos")
+                      setAnioFilter("todos")
+                    }
+                  }}
+                  className="text-sm"
+                />
+              </div>
 
-            <Select value={mesFilter} onValueChange={setMesFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Mes" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los meses</SelectItem>
-                {meses.map((mes) => (
-                  <SelectItem key={mes.value} value={mes.value}>
-                    {mes.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-600 px-1">Fecha Hasta</label>
+                <Input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => {
+                    setFechaHasta(e.target.value)
+                    if (e.target.value) {
+                      setMesFilter("todos")
+                      setAnioFilter("todos")
+                    }
+                  }}
+                  className="text-sm"
+                />
+              </div>
 
-            <Select value={anioFilter} onValueChange={setAnioFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Año" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos los años</SelectItem>
-                {anios.map((anio) => (
-                  <SelectItem key={anio} value={anio}>
-                    {anio}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-600 px-1">Mes</label>
+                <Select 
+                  value={mesFilter} 
+                  onValueChange={(value) => {
+                    setMesFilter(value)
+                    if (value !== "todos") {
+                      setFechaDesde("")
+                      setFechaHasta("")
+                    }
+                  }}
+                  disabled={!!fechaDesde || !!fechaHasta}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los meses</SelectItem>
+                    {meses.map((mes) => (
+                      <SelectItem key={mes.value} value={mes.value}>
+                        {mes.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-600 px-1">Año</label>
+                <Select 
+                  value={anioFilter} 
+                  onValueChange={(value) => {
+                    setAnioFilter(value)
+                    if (value !== "todos") {
+                      setFechaDesde("")
+                      setFechaHasta("")
+                    }
+                  }}
+                  disabled={!!fechaDesde || !!fechaHasta}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los años</SelectItem>
+                    {anios.map((anio) => (
+                      <SelectItem key={anio} value={anio}>
+                        {anio}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
 
           {/* Tabla */}
@@ -387,21 +493,33 @@ export function ResultadosComercialTable({
 
           {/* Resumen */}
           {!loading && filteredResultados.length > 0 && (
-            <div className="mt-4 flex justify-between items-center text-sm text-gray-600">
-              <span>
-                Mostrando {filteredResultados.length} de {resultados.length} ofertas
-              </span>
-              <div className="flex gap-6">
-                <span className="font-medium">
-                  Total Margen: {formatCurrency(
-                    filteredResultados.reduce((sum, r) => sum + r.margen_dolares, 0)
-                  )}
+            <div className="mt-4 space-y-2">
+              {(fechaDesde || fechaHasta) && (
+                <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
+                  <TrendingUp className="h-4 w-4" />
+                  <span>
+                    Filtrado por fecha: 
+                    {fechaDesde && ` desde ${new Date(fechaDesde).toLocaleDateString('es-ES')}`}
+                    {fechaHasta && ` hasta ${new Date(fechaHasta).toLocaleDateString('es-ES')}`}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between items-center text-sm text-gray-600">
+                <span>
+                  Mostrando {filteredResultados.length} de {resultados.length} ofertas
                 </span>
-                <span className="font-medium">
-                  Total Pagado: {formatCurrency(
-                    filteredResultados.reduce((sum, r) => sum + r.total_pagado, 0)
-                  )}
-                </span>
+                <div className="flex gap-6">
+                  <span className="font-medium">
+                    Total Margen: {formatCurrency(
+                      filteredResultados.reduce((sum, r) => sum + r.margen_dolares, 0)
+                    )}
+                  </span>
+                  <span className="font-medium">
+                    Total Pagado: {formatCurrency(
+                      filteredResultados.reduce((sum, r) => sum + r.total_pagado, 0)
+                    )}
+                  </span>
+                </div>
               </div>
             </div>
           )}
