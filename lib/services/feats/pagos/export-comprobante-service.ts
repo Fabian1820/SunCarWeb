@@ -18,7 +18,7 @@ interface ComprobanteData {
 
 export class ExportComprobanteService {
   private static readonly EMPRESA = {
-    nombre: 'Empresa Solar Carros "Suncar"',
+    nombre: 'Empresa Solar Carros',
     direccion: 'Calle 24 #109 e/ 1ra y 3ra, Playa La Habana, Cuba',
     telefono: '+53 5 282 6474',
     email: 'info@suncarsrl.com'
@@ -69,13 +69,12 @@ export class ExportComprobanteService {
     doc.setFont('helvetica', 'bold')
     doc.text(this.EMPRESA.nombre, margenIzq, y)
     
-    // Logo en la esquina derecha (subido más arriba)
-    try {
-      // Agregar logo (25x25mm en la esquina superior derecha, más arriba)
-      doc.addImage('/logo Suncar.png', 'PNG', margenDer - 25, y - 10, 25, 25)
-    } catch (error) {
-      console.log('No se pudo cargar el logo')
-    }
+    // Logo comentado - no se muestra pero se mantiene el espacio
+    // try {
+    //   doc.addImage('/logo Suncar.png', 'PNG', margenDer - 25, y - 10, 25, 25)
+    // } catch (error) {
+    //   console.log('No se pudo cargar el logo')
+    // }
     
     y += 4
     doc.setFontSize(8)
@@ -219,7 +218,7 @@ export class ExportComprobanteService {
     // Pie de página
     doc.setFontSize(7)
     doc.setFont('helvetica', 'italic')
-    doc.text('Comprobante emitido desde Oficina General de Suncar', 105, y, { align: 'center' })
+    doc.text('Comprobante emitido desde Oficina General de Solar Carros', 105, y, { align: 'center' })
     y += 15
 
     // Líneas de firma
@@ -230,7 +229,7 @@ export class ExportComprobanteService {
     
     doc.setFontSize(7)
     doc.text('Firma del Cliente', margenIzq + 30, y + 4, { align: 'center' })
-    doc.text('Firma Autorizada Suncar', margenDer - 30, y + 4, { align: 'center' })
+    doc.text('Firma Autorizada Solar Carros', margenDer - 30, y + 4, { align: 'center' })
   }
 
   /**
