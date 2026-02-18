@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { BarChart3, Clock } from "lucide-react"
+import { BarChart3, Clock, TrendingUp } from "lucide-react"
 
 export default function ReportesComercialPage() {
   const router = useRouter()
@@ -16,6 +16,14 @@ export default function ReportesComercialPage() {
       icon: Clock,
       color: 'blue',
       href: '/reportes-comercial/pendientes-instalacion'
+    },
+    {
+      id: 'resultados-comercial',
+      title: 'Resultados por Comercial',
+      description: 'Ofertas cerradas con pagos y márgenes por comercial',
+      icon: TrendingUp,
+      color: 'green',
+      href: '/reportes-comercial/resultados-comercial'
     }
   ]
 
@@ -26,6 +34,12 @@ export default function ReportesComercialPage() {
         border: 'border-blue-200',
         icon: 'text-blue-600',
         hover: 'hover:bg-blue-100'
+      },
+      green: {
+        bg: 'bg-green-50',
+        border: 'border-green-200',
+        icon: 'text-green-600',
+        hover: 'hover:bg-green-100'
       }
     }
     return colors[color as keyof typeof colors] || colors.blue
