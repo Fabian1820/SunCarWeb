@@ -176,7 +176,7 @@ export function TacticalDetailPanel({
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fadeIn">
       {/* Main tactical panel */}
       <div
-        className={`relative w-[95vw] max-w-[1400px] h-[85vh] bg-[#010810] border border-cyan-400/30 rounded-lg shadow-[0_0_60px_rgba(34,211,238,0.2),0_0_120px_rgba(34,211,238,0.1)] transition-all duration-500 ${
+        className={`relative w-[95vw] max-w-[1400px] h-[85vh] overflow-hidden bg-[#010810] border border-cyan-400/30 rounded-lg shadow-[0_0_60px_rgba(34,211,238,0.2),0_0_120px_rgba(34,211,238,0.1)] transition-all duration-500 ${
           animate ? "opacity-100 scale-100" : "opacity-0 scale-95"
         }`}
       >
@@ -211,16 +211,16 @@ export function TacticalDetailPanel({
         </div>
 
         {/* Main content grid */}
-        <div className="grid grid-cols-5 h-[calc(100%-60px)]">
+        <div className="grid grid-cols-5 h-[calc(100%_-_60px)] min-h-0 overflow-hidden">
           {/* Left: Municipal outline + stats */}
-          <div className="col-span-2 border-r border-cyan-400/15 p-6 flex flex-col">
+          <div className="col-span-2 border-r border-cyan-400/15 p-6 flex flex-col min-h-0">
             <div className="flex items-center gap-2 mb-4">
               <MapPin className="h-4 w-4 text-cyan-400/70" />
               <span className="text-xs font-mono tracking-[0.15em] text-cyan-300/60 uppercase">Zona de operaciones</span>
             </div>
 
             {/* SVG Outline */}
-            <div className="flex-1 flex items-center justify-center bg-[#020a18] rounded-lg border border-cyan-400/10 mb-6 relative overflow-hidden">
+            <div className="flex-1 min-h-0 flex items-center justify-center bg-[#020a18] rounded-lg border border-cyan-400/10 mb-6 relative overflow-hidden">
               {/* Grid background */}
               <div className="absolute inset-0 opacity-[0.03] bg-[repeating-linear-gradient(0deg,rgba(56,189,248,1)_0px,transparent_1px,transparent_20px),repeating-linear-gradient(90deg,rgba(56,189,248,1)_0px,transparent_1px,transparent_20px)]" />
 
@@ -280,7 +280,7 @@ export function TacticalDetailPanel({
           </div>
 
           {/* Right: Clients list */}
-          <div className="col-span-3 p-6 flex flex-col">
+          <div className="col-span-3 p-6 flex flex-col min-h-0">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-cyan-400/70" />
@@ -299,7 +299,7 @@ export function TacticalDetailPanel({
             </div>
 
             {/* Scrollable clients grid */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">
+            <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar space-y-2">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="relative h-16 w-16">
