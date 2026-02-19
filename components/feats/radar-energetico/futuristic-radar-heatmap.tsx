@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import type { Feature, GeoJsonObject } from "geojson";
 import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet";
-import { GeoJSON, MapContainer, TileLayer } from "react-leaflet";
-import { Cpu, Sun } from "lucide-react";
+import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
+import { Cpu, Sun, Crosshair, Activity, Users, Zap, MapPin } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import "leaflet/dist/leaflet.css";
 
@@ -41,25 +41,26 @@ interface HoverInfo {
   stat: AggregatedMunicipioStat | null;
 }
 
-const CARD_WIDTH = 250;
-const CARD_HEIGHT = 165;
 const mapCenter: [number, number] = [21.5218, -77.7812];
 
 const METRIC_CONFIG: Record<
   MetricKey,
   {
     label: string;
+    unit: string;
     field: "potencia_paneles_kw" | "potencia_inversores_kw";
     icon: typeof Sun;
   }
 > = {
   inversores: {
     label: "Inversores",
+    unit: "kW",
     field: "potencia_inversores_kw",
     icon: Cpu,
   },
   paneles: {
     label: "Paneles",
+    unit: "kW",
     field: "potencia_paneles_kw",
     icon: Sun,
   },
@@ -92,18 +93,45 @@ function heatColorFromRatio(ratio: number): string {
   return "#ff6b6b";
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+function MapCoordinatesTracker({ onCoordsChange }: { onCoordsChange: (lat: string, lng: string) => void }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const handler = () => {
+      const center = map.getCenter();
+      onCoordsChange(center.lat.toFixed(4), center.lng.toFixed(4));
+    };
+    map.on("move", handler);
+    handler();
+    return () => { map.off("move", handler); };
+  }, [map, onCoordsChange]);
+
+  return null;
 }
 
 export default function FuturisticRadarHeatmap() {
-  const mapShellRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("inversores");
   const [geoJsonData, setGeoJsonData] = useState<GeoJsonObject | null>(null);
   const [stats, setStats] = useState<MunicipioStatApiItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hoverInfo, setHoverInfo] = useState<HoverInfo | null>(null);
+  const [coords, setCoords] = useState({ lat: "21.5218", lng: "-77.7812" });
+  const [currentTime, setCurrentTime] = useState("");
+
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date();
+      setCurrentTime(
+        now.toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" }) +
+        " UTC" + (now.getTimezoneOffset() > 0 ? "-" : "+") + String(Math.abs(now.getTimezoneOffset() / 60)).padStart(2, "0")
+      );
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,22 +148,14 @@ export default function FuturisticRadarHeatmap() {
           fetch(endpoint, { cache: "no-store" }),
         ]);
 
-        if (!geoJsonResponse.ok) {
-          throw new Error("No se pudo cargar el GeoJSON de municipios");
-        }
-
-        if (!statsResponse.ok) {
-          throw new Error("No se pudieron cargar las estadísticas por municipio");
-        }
+        if (!geoJsonResponse.ok) throw new Error("No se pudo cargar el GeoJSON de municipios");
+        if (!statsResponse.ok) throw new Error("No se pudieron cargar las estadísticas por municipio");
 
         const geoJson = (await geoJsonResponse.json()) as GeoJsonObject;
         const statsPayload = (await statsResponse.json()) as MunicipioStatsApiResponse;
 
         if (!statsPayload.success || !Array.isArray(statsPayload.data)) {
-          throw new Error(
-            statsPayload.message ||
-              "La API de estadísticas respondió en un formato inesperado",
-          );
+          throw new Error(statsPayload.message || "Formato de respuesta inesperado");
         }
 
         if (!cancelled) {
@@ -144,24 +164,15 @@ export default function FuturisticRadarHeatmap() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Error desconocido al cargar el radar",
-          );
+          setError(err instanceof Error ? err.message : "Error desconocido al cargar el radar");
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     loadData();
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, []);
 
   const aggregatedStats = useMemo(() => {
@@ -190,28 +201,32 @@ export default function FuturisticRadarHeatmap() {
         });
       }
     }
-
     return map;
   }, [stats]);
 
+  const totalStats = useMemo(() => {
+    let clientes = 0, inversores = 0, paneles = 0, totalKw = 0;
+    for (const s of aggregatedStats.values()) {
+      clientes += s.total_clientes_instalados;
+      inversores += s.potencia_inversores_kw;
+      paneles += s.potencia_paneles_kw;
+      totalKw += s.total_kw_instalados;
+    }
+    return { clientes, inversores, paneles, totalKw, municipios: aggregatedStats.size };
+  }, [aggregatedStats]);
+
   const maxMetricValue = useMemo(() => {
     const field = METRIC_CONFIG[selectedMetric].field;
-    const values = Array.from(aggregatedStats.values()).map((item) =>
-      Number(item[field] || 0),
-    );
+    const values = Array.from(aggregatedStats.values()).map((item) => Number(item[field] || 0));
     const max = Math.max(...values, 0);
     return max > 0 ? max : 1;
   }, [aggregatedStats, selectedMetric]);
 
-  const getMetricValue = (
-    stat: AggregatedMunicipioStat,
-    metric: MetricKey,
-  ): number => {
-    const field = METRIC_CONFIG[metric].field;
-    return Number(stat[field] || 0);
+  const getMetricValue = (stat: AggregatedMunicipioStat, metric: MetricKey): number => {
+    return Number(stat[METRIC_CONFIG[metric].field] || 0);
   };
 
-  const getFeatureStyle = (feature?: Feature): PathOptions => {
+  const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
     const shapeName = String(
       (feature?.properties as Record<string, unknown> | undefined)?.shapeName ?? "",
     );
@@ -219,10 +234,10 @@ export default function FuturisticRadarHeatmap() {
 
     if (!stat) {
       return {
-        color: "#1f2b45",
-        weight: 0.8,
-        fillColor: "#081224",
-        fillOpacity: 0.5,
+        color: "#0e2a3f",
+        weight: 0.6,
+        fillColor: "#040e1a",
+        fillOpacity: 0.4,
       };
     }
 
@@ -230,60 +245,36 @@ export default function FuturisticRadarHeatmap() {
     const ratio = Math.sqrt(Math.max(value, 0) / maxMetricValue);
 
     return {
-      color: "#31b4d4",
-      weight: 1.15,
+      color: "#22d3ee55",
+      weight: 0.9,
       fillColor: heatColorFromRatio(ratio),
-      fillOpacity: 0.86,
+      fillOpacity: 0.78,
     };
-  };
+  }, [aggregatedStats, selectedMetric, maxMetricValue]);
 
-  const getHoverCardPosition = (x: number, y: number) => {
-    const shell = mapShellRef.current;
-    if (!shell) return { left: x + 18, top: y - 18 };
-
-    const width = shell.clientWidth;
-    const height = shell.clientHeight;
-    return {
-      left: clamp(x + 18, 12, Math.max(12, width - CARD_WIDTH - 12)),
-      top: clamp(y - CARD_HEIGHT - 8, 12, Math.max(12, height - CARD_HEIGHT - 12)),
-    };
-  };
-
-  const onEachFeature = (feature: Feature, layer: Layer) => {
+  const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String(
       (feature.properties as Record<string, unknown> | undefined)?.shapeName ?? "Municipio",
     );
-
     const stat = aggregatedStats.get(normalizeText(shapeName)) ?? null;
 
     if ("on" in layer && "setStyle" in layer) {
-      (
-        layer as {
-          on: (events: Record<string, (event: LeafletMouseEvent) => void>) => void;
-          setStyle: (style: PathOptions) => void;
-        }
-      ).on({
+      const typedLayer = layer as {
+        on: (events: Record<string, (event: LeafletMouseEvent) => void>) => void;
+        setStyle: (style: PathOptions) => void;
+      };
+
+      typedLayer.on({
         mouseover: (event: LeafletMouseEvent) => {
           event.target.setStyle({
-            weight: 2.4,
+            weight: 2,
             color: "#a5f3fc",
-            fillOpacity: 1,
+            fillOpacity: 0.95,
           });
-
-          setHoverInfo({
-            municipio: shapeName,
-            x: event.containerPoint.x,
-            y: event.containerPoint.y,
-            stat,
-          });
+          setHoverInfo({ municipio: shapeName, x: event.containerPoint.x, y: event.containerPoint.y, stat });
         },
         mousemove: (event: LeafletMouseEvent) => {
-          setHoverInfo({
-            municipio: shapeName,
-            x: event.containerPoint.x,
-            y: event.containerPoint.y,
-            stat,
-          });
+          setHoverInfo({ municipio: shapeName, x: event.containerPoint.x, y: event.containerPoint.y, stat });
         },
         mouseout: (event: LeafletMouseEvent) => {
           event.target.setStyle(getFeatureStyle(feature));
@@ -291,172 +282,286 @@ export default function FuturisticRadarHeatmap() {
         },
       });
     }
-  };
+  }, [aggregatedStats, getFeatureStyle]);
 
-  const hoverCardStyle = hoverInfo
-    ? getHoverCardPosition(hoverInfo.x, hoverInfo.y)
-    : null;
+  const handleCoordsChange = useCallback((lat: string, lng: string) => {
+    setCoords({ lat, lng });
+  }, []);
+
+  const hoverCardPosition = useMemo(() => {
+    if (!hoverInfo || !containerRef.current) return null;
+    const rect = containerRef.current.getBoundingClientRect();
+    const cardW = 280;
+    const cardH = 200;
+    let left = hoverInfo.x + 20;
+    let top = hoverInfo.y - cardH - 10;
+
+    if (left + cardW > rect.width) left = hoverInfo.x - cardW - 20;
+    if (top < 0) top = hoverInfo.y + 20;
+    if (left < 0) left = 12;
+
+    return { left, top };
+  }, [hoverInfo]);
 
   return (
-    <div className="intel-tilt-stage">
-      <div
-        ref={mapShellRef}
-        className="intel-map-shell relative overflow-hidden rounded-3xl border border-cyan-400/40 bg-gradient-to-br from-slate-950 via-[#02172d] to-slate-900 p-3 shadow-[0_0_40px_rgba(34,211,238,0.15)]"
-      >
-        <div className="pointer-events-none absolute inset-0 opacity-30 [background:radial-gradient(circle_at_20%_20%,rgba(6,182,212,0.35),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(56,189,248,0.25),transparent_45%),radial-gradient(circle_at_50%_90%,rgba(14,116,144,0.22),transparent_40%)]" />
-        <div className="pointer-events-none absolute inset-0 opacity-20 [background:repeating-linear-gradient(180deg,rgba(56,189,248,0.12)_0px,rgba(56,189,248,0.12)_1px,transparent_1px,transparent_7px)]" />
-        <div className="intel-radar-sweep pointer-events-none absolute inset-0 z-[7] rounded-[24px]" />
-
-        <div className="absolute left-5 top-5 z-20 grid grid-cols-2 gap-2 rounded-2xl border border-cyan-400/30 bg-slate-950/70 p-2">
-          {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((metric) => {
-            const Icon = METRIC_CONFIG[metric].icon;
-            const active = metric === selectedMetric;
-
-            return (
-              <button
-                key={metric}
-                type="button"
-                onClick={() => setSelectedMetric(metric)}
-                className={`flex min-w-[104px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:text-sm ${
-                  active
-                    ? "bg-cyan-400/20 text-cyan-100 shadow-[0_0_22px_rgba(56,189,248,0.4)]"
-                    : "text-cyan-200/70 hover:bg-cyan-400/10 hover:text-cyan-100"
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                {METRIC_CONFIG[metric].label}
-              </button>
-            );
-          })}
-        </div>
-
-        {isLoading && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/85 text-cyan-100">
-            Cargando radar...
-          </div>
-        )}
-
-        {error && (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/90 px-4 text-center text-red-300">
-            {error}
-          </div>
-        )}
-
-        {hoverInfo && hoverCardStyle && (
-          <div
-            className="pointer-events-none absolute z-30 w-[250px] rounded-2xl border border-cyan-200/40 bg-slate-950/95 p-3 text-cyan-50 shadow-[0_0_26px_rgba(34,211,238,0.28)] backdrop-blur-md"
-            style={{ left: hoverCardStyle.left, top: hoverCardStyle.top }}
-          >
-            <p className="mb-1 text-sm font-bold text-cyan-100">{hoverInfo.municipio}</p>
-            <p className="mb-2 text-[11px] uppercase tracking-[0.13em] text-cyan-300/80">
-              Panel Energético
-            </p>
-            {hoverInfo.stat ? (
-              <div className="space-y-1 text-xs">
-                <p className="text-cyan-100/90">
-                  Provincia(s): {hoverInfo.stat.provincias.join(", ")}
-                </p>
-                <p>Clientes: {formatMetric(hoverInfo.stat.total_clientes_instalados)}</p>
-                <p>Paneles: {formatMetric(hoverInfo.stat.potencia_paneles_kw)} kW</p>
-                <p>Inversores: {formatMetric(hoverInfo.stat.potencia_inversores_kw)} kW</p>
-              </div>
-            ) : (
-              <p className="text-xs text-cyan-100/85">Sin instalaciones registradas.</p>
-            )}
-          </div>
-        )}
-
-        {geoJsonData && (
-          <MapContainer
-            center={mapCenter}
-            zoom={7}
-            minZoom={6}
-            maxZoom={10}
-            style={{ height: "680px", width: "100%" }}
-            className="rounded-2xl"
-            scrollWheelZoom
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <GeoJSON
-              key={selectedMetric}
-              data={geoJsonData}
-              style={(feature) => getFeatureStyle(feature as Feature)}
-              onEachFeature={(feature, layer) => onEachFeature(feature as Feature, layer)}
-            />
-          </MapContainer>
-        )}
+    <div ref={containerRef} className="relative w-full" style={{ height: "calc(100vh - 120px)" }}>
+      {/* Corner brackets - tactical frame */}
+      <div className="absolute inset-0 z-20 pointer-events-none">
+        <svg className="absolute top-0 left-0 w-12 h-12 text-cyan-400/40"><path d="M2 12 L2 2 L12 2" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        <svg className="absolute top-0 right-0 w-12 h-12 text-cyan-400/40"><path d="M36 2 L46 2 L46 12" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        <svg className="absolute bottom-0 left-0 w-12 h-12 text-cyan-400/40"><path d="M2 36 L2 46 L12 46" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
+        <svg className="absolute bottom-0 right-0 w-12 h-12 text-cyan-400/40"><path d="M36 46 L46 46 L46 36" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
       </div>
 
+      {/* Scan lines overlay */}
+      <div className="absolute inset-0 z-10 pointer-events-none opacity-[0.04] bg-[repeating-linear-gradient(180deg,rgba(56,189,248,0.7)_0px,rgba(56,189,248,0.7)_1px,transparent_1px,transparent_4px)]" />
+
+      {/* Metric selector - top left */}
+      <div className="absolute left-4 top-4 z-30 flex gap-1.5 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-1.5 backdrop-blur-md">
+        {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((metric) => {
+          const Icon = METRIC_CONFIG[metric].icon;
+          const active = metric === selectedMetric;
+          return (
+            <button
+              key={metric}
+              type="button"
+              onClick={() => setSelectedMetric(metric)}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-mono font-semibold tracking-wider uppercase transition-all ${
+                active
+                  ? "bg-cyan-400/15 text-cyan-100 shadow-[0_0_15px_rgba(34,211,238,0.25)] border border-cyan-400/30"
+                  : "text-cyan-300/50 hover:bg-cyan-400/5 hover:text-cyan-200 border border-transparent"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {METRIC_CONFIG[metric].label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Stats panel - top right */}
+      <div className="absolute right-4 top-4 z-30 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-3 backdrop-blur-md">
+        <div className="flex items-center gap-2 mb-2">
+          <Activity className="h-3 w-3 text-cyan-400/70" />
+          <span className="text-[10px] font-mono tracking-[0.15em] text-cyan-400/60 uppercase">Intel Summary</span>
+        </div>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs font-mono">
+          <div className="flex items-center gap-1.5">
+            <Users className="h-3 w-3 text-cyan-400/50" />
+            <span className="text-cyan-300/50">Clientes</span>
+          </div>
+          <span className="text-cyan-100 text-right">{formatMetric(totalStats.clientes)}</span>
+          <div className="flex items-center gap-1.5">
+            <Zap className="h-3 w-3 text-cyan-400/50" />
+            <span className="text-cyan-300/50">Total kW</span>
+          </div>
+          <span className="text-cyan-100 text-right">{formatMetric(totalStats.totalKw)}</span>
+          <div className="flex items-center gap-1.5">
+            <MapPin className="h-3 w-3 text-cyan-400/50" />
+            <span className="text-cyan-300/50">Zonas</span>
+          </div>
+          <span className="text-cyan-100 text-right">{totalStats.municipios}</span>
+        </div>
+      </div>
+
+      {/* Coordinates & time - bottom left */}
+      <div className="absolute left-4 bottom-4 z-30 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 px-3 py-2 backdrop-blur-md">
+        <Crosshair className="h-3.5 w-3.5 text-cyan-400/50" />
+        <span className="text-[11px] font-mono text-cyan-300/70 tracking-wider">
+          {coords.lat}°N {coords.lng}°W
+        </span>
+        <div className="h-3 w-px bg-cyan-400/20" />
+        <span className="text-[11px] font-mono text-cyan-300/70 tracking-wider">{currentTime}</span>
+      </div>
+
+      {/* Heat legend - bottom right */}
+      <div className="absolute right-4 bottom-4 z-30 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-3 backdrop-blur-md">
+        <span className="text-[10px] font-mono tracking-[0.15em] text-cyan-400/60 uppercase block mb-2">Intensidad</span>
+        <div className="flex items-center gap-0.5">
+          {["#081224", "#0c2b44", "#13526b", "#1b7e9f", "#25a5c9", "#5fc0d4", "#f4c84b", "#ff6b6b"].map((color) => (
+            <div key={color} className="w-5 h-3 rounded-sm" style={{ backgroundColor: color }} />
+          ))}
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-[9px] font-mono text-cyan-400/40">0 kW</span>
+          <span className="text-[9px] font-mono text-cyan-400/40">MAX</span>
+        </div>
+      </div>
+
+      {/* Loading overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#010a18]/95 gap-4">
+          <div className="relative h-20 w-20">
+            <div className="absolute inset-0 rounded-full border-2 border-cyan-400/20 animate-ping" />
+            <div className="absolute inset-3 rounded-full border border-cyan-400/40 animate-spin" style={{ animationDuration: '2s' }} />
+            <div className="absolute inset-6 rounded-full bg-cyan-400/15 animate-pulse" />
+          </div>
+          <span className="text-sm font-mono tracking-[0.2em] text-cyan-300/60 uppercase">Cargando radar...</span>
+        </div>
+      )}
+
+      {/* Error overlay */}
+      {error && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#010a18]/95 px-4">
+          <div className="text-center max-w-md">
+            <div className="inline-flex items-center justify-center h-12 w-12 rounded-full border border-red-400/30 bg-red-400/10 mb-4">
+              <span className="text-red-400 text-xl">!</span>
+            </div>
+            <p className="text-red-300 text-sm font-mono">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Hover tooltip */}
+      {hoverInfo && hoverCardPosition && (
+        <div
+          className="pointer-events-none absolute z-50 w-[280px] rounded-xl border border-cyan-300/30 bg-[#010a18]/95 backdrop-blur-xl shadow-[0_0_30px_rgba(34,211,238,0.2),0_0_60px_rgba(34,211,238,0.05)]"
+          style={{ left: hoverCardPosition.left, top: hoverCardPosition.top }}
+        >
+          {/* Top accent line */}
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+
+          <div className="p-3.5">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-sm font-bold text-cyan-50 font-mono tracking-wide">{hoverInfo.municipio}</p>
+              <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            </div>
+            <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-cyan-400/50 mb-3">
+              {hoverInfo.stat ? hoverInfo.stat.provincias.join(" / ") : "Sin datos"}
+            </p>
+
+            {hoverInfo.stat ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-cyan-300/60 flex items-center gap-1.5">
+                    <Users className="h-3 w-3" /> Clientes
+                  </span>
+                  <span className="text-cyan-100 font-semibold">{formatMetric(hoverInfo.stat.total_clientes_instalados)}</span>
+                </div>
+                <div className="h-px bg-cyan-400/10" />
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-cyan-300/60 flex items-center gap-1.5">
+                    <Sun className="h-3 w-3" /> Paneles
+                  </span>
+                  <span className="text-cyan-100 font-semibold">{formatMetric(hoverInfo.stat.potencia_paneles_kw)} kW</span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-cyan-300/60 flex items-center gap-1.5">
+                    <Cpu className="h-3 w-3" /> Inversores
+                  </span>
+                  <span className="text-cyan-100 font-semibold">{formatMetric(hoverInfo.stat.potencia_inversores_kw)} kW</span>
+                </div>
+                <div className="h-px bg-cyan-400/10" />
+                <div className="flex items-center justify-between text-xs font-mono">
+                  <span className="text-amber-300/70 flex items-center gap-1.5">
+                    <Zap className="h-3 w-3" /> Total
+                  </span>
+                  <span className="text-amber-200 font-bold">{formatMetric(hoverInfo.stat.total_kw_instalados)} kW</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-xs font-mono text-cyan-300/40">
+                <div className="h-1.5 w-1.5 rounded-full bg-cyan-400/20" />
+                Sin instalaciones registradas
+              </div>
+            )}
+          </div>
+
+          {/* Bottom accent line */}
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+        </div>
+      )}
+
+      {/* Map */}
+      {geoJsonData && (
+        <MapContainer
+          center={mapCenter}
+          zoom={7}
+          minZoom={6}
+          maxZoom={18}
+          style={{ height: "100%", width: "100%" }}
+          className="rounded-xl"
+          scrollWheelZoom
+          zoomControl={true}
+        >
+          <TileLayer
+            attribution='&copy; Esri, Maxar, Earthstar Geographics'
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={18}
+          />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={18}
+            opacity={0.4}
+          />
+          <GeoJSON
+            key={selectedMetric}
+            data={geoJsonData}
+            style={(feature) => getFeatureStyle(feature as Feature)}
+            onEachFeature={(feature, layer) => onEachFeature(feature as Feature, layer)}
+          />
+          <MapCoordinatesTracker onCoordsChange={handleCoordsChange} />
+        </MapContainer>
+      )}
+
+      {/* Radar sweep animation */}
+      <div className="intel-radar-sweep pointer-events-none absolute inset-0 z-[5] rounded-xl" />
+
       <style jsx global>{`
-        .intel-tilt-stage {
-          perspective: 1600px;
+        .leaflet-container {
+          background: #010a18 !important;
+          border-radius: 0.75rem;
         }
 
-        .intel-map-shell {
-          transform: rotateX(7deg) rotateY(-4deg) rotateZ(0.3deg);
-          transform-style: preserve-3d;
-          transition: transform 450ms ease, box-shadow 450ms ease;
+        .leaflet-control-attribution {
+          background: rgba(1, 10, 24, 0.85) !important;
+          color: rgba(165, 243, 252, 0.6) !important;
+          border-top-left-radius: 6px !important;
+          border: 1px solid rgba(34, 211, 238, 0.15) !important;
+          font-family: ui-monospace, monospace !important;
+          font-size: 9px !important;
+          backdrop-filter: blur(8px);
         }
 
-        .intel-map-shell:hover {
-          transform: rotateX(5deg) rotateY(-2deg) rotateZ(0deg);
-          box-shadow: 0 34px 90px rgba(14, 116, 144, 0.3);
+        .leaflet-control-attribution a {
+          color: rgba(34, 211, 238, 0.5) !important;
+        }
+
+        .leaflet-control-zoom {
+          border: none !important;
+        }
+
+        .leaflet-control-zoom a {
+          background: rgba(1, 10, 24, 0.9) !important;
+          color: #67e8f9 !important;
+          border: 1px solid rgba(34, 211, 238, 0.2) !important;
+          font-family: ui-monospace, monospace !important;
+          width: 32px !important;
+          height: 32px !important;
+          line-height: 30px !important;
+          backdrop-filter: blur(8px);
+        }
+
+        .leaflet-control-zoom a:hover {
+          background: rgba(14, 116, 144, 0.4) !important;
+          color: #a5f3fc !important;
         }
 
         .intel-radar-sweep {
           background: conic-gradient(
             from 0deg at 50% 50%,
             transparent 0deg,
-            transparent 300deg,
-            rgba(14, 165, 233, 0.22) 360deg
+            transparent 320deg,
+            rgba(14, 165, 233, 0.08) 360deg
           );
           mix-blend-mode: screen;
-          animation: intel-radar-rotate 7s linear infinite;
+          animation: intel-radar-rotate 8s linear infinite;
           transform-origin: center;
         }
 
-        .intel-map-shell .leaflet-container {
-          background: #020617;
-        }
-
-        .intel-map-shell .leaflet-control-attribution {
-          background: rgba(2, 6, 23, 0.8);
-          color: rgba(186, 230, 253, 0.85);
-          border-top-left-radius: 6px;
-          border: 1px solid rgba(56, 189, 248, 0.2);
-        }
-
-        .intel-map-shell .leaflet-control-attribution a {
-          color: rgba(125, 211, 252, 0.95);
-        }
-
-        .intel-map-shell .leaflet-control-zoom a {
-          background: rgba(2, 6, 23, 0.85);
-          color: #a5f3fc;
-          border-color: rgba(56, 189, 248, 0.4);
-        }
-
-        .intel-map-shell .leaflet-control-zoom a:hover {
-          background: rgba(14, 116, 144, 0.5);
-        }
-
         @keyframes intel-radar-rotate {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        @media (max-width: 1024px) {
-          .intel-map-shell,
-          .intel-map-shell:hover {
-            transform: none;
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
