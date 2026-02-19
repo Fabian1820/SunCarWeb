@@ -25,12 +25,14 @@ import {
   ClipboardCheck,
   CalendarDays,
   FolderOpen,
+  Camera,
 } from "lucide-react";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/api-config";
 import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
 import { CompletarVisitaDialog } from "@/components/feats/instalaciones/completar-visita-dialog";
+import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +40,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import type { ClienteFoto } from "@/lib/api-types";
 
 type ViewMode = "pendientes" | "realizadas" | "todas";
 
@@ -207,6 +210,7 @@ const mapVisitaToRegistro = (
     fechaVisita: String(fechaVisita),
     resultadoVisita: String(resultadoVisita),
     evidenciaTexto: String(visita?.evidencia_texto || visita?.notas || ""),
+    fotos: Array.isArray(visita?.fotos) ? visita.fotos : [],
     materialesExtra: Array.isArray(visita?.materiales_extra)
       ? visita.materiales_extra
       : Array.isArray(visita?.visita_completada?.materiales_extra)
@@ -273,6 +277,11 @@ export function PendientesVisitaTable({
     useState<VisitaRegistro | null>(null);
   const [archivosVisita, setArchivosVisita] = useState<ArchivoVisita[]>([]);
   const [loadingArchivos, setLoadingArchivos] = useState(false);
+  const [fotosDialogData, setFotosDialogData] = useState<{
+    nombre: string;
+    codigo?: string;
+    fotos: ClienteFoto[];
+  } | null>(null);
   const { toast } = useToast();
 
   const fetchVisitas = useCallback(async () => {
@@ -411,6 +420,7 @@ export function PendientesVisitaTable({
         fechaVisita: "",
         resultadoVisita: visitaAsociada?.resultadoVisita || "",
         evidenciaTexto: visitaAsociada?.evidenciaTexto || "",
+        fotos: visitaAsociada?.fotos || p.fotos || [],
         archivos: visitaAsociada?.archivos || [],
       };
     });
@@ -625,6 +635,20 @@ export function PendientesVisitaTable({
     } finally {
       setLoadingArchivos(false);
     }
+  };
+
+  const getRegistroFotos = (registro: VisitaRegistro): ClienteFoto[] => {
+    return Array.isArray((registro as any)?.fotos)
+      ? (registro as any).fotos
+      : [];
+  };
+
+  const handleVerFotosCliente = (registro: VisitaRegistro) => {
+    setFotosDialogData({
+      nombre: registro.nombre,
+      codigo: registro.numero,
+      fotos: getRegistroFotos(registro),
+    });
   };
 
   const handleOpenArchivo = (archivo: ArchivoVisita) => {
@@ -849,6 +873,15 @@ export function PendientesVisitaTable({
                               <FolderOpen className="h-3 w-3 mr-1" />
                               Ver Archivos
                             </Button>
+                            <Button
+                              onClick={() => handleVerFotosCliente(registro)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-8 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                            >
+                              <Camera className="h-3 w-3 mr-1" />
+                              Ver Fotos
+                            </Button>
                           </div>
                         ) : (
                           <div className="grid grid-cols-2 gap-2">
@@ -867,6 +900,15 @@ export function PendientesVisitaTable({
                             >
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Completar
+                            </Button>
+                            <Button
+                              onClick={() => handleVerFotosCliente(registro)}
+                              size="sm"
+                              variant="outline"
+                              className="text-xs h-8 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                            >
+                              <Camera className="h-3 w-3 mr-1" />
+                              Ver Fotos
                             </Button>
                           </div>
                         )}
@@ -1019,15 +1061,28 @@ export function PendientesVisitaTable({
                           <td className="py-2 px-2">
                             <div className="flex items-center justify-center gap-2">
                               {esRealizada ? (
-                                <Button
-                                  onClick={() => handleVerArchivos(registro)}
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs h-7 px-2"
-                                >
-                                  <FolderOpen className="h-3 w-3 mr-1" />
-                                  Ver Archivos
-                                </Button>
+                                <>
+                                  <Button
+                                    onClick={() => handleVerArchivos(registro)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-7 px-2"
+                                  >
+                                    <FolderOpen className="h-3 w-3 mr-1" />
+                                    Ver Archivos
+                                  </Button>
+                                  <Button
+                                    onClick={() =>
+                                      handleVerFotosCliente(registro)
+                                    }
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-7 px-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                                  >
+                                    <Camera className="h-3 w-3 mr-1" />
+                                    Ver Fotos
+                                  </Button>
+                                </>
                               ) : (
                                 <>
                                   <Button
@@ -1047,6 +1102,17 @@ export function PendientesVisitaTable({
                                   >
                                     <CheckCircle2 className="h-3 w-3 mr-1" />
                                     Completar
+                                  </Button>
+                                  <Button
+                                    onClick={() =>
+                                      handleVerFotosCliente(registro)
+                                    }
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs h-7 px-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                                  >
+                                    <Camera className="h-3 w-3 mr-1" />
+                                    Ver Fotos
                                   </Button>
                                 </>
                               )}
@@ -1075,6 +1141,16 @@ export function PendientesVisitaTable({
         onOpenChange={setCompletarVisitaDialogOpen}
         pendiente={pendienteSeleccionado}
         onSuccess={handleVisitaCompletada}
+      />
+
+      <ClienteFotosDialog
+        open={!!fotosDialogData}
+        onOpenChange={(open) => {
+          if (!open) setFotosDialogData(null);
+        }}
+        clienteNombre={fotosDialogData?.nombre || ""}
+        clienteCodigo={fotosDialogData?.codigo}
+        fotos={fotosDialogData?.fotos || []}
       />
 
       <Dialog open={archivosDialogOpen} onOpenChange={setArchivosDialogOpen}>
