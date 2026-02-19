@@ -50,7 +50,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { ReportsTable } from "@/components/feats/reports/reports-table";
-import { ReporteService } from "@/lib/api-services";
+import { ClienteService, ReporteService } from "@/lib/api-services";
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
@@ -75,7 +75,7 @@ import type {
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import { useToast } from "@/hooks/use-toast";
-import type { Cliente } from "@/lib/api-types";
+import type { Cliente, ClienteFoto } from "@/lib/api-types";
 
 interface ClientsTableProps {
   clients: Cliente[];
@@ -221,6 +221,11 @@ export function ClientsTable({
   const [clientForDetails, setClientForDetails] = useState<Cliente | null>(
     null,
   );
+  const [fotosClientDetails, setFotosClientDetails] = useState<ClienteFoto[]>(
+    [],
+  );
+  const [loadingFotosClientDetails, setLoadingFotosClientDetails] =
+    useState(false);
   const [showOfertasDialog, setShowOfertasDialog] = useState(false);
   const [clientForOfertas, setClientForOfertas] = useState<Cliente | null>(
     null,
@@ -680,9 +685,25 @@ export function ClientsTable({
   };
 
   // Acción para ver detalles completos del cliente
-  const handleViewClientDetails = (client: Cliente) => {
+  const handleViewClientDetails = async (client: Cliente) => {
     setClientForDetails(client);
     setShowClientDetails(true);
+
+    setLoadingFotosClientDetails(true);
+    try {
+      const fotos = await ClienteService.getFotosCliente(client.numero);
+      setFotosClientDetails(fotos);
+    } catch (error) {
+      console.error("Error cargando fotos del cliente:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los archivos del cliente.",
+        variant: "destructive",
+      });
+      setFotosClientDetails([]);
+    } finally {
+      setLoadingFotosClientDetails(false);
+    }
   };
 
   const openOfertasCliente = (client: Cliente) => {
@@ -3067,9 +3088,17 @@ export function ClientsTable({
       {/* Modal de detalles completos del cliente */}
       <ClienteDetallesDialog
         open={showClientDetails}
-        onOpenChange={setShowClientDetails}
+        onOpenChange={(open) => {
+          setShowClientDetails(open);
+          if (!open) {
+            setClientForDetails(null);
+            setFotosClientDetails([]);
+            setLoadingFotosClientDetails(false);
+          }
+        }}
         cliente={clientForDetails}
-        onViewMap={handleViewClientLocation}
+        fotosCliente={fotosClientDetails}
+        loadingFotosCliente={loadingFotosClientDetails}
       />
 
       {/* Modal de gestión de averías */}

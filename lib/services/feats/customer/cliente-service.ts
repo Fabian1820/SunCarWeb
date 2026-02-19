@@ -19,6 +19,13 @@ export type ClienteFotoUploadPayload = {
   tipo: ClienteFoto['tipo']
 }
 
+type ClienteFotosResponse = {
+  success?: boolean
+  message?: string
+  data?: ClienteFoto[]
+  fotos?: ClienteFoto[]
+}
+
 const cleanPayload = <T extends Record<string, unknown>>(payload: T): Partial<T> => {
   const cleaned: Record<string, unknown> = {}
   Object.entries(payload).forEach(([key, value]) => {
@@ -193,6 +200,30 @@ export class ClienteService {
     if (response?.success === false) {
       throw new Error(response.message || 'Error al subir foto/video del cliente')
     }
+  }
+
+  static async getFotosCliente(numero: string): Promise<ClienteFoto[]> {
+    const response = await apiRequest<ClienteFotosResponse | ClienteFoto[]>(
+      `/clientes/${encodeURIComponent(numero)}/fotos`
+    )
+
+    if (Array.isArray(response)) {
+      return response
+    }
+
+    if (response?.success === false) {
+      throw new Error(response.message || 'Error al obtener fotos/videos del cliente')
+    }
+
+    if (Array.isArray(response?.data)) {
+      return response.data
+    }
+
+    if (Array.isArray(response?.fotos)) {
+      return response.fotos
+    }
+
+    return []
   }
 
   static async eliminarCliente(numero: string): Promise<ClienteResponse> {
