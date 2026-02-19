@@ -7,7 +7,7 @@ import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 import {
   Cpu, Sun, Crosshair, Activity, Users, Zap, MapPin,
-  Search, ChevronRight, ChevronLeft, List,
+  Search, ChevronRight, ChevronLeft, List, Volume2, VolumeX,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import { TacticalDetailPanel } from "./tactical-detail-panel";
@@ -123,6 +123,7 @@ export default function FuturisticRadarHeatmap() {
   const [currentTime, setCurrentTime] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [mounted, setMounted] = useState(false);
   const [tacticalPanel, setTacticalPanel] = useState<{
     municipio: string;
@@ -132,6 +133,13 @@ export default function FuturisticRadarHeatmap() {
   } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("radar.voice.enabled");
+    if (saved === "1") setVoiceEnabled(true);
+    if (saved === "0") setVoiceEnabled(false);
+  }, []);
 
   useEffect(() => {
     const tick = () => {
@@ -299,41 +307,45 @@ export default function FuturisticRadarHeatmap() {
 
   // Tactical blip sound on hover using Web Audio API
   const lastBlipRef = useRef<string>("");
+  const lastBlipTimeRef = useRef<number>(0);
   const playTacticalBlip = useCallback((municipio: string) => {
     if (typeof window === "undefined") return;
     if (lastBlipRef.current === municipio) return;
+    const nowMs = Date.now();
+    if (nowMs - lastBlipTimeRef.current < 180) return;
     lastBlipRef.current = municipio;
+    lastBlipTimeRef.current = nowMs;
     try {
       const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const now = ctx.currentTime;
 
-      // Radar ping - short descending tone
+      // Subtle radar ping
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = "sine";
-      osc1.frequency.setValueAtTime(1400, now);
-      osc1.frequency.exponentialRampToValueAtTime(700, now + 0.1);
-      gain1.gain.setValueAtTime(0.12, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+      osc1.frequency.setValueAtTime(920, now);
+      osc1.frequency.exponentialRampToValueAtTime(680, now + 0.07);
+      gain1.gain.setValueAtTime(0.028, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
       osc1.start(now);
-      osc1.stop(now + 0.15);
+      osc1.stop(now + 0.09);
 
-      // Second echo blip
+      // Soft echo
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = "sine";
-      osc2.frequency.setValueAtTime(800, now + 0.12);
-      osc2.frequency.exponentialRampToValueAtTime(500, now + 0.22);
-      gain2.gain.setValueAtTime(0.06, now + 0.12);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc2.frequency.setValueAtTime(620, now + 0.06);
+      osc2.frequency.exponentialRampToValueAtTime(500, now + 0.14);
+      gain2.gain.setValueAtTime(0.012, now + 0.06);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
       osc2.connect(gain2);
       gain2.connect(ctx.destination);
-      osc2.start(now + 0.12);
-      osc2.stop(now + 0.25);
+      osc2.start(now + 0.06);
+      osc2.stop(now + 0.14);
 
-      setTimeout(() => ctx.close(), 400);
+      setTimeout(() => ctx.close(), 240);
     } catch {
       // Audio not available
     }
@@ -341,8 +353,22 @@ export default function FuturisticRadarHeatmap() {
 
   const voiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Voice triggered on click only (always enabled)
+  const toggleVoice = useCallback(() => {
+    setVoiceEnabled((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("radar.voice.enabled", next ? "1" : "0");
+        if (!next && window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Voice triggered on click only
   const speakTactical = useCallback((municipio: string, stat: AggregatedMunicipioStat | null) => {
+    if (!voiceEnabled) return;
     if (typeof window === "undefined" || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
@@ -355,7 +381,6 @@ export default function FuturisticRadarHeatmap() {
         const inv = Math.round(stat.potencia_inversores_kw);
         text += `Paneles: ${pan} kilovatios. `;
         text += `Inversores: ${inv} kilovatios. `;
-        text += `${stat.total_clientes_instalados} clientes instalados.`;
       } else {
         text += "Sin instalaciones registradas.";
       }
@@ -367,6 +392,15 @@ export default function FuturisticRadarHeatmap() {
       utterance.volume = 0.9;
       window.speechSynthesis.speak(utterance);
     }, 300);
+  }, [voiceEnabled]);
+
+  useEffect(() => {
+    return () => {
+      if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
@@ -539,6 +573,25 @@ export default function FuturisticRadarHeatmap() {
           <List className="h-3.5 w-3.5" />
           <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">Municipios</span>
           {sidebarOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
+
+        {/* Voice toggle button */}
+        <button
+          type="button"
+          onClick={toggleVoice}
+          className={`absolute right-4 top-[102px] z-[1001] flex items-center gap-1.5 rounded-lg border px-2.5 py-2 backdrop-blur-md transition-all ${
+            voiceEnabled
+              ? "border-cyan-400/20 bg-[#010a18]/90 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10"
+              : "border-red-400/20 bg-[#16070a]/90 text-red-300/70 hover:text-red-100 hover:bg-red-500/10"
+          }`}
+          aria-pressed={voiceEnabled}
+          aria-label={voiceEnabled ? "Desactivar voz táctica" : "Activar voz táctica"}
+          title={voiceEnabled ? "Desactivar voz táctica" : "Activar voz táctica"}
+        >
+          {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+          <span className="text-[10px] font-mono tracking-wider uppercase">
+            {voiceEnabled ? "Voz ON" : "Voz OFF"}
+          </span>
         </button>
 
         {/* Loading */}
