@@ -291,40 +291,43 @@ export default function FuturisticRadarHeatmap() {
     };
   }, [rankMap]);
 
-  // Tactical blip sound using Web Audio API
-  const playTacticalBlip = useCallback(() => {
+  // Tactical blip sound on hover using Web Audio API
+  const lastBlipRef = useRef<string>("");
+  const playTacticalBlip = useCallback((municipio: string) => {
     if (typeof window === "undefined") return;
+    if (lastBlipRef.current === municipio) return;
+    lastBlipRef.current = municipio;
     try {
       const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-
-      // Short radar ping: two quick tones
       const now = ctx.currentTime;
+
+      // Radar ping - short descending tone
       const osc1 = ctx.createOscillator();
       const gain1 = ctx.createGain();
       osc1.type = "sine";
-      osc1.frequency.setValueAtTime(1200, now);
-      osc1.frequency.exponentialRampToValueAtTime(800, now + 0.08);
-      gain1.gain.setValueAtTime(0.15, now);
-      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc1.frequency.setValueAtTime(1400, now);
+      osc1.frequency.exponentialRampToValueAtTime(700, now + 0.1);
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
       osc1.connect(gain1);
       gain1.connect(ctx.destination);
       osc1.start(now);
-      osc1.stop(now + 0.12);
+      osc1.stop(now + 0.15);
 
-      // Second blip slightly delayed
+      // Second echo blip
       const osc2 = ctx.createOscillator();
       const gain2 = ctx.createGain();
       osc2.type = "sine";
-      osc2.frequency.setValueAtTime(900, now + 0.15);
-      osc2.frequency.exponentialRampToValueAtTime(600, now + 0.25);
-      gain2.gain.setValueAtTime(0.1, now + 0.15);
-      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc2.frequency.setValueAtTime(800, now + 0.12);
+      osc2.frequency.exponentialRampToValueAtTime(500, now + 0.22);
+      gain2.gain.setValueAtTime(0.06, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
       osc2.connect(gain2);
       gain2.connect(ctx.destination);
-      osc2.start(now + 0.15);
-      osc2.stop(now + 0.28);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.25);
 
-      setTimeout(() => ctx.close(), 500);
+      setTimeout(() => ctx.close(), 400);
     } catch {
       // Audio not available
     }
@@ -332,40 +335,33 @@ export default function FuturisticRadarHeatmap() {
 
   const voiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Sound + voice triggered on click
+  // Voice triggered on click only
   const speakTactical = useCallback((municipio: string, stat: AggregatedMunicipioStat | null) => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !voiceEnabled || !window.speechSynthesis) return;
 
-    // Blip always plays on click
-    playTacticalBlip();
-
-    if (!voiceEnabled || !window.speechSynthesis) return;
-
-    // Cancel any pending speech
     window.speechSynthesis.cancel();
     if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
 
-    // Delay before speaking (lets the blip finish)
     voiceTimeoutRef.current = setTimeout(() => {
-      let text = municipio + ". ";
+      let text = `Objetivo: ${municipio}. `;
       if (stat) {
         const pan = Math.round(stat.potencia_paneles_kw);
         const inv = Math.round(stat.potencia_inversores_kw);
         text += `Paneles: ${pan} kilovatios. `;
         text += `Inversores: ${inv} kilovatios. `;
-        text += `${stat.total_clientes_instalados} clientes.`;
+        text += `${stat.total_clientes_instalados} clientes instalados.`;
       } else {
-        text += "Sin instalaciones.";
+        text += "Sin instalaciones registradas.";
       }
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "es-ES";
-      utterance.rate = 0.85;
-      utterance.pitch = 0.75;
+      utterance.rate = 0.95;
+      utterance.pitch = 0.7;
       utterance.volume = 0.9;
       window.speechSynthesis.speak(utterance);
-    }, 400);
-  }, [voiceEnabled, playTacticalBlip]);
+    }, 300);
+  }, [voiceEnabled]);
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String(
@@ -388,6 +384,7 @@ export default function FuturisticRadarHeatmap() {
           });
           const e = event.originalEvent as MouseEvent;
           setHoverInfo({ municipio: shapeName, clientX: e.clientX, clientY: e.clientY, stat });
+          playTacticalBlip(shapeName);
         },
         mousemove: (event: LeafletMouseEvent) => {
           const e = event.originalEvent as MouseEvent;
@@ -396,13 +393,14 @@ export default function FuturisticRadarHeatmap() {
         mouseout: (event: LeafletMouseEvent) => {
           event.target.setStyle(getFeatureStyle(feature));
           setHoverInfo((prev) => (prev?.municipio === shapeName ? null : prev));
+          lastBlipRef.current = "";
         },
         click: () => {
           speakTactical(shapeName, stat);
         },
       });
     }
-  }, [aggregatedStats, getFeatureStyle, speakTactical]);
+  }, [aggregatedStats, getFeatureStyle, speakTactical, playTacticalBlip]);
 
   const handleCoordsChange = useCallback((lat: string, lng: string) => {
     setCoords({ lat, lng });
@@ -715,51 +713,91 @@ export default function FuturisticRadarHeatmap() {
       {/* ===== HOVER TOOLTIP (portal to body, fixed position) ===== */}
       {mounted && hoverInfo && tooltipPosition && createPortal(
         <div
-          className="pointer-events-none fixed z-[9999] w-[290px] rounded-xl border border-cyan-300/30 bg-[#010a18]/95 backdrop-blur-xl shadow-[0_0_30px_rgba(34,211,238,0.2),0_0_60px_rgba(34,211,238,0.05)]"
+          className="pointer-events-none fixed z-[9999] w-[300px] rounded-lg border border-cyan-400/25 bg-[#010a18]/97 backdrop-blur-xl shadow-[0_0_40px_rgba(34,211,238,0.15),0_0_80px_rgba(34,211,238,0.05),inset_0_1px_0_rgba(34,211,238,0.1)]"
           style={{ left: tooltipPosition.left, top: tooltipPosition.top }}
         >
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
-
-          <div className="p-3.5">
-            <div className="flex items-center justify-between mb-1">
-              <p className="text-sm font-bold text-cyan-50 font-mono tracking-wide">{hoverInfo.municipio}</p>
-              <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+          {/* Top classified bar */}
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-cyan-400/15 bg-cyan-400/[0.03]">
+            <div className="flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-cyan-400 intel-blink" />
+              <span className="text-[8px] font-mono tracking-[0.25em] text-cyan-400/50 uppercase">Target Acquired</span>
             </div>
-            <p className="text-[10px] font-mono uppercase tracking-[0.15em] text-cyan-400/50 mb-3">
-              {hoverInfo.stat ? hoverInfo.stat.provincias.join(" / ") : "Sin datos"}
+            <span className="text-[8px] font-mono tracking-[0.2em] text-amber-400/50 uppercase">Classified</span>
+          </div>
+
+          <div className="p-3">
+            {/* Crosshair + Municipality name */}
+            <div className="flex items-center gap-2 mb-0.5">
+              <Crosshair className="h-4 w-4 text-cyan-400/70 flex-shrink-0" />
+              <p className="text-sm font-bold text-cyan-50 font-mono tracking-wide uppercase">{hoverInfo.municipio}</p>
+            </div>
+            <p className="text-[9px] font-mono uppercase tracking-[0.2em] text-cyan-400/40 ml-6 mb-3">
+              {hoverInfo.stat ? hoverInfo.stat.provincias.join(" // ") : "Sin datos"} &mdash; SIGINT
             </p>
 
             {hoverInfo.stat ? (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-cyan-300/60 flex items-center gap-1.5">
-                    <Users className="h-3 w-3" /> Clientes
-                  </span>
-                  <span className="text-cyan-100 font-semibold">{formatMetric(hoverInfo.stat.total_clientes_instalados)}</span>
+              <>
+                {/* Threat level bar */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[9px] font-mono text-cyan-400/40 uppercase tracking-wider">Nivel de cobertura</span>
+                    <span className="text-[9px] font-mono text-cyan-300/60">{
+                      (() => {
+                        const r = rankMap.get(normalizeText(hoverInfo.municipio));
+                        if (!r || r < 0.3) return "BAJO";
+                        if (r < 0.6) return "MEDIO";
+                        if (r < 0.85) return "ALTO";
+                        return "CRITICO";
+                      })()
+                    }</span>
+                  </div>
+                  <div className="h-1 w-full rounded-full bg-[#0a1a2e] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.round((rankMap.get(normalizeText(hoverInfo.municipio)) || 0) * 100)}%`,
+                        background: `linear-gradient(90deg, #22d3ee, ${heatColorFromRatio(rankMap.get(normalizeText(hoverInfo.municipio)) || 0)})`,
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="h-px bg-cyan-400/10" />
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-amber-300/60 flex items-center gap-1.5">
-                    <Sun className="h-3 w-3" /> Paneles
-                  </span>
-                  <span className="text-amber-200 font-semibold">{formatMetric(hoverInfo.stat.potencia_paneles_kw)} kW</span>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-cyan-300/50 flex items-center gap-1.5">
+                      <Users className="h-3 w-3" /> Clientes
+                    </span>
+                    <span className="text-cyan-100 font-bold tabular-nums">{formatMetric(hoverInfo.stat.total_clientes_instalados)}</span>
+                  </div>
+                  <div className="h-px bg-cyan-400/[0.07]" />
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-amber-400/60 flex items-center gap-1.5">
+                      <Sun className="h-3 w-3" /> Paneles
+                    </span>
+                    <span className="text-amber-200 font-bold tabular-nums">{formatMetric(hoverInfo.stat.potencia_paneles_kw)} kW</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-emerald-400/60 flex items-center gap-1.5">
+                      <Cpu className="h-3 w-3" /> Inversores
+                    </span>
+                    <span className="text-emerald-200 font-bold tabular-nums">{formatMetric(hoverInfo.stat.potencia_inversores_kw)} kW</span>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between text-xs font-mono">
-                  <span className="text-emerald-300/60 flex items-center gap-1.5">
-                    <Cpu className="h-3 w-3" /> Inversores
-                  </span>
-                  <span className="text-emerald-200 font-semibold">{formatMetric(hoverInfo.stat.potencia_inversores_kw)} kW</span>
-                </div>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center gap-2 text-xs font-mono text-cyan-300/40">
-                <div className="h-1.5 w-1.5 rounded-full bg-cyan-400/20" />
-                Sin instalaciones registradas
+              <div className="flex items-center gap-2 text-xs font-mono text-cyan-400/30">
+                <div className="h-1.5 w-1.5 rounded-full bg-cyan-400/15" />
+                Sin instalaciones registradas &mdash; DARK ZONE
               </div>
             )}
           </div>
 
+          {/* Bottom scan line */}
           <div className="h-px w-full bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+          <div className="px-3 py-1 flex items-center justify-between">
+            <span className="text-[7px] font-mono text-cyan-400/25 tracking-widest">SNC-RADAR v2.1</span>
+            <span className="text-[7px] font-mono text-cyan-400/25 tracking-widest">CLICK PARA VOZ</span>
+          </div>
         </div>,
         document.body
       )}
@@ -819,6 +857,15 @@ export default function FuturisticRadarHeatmap() {
         @keyframes intel-radar-rotate {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+
+        @keyframes intel-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.2; }
+        }
+
+        .intel-blink {
+          animation: intel-blink 1.5s ease-in-out infinite;
         }
 
         .custom-scrollbar::-webkit-scrollbar {
