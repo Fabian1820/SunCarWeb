@@ -3310,14 +3310,19 @@ export function ConfeccionOfertasView({
     setCreandoOferta(true)
 
     try {
-      // Preparar datos de la oferta según la documentación del backend
-      const ofertaData: any = {
-        tipo_oferta: ofertaGenerica ? 'generica' : 'personalizada',
-        almacen_id: almacenId,
+      // ✅ IMPORTANTE: En modo edición, solo enviar los campos que cambiaron
+      // El backend se encarga de limpiar automáticamente el contacto anterior
+      const ofertaData: any = {}
+
+      // En modo creación, enviar tipo_oferta y almacen_id
+      if (!modoEdicion) {
+        ofertaData.tipo_oferta = ofertaGenerica ? 'generica' : 'personalizada'
+        ofertaData.almacen_id = almacenId
       }
 
       // ✅ SOLUCIÓN: Solo agregar el campo de contacto que tiene valor (evitar enviar múltiples contactos)
-      // Según documentación en docs/SOLUCION_ERROR_MULTIPLES_CONTACTOS.md
+      // IMPORTANTE: NO enviar los otros campos de contacto en null o vacíos
+      // El backend se encargará automáticamente de limpiar el contacto anterior
       if (!ofertaGenerica) {
         if (tipoContacto === 'cliente') {
           const numeroCliente = selectedCliente?.numero || clienteId
@@ -3336,146 +3341,153 @@ export function ConfeccionOfertasView({
         }
       }
 
-      // Agregar foto de portada si existe
-      if (fotoPortada) {
-        ofertaData.foto_portada = fotoPortada
-        // Compatibilidad con endpoint antiguo que espera foto_portada_url
-        ofertaData.foto_portada_url = fotoPortada
-      }
+      // Solo agregar estos campos si NO estamos en modo edición
+      // o si estamos editando y queremos cambiar estos valores específicamente
+      if (!modoEdicion) {
+        // Agregar foto de portada si existe
+        if (fotoPortada) {
+          ofertaData.foto_portada = fotoPortada
+          // Compatibilidad con endpoint antiguo que espera foto_portada_url
+          ofertaData.foto_portada_url = fotoPortada
+        }
 
-      // Agregar estado
-      ofertaData.estado = estadoOferta
+        // Agregar estado
+        ofertaData.estado = estadoOferta
 
-      // Agregar items
-      console.log('🔍 DEBUG - Construyendo items para guardar:', {
-        total_items: items.length,
-        porcentajeAsignadoPorItem_keys: Object.keys(porcentajeAsignadoPorItem),
-        porcentajeAsignadoPorItem_values: porcentajeAsignadoPorItem,
-        porcentajeMargenPorItem_size: porcentajeMargenPorItem.size
-      })
-      
-      ofertaData.items = items.map(item => {
-        const costoItem = item.precio * item.cantidad
-        
-        // Usar el porcentaje editado manualmente si existe, sino usar el calculado automáticamente
-        const tieneManual = typeof porcentajeAsignadoPorItem[item.id] === "number"
-        const porcentajeManual = porcentajeAsignadoPorItem[item.id]
-        const porcentajeAuto = porcentajeMargenPorItem.get(item.id) ?? 0
-        const porcentajeItem = tieneManual ? porcentajeManual : porcentajeAuto
-        
-        const margenAsignado = costoItem * (porcentajeItem / 100)
-        
-        console.log(`  📦 Item ${item.id} (${item.materialCodigo}):`, {
-          descripcion: item.descripcion.substring(0, 30),
-          costo: costoItem,
-          tiene_manual: tieneManual,
-          porcentaje_manual: porcentajeManual,
-          porcentaje_auto: porcentajeAuto,
-          porcentaje_usado: porcentajeItem,
-          margen_asignado: margenAsignado
+        // Agregar items
+        // Agregar items
+        console.log('🔍 DEBUG - Construyendo items para guardar:', {
+          total_items: items.length,
+          porcentajeAsignadoPorItem_keys: Object.keys(porcentajeAsignadoPorItem),
+          porcentajeAsignadoPorItem_values: porcentajeAsignadoPorItem,
+          porcentajeMargenPorItem_size: porcentajeMargenPorItem.size
         })
         
-        return {
-          material_codigo: item.materialCodigo,
-          descripcion: item.descripcion,
-          precio: item.precio,
-          precio_original: item.precioOriginal,
-          precio_editado: item.precioEditado,
-          cantidad: item.cantidad,
-          categoria: item.categoria,
-          seccion: item.seccion,
-          margen_asignado: margenAsignado
+        ofertaData.items = items.map(item => {
+          const costoItem = item.precio * item.cantidad
+          
+          // Usar el porcentaje editado manualmente si existe, sino usar el calculado automáticamente
+          const tieneManual = typeof porcentajeAsignadoPorItem[item.id] === "number"
+          const porcentajeManual = porcentajeAsignadoPorItem[item.id]
+          const porcentajeAuto = porcentajeMargenPorItem.get(item.id) ?? 0
+          const porcentajeItem = tieneManual ? porcentajeManual : porcentajeAuto
+          
+          const margenAsignado = costoItem * (porcentajeItem / 100)
+          
+          console.log(`  📦 Item ${item.id} (${item.materialCodigo}):`, {
+            descripcion: item.descripcion.substring(0, 30),
+            costo: costoItem,
+            tiene_manual: tieneManual,
+            porcentaje_manual: porcentajeManual,
+            porcentaje_auto: porcentajeAuto,
+            porcentaje_usado: porcentajeItem,
+            margen_asignado: margenAsignado
+          })
+          
+          return {
+            material_codigo: item.materialCodigo,
+            descripcion: item.descripcion,
+            precio: item.precio,
+            precio_original: item.precioOriginal,
+            precio_editado: item.precioEditado,
+            cantidad: item.cantidad,
+            categoria: item.categoria,
+            seccion: item.seccion,
+            margen_asignado: margenAsignado
+          }
+        })
+        
+        console.log('📋 Items construidos:', ofertaData.items.map(i => ({
+          codigo: i.material_codigo,
+          margen: i.margen_asignado
+        })))
+
+        // Agregar servicios si existen
+        if (servicios.length > 0) {
+          ofertaData.servicios = servicios
         }
-      })
-      
-      console.log('📋 Items construidos:', ofertaData.items.map(i => ({
-        codigo: i.material_codigo,
-        margen: i.margen_asignado
-      })))
 
-      // Agregar servicios si existen
-      if (servicios.length > 0) {
-        ofertaData.servicios = servicios
+        // Agregar secciones personalizadas si existen
+        if (seccionesPersonalizadas.length > 0) {
+          ofertaData.secciones_personalizadas = seccionesPersonalizadas.map(seccion => ({
+            id: seccion.id,
+            label: seccion.label,
+            tipo: seccion.tipo,
+            tipo_extra: seccion.tipoExtra,
+            categorias_materiales: seccion.categoriasMateriales,
+            contenido_escritura: seccion.contenidoEscritura,
+            costos_extras: seccion.costosExtras?.map(costo => ({
+              id: costo.id,
+              descripcion: costo.descripcion,
+              cantidad: costo.cantidad,
+              precio_unitario: costo.precioUnitario,
+            })),
+          }))
+        }
+
+        // Agregar elementos personalizados si existen
+        if (elementosPersonalizados.length > 0) {
+          ofertaData.elementos_personalizados = elementosPersonalizados.map(elem => ({
+            material_codigo: elem.materialCodigo,
+            descripcion: elem.descripcion,
+            precio: elem.precio,
+            cantidad: elem.cantidad,
+            categoria: elem.categoria
+          }))
+        }
+
+        // Agregar componentes principales
+        ofertaData.componentes_principales = {
+          inversor_seleccionado: inversorSeleccionado || undefined,
+          bateria_seleccionada: bateriaSeleccionada || undefined,
+          panel_seleccionado: panelSeleccionado || undefined
+        }
+
+        // Agregar nombres de la oferta
+        ofertaData.nombre_oferta = nombreAutomatico // Nombre corto para mostrar en UI
+        ofertaData.nombre_completo = nombreCompletoParaExportar // Nombre completo para exportaciones
+
+        // Agregar datos de margen y precios
+        ofertaData.margen_comercial = margenComercial
+        ofertaData.porcentaje_margen_materiales = porcentajeMargenMateriales
+        ofertaData.porcentaje_margen_instalacion = porcentajeMargenInstalacion
+        ofertaData.margen_total = margenComercialTotal
+        ofertaData.margen_materiales = margenParaMateriales
+        ofertaData.margen_instalacion = margenParaInstalacion
+        ofertaData.descuento_porcentaje = descuentoPorcentaje
+        ofertaData.monto_descuento = montoDescuento
+        ofertaData.costo_transportacion = costoTransportacion
+        ofertaData.total_materiales = totalMateriales
+        ofertaData.subtotal_con_margen = subtotalConMargen
+        ofertaData.subtotal_con_descuento = subtotalConDescuento
+        ofertaData.total_elementos_personalizados = totalElementosPersonalizados
+        ofertaData.total_costos_extras = totalCostosExtras
+        ofertaData.precio_final = precioFinal
+
+        console.log('💰 DEBUG - Datos de descuento que se envían:', {
+          descuento_porcentaje: descuentoPorcentaje,
+          monto_descuento: montoDescuento,
+          subtotal_con_descuento: subtotalConDescuento,
+        })
+
+        // Agregar datos de pago
+        ofertaData.moneda_pago = monedaPago
+        ofertaData.tasa_cambio = monedaPago !== 'USD' ? Number.parseFloat(tasaCambio) || 0 : 0
+        ofertaData.pago_transferencia = pagoTransferencia
+        ofertaData.datos_cuenta = pagoTransferencia ? datosCuenta : ""
+        ofertaData.aplica_contribucion = aplicaContribucion
+        ofertaData.porcentaje_contribucion = aplicaContribucion ? porcentajeContribucion : 0
       }
 
-      // Agregar secciones personalizadas si existen
-      if (seccionesPersonalizadas.length > 0) {
-        ofertaData.secciones_personalizadas = seccionesPersonalizadas.map(seccion => ({
-          id: seccion.id,
-          label: seccion.label,
-          tipo: seccion.tipo,
-          tipo_extra: seccion.tipoExtra,
-          categorias_materiales: seccion.categoriasMateriales,
-          contenido_escritura: seccion.contenidoEscritura,
-          costos_extras: seccion.costosExtras?.map(costo => ({
-            id: costo.id,
-            descripcion: costo.descripcion,
-            cantidad: costo.cantidad,
-            precio_unitario: costo.precioUnitario,
-          })),
-        }))
-      }
-
-      // Agregar elementos personalizados si existen
-      if (elementosPersonalizados.length > 0) {
-        ofertaData.elementos_personalizados = elementosPersonalizados.map(elem => ({
-          material_codigo: elem.materialCodigo,
-          descripcion: elem.descripcion,
-          precio: elem.precio,
-          cantidad: elem.cantidad,
-          categoria: elem.categoria
-        }))
-      }
-
-      // Agregar componentes principales
-      ofertaData.componentes_principales = {
-        inversor_seleccionado: inversorSeleccionado || undefined,
-        bateria_seleccionada: bateriaSeleccionada || undefined,
-        panel_seleccionado: panelSeleccionado || undefined
-      }
-
-      // Agregar nombres de la oferta
-      ofertaData.nombre_oferta = nombreAutomatico // Nombre corto para mostrar en UI
-      ofertaData.nombre_completo = nombreCompletoParaExportar // Nombre completo para exportaciones
-
-      // Agregar datos de margen y precios
-      ofertaData.margen_comercial = margenComercial
-      ofertaData.porcentaje_margen_materiales = porcentajeMargenMateriales
-      ofertaData.porcentaje_margen_instalacion = porcentajeMargenInstalacion
-      ofertaData.margen_total = margenComercialTotal
-      ofertaData.margen_materiales = margenParaMateriales
-      ofertaData.margen_instalacion = margenParaInstalacion
-      ofertaData.descuento_porcentaje = descuentoPorcentaje
-      ofertaData.monto_descuento = montoDescuento
-      ofertaData.costo_transportacion = costoTransportacion
-      ofertaData.total_materiales = totalMateriales
-      ofertaData.subtotal_con_margen = subtotalConMargen
-      ofertaData.subtotal_con_descuento = subtotalConDescuento
-      ofertaData.total_elementos_personalizados = totalElementosPersonalizados
-      ofertaData.total_costos_extras = totalCostosExtras
-      ofertaData.precio_final = precioFinal
-
-      console.log('💰 DEBUG - Datos de descuento que se envían:', {
-        descuento_porcentaje: descuentoPorcentaje,
-        monto_descuento: montoDescuento,
-        subtotal_con_descuento: subtotalConDescuento,
-      })
-
-      // Agregar datos de pago
-      ofertaData.moneda_pago = monedaPago
-      ofertaData.tasa_cambio = monedaPago !== 'USD' ? Number.parseFloat(tasaCambio) || 0 : 0
-      ofertaData.pago_transferencia = pagoTransferencia
-      ofertaData.datos_cuenta = pagoTransferencia ? datosCuenta : ""
-      ofertaData.aplica_contribucion = aplicaContribucion
-      ofertaData.porcentaje_contribucion = aplicaContribucion ? porcentajeContribucion : 0
-
-      console.log(modoEdicion ? '📤 Actualizando oferta:' : '📤 Enviando oferta al backend:', ofertaData)
+      console.log(modoEdicion ? '📤 Actualizando oferta (solo campos modificados):' : '📤 Enviando oferta al backend:', ofertaData)
       console.log('🔍 Datos de contacto que se envían:', {
+        modo: modoEdicion ? 'EDICION' : 'CREACION',
         tipo_oferta: ofertaData.tipo_oferta,
         cliente_numero: ofertaData.cliente_numero,
         lead_id: ofertaData.lead_id,
         nombre_lead_sin_agregar: ofertaData.nombre_lead_sin_agregar,
-        campos_presentes: Object.keys(ofertaData).filter(k => k.includes('cliente') || k.includes('lead'))
+        campos_presentes: Object.keys(ofertaData).filter(k => k.includes('cliente') || k.includes('lead')),
+        total_campos_enviados: Object.keys(ofertaData).length
       })
 
       // Llamada al backend usando apiRequest

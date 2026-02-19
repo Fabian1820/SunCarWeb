@@ -59,6 +59,7 @@ export default function PendientesVisitaPage() {
           referencia: c.referencia || "",
           comercial: c.comercial || "",
           prioridad: c.prioridad || "Baja",
+          fotos: Array.isArray(c.fotos) ? c.fotos : [],
           numero: c.numero,
           fecha_contacto: c.fecha_contacto || "",
           carnet_identidad: c.carnet_identidad || "",

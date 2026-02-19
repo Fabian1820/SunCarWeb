@@ -1,21 +1,37 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { Badge } from "@/components/shared/atom/badge"
-import { Button } from "@/components/shared/atom/button"
-import { Search, Phone, MapPin, Package, User, FileText, ArrowRight } from "lucide-react"
-import type { InstalacionNueva } from "@/lib/types/feats/instalaciones/instalaciones-types"
-import { ClienteService, LeadService } from "@/lib/api-services"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/shared/molecule/card";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import { Badge } from "@/components/shared/atom/badge";
+import { Button } from "@/components/shared/atom/button";
+import {
+  Search,
+  Phone,
+  MapPin,
+  Package,
+  User,
+  FileText,
+  ArrowRight,
+  Camera,
+} from "lucide-react";
+import type { InstalacionNueva } from "@/lib/types/feats/instalaciones/instalaciones-types";
+import type { ClienteFoto } from "@/lib/api-types";
+import { ClienteService, LeadService } from "@/lib/api-services";
+import { useToast } from "@/hooks/use-toast";
+import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
 
 interface InstalacionesNuevasTableProps {
-  instalaciones: InstalacionNueva[]
-  loading: boolean
-  onFiltersChange: (filters: any) => void
-  onRefresh: () => void
+  instalaciones: InstalacionNueva[];
+  loading: boolean;
+  onFiltersChange: (filters: any) => void;
+  onRefresh: () => void;
 }
 
 export function InstalacionesNuevasTable({
@@ -24,13 +40,18 @@ export function InstalacionesNuevasTable({
   onFiltersChange,
   onRefresh,
 }: InstalacionesNuevasTableProps) {
-  const { toast } = useToast()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [tipo, setTipo] = useState<"todos" | "leads" | "clientes">("todos")
-  const [fechaDesde, setFechaDesde] = useState("")
-  const [fechaHasta, setFechaHasta] = useState("")
-  
-  const [isUpdating, setIsUpdating] = useState(false)
+  const { toast } = useToast();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [tipo, setTipo] = useState<"todos" | "leads" | "clientes">("todos");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
+
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [fotosDialogData, setFotosDialogData] = useState<{
+    nombre: string;
+    codigo?: string;
+    fotos: ClienteFoto[];
+  } | null>(null);
 
   // Actualizar filtros cuando cambien
   useEffect(() => {
@@ -39,73 +60,97 @@ export function InstalacionesNuevasTable({
       tipo,
       fechaDesde,
       fechaHasta,
-    })
-  }, [searchTerm, tipo, fechaDesde, fechaHasta, onFiltersChange])
+    });
+  }, [searchTerm, tipo, fechaDesde, fechaHasta, onFiltersChange]);
 
   // Mover a instalación en proceso
   const handleMoverAProceso = async (instalacion: InstalacionNueva) => {
-    setIsUpdating(true)
+    setIsUpdating(true);
     try {
-      if (instalacion.tipo === 'lead') {
+      if (instalacion.tipo === "lead") {
         await LeadService.updateLead(instalacion.id, {
-          estado: "Instalación en Proceso"
-        })
+          estado: "Instalación en Proceso",
+        });
       } else {
         await ClienteService.actualizarCliente(instalacion.numero!, {
-          estado: "Instalación en Proceso"
-        })
+          estado: "Instalación en Proceso",
+        });
       }
-      
+
       toast({
         title: "Estado actualizado",
         description: `${instalacion.nombre} movido a Instalación en Proceso`,
-      })
-      onRefresh()
+      });
+      onRefresh();
     } catch (error: any) {
-      console.error('Error al mover a proceso:', error)
+      console.error("Error al mover a proceso:", error);
       toast({
         title: "Error",
         description: error.message || "No se pudo actualizar el estado",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUpdating(false)
+      setIsUpdating(false);
     }
-  }
+  };
 
   // Formatear ofertas para mostrar
   const formatOfertas = (ofertas: any[]) => {
-    if (!ofertas || ofertas.length === 0) return "Sin oferta"
-    
-    return ofertas.map((oferta: any) => {
-      const productos: string[] = []
-      
-      if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-        const nombre = oferta.inversor_nombre || oferta.inversor_codigo
-        productos.push(`${oferta.inversor_cantidad}x ${nombre}`)
-      }
-      
-      if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-        const nombre = oferta.bateria_nombre || oferta.bateria_codigo
-        productos.push(`${oferta.bateria_cantidad}x ${nombre}`)
-      }
-      
-      if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-        const nombre = oferta.panel_nombre || oferta.panel_codigo
-        productos.push(`${oferta.panel_cantidad}x ${nombre}`)
-      }
-      
-      if (oferta.elementos_personalizados) {
-        productos.push(oferta.elementos_personalizados)
-      }
-      
-      return productos.join(" • ")
-    }).join(" | ")
-  }
+    if (!ofertas || ofertas.length === 0) return "Sin oferta";
+
+    return ofertas
+      .map((oferta: any) => {
+        const productos: string[] = [];
+
+        if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+          const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
+          productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
+        }
+
+        if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+          const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
+          productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
+        }
+
+        if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+          const nombre = oferta.panel_nombre || oferta.panel_codigo;
+          productos.push(`${oferta.panel_cantidad}x ${nombre}`);
+        }
+
+        if (oferta.elementos_personalizados) {
+          productos.push(oferta.elementos_personalizados);
+        }
+
+        return productos.join(" • ");
+      })
+      .join(" | ");
+  };
+
+  const getFotosInstalacion = (
+    instalacion: InstalacionNueva,
+  ): ClienteFoto[] => {
+    const directFotos = (instalacion as any)?.fotos;
+    if (Array.isArray(directFotos)) return directFotos;
+
+    const originalFotos = (instalacion as any)?.original?.fotos;
+    if (Array.isArray(originalFotos)) return originalFotos;
+
+    return [];
+  };
+
+  const handleOpenFotos = (instalacion: InstalacionNueva) => {
+    setFotosDialogData({
+      nombre: instalacion.nombre,
+      codigo: instalacion.numero,
+      fotos: getFotosInstalacion(instalacion),
+    });
+  };
 
   // Contar por tipo
-  const countLeads = instalaciones.filter(i => i.tipo === 'lead').length
-  const countClientes = instalaciones.filter(i => i.tipo === 'cliente').length
+  const countLeads = instalaciones.filter((i) => i.tipo === "lead").length;
+  const countClientes = instalaciones.filter(
+    (i) => i.tipo === "cliente",
+  ).length;
 
   return (
     <>
@@ -194,94 +239,49 @@ export function InstalacionesNuevasTable({
             </div>
           ) : (
             <>
-          {/* Vista móvil */}
-          <div className="md:hidden space-y-3">
-            {instalaciones.map((instalacion) => (
-              <Card key={instalacion.id} className="border-gray-200">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{instalacion.nombre}</p>
-                      <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                        <Phone className="h-3 w-3" />
-                        <span>{instalacion.telefono}</span>
-                      </div>
-                      <div className="flex items-start gap-2 text-sm text-gray-600 mt-1">
-                        <MapPin className="h-3 w-3 mt-0.5" />
-                        <span>{instalacion.direccion}</span>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant={instalacion.tipo === 'lead' ? 'default' : 'secondary'}
-                      className={instalacion.tipo === 'lead' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}
-                    >
-                      {instalacion.tipo === 'lead' ? 'Lead' : 'Cliente'}
-                    </Badge>
-                  </div>
-                  
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Oferta:</p>
-                    <p className="text-sm text-gray-700">{formatOfertas(instalacion.ofertas || [])}</p>
-                  </div>
-                  
-                  <div className="flex flex-wrap gap-2 pt-2">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                      onClick={() => handleMoverAProceso(instalacion)}
-                      disabled={isUpdating}
-                      title="Mover a instalación en proceso"
-                    >
-                      <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Vista escritorio */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Teléfono</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Dirección</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Oferta</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
+              {/* Vista móvil */}
+              <div className="md:hidden space-y-3">
                 {instalaciones.map((instalacion) => (
-                  <tr key={instalacion.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-4 px-4">
-                      <Badge 
-                        variant={instalacion.tipo === 'lead' ? 'default' : 'secondary'}
-                        className={instalacion.tipo === 'lead' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}
-                      >
-                        {instalacion.tipo === 'lead' ? 'Lead' : 'Cliente'}
-                      </Badge>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="font-semibold text-gray-900">{instalacion.nombre}</p>
-                      {instalacion.numero && (
-                        <p className="text-xs text-gray-500">#{instalacion.numero}</p>
-                      )}
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-sm text-gray-700">{instalacion.telefono}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-sm text-gray-700">{instalacion.direccion}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <p className="text-sm text-gray-700">{formatOfertas(instalacion.ofertas || [])}</p>
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="flex items-center space-x-2">
+                  <Card key={instalacion.id} className="border-gray-200">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-900">
+                            {instalacion.nombre}
+                          </p>
+                          <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                            <Phone className="h-3 w-3" />
+                            <span>{instalacion.telefono}</span>
+                          </div>
+                          <div className="flex items-start gap-2 text-sm text-gray-600 mt-1">
+                            <MapPin className="h-3 w-3 mt-0.5" />
+                            <span>{instalacion.direccion}</span>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            instalacion.tipo === "lead"
+                              ? "default"
+                              : "secondary"
+                          }
+                          className={
+                            instalacion.tipo === "lead"
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
+                          }
+                        >
+                          {instalacion.tipo === "lead" ? "Lead" : "Cliente"}
+                        </Badge>
+                      </div>
+
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Oferta:</p>
+                        <p className="text-sm text-gray-700">
+                          {formatOfertas(instalacion.ofertas || [])}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 pt-2">
                         <Button
                           size="icon"
                           variant="outline"
@@ -292,17 +292,135 @@ export function InstalacionesNuevasTable({
                         >
                           <ArrowRight className="h-4 w-4" />
                         </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="border-sky-300 text-sky-700 hover:bg-sky-50"
+                          onClick={() => handleOpenFotos(instalacion)}
+                          title="Ver fotos del cliente"
+                        >
+                          <Camera className="h-4 w-4" />
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </CardContent>
+                  </Card>
                 ))}
-              </tbody>
-            </table>
-          </div>
-          </>
+              </div>
+
+              {/* Vista escritorio */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Tipo
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Nombre
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Teléfono
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Dirección
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Oferta
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {instalaciones.map((instalacion) => (
+                      <tr
+                        key={instalacion.id}
+                        className="border-b border-gray-100 hover:bg-gray-50"
+                      >
+                        <td className="py-4 px-4">
+                          <Badge
+                            variant={
+                              instalacion.tipo === "lead"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className={
+                              instalacion.tipo === "lead"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-green-100 text-green-800"
+                            }
+                          >
+                            {instalacion.tipo === "lead" ? "Lead" : "Cliente"}
+                          </Badge>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="font-semibold text-gray-900">
+                            {instalacion.nombre}
+                          </p>
+                          {instalacion.numero && (
+                            <p className="text-xs text-gray-500">
+                              #{instalacion.numero}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm text-gray-700">
+                            {instalacion.telefono}
+                          </p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm text-gray-700">
+                            {instalacion.direccion}
+                          </p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="text-sm text-gray-700">
+                            {formatOfertas(instalacion.ofertas || [])}
+                          </p>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleMoverAProceso(instalacion)}
+                              disabled={isUpdating}
+                              title="Mover a instalación en proceso"
+                            >
+                              <ArrowRight className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="border-sky-300 text-sky-700 hover:bg-sky-50"
+                              onClick={() => handleOpenFotos(instalacion)}
+                              title="Ver fotos del cliente"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
+
+      <ClienteFotosDialog
+        open={!!fotosDialogData}
+        onOpenChange={(open) => {
+          if (!open) setFotosDialogData(null);
+        }}
+        clienteNombre={fotosDialogData?.nombre || ""}
+        clienteCodigo={fotosDialogData?.codigo}
+        fotos={fotosDialogData?.fotos || []}
+      />
     </>
-  )
+  );
 }
