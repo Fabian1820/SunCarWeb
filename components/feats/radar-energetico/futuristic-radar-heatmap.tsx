@@ -341,9 +341,9 @@ export default function FuturisticRadarHeatmap() {
   return (
     <div className="relative w-full flex" style={{ height: "calc(100vh - 120px)" }}>
       {/* ===== MAP AREA ===== */}
-      <div ref={containerRef} className="relative flex-1 min-w-0">
+      <div ref={containerRef} className="relative flex-1 min-w-0 isolate overflow-hidden rounded-xl">
         {/* Corner brackets */}
-        <div className="absolute inset-0 z-20 pointer-events-none">
+        <div className="absolute inset-0 z-[900] pointer-events-none">
           <svg className="absolute top-0 left-0 w-12 h-12 text-cyan-400/40"><path d="M2 12 L2 2 L12 2" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
           <svg className="absolute top-0 right-0 w-12 h-12 text-cyan-400/40"><path d="M36 2 L46 2 L46 12" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
           <svg className="absolute bottom-0 left-0 w-12 h-12 text-cyan-400/40"><path d="M2 36 L2 46 L12 46" fill="none" stroke="currentColor" strokeWidth="1.5" /></svg>
@@ -351,10 +351,10 @@ export default function FuturisticRadarHeatmap() {
         </div>
 
         {/* Scan lines */}
-        <div className="absolute inset-0 z-10 pointer-events-none opacity-[0.04] bg-[repeating-linear-gradient(180deg,rgba(56,189,248,0.7)_0px,rgba(56,189,248,0.7)_1px,transparent_1px,transparent_4px)]" />
+        <div className="absolute inset-0 z-[900] pointer-events-none opacity-[0.04] bg-[repeating-linear-gradient(180deg,rgba(56,189,248,0.7)_0px,rgba(56,189,248,0.7)_1px,transparent_1px,transparent_4px)]" />
 
         {/* Metric selector - top left */}
-        <div className="absolute left-4 top-4 z-30 flex gap-1.5 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-1.5 backdrop-blur-md">
+        <div className="absolute left-4 top-4 z-[1000] flex gap-1.5 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-1.5 backdrop-blur-md">
           {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((metric) => {
             const Icon = METRIC_CONFIG[metric].icon;
             const active = metric === selectedMetric;
@@ -377,7 +377,7 @@ export default function FuturisticRadarHeatmap() {
         </div>
 
         {/* Global stats - top right */}
-        <div className="absolute right-4 top-4 z-30 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-3 backdrop-blur-md">
+        <div className="absolute right-4 top-4 z-[1000] rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-3 backdrop-blur-md">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="h-3 w-3 text-cyan-400/70" />
             <span className="text-[10px] font-mono tracking-[0.15em] text-cyan-400/60 uppercase">Intel Summary</span>
@@ -407,7 +407,7 @@ export default function FuturisticRadarHeatmap() {
         </div>
 
         {/* Coordinates & time - bottom left */}
-        <div className="absolute left-4 bottom-4 z-30 flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 px-3 py-2 backdrop-blur-md">
+        <div className="absolute left-4 bottom-4 z-[1000] flex items-center gap-3 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 px-3 py-2 backdrop-blur-md">
           <Crosshair className="h-3.5 w-3.5 text-cyan-400/50" />
           <span className="text-[11px] font-mono text-cyan-300/70 tracking-wider">
             {coords.lat}°N {coords.lng}°W
@@ -417,7 +417,7 @@ export default function FuturisticRadarHeatmap() {
         </div>
 
         {/* Heat legend - bottom right */}
-        <div className="absolute right-4 bottom-4 z-30 rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-3 backdrop-blur-md">
+        <div className="absolute right-4 bottom-4 z-[1000] rounded-xl border border-cyan-400/20 bg-[#010a18]/90 p-3 backdrop-blur-md">
           <span className="text-[10px] font-mono tracking-[0.15em] text-cyan-400/60 uppercase block mb-2">Intensidad</span>
           <div className="flex items-center gap-0.5">
             {["#081224", "#0c2b44", "#13526b", "#1b7e9f", "#25a5c9", "#5fc0d4", "#f4c84b", "#ff6b6b"].map((color) => (
@@ -434,7 +434,7 @@ export default function FuturisticRadarHeatmap() {
         <button
           type="button"
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute right-4 top-[140px] z-30 flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-[#010a18]/90 px-2.5 py-2 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10 backdrop-blur-md transition-all"
+          className="absolute right-4 top-[140px] z-[1001] flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-[#010a18]/90 px-2.5 py-2 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10 backdrop-blur-md transition-all"
         >
           <List className="h-3.5 w-3.5" />
           <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">Municipios</span>
@@ -443,7 +443,7 @@ export default function FuturisticRadarHeatmap() {
 
         {/* Loading */}
         {isLoading && (
-          <div className="absolute inset-0 z-40 flex flex-col items-center justify-center bg-[#010a18]/95 gap-4">
+          <div className="absolute inset-0 z-[1100] flex flex-col items-center justify-center bg-[#010a18]/95 gap-4">
             <div className="relative h-20 w-20">
               <div className="absolute inset-0 rounded-full border-2 border-cyan-400/20 animate-ping" />
               <div className="absolute inset-3 rounded-full border border-cyan-400/40 animate-spin" style={{ animationDuration: '2s' }} />
@@ -455,7 +455,7 @@ export default function FuturisticRadarHeatmap() {
 
         {/* Error */}
         {error && (
-          <div className="absolute inset-0 z-40 flex items-center justify-center bg-[#010a18]/95 px-4">
+          <div className="absolute inset-0 z-[1100] flex items-center justify-center bg-[#010a18]/95 px-4">
             <div className="text-center max-w-md">
               <div className="inline-flex items-center justify-center h-12 w-12 rounded-full border border-red-400/30 bg-red-400/10 mb-4">
                 <span className="text-red-400 text-xl">!</span>
@@ -503,7 +503,7 @@ export default function FuturisticRadarHeatmap() {
 
       {/* ===== SIDEBAR - Municipality List ===== */}
       <div
-        className={`flex-shrink-0 border-l border-cyan-400/15 bg-[#010a18]/95 backdrop-blur-xl transition-all duration-300 overflow-hidden ${
+        className={`relative z-[1100] flex-shrink-0 border-l border-cyan-400/15 bg-[#010a18] transition-all duration-300 overflow-hidden ${
           sidebarOpen ? "w-[340px]" : "w-0"
         }`}
       >
