@@ -30,7 +30,8 @@ import {
     Wrench,
     MessageSquare,
     ShoppingBag,
-    BarChart3
+    BarChart3,
+    Map
 } from "lucide-react"
 import { useLayoutEffect, useRef, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
@@ -157,6 +158,15 @@ export default function Dashboard() {
             title: 'Estadísticas',
             description: 'Análisis de crecimiento mensual y métricas clave.',
             color: 'purple-600',
+        },
+        {
+            id: 'radar-energetico',
+            permission: 'estadisticas',
+            href: '/radar-energetico',
+            icon: Map,
+            title: 'Radar Energético',
+            description: 'Mapa táctico por municipio con calor de potencia instalada.',
+            color: 'cyan-600',
         },
         {
             id: 'facturas',
@@ -382,6 +392,18 @@ export default function Dashboard() {
                                     <Calculator className="h-4 w-4 text-orange-600 sm:mr-2" />
                                     <span className="hidden sm:inline">Calculadora</span>
                                     <span className="sr-only">Calculadora</span>
+                                </Button>
+                            </Link>
+                            <Link href="/radar-energetico" className="flex">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    aria-label="Abrir radar energético"
+                                    className="flex items-center justify-center bg-white hover:bg-cyan-50 border-cyan-200 hover:border-cyan-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+                                >
+                                    <Map className="h-4 w-4 text-cyan-600 sm:mr-2" />
+                                    <span className="hidden sm:inline">Radar</span>
+                                    <span className="sr-only">Radar Energético</span>
                                 </Button>
                             </Link>
                             <Button
