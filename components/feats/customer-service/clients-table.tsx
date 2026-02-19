@@ -35,6 +35,7 @@ import {
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import {
   FileCheck,
+  Camera,
   Eye,
   MapPin,
   Building2,
@@ -81,6 +82,10 @@ interface ClientsTableProps {
   onEdit: (client: Cliente) => void;
   onDelete: (client: Cliente) => void;
   onViewLocation: (client: Cliente) => void;
+  onUploadFotos?: (
+    client: Cliente,
+    payload: { file: File; tipo: "instalacion" | "averia" },
+  ) => Promise<void>;
   onUpdatePrioridad?: (
     clientId: string,
     prioridad: "Alta" | "Media" | "Baja",
@@ -178,6 +183,7 @@ export function ClientsTable({
   onEdit,
   onDelete,
   onViewLocation,
+  onUploadFotos,
   onUpdatePrioridad,
   loading = false,
   onFiltersChange,
@@ -273,6 +279,14 @@ export function ClientsTable({
   const [consultandoOfertaCliente, setConsultandoOfertaCliente] = useState<
     string | null
   >(null);
+  const [showUploadFotosDialog, setShowUploadFotosDialog] = useState(false);
+  const [clientForUploadFotos, setClientForUploadFotos] =
+    useState<Cliente | null>(null);
+  const [uploadFotoTipo, setUploadFotoTipo] = useState<
+    "instalacion" | "averia"
+  >("instalacion");
+  const [uploadFotoFile, setUploadFotoFile] = useState<File | null>(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
   
   // Estados para editar/eliminar/exportar ofertas
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
@@ -692,6 +706,39 @@ export function ClientsTable({
   const closeAveriasDialog = () => {
     setShowAveriasDialog(false);
     setClientForAverias(null);
+  };
+
+  const openUploadFotosDialog = (client: Cliente) => {
+    if (!onUploadFotos) return;
+    setClientForUploadFotos(client);
+    setUploadFotoTipo("instalacion");
+    setUploadFotoFile(null);
+    setShowUploadFotosDialog(true);
+  };
+
+  const closeUploadFotosDialog = () => {
+    setShowUploadFotosDialog(false);
+    setClientForUploadFotos(null);
+    setUploadFotoTipo("instalacion");
+    setUploadFotoFile(null);
+    setUploadingFoto(false);
+  };
+
+  const handleUploadFotosCliente = async () => {
+    if (!clientForUploadFotos || !uploadFotoFile || !onUploadFotos) return;
+
+    try {
+      setUploadingFoto(true);
+      await onUploadFotos(clientForUploadFotos, {
+        file: uploadFotoFile,
+        tipo: uploadFotoTipo,
+      });
+      closeUploadFotosDialog();
+    } catch (error) {
+      console.error("Error subiendo foto/video del cliente:", error);
+    } finally {
+      setUploadingFoto(false);
+    }
   };
 
   const openAsignarOfertaDialog = async (client: Cliente) => {
@@ -2760,6 +2807,16 @@ export function ClientsTable({
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => openUploadFotosDialog(client)}
+                              className="text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+                              title="Agregar foto o video"
+                              disabled={!onUploadFotos}
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleViewClientDetails(client)}
                               className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                               title="Ver detalles"
@@ -2864,6 +2921,88 @@ export function ClientsTable({
         lockContactType="cliente"
         lockClienteId={clientForOfertas?.id || ""}
       />
+
+      <Dialog
+        open={showUploadFotosDialog}
+        onOpenChange={(open) => {
+          setShowUploadFotosDialog(open);
+          if (!open) closeUploadFotosDialog();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar foto/video del cliente</DialogTitle>
+            <DialogDescription>
+              {clientForUploadFotos
+                ? `${clientForUploadFotos.nombre} (${clientForUploadFotos.numero})`
+                : "Selecciona un cliente"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="cliente-foto-tipo">Tipo</Label>
+              <Select
+                value={uploadFotoTipo}
+                onValueChange={(value: "instalacion" | "averia") =>
+                  setUploadFotoTipo(value)
+                }
+              >
+                <SelectTrigger id="cliente-foto-tipo">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="instalacion">Instalación</SelectItem>
+                  <SelectItem value="averia">Avería</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="cliente-foto-archivo">Archivo</Label>
+              <Input
+                id="cliente-foto-archivo"
+                type="file"
+                accept="image/*,video/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  setUploadFotoFile(file);
+                }}
+                disabled={uploadingFoto}
+              />
+              <p className="text-xs text-gray-500">
+                Acepta imágenes y videos.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeUploadFotosDialog}
+                disabled={uploadingFoto}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleUploadFotosCliente}
+                disabled={!uploadFotoFile || uploadingFoto || !onUploadFotos}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {uploadingFoto ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Subiendo...
+                  </>
+                ) : (
+                  "Subir archivo"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de reportes de cliente */}
       <Dialog

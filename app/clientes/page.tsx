@@ -209,6 +209,28 @@ export default function ClientesPage() {
     }
   }
 
+  const handleUploadClientFoto = async (
+    client: Cliente,
+    payload: { file: File; tipo: "instalacion" | "averia" }
+  ) => {
+    try {
+      await ClienteService.uploadFotoCliente(client.numero, payload)
+      toast({
+        title: "Archivo agregado",
+        description: `Se adjuntó correctamente como ${payload.tipo}.`,
+      })
+      await fetchClients()
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "No se pudo subir el archivo"
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      })
+      throw error instanceof Error ? error : new Error(message)
+    }
+  }
+
   const handleDownloadClientComprobante = async (client: Cliente) => {
     if (!client.comprobante_pago_url) {
       toast({
@@ -525,6 +547,7 @@ export default function ClientesPage() {
           onEdit={handleEditClient}
           onDelete={handleDeleteClient}
           onViewLocation={handleViewClientLocation}
+          onUploadFotos={handleUploadClientFoto}
           onUpdatePrioridad={handleUpdateClientPrioridad}
           loading={loading}
           onFiltersChange={setAppliedFilters}

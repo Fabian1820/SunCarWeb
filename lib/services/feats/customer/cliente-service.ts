@@ -1,6 +1,7 @@
 import { apiRequest } from '../../../api-config'
 import type {
   Cliente,
+  ClienteFoto,
   ClienteResponse,
   ClienteCreateData,
   ClienteSimpleCreateData,
@@ -11,6 +12,11 @@ type ClienteListParams = {
   numero?: string
   nombre?: string
   direccion?: string
+}
+
+export type ClienteFotoUploadPayload = {
+  file: File
+  tipo: ClienteFoto['tipo']
 }
 
 const cleanPayload = <T extends Record<string, unknown>>(payload: T): Partial<T> => {
@@ -165,6 +171,27 @@ export class ClienteService {
       comprobante_pago_url: url,
       metodo_pago: metodo,
       moneda: currency,
+    }
+  }
+
+  static async uploadFotoCliente(
+    numero: string,
+    { file, tipo }: ClienteFotoUploadPayload
+  ): Promise<void> {
+    const formData = new FormData()
+    formData.append('archivo', file)
+    formData.append('tipo', tipo)
+
+    const response = await apiRequest<{
+      success?: boolean
+      message?: string
+    }>(`/clientes/${encodeURIComponent(numero)}/fotos`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (response?.success === false) {
+      throw new Error(response.message || 'Error al subir foto/video del cliente')
     }
   }
 

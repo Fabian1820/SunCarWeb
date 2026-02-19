@@ -5,6 +5,12 @@ import type {
 } from "../leads/lead-types";
 import type { Averia } from "../averias/averia-types";
 
+export interface ClienteFoto {
+  url: string;
+  fecha: string;
+  tipo: "instalacion" | "averia";
+}
+
 export interface Cliente {
   id?: string; // ID de MongoDB (transformado desde _id por el backend)
   numero: string;
@@ -35,6 +41,7 @@ export interface Cliente {
   moneda?: string;
   falta_instalacion?: string; // Qué le falta a la instalación (solo para estado "Instalación en proceso")
   averias?: Averia[]; // Array de averías del cliente
+  fotos?: ClienteFoto[]; // Evidencias (fotos/videos) del cliente
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
 }
@@ -71,6 +78,7 @@ export interface ClienteCreateData {
   metodo_pago?: string;
   moneda?: string;
   falta_instalacion?: string; // Qué le falta a la instalación
+  fotos?: ClienteFoto[];
   equipo_propio?: boolean; // Si el equipo es propio del cliente (código con P)
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"

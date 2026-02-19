@@ -22,6 +22,7 @@ export type {
 
 export type {
   Cliente,
+  ClienteFoto,
   ClienteResponse,
   ClienteCreateData,
   ClienteSimpleCreateData,
