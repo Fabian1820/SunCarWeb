@@ -4,11 +4,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Feature, GeoJsonObject } from "geojson";
 import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet";
 import { GeoJSON, MapContainer, TileLayer } from "react-leaflet";
-import { Cpu, Sun, Zap } from "lucide-react";
+import { Cpu, Sun } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import "leaflet/dist/leaflet.css";
 
-type MetricKey = "paneles" | "inversores" | "total";
+type MetricKey = "paneles" | "inversores";
 
 interface MunicipioStatApiItem {
   provincia: string;
@@ -42,34 +42,26 @@ interface HoverInfo {
 }
 
 const CARD_WIDTH = 250;
-const CARD_HEIGHT = 175;
+const CARD_HEIGHT = 165;
 const mapCenter: [number, number] = [21.5218, -77.7812];
 
 const METRIC_CONFIG: Record<
   MetricKey,
   {
     label: string;
-    field:
-      | "potencia_paneles_kw"
-      | "potencia_inversores_kw"
-      | "total_kw_instalados";
+    field: "potencia_paneles_kw" | "potencia_inversores_kw";
     icon: typeof Sun;
   }
 > = {
-  paneles: {
-    label: "Paneles",
-    field: "potencia_paneles_kw",
-    icon: Sun,
-  },
   inversores: {
     label: "Inversores",
     field: "potencia_inversores_kw",
     icon: Cpu,
   },
-  total: {
-    label: "Total",
-    field: "total_kw_instalados",
-    icon: Zap,
+  paneles: {
+    label: "Paneles",
+    field: "potencia_paneles_kw",
+    icon: Sun,
   },
 };
 
@@ -106,7 +98,7 @@ function clamp(value: number, min: number, max: number): number {
 
 export default function FuturisticRadarHeatmap() {
   const mapShellRef = useRef<HTMLDivElement>(null);
-  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("paneles");
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("inversores");
   const [geoJsonData, setGeoJsonData] = useState<GeoJsonObject | null>(null);
   const [stats, setStats] = useState<MunicipioStatApiItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -315,7 +307,7 @@ export default function FuturisticRadarHeatmap() {
         <div className="pointer-events-none absolute inset-0 opacity-20 [background:repeating-linear-gradient(180deg,rgba(56,189,248,0.12)_0px,rgba(56,189,248,0.12)_1px,transparent_1px,transparent_7px)]" />
         <div className="intel-radar-sweep pointer-events-none absolute inset-0 z-[7] rounded-[24px]" />
 
-        <div className="absolute left-5 top-5 z-20 grid grid-cols-3 gap-2 rounded-2xl border border-cyan-400/30 bg-slate-950/70 p-2">
+        <div className="absolute left-5 top-5 z-20 grid grid-cols-2 gap-2 rounded-2xl border border-cyan-400/30 bg-slate-950/70 p-2">
           {(Object.keys(METRIC_CONFIG) as MetricKey[]).map((metric) => {
             const Icon = METRIC_CONFIG[metric].icon;
             const active = metric === selectedMetric;
@@ -325,7 +317,7 @@ export default function FuturisticRadarHeatmap() {
                 key={metric}
                 type="button"
                 onClick={() => setSelectedMetric(metric)}
-                className={`flex min-w-[96px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:text-sm ${
+                className={`flex min-w-[104px] items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:text-sm ${
                   active
                     ? "bg-cyan-400/20 text-cyan-100 shadow-[0_0_22px_rgba(56,189,248,0.4)]"
                     : "text-cyan-200/70 hover:bg-cyan-400/10 hover:text-cyan-100"
@@ -367,9 +359,6 @@ export default function FuturisticRadarHeatmap() {
                 <p>Clientes: {formatMetric(hoverInfo.stat.total_clientes_instalados)}</p>
                 <p>Paneles: {formatMetric(hoverInfo.stat.potencia_paneles_kw)} kW</p>
                 <p>Inversores: {formatMetric(hoverInfo.stat.potencia_inversores_kw)} kW</p>
-                <p className="mt-2 border-t border-cyan-200/25 pt-2 font-semibold text-cyan-200">
-                  Total: {formatMetric(hoverInfo.stat.total_kw_instalados)} kW
-                </p>
               </div>
             ) : (
               <p className="text-xs text-cyan-100/85">Sin instalaciones registradas.</p>
