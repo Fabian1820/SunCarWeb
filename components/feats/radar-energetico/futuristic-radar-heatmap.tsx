@@ -10,6 +10,7 @@ import {
   Search, ChevronRight, ChevronLeft, List,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
+import { TacticalDetailPanel } from "./tactical-detail-panel";
 import "leaflet/dist/leaflet.css";
 
 type MetricKey = "paneles" | "inversores";
@@ -123,6 +124,12 @@ export default function FuturisticRadarHeatmap() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [tacticalPanel, setTacticalPanel] = useState<{
+    municipio: string;
+    provincia: string;
+    stat: AggregatedMunicipioStat;
+    geoFeature: Feature;
+  } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -396,6 +403,14 @@ export default function FuturisticRadarHeatmap() {
         },
         click: () => {
           speakTactical(shapeName, stat);
+          if (stat) {
+            setTacticalPanel({
+              municipio: shapeName,
+              provincia: stat.provincias[0] || "Desconocida",
+              stat,
+              geoFeature: feature,
+            });
+          }
         },
       });
     }
@@ -777,6 +792,17 @@ export default function FuturisticRadarHeatmap() {
           </div>
         </div>,
         document.body
+      )}
+
+      {/* ===== TACTICAL DETAIL PANEL ===== */}
+      {tacticalPanel && (
+        <TacticalDetailPanel
+          municipio={tacticalPanel.municipio}
+          provincia={tacticalPanel.provincia}
+          stat={tacticalPanel.stat}
+          geoFeature={tacticalPanel.geoFeature}
+          onClose={() => setTacticalPanel(null)}
+        />
       )}
 
       <style jsx global>{`
