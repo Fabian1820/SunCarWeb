@@ -628,9 +628,11 @@ export function PendientesVisitaTable({
   };
 
   const handleOpenArchivo = (archivo: ArchivoVisita) => {
-    if (typeof window !== "undefined") {
-      window.open(archivo.url, "_blank", "noopener,noreferrer");
-    }
+    const link = document.createElement("a");
+    link.href = archivo.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.click();
   };
 
   return (
