@@ -7,7 +7,7 @@ import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 import {
   Cpu, Sun, Crosshair, Activity, Users, Zap, MapPin,
-  Search, ChevronRight, ChevronLeft, List, Volume2, VolumeX,
+  Search, ChevronRight, ChevronLeft, List,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import "leaflet/dist/leaflet.css";
@@ -123,7 +123,6 @@ export default function FuturisticRadarHeatmap() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -335,9 +334,9 @@ export default function FuturisticRadarHeatmap() {
 
   const voiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Voice triggered on click only
+  // Voice triggered on click only (always enabled)
   const speakTactical = useCallback((municipio: string, stat: AggregatedMunicipioStat | null) => {
-    if (typeof window === "undefined" || !voiceEnabled || !window.speechSynthesis) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel();
     if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
@@ -361,7 +360,7 @@ export default function FuturisticRadarHeatmap() {
       utterance.volume = 0.9;
       window.speechSynthesis.speak(utterance);
     }, 300);
-  }, [voiceEnabled]);
+  }, []);
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String(
@@ -516,38 +515,16 @@ export default function FuturisticRadarHeatmap() {
           </div>
         </div>
 
-        {/* Voice + Sidebar toggle buttons */}
-        <div className="absolute right-4 top-[140px] z-[1001] flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              const next = !voiceEnabled;
-              setVoiceEnabled(next);
-              if (!next && typeof window !== "undefined") {
-                window.speechSynthesis.cancel();
-              }
-            }}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 backdrop-blur-md transition-all ${
-              voiceEnabled
-                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
-                : "border-cyan-400/20 bg-[#010a18]/90 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10"
-            }`}
-          >
-            {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
-            <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">
-              {voiceEnabled ? "Voz ON" : "Voz OFF"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-[#010a18]/90 px-2.5 py-2 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10 backdrop-blur-md transition-all"
-          >
-            <List className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">Municipios</span>
-            {sidebarOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-          </button>
-        </div>
+        {/* Sidebar toggle button */}
+        <button
+          type="button"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="absolute right-4 top-[140px] z-[1001] flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-[#010a18]/90 px-2.5 py-2 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10 backdrop-blur-md transition-all"
+        >
+          <List className="h-3.5 w-3.5" />
+          <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">Municipios</span>
+          {sidebarOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
 
         {/* Loading */}
         {isLoading && (
