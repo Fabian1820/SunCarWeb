@@ -3319,12 +3319,20 @@ export function ConfeccionOfertasView({
       // ✅ SOLUCIÓN: Solo agregar el campo de contacto que tiene valor (evitar enviar múltiples contactos)
       // Según documentación en docs/SOLUCION_ERROR_MULTIPLES_CONTACTOS.md
       if (!ofertaGenerica) {
-        if (tipoContacto === 'cliente' && (selectedCliente?.numero || clienteId)) {
-          ofertaData.cliente_numero = selectedCliente?.numero || clienteId
-        } else if (tipoContacto === 'lead' && leadId) {
-          ofertaData.lead_id = leadId
-        } else if (tipoContacto === 'lead_sin_agregar' && nombreLeadSinAgregar.trim()) {
-          ofertaData.nombre_lead_sin_agregar = nombreLeadSinAgregar.trim()
+        if (tipoContacto === 'cliente') {
+          const numeroCliente = selectedCliente?.numero || clienteId
+          if (numeroCliente) {
+            ofertaData.cliente_numero = numeroCliente
+          }
+        } else if (tipoContacto === 'lead') {
+          if (leadId) {
+            ofertaData.lead_id = leadId
+          }
+        } else if (tipoContacto === 'lead_sin_agregar') {
+          const nombreLead = nombreLeadSinAgregar.trim()
+          if (nombreLead) {
+            ofertaData.nombre_lead_sin_agregar = nombreLead
+          }
         }
       }
 
@@ -3462,16 +3470,37 @@ export function ConfeccionOfertasView({
       ofertaData.porcentaje_contribucion = aplicaContribucion ? porcentajeContribucion : 0
 
       console.log(modoEdicion ? '📤 Actualizando oferta:' : '📤 Enviando oferta al backend:', ofertaData)
+      console.log('🔍 Datos de contacto que se envían:', {
+        tipo_oferta: ofertaData.tipo_oferta,
+        cliente_numero: ofertaData.cliente_numero,
+        lead_id: ofertaData.lead_id,
+        nombre_lead_sin_agregar: ofertaData.nombre_lead_sin_agregar,
+        campos_presentes: Object.keys(ofertaData).filter(k => k.includes('cliente') || k.includes('lead'))
+      })
 
       // Llamada al backend usando apiRequest
       const { apiRequest } = await import('@/lib/api-config')
       
       // En modo edición, usar PUT; en modo creación, usar POST
-      const endpoint = modoEdicion && ofertaParaEditar?.id 
-        ? `/ofertas/confeccion/${ofertaParaEditar.id}`
+      // IMPORTANTE: Usar numero_oferta como identificador, no id
+      const ofertaIdentificador = modoEdicion && ofertaParaEditar 
+        ? (ofertaParaEditar.numero_oferta || ofertaParaEditar.id)
+        : null
+      
+      const endpoint = ofertaIdentificador
+        ? `/ofertas/confeccion/${ofertaIdentificador}`
         : '/ofertas/confeccion/'
       
       const method = modoEdicion ? 'PUT' : 'POST'
+      
+      console.log('🔍 Endpoint y método:', {
+        modoEdicion,
+        ofertaIdentificador,
+        endpoint,
+        method,
+        ofertaParaEditar_id: ofertaParaEditar?.id,
+        ofertaParaEditar_numero: ofertaParaEditar?.numero_oferta
+      })
       
       const response = await apiRequest<{
         success: boolean
@@ -3522,6 +3551,12 @@ export function ConfeccionOfertasView({
 
     } catch (error: any) {
       console.error(modoEdicion ? '❌ Error al actualizar oferta:' : '❌ Error al crear oferta:', error)
+      console.error('📋 Detalles del error:', {
+        message: error.message,
+        response: error.response,
+        stack: error.stack,
+        error_completo: error
+      })
       
       let errorMessage = modoEdicion ? "No se pudo actualizar la oferta" : "No se pudo crear la oferta"
       
@@ -3529,8 +3564,12 @@ export function ConfeccionOfertasView({
       if (error.message) {
         if (error.message.includes('Stock insuficiente')) {
           errorMessage = error.message
+        } else if (error.message.includes('solo puede tener uno')) {
+          errorMessage = "Error de contactos: " + error.message
         } else if (error.message.includes('Cliente') && error.message.includes('no encontrado')) {
           errorMessage = "El cliente seleccionado no existe"
+        } else if (error.message.includes('Lead') && error.message.includes('no encontrado')) {
+          errorMessage = "El lead seleccionado no existe"
         } else if (error.message.includes('Almacén') && error.message.includes('no encontrado')) {
           errorMessage = "El almacén seleccionado no existe"
         } else if (error.message.includes('Not authenticated')) {

@@ -230,6 +230,20 @@ export default function LeadsPage() {
     }
   }
 
+  // Wrapper para generarCodigoCliente que NO lanza excepciones
+  // Devuelve el código o null en caso de error
+  const handleGenerarCodigoCliente = async (leadId: string, equipoPropio?: boolean): Promise<string> => {
+    try {
+      return await generarCodigoCliente(leadId, equipoPropio)
+    } catch (error) {
+      // NO re-lanzar el error, devolverlo como string vacío
+      // El componente LeadsTable manejará esto
+      console.error('Error in handleGenerarCodigoCliente:', error)
+      // Lanzar el error para que LeadsTable lo capture en su try-catch
+      throw error
+    }
+  }
+
  // Función para formatear el estado de manera legible
 const formatEstado = (estado: string): string => {
   const estados: Record<string, string> = {
@@ -538,7 +552,7 @@ const formatEstado = (estado: string): string => {
                 onEdit={handleEditLead}
                 onDelete={handleDeleteLead}
                 onConvert={handleConvertLead}
-                onGenerarCodigo={generarCodigoCliente}
+                onGenerarCodigo={handleGenerarCodigoCliente}
                 onUploadComprobante={handleUploadLeadComprobante}
                 onDownloadComprobante={handleDownloadLeadComprobante}
                 onUpdatePrioridad={handleUpdateLeadPrioridad}

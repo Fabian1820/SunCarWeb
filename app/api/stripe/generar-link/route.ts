@@ -37,15 +37,24 @@ export async function POST(request: NextRequest) {
     // Validar que la Secret Key esté configurada
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(
-        { success: false, message: 'Stripe no está configurado. Falta STRIPE_SECRET_KEY' },
+        { 
+          success: false, 
+          message: 'Stripe no está configurado. Configura STRIPE_SECRET_KEY en tu archivo .env.local con tu clave de Stripe (sk_test_... para desarrollo o sk_live_... para producción). Obtén tu clave en: https://dashboard.stripe.com/apikeys' 
+        },
         { status: 500 }
       )
     }
 
-    const currencyCode = (moneda || 'USD').toUpperCase()
+    // Stripe solo acepta USD y EUR, si es CUP lo convertimos a USD
+    let currencyCode = (moneda || 'USD').toUpperCase()
+    if (currencyCode === 'CUP') {
+      console.warn('⚠️ Stripe no acepta CUP, convirtiendo a USD')
+      currencyCode = 'USD'
+    }
+    
     if (currencyCode !== 'USD' && currencyCode !== 'EUR') {
       return NextResponse.json(
-        { success: false, message: 'Moneda inválida. Usa USD o EUR.' },
+        { success: false, message: 'Moneda inválida. Stripe solo acepta USD o EUR.' },
         { status: 400 }
       )
     }

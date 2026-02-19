@@ -1635,7 +1635,7 @@ export function OfertasConfeccionadasView() {
                 </div>
               </div>
 
-              <div className="p-4 flex flex-col h-[180px]">
+              <div className="p-4 flex flex-col h-[220px]">
                 {/* Título - altura fija */}
                 <h3 className="font-semibold text-base text-slate-900 line-clamp-2 h-[48px] mb-3">
                   {oferta.nombre}
@@ -1663,46 +1663,48 @@ export function OfertasConfeccionadasView() {
                 </div>
 
                 {/* Botones - siempre en la misma posición */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-center gap-2 mt-auto">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 flex-1" onClick={() => abrirDialogoExportar(oferta)} title="Exportar oferta">
-                    <Download className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 flex-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                    onClick={() => irADuplicar(oferta)}
-                    title="Duplicar oferta"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 flex-1" onClick={() => abrirEditar(oferta)}
-                    title="Editar oferta"
-                  >
-                    <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => abrirDialogoEliminar(oferta)}
-                    title="Eliminar oferta"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2 flex-1"
-                    onClick={() => abrirDetalle(oferta)} title="Ver detalle">
-                    <FileText className="h-3.5 w-3.5" />
-                  </Button>
+                <div className="pt-3 border-t border-slate-100 space-y-2 mt-auto">
+                  <div className="flex items-center justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 flex-1" onClick={() => abrirDialogoExportar(oferta)} title="Exportar oferta">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 flex-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      onClick={() => irADuplicar(oferta)}
+                      title="Duplicar oferta"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 flex-1" onClick={() => abrirEditar(oferta)}
+                      title="Editar oferta"
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => abrirDialogoEliminar(oferta)}
+                      title="Eliminar oferta"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 px-2 flex-1"
+                      onClick={() => abrirDetalle(oferta)} title="Ver detalle">
+                      <FileText className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>

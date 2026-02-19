@@ -135,27 +135,87 @@ export class LeadService {
     const url = equipoPropio 
       ? `/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`
       : `/leads/${leadId}/generar-codigo-cliente`
-    const response = await apiRequest<{ success: boolean; message: string; codigo_generado: string }>(url)
+    
+    const response = await apiRequest<{ 
+      success: boolean; 
+      message?: string; 
+      codigo_generado?: string; 
+      error?: { 
+        code: string; 
+        title: string; 
+        message: string; 
+        field?: string 
+      };
+      detail?: string; // Formato antiguo por compatibilidad
+    }>(url)
+    
     console.log('LeadService.generarCodigoCliente response:', response)
-    if (!response.success || !response.codigo_generado) {
+    
+    // Verificar si la respuesta indica un error (formato nuevo)
+    if (response.success === false) {
+      if (response.error) {
+        // Error estructurado del backend (formato nuevo)
+        throw new Error(response.error.message || response.error.title || 'Error al generar el código de cliente')
+      }
+      // Error sin estructura (formato nuevo sin error object)
       throw new Error(response.message || 'Error al generar el código de cliente')
     }
+    
+    // Verificar formato antiguo (detail)
+    if (response.detail) {
+      throw new Error(response.detail)
+    }
+    
+    if (!response.codigo_generado) {
+      throw new Error('El servidor no devolvió un código de cliente')
+    }
+    
     return response.codigo_generado
   }
 
   static async convertLeadToCliente(leadId: string, payload: LeadConversionRequest): Promise<Cliente> {
     console.log('Calling convertLeadToCliente with ID:', leadId, 'payload:', payload)
-    const response = await apiRequest<{ success: boolean; message: string; data: Cliente }>(
+    
+    const response = await apiRequest<{ 
+      success: boolean; 
+      message?: string; 
+      data?: Cliente; 
+      error?: { 
+        code: string; 
+        title: string; 
+        message: string; 
+        field?: string 
+      };
+      detail?: string; // Formato antiguo por compatibilidad
+    }>(
       `/leads/${leadId}/convertir`,
       {
         method: 'POST',
         body: JSON.stringify(payload),
       }
     )
+    
     console.log('LeadService.convertLeadToCliente response:', response)
-    if (!response.success || !response.data) {
+    
+    // Verificar si la respuesta indica un error (formato nuevo)
+    if (response.success === false) {
+      if (response.error) {
+        // Error estructurado del backend (formato nuevo)
+        throw new Error(response.error.message || response.error.title || 'Error al convertir el lead en cliente')
+      }
+      // Error sin estructura (formato nuevo sin error object)
       throw new Error(response.message || 'Error al convertir el lead en cliente')
     }
+    
+    // Verificar formato antiguo (detail)
+    if (response.detail) {
+      throw new Error(response.detail)
+    }
+    
+    if (!response.data) {
+      throw new Error('El servidor no devolvió los datos del cliente')
+    }
+    
     return response.data
   }
 }

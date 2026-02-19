@@ -98,14 +98,58 @@ export async function apiRequest<T>(
     const response = await fetch(url, config)
     console.log('📨 Response received:', { status: response.status, ok: response.ok, url: response.url })
 
+    // Intentar parsear la respuesta como JSON siempre, incluso si hay error HTTP
+    let data: any
+    try {
+      if (responseType === 'blob') {
+        const blob = await response.blob()
+        console.log('📄 API Response blob size:', blob.size)
+        
+        // Si hay error HTTP con blob, intentar leer como texto para ver si es JSON
+        if (!response.ok) {
+          const text = await blob.text()
+          try {
+            const jsonData = JSON.parse(text)
+            // Devolver el error para que el servicio lo maneje
+            if (jsonData.success === false || jsonData.detail || jsonData.error) {
+              console.log('📦 Returning error response from blob')
+              return jsonData as T
+            }
+          } catch {
+            // No es JSON, lanzar error
+            throw new Error(`HTTP error! status: ${response.status}`)
+          }
+        }
+        
+        return blob as unknown as T
+      }
+      
+      data = await response.json()
+      console.log('📦 Response data:', data)
+    } catch (parseError) {
+      console.error('❌ Could not parse response as JSON')
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      throw parseError
+    }
+
+    // Si la respuesta tiene estructura de error del backend
+    // Devolverla tal cual para que el servicio la maneje
+    // Soporta tanto el formato nuevo (success: false) como el antiguo (detail)
+    if (data.success === false || (data.detail && !response.ok) || data.error) {
+      console.log('📦 Returning error response to service for handling')
+      return data as T
+    }
+
+    // Si el HTTP status no es OK pero no tenemos estructura de error, lanzar excepción
     if (!response.ok) {
       console.error(`❌ API request failed: ${response.status} ${response.statusText}`)
-      const errorData = await response.json().catch(() => ({}))
-      console.error('❌ Error data:', errorData)
+      console.error('❌ Error data:', data)
 
       // Detectar token expirado o inválido (401)
       if (response.status === 401) {
-        const errorMessage = errorData.detail || errorData.message || ''
+        const errorMessage = data.detail || data.message || ''
 
         // Si el token está expirado o inválido, cerrar sesión automáticamente
         if (errorMessage.toLowerCase().includes('token') &&
@@ -114,13 +158,12 @@ export async function apiRequest<T>(
              errorMessage.toLowerCase().includes('invalido'))) {
           console.warn('🔐 Token expirado o inválido - cerrando sesión automáticamente')
 
-          // Limpiar localStorage (ya no se guarda modulos_permitidos)
+          // Limpiar localStorage
           if (typeof window !== 'undefined') {
             localStorage.removeItem('auth_token')
             localStorage.removeItem('user_data')
 
             // Recargar la página para mostrar el login
-            // Usamos un pequeño delay para que el usuario vea el mensaje de error
             setTimeout(() => {
               window.location.reload()
             }, 500)
@@ -128,25 +171,34 @@ export async function apiRequest<T>(
         }
       }
 
-      throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`)
+      // Para errores 400 (Bad Request), devolver la respuesta como error estructurado
+      // en lugar de lanzar excepción para evitar el overlay de Next.js
+      if (response.status === 400) {
+        console.log('📦 Returning 400 error as structured response')
+        return {
+          success: false,
+          error: {
+            code: 'BAD_REQUEST',
+            title: 'Error de Validación',
+            message: data.detail || data.message || 'Error en la solicitud',
+          }
+        } as T
+      }
+
+      throw new Error(data.detail || data.message || `HTTP error! status: ${response.status}`)
     }
 
-    if (responseType === 'blob') {
-      const blob = await response.blob()
-      console.log('📄 API Response blob size:', blob.size)
-      return blob as unknown as T
-    }
-
-    const data = await response.json()
-    console.log('✅ API Response data:', data)
     return data
   } catch (error) {
+    console.error('💥 API Request Error:', error)
     console.error('💥 API Request Error Details:', {
-      error: error,
       message: error instanceof Error ? error.message : 'Unknown error',
+      name: error instanceof Error ? error.name : 'Unknown',
       url,
       endpoint,
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
+      errorType: typeof error,
+      errorString: String(error)
     })
     throw error
   }

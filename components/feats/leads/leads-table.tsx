@@ -572,16 +572,44 @@ export function LeadsTable({
   }
 
   const openConvertDialog = async (lead: Lead) => {
+    console.log('🔵 openConvertDialog called for lead:', lead.id)
     setLeadToConvert(lead)
     setConversionLoading(true)
     setConversionErrors({})
     
+    // Abrir el diálogo inmediatamente para evitar pantalla de error
+    console.log('🔵 Opening dialog immediately')
+    setIsConvertDialogOpen(true)
+    
+    // Esperar un tick para asegurar que el diálogo se renderice
+    await new Promise(resolve => setTimeout(resolve, 0))
+    console.log('🔵 Dialog should be open now')
+    
     try {
-      // Verificar si el lead tiene inversor asignado
-      const tieneInversor = lead.ofertas && lead.ofertas.length > 0 && lead.ofertas[0].inversor_codigo
+      // Verificar si el lead tiene oferta confeccionada
+      const leadId = lead.id
+      if (!leadId) {
+        console.log('🔴 Lead has no ID')
+        setConversionErrors({
+          general: 'El lead no tiene ID válido'
+        })
+        setConversionData({
+          numero: '',
+          carnet_identidad: '',
+          estado: 'Pendiente de instalación',
+          equipo_propio: undefined,
+        })
+        setConversionLoading(false)
+        return
+      }
+
+      // Verificar si tiene oferta confeccionada
+      const tieneOfertaConfeccionada = leadsConOferta.has(leadId)
+      console.log('🔵 Lead has oferta confeccionada:', tieneOfertaConfeccionada)
       
-      if (!tieneInversor) {
-        // Si no tiene inversor, preguntar si el equipo es propio
+      if (!tieneOfertaConfeccionada) {
+        // Si no tiene oferta confeccionada, preguntar si el equipo es propio
+        console.log('🔵 No oferta confeccionada, asking about equipo propio')
         setConversionData({
           numero: '',
           carnet_identidad: '',
@@ -589,12 +617,21 @@ export function LeadsTable({
           equipo_propio: undefined, // Indicar que necesita respuesta
         })
         setConversionLoading(false)
-        setIsConvertDialogOpen(true)
         return
       }
       
-      // Generar el código de cliente automáticamente
-      const codigoGenerado = await onGenerarCodigo(lead.id || '')
+      console.log('🔵 Generating client code...')
+      // Generar el código de cliente automáticamente con manejo de error robusto
+      let codigoGenerado: string
+      try {
+        codigoGenerado = await onGenerarCodigo(leadId)
+        console.log('✅ Code generated successfully:', codigoGenerado)
+      } catch (genError) {
+        // Capturar el error de generación de código específicamente
+        console.log('🔴 Error generating code, caught in inner try-catch')
+        const genErrorMessage = genError instanceof Error ? genError.message : 'Error al generar el código de cliente'
+        throw new Error(genErrorMessage)
+      }
       
       // Validar que el código tenga exactamente 10 caracteres
       // Formato: {Letra}{Provincia}{Municipio}{Consecutivo}
@@ -605,6 +642,7 @@ export function LeadsTable({
           `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
           `Código recibido: "${codigoGenerado}". ` +
           `Verifica que el lead tenga:\n` +
+          `- Oferta confeccionada con inversor seleccionado\n` +
           `- Marca de inversor configurada en el material\n` +
           `- Provincia y municipio válidos en la base de datos`
         )
@@ -625,10 +663,38 @@ export function LeadsTable({
         equipo_propio: false,
       })
     } catch (error) {
+      console.log('🔴 Error caught in outer try-catch')
       console.error('Error generating client code:', error)
-      setConversionErrors({
-        general: error instanceof Error ? error.message : 'Error al generar el código de cliente'
-      })
+      const errorMessage = error instanceof Error ? error.message : 'Error al generar el código de cliente'
+      
+      // Detectar errores específicos del backend
+      if (errorMessage.includes('ofertas confeccionadas')) {
+        setConversionErrors({
+          general: 'Este lead necesita una oferta confeccionada antes de generar el código. Crea una oferta confeccionada o marca el equipo como propio del cliente.'
+        })
+      } else if (errorMessage.includes('inversor seleccionado')) {
+        setConversionErrors({
+          general: 'La oferta confeccionada debe tener un inversor seleccionado. Edita la oferta o marca el equipo como propio del cliente.'
+        })
+      } else if (errorMessage.includes('marca_id')) {
+        setConversionErrors({
+          general: 'El material inversor no tiene marca asignada. Contacta al administrador para configurar la marca del material.'
+        })
+      } else if (errorMessage.includes('provincia_montaje') || errorMessage.includes('provincia')) {
+        console.log('🔴 Setting provincia error')
+        setConversionErrors({
+          general: 'El lead no tiene provincia de montaje asignada. Por favor, edita el lead y asigna una provincia antes de convertirlo a cliente.'
+        })
+      } else if (errorMessage.includes('municipio')) {
+        setConversionErrors({
+          general: 'El lead no tiene municipio asignado. Por favor, edita el lead y asigna un municipio antes de convertirlo a cliente.'
+        })
+      } else {
+        setConversionErrors({
+          general: errorMessage
+        })
+      }
+      
       setConversionData({
         numero: '',
         carnet_identidad: '',
@@ -636,10 +702,11 @@ export function LeadsTable({
         equipo_propio: undefined,
       })
     } finally {
+      console.log('🔵 Setting loading to false')
       setConversionLoading(false)
     }
     
-    setIsConvertDialogOpen(true)
+    console.log('🔵 openConvertDialog finished')
   }
 
   const closeConvertDialog = () => {
@@ -2560,28 +2627,63 @@ export function LeadsTable({
                 </div>
 
                 {conversionErrors.general && (
-                  <div className="text-xs sm:text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
-                    {conversionErrors.general}
+                  <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                    <div className="text-xs sm:text-sm text-red-700 mb-2">
+                      {conversionErrors.general}
+                    </div>
+                    {(conversionErrors.general.includes('oferta confeccionada') || 
+                      conversionErrors.general.includes('inversor seleccionado')) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 border-red-300 hover:bg-red-100 text-red-700"
+                        onClick={() => {
+                          closeConvertDialog()
+                          openAsignarOfertaDialog(leadToConvert)
+                        }}
+                      >
+                        Crear Oferta Confeccionada
+                      </Button>
+                    )}
+                    {(conversionErrors.general.includes('provincia') || 
+                      conversionErrors.general.includes('municipio')) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 border-red-300 hover:bg-red-100 text-red-700"
+                        onClick={() => {
+                          closeConvertDialog()
+                          if (leadToConvert) {
+                            onEdit(leadToConvert)
+                          }
+                        }}
+                      >
+                        Editar Lead
+                      </Button>
+                    )}
                   </div>
                 )}
 
                 <div className="space-y-3">
-                  {/* Pregunta sobre equipo propio - solo si no hay inversor */}
+                  {/* Pregunta sobre equipo propio - solo si no hay oferta confeccionada */}
                   {conversionData.equipo_propio === undefined && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                       <Label className="text-sm font-semibold text-amber-900 mb-3 block">
                         ¿El equipo es propio del cliente?
                       </Label>
                       <p className="text-xs text-amber-700 mb-3">
-                        Este lead no tiene un inversor asignado. Indica si el cliente ya tiene su propio equipo instalado.
+                        Este lead no tiene una oferta confeccionada. Indica si el cliente ya tiene su propio equipo instalado o si necesitas crear una oferta confeccionada.
                       </p>
-                      <div className="flex gap-3">
+                      <div className="flex flex-col gap-2">
                         <Button
                           type="button"
                           variant="outline"
-                          className="flex-1 border-amber-300 hover:bg-amber-100"
+                          className="w-full border-amber-300 hover:bg-amber-100"
                           onClick={async () => {
                             setConversionLoading(true)
+                            setConversionErrors({})
                             try {
                               // Generar código con prefijo P para equipo propio
                               const codigoGenerado = await onGenerarCodigo(leadToConvert.id || '', true)
@@ -2595,28 +2697,42 @@ export function LeadsTable({
                                 numero: codigoGenerado,
                                 equipo_propio: true,
                               }))
+                              setConversionErrors({})
                             } catch (error) {
-                              setConversionErrors({
-                                general: error instanceof Error ? error.message : 'Error al generar el código'
-                              })
+                              console.error('Error generando código para equipo propio:', error)
+                              const errorMessage = error instanceof Error ? error.message : 'Error al generar el código'
+                              
+                              // Detectar errores específicos
+                              if (errorMessage.includes('provincia_montaje') || errorMessage.includes('provincia')) {
+                                setConversionErrors({
+                                  general: 'El lead no tiene provincia de montaje asignada. Por favor, edita el lead y asigna una provincia antes de convertirlo a cliente.'
+                                })
+                              } else if (errorMessage.includes('municipio')) {
+                                setConversionErrors({
+                                  general: 'El lead no tiene municipio asignado. Por favor, edita el lead y asigna un municipio antes de convertirlo a cliente.'
+                                })
+                              } else {
+                                setConversionErrors({
+                                  general: errorMessage
+                                })
+                              }
                             } finally {
                               setConversionLoading(false)
                             }
                           }}
                         >
-                          Sí, es propio
+                          Sí, es equipo propio del cliente
                         </Button>
                         <Button
                           type="button"
                           variant="outline"
-                          className="flex-1 border-amber-300 hover:bg-amber-100"
+                          className="w-full border-amber-300 hover:bg-amber-100"
                           onClick={() => {
-                            setConversionErrors({
-                              general: 'Debes asignar un inversor al lead antes de convertirlo a cliente. Edita el lead y agrega un inversor en la sección de oferta.'
-                            })
+                            closeConvertDialog()
+                            openAsignarOfertaDialog(leadToConvert)
                           }}
                         >
-                          No, necesita equipo
+                          No, crear oferta confeccionada
                         </Button>
                       </div>
                     </div>

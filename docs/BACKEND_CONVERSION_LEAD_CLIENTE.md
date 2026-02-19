@@ -1,9 +1,26 @@
 # Especificación Backend: Conversión de Lead a Cliente con Código Autogenerado
 
+## ⚠️ ACTUALIZACIÓN IMPORTANTE
+
+**Fecha:** 19 de febrero de 2026
+
+El backend ahora usa la **oferta confeccionada** para generar el código de cliente en lugar de la oferta antigua del lead (`lead.ofertas`).
+
+**Cambio Principal:**
+- **ANTES:** Se usaba `lead.ofertas[0].inversor_codigo` para obtener la marca
+- **AHORA:** Se usa la oferta confeccionada asociada al lead para obtener el inversor y su marca
+
+Para más detalles, consulta:
+- `docs/ACTUALIZACION_CODIGO_CLIENTE_OFERTA_CONFECCIONADA.md` - Documentación completa del cambio
+- `docs/FRONTEND_CAMBIOS_CODIGO_CLIENTE.md` - Cambios necesarios en el frontend
+- `docs/RESUMEN_CAMBIOS_FRONTEND_CODIGO_CLIENTE.md` - Resumen de cambios implementados
+
+---
+
 ## Descripción General
 
 El sistema permite convertir leads en clientes con generación automática de códigos únicos basados en:
-- **Marca del inversor** (primera letra)
+- **Marca del inversor de la oferta confeccionada** (primera letra)
 - **Provincia** (código de 2 dígitos)
 - **Municipio** (código de 2 dígitos)
 - **Número consecutivo** (3 dígitos con padding de ceros)
@@ -16,22 +33,31 @@ El sistema permite convertir leads en clientes con generación automática de c�
 ### 1. Generar Código de Cliente
 **Endpoint:** `GET /leads/{lead_id}/generar-codigo-cliente`
 
-**Descripción:** Genera automáticamente un código único para el cliente basado en los datos del lead.
+**Descripción:** Genera automáticamente un código único para el cliente basado en los datos del lead y su oferta confeccionada.
 
 **Parámetros:**
 - `lead_id` (path parameter): ID del lead
+- `equipo_propio` (query parameter, opcional): Si es `true`, genera código con prefijo "P" para equipo propio
+
+**Requisitos Previos:**
+- El lead debe tener una oferta confeccionada asociada (a menos que `equipo_propio=true`)
+- La oferta confeccionada debe tener un inversor seleccionado
+- El material inversor debe tener una marca asignada
 
 **Lógica de Generación del Código:**
 
 1. **Obtener la marca del inversor:**
-   - Buscar en `lead.ofertas[0].inversor_codigo` o `lead.ofertas[0].inversor_nombre`
-   - Si el lead tiene ofertas, extraer la marca del primer inversor
+   - **NUEVO:** Buscar en la oferta confeccionada asociada al lead
+   - Obtener el inversor seleccionado de `oferta_confeccionada.componentes_principales.inversor_seleccionado`
+   - Buscar el material en la base de datos usando el código del inversor
+   - Obtener la marca del material (`material.marca_id`)
    - Obtener la primera letra de la marca en mayúscula
    - Ejemplos:
      - "Huawei" → "H"
      - "Growatt" → "G"
      - "Deye" → "D"
      - "Goodwe" → "G"
+   - Si `equipo_propio=true`, usar "P" como prefijo
 
 2. **Obtener código de provincia:**
    - Usar el campo `lead.provincia_montaje`
