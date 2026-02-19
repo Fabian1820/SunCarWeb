@@ -7,7 +7,7 @@ import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 import {
   Cpu, Sun, Crosshair, Activity, Users, Zap, MapPin,
-  Search, ChevronRight, ChevronLeft, List,
+  Search, ChevronRight, ChevronLeft, List, Volume2, VolumeX,
 } from "lucide-react";
 import { API_BASE_URL } from "@/lib/api-config";
 import "leaflet/dist/leaflet.css";
@@ -123,6 +123,8 @@ export default function FuturisticRadarHeatmap() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const lastSpokenRef = useRef<string>("");
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -282,6 +284,32 @@ export default function FuturisticRadarHeatmap() {
     };
   }, [aggregatedStats, selectedMetric, maxMetricValue]);
 
+  const speakTactical = useCallback((municipio: string, stat: AggregatedMunicipioStat | null) => {
+    if (!voiceEnabled) return;
+    if (typeof window === "undefined" || !window.speechSynthesis) return;
+    if (lastSpokenRef.current === municipio) return;
+    lastSpokenRef.current = municipio;
+
+    window.speechSynthesis.cancel();
+
+    let text = municipio + ". ";
+    if (stat) {
+      const pan = Math.round(stat.potencia_paneles_kw);
+      const inv = Math.round(stat.potencia_inversores_kw);
+      text += `Paneles: ${pan} kilovatios. Inversores: ${inv} kilovatios. `;
+      text += `${stat.total_clientes_instalados} clientes.`;
+    } else {
+      text += "Sin instalaciones.";
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "es-ES";
+    utterance.rate = 1.15;
+    utterance.pitch = 0.85;
+    utterance.volume = 0.8;
+    window.speechSynthesis.speak(utterance);
+  }, [voiceEnabled]);
+
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String(
       (feature.properties as Record<string, unknown> | undefined)?.shapeName ?? "Municipio",
@@ -303,6 +331,7 @@ export default function FuturisticRadarHeatmap() {
           });
           const e = event.originalEvent as MouseEvent;
           setHoverInfo({ municipio: shapeName, clientX: e.clientX, clientY: e.clientY, stat });
+          speakTactical(shapeName, stat);
         },
         mousemove: (event: LeafletMouseEvent) => {
           const e = event.originalEvent as MouseEvent;
@@ -311,10 +340,11 @@ export default function FuturisticRadarHeatmap() {
         mouseout: (event: LeafletMouseEvent) => {
           event.target.setStyle(getFeatureStyle(feature));
           setHoverInfo((prev) => (prev?.municipio === shapeName ? null : prev));
+          lastSpokenRef.current = "";
         },
       });
     }
-  }, [aggregatedStats, getFeatureStyle]);
+  }, [aggregatedStats, getFeatureStyle, speakTactical]);
 
   const handleCoordsChange = useCallback((lat: string, lng: string) => {
     setCoords({ lat, lng });
@@ -430,16 +460,38 @@ export default function FuturisticRadarHeatmap() {
           </div>
         </div>
 
-        {/* Sidebar toggle button */}
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="absolute right-4 top-[140px] z-[1001] flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-[#010a18]/90 px-2.5 py-2 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10 backdrop-blur-md transition-all"
-        >
-          <List className="h-3.5 w-3.5" />
-          <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">Municipios</span>
-          {sidebarOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-        </button>
+        {/* Voice + Sidebar toggle buttons */}
+        <div className="absolute right-4 top-[140px] z-[1001] flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              const next = !voiceEnabled;
+              setVoiceEnabled(next);
+              if (!next && typeof window !== "undefined") {
+                window.speechSynthesis.cancel();
+              }
+            }}
+            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 backdrop-blur-md transition-all ${
+              voiceEnabled
+                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300 hover:bg-emerald-400/20"
+                : "border-cyan-400/20 bg-[#010a18]/90 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10"
+            }`}
+          >
+            {voiceEnabled ? <Volume2 className="h-3.5 w-3.5" /> : <VolumeX className="h-3.5 w-3.5" />}
+            <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">
+              {voiceEnabled ? "Voz ON" : "Voz OFF"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="flex items-center gap-1.5 rounded-lg border border-cyan-400/20 bg-[#010a18]/90 px-2.5 py-2 text-cyan-300/70 hover:text-cyan-100 hover:bg-cyan-400/10 backdrop-blur-md transition-all"
+          >
+            <List className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-mono tracking-wider uppercase hidden sm:inline">Municipios</span>
+            {sidebarOpen ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+          </button>
+        </div>
 
         {/* Loading */}
         {isLoading && (
