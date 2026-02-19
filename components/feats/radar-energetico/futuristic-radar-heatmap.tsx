@@ -124,7 +124,6 @@ export default function FuturisticRadarHeatmap() {
   const [searchQuery, setSearchQuery] = useState("");
   const [mounted, setMounted] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  const lastSpokenRef = useRef<string>("");
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -247,24 +246,35 @@ export default function FuturisticRadarHeatmap() {
     return { inversores, paneles, clientes };
   }, [sortedMunicipios]);
 
-  const maxMetricValue = useMemo(() => {
+  // Rank-based normalization: maps each municipality to 0..1 based on its position
+  // in the sorted list, ensuring an even color distribution regardless of data skew
+  const rankMap = useMemo(() => {
     const field = METRIC_CONFIG[selectedMetric].field;
-    const values = Array.from(aggregatedStats.values()).map((item) => Number(item[field] || 0));
-    const max = Math.max(...values, 0);
-    return max > 0 ? max : 1;
-  }, [aggregatedStats, selectedMetric]);
+    const entries = Array.from(aggregatedStats.entries())
+      .map(([key, stat]) => ({ key, value: Number(stat[field] || 0) }))
+      .filter((e) => e.value > 0);
 
-  const getMetricValue = (stat: AggregatedMunicipioStat, metric: MetricKey): number => {
-    return Number(stat[METRIC_CONFIG[metric].field] || 0);
-  };
+    if (entries.length === 0) return new Map<string, number>();
+
+    entries.sort((a, b) => a.value - b.value);
+    const ranks = new Map<string, number>();
+    const count = entries.length;
+
+    for (let i = 0; i < count; i++) {
+      // Spread evenly from ~0.1 to 1.0 so even the lowest value gets some color
+      ranks.set(entries[i].key, count === 1 ? 1 : 0.1 + (i / (count - 1)) * 0.9);
+    }
+    return ranks;
+  }, [aggregatedStats, selectedMetric]);
 
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
     const shapeName = String(
       (feature?.properties as Record<string, unknown> | undefined)?.shapeName ?? "",
     );
-    const stat = aggregatedStats.get(normalizeText(shapeName));
+    const key = normalizeText(shapeName);
+    const ratio = rankMap.get(key);
 
-    if (!stat) {
+    if (ratio === undefined) {
       return {
         color: "#0e2a3f",
         weight: 0.6,
@@ -273,42 +283,89 @@ export default function FuturisticRadarHeatmap() {
       };
     }
 
-    const value = getMetricValue(stat, selectedMetric);
-    const ratio = Math.sqrt(Math.max(value, 0) / maxMetricValue);
-
     return {
       color: "#22d3ee55",
       weight: 0.9,
       fillColor: heatColorFromRatio(ratio),
       fillOpacity: 0.78,
     };
-  }, [aggregatedStats, selectedMetric, maxMetricValue]);
+  }, [rankMap]);
 
-  const speakTactical = useCallback((municipio: string, stat: AggregatedMunicipioStat | null) => {
-    if (!voiceEnabled) return;
-    if (typeof window === "undefined" || !window.speechSynthesis) return;
-    if (lastSpokenRef.current === municipio) return;
-    lastSpokenRef.current = municipio;
+  // Tactical blip sound using Web Audio API
+  const playTacticalBlip = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
 
-    window.speechSynthesis.cancel();
+      // Short radar ping: two quick tones
+      const now = ctx.currentTime;
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(1200, now);
+      osc1.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+      gain1.gain.setValueAtTime(0.15, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.12);
 
-    let text = municipio + ". ";
-    if (stat) {
-      const pan = Math.round(stat.potencia_paneles_kw);
-      const inv = Math.round(stat.potencia_inversores_kw);
-      text += `Paneles: ${pan} kilovatios. Inversores: ${inv} kilovatios. `;
-      text += `${stat.total_clientes_instalados} clientes.`;
-    } else {
-      text += "Sin instalaciones.";
+      // Second blip slightly delayed
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(900, now + 0.15);
+      osc2.frequency.exponentialRampToValueAtTime(600, now + 0.25);
+      gain2.gain.setValueAtTime(0.1, now + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.15);
+      osc2.stop(now + 0.28);
+
+      setTimeout(() => ctx.close(), 500);
+    } catch {
+      // Audio not available
     }
+  }, []);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "es-ES";
-    utterance.rate = 1.15;
-    utterance.pitch = 0.85;
-    utterance.volume = 0.8;
-    window.speechSynthesis.speak(utterance);
-  }, [voiceEnabled]);
+  const voiceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sound + voice triggered on click
+  const speakTactical = useCallback((municipio: string, stat: AggregatedMunicipioStat | null) => {
+    if (typeof window === "undefined") return;
+
+    // Blip always plays on click
+    playTacticalBlip();
+
+    if (!voiceEnabled || !window.speechSynthesis) return;
+
+    // Cancel any pending speech
+    window.speechSynthesis.cancel();
+    if (voiceTimeoutRef.current) clearTimeout(voiceTimeoutRef.current);
+
+    // Delay before speaking (lets the blip finish)
+    voiceTimeoutRef.current = setTimeout(() => {
+      let text = municipio + ". ";
+      if (stat) {
+        const pan = Math.round(stat.potencia_paneles_kw);
+        const inv = Math.round(stat.potencia_inversores_kw);
+        text += `Paneles: ${pan} kilovatios. `;
+        text += `Inversores: ${inv} kilovatios. `;
+        text += `${stat.total_clientes_instalados} clientes.`;
+      } else {
+        text += "Sin instalaciones.";
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "es-ES";
+      utterance.rate = 0.85;
+      utterance.pitch = 0.75;
+      utterance.volume = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }, 400);
+  }, [voiceEnabled, playTacticalBlip]);
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String(
@@ -331,7 +388,6 @@ export default function FuturisticRadarHeatmap() {
           });
           const e = event.originalEvent as MouseEvent;
           setHoverInfo({ municipio: shapeName, clientX: e.clientX, clientY: e.clientY, stat });
-          speakTactical(shapeName, stat);
         },
         mousemove: (event: LeafletMouseEvent) => {
           const e = event.originalEvent as MouseEvent;
@@ -340,7 +396,9 @@ export default function FuturisticRadarHeatmap() {
         mouseout: (event: LeafletMouseEvent) => {
           event.target.setStyle(getFeatureStyle(feature));
           setHoverInfo((prev) => (prev?.municipio === shapeName ? null : prev));
-          lastSpokenRef.current = "";
+        },
+        click: () => {
+          speakTactical(shapeName, stat);
         },
       });
     }
