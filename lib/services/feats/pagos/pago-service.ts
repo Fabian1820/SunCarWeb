@@ -16,6 +16,9 @@ export interface PagoCreateData {
   recibido_por?: string
   notas?: string
   creado_por?: string
+  diferencia?: {
+    justificacion: string
+  }
 }
 
 export interface Pago {
@@ -38,6 +41,10 @@ export interface Pago {
   creado_por?: string
   fecha_creacion: string
   fecha_actualizacion: string
+  diferencia?: {
+    monto: number
+    justificacion: string
+  }
 }
 
 export interface PagoConDetalles extends Pago {
@@ -119,13 +126,33 @@ export class PagoService {
    */
   static async crearPago(data: PagoCreateData): Promise<PagoCreateResponse> {
     try {
+      console.log('🚀 [PagoService.crearPago] Iniciando creación de pago')
+      console.log('📦 Datos recibidos:', JSON.stringify(data, null, 2))
+      
+      // Validar estructura de diferencia si existe
+      if (data.diferencia) {
+        console.log('🔍 Campo diferencia detectado:', data.diferencia)
+        if (!data.diferencia.justificacion || data.diferencia.justificacion.trim() === '') {
+          console.error('❌ ERROR: diferencia.justificacion está vacío')
+        } else {
+          console.log('✅ diferencia.justificacion válido:', data.diferencia.justificacion)
+        }
+      }
+      
       const response = await apiRequest<PagoCreateResponse>('/pagos/', {
         method: 'POST',
         body: JSON.stringify(data),
       })
+      
+      console.log('✅ [PagoService.crearPago] Respuesta exitosa:', response)
       return response
     } catch (error: any) {
-      console.error('[PagoService] Error al crear pago:', error)
+      console.error('❌ [PagoService.crearPago] Error al crear pago:', error)
+      console.error('📋 Detalles del error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
       throw new Error(error.response?.data?.message || 'Error al crear pago')
     }
   }
@@ -174,7 +201,20 @@ export class PagoService {
    */
   static async actualizarPago(pagoId: string, data: Partial<PagoCreateData>): Promise<{ success: boolean; message: string; pago_id: string }> {
     try {
-      console.log('[PagoService] Actualizando pago:', pagoId, 'con datos:', data)
+      console.log('🚀 [PagoService.actualizarPago] Iniciando actualización de pago')
+      console.log('🆔 Pago ID:', pagoId)
+      console.log('📦 Datos recibidos:', JSON.stringify(data, null, 2))
+      
+      // Validar estructura de diferencia si existe
+      if (data.diferencia) {
+        console.log('🔍 Campo diferencia detectado:', data.diferencia)
+        if (!data.diferencia.justificacion || data.diferencia.justificacion.trim() === '') {
+          console.error('❌ ERROR: diferencia.justificacion está vacío')
+        } else {
+          console.log('✅ diferencia.justificacion válido:', data.diferencia.justificacion)
+        }
+      }
+      
       const response = await apiRequest<{ success: boolean; message: string; pago_id: string }>(
         `/pagos/${pagoId}`,
         {
@@ -182,10 +222,16 @@ export class PagoService {
           body: JSON.stringify(data),
         }
       )
-      console.log('[PagoService] Respuesta del backend:', response)
+      
+      console.log('✅ [PagoService.actualizarPago] Respuesta exitosa:', response)
       return response
     } catch (error: any) {
-      console.error('[PagoService] Error al actualizar pago:', error)
+      console.error('❌ [PagoService.actualizarPago] Error al actualizar pago:', error)
+      console.error('📋 Detalles del error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
       throw new Error(error.response?.data?.message || 'Error al actualizar pago')
     }
   }

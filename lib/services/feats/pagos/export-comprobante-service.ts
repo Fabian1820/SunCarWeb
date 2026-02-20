@@ -217,13 +217,61 @@ export class ExportComprobanteService {
 
     // Monto Pendiente (destacado)
     // Calcular el total pagado incluyendo este pago
-    const totalPagadoConEste = (data.total_pagado_anteriormente || 0) + pago.monto_usd
-    const montoPendiente = oferta.precio_final - totalPagadoConEste
+    // Si el pago tiene diferencia, restar ese monto del total pagado porque es un excedente
+    let montoPagadoEfectivo = pago.monto_usd
+    
+    // Si hay diferencia, el monto efectivo que se aplica a la oferta es: monto_usd - diferencia.monto
+    if (pago.diferencia && pago.diferencia.monto > 0) {
+      montoPagadoEfectivo = pago.monto_usd - pago.diferencia.monto
+      console.log('📊 Comprobante - Pago con diferencia:')
+      console.log('  - Monto USD total:', pago.monto_usd)
+      console.log('  - Diferencia (excedente):', pago.diferencia.monto)
+      console.log('  - Monto efectivo aplicado:', montoPagadoEfectivo)
+    }
+    
+    const totalPagadoConEste = (data.total_pagado_anteriormente || 0) + montoPagadoEfectivo
+    let montoPendiente = oferta.precio_final - totalPagadoConEste
+    
+    console.log('📊 Comprobante - Cálculo pendiente:')
+    console.log('  - Precio final:', oferta.precio_final)
+    console.log('  - Total pagado anteriormente:', data.total_pagado_anteriormente || 0)
+    console.log('  - Monto efectivo este pago:', montoPagadoEfectivo)
+    console.log('  - Total pagado con este:', totalPagadoConEste)
+    console.log('  - Pendiente calculado:', montoPendiente)
+    
+    // Si el pendiente es negativo o muy cercano a 0 (menos de 1 centavo), mostrarlo como 0
+    if (montoPendiente < 0.01 && montoPendiente > -0.01) {
+      console.log('  - Ajustando pendiente a 0 (era:', montoPendiente, ')')
+      montoPendiente = 0
+    }
+    
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.text('Monto Pendiente:', margenIzq, y)
     doc.text(`${this.formatearMoneda(montoPendiente)} USD`, margenDer, y, { align: 'right' })
-    y += 8
+    y += 5
+    
+    // Si hay diferencia, mostrarla
+    if (pago.diferencia && pago.diferencia.monto > 0) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(255, 140, 0) // Color naranja
+      doc.text('Excedente (no aplicado):', margenIzq, y)
+      doc.text(`+${this.formatearMoneda(pago.diferencia.monto)} USD`, margenDer, y, { align: 'right' })
+      y += 4
+      
+      // Justificación del excedente
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'italic')
+      const justificacionLineas = doc.splitTextToSize(`Motivo: ${pago.diferencia.justificacion}`, margenDer - margenIzq)
+      doc.text(justificacionLineas, margenIzq, y)
+      y += (justificacionLineas.length * 3)
+      
+      doc.setTextColor(0, 0, 0) // Volver a negro
+      y += 3
+    } else {
+      y += 3
+    }
 
     // Pie de página
     doc.setFontSize(7)

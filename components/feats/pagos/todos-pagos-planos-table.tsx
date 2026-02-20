@@ -85,13 +85,24 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
         // Encontrar el índice de este pago
         const indicePago = pagosOfertaOrdenados.findIndex(p => p.id === pago.id)
         
-        // Calcular total pagado hasta este pago (inclusive)
+        // Calcular total pagado hasta este pago (inclusive), excluyendo diferencias
         const totalPagadoHastaAqui = pagosOfertaOrdenados
             .slice(0, indicePago + 1)
-            .reduce((sum, p) => sum + p.monto_usd, 0)
+            .reduce((sum, p) => {
+                // Si el pago tiene diferencia, restar ese monto
+                const montoEfectivo = p.diferencia && p.diferencia.monto > 0
+                    ? p.monto_usd - p.diferencia.monto
+                    : p.monto_usd
+                return sum + montoEfectivo
+            }, 0)
         
         // Calcular pendiente después de este pago
-        const pendienteDespuesPago = ofertaOriginal.precio_final - totalPagadoHastaAqui
+        let pendienteDespuesPago = ofertaOriginal.precio_final - totalPagadoHastaAqui
+        
+        // Si es muy cercano a 0, mostrarlo como 0
+        if (pendienteDespuesPago < 0.01 && pendienteDespuesPago > -0.01) {
+            pendienteDespuesPago = 0
+        }
         
         return { ...pago, pendienteDespuesPago }
     })
@@ -246,6 +257,13 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
                                         {formatCurrency(pago.monto_usd)}
                                     </div>
                                 )}
+                                {pago.diferencia && (
+                                    <div className="mt-1 text-xs">
+                                        <Badge variant="outline" className="bg-orange-50 text-orange-700">
+                                            +{formatCurrency(pago.diferencia.monto)}
+                                        </Badge>
+                                    </div>
+                                )}
                             </TableCell>
                             <TableCell className="text-right py-3">
                                 <div className="font-semibold text-sm text-orange-700">
@@ -315,6 +333,18 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
                                         </a>
                                     )}
                                     {!pago.recibido_por && !pago.comprobante_transferencia && '-'}
+                                    {pago.diferencia && (
+                                        <details className="mt-1 text-xs">
+                                            <summary className="cursor-pointer text-orange-600 hover:underline">
+                                                Ver justificación excedente
+                                            </summary>
+                                            <div className="mt-1 p-2 bg-orange-50 border border-orange-200 rounded">
+                                                <p className="text-gray-700 italic">
+                                                    {pago.diferencia.justificacion}
+                                                </p>
+                                            </div>
+                                        </details>
+                                    )}
                                 </div>
                             </TableCell>
                             <TableCell className="text-center py-3">

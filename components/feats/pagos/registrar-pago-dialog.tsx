@@ -36,6 +36,7 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
         recibido_por: '',
         comprobante_transferencia: '',
         notas: '',
+        justificacion_diferencia: '',
     })
 
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
@@ -156,17 +157,31 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
         e.preventDefault()
         if (!oferta) return
 
+        console.log('🚀 [RegistrarPago] Iniciando validación del formulario')
+        console.log('📋 FormData completo:', formData)
+        console.log('📋 Oferta:', { id: oferta.id, numero: oferta.numero_oferta, pendiente: oferta.monto_pendiente })
+
         setError(null)
 
         // Validaciones
         const monto = parseFloat(formData.monto)
+        console.log('💰 Monto parseado:', monto)
         if (isNaN(monto) || monto <= 0) {
             setError('El monto debe ser mayor a 0')
             return
         }
 
-        if (monto > oferta.monto_pendiente) {
-            setError(`El monto no puede ser mayor al monto pendiente (${formatCurrency(oferta.monto_pendiente)})`)
+        // Calcular monto en USD para comparar con el pendiente
+        const montoEnUSD = monto * formData.tasa_cambio
+        const excedePendiente = montoEnUSD > oferta.monto_pendiente
+
+        if (excedePendiente && !formData.justificacion_diferencia.trim()) {
+            setError(`El monto en USD (${formatCurrency(montoEnUSD)}) excede el monto pendiente (${formatCurrency(oferta.monto_pendiente)}). Debe proporcionar una justificación.`)
+            return
+        }
+
+        if (excedePendiente && formData.justificacion_diferencia.trim().length < 10) {
+            setError('La justificación debe tener al menos 10 caracteres')
             return
         }
 
@@ -191,6 +206,8 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
             return
         }
 
+        console.log('✅ Todas las validaciones pasaron, construyendo pagoData...')
+        
         setLoading(true)
 
         try {
@@ -224,6 +241,25 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                 pagoData.comprobante_transferencia = formData.comprobante_transferencia
             }
 
+            // Agregar diferencia si el monto excede el pendiente
+            const montoEnUSD = monto * formData.tasa_cambio
+            console.log('🔍 Validación diferencia:')
+            console.log('  - Monto en USD:', montoEnUSD)
+            console.log('  - Monto pendiente:', oferta.monto_pendiente)
+            console.log('  - Excede pendiente:', montoEnUSD > oferta.monto_pendiente)
+            console.log('  - Justificación:', formData.justificacion_diferencia)
+            
+            if (montoEnUSD > oferta.monto_pendiente && formData.justificacion_diferencia.trim()) {
+                pagoData.diferencia = {
+                    justificacion: formData.justificacion_diferencia.trim()
+                }
+                console.log('✅ Campo diferencia agregado:', pagoData.diferencia)
+            } else if (montoEnUSD > oferta.monto_pendiente) {
+                console.warn('⚠️ Monto excede pendiente pero NO hay justificación')
+            }
+
+            console.log('📤 Payload completo a enviar al backend:', JSON.stringify(pagoData, null, 2))
+
             await PagoService.crearPago(pagoData)
 
             // Resetear formulario
@@ -240,6 +276,7 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                 recibido_por: '',
                 comprobante_transferencia: '',
                 notas: '',
+                justificacion_diferencia: '',
             })
             setSelectedFile(null)
             setDesgloseBilletes({})
@@ -247,6 +284,12 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
             onSuccess()
             onOpenChange(false)
         } catch (err: any) {
+            console.error('❌ [RegistrarPago] Error capturado:', err)
+            console.error('📋 Tipo de error:', typeof err)
+            console.error('📋 Error completo:', JSON.stringify(err, null, 2))
+            console.error('📋 Error.message:', err.message)
+            console.error('📋 Error.response:', err.response)
+            
             setError(err.message || 'Error al registrar el pago')
         } finally {
             setLoading(false)
@@ -371,6 +414,44 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
                                 Máximo pendiente: {formatCurrency(oferta.monto_pendiente)}
                             </p>
                         </div>
+
+                        {/* Justificación de diferencia (solo si excede el pendiente) */}
+                        {formData.monto && (parseFloat(formData.monto) * formData.tasa_cambio) > oferta.monto_pendiente && (
+                            <div className="space-y-2 border-l-4 border-orange-400 pl-4 bg-orange-50 p-3 rounded">
+                                <div className="flex items-start gap-2">
+                                    <div className="bg-orange-500 text-white rounded-full p-1 mt-0.5">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-orange-800 mb-1">
+                                            El monto excede el pendiente en {formatCurrency((parseFloat(formData.monto) * formData.tasa_cambio) - oferta.monto_pendiente)}
+                                        </p>
+                                        <p className="text-xs text-orange-700 mb-2">
+                                            Debe proporcionar una justificación para este pago adicional
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="justificacion_diferencia">
+                                        Justificación <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Textarea
+                                        id="justificacion_diferencia"
+                                        value={formData.justificacion_diferencia}
+                                        onChange={(e) => setFormData({ ...formData, justificacion_diferencia: e.target.value })}
+                                        placeholder="Ej: Cliente pagó de más para cubrir servicios adicionales, propina, anticipo para futuros servicios..."
+                                        rows={3}
+                                        required
+                                        className="bg-white"
+                                    />
+                                    <p className="text-xs text-gray-600">
+                                        Mínimo 10 caracteres. Esta justificación quedará registrada en el sistema.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Fecha */}
                         <div className="space-y-2">

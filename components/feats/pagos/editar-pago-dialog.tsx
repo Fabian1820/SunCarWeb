@@ -36,6 +36,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
         recibido_por: '',
         comprobante_transferencia: '',
         notas: '',
+        justificacion_diferencia: '',
     })
 
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
@@ -59,6 +60,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 recibido_por: pago.recibido_por || '',
                 comprobante_transferencia: pago.comprobante_transferencia || '',
                 notas: pago.notas || '',
+                justificacion_diferencia: pago.diferencia?.justificacion || '',
             }
             console.log('Nuevo formData:', nuevoFormData)
             setFormData(nuevoFormData)
@@ -229,7 +231,41 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                 updateData.comprobante_transferencia = formData.comprobante_transferencia
             }
 
-            console.log('📤 Enviando actualización al backend:', updateData)
+            // Calcular el monto disponible para este pago
+            // (pendiente actual + monto original del pago que estamos editando)
+            const montoDisponible = oferta.monto_pendiente + pago.monto_usd
+            const montoEnUSD = monto * formData.tasa_cambio
+            const excedePendiente = montoEnUSD > montoDisponible
+
+            if (excedePendiente && !formData.justificacion_diferencia.trim()) {
+                setError(`El monto en USD (${formatCurrency(montoEnUSD)}) excede el monto disponible (${formatCurrency(montoDisponible)}). Debe proporcionar una justificación.`)
+                setLoading(false)
+                return
+            }
+
+            if (excedePendiente && formData.justificacion_diferencia.trim().length < 10) {
+                setError('La justificación debe tener al menos 10 caracteres')
+                setLoading(false)
+                return
+            }
+
+            // Agregar diferencia si el monto excede el disponible
+            console.log('🔍 Validación diferencia (edición):')
+            console.log('  - Monto en USD:', montoEnUSD)
+            console.log('  - Monto disponible:', montoDisponible)
+            console.log('  - Excede disponible:', excedePendiente)
+            console.log('  - Justificación:', formData.justificacion_diferencia)
+            
+            if (excedePendiente && formData.justificacion_diferencia.trim()) {
+                updateData.diferencia = {
+                    justificacion: formData.justificacion_diferencia.trim()
+                }
+                console.log('✅ Campo diferencia agregado:', updateData.diferencia)
+            } else if (excedePendiente) {
+                console.warn('⚠️ Monto excede disponible pero NO hay justificación')
+            }
+
+            console.log('📤 Payload completo a enviar al backend:', JSON.stringify(updateData, null, 2))
             console.log('📤 Monto a actualizar:', updateData.monto)
             console.log('📤 ID del pago:', pago.id)
 
@@ -362,7 +398,62 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                                     </p>
                                 </div>
                             )}
+                            {pago && (
+                                <p className="text-xs text-gray-500">
+                                    Monto disponible: {formatCurrency(oferta.monto_pendiente + pago.monto_usd)}
+                                </p>
+                            )}
                         </div>
+
+                        {/* Justificación de diferencia (solo si excede el disponible) */}
+                        {formData.monto && pago && (parseFloat(formData.monto) * formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd) && (
+                            <div className="space-y-2 border-l-4 border-orange-400 pl-4 bg-orange-50 p-3 rounded">
+                                <div className="flex items-start gap-2">
+                                    <div className="bg-orange-500 text-white rounded-full p-1 mt-0.5">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                        </svg>
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-orange-800 mb-1">
+                                            El monto excede el disponible en {formatCurrency((parseFloat(formData.monto) * formData.tasa_cambio) - (oferta.monto_pendiente + pago.monto_usd))}
+                                        </p>
+                                        <p className="text-xs text-orange-700 mb-2">
+                                            Debe proporcionar una justificación para este pago adicional
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="justificacion_diferencia">
+                                        Justificación <span className="text-red-500">*</span>
+                                    </Label>
+                                    <Textarea
+                                        id="justificacion_diferencia"
+                                        value={formData.justificacion_diferencia}
+                                        onChange={(e) => setFormData({ ...formData, justificacion_diferencia: e.target.value })}
+                                        placeholder="Ej: Cliente pagó de más para cubrir servicios adicionales, propina, anticipo para futuros servicios..."
+                                        rows={3}
+                                        required
+                                        className="bg-white"
+                                    />
+                                    <p className="text-xs text-gray-600">
+                                        Mínimo 10 caracteres. Esta justificación quedará registrada en el sistema.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Mostrar diferencia existente si la hay */}
+                        {pago?.diferencia && !(formData.monto && (parseFloat(formData.monto) * formData.tasa_cambio) > (oferta.monto_pendiente + pago.monto_usd)) && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <p className="text-sm font-semibold text-blue-800 mb-1">
+                                    ℹ️ Este pago tiene un excedente registrado de {formatCurrency(pago.diferencia.monto)}
+                                </p>
+                                <p className="text-xs text-gray-700 italic">
+                                    Justificación: {pago.diferencia.justificacion}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Fecha */}
                         <div className="space-y-2">

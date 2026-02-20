@@ -199,12 +199,12 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                 {isExpanded && (
                                     <TableRow>
                                         <TableCell colSpan={9} className="bg-gray-50 p-0">
-                                            <div className="p-4 border-t-2 border-blue-200">
-                                                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                            <div className="p-3 border-t border-gray-200">
+                                                <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                                                     <span className="h-1 w-1 rounded-full bg-blue-600"></span>
                                                     Detalle de Cobros ({oferta.cantidad_pagos})
                                                 </h4>
-                                                <div className="space-y-3">
+                                                <div className="space-y-2">
                                                     {/* Ordenar pagos por fecha (más antiguos primero) */}
                                                     {[...oferta.pagos]
                                                         .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
@@ -214,23 +214,36 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                             new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
                                                         )
                                                         const indicePago = pagosOrdenados.findIndex(p => p.id === pago.id)
+                                                        
+                                                        // Calcular total pagado hasta aquí, excluyendo diferencias
                                                         const totalPagadoHastaAqui = pagosOrdenados
                                                             .slice(0, indicePago + 1)
-                                                            .reduce((sum, p) => sum + p.monto_usd, 0)
+                                                            .reduce((sum, p) => {
+                                                                // Si el pago tiene diferencia, restar ese monto
+                                                                const montoEfectivo = p.diferencia && p.diferencia.monto > 0
+                                                                    ? p.monto_usd - p.diferencia.monto
+                                                                    : p.monto_usd
+                                                                return sum + montoEfectivo
+                                                            }, 0)
                                                         
                                                         // Calcular el pendiente después de este pago
-                                                        const pendienteDespuesPago = oferta.precio_final - totalPagadoHastaAqui
+                                                        let pendienteDespuesPago = oferta.precio_final - totalPagadoHastaAqui
+                                                        
+                                                        // Si es muy cercano a 0, mostrarlo como 0
+                                                        if (pendienteDespuesPago < 0.01 && pendienteDespuesPago > -0.01) {
+                                                            pendienteDespuesPago = 0
+                                                        }
                                                         
                                                         return (
                                                         <div 
                                                             key={pago.id} 
-                                                            className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm"
+                                                            className="bg-white rounded border border-gray-200 p-2 shadow-sm"
                                                         >
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                                                                 {/* Columna 1: Información del Pago */}
-                                                                <div className="space-y-2">
-                                                                    <div className="flex items-center gap-2 mb-2">
-                                                                        <span className="text-xs font-semibold text-gray-500">COBRO #{index + 1}</span>
+                                                                <div className="space-y-1.5">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-xs font-semibold text-gray-500">#{index + 1}</span>
                                                                         {getTipoPagoBadge(pago.tipo_pago)}
                                                                     </div>
                                                                     <div>
@@ -245,16 +258,31 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                             {formatCurrency(pago.monto)} {pago.moneda}
                                                                         </span>
                                                                         {pago.moneda !== 'USD' && (
-                                                                            <div className="text-xs text-gray-500 mt-0.5">
+                                                                            <div className="text-xs text-gray-500">
                                                                                 Tasa: {pago.tasa_cambio} → {formatCurrency(pago.monto_usd)} USD
                                                                             </div>
                                                                         )}
                                                                         {pago.moneda === 'USD' && (
-                                                                            <div className="text-xs text-green-600 mt-0.5">
+                                                                            <div className="text-xs text-green-600">
                                                                                 = {formatCurrency(pago.monto_usd)} USD
                                                                             </div>
                                                                         )}
                                                                     </div>
+                                                                    {pago.diferencia && (
+                                                                        <div className="mt-1">
+                                                                            <details className="text-xs">
+                                                                                <summary className="cursor-pointer text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1">
+                                                                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                                                                    </svg>
+                                                                                    Excedente: +{formatCurrency(pago.diferencia.monto)}
+                                                                                </summary>
+                                                                                <p className="text-xs text-gray-700 italic mt-1 pl-4">
+                                                                                    {pago.diferencia.justificacion}
+                                                                                </p>
+                                                                            </details>
+                                                                        </div>
+                                                                    )}
                                                                     <div>
                                                                         <span className="text-xs text-gray-500 block">Pendiente después</span>
                                                                         <span className="text-sm font-semibold text-orange-700">
@@ -264,8 +292,8 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                 </div>
 
                                                                 {/* Columna 2: Método de Pago */}
-                                                                <div className="space-y-2">
-                                                                    <div className="mb-2">
+                                                                <div className="space-y-1.5">
+                                                                    <div>
                                                                         <span className="text-xs font-semibold text-gray-500 block mb-1">MÉTODO</span>
                                                                         {getMetodoPagoBadge(pago.metodo_pago)}
                                                                     </div>
@@ -287,7 +315,7 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                                 className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
                                                                                 onClick={(e) => e.stopPropagation()}
                                                                             >
-                                                                                Ver documento
+                                                                                Ver
                                                                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                                                                 </svg>
@@ -297,8 +325,8 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                 </div>
 
                                                                 {/* Columna 3: Pagador */}
-                                                                <div className="space-y-2">
-                                                                    <div className="mb-2">
+                                                                <div className="space-y-1.5">
+                                                                    <div>
                                                                         <span className="text-xs font-semibold text-gray-500 block">PAGADOR</span>
                                                                     </div>
                                                                     <div>
@@ -307,7 +335,7 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                         </span>
                                                                         {!pago.pago_cliente && (
                                                                             <Badge variant="outline" className="bg-orange-50 text-orange-700 text-xs mt-1">
-                                                                                Pago por tercero
+                                                                                Tercero
                                                                             </Badge>
                                                                         )}
                                                                     </div>
@@ -322,17 +350,17 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                 </div>
 
                                                                 {/* Columna 4: Desglose de Billetes */}
-                                                                <div className="space-y-2">
+                                                                <div className="space-y-1.5">
                                                                     {pago.metodo_pago === 'efectivo' && pago.desglose_billetes && Object.keys(pago.desglose_billetes).length > 0 && (
                                                                         <div>
-                                                                            <span className="text-xs font-semibold text-gray-500 block mb-2">DESGLOSE DE BILLETES</span>
-                                                                            <div className="space-y-1 bg-gray-50 rounded p-2 border border-gray-200">
+                                                                            <span className="text-xs font-semibold text-gray-500 block mb-1">DESGLOSE</span>
+                                                                            <div className="space-y-0.5 bg-gray-50 rounded p-1.5 border border-gray-200">
                                                                                 {Object.entries(pago.desglose_billetes)
                                                                                     .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
                                                                                     .map(([denominacion, cantidad]) => (
                                                                                         <div key={denominacion} className="flex justify-between text-xs">
                                                                                             <span className="text-gray-600">
-                                                                                                {cantidad}x {denominacion} {pago.moneda}
+                                                                                                {cantidad}x {denominacion}
                                                                                             </span>
                                                                                             <span className="font-medium text-gray-900">
                                                                                                 {formatCurrency(parseFloat(denominacion) * cantidad)}
@@ -352,7 +380,7 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                     )}
                                                                     
                                                                     {/* Botón de exportar comprobante */}
-                                                                    <div className="mt-3 pt-3 border-t border-gray-200">
+                                                                    <div className="pt-1">
                                                                         <Button
                                                                             variant="outline"
                                                                             size="sm"
@@ -360,10 +388,10 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                                                 e.stopPropagation()
                                                                                 handleExportarComprobante(oferta, pago)
                                                                             }}
-                                                                            className="w-full"
+                                                                            className="w-full h-7 text-xs"
                                                                         >
-                                                                            <FileText className="h-4 w-4 mr-2" />
-                                                                            Exportar Comprobante
+                                                                            <FileText className="h-3 w-3 mr-1" />
+                                                                            Comprobante
                                                                         </Button>
                                                                     </div>
                                                                 </div>
