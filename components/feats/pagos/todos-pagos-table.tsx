@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useMemo } from "react"
 import {
     Table,
     TableBody,
@@ -11,7 +11,8 @@ import {
 } from "@/components/shared/molecule/table"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Loader2, ChevronDown, ChevronRight, FileText } from "lucide-react"
+import { Input } from "@/components/shared/molecule/input"
+import { Loader2, ChevronDown, ChevronRight, FileText, Search } from "lucide-react"
 import type { OfertaConPagos } from "@/lib/services/feats/pagos/pago-service"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 
@@ -23,6 +24,27 @@ interface TodosPagosTableProps {
 export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTableProps) {
     const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set())
     const [expandedExcedentes, setExpandedExcedentes] = useState<Set<string>>(new Set())
+    const [searchTerm, setSearchTerm] = useState("")
+
+    // Filtrar ofertas según búsqueda
+    const filteredOfertas = useMemo(() => {
+        if (!searchTerm) return ofertasConPagos
+
+        const term = searchTerm.toLowerCase()
+        return ofertasConPagos.filter((oferta) => {
+            const clienteNombre = oferta.contacto?.nombre || ''
+            const clienteTelefono = oferta.contacto?.telefono || ''
+            const clienteCarnet = oferta.contacto?.carnet || ''
+            
+            return (
+                oferta.numero_oferta.toLowerCase().includes(term) ||
+                clienteNombre.toLowerCase().includes(term) ||
+                clienteTelefono.includes(term) ||
+                clienteCarnet.includes(term) ||
+                oferta.almacen_nombre?.toLowerCase().includes(term)
+            )
+        })
+    }, [ofertasConPagos, searchTerm])
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -122,7 +144,28 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
     }
 
     return (
-        <div className="w-full">
+        <div className="w-full space-y-4">
+            {/* Buscador */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                    placeholder="Buscar por cliente, N° oferta, CI, teléfono..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+
+            {filteredOfertas.length === 0 ? (
+                <div className="text-center py-12">
+                    <p className="text-gray-600">No se encontraron resultados</p>
+                </div>
+            ) : (
+                <div className="text-sm text-gray-600 mb-2">
+                    Mostrando {filteredOfertas.length} de {ofertasConPagos.length} ofertas
+                </div>
+            )}
+
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -138,7 +181,7 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {ofertasConPagos.map((oferta) => {
+                    {filteredOfertas.map((oferta) => {
                         const isExpanded = expandedOfertas.has(oferta.oferta_id)
                         return (
                             <React.Fragment key={oferta.oferta_id}>

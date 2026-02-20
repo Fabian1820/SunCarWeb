@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import {
     Table,
     TableBody,
@@ -11,7 +11,8 @@ import {
 } from "@/components/shared/molecule/table"
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import { Loader2, FileText, Pencil } from "lucide-react"
+import { Input } from "@/components/shared/molecule/input"
+import { Loader2, FileText, Pencil, Search } from "lucide-react"
 import type { OfertaConPagos, Pago } from "@/lib/services/feats/pagos/pago-service"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 import { EditarPagoDialog } from "./editar-pago-dialog"
@@ -43,6 +44,7 @@ interface PagoConOferta extends Pago {
 export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated }: TodosPagosPlanosTableProps) {
     const [editDialogOpen, setEditDialogOpen] = useState(false)
     const [selectedPago, setSelectedPago] = useState<PagoConOferta | null>(null)
+    const [searchTerm, setSearchTerm] = useState("")
     
     console.log('📊 TodosPagosPlanosTable - Ofertas con pagos recibidas:', ofertasConPagos.length)
     if (ofertasConPagos.length > 0) {
@@ -106,6 +108,31 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
         
         return { ...pago, pendienteDespuesPago }
     })
+
+    // Filtrar pagos según búsqueda
+    const filteredPagos = useMemo(() => {
+        if (!searchTerm) return pagosConPendiente
+
+        const term = searchTerm.toLowerCase()
+        return pagosConPendiente.filter((pago) => {
+            const clienteNombre = pago.contacto?.nombre || ''
+            const clienteTelefono = pago.contacto?.telefono || ''
+            const clienteCarnet = pago.contacto?.carnet || ''
+            const nombrePagador = pago.nombre_pagador || ''
+            const carnetPagador = pago.carnet_pagador || ''
+            
+            return (
+                pago.oferta.numero_oferta.toLowerCase().includes(term) ||
+                pago.oferta.nombre_completo.toLowerCase().includes(term) ||
+                clienteNombre.toLowerCase().includes(term) ||
+                clienteTelefono.includes(term) ||
+                clienteCarnet.includes(term) ||
+                nombrePagador.toLowerCase().includes(term) ||
+                carnetPagador.includes(term) ||
+                pago.id.toLowerCase().includes(term)
+            )
+        })
+    }, [pagosConPendiente, searchTerm])
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -200,7 +227,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
         )
     }
 
-    if (pagosOrdenados.length === 0) {
+    if (pagosConPendiente.length === 0) {
         return (
             <div className="text-center py-12">
                 <p className="text-gray-600">No hay cobros registrados</p>
@@ -209,7 +236,28 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
     }
 
     return (
-        <div className="w-full overflow-x-auto">
+        <div className="w-full overflow-x-auto space-y-4">
+            {/* Buscador */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                    placeholder="Buscar por cliente, N° oferta, CI, teléfono, pagador, ID pago..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                />
+            </div>
+
+            {filteredPagos.length === 0 ? (
+                <div className="text-center py-12">
+                    <p className="text-gray-600">No se encontraron resultados</p>
+                </div>
+            ) : (
+                <div className="text-sm text-gray-600 mb-2">
+                    Mostrando {filteredPagos.length} de {pagosConPendiente.length} cobros
+                </div>
+            )}
+
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -226,7 +274,7 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {pagosConPendiente.map((pago) => (
+                    {filteredPagos.map((pago) => (
                         <TableRow key={pago.id} className="hover:bg-gray-50">
                             <TableCell className="font-mono text-xs py-3">
                                 {pago.id.slice(-8)}

@@ -64,14 +64,18 @@ export default function PagosClientesPage() {
 
         const term = searchTerm.toLowerCase()
         return ofertas.filter((oferta) => {
-            const clienteNombre = oferta.cliente?.nombre || oferta.lead?.nombre || oferta.nombre_lead_sin_agregar || ''
-            const clienteTelefono = oferta.cliente?.telefono || oferta.lead?.telefono || ''
+            // Priorizar el nuevo formato del backend
+            const clienteNombre = oferta.contacto?.nombre || oferta.cliente?.nombre || oferta.lead?.nombre || oferta.nombre_lead_sin_agregar || ''
+            const clienteTelefono = oferta.contacto?.telefono || oferta.cliente?.telefono || oferta.lead?.telefono || ''
+            const clienteCarnet = oferta.contacto?.carnet || oferta.cliente?.carnet_identidad || oferta.cliente?.numero || ''
             
             return (
                 oferta.numero_oferta.toLowerCase().includes(term) ||
                 clienteNombre.toLowerCase().includes(term) ||
                 clienteTelefono.includes(term) ||
-                oferta.almacen_nombre?.toLowerCase().includes(term)
+                clienteCarnet.includes(term) ||
+                oferta.almacen_nombre?.toLowerCase().includes(term) ||
+                (oferta.nombre_completo || oferta.nombre_oferta || '').toLowerCase().includes(term)
             )
         })
     }, [ofertasSinPago, ofertasConSaldoPendiente, searchTerm, viewMode])
@@ -279,7 +283,7 @@ export default function PagosClientesPage() {
                                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                         <Input
                                             id="search"
-                                            placeholder="Buscar por cliente, referencia..."
+                                            placeholder="Buscar por cliente, N° oferta, CI, teléfono, almacén..."
                                             value={searchTerm}
                                             onChange={(e) => setSearchTerm(e.target.value)}
                                             className="pl-10"
