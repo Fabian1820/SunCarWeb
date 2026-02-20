@@ -249,29 +249,7 @@ export class ExportComprobanteService {
     doc.setFontSize(9)
     doc.text('Monto Pendiente:', margenIzq, y)
     doc.text(`${this.formatearMoneda(montoPendiente)} USD`, margenDer, y, { align: 'right' })
-    y += 5
-    
-    // Si hay diferencia, mostrarla
-    if (pago.diferencia && pago.diferencia.monto > 0) {
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(8)
-      doc.setTextColor(255, 140, 0) // Color naranja
-      doc.text('Excedente (no aplicado):', margenIzq, y)
-      doc.text(`+${this.formatearMoneda(pago.diferencia.monto)} USD`, margenDer, y, { align: 'right' })
-      y += 4
-      
-      // Justificación del excedente
-      doc.setFontSize(7)
-      doc.setFont('helvetica', 'italic')
-      const justificacionLineas = doc.splitTextToSize(`Motivo: ${pago.diferencia.justificacion}`, margenDer - margenIzq)
-      doc.text(justificacionLineas, margenIzq, y)
-      y += (justificacionLineas.length * 3)
-      
-      doc.setTextColor(0, 0, 0) // Volver a negro
-      y += 3
-    } else {
-      y += 3
-    }
+    y += 8
 
     // Pie de página
     doc.setFontSize(7)
