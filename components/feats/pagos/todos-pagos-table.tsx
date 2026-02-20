@@ -71,6 +71,12 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
     }
 
     const handleExportarComprobante = (oferta: OfertaConPagos, pago: any) => {
+        // Calcular el total pagado antes de este pago sumando los monto_usd de pagos con fecha anterior
+        const fechaPagoActual = new Date(pago.fecha).getTime()
+        const totalPagadoAnteriormente = oferta.pagos
+            .filter(p => new Date(p.fecha).getTime() < fechaPagoActual)
+            .reduce((sum, p) => sum + p.monto_usd, 0)
+        
         ExportComprobanteService.generarComprobantePDF({
             pago: pago,
             oferta: {
@@ -83,7 +89,8 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                 carnet: oferta.contacto.carnet ?? undefined,
                 telefono: oferta.contacto.telefono ?? undefined,
                 direccion: oferta.contacto.direccion ?? undefined
-            }
+            },
+            total_pagado_anteriormente: totalPagadoAnteriormente > 0 ? totalPagadoAnteriormente : undefined
         })
     }
 
@@ -198,10 +205,17 @@ export function TodosPagosTable({ ofertasConPagos, loading }: TodosPagosTablePro
                                                     Detalle de Cobros ({oferta.cantidad_pagos})
                                                 </h4>
                                                 <div className="space-y-3">
-                                                    {oferta.pagos.map((pago, index) => {
+                                                    {/* Ordenar pagos por fecha (más antiguos primero) */}
+                                                    {[...oferta.pagos]
+                                                        .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())
+                                                        .map((pago, index) => {
                                                         // Calcular el total pagado hasta este pago (inclusive)
-                                                        const totalPagadoHastaAqui = oferta.pagos
-                                                            .slice(0, index + 1)
+                                                        const pagosOrdenados = [...oferta.pagos].sort((a, b) => 
+                                                            new Date(a.fecha).getTime() - new Date(b.fecha).getTime()
+                                                        )
+                                                        const indicePago = pagosOrdenados.findIndex(p => p.id === pago.id)
+                                                        const totalPagadoHastaAqui = pagosOrdenados
+                                                            .slice(0, indicePago + 1)
                                                             .reduce((sum, p) => sum + p.monto_usd, 0)
                                                         
                                                         // Calcular el pendiente después de este pago

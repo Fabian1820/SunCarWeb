@@ -18,11 +18,12 @@ import { usePagos } from "@/hooks/use-pagos"
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table"
 import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table"
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table"
+import { EnProcesoPagoTable } from "@/components/feats/pagos/en-proceso-pago-table"
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { useToast } from "@/hooks/use-toast"
 
-type ViewMode = 'anticipos-pendientes' | 'finales-pendientes' | 'pagos-por-ofertas' | 'todos-pagos'
+type ViewMode = 'anticipos-pendientes' | 'en-proceso-pago' | 'finales-pendientes' | 'pagos-por-ofertas' | 'todos-pagos'
 
 export default function PagosClientesPage() {
     const { 
@@ -48,7 +49,16 @@ export default function PagosClientesPage() {
 
     // Filtrar ofertas según búsqueda y vista
     const filteredOfertas = useMemo(() => {
-        const ofertas = viewMode === 'anticipos-pendientes' ? ofertasSinPago : ofertasConSaldoPendiente
+        let ofertas: OfertaConfirmadaSinPago[] = []
+        
+        if (viewMode === 'anticipos-pendientes') {
+            ofertas = ofertasSinPago
+        } else if (viewMode === 'en-proceso-pago') {
+            // Para "en proceso de pago", mostramos ofertas con saldo pendiente
+            ofertas = ofertasConSaldoPendiente
+        } else if (viewMode === 'finales-pendientes') {
+            ofertas = ofertasConSaldoPendiente
+        }
         
         if (!searchTerm) return ofertas
 
@@ -79,6 +89,8 @@ export default function PagosClientesPage() {
         // Solo recargar la vista actual
         if (viewMode === 'anticipos-pendientes') {
             refetchOfertasSinPago()
+        } else if (viewMode === 'en-proceso-pago') {
+            refetchOfertasConSaldoPendiente()
         } else if (viewMode === 'finales-pendientes') {
             refetchOfertasConSaldoPendiente()
         } else if (viewMode === 'pagos-por-ofertas' || viewMode === 'todos-pagos') {
@@ -93,7 +105,7 @@ export default function PagosClientesPage() {
         // Cargar datos según la vista seleccionada
         if (mode === 'anticipos-pendientes' && ofertasSinPago.length === 0) {
             await refetchOfertasSinPago()
-        } else if (mode === 'finales-pendientes' && ofertasConSaldoPendiente.length === 0) {
+        } else if ((mode === 'en-proceso-pago' || mode === 'finales-pendientes') && ofertasConSaldoPendiente.length === 0) {
             await refetchOfertasConSaldoPendiente()
         } else if ((mode === 'pagos-por-ofertas' || mode === 'todos-pagos') && ofertasConPagos.length === 0) {
             setLoadingPagos(true)
@@ -198,6 +210,18 @@ export default function PagosClientesPage() {
                                         Anticipos Pendientes
                                     </Button>
                                     <Button
+                                        variant={viewMode === 'en-proceso-pago' ? "default" : "outline"}
+                                        onClick={() => handleViewModeChange('en-proceso-pago')}
+                                        className={
+                                            viewMode === 'en-proceso-pago'
+                                                ? "bg-green-600 hover:bg-green-700"
+                                                : ""
+                                        }
+                                    >
+                                        <List className="h-4 w-4 mr-2" />
+                                        En Proceso de Pago
+                                    </Button>
+                                    <Button
                                         variant={viewMode === 'finales-pendientes' ? "default" : "outline"}
                                         onClick={() => handleViewModeChange('finales-pendientes')}
                                         className={
@@ -275,6 +299,9 @@ export default function PagosClientesPage() {
                                 {viewMode === 'anticipos-pendientes' && 
                                     `Mostrando ${filteredOfertas.length} de ${ofertasSinPago.length} ofertas confirmadas sin pago`
                                 }
+                                {viewMode === 'en-proceso-pago' && 
+                                    `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} pagos en proceso`
+                                }
                                 {viewMode === 'finales-pendientes' && 
                                     `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`
                                 }
@@ -293,6 +320,12 @@ export default function PagosClientesPage() {
                                     ofertasConPagos={ofertasConPagos}
                                     loading={loadingPagos}
                                     onPagoUpdated={refetchOfertasConPagos}
+                                />
+                            ) : viewMode === 'en-proceso-pago' ? (
+                                <EnProcesoPagoTable
+                                    ofertas={filteredOfertas}
+                                    loading={loadingConSaldo}
+                                    onRegistrarPago={handleRegistrarPago}
                                 />
                             ) : (
                                 <AnticiposPendientesTable

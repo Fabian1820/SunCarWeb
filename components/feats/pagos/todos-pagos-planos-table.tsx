@@ -138,6 +138,18 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
         console.log('Carnet del contacto (planos):', pago.contacto.carnet)
         console.log('Pago completo (planos):', pago)
         
+        // Encontrar la oferta original para calcular el total pagado anteriormente
+        const ofertaOriginal = ofertasConPagos.find(o => o.numero_oferta === pago.oferta.numero_oferta)
+        
+        // Calcular el total pagado antes de este pago (pagos con fecha anterior)
+        let totalPagadoAnteriormente = 0
+        if (ofertaOriginal) {
+            const fechaPagoActual = new Date(pago.fecha).getTime()
+            totalPagadoAnteriormente = ofertaOriginal.pagos
+                .filter(p => new Date(p.fecha).getTime() < fechaPagoActual)
+                .reduce((sum, p) => sum + p.monto_usd, 0)
+        }
+        
         ExportComprobanteService.generarComprobantePDF({
             pago: pago,
             oferta: {
@@ -150,7 +162,8 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
                 carnet: pago.contacto.carnet || undefined,
                 telefono: pago.contacto.telefono || undefined,
                 direccion: pago.contacto.direccion || undefined
-            }
+            },
+            total_pagado_anteriormente: totalPagadoAnteriormente > 0 ? totalPagadoAnteriormente : undefined
         })
     }
 

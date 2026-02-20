@@ -14,6 +14,7 @@ interface ComprobanteData {
     telefono?: string
     direccion?: string
   }
+  total_pagado_anteriormente?: number // Total pagado antes de este pago
 }
 
 export class ExportComprobanteService {
@@ -158,7 +159,14 @@ export class ExportComprobanteService {
     doc.text(`${this.formatearMoneda(oferta.precio_final)} USD`, margenDer, y, { align: 'right' })
     y += 5
 
-    // Monto Pagado
+    // Si hay pagos anteriores (no es anticipo), mostrar monto pagado anteriormente
+    if (data.total_pagado_anteriormente && data.total_pagado_anteriormente > 0) {
+      doc.text('Monto Pagado Anteriormente:', margenIzq, y)
+      doc.text(`${this.formatearMoneda(data.total_pagado_anteriormente)} USD`, margenDer, y, { align: 'right' })
+      y += 5
+    }
+
+    // Monto Pagado (en este momento)
     doc.text('Monto Pagado:', margenIzq, y)
     doc.text(`${this.formatearMoneda(pago.monto)} ${pago.moneda}`, margenDer, y, { align: 'right' })
     y += 5
@@ -208,7 +216,9 @@ export class ExportComprobanteService {
     y += 1
 
     // Monto Pendiente (destacado)
-    const montoPendiente = oferta.precio_final - pago.monto_usd
+    // Calcular el total pagado incluyendo este pago
+    const totalPagadoConEste = (data.total_pagado_anteriormente || 0) + pago.monto_usd
+    const montoPendiente = oferta.precio_final - totalPagadoConEste
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(9)
     doc.text('Monto Pendiente:', margenIzq, y)
