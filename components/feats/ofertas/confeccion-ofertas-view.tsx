@@ -3307,43 +3307,65 @@ export function ConfeccionOfertasView({
       return
     }
 
+    // ✅ VALIDACIÓN CRÍTICA: Si es oferta personalizada, debe tener al menos 1 contacto válido
+    if (!ofertaGenerica) {
+      let tieneContactoValido = false
+      
+      if (tipoContacto === 'cliente') {
+        const numeroCliente = selectedCliente?.numero || clienteId
+        tieneContactoValido = !!(numeroCliente && numeroCliente.toString().trim())
+      } else if (tipoContacto === 'lead') {
+        tieneContactoValido = !!(leadId && leadId.trim())
+      } else if (tipoContacto === 'lead_sin_agregar') {
+        tieneContactoValido = !!(nombreLeadSinAgregar && nombreLeadSinAgregar.trim())
+      }
+      
+      if (!tieneContactoValido) {
+        toast({
+          title: "Contacto requerido",
+          description: "Una oferta personalizada debe tener un contacto válido (Cliente, Lead o Lead sin agregar)",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
     setCreandoOferta(true)
 
     try {
-      // ✅ IMPORTANTE: En modo edición, solo enviar los campos que cambiaron
-      // El backend se encarga de limpiar automáticamente el contacto anterior
-      const ofertaData: any = {}
-
-      // En modo creación, enviar tipo_oferta y almacen_id
-      if (!modoEdicion) {
-        ofertaData.tipo_oferta = ofertaGenerica ? 'generica' : 'personalizada'
-        ofertaData.almacen_id = almacenId
+      // En creación y edición construimos el payload completo para mantener
+      // compatibilidad con el contrato de PUT/PATCH del backend.
+      const ofertaData: any = {
+        tipo_oferta: ofertaGenerica ? 'generica' : 'personalizada',
+        almacen_id: almacenId,
       }
 
-      // ✅ SOLUCIÓN: Solo agregar el campo de contacto que tiene valor (evitar enviar múltiples contactos)
-      // IMPORTANTE: NO enviar los otros campos de contacto en null o vacíos
+      // ✅ CRÍTICO: Solo agregar el campo de contacto que tiene valor NO VACÍO
+      // NO enviar cliente_numero, lead_id, nombre_lead_sin_agregar si están vacíos ("", null, espacios)
       // El backend se encargará automáticamente de limpiar el contacto anterior
       if (!ofertaGenerica) {
         if (tipoContacto === 'cliente') {
           const numeroCliente = selectedCliente?.numero || clienteId
-          if (numeroCliente) {
-            ofertaData.cliente_numero = numeroCliente
+          // Solo agregar si tiene valor y no es string vacío
+          if (numeroCliente && numeroCliente.toString().trim()) {
+            ofertaData.cliente_numero = numeroCliente.toString().trim()
           }
         } else if (tipoContacto === 'lead') {
-          if (leadId) {
-            ofertaData.lead_id = leadId
+          // Solo agregar si tiene valor y no es string vacío
+          if (leadId && leadId.trim()) {
+            ofertaData.lead_id = leadId.trim()
           }
         } else if (tipoContacto === 'lead_sin_agregar') {
           const nombreLead = nombreLeadSinAgregar.trim()
+          // Solo agregar si tiene valor
           if (nombreLead) {
             ofertaData.nombre_lead_sin_agregar = nombreLead
           }
         }
       }
 
-      // Solo agregar estos campos si NO estamos en modo edición
-      // o si estamos editando y queremos cambiar estos valores específicamente
-      if (!modoEdicion) {
+      // Datos generales de la oferta (creación y edición)
+      {
         // Agregar foto de portada si existe
         if (fotoPortada) {
           ofertaData.foto_portada = fotoPortada
@@ -3479,7 +3501,7 @@ export function ConfeccionOfertasView({
         ofertaData.porcentaje_contribucion = aplicaContribucion ? porcentajeContribucion : 0
       }
 
-      console.log(modoEdicion ? '📤 Actualizando oferta (solo campos modificados):' : '📤 Enviando oferta al backend:', ofertaData)
+      console.log(modoEdicion ? '📤 Actualizando oferta (payload completo):' : '📤 Enviando oferta al backend:', ofertaData)
       console.log('🔍 Datos de contacto que se envían:', {
         modo: modoEdicion ? 'EDICION' : 'CREACION',
         tipo_oferta: ofertaData.tipo_oferta,
@@ -3489,6 +3511,27 @@ export function ConfeccionOfertasView({
         campos_presentes: Object.keys(ofertaData).filter(k => k.includes('cliente') || k.includes('lead')),
         total_campos_enviados: Object.keys(ofertaData).length
       })
+      
+      // ✅ VERIFICACIÓN FINAL: Asegurar que NO se envíen campos de contacto vacíos
+      const camposContactoVacios = []
+      if ('cliente_numero' in ofertaData && (!ofertaData.cliente_numero || !ofertaData.cliente_numero.toString().trim())) {
+        camposContactoVacios.push('cliente_numero')
+        delete ofertaData.cliente_numero
+      }
+      if ('lead_id' in ofertaData && (!ofertaData.lead_id || !ofertaData.lead_id.trim())) {
+        camposContactoVacios.push('lead_id')
+        delete ofertaData.lead_id
+      }
+      if ('nombre_lead_sin_agregar' in ofertaData && (!ofertaData.nombre_lead_sin_agregar || !ofertaData.nombre_lead_sin_agregar.trim())) {
+        camposContactoVacios.push('nombre_lead_sin_agregar')
+        delete ofertaData.nombre_lead_sin_agregar
+      }
+      
+      if (camposContactoVacios.length > 0) {
+        console.warn('⚠️ Se eliminaron campos de contacto vacíos antes de enviar:', camposContactoVacios)
+      }
+      
+      console.log('✅ Payload final (verificado sin campos vacíos):', JSON.stringify(ofertaData, null, 2))
 
       // Llamada al backend usando apiRequest
       const { apiRequest } = await import('@/lib/api-config')
