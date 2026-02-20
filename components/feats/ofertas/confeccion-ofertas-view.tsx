@@ -1843,51 +1843,66 @@ export function ConfeccionOfertasView({
       componentesPrincipales: (() => {
         const componentes: any = {}
         
-        // Buscar inversor
-        const itemInversor = items.find(item => item.seccion === 'INVERSORES')
-        if (itemInversor) {
-          const material = materials.find(m => m.codigo.toString() === itemInversor.materialCodigo)
-          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
-                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
-          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
-          const marcaId = material?.marca_id
-          const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
-          
-          componentes.inversor = {
-            codigo: itemInversor.materialCodigo,
-            cantidad: itemInversor.cantidad,
-            potencia: potencia,
-            marca: marca
+        // ✅ Usar el inversor SELECCIONADO para el nombre (no el primero de la lista)
+        if (inversorSeleccionado) {
+          const inversoresDelTipo = items.filter(
+            item => item.seccion === 'INVERSORES' && item.materialCodigo === inversorSeleccionado
+          )
+          if (inversoresDelTipo.length > 0) {
+            const cantidad = inversoresDelTipo.reduce((sum, inv) => sum + inv.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === inversorSeleccionado)
+            const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                                 material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+            const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+            const marcaId = material?.marca_id
+            const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
+            
+            componentes.inversor = {
+              codigo: inversorSeleccionado,
+              cantidad: cantidad, // Suma de todos los inversores del mismo tipo
+              potencia: potencia,
+              marca: marca
+            }
           }
         }
         
-        // Buscar batería
-        const itemBateria = items.find(item => item.seccion === 'BATERIAS')
-        if (itemBateria) {
-          const material = materials.find(m => m.codigo.toString() === itemBateria.materialCodigo)
-          const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
-                                material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
-          const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
-          
-          componentes.bateria = {
-            codigo: itemBateria.materialCodigo,
-            cantidad: itemBateria.cantidad,
-            capacidad: capacidad
+        // ✅ Usar la batería SELECCIONADA para el nombre (no la primera de la lista)
+        if (bateriaSeleccionada) {
+          const bateriasDelTipo = items.filter(
+            item => item.seccion === 'BATERIAS' && item.materialCodigo === bateriaSeleccionada
+          )
+          if (bateriasDelTipo.length > 0) {
+            const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === bateriaSeleccionada)
+            const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                                  material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+            const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+            
+            componentes.bateria = {
+              codigo: bateriaSeleccionada,
+              cantidad: cantidad, // Suma de todas las baterías del mismo tipo
+              capacidad: capacidad
+            }
           }
         }
         
-        // Buscar panel
-        const itemPanel = items.find(item => item.seccion === 'PANELES')
-        if (itemPanel) {
-          const material = materials.find(m => m.codigo.toString() === itemPanel.materialCodigo)
-          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
-                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
-          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
-          
-          componentes.panel = {
-            codigo: itemPanel.materialCodigo,
-            cantidad: itemPanel.cantidad,
-            potencia: potencia
+        // ✅ Usar el panel SELECCIONADO para el nombre (no el primero de la lista)
+        if (panelSeleccionado) {
+          const panelesDelTipo = items.filter(
+            item => item.seccion === 'PANELES' && item.materialCodigo === panelSeleccionado
+          )
+          if (panelesDelTipo.length > 0) {
+            const cantidad = panelesDelTipo.reduce((sum, pan) => sum + pan.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === panelSeleccionado)
+            const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                                 material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+            const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+            
+            componentes.panel = {
+              codigo: panelSeleccionado,
+              cantidad: cantidad, // Suma de todos los paneles del mismo tipo
+              potencia: potencia
+            }
           }
         }
         
@@ -1934,6 +1949,9 @@ export function ConfeccionOfertasView({
     descuentoPorcentaje,
     montoDescuento,
     terminosCondiciones,
+    inversorSeleccionado,
+    bateriaSeleccionada,
+    panelSeleccionado,
   ])
 
   const exportOptionsSinPrecios = useMemo(() => {
@@ -2143,48 +2161,66 @@ export function ConfeccionOfertasView({
       componentesPrincipales: (() => {
         const componentes: any = {}
         
-        const itemInversor = items.find(item => item.seccion === 'INVERSORES')
-        if (itemInversor) {
-          const material = materials.find(m => m.codigo.toString() === itemInversor.materialCodigo)
-          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
-                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
-          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
-          const marcaId = material?.marca_id
-          const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
-          
-          componentes.inversor = {
-            codigo: itemInversor.materialCodigo,
-            cantidad: itemInversor.cantidad,
-            potencia: potencia,
-            marca: marca
+        // ✅ Usar el inversor SELECCIONADO para el nombre (no el primero de la lista)
+        if (inversorSeleccionado) {
+          const inversoresDelTipo = items.filter(
+            item => item.seccion === 'INVERSORES' && item.materialCodigo === inversorSeleccionado
+          )
+          if (inversoresDelTipo.length > 0) {
+            const cantidad = inversoresDelTipo.reduce((sum, inv) => sum + inv.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === inversorSeleccionado)
+            const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                                 material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+            const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+            const marcaId = material?.marca_id
+            const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
+            
+            componentes.inversor = {
+              codigo: inversorSeleccionado,
+              cantidad: cantidad,
+              potencia: potencia,
+              marca: marca
+            }
           }
         }
         
-        const itemBateria = items.find(item => item.seccion === 'BATERIAS')
-        if (itemBateria) {
-          const material = materials.find(m => m.codigo.toString() === itemBateria.materialCodigo)
-          const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
-                                material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
-          const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
-          
-          componentes.bateria = {
-            codigo: itemBateria.materialCodigo,
-            cantidad: itemBateria.cantidad,
-            capacidad: capacidad
+        // ✅ Usar la batería SELECCIONADA para el nombre (no la primera de la lista)
+        if (bateriaSeleccionada) {
+          const bateriasDelTipo = items.filter(
+            item => item.seccion === 'BATERIAS' && item.materialCodigo === bateriaSeleccionada
+          )
+          if (bateriasDelTipo.length > 0) {
+            const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === bateriaSeleccionada)
+            const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                                  material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+            const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+            
+            componentes.bateria = {
+              codigo: bateriaSeleccionada,
+              cantidad: cantidad,
+              capacidad: capacidad
+            }
           }
         }
         
-        const itemPanel = items.find(item => item.seccion === 'PANELES')
-        if (itemPanel) {
-          const material = materials.find(m => m.codigo.toString() === itemPanel.materialCodigo)
-          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
-                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
-          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
-          
-          componentes.panel = {
-            codigo: itemPanel.materialCodigo,
-            cantidad: itemPanel.cantidad,
-            potencia: potencia
+        // ✅ Usar el panel SELECCIONADO para el nombre (no el primero de la lista)
+        if (panelSeleccionado) {
+          const panelesDelTipo = items.filter(
+            item => item.seccion === 'PANELES' && item.materialCodigo === panelSeleccionado
+          )
+          if (panelesDelTipo.length > 0) {
+            const cantidad = panelesDelTipo.reduce((sum, pan) => sum + pan.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === panelSeleccionado)
+            const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                                 material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+            const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+            
+            componentes.panel = {
+              codigo: panelSeleccionado,
+              cantidad: cantidad,
+              potencia: potencia
+            }
           }
         }
         
@@ -2222,6 +2258,9 @@ export function ConfeccionOfertasView({
     descuentoPorcentaje,
     terminosCondiciones,
     seccionesPersonalizadas,
+    inversorSeleccionado,
+    bateriaSeleccionada,
+    panelSeleccionado,
   ])
 
   const exportOptionsClienteConPrecios = useMemo(() => {
@@ -2475,48 +2514,66 @@ export function ConfeccionOfertasView({
       componentesPrincipales: (() => {
         const componentes: any = {}
         
-        const itemInversor = items.find(item => item.seccion === 'INVERSORES')
-        if (itemInversor) {
-          const material = materials.find(m => m.codigo.toString() === itemInversor.materialCodigo)
-          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
-                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
-          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
-          const marcaId = material?.marca_id
-          const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
-          
-          componentes.inversor = {
-            codigo: itemInversor.materialCodigo,
-            cantidad: itemInversor.cantidad,
-            potencia: potencia,
-            marca: marca
+        // ✅ Usar el inversor SELECCIONADO para el nombre (no el primero de la lista)
+        if (inversorSeleccionado) {
+          const inversoresDelTipo = items.filter(
+            item => item.seccion === 'INVERSORES' && item.materialCodigo === inversorSeleccionado
+          )
+          if (inversoresDelTipo.length > 0) {
+            const cantidad = inversoresDelTipo.reduce((sum, inv) => sum + inv.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === inversorSeleccionado)
+            const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kw/i) || 
+                                 material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kw/i)
+            const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+            const marcaId = material?.marca_id
+            const marca = marcaId ? marcas.find(m => m.id === marcaId)?.nombre : undefined
+            
+            componentes.inversor = {
+              codigo: inversorSeleccionado,
+              cantidad: cantidad,
+              potencia: potencia,
+              marca: marca
+            }
           }
         }
         
-        const itemBateria = items.find(item => item.seccion === 'BATERIAS')
-        if (itemBateria) {
-          const material = materials.find(m => m.codigo.toString() === itemBateria.materialCodigo)
-          const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
-                                material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
-          const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
-          
-          componentes.bateria = {
-            codigo: itemBateria.materialCodigo,
-            cantidad: itemBateria.cantidad,
-            capacidad: capacidad
+        // ✅ Usar la batería SELECCIONADA para el nombre (no la primera de la lista)
+        if (bateriaSeleccionada) {
+          const bateriasDelTipo = items.filter(
+            item => item.seccion === 'BATERIAS' && item.materialCodigo === bateriaSeleccionada
+          )
+          if (bateriasDelTipo.length > 0) {
+            const cantidad = bateriasDelTipo.reduce((sum, bat) => sum + bat.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === bateriaSeleccionada)
+            const capacidadMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) || 
+                                  material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i)
+            const capacidad = capacidadMatch ? parseFloat(capacidadMatch[1]) : 0
+            
+            componentes.bateria = {
+              codigo: bateriaSeleccionada,
+              cantidad: cantidad,
+              capacidad: capacidad
+            }
           }
         }
         
-        const itemPanel = items.find(item => item.seccion === 'PANELES')
-        if (itemPanel) {
-          const material = materials.find(m => m.codigo.toString() === itemPanel.materialCodigo)
-          const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
-                               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
-          const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
-          
-          componentes.panel = {
-            codigo: itemPanel.materialCodigo,
-            cantidad: itemPanel.cantidad,
-            potencia: potencia
+        // ✅ Usar el panel SELECCIONADO para el nombre (no el primero de la lista)
+        if (panelSeleccionado) {
+          const panelesDelTipo = items.filter(
+            item => item.seccion === 'PANELES' && item.materialCodigo === panelSeleccionado
+          )
+          if (panelesDelTipo.length > 0) {
+            const cantidad = panelesDelTipo.reduce((sum, pan) => sum + pan.cantidad, 0)
+            const material = materials.find(m => m.codigo.toString() === panelSeleccionado)
+            const potenciaMatch = material?.nombre?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i) || 
+                                 material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*w(?!h)/i)
+            const potencia = potenciaMatch ? parseFloat(potenciaMatch[1]) : 0
+            
+            componentes.panel = {
+              codigo: panelSeleccionado,
+              cantidad: cantidad,
+              potencia: potencia
+            }
           }
         }
         
@@ -2561,6 +2618,9 @@ export function ConfeccionOfertasView({
     montoDescuento,
     seccionLabelMap,
     terminosCondiciones,
+    inversorSeleccionado,
+    bateriaSeleccionada,
+    panelSeleccionado,
   ])
 
   const agregarMaterial = (material: Material) => {
