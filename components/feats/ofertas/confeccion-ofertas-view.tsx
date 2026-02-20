@@ -3557,19 +3557,45 @@ export function ConfeccionOfertasView({
         ofertaParaEditar_numero: ofertaParaEditar?.numero_oferta
       })
       
-      const response = await apiRequest<{
-        success: boolean
-        message: string
-        data: {
+      type OfertaMutationResponse = {
+        success?: boolean
+        message?: string
+        detail?: string
+        error?: string | {
+          code?: string
+          title?: string
+          message?: string
+        }
+        data?: {
           id: string
           numero_oferta: string
           nombre_automatico: string
           [key: string]: any
         }
-      }>(endpoint, {
-        method,
-        body: JSON.stringify(ofertaData)
-      })
+      }
+
+      let response: OfertaMutationResponse
+      try {
+        response = await apiRequest<OfertaMutationResponse>(endpoint, {
+          method,
+          body: JSON.stringify(ofertaData)
+        })
+      } catch (putError) {
+        if (!modoEdicion) throw putError
+        console.warn('⚠️ PUT lanzó error. Reintentando actualización con PATCH...', putError)
+        response = await apiRequest<OfertaMutationResponse>(endpoint, {
+          method: 'PATCH',
+          body: JSON.stringify(ofertaData)
+        })
+      }
+
+      if (modoEdicion && (!response.success || !response.data)) {
+        console.warn('⚠️ PUT no fue aceptado. Reintentando actualización con PATCH...', response)
+        response = await apiRequest<OfertaMutationResponse>(endpoint, {
+          method: 'PATCH',
+          body: JSON.stringify(ofertaData)
+        })
+      }
 
       console.log('✅ Respuesta del backend:', response)
 
@@ -3601,7 +3627,16 @@ export function ConfeccionOfertasView({
           }, 1500)
         }
       } else {
-        throw new Error(response.message || (modoEdicion ? 'Error al actualizar la oferta' : 'Error al crear la oferta'))
+        const backendErrorMessage =
+          response.message ||
+          response.detail ||
+          (typeof response.error === 'string'
+            ? response.error
+            : response.error?.message)
+
+        throw new Error(
+          backendErrorMessage || (modoEdicion ? 'Error al actualizar la oferta' : 'Error al crear la oferta')
+        )
       }
 
     } catch (error: any) {
