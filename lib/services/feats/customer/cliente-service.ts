@@ -19,6 +19,13 @@ export type ClienteFotoUploadPayload = {
   tipo: ClienteFoto["tipo"];
 };
 
+type ClienteFotosResponse = {
+  success?: boolean;
+  message?: string;
+  data?: ClienteFoto[] | { fotos?: ClienteFoto[] };
+  fotos?: ClienteFoto[];
+};
+
 const cleanPayload = <T extends Record<string, unknown>>(
   payload: T,
 ): Partial<T> => {
@@ -225,18 +232,18 @@ export class ClienteService {
   }
 
   static async getFotosCliente(numero: string): Promise<ClienteFoto[]> {
-    const response = await apiRequest<
-      | {
-          success?: boolean;
-          message?: string;
-          data?: ClienteFoto[] | { fotos?: ClienteFoto[] };
-          fotos?: ClienteFoto[];
-        }
-      | ClienteFoto[]
-    >(`/clientes/${encodeURIComponent(numero)}/fotos`);
+    const response = await apiRequest<ClienteFotosResponse | ClienteFoto[]>(
+      `/clientes/${encodeURIComponent(numero)}/fotos`,
+    );
 
     if (Array.isArray(response)) {
       return response;
+    }
+
+    if (response?.success === false) {
+      throw new Error(
+        response.message || "Error al obtener fotos/videos del cliente",
+      );
     }
 
     if (Array.isArray(response?.data)) {
@@ -247,7 +254,11 @@ export class ClienteService {
       return response.fotos;
     }
 
-    if (Array.isArray(response?.data?.fotos)) {
+    if (
+      response?.data &&
+      !Array.isArray(response.data) &&
+      Array.isArray(response.data.fotos)
+    ) {
       return response.data.fotos;
     }
 

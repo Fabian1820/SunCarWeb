@@ -17,7 +17,7 @@ import {
   Download,
   Navigation
 } from "lucide-react"
-import type { Cliente } from "@/lib/api-types"
+import type { Cliente, ClienteFoto } from "@/lib/api-types"
 import { downloadFile } from "@/lib/utils/download-file"
 
 interface ClienteDetallesDialogProps {
@@ -26,6 +26,8 @@ interface ClienteDetallesDialogProps {
   cliente: Cliente | null
   onEdit?: (cliente: Cliente) => void
   onDownloadComprobante?: (cliente: Cliente) => Promise<void>
+  fotosCliente?: ClienteFoto[]
+  loadingFotosCliente?: boolean
 }
 
 export function ClienteDetallesDialog({
@@ -34,6 +36,8 @@ export function ClienteDetallesDialog({
   cliente,
   onEdit,
   onDownloadComprobante,
+  fotosCliente,
+  loadingFotosCliente = false,
 }: ClienteDetallesDialogProps) {
   if (!cliente) return null
 
@@ -73,6 +77,26 @@ export function ClienteDetallesDialog({
       await downloadFile(cliente.comprobante_pago_url, `comprobante-cliente-${cliente.nombre || cliente.id || 'archivo'}`)
     } catch (error) {
       console.error('Error downloading comprobante for cliente', cliente.id, error)
+    }
+  }
+
+  const fotos = fotosCliente ?? cliente.fotos ?? []
+
+  const isVideoUrl = (url: string) =>
+    /\.(mp4|webm|ogg|mov|m4v|avi|mkv|3gp)(\?|#|$)/i.test(url)
+
+  const formatFechaArchivo = (value?: string) => {
+    if (!value) return "Sin fecha"
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return parsed.toLocaleString("es-ES")
+  }
+
+  const handleDownloadArchivo = async (url: string, index: number) => {
+    try {
+      await downloadFile(url, `cliente-${cliente.numero}-archivo-${index + 1}`)
+    } catch (error) {
+      console.error("Error descargando archivo del cliente", cliente.numero, error)
     }
   }
 
@@ -476,7 +500,75 @@ export function ClienteDetallesDialog({
             </div>
           )}
 
-          {/* Sección 5: Comentarios (Condicional) */}
+          {/* Sección 5: Evidencias (Fotos/Videos) */}
+          <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+            <div className="pb-4 mb-4 border-b-2 border-gray-200">
+              <h3 className="text-xl font-bold text-gray-900">Evidencias</h3>
+              <p className="text-sm text-gray-500 mt-1">Archivos subidos del cliente (instalación o avería)</p>
+            </div>
+
+            {loadingFotosCliente ? (
+              <p className="text-sm text-gray-500">Cargando archivos...</p>
+            ) : fotos.length === 0 ? (
+              <p className="text-sm text-gray-500">Este cliente no tiene archivos subidos.</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {fotos.map((archivo, index) => (
+                  <div key={`${archivo.url}-${index}`} className="border rounded-lg p-3 bg-gray-50">
+                    <div className="w-full h-48 bg-black/5 rounded-md overflow-hidden mb-3">
+                      {isVideoUrl(archivo.url) ? (
+                        <video
+                          src={archivo.url}
+                          controls
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={archivo.url}
+                          alt={`Evidencia ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                          {archivo.tipo === "instalacion" ? "Instalación" : "Avería"}
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          {formatFechaArchivo(archivo.fecha)}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(archivo.url, "_blank")}
+                          className="flex-1"
+                        >
+                          Ver
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownloadArchivo(archivo.url, index)}
+                          className="flex-1"
+                        >
+                          Descargar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sección 6: Comentarios (Condicional) */}
           {cliente.comentario && (
             <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
               <div className="pb-4 mb-4 border-b-2 border-gray-200">
@@ -491,7 +583,7 @@ export function ClienteDetallesDialog({
             </div>
           )}
 
-          {/* Sección 6: Elementos Personalizados (Condicional) */}
+          {/* Sección 7: Elementos Personalizados (Condicional) */}
           {cliente.elementos_personalizados && cliente.elementos_personalizados.length > 0 && (
             <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
               <div className="pb-4 mb-4 border-b-2 border-gray-200">
