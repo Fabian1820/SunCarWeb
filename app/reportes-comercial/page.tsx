@@ -4,9 +4,11 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { BarChart3, Clock, TrendingUp } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
 
 export default function ReportesComercialPage() {
   const router = useRouter()
+  const { user } = useAuth()
 
   const opciones = [
     {
@@ -23,9 +25,14 @@ export default function ReportesComercialPage() {
       description: 'Ofertas cerradas con pagos y márgenes por comercial',
       icon: TrendingUp,
       color: 'green',
-      href: '/reportes-comercial/resultados-comercial'
+      href: '/reportes-comercial/resultados-comercial',
+      // Ocultar para Lorena Pérez
+      hidden: user?.nombre === 'Lorena Pérez'
     }
   ]
+
+  // Filtrar opciones ocultas
+  const opcionesVisibles = opciones.filter(opcion => !opcion.hidden)
 
   const getColorClasses = (color: string) => {
     const colors = {
@@ -55,7 +62,7 @@ export default function ReportesComercialPage() {
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {opciones.map((opcion) => {
+          {opcionesVisibles.map((opcion) => {
             const Icon = opcion.icon
             const colors = getColorClasses(opcion.color)
             

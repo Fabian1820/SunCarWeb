@@ -1,10 +1,12 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ResultadosComercialTable } from "@/components/feats/reportes-comercial/resultados-comercial-table"
 import { apiRequest } from "@/lib/api-config"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
 import type { ResultadoComercial } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types"
 
 interface ResultadosComercialResponse {
@@ -15,10 +17,29 @@ interface ResultadosComercialResponse {
 
 export default function ResultadosComercialPage() {
   const { toast } = useToast()
+  const { user } = useAuth()
+  const router = useRouter()
   const [resultados, setResultados] = useState<ResultadoComercial[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Redirigir si es Lorena Pérez
+  useEffect(() => {
+    if (user && user.nombre === 'Lorena Pérez') {
+      toast({
+        title: "Acceso denegado",
+        description: "No tienes permisos para acceder a este módulo",
+        variant: "destructive",
+      })
+      router.push('/reportes-comercial')
+    }
+  }, [user, router, toast])
+
   const fetchData = useCallback(async () => {
+    // No cargar datos si es Lorena Pérez
+    if (user && user.nombre === 'Lorena Pérez') {
+      return
+    }
+
     setLoading(true)
     try {
       const response = await apiRequest<ResultadosComercialResponse>(
@@ -45,7 +66,7 @@ export default function ResultadosComercialPage() {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, user])
 
   useEffect(() => {
     fetchData()
