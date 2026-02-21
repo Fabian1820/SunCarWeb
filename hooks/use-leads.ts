@@ -34,6 +34,21 @@ interface UseLeadsReturn {
   clearError: () => void
 }
 
+
+const TEMP_CODEGEN_LEAD_MARKER = '__TEMP_LEAD_GENERAR_CODIGO_CLIENTE__'
+
+const isTemporaryCodegenLead = (lead: Lead): boolean => {
+  const comentario = lead.comentario?.trim()
+  if (comentario === TEMP_CODEGEN_LEAD_MARKER) return true
+
+  // Compatibilidad con leads temporales antiguos que no tenían marcador explícito.
+  const nombre = lead.nombre?.trim().toLowerCase()
+  const fuente = lead.fuente?.trim().toLowerCase()
+  const estado = lead.estado?.trim().toLowerCase()
+
+  return nombre === 'cliente temporal' && fuente === 'sistema' && estado === 'nuevo'
+}
+
 export function useLeads(): UseLeadsReturn {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(false)
@@ -71,7 +86,7 @@ export function useLeads(): UseLeadsReturn {
       console.log('Backend response for leads:', data)
       console.log('Type of data:', typeof data)
       console.log('Is array:', Array.isArray(data))
-      setLeads(Array.isArray(data) ? data : [])
+      setLeads(Array.isArray(data) ? data.filter((lead) => !isTemporaryCodegenLead(lead)) : [])
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar los leads')
       console.error('Error loading leads:', err)

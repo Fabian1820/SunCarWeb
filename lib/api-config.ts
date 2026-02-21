@@ -86,6 +86,47 @@ export async function apiRequest<T>(
       },
     }
 
+
+    const method = (config.method || 'GET').toUpperCase()
+    const isLeadsCreateEndpoint = endpoint === '/leads/' || endpoint === '/leads'
+    if (isLeadsCreateEndpoint && method === 'POST' && typeof config.body === 'string') {
+      try {
+        const payload = JSON.parse(config.body) as {
+          nombre?: string
+          telefono?: string
+          estado?: string
+          fuente?: string
+          direccion?: string
+        }
+
+        const nombre = payload.nombre?.trim().toLowerCase()
+        const telefono = payload.telefono?.trim()
+        const estado = payload.estado?.trim().toLowerCase()
+        const fuente = payload.fuente?.trim().toLowerCase()
+        const direccion = payload.direccion?.trim().toLowerCase()
+
+        const isPlaceholderLead =
+          nombre === 'cliente temporal' &&
+          telefono === '+00000000000' &&
+          estado === 'nuevo' &&
+          fuente === 'sistema' &&
+          direccion === 'temporal'
+
+        if (isPlaceholderLead) {
+          throw new Error(
+            'Se bloqueó un lead temporal de marcador de posición. Completa nombre, teléfono y dirección reales.'
+          )
+        }
+      } catch (parseOrValidationError) {
+        if (
+          parseOrValidationError instanceof Error &&
+          parseOrValidationError.message.includes('bloqueó un lead temporal')
+        ) {
+          console.error('⛔ Payload bloqueado para POST /leads/:', parseOrValidationError.message)
+          throw parseOrValidationError
+        }
+      }
+    }
     console.log(`📡 Making API request to: ${url}`)
     console.log('📋 Request config:', {
       method: config.method || 'GET',

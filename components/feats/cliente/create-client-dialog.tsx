@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
@@ -225,6 +225,15 @@ export function CreateClientDialog({
 
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
   const [errorCodigo, setErrorCodigo] = useState("");
+  const leadTemporalDraftRef = useRef({
+    nombre: "",
+    telefono: "",
+    direccion: "",
+    comercial: "Sistema",
+  });
+  const hasDatosBasicosParaCodigo = Boolean(
+    formData.nombre.trim() && formData.telefono.trim(),
+  );
 
   // Actualizar el comercial cuando el usuario cambie (por si acaso)
   useEffect(() => {
@@ -235,6 +244,17 @@ export function CreateClientDialog({
       }));
     }
   }, [user]);
+
+  // Mantiene los datos más recientes para crear lead temporal sin disparar
+  // regeneración de código por cada cambio de nombre/teléfono/dirección.
+  useEffect(() => {
+    leadTemporalDraftRef.current = {
+      nombre: formData.nombre,
+      telefono: formData.telefono,
+      direccion: formData.direccion,
+      comercial: user?.nombre || "Sistema",
+    };
+  }, [formData.nombre, formData.telefono, formData.direccion, user?.nombre]);
 
   // Asignar prioridad automática cuando cambia la fuente
   useEffect(() => {
@@ -250,9 +270,7 @@ export function CreateClientDialog({
       // Verificar que tengamos provincia y municipio
       if (!selectedProvinciaCodigo || !formData.municipio) {
         // Si falta algún dato, limpiar el código
-        if (formData.numero) {
-          setFormData((prev) => ({ ...prev, numero: "" }));
-        }
+        setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
         setMostrarPreguntaEquipoPropio(false);
         return;
       }
@@ -264,9 +282,7 @@ export function CreateClientDialog({
       // Si no hay inversor y no se ha respondido sobre equipo propio, mostrar pregunta
       if (!tieneInversor && equipoPropio === undefined) {
         setMostrarPreguntaEquipoPropio(true);
-        if (formData.numero) {
-          setFormData((prev) => ({ ...prev, numero: "" }));
-        }
+        setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
         return;
       }
 
@@ -276,9 +292,7 @@ export function CreateClientDialog({
         setErrorCodigo(
           "Debes seleccionar un inversor para generar el código del cliente",
         );
-        if (formData.numero) {
-          setFormData((prev) => ({ ...prev, numero: "" }));
-        }
+        setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
         return;
       }
 
@@ -291,6 +305,37 @@ export function CreateClientDialog({
         return;
       }
 
+      const { nombre, telefono, direccion, comercial } =
+        leadTemporalDraftRef.current;
+      const nombreNormalizado = nombre.trim();
+      const telefonoNormalizado = telefono.trim();
+
+      // Evita crear leads temporales con datos ficticios mientras el cliente no esté completo.
+      if (
+        !hasDatosBasicosParaCodigo ||
+        !nombreNormalizado ||
+        !telefonoNormalizado
+      ) {
+        setErrorCodigo(
+          "Completa nombre y teléfono para generar el código del cliente",
+        );
+        setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
+        return;
+      }
+
+      const baseLeadTemporal = {
+        fecha_contacto: new Date().toISOString().split("T")[0],
+        nombre: nombreNormalizado,
+        telefono: telefonoNormalizado,
+        estado: "nuevo",
+        fuente: "Sistema",
+        direccion: direccion || "Generación temporal de código",
+        provincia_montaje: formData.provincia_montaje,
+        municipio: formData.municipio,
+        comercial,
+        comentario: "__TEMP_LEAD_GENERAR_CODIGO_CLIENTE__",
+      };
+
       setGenerandoCodigo(true);
       setErrorCodigo("");
       setMostrarPreguntaEquipoPropio(false);
@@ -300,15 +345,7 @@ export function CreateClientDialog({
           // Generar código con prefijo P para equipo propio
           // Crear lead temporal sin inversor
           const leadTemporal = {
-            fecha_contacto: new Date().toISOString().split("T")[0],
-            nombre: formData.nombre || "Cliente Temporal",
-            telefono: formData.telefono || "+00000000000",
-            estado: "nuevo",
-            fuente: "Sistema",
-            direccion: formData.direccion || "Temporal",
-            provincia_montaje: formData.provincia_montaje,
-            municipio: formData.municipio,
-            comercial: user?.nombre || "Sistema",
+            ...baseLeadTemporal,
             ofertas: [], // Sin ofertas para equipo propio
           };
 
@@ -317,68 +354,75 @@ export function CreateClientDialog({
             leadTemporal,
           );
 
-          const responseCrear = await apiRequest<{
-            success: boolean;
-            message: string;
-            data: { id: string };
-          }>("/leads/", {
-            method: "POST",
-            body: JSON.stringify(leadTemporal),
-          });
-
-          if (!responseCrear.success || !responseCrear.data?.id) {
-            throw new Error("Error al crear lead temporal");
-          }
-
-          const leadId = responseCrear.data.id;
-          console.log("✅ Lead temporal creado con ID:", leadId);
-
-          // Generar código con equipo_propio=true
-          const responseGenerar = await apiRequest<{
-            success: boolean;
-            message: string;
-            codigo_generado: string;
-          }>(`/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`);
-
-          if (!responseGenerar.success || !responseGenerar.codigo_generado) {
-            throw new Error(
-              responseGenerar.message || "Error al generar el código",
-            );
-          }
-
-          const codigoGenerado = responseGenerar.codigo_generado;
-          console.log("✅ Código generado para equipo propio:", codigoGenerado);
-
-          // Eliminar el lead temporal
+          let leadId: string | null = null;
           try {
-            await apiRequest(`/leads/${leadId}`, {
-              method: "DELETE",
+            const responseCrear = await apiRequest<{
+              success: boolean;
+              message: string;
+              data: { id: string };
+            }>("/leads/", {
+              method: "POST",
+              body: JSON.stringify(leadTemporal),
             });
-            console.log("✅ Lead temporal eliminado");
-          } catch (error) {
-            console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
-          }
 
-          // Validar formato P + 9 dígitos
-          if (
-            codigoGenerado.length !== 10 ||
-            !/^P\d{9}$/.test(codigoGenerado)
-          ) {
-            throw new Error(
-              `El código generado tiene un formato incorrecto: "${codigoGenerado}". ` +
-                `Debe ser P seguido de 9 dígitos.`,
+            if (!responseCrear.success || !responseCrear.data?.id) {
+              throw new Error("Error al crear lead temporal");
+            }
+
+            leadId = responseCrear.data.id;
+            console.log("✅ Lead temporal creado con ID:", leadId);
+
+            // Generar código con equipo_propio=true
+            const responseGenerar = await apiRequest<{
+              success: boolean;
+              message: string;
+              codigo_generado: string;
+            }>(`/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`);
+
+            if (!responseGenerar.success || !responseGenerar.codigo_generado) {
+              throw new Error(
+                responseGenerar.message || "Error al generar el código",
+              );
+            }
+
+            const codigoGenerado = responseGenerar.codigo_generado;
+            console.log(
+              "✅ Código generado para equipo propio:",
+              codigoGenerado,
             );
+
+            // Validar formato P + 9 dígitos
+            if (
+              codigoGenerado.length !== 10 ||
+              !/^P\d{9}$/.test(codigoGenerado)
+            ) {
+              throw new Error(
+                `El código generado tiene un formato incorrecto: "${codigoGenerado}". ` +
+                  `Debe ser P seguido de 9 dígitos.`,
+              );
+            }
+
+            setFormData((prev) => ({
+              ...prev,
+              numero: codigoGenerado,
+            }));
+
+            console.log(
+              "✅ Código generado automáticamente para equipo propio:",
+              codigoGenerado,
+            );
+          } finally {
+            if (leadId) {
+              try {
+                await apiRequest(`/leads/${leadId}`, {
+                  method: "DELETE",
+                });
+                console.log("✅ Lead temporal eliminado");
+              } catch (error) {
+                console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
+              }
+            }
           }
-
-          setFormData((prev) => ({
-            ...prev,
-            numero: codigoGenerado,
-          }));
-
-          console.log(
-            "✅ Código generado automáticamente para equipo propio:",
-            codigoGenerado,
-          );
         } else {
           // Generar código normal con inversor
           const inversorSeleccionado = inversores.find(
@@ -398,15 +442,7 @@ export function CreateClientDialog({
           }
 
           const leadTemporal = {
-            fecha_contacto: new Date().toISOString().split("T")[0],
-            nombre: formData.nombre || "Cliente Temporal",
-            telefono: formData.telefono || "+00000000000",
-            estado: "nuevo",
-            fuente: "Sistema",
-            direccion: formData.direccion || "Temporal",
-            provincia_montaje: formData.provincia_montaje,
-            municipio: formData.municipio,
-            comercial: user?.nombre || "Sistema",
+            ...baseLeadTemporal,
             ofertas: [
               {
                 id: "temp-" + Date.now(),
@@ -430,67 +466,72 @@ export function CreateClientDialog({
             leadTemporal,
           );
 
-          const responseCrear = await apiRequest<{
-            success: boolean;
-            message: string;
-            data: { id: string };
-          }>("/leads/", {
-            method: "POST",
-            body: JSON.stringify(leadTemporal),
-          });
-
-          if (!responseCrear.success || !responseCrear.data?.id) {
-            throw new Error("Error al crear lead temporal");
-          }
-
-          const leadId = responseCrear.data.id;
-          console.log("✅ Lead temporal creado con ID:", leadId);
-
-          const responseGenerar = await apiRequest<{
-            success: boolean;
-            message: string;
-            codigo_generado: string;
-          }>(`/leads/${leadId}/generar-codigo-cliente`);
-
-          if (!responseGenerar.success || !responseGenerar.codigo_generado) {
-            throw new Error(
-              responseGenerar.message || "Error al generar el código",
-            );
-          }
-
-          const codigoGenerado = responseGenerar.codigo_generado;
-          console.log("✅ Código generado:", codigoGenerado);
-
+          let leadId: string | null = null;
           try {
-            await apiRequest(`/leads/${leadId}`, {
-              method: "DELETE",
+            const responseCrear = await apiRequest<{
+              success: boolean;
+              message: string;
+              data: { id: string };
+            }>("/leads/", {
+              method: "POST",
+              body: JSON.stringify(leadTemporal),
             });
-            console.log("✅ Lead temporal eliminado");
-          } catch (error) {
-            console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
+
+            if (!responseCrear.success || !responseCrear.data?.id) {
+              throw new Error("Error al crear lead temporal");
+            }
+
+            leadId = responseCrear.data.id;
+            console.log("✅ Lead temporal creado con ID:", leadId);
+
+            const responseGenerar = await apiRequest<{
+              success: boolean;
+              message: string;
+              codigo_generado: string;
+            }>(`/leads/${leadId}/generar-codigo-cliente`);
+
+            if (!responseGenerar.success || !responseGenerar.codigo_generado) {
+              throw new Error(
+                responseGenerar.message || "Error al generar el código",
+              );
+            }
+
+            const codigoGenerado = responseGenerar.codigo_generado;
+            console.log("✅ Código generado:", codigoGenerado);
+
+            if (codigoGenerado.length !== 10) {
+              throw new Error(
+                `El código generado tiene un formato incorrecto. ` +
+                  `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
+                  `Código recibido: "${codigoGenerado}".`,
+              );
+            }
+
+            if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
+              throw new Error(
+                `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
+                  `Debe ser 1 letra mayúscula seguida de 9 dígitos.`,
+              );
+            }
+
+            setFormData((prev) => ({
+              ...prev,
+              numero: codigoGenerado,
+            }));
+
+            console.log("✅ Código generado automáticamente:", codigoGenerado);
+          } finally {
+            if (leadId) {
+              try {
+                await apiRequest(`/leads/${leadId}`, {
+                  method: "DELETE",
+                });
+                console.log("✅ Lead temporal eliminado");
+              } catch (error) {
+                console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
+              }
+            }
           }
-
-          if (codigoGenerado.length !== 10) {
-            throw new Error(
-              `El código generado tiene un formato incorrecto. ` +
-                `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
-                `Código recibido: "${codigoGenerado}".`,
-            );
-          }
-
-          if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
-            throw new Error(
-              `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
-                `Debe ser 1 letra mayúscula seguida de 9 dígitos.`,
-            );
-          }
-
-          setFormData((prev) => ({
-            ...prev,
-            numero: codigoGenerado,
-          }));
-
-          console.log("✅ Código generado automáticamente:", codigoGenerado);
         }
       } catch (error) {
         console.error("❌ Error al generar código:", error);
@@ -513,13 +554,12 @@ export function CreateClientDialog({
     selectedProvinciaCodigo,
     formData.municipio,
     formData.provincia_montaje,
-    formData.nombre,
-    formData.telefono,
     oferta.inversor_codigo,
     equipoPropio,
     inversores,
     municipios,
     loadingMateriales,
+    hasDatosBasicosParaCodigo,
   ]);
 
   // Cargar provincias al montar el componente
