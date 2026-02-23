@@ -13,6 +13,10 @@ import { ExportSelectionDialog } from "./export-selection-dialog"
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
 import { useMaterials } from "@/hooks/use-materials"
 import { useMarcas } from "@/hooks/use-marcas"
+import {
+  buildTerminosCondicionesHtml,
+  type TerminosCondicionesPayload,
+} from "@/lib/utils/terminos-condiciones-export"
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service"
 import { LeadService } from "@/lib/services/feats/leads/lead-service"
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service"
@@ -135,23 +139,23 @@ export function OfertasConfeccionadasView() {
         const { apiRequest } = await import('@/lib/api-config')
         const result = await apiRequest<{
           success: boolean
-          data?: {
-            id: string
-            texto: string
-            activo: boolean
-          }
+          data?: TerminosCondicionesPayload
         }>('/terminos-condiciones/activo', {
           method: 'GET'
         })
         
-        if (result.success && result.data) {
-          console.log('✅ Términos y condiciones cargados:', result.data.texto.substring(0, 100) + '...')
-          setTerminosCondiciones(result.data.texto)
+        const terminosHtml = buildTerminosCondicionesHtml(result.data)
+        
+        if (result.success && terminosHtml) {
+          console.log('✅ Términos y condiciones cargados:', `${terminosHtml.length} caracteres`)
+          setTerminosCondiciones(terminosHtml)
         } else {
           console.warn('⚠️ No se encontraron términos y condiciones activos')
+          setTerminosCondiciones(null)
         }
       } catch (error) {
         console.error('❌ Error cargando términos y condiciones:', error)
+        setTerminosCondiciones(null)
       }
     }
     cargarTerminos()
@@ -520,11 +524,34 @@ export function OfertasConfeccionadasView() {
       }
     }
     
-    // Buscar inversor (sección INVERSORES)
-    const itemsInversores = itemsOrdenados.filter(item => item.seccion === 'INVERSORES')
+    const componentesGuardados = oferta.componentes_principales || {}
+    const normalizarCodigo = (value: unknown) => (value ?? '').toString().trim()
+    const seleccionarItemsComponente = (seccion: string, codigoSeleccionado?: string) => {
+      const itemsSeccion = itemsOrdenados.filter(item => item.seccion === seccion)
+      if (itemsSeccion.length === 0) return []
+
+      const codigoSeleccionadoNorm = normalizarCodigo(codigoSeleccionado)
+      if (codigoSeleccionadoNorm) {
+        const itemsSeleccionados = itemsSeccion.filter(
+          item => normalizarCodigo(item.material_codigo) === codigoSeleccionadoNorm
+        )
+        if (itemsSeleccionados.length > 0) return itemsSeleccionados
+        console.warn(`⚠️ Código seleccionado ${codigoSeleccionadoNorm} no encontrado en ${seccion}. Se usa fallback.`)
+      }
+
+      const codigoFallback = normalizarCodigo(itemsSeccion[0]?.material_codigo)
+      return itemsSeccion.filter(item => normalizarCodigo(item.material_codigo) === codigoFallback)
+    }
+
+    // Buscar inversor (sección INVERSORES): priorizar código seleccionado guardado
+    const itemsInversores = seleccionarItemsComponente(
+      'INVERSORES',
+      componentesGuardados.inversor_seleccionado
+    )
     if (itemsInversores.length > 0) {
-      const inversor = itemsInversores[0]
-      const material = materials.find(m => m.codigo.toString() === inversor.material_codigo)
+      const codigoInversor = normalizarCodigo(itemsInversores[0]?.material_codigo)
+      const cantidadInversor = itemsInversores.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0)
+      const material = materials.find(m => m.codigo.toString() === codigoInversor)
       
       // Usar el campo potenciaKW del material directamente
       const potencia = material?.potenciaKW || 0
@@ -534,51 +561,58 @@ export function OfertasConfeccionadasView() {
       const marca = marcaId ? marcasMap.get(marcaId) : undefined
       
       componentesPrincipales.inversor = {
-        codigo: inversor.material_codigo,
-        cantidad: inversor.cantidad,
+        codigo: codigoInversor,
+        cantidad: cantidadInversor,
         potencia: potencia,
         marca: marca
       }
     }
     
-    // Buscar batería (sección BATERIAS)
-    const itemsBaterias = itemsOrdenados.filter(item => item.seccion === 'BATERIAS')
+    // Buscar batería (sección BATERIAS): priorizar código seleccionado guardado
+    const itemsBaterias = seleccionarItemsComponente(
+      'BATERIAS',
+      componentesGuardados.bateria_seleccionada
+    )
     if (itemsBaterias.length > 0) {
-      const bateria = itemsBaterias[0]
-      const material = materials.find(m => m.codigo.toString() === bateria.material_codigo)
+      const codigoBateria = normalizarCodigo(itemsBaterias[0]?.material_codigo)
+      const cantidadBateria = itemsBaterias.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0)
+      const material = materials.find(m => m.codigo.toString() === codigoBateria)
       
       // Usar el campo potenciaKW del material directamente (para baterías es la capacidad en kWh)
       const capacidad = material?.potenciaKW || 0
       
       console.log('🔋 DEBUG Batería:', {
-        material_codigo: bateria.material_codigo,
+        material_codigo: codigoBateria,
         material_nombre: material?.nombre,
         potenciaKW: material?.potenciaKW,
         capacidad,
-        cantidad: bateria.cantidad
+        cantidad: cantidadBateria
       })
       
       componentesPrincipales.bateria = {
-        codigo: bateria.material_codigo,
-        cantidad: bateria.cantidad,
+        codigo: codigoBateria,
+        cantidad: cantidadBateria,
         capacidad: capacidad
       }
     }
     
-    // Buscar paneles (sección PANELES)
-    const itemsPaneles = itemsOrdenados.filter(item => item.seccion === 'PANELES')
+    // Buscar paneles (sección PANELES): priorizar código seleccionado guardado
+    const itemsPaneles = seleccionarItemsComponente(
+      'PANELES',
+      componentesGuardados.panel_seleccionado
+    )
     if (itemsPaneles.length > 0) {
-      const panel = itemsPaneles[0]
-      const material = materials.find(m => m.codigo.toString() === panel.material_codigo)
+      const codigoPanel = normalizarCodigo(itemsPaneles[0]?.material_codigo)
+      const cantidadPanel = itemsPaneles.reduce((sum, item) => sum + (Number(item.cantidad) || 0), 0)
+      const material = materials.find(m => m.codigo.toString() === codigoPanel)
       
-      // Usar el campo potenciaKW del material directamente
       // Para paneles, potenciaKW está en kW, pero necesitamos en W para el cálculo
       const potenciaKW = material?.potenciaKW || 0
-      const potencia = potenciaKW * 1000 // Convertir de kW a W
+      const potencia = potenciaKW * 1000
       
       componentesPrincipales.panel = {
-        codigo: panel.material_codigo,
-        cantidad: panel.cantidad,
+        codigo: codigoPanel,
+        cantidad: cantidadPanel,
         potencia: potencia
       }
     }

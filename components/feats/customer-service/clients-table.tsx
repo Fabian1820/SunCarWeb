@@ -68,6 +68,10 @@ import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofe
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { useMaterials } from "@/hooks/use-materials";
 import { useMarcas } from "@/hooks/use-marcas";
+import {
+  buildTerminosCondicionesHtml,
+  type TerminosCondicionesPayload,
+} from "@/lib/utils/terminos-condiciones-export";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type {
   OfertaPersonalizada,
@@ -895,23 +899,23 @@ export function ClientsTable({
         const { apiRequest } = await import('@/lib/api-config')
         const result = await apiRequest<{
           success: boolean
-          data: {
-            id: string
-            texto: string
-            activo: boolean
-          }
+          data?: TerminosCondicionesPayload
         }>('/terminos-condiciones/activo', {
           method: 'GET'
         })
         
-        if (result.success && result.data) {
-          console.log('✅ Términos y condiciones cargados en clients-table:', result.data.texto.substring(0, 100) + '...')
-          setTerminosCondiciones(result.data.texto)
+        const terminosHtml = buildTerminosCondicionesHtml(result.data)
+
+        if (result.success && terminosHtml) {
+          console.log('✅ Términos y condiciones cargados en clients-table:', `${terminosHtml.length} caracteres`)
+          setTerminosCondiciones(terminosHtml)
         } else {
           console.warn('⚠️ No se encontraron términos y condiciones activos')
+          setTerminosCondiciones(null)
         }
       } catch (error) {
         console.error('❌ Error cargando términos y condiciones:', error)
+        setTerminosCondiciones(null)
       }
     }
     
