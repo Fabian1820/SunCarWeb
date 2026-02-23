@@ -1,101 +1,147 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useToast } from './use-toast'
-import { apiRequest } from '@/lib/api-config'
-import { 
-  OFERTAS_CONFECCION_ENDPOINTS, 
-  buildApiUrl, 
-  getCommonHeaders 
-} from '@/lib/api-endpoints'
+import { useState, useEffect, useCallback } from "react";
+import { useToast } from "./use-toast";
+import { apiRequest } from "@/lib/api-config";
+import {
+  OFERTAS_CONFECCION_ENDPOINTS,
+  buildApiUrl,
+  getCommonHeaders,
+} from "@/lib/api-endpoints";
 
 export interface OfertaConfeccion {
-  id: string
-  nombre: string
-  nombre_completo?: string // Nombre largo descriptivo para exportaciones
-  numero_oferta?: string
-  tipo: 'generica' | 'personalizada'
-  estado: 'en_revision' | 'aprobada_para_enviar' | 'enviada_a_cliente' | 'confirmada_por_cliente' | 'reservada' | 'rechazada' | 'cancelada'
-  almacen_id?: string
-  almacen_nombre?: string
-  cliente_id?: string
-  cliente_numero?: string
-  cliente_nombre?: string
-  lead_id?: string
-  lead_nombre?: string
-  nombre_lead_sin_agregar?: string
-  foto_portada?: string
-  precio_final: number
-  total_materiales: number
-  margen_comercial: number
-  margen_instalacion?: number
-  costo_transportacion: number
-  subtotal_con_margen?: number
-  descuento_porcentaje?: number
-  monto_descuento?: number
-  subtotal_con_descuento?: number
-  total_elementos_personalizados?: number
-  total_costos_extras?: number
+  id: string;
+  nombre: string;
+  nombre_completo?: string; // Nombre largo descriptivo para exportaciones
+  numero_oferta?: string;
+  tipo: "generica" | "personalizada";
+  estado:
+    | "en_revision"
+    | "aprobada_para_enviar"
+    | "enviada_a_cliente"
+    | "confirmada_por_cliente"
+    | "reservada"
+    | "rechazada"
+    | "cancelada";
+  almacen_id?: string;
+  almacen_nombre?: string;
+  cliente_id?: string;
+  cliente_numero?: string;
+  cliente_nombre?: string;
+  lead_id?: string;
+  lead_nombre?: string;
+  nombre_lead_sin_agregar?: string;
+  foto_portada?: string;
+  precio_final: number;
+  total_materiales: number;
+  margen_comercial: number;
+  margen_instalacion?: number;
+  costo_transportacion: number;
+  subtotal_con_margen?: number;
+  descuento_porcentaje?: number;
+  monto_descuento?: number;
+  subtotal_con_descuento?: number;
+  total_elementos_personalizados?: number;
+  total_costos_extras?: number;
   items?: {
-    material_codigo: string
-    descripcion: string
-    precio: number
-    cantidad: number
-    categoria: string
-    seccion: string
-  }[]
+    material_codigo: string;
+    descripcion: string;
+    precio: number;
+    cantidad: number;
+    categoria: string;
+    seccion: string;
+  }[];
   elementos_personalizados?: {
-    material_codigo: string
-    descripcion: string
-    precio: number
-    cantidad: number
-    categoria: string
-  }[]
+    material_codigo: string;
+    descripcion: string;
+    precio: number;
+    cantidad: number;
+    categoria: string;
+  }[];
   secciones_personalizadas?: {
-    id: string
-    label: string
-    tipo: 'materiales' | 'extra'
-    tipo_extra?: 'escritura' | 'costo'
-    categorias_materiales?: string[]
-    contenido_escritura?: string
+    id: string;
+    label: string;
+    tipo: "materiales" | "extra";
+    tipo_extra?: "escritura" | "costo";
+    categorias_materiales?: string[];
+    contenido_escritura?: string;
     costos_extras?: {
-      id: string
-      descripcion: string
-      cantidad: number
-      precio_unitario: number
-    }[]
-  }[]
+      id: string;
+      descripcion: string;
+      cantidad: number;
+      precio_unitario: number;
+    }[];
+  }[];
   componentes_principales?: {
-    inversor_seleccionado?: string
-    bateria_seleccionada?: string
-    panel_seleccionado?: string
-  }
-  moneda_pago?: 'USD' | 'EUR' | 'CUP'
-  tasa_cambio?: number
-  pago_transferencia?: boolean
-  datos_cuenta?: string
-  aplica_contribucion?: boolean
-  porcentaje_contribucion?: number
-  notas?: string
-  fecha_creacion: string
-  fecha_actualizacion: string
+    inversor_seleccionado?: string;
+    bateria_seleccionada?: string;
+    panel_seleccionado?: string;
+  };
+  moneda_pago?: "USD" | "EUR" | "CUP";
+  tasa_cambio?: number;
+  pago_transferencia?: boolean;
+  datos_cuenta?: string;
+  formas_pago_acordadas?: boolean;
+  cantidad_pagos_acordados?: number;
+  pagos_acordados?: PagoAcordadoOferta[];
+  aplica_contribucion?: boolean;
+  porcentaje_contribucion?: number;
+  notas?: string;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+}
+
+export type MetodoPagoAcordado = "efectivo" | "transferencia" | "stripe";
+
+export interface PagoAcordadoOferta {
+  monto_usd: number;
+  metodo_pago: MetodoPagoAcordado;
+  fecha_estimada: string;
 }
 
 const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
-  const tipo = raw.tipo ?? raw.tipo_oferta ?? (raw.es_generica ? 'generica' : 'personalizada')
+  const tipo =
+    raw.tipo ??
+    raw.tipo_oferta ??
+    (raw.es_generica ? "generica" : "personalizada");
+  const formasPagoAcordadas = Boolean(raw.formas_pago_acordadas);
+  const pagosAcordadosRaw = Array.isArray(raw.pagos_acordados)
+    ? raw.pagos_acordados
+    : [];
+  const pagosAcordados: PagoAcordadoOferta[] = pagosAcordadosRaw.map(
+    (pago: any) => ({
+      monto_usd: Number(pago?.monto_usd ?? 0),
+      metodo_pago:
+        pago?.metodo_pago === "transferencia" || pago?.metodo_pago === "stripe"
+          ? pago.metodo_pago
+          : "efectivo",
+      fecha_estimada:
+        typeof pago?.fecha_estimada === "string" ? pago.fecha_estimada : "",
+    }),
+  );
+  const cantidadPagosAcordadosRaw = Number(raw.cantidad_pagos_acordados);
+  const cantidadPagosAcordados = Number.isFinite(cantidadPagosAcordadosRaw)
+    ? cantidadPagosAcordadosRaw
+    : pagosAcordados.length;
 
   return {
-    id: raw.id ?? raw._id ?? raw.oferta_id ?? '',
-    nombre: raw.nombre ?? raw.nombre_automatico ?? raw.nombre_oferta ?? 'Oferta sin nombre',
+    id: raw.id ?? raw._id ?? raw.oferta_id ?? "",
+    nombre:
+      raw.nombre ??
+      raw.nombre_automatico ??
+      raw.nombre_oferta ??
+      "Oferta sin nombre",
     nombre_completo: raw.nombre_completo, // Nombre largo descriptivo
     numero_oferta: raw.numero_oferta,
-    tipo: tipo === 'personalizada' ? 'personalizada' : 'generica',
-    estado: raw.estado ?? 'en_revision',
+    tipo: tipo === "personalizada" ? "personalizada" : "generica",
+    estado: raw.estado ?? "en_revision",
     almacen_id: raw.almacen_id ?? raw.almacen?.id ?? raw.almacen?._id,
     almacen_nombre: raw.almacen_nombre ?? raw.almacen?.nombre,
     cliente_id: raw.cliente_id ?? raw.cliente?.id ?? raw.cliente?._id,
     cliente_numero: raw.cliente_numero ?? raw.cliente?.numero,
-    cliente_nombre: raw.cliente_nombre ?? raw.cliente?.nombre ?? raw.cliente?.nombre_completo,
+    cliente_nombre:
+      raw.cliente_nombre ?? raw.cliente?.nombre ?? raw.cliente?.nombre_completo,
     lead_id: raw.lead_id ?? raw.lead?.id ?? raw.lead?._id,
-    lead_nombre: raw.lead_nombre ?? raw.lead?.nombre_completo ?? raw.lead?.nombre,
+    lead_nombre:
+      raw.lead_nombre ?? raw.lead?.nombre_completo ?? raw.lead?.nombre,
     nombre_lead_sin_agregar: raw.nombre_lead_sin_agregar,
     foto_portada: raw.foto_portada ?? raw.foto_portada_url ?? raw.foto,
     precio_final: raw.precio_final ?? raw.precio ?? 0,
@@ -113,59 +159,66 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     elementos_personalizados: raw.elementos_personalizados ?? [],
     secciones_personalizadas: raw.secciones_personalizadas ?? [],
     componentes_principales: raw.componentes_principales ?? {},
-    moneda_pago: raw.moneda_pago ?? 'USD',
+    moneda_pago: raw.moneda_pago ?? "USD",
     tasa_cambio: raw.tasa_cambio ?? 0,
     pago_transferencia: raw.pago_transferencia ?? false,
-    datos_cuenta: raw.datos_cuenta ?? '',
+    datos_cuenta: raw.datos_cuenta ?? "",
+    formas_pago_acordadas: formasPagoAcordadas,
+    cantidad_pagos_acordados: formasPagoAcordadas
+      ? Math.max(0, cantidadPagosAcordados)
+      : 0,
+    pagos_acordados: formasPagoAcordadas ? pagosAcordados : [],
     aplica_contribucion: raw.aplica_contribucion ?? false,
     porcentaje_contribucion: raw.porcentaje_contribucion ?? 0,
     notas: raw.notas,
-    fecha_creacion: raw.fecha_creacion ?? raw.created_at ?? '',
-    fecha_actualizacion: raw.fecha_actualizacion ?? raw.updated_at ?? '',
-  }
-}
+    fecha_creacion: raw.fecha_creacion ?? raw.created_at ?? "",
+    fecha_actualizacion: raw.fecha_actualizacion ?? raw.updated_at ?? "",
+  };
+};
 
 const normalizeClienteNumero = (value: string | null | undefined) =>
-  (value ?? '')
+  (value ?? "")
     .toString()
-    .normalize('NFKC')
+    .normalize("NFKC")
     .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '')
+    .replace(/[^A-Z0-9]/g, "");
 
-const CLIENTES_CON_OFERTA_CACHE_KEY = 'clientes_con_ofertas_cache_v2'
-const CLIENTES_CON_OFERTA_CACHE_TTL_MS = 5 * 60 * 1000
+const CLIENTES_CON_OFERTA_CACHE_KEY = "clientes_con_ofertas_cache_v2";
+const CLIENTES_CON_OFERTA_CACHE_TTL_MS = 5 * 60 * 1000;
 
 const extractNumerosClientes = (payload: unknown): string[] | null => {
-  if (!payload) return null
+  if (!payload) return null;
 
   if (Array.isArray(payload)) {
     const numeros = payload
       .map((value: unknown) => {
-        if (typeof value === 'string' || typeof value === 'number') {
-          return normalizeClienteNumero(String(value))
+        if (typeof value === "string" || typeof value === "number") {
+          return normalizeClienteNumero(String(value));
         }
 
-        if (value && typeof value === 'object') {
-          const obj = value as Record<string, unknown>
+        if (value && typeof value === "object") {
+          const obj = value as Record<string, unknown>;
           return normalizeClienteNumero(
             (obj.cliente_numero as string | number | undefined)?.toString() ??
-            (obj.codigo_cliente as string | number | undefined)?.toString() ??
-            (obj.numero as string | number | undefined)?.toString() ??
-            ((obj.cliente as { numero?: string | number } | undefined)?.numero)?.toString() ??
-            (obj.clienteNumero as string | number | undefined)?.toString() ??
-            (obj.cliente_codigo as string | number | undefined)?.toString() ??
-            ''
-          )
+              (obj.codigo_cliente as string | number | undefined)?.toString() ??
+              (obj.numero as string | number | undefined)?.toString() ??
+              (
+                obj.cliente as { numero?: string | number } | undefined
+              )?.numero?.toString() ??
+              (obj.clienteNumero as string | number | undefined)?.toString() ??
+              (obj.cliente_codigo as string | number | undefined)?.toString() ??
+              "",
+          );
         }
 
-        return ''
+        return "";
       })
-      .filter(Boolean)
+      .filter(Boolean);
 
-    return Array.from(new Set(numeros))
+    return Array.from(new Set(numeros));
   }
 
-  const data = payload as Record<string, unknown>
+  const data = payload as Record<string, unknown>;
 
   const rawCandidates = [
     (data.data as Record<string, unknown> | undefined)?.numeros_clientes,
@@ -175,431 +228,582 @@ const extractNumerosClientes = (payload: unknown): string[] | null => {
     (data.data as Record<string, unknown> | undefined)?.items,
     data.items,
     data.data,
-  ]
+  ];
 
-  const rawArray = rawCandidates.find((candidate) => Array.isArray(candidate))
-  if (!Array.isArray(rawArray)) return null
+  const rawArray = rawCandidates.find((candidate) => Array.isArray(candidate));
+  if (!Array.isArray(rawArray)) return null;
 
   const numeros = rawArray
     .map((value: unknown) => {
-      if (typeof value === 'string' || typeof value === 'number') {
-        return normalizeClienteNumero(String(value))
+      if (typeof value === "string" || typeof value === "number") {
+        return normalizeClienteNumero(String(value));
       }
 
-      if (value && typeof value === 'object') {
-        const obj = value as Record<string, unknown>
+      if (value && typeof value === "object") {
+        const obj = value as Record<string, unknown>;
         return normalizeClienteNumero(
           (obj.cliente_numero as string | number | undefined)?.toString() ??
-          (obj.codigo_cliente as string | number | undefined)?.toString() ??
-          (obj.numero as string | number | undefined)?.toString() ??
-          ((obj.cliente as { numero?: string | number } | undefined)?.numero)?.toString() ??
-          (obj.clienteNumero as string | number | undefined)?.toString() ??
-          (obj.cliente_codigo as string | number | undefined)?.toString() ??
-          ''
-        )
+            (obj.codigo_cliente as string | number | undefined)?.toString() ??
+            (obj.numero as string | number | undefined)?.toString() ??
+            (
+              obj.cliente as { numero?: string | number } | undefined
+            )?.numero?.toString() ??
+            (obj.clienteNumero as string | number | undefined)?.toString() ??
+            (obj.cliente_codigo as string | number | undefined)?.toString() ??
+            "",
+        );
       }
 
-      return ''
+      return "";
     })
-    .filter(Boolean)
+    .filter(Boolean);
 
-  return Array.from(new Set(numeros))
-}
+  return Array.from(new Set(numeros));
+};
 
 export function useOfertasConfeccion() {
-  const [ofertas, setOfertas] = useState<OfertaConfeccion[]>([])
-  const [loading, setLoading] = useState(false)
-  const { toast } = useToast()
+  const [ofertas, setOfertas] = useState<OfertaConfeccion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
 
   const fetchOfertas = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const response = await apiRequest<any>('/ofertas/confeccion/', { method: 'GET' })
+      const response = await apiRequest<any>("/ofertas/confeccion/", {
+        method: "GET",
+      });
       const rawOfertas = Array.isArray(response)
         ? response
-        : response?.data ?? response?.results ?? []
-      setOfertas(Array.isArray(rawOfertas) ? rawOfertas.map(normalizeOfertaConfeccion) : [])
+        : (response?.data ?? response?.results ?? []);
+      setOfertas(
+        Array.isArray(rawOfertas)
+          ? rawOfertas.map(normalizeOfertaConfeccion)
+          : [],
+      );
     } catch (error: any) {
-      console.error('Error fetching ofertas:', error)
+      console.error("Error fetching ofertas:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'No se pudieron cargar las ofertas',
-        variant: 'destructive',
-      })
-      setOfertas([])
+        title: "Error",
+        description: error.message || "No se pudieron cargar las ofertas",
+        variant: "destructive",
+      });
+      setOfertas([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [toast])
+  }, [toast]);
 
-  const eliminarOferta = useCallback(async (id: string) => {
-    try {
-      await apiRequest(`/ofertas/confeccion/${id}`, { method: 'DELETE' })
+  const eliminarOferta = useCallback(
+    async (id: string) => {
+      try {
+        await apiRequest(`/ofertas/confeccion/${id}`, { method: "DELETE" });
 
-      toast({
-        title: 'Oferta eliminada',
-        description: 'La oferta se eliminó correctamente',
-      })
+        toast({
+          title: "Oferta eliminada",
+          description: "La oferta se eliminó correctamente",
+        });
 
-      // Disparar evento global para que otros componentes se enteren
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('ofertaEliminada', { detail: { ofertaId: id } }))
+        // Disparar evento global para que otros componentes se enteren
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("ofertaEliminada", { detail: { ofertaId: id } }),
+          );
+        }
+
+        await fetchOfertas();
+      } catch (error: any) {
+        console.error("Error deleting oferta:", error);
+        toast({
+          title: "Error",
+          description: error.message || "No se pudo eliminar la oferta",
+          variant: "destructive",
+        });
       }
-
-      await fetchOfertas()
-    } catch (error: any) {
-      console.error('Error deleting oferta:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo eliminar la oferta',
-        variant: 'destructive',
-      })
-    }
-  }, [toast, fetchOfertas])
+    },
+    [toast, fetchOfertas],
+  );
 
   const fetchOfertasGenericasAprobadas = useCallback(async () => {
     try {
-      const response = await apiRequest<any>('/ofertas/confeccion/genericas/aprobadas', { method: 'GET' })
+      const response = await apiRequest<any>(
+        "/ofertas/confeccion/genericas/aprobadas",
+        { method: "GET" },
+      );
       const rawOfertas = Array.isArray(response)
         ? response
-        : response?.data ?? response?.results ?? response?.ofertas ?? []
-      return Array.isArray(rawOfertas) ? rawOfertas.map(normalizeOfertaConfeccion) : []
+        : (response?.data ?? response?.results ?? response?.ofertas ?? []);
+      return Array.isArray(rawOfertas)
+        ? rawOfertas.map(normalizeOfertaConfeccion)
+        : [];
     } catch (error: any) {
-      console.error('Error fetching ofertas genéricas aprobadas:', error)
+      console.error("Error fetching ofertas genéricas aprobadas:", error);
       toast({
-        title: 'Error',
-        description: error.message || 'No se pudieron cargar las ofertas genéricas',
-        variant: 'destructive',
-      })
-      return []
+        title: "Error",
+        description:
+          error.message || "No se pudieron cargar las ofertas genéricas",
+        variant: "destructive",
+      });
+      return [];
     }
-  }, [toast])
+  }, [toast]);
 
-  const asignarOfertaACliente = useCallback(async (ofertaGenericaId: string, clienteNumero: string) => {
-    try {
-      const response = await apiRequest<any>('/ofertas/confeccion/asignar-a-cliente', {
-        method: 'POST',
-        body: JSON.stringify({
-          oferta_generica_id: ofertaGenericaId,
-          cliente_numero: clienteNumero,
-        }),
-      })
+  const asignarOfertaACliente = useCallback(
+    async (ofertaGenericaId: string, clienteNumero: string) => {
+      try {
+        const response = await apiRequest<any>(
+          "/ofertas/confeccion/asignar-a-cliente",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              oferta_generica_id: ofertaGenericaId,
+              cliente_numero: clienteNumero,
+            }),
+          },
+        );
 
-      if (response?.success) {
-        toast({
-          title: 'Oferta asignada',
-          description: response.message || 'La oferta se asignó correctamente al cliente',
-        })
+        if (response?.success) {
+          toast({
+            title: "Oferta asignada",
+            description:
+              response.message ||
+              "La oferta se asignó correctamente al cliente",
+          });
 
-        await fetchOfertas()
-        return {
-          success: true,
-          ofertaNuevaId: response.oferta_nueva_id,
-          ofertaNueva: response.oferta_nueva,
+          await fetchOfertas();
+          return {
+            success: true,
+            ofertaNuevaId: response.oferta_nueva_id,
+            ofertaNueva: response.oferta_nueva,
+          };
+        } else {
+          throw new Error(response?.message || "No se pudo asignar la oferta");
         }
-      } else {
-        throw new Error(response?.message || 'No se pudo asignar la oferta')
+      } catch (error: any) {
+        console.error("Error asignando oferta:", error);
+        toast({
+          title: "Error",
+          description:
+            error.message || "No se pudo asignar la oferta al cliente",
+          variant: "destructive",
+        });
+        return { success: false };
       }
-    } catch (error: any) {
-      console.error('Error asignando oferta:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo asignar la oferta al cliente',
-        variant: 'destructive',
-      })
-      return { success: false }
-    }
-  }, [toast, fetchOfertas])
+    },
+    [toast, fetchOfertas],
+  );
 
-  const obtenerNumerosClientesConOfertas = useCallback(async (options?: { skipCache?: boolean }) => {
-    try {
-      const skipCache = options?.skipCache === true
-      
-      if (skipCache) {
-        console.log('🔄 Ignorando cache - consultando servidor directamente')
-      }
-      
-      if (typeof window !== 'undefined' && !skipCache) {
-        const cachedRaw = localStorage.getItem(CLIENTES_CON_OFERTA_CACHE_KEY)
-        if (cachedRaw) {
-          try {
-            const cached = JSON.parse(cachedRaw) as { ts?: number; numeros?: unknown }
-            const isFresh = typeof cached.ts === 'number' && Date.now() - cached.ts < CLIENTES_CON_OFERTA_CACHE_TTL_MS
-            const cachedNumeros = extractNumerosClientes(cached.numeros)
+  const obtenerNumerosClientesConOfertas = useCallback(
+    async (options?: { skipCache?: boolean }) => {
+      try {
+        const skipCache = options?.skipCache === true;
 
-            if (isFresh && cachedNumeros) {
-              console.log('✅ Usando cache de clientes con ofertas:', cachedNumeros.length)
-              return { success: true as const, numeros_clientes: cachedNumeros }
-            } else {
-              console.log('⏰ Cache expirado o inválido - consultando servidor')
+        if (skipCache) {
+          console.log("🔄 Ignorando cache - consultando servidor directamente");
+        }
+
+        if (typeof window !== "undefined" && !skipCache) {
+          const cachedRaw = localStorage.getItem(CLIENTES_CON_OFERTA_CACHE_KEY);
+          if (cachedRaw) {
+            try {
+              const cached = JSON.parse(cachedRaw) as {
+                ts?: number;
+                numeros?: unknown;
+              };
+              const isFresh =
+                typeof cached.ts === "number" &&
+                Date.now() - cached.ts < CLIENTES_CON_OFERTA_CACHE_TTL_MS;
+              const cachedNumeros = extractNumerosClientes(cached.numeros);
+
+              if (isFresh && cachedNumeros) {
+                console.log(
+                  "✅ Usando cache de clientes con ofertas:",
+                  cachedNumeros.length,
+                );
+                return {
+                  success: true as const,
+                  numeros_clientes: cachedNumeros,
+                };
+              } else {
+                console.log(
+                  "⏰ Cache expirado o inválido - consultando servidor",
+                );
+              }
+            } catch {
+              console.log("⚠️ Cache corrupto - consultando servidor");
             }
-          } catch {
-            console.log('⚠️ Cache corrupto - consultando servidor')
           }
         }
+
+        const url = buildApiUrl(
+          OFERTAS_CONFECCION_ENDPOINTS.CLIENTES_CON_OFERTAS,
+        );
+        console.log("🌐 Fetching clientes con ofertas desde:", url);
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: getCommonHeaders(),
+        });
+
+        if (!response.ok) {
+          console.error(
+            "❌ Error en endpoint clientes-con-ofertas:",
+            response.status,
+            response.statusText,
+          );
+          return { success: false as const, numeros_clientes: [] as string[] };
+        }
+
+        const data = await response.json();
+        const numeros = extractNumerosClientes(data);
+
+        if (!numeros) {
+          console.error("❌ Respuesta sin array parseable");
+          return { success: false as const, numeros_clientes: [] as string[] };
+        }
+
+        console.log(
+          "✅ Clientes con oferta cargados desde servidor:",
+          numeros.length,
+        );
+
+        // Cachear resultado exitoso
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            CLIENTES_CON_OFERTA_CACHE_KEY,
+            JSON.stringify({
+              ts: Date.now(),
+              numeros,
+            }),
+          );
+          console.log("💾 Cache actualizado con", numeros.length, "clientes");
+        }
+
+        return { success: true as const, numeros_clientes: numeros };
+      } catch (error) {
+        console.error(
+          "💥 Error obteniendo numeros de clientes con ofertas:",
+          error,
+        );
+        return { success: false as const, numeros_clientes: [] as string[] };
       }
-
-      const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.CLIENTES_CON_OFERTAS)
-      console.log('🌐 Fetching clientes con ofertas desde:', url)
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getCommonHeaders(),
-      })
-
-      if (!response.ok) {
-        console.error('❌ Error en endpoint clientes-con-ofertas:', response.status, response.statusText)
-        return { success: false as const, numeros_clientes: [] as string[] }
-      }
-
-      const data = await response.json()
-      const numeros = extractNumerosClientes(data)
-      
-      if (!numeros) {
-        console.error('❌ Respuesta sin array parseable')
-        return { success: false as const, numeros_clientes: [] as string[] }
-      }
-
-      console.log('✅ Clientes con oferta cargados desde servidor:', numeros.length)
-
-      // Cachear resultado exitoso
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          CLIENTES_CON_OFERTA_CACHE_KEY,
-          JSON.stringify({
-            ts: Date.now(),
-            numeros,
-          })
-        )
-        console.log('💾 Cache actualizado con', numeros.length, 'clientes')
-      }
-
-      return { success: true as const, numeros_clientes: numeros }
-    } catch (error) {
-      console.error('💥 Error obteniendo numeros de clientes con ofertas:', error)
-      return { success: false as const, numeros_clientes: [] as string[] }
-    }
-  }, [])
+    },
+    [],
+  );
 
   const obtenerOfertaPorCliente = useCallback(async (clienteNumero: string) => {
     try {
-      const numeroNormalizado = normalizeClienteNumero(clienteNumero)
+      const numeroNormalizado = normalizeClienteNumero(clienteNumero);
       if (!numeroNormalizado) {
-        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+        return {
+          success: false,
+          oferta: null,
+          ofertas: [] as OfertaConfeccion[],
+          total: 0,
+          error: false as const,
+        };
       }
 
-      const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_CLIENTE(numeroNormalizado))
-      console.log('🌐 Fetching oferta para cliente:', numeroNormalizado)
-      console.log('🔗 URL:', url)
+      const url = buildApiUrl(
+        OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_CLIENTE(numeroNormalizado),
+      );
+      console.log("🌐 Fetching oferta para cliente:", numeroNormalizado);
+      console.log("🔗 URL:", url);
 
       const response = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         headers: getCommonHeaders(),
-      })
+      });
 
-      console.log('📡 Response status:', response.status, response.statusText)
+      console.log("📡 Response status:", response.status, response.statusText);
 
       if (response.status === 404) {
-        console.log('ℹ️ Cliente sin oferta asignada')
-        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+        console.log("ℹ️ Cliente sin oferta asignada");
+        return {
+          success: false,
+          oferta: null,
+          ofertas: [] as OfertaConfeccion[],
+          total: 0,
+          error: false as const,
+        };
       }
 
       if (!response.ok) {
-        console.error('❌ Error en endpoint oferta cliente:', response.status)
-        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: true as const }
+        console.error("❌ Error en endpoint oferta cliente:", response.status);
+        return {
+          success: false,
+          oferta: null,
+          ofertas: [] as OfertaConfeccion[],
+          total: 0,
+          error: true as const,
+        };
       }
 
-      const data = await response.json()
-      console.log('📦 Response data:', data)
+      const data = await response.json();
+      console.log("📦 Response data:", data);
 
-      const payload = data?.data ?? data
+      const payload = data?.data ?? data;
       const ofertasRaw = Array.isArray(payload?.ofertas)
         ? payload.ofertas
         : Array.isArray(data?.ofertas)
           ? data.ofertas
-          : []
+          : [];
 
       if (Array.isArray(ofertasRaw) && ofertasRaw.length > 0) {
-        const ofertas = ofertasRaw.map(normalizeOfertaConfeccion)
-        const total = payload?.total_ofertas ?? ofertas.length
-        console.log('✅ Oferta encontrada para cliente:', numeroNormalizado, '- Total:', total)
+        const ofertas = ofertasRaw.map(normalizeOfertaConfeccion);
+        const total = payload?.total_ofertas ?? ofertas.length;
+        console.log(
+          "✅ Oferta encontrada para cliente:",
+          numeroNormalizado,
+          "- Total:",
+          total,
+        );
         return {
           success: true,
           oferta: ofertas[0] ?? null,
           ofertas,
           total,
           error: false as const,
-        }
+        };
       }
 
       // Compatibilidad: backend antiguo con una sola oferta
-      const singleOferta = payload?.oferta ?? payload?.data ?? payload
+      const singleOferta = payload?.oferta ?? payload?.data ?? payload;
       const hasSingleOfertaPayload =
         !!singleOferta &&
-        typeof singleOferta === 'object' &&
-        (
-          !!singleOferta.id ||
+        typeof singleOferta === "object" &&
+        (!!singleOferta.id ||
           !!singleOferta._id ||
           !!singleOferta.oferta_id ||
           !!singleOferta.numero_oferta ||
-          Array.isArray(singleOferta.items)
-        )
+          Array.isArray(singleOferta.items));
 
       if (hasSingleOfertaPayload) {
-        const oferta = normalizeOfertaConfeccion(singleOferta)
-        console.log('✅ Oferta única encontrada para cliente:', numeroNormalizado)
+        const oferta = normalizeOfertaConfeccion(singleOferta);
+        console.log(
+          "✅ Oferta única encontrada para cliente:",
+          numeroNormalizado,
+        );
         return {
           success: true,
           oferta,
           ofertas: [oferta],
           total: 1,
           error: false as const,
-        }
+        };
       }
 
-      console.log('ℹ️ Sin ofertas en respuesta para cliente:', numeroNormalizado)
-      return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+      console.log(
+        "ℹ️ Sin ofertas en respuesta para cliente:",
+        numeroNormalizado,
+      );
+      return {
+        success: false,
+        oferta: null,
+        ofertas: [] as OfertaConfeccion[],
+        total: 0,
+        error: false as const,
+      };
     } catch (error: any) {
-      console.error('💥 Error en obtenerOfertaPorCliente:', error)
-      return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: true as const }
+      console.error("💥 Error en obtenerOfertaPorCliente:", error);
+      return {
+        success: false,
+        oferta: null,
+        ofertas: [] as OfertaConfeccion[],
+        total: 0,
+        error: true as const,
+      };
     }
-  }, [])
+  }, []);
 
-  const obtenerIdsLeadsConOfertas = useCallback(async (options?: { skipCache?: boolean }) => {
-    try {
-      const skipCache = options?.skipCache === true
-      
-      if (skipCache) {
-        console.log('🔄 Ignorando cache - consultando servidor directamente')
+  const obtenerIdsLeadsConOfertas = useCallback(
+    async (options?: { skipCache?: boolean }) => {
+      try {
+        const skipCache = options?.skipCache === true;
+
+        if (skipCache) {
+          console.log("🔄 Ignorando cache - consultando servidor directamente");
+        }
+
+        const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.LEADS_CON_OFERTAS);
+        console.log("🌐 Fetching leads con ofertas desde:", url);
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: getCommonHeaders(),
+        });
+
+        if (!response.ok) {
+          console.error(
+            "❌ Error en endpoint leads-con-ofertas:",
+            response.status,
+            response.statusText,
+          );
+          return { success: false as const, ids_leads: [] as string[] };
+        }
+
+        const data = await response.json();
+        const idsLeads = data?.data?.ids_leads ?? data?.ids_leads ?? [];
+
+        if (!Array.isArray(idsLeads)) {
+          console.error("❌ Respuesta sin array de IDs");
+          return { success: false as const, ids_leads: [] as string[] };
+        }
+
+        console.log(
+          "✅ Leads con oferta cargados desde servidor:",
+          idsLeads.length,
+        );
+
+        return { success: true as const, ids_leads: idsLeads };
+      } catch (error) {
+        console.error("💥 Error obteniendo IDs de leads con ofertas:", error);
+        return { success: false as const, ids_leads: [] as string[] };
       }
-
-      const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.LEADS_CON_OFERTAS)
-      console.log('🌐 Fetching leads con ofertas desde:', url)
-
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: getCommonHeaders(),
-      })
-
-      if (!response.ok) {
-        console.error('❌ Error en endpoint leads-con-ofertas:', response.status, response.statusText)
-        return { success: false as const, ids_leads: [] as string[] }
-      }
-
-      const data = await response.json()
-      const idsLeads = data?.data?.ids_leads ?? data?.ids_leads ?? []
-      
-      if (!Array.isArray(idsLeads)) {
-        console.error('❌ Respuesta sin array de IDs')
-        return { success: false as const, ids_leads: [] as string[] }
-      }
-
-      console.log('✅ Leads con oferta cargados desde servidor:', idsLeads.length)
-
-      return { success: true as const, ids_leads: idsLeads }
-    } catch (error) {
-      console.error('💥 Error obteniendo IDs de leads con ofertas:', error)
-      return { success: false as const, ids_leads: [] as string[] }
-    }
-  }, [])
+    },
+    [],
+  );
 
   const obtenerOfertaPorLead = useCallback(async (leadId: string) => {
     try {
       if (!leadId) {
-        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+        return {
+          success: false,
+          oferta: null,
+          ofertas: [] as OfertaConfeccion[],
+          total: 0,
+          error: false as const,
+        };
       }
 
-      const url = buildApiUrl(OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_LEAD(leadId))
-      console.log('🌐 Fetching oferta para lead:', leadId)
-      console.log('🔗 URL:', url)
+      const url = buildApiUrl(
+        OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_LEAD(leadId),
+      );
+      console.log("🌐 Fetching oferta para lead:", leadId);
+      console.log("🔗 URL:", url);
 
       const response = await fetch(url, {
-        method: 'GET',
+        method: "GET",
         headers: getCommonHeaders(),
-      })
+      });
 
-      console.log('📡 Response status:', response.status, response.statusText)
+      console.log("📡 Response status:", response.status, response.statusText);
 
       if (response.status === 404) {
-        console.log('ℹ️ Lead sin oferta asignada')
-        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+        console.log("ℹ️ Lead sin oferta asignada");
+        return {
+          success: false,
+          oferta: null,
+          ofertas: [] as OfertaConfeccion[],
+          total: 0,
+          error: false as const,
+        };
       }
 
       if (!response.ok) {
-        console.error('❌ Error en endpoint oferta lead:', response.status)
-        return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: true as const }
+        console.error("❌ Error en endpoint oferta lead:", response.status);
+        return {
+          success: false,
+          oferta: null,
+          ofertas: [] as OfertaConfeccion[],
+          total: 0,
+          error: true as const,
+        };
       }
 
-      const data = await response.json()
-      console.log('📦 Response data:', data)
+      const data = await response.json();
+      console.log("📦 Response data:", data);
 
-      const payload = data?.data ?? data
+      const payload = data?.data ?? data;
       const ofertasRaw = Array.isArray(payload?.ofertas)
         ? payload.ofertas
         : Array.isArray(data?.ofertas)
           ? data.ofertas
-          : []
+          : [];
 
       if (Array.isArray(ofertasRaw) && ofertasRaw.length > 0) {
-        const ofertas = ofertasRaw.map(normalizeOfertaConfeccion)
-        const total = payload?.total_ofertas ?? ofertas.length
-        console.log('✅ Oferta encontrada para lead:', leadId, '- Total:', total)
+        const ofertas = ofertasRaw.map(normalizeOfertaConfeccion);
+        const total = payload?.total_ofertas ?? ofertas.length;
+        console.log(
+          "✅ Oferta encontrada para lead:",
+          leadId,
+          "- Total:",
+          total,
+        );
         return {
           success: true,
           oferta: ofertas[0] ?? null,
           ofertas,
           total,
           error: false as const,
-        }
+        };
       }
 
-      console.log('ℹ️ Sin ofertas en respuesta para lead:', leadId)
-      return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: false as const }
+      console.log("ℹ️ Sin ofertas en respuesta para lead:", leadId);
+      return {
+        success: false,
+        oferta: null,
+        ofertas: [] as OfertaConfeccion[],
+        total: 0,
+        error: false as const,
+      };
     } catch (error: any) {
-      console.error('💥 Error en obtenerOfertaPorLead:', error)
-      return { success: false, oferta: null, ofertas: [] as OfertaConfeccion[], total: 0, error: true as const }
+      console.error("💥 Error en obtenerOfertaPorLead:", error);
+      return {
+        success: false,
+        oferta: null,
+        ofertas: [] as OfertaConfeccion[],
+        total: 0,
+        error: true as const,
+      };
     }
-  }, [])
+  }, []);
 
-  const asignarOfertaALead = useCallback(async (ofertaGenericaId: string, leadId: string) => {
-    try {
-      const response = await apiRequest<any>('/ofertas/confeccion/asignar-a-lead', {
-        method: 'POST',
-        body: JSON.stringify({
-          oferta_generica_id: ofertaGenericaId,
-          lead_id: leadId,
-        }),
-      })
+  const asignarOfertaALead = useCallback(
+    async (ofertaGenericaId: string, leadId: string) => {
+      try {
+        const response = await apiRequest<any>(
+          "/ofertas/confeccion/asignar-a-lead",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              oferta_generica_id: ofertaGenericaId,
+              lead_id: leadId,
+            }),
+          },
+        );
 
-      if (response?.success) {
+        if (response?.success) {
+          toast({
+            title: "Oferta asignada",
+            description:
+              response.message || "La oferta se asignó correctamente al lead",
+          });
+
+          await fetchOfertas();
+          return {
+            success: true,
+            ofertaNuevaId: response.oferta_nueva_id,
+            ofertaNueva: response.oferta_nueva,
+          };
+        } else {
+          throw new Error(response?.message || "No se pudo asignar la oferta");
+        }
+      } catch (error: any) {
+        console.error("Error asignando oferta:", error);
         toast({
-          title: 'Oferta asignada',
-          description: response.message || 'La oferta se asignó correctamente al lead',
-        })
-
-        await fetchOfertas()
-        return {
-          success: true,
-          ofertaNuevaId: response.oferta_nueva_id,
-          ofertaNueva: response.oferta_nueva,
-        }
-      } else {
-        throw new Error(response?.message || 'No se pudo asignar la oferta')
+          title: "Error",
+          description: error.message || "No se pudo asignar la oferta al lead",
+          variant: "destructive",
+        });
+        return { success: false };
       }
-    } catch (error: any) {
-      console.error('Error asignando oferta:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'No se pudo asignar la oferta al lead',
-        variant: 'destructive',
-      })
-      return { success: false }
-    }
-  }, [toast, fetchOfertas])
+    },
+    [toast, fetchOfertas],
+  );
 
   useEffect(() => {
-    fetchOfertas()
-  }, [fetchOfertas])
+    fetchOfertas();
+  }, [fetchOfertas]);
 
   return {
     ofertas,
@@ -613,6 +817,5 @@ export function useOfertasConfeccion() {
     obtenerIdsLeadsConOfertas,
     obtenerOfertaPorLead,
     asignarOfertaALead,
-  }
+  };
 }
-
