@@ -2,6 +2,7 @@
 
 import { apiRequest } from '../../../api-config'
 import type { Trabajador as ApiTrabajador } from '../../../api-types'
+import type { BirthdaysResponse } from '../../../types/feats/trabajador/birthday-types'
 
 export class TrabajadorService {
   static async getAllTrabajadores(): Promise<ApiTrabajador[]> {
@@ -157,5 +158,23 @@ export class TrabajadorService {
       method: 'DELETE',
     })
     return response.success === true
+  }
+
+  /**
+   * Obtiene la lista de trabajadores que cumplen años hoy
+   * @returns Lista de trabajadores con cumpleaños hoy
+   */
+  static async getCumpleanosHoy(): Promise<BirthdaysResponse> {
+    try {
+      const response = await apiRequest<BirthdaysResponse>('/trabajadores/cumpleanos/hoy')
+      return response
+    } catch (error) {
+      console.error('Error obteniendo cumpleaños:', error)
+      return {
+        success: false,
+        message: 'Error al obtener cumpleaños',
+        data: []
+      }
+    }
   }
 }

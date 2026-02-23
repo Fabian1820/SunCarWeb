@@ -44,6 +44,7 @@ import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { useAuth } from "@/contexts/auth-context"
 import { UserMenu } from "@/components/auth/user-menu"
+import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker"
 
 export default function Dashboard() {
     const { hasPermission, user, loadModulosPermitidos } = useAuth()
@@ -491,6 +492,9 @@ export default function Dashboard() {
                     <ContactosDashboard />
                 </DialogContent>
             </Dialog>
+
+            {/* Birthday Notification Checker */}
+            <BirthdayChecker />
 
             <Toaster />
         </div>
