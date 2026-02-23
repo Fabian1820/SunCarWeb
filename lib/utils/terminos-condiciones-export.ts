@@ -23,6 +23,22 @@ export interface TerminosCondicionesPayload {
   } | null;
 }
 
+export interface PagoAcordadoExportPayload {
+  monto_usd?: number | null;
+  metodo_pago?: string | null;
+  fecha_estimada?: string | null;
+}
+
+export interface OfertaTerminosCondicionesContext {
+  formas_pago_acordadas?: boolean | null;
+  cantidad_pagos_acordados?: number | null;
+  pagos_acordados?: PagoAcordadoExportPayload[] | null;
+}
+
+export interface BuildTerminosCondicionesOptions {
+  oferta?: OfertaTerminosCondicionesContext | null;
+}
+
 const normalizarTexto = (value?: string | null): string => (value || "").trim();
 
 const escaparHtml = (value: string): string =>
@@ -81,13 +97,74 @@ const resolverCampo = (
   return "";
 };
 
+const formatearMetodoPago = (metodo?: string | null): string => {
+  if (!metodo) return "--";
+  const metodoNormalizado = metodo.toLowerCase();
+  if (metodoNormalizado === "efectivo") return "Efectivo";
+  if (metodoNormalizado === "transferencia") return "Transferencia";
+  if (metodoNormalizado === "stripe") return "Stripe";
+  return metodo;
+};
+
+const formatearFechaPago = (fecha?: string | null): string => {
+  if (!fecha) return "--";
+  const parsed = new Date(fecha);
+  if (Number.isNaN(parsed.getTime())) return fecha;
+  return parsed.toLocaleDateString("es-ES", {
+    dateStyle: "short",
+  });
+};
+
+const construirTextoPagosAcordados = (
+  oferta?: OfertaTerminosCondicionesContext | null,
+): string | null => {
+  if (!oferta?.formas_pago_acordadas) return null;
+
+  const pagos = Array.isArray(oferta.pagos_acordados)
+    ? oferta.pagos_acordados
+    : [];
+  const cantidadPagos = Math.max(
+    0,
+    Math.floor(Number(oferta.cantidad_pagos_acordados) || 0),
+  );
+
+  if (pagos.length === 0) {
+    if (cantidadPagos > 0) {
+      return `Cantidad de pagos acordados: ${cantidadPagos}`;
+    }
+    return "Pagos acordados con el cliente.";
+  }
+
+  const lineas = pagos.map((pago, index) => {
+    const monto = Number(pago?.monto_usd);
+    const montoFormateado = Number.isFinite(monto)
+      ? `${monto.toFixed(2)} USD`
+      : "--";
+    const metodoFormateado = formatearMetodoPago(pago?.metodo_pago);
+    const fechaFormateada = formatearFechaPago(pago?.fecha_estimada);
+    return `Pago ${index + 1}: Monto ${montoFormateado}; Método de pago ${metodoFormateado}; Fecha estimada ${fechaFormateada}.`;
+  });
+
+  if (cantidadPagos > 0 && cantidadPagos !== pagos.length) {
+    lineas.push(
+      `Cantidad de pagos acordados registrada: ${cantidadPagos} (detalles: ${pagos.length}).`,
+    );
+  }
+
+  return lineas.join("\n");
+};
+
 export function buildTerminosCondicionesHtml(
   payload?: TerminosCondicionesPayload | null,
+  options?: BuildTerminosCondicionesOptions,
 ): string | null {
   if (!payload) return null;
 
   const titulo = resolverCampo(payload, ["titulo"]);
-  const formasPago = resolverCampo(payload, ["formas_pago", "formasPago"]);
+  const formasPagoAcordadas = construirTextoPagosAcordados(options?.oferta);
+  const formasPago =
+    formasPagoAcordadas ||
+    resolverCampo(payload, ["formas_pago", "formasPago"]);
   const reservaEquipos = resolverCampo(payload, [
     "reserva_equipos",
     "reservaEquipos",
@@ -112,8 +189,10 @@ export function buildTerminosCondicionesHtml(
 
   const secciones = [
     {
-      label: "FORMAS DE PAGO",
-      value: limpiarContenidoSeccion(formasPago, "formas?\\s+de\\s+pago"),
+      label: formasPagoAcordadas ? "PAGOS ACORDADOS" : "FORMAS DE PAGO",
+      value: formasPagoAcordadas
+        ? formasPagoAcordadas
+        : limpiarContenidoSeccion(formasPago, "formas?\\s+de\\s+pago"),
     },
     {
       label: "RESERVA DE EQUIPOS",

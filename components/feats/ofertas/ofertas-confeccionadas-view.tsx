@@ -78,9 +78,8 @@ export function OfertasConfeccionadasView() {
     (typeof ofertas)[number] | null
   >(null);
   const [eliminandoOferta, setEliminandoOferta] = useState(false);
-  const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(
-    null,
-  );
+  const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
+    useState<TerminosCondicionesPayload | null>(null);
 
   const getEstadoBadge = (estado: string) => {
     const badges = {
@@ -205,21 +204,16 @@ export function OfertasConfeccionadasView() {
           method: "GET",
         });
 
-        const terminosHtml = buildTerminosCondicionesHtml(result.data);
-
-        if (result.success && terminosHtml) {
-          console.log(
-            "✅ Términos y condiciones cargados:",
-            `${terminosHtml.length} caracteres`,
-          );
-          setTerminosCondiciones(terminosHtml);
+        if (result.success && result.data) {
+          console.log("✅ Términos y condiciones cargados");
+          setTerminosCondicionesPayload(result.data);
         } else {
           console.warn("⚠️ No se encontraron términos y condiciones activos");
-          setTerminosCondiciones(null);
+          setTerminosCondicionesPayload(null);
         }
       } catch (error) {
         console.error("❌ Error cargando términos y condiciones:", error);
-        setTerminosCondiciones(null);
+        setTerminosCondicionesPayload(null);
       }
     };
     cargarTerminos();
@@ -426,6 +420,11 @@ export function OfertasConfeccionadasView() {
 
   // Generar opciones de exportación para una oferta
   const generarOpcionesExportacion = (oferta: (typeof ofertas)[number]) => {
+    const terminosCondicionesExport = buildTerminosCondicionesHtml(
+      terminosCondicionesPayload,
+      { oferta },
+    );
+
     const cliente =
       clientePorOferta.get(oferta.cliente_id || "") ||
       clientePorOferta.get(oferta.cliente_numero || "");
@@ -1090,11 +1089,11 @@ export function OfertasConfeccionadasView() {
       terminosCondiciones: (() => {
         console.log(
           "📄 Pasando términos a exportOptionsCompleto:",
-          terminosCondiciones
-            ? "SÍ (" + terminosCondiciones.length + " caracteres)"
+          terminosCondicionesExport
+            ? "SÍ (" + terminosCondicionesExport.length + " caracteres)"
             : "NO",
         );
-        return terminosCondiciones || undefined;
+        return terminosCondicionesExport || undefined;
       })(),
       seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
         (s: any) =>
@@ -1381,7 +1380,7 @@ export function OfertasConfeccionadasView() {
       fotosMap,
       sinPrecios: true,
       componentesPrincipales,
-      terminosCondiciones: terminosCondiciones || undefined,
+      terminosCondiciones: terminosCondicionesExport || undefined,
       seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
         (s: any) =>
           s.tipo === "extra" &&
@@ -1714,7 +1713,7 @@ export function OfertasConfeccionadasView() {
       fotosMap,
       conPreciosCliente: true,
       componentesPrincipales,
-      terminosCondiciones: terminosCondiciones || undefined,
+      terminosCondiciones: terminosCondicionesExport || undefined,
       seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
         (s: any) =>
           s.tipo === "extra" &&

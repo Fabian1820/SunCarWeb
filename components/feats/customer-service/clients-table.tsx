@@ -308,9 +308,8 @@ export function ClientsTable({
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false);
   const [ofertaParaExportar, setOfertaParaExportar] =
     useState<OfertaConfeccion | null>(null);
-  const [terminosCondiciones, setTerminosCondiciones] = useState<string | null>(
-    null,
-  );
+  const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
+    useState<TerminosCondicionesPayload | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({
@@ -909,21 +908,16 @@ export function ClientsTable({
           method: "GET",
         });
 
-        const terminosHtml = buildTerminosCondicionesHtml(result.data);
-
-        if (result.success && terminosHtml) {
-          console.log(
-            "✅ Términos y condiciones cargados en clients-table:",
-            `${terminosHtml.length} caracteres`,
-          );
-          setTerminosCondiciones(terminosHtml);
+        if (result.success && result.data) {
+          console.log("✅ Términos y condiciones cargados en clients-table");
+          setTerminosCondicionesPayload(result.data);
         } else {
           console.warn("⚠️ No se encontraron términos y condiciones activos");
-          setTerminosCondiciones(null);
+          setTerminosCondicionesPayload(null);
         }
       } catch (error) {
         console.error("❌ Error cargando términos y condiciones:", error);
-        setTerminosCondiciones(null);
+        setTerminosCondicionesPayload(null);
       }
     };
 
@@ -1560,6 +1554,11 @@ export function ClientsTable({
         };
       }
 
+      const terminosCondicionesExport = buildTerminosCondicionesHtml(
+        terminosCondicionesPayload,
+        { oferta },
+      );
+
       const exportOptionsCompleto = {
         title: "Oferta - Exportación completa",
         subtitle:
@@ -1608,7 +1607,7 @@ export function ClientsTable({
         incluirFotos: true,
         fotosMap,
         componentesPrincipales,
-        terminosCondiciones: terminosCondiciones || undefined,
+        terminosCondiciones: terminosCondicionesExport || undefined,
         seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
           (s: any) =>
             s.tipo === "extra" &&
@@ -1870,7 +1869,7 @@ export function ClientsTable({
         fotosMap,
         sinPrecios: true,
         componentesPrincipales,
-        terminosCondiciones: terminosCondiciones || undefined,
+        terminosCondiciones: terminosCondicionesExport || undefined,
         seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
           (s: any) =>
             s.tipo === "extra" &&
@@ -2182,7 +2181,7 @@ export function ClientsTable({
         fotosMap,
         conPreciosCliente: true,
         componentesPrincipales,
-        terminosCondiciones: terminosCondiciones || undefined,
+        terminosCondiciones: terminosCondicionesExport || undefined,
         seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
           (s: any) =>
             s.tipo === "extra" &&
@@ -2209,7 +2208,7 @@ export function ClientsTable({
 
       return resultado;
     },
-    [clients, materials, marcas, terminosCondiciones],
+    [clients, materials, marcas, terminosCondicionesPayload],
   );
 
   const handleExportarOferta = (oferta: OfertaConfeccion) => {
