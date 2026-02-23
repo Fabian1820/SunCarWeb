@@ -175,9 +175,31 @@ export async function apiRequest<T>(
       throw parseError
     }
 
+    // Detectar token expirado o inválido (401) ANTES de cualquier otro manejo
+    if (!response.ok && response.status === 401) {
+      const errorMessage = data.detail || data.message || ''
+
+      if (errorMessage.toLowerCase().includes('token') &&
+          (errorMessage.toLowerCase().includes('expirado') ||
+           errorMessage.toLowerCase().includes('inválido') ||
+           errorMessage.toLowerCase().includes('invalido'))) {
+        console.warn('🔐 Token expirado o inválido - cerrando sesión automáticamente')
+
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('auth_token')
+          localStorage.removeItem('user_data')
+
+          setTimeout(() => {
+            window.location.reload()
+          }, 500)
+        }
+
+        throw new Error('Sesión expirada. Redirigiendo al login...')
+      }
+    }
+
     // Si la respuesta tiene estructura de error del backend
     // Devolverla tal cual para que el servicio la maneje
-    // Soporta tanto el formato nuevo (success: false) como el antiguo (detail)
     if (data.success === false || (data.detail && !response.ok) || data.error) {
       console.log('📦 Returning error response to service for handling')
       return data as T
@@ -187,30 +209,6 @@ export async function apiRequest<T>(
     if (!response.ok) {
       console.error(`❌ API request failed: ${response.status} ${response.statusText}`)
       console.error('❌ Error data:', data)
-
-      // Detectar token expirado o inválido (401)
-      if (response.status === 401) {
-        const errorMessage = data.detail || data.message || ''
-
-        // Si el token está expirado o inválido, cerrar sesión automáticamente
-        if (errorMessage.toLowerCase().includes('token') &&
-            (errorMessage.toLowerCase().includes('expirado') ||
-             errorMessage.toLowerCase().includes('inválido') ||
-             errorMessage.toLowerCase().includes('invalido'))) {
-          console.warn('🔐 Token expirado o inválido - cerrando sesión automáticamente')
-
-          // Limpiar localStorage
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('auth_token')
-            localStorage.removeItem('user_data')
-
-            // Recargar la página para mostrar el login
-            setTimeout(() => {
-              window.location.reload()
-            }, 500)
-          }
-        }
-      }
 
       // Para errores 400 (Bad Request), devolver la respuesta como error estructurado
       // en lugar de lanzar excepción para evitar el overlay de Next.js
