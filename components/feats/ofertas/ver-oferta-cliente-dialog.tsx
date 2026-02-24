@@ -229,8 +229,8 @@ export function VerOfertaClienteDialog({
       };
     });
   }, [oferta]);
-  const precioFinalOferta = Math.max(0, Number(oferta.precio_final || 0));
-  const montoPendienteOferta = Math.max(0, Number(oferta.monto_pendiente || 0));
+  const precioFinalOferta = oferta ? Math.max(0, Number(oferta.precio_final || 0)) : 0;
+  const montoPendienteOferta = oferta ? Math.max(0, Number(oferta.monto_pendiente || 0)) : 0;
   const montoPagadoOferta = Math.max(0, precioFinalOferta - montoPendienteOferta);
   const porcentajePagadoOferta =
     precioFinalOferta > 0 ? Math.min(100, (montoPagadoOferta / precioFinalOferta) * 100) : 0;
