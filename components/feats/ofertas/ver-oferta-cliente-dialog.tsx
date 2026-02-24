@@ -87,6 +87,15 @@ const formatDateTime = (value?: string) => {
   });
 };
 
+const formatDateOnly = (value?: string) => {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("es-ES", {
+    dateStyle: "short",
+  });
+};
+
 export function VerOfertaClienteDialog({
   open,
   onOpenChange,
@@ -187,6 +196,39 @@ export function VerOfertaClienteDialog({
 
   const totalesDetalle = calcularTotalesDetalle();
   const conversionDetalle = calcularConversion();
+  const materialesEntregadosDetalle = useMemo(() => {
+    return (oferta?.items || []).map((item, index) => {
+      const entregas = Array.isArray(item.entregas)
+        ? item.entregas.map((entrega) => ({
+            cantidad: Number(entrega?.cantidad || 0),
+            fecha: entrega?.fecha || "",
+          }))
+        : [];
+      const totalEntregado = entregas.reduce(
+        (sum, entrega) => sum + (Number(entrega.cantidad) || 0),
+        0,
+      );
+      const pendienteCalculado = Math.max(
+        0,
+        (Number(item.cantidad) || 0) - totalEntregado,
+      );
+      const pendiente =
+        Number.isFinite(Number(item.cantidad_pendiente_por_entregar)) &&
+        item.cantidad_pendiente_por_entregar !== undefined
+          ? Number(item.cantidad_pendiente_por_entregar)
+          : pendienteCalculado;
+
+      return {
+        id: `${item.material_codigo || "sin-codigo"}-${index}`,
+        descripcion: item.descripcion || "Material sin descripción",
+        material_codigo: item.material_codigo || "--",
+        cantidadTotal: Number(item.cantidad) || 0,
+        totalEntregado,
+        cantidadPendiente: pendiente,
+        entregas,
+      };
+    });
+  }, [oferta]);
   const precioFinalOferta = Math.max(0, Number(oferta.precio_final || 0));
   const montoPendienteOferta = Math.max(0, Number(oferta.monto_pendiente || 0));
   const montoPagadoOferta = Math.max(0, precioFinalOferta - montoPendienteOferta);
@@ -763,77 +805,76 @@ export function VerOfertaClienteDialog({
                       Materiales de la oferta
                     </div>
 
-                    {(oferta.items || []).length === 0 ? (
-                      <div className="text-sm text-slate-500">
-                        No hay materiales registrados.
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {Object.entries(
-                          (oferta.items || []).reduce<
-                            Record<string, NonNullable<typeof oferta.items>>
-                          >((acc, item) => {
-                            const key = item.seccion || "Sin sección";
-                            if (!acc[key]) acc[key] = [];
-                            acc[key].push(item);
-                            return acc;
-                          }, {}),
-                        ).map(([seccion, items]) => (
-                          <div key={seccion} className="space-y-2">
-                            <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                              {seccion}
-                            </div>
-                            <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
-                              {items.map((item, idx) => {
-                                const material = materialesMap.get(
-                                  item.material_codigo?.toString(),
-                                );
-                                return (
-                                  <div
-                                    key={`${item.material_codigo}-${idx}`}
-                                    className="flex items-center gap-3 p-3"
-                                  >
-                                    <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                      {material?.foto ? (
-                                        <img
-                                          src={material.foto}
-                                          alt={item.descripcion}
-                                          className="w-full h-full object-contain"
-                                        />
-                                      ) : (
-                                        <Package className="h-6 w-6 text-slate-300" />
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-semibold text-slate-900 line-clamp-1">
-                                        {item.descripcion}
-                                      </p>
-                                      <p className="text-xs text-slate-500">
-                                        {item.categoria} · Código{" "}
-                                        {item.material_codigo}
-                                      </p>
-                                    </div>
-                                    <div className="text-right">
-                                      <p className="text-sm font-semibold text-slate-900">
-                                        {item.cantidad} u
-                                      </p>
-                                      <p className="text-xs text-slate-500">
-                                        ${formatCurrency(item.precio)}
-                                      </p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                  {(oferta.items || []).length === 0 ? (
+                    <div className="text-sm text-slate-500">
+                      No hay materiales registrados.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {Object.entries(
+                        (oferta.items || []).reduce<
+                          Record<string, NonNullable<typeof oferta.items>>
+                        >((acc, item) => {
+                          const key = item.seccion || "Sin sección";
+                          if (!acc[key]) acc[key] = [];
+                          acc[key].push(item);
+                          return acc;
+                        }, {}),
+                      ).map(([seccion, items]) => (
+                        <div key={seccion} className="space-y-2">
+                          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                            {seccion}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
+                          <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
+                            {items.map((item, idx) => {
+                              const material = materialesMap.get(
+                                item.material_codigo?.toString(),
+                              );
+                              return (
+                                <div
+                                  key={`${item.material_codigo}-${idx}`}
+                                  className="flex items-center gap-3 p-3"
+                                >
+                                  <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+                                    {material?.foto ? (
+                                      <img
+                                        src={material.foto}
+                                        alt={item.descripcion}
+                                        className="w-full h-full object-contain"
+                                      />
+                                    ) : (
+                                      <Package className="h-6 w-6 text-slate-300" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-semibold text-slate-900 line-clamp-1">
+                                      {item.descripcion}
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      {item.categoria} · Código{" "}
+                                      {item.material_codigo}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {item.cantidad} u
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                      ${formatCurrency(item.precio)}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

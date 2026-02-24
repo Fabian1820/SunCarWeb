@@ -1,153 +1,287 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react"
-import { ClienteService } from "@/lib/api-services"
-import { PageLoader } from "@/components/shared/atom/page-loader"
-import { useToast } from "@/hooks/use-toast"
-import { Toaster } from "@/components/shared/molecule/toaster"
-import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { InstalacionesEnProcesoTable } from "@/components/feats/instalaciones/instalaciones-en-proceso-table"
-import type { Cliente } from "@/lib/api-types"
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { ClienteService } from "@/lib/api-services";
+import { InstalacionesService } from "@/lib/services/feats/instalaciones/instalaciones-service";
+import { PageLoader } from "@/components/shared/atom/page-loader";
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/shared/molecule/toaster";
+import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { InstalacionesEnProcesoTable } from "@/components/feats/instalaciones/instalaciones-en-proceso-table";
+import type { Cliente } from "@/lib/api-types";
+import {
+  extractContactoEntregaKeysFromEntity,
+  extractOfertaIdsFromEntity,
+} from "@/lib/utils/oferta-id";
 
 export default function InstalacionesEnProcesoPage() {
-  const [clients, setClients] = useState<Cliente[]>([])
-  const [loading, setLoading] = useState(false)
-  const [initialLoading, setInitialLoading] = useState(true)
-  const { toast } = useToast()
-  
+  const [clients, setClients] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const { toast } = useToast();
+
   // Estado para capturar los filtros aplicados
   const [appliedFilters, setAppliedFilters] = useState({
     searchTerm: "",
     fechaDesde: "",
     fechaHasta: "",
-  })
+    materialesEntregados: "todos" as "todos" | "con_entregas" | "sin_entregas",
+  });
+  const [ofertasConEntregasIds, setOfertasConEntregasIds] = useState<
+    Set<string>
+  >(new Set());
+  const [ofertasConPendientesIds, setOfertasConPendientesIds] = useState<
+    Set<string>
+  >(new Set());
 
   // Cargar clientes con estado "Instalación en Proceso"
   const fetchClients = useCallback(async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const allClients = await ClienteService.getClientes({})
+      const [allClients, entregasIndex] = await Promise.all([
+        ClienteService.getClientes({}),
+        InstalacionesService.getOfertasConMaterialesEntregadosIndex(),
+      ]);
+
+      setOfertasConEntregasIds(new Set(entregasIndex.ofertaIds));
+      setOfertasConPendientesIds(
+        new Set(entregasIndex.idsConMaterialesPendientes),
+      );
+      const hasEntregasByIndex = (entity: unknown) => {
+        const matchByOfertaId = extractOfertaIdsFromEntity(entity).some((id) =>
+          entregasIndex.ofertaIds.has(id),
+        );
+        if (matchByOfertaId) return true;
+
+        return extractContactoEntregaKeysFromEntity(entity).some((key) =>
+          entregasIndex.contactoKeysConEntregas.has(key),
+        );
+      };
+
       // Filtrar solo los que tienen estado "Instalación en Proceso"
-      const clientesEnProceso = allClients.filter(
-        (client) => client.estado === "Instalación en Proceso"
-      )
-      setClients(clientesEnProceso)
+      const clientesEnProceso = allClients
+        .filter((client) => client.estado === "Instalación en Proceso")
+        .map((client) => ({
+          ...client,
+          tiene_materiales_entregados:
+            (client as any)?.tiene_materiales_entregados === true ||
+            hasEntregasByIndex(client),
+        }));
+      setClients(clientesEnProceso);
     } catch (error: unknown) {
-      console.error('Error cargando clientes:', error)
-      setClients([])
+      console.error("Error cargando clientes:", error);
+      setClients([]);
+      setOfertasConEntregasIds(new Set());
+      setOfertasConPendientesIds(new Set());
       toast({
         title: "Error",
         description: "No se pudieron cargar las instalaciones",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [toast])
+  }, [toast]);
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
-    setInitialLoading(true)
+    setInitialLoading(true);
     try {
-      await fetchClients()
+      await fetchClients();
     } catch (error: unknown) {
-      console.error('Error cargando datos iniciales:', error)
+      console.error("Error cargando datos iniciales:", error);
     } finally {
-      setInitialLoading(false)
+      setInitialLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadInitialData()
+    loadInitialData();
     // eslint-disable-next-line
-  }, [])
+  }, []);
 
   // Función para parsear fechas
   const parseDateValue = (value?: string) => {
-    if (!value) return null
+    if (!value) return null;
     if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-      const [day, month, year] = value.split("/").map(Number)
-      const parsed = new Date(year, month - 1, day)
-      return Number.isNaN(parsed.getTime()) ? null : parsed
+      const [day, month, year] = value.split("/").map(Number);
+      const parsed = new Date(year, month - 1, day);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
     }
-    const parsed = new Date(value)
-    return Number.isNaN(parsed.getTime()) ? null : parsed
-  }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
 
   // Función para construir texto de búsqueda
   const buildSearchText = (client: Cliente) => {
-    const parts: string[] = []
-    const visited = new WeakSet<object>()
+    const parts: string[] = [];
+    const visited = new WeakSet<object>();
 
     const addValue = (value: unknown) => {
-      if (value === null || value === undefined) return
-      if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-        parts.push(String(value))
-        return
+      if (value === null || value === undefined) return;
+      if (
+        typeof value === "string" ||
+        typeof value === "number" ||
+        typeof value === "boolean"
+      ) {
+        parts.push(String(value));
+        return;
       }
       if (value instanceof Date) {
-        parts.push(value.toISOString())
-        return
+        parts.push(value.toISOString());
+        return;
       }
       if (Array.isArray(value)) {
-        value.forEach(addValue)
-        return
+        value.forEach(addValue);
+        return;
       }
       if (typeof value === "object") {
-        if (visited.has(value)) return
-        visited.add(value)
-        Object.values(value as Record<string, unknown>).forEach(addValue)
+        if (visited.has(value)) return;
+        visited.add(value);
+        Object.values(value as Record<string, unknown>).forEach(addValue);
+      }
+    };
+
+    addValue(client);
+    return parts.join(" ").toLowerCase();
+  };
+
+  const clientHasMaterialesEntregados = (client: Cliente) => {
+    const ofertasRaw = (client as { ofertas?: unknown }).ofertas;
+    if (!Array.isArray(ofertasRaw)) return false;
+
+    for (const ofertaRaw of ofertasRaw) {
+      if (!ofertaRaw || typeof ofertaRaw !== "object") continue;
+      const oferta = ofertaRaw as Record<string, unknown>;
+
+      if (
+        oferta.tiene_materiales_entregados === true ||
+        oferta.tiene_entregas === true
+      ) {
+        return true;
+      }
+      if (
+        Number(oferta.materiales_entregados) > 0 ||
+        Number(oferta.total_entregado) > 0
+      ) {
+        return true;
+      }
+
+      const itemsRaw = Array.isArray(oferta.items)
+        ? oferta.items
+        : Array.isArray(oferta.materiales)
+          ? oferta.materiales
+          : [];
+
+      for (const itemRaw of itemsRaw) {
+        if (!itemRaw || typeof itemRaw !== "object") continue;
+        const item = itemRaw as Record<string, unknown>;
+        const entregasRaw = Array.isArray(item.entregas) ? item.entregas : [];
+        const hasEntregaPositiva = entregasRaw.some((entregaRaw) => {
+          if (!entregaRaw || typeof entregaRaw !== "object") return false;
+          const entrega = entregaRaw as Record<string, unknown>;
+          return Number(entrega.cantidad) > 0;
+        });
+        if (hasEntregaPositiva) return true;
+
+        const cantidad = Number(item.cantidad);
+        const pendiente = Number(item.cantidad_pendiente_por_entregar);
+        if (
+          Number.isFinite(cantidad) &&
+          Number.isFinite(pendiente) &&
+          cantidad > 0 &&
+          pendiente < cantidad
+        ) {
+          return true;
+        }
+
+        if (
+          Number(item.cantidad_entregada) > 0 ||
+          Number(item.total_entregado) > 0
+        ) {
+          return true;
+        }
       }
     }
 
-    addValue(client)
-    return parts.join(" ").toLowerCase()
-  }
+    return false;
+  };
 
   // Clientes filtrados
   const filteredClients = useMemo(() => {
-    const search = appliedFilters.searchTerm.trim().toLowerCase()
-    const fechaDesde = parseDateValue(appliedFilters.fechaDesde)
-    const fechaHasta = parseDateValue(appliedFilters.fechaHasta)
+    const search = appliedFilters.searchTerm.trim().toLowerCase();
+    const fechaDesde = parseDateValue(appliedFilters.fechaDesde);
+    const fechaHasta = parseDateValue(appliedFilters.fechaHasta);
 
-    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0)
-    if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999)
+    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0);
+    if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999);
 
     const filtered = clients.filter((client) => {
       if (search) {
-        const text = buildSearchText(client)
+        const text = buildSearchText(client);
         if (!text.includes(search)) {
-          return false
+          return false;
         }
       }
 
       if (fechaDesde || fechaHasta) {
-        const fecha = parseDateValue(client.fecha_contacto)
-        if (!fecha) return false
-        if (fechaDesde && fecha < fechaDesde) return false
-        if (fechaHasta && fecha > fechaHasta) return false
+        const fecha = parseDateValue(client.fecha_contacto);
+        if (!fecha) return false;
+        if (fechaDesde && fecha < fechaDesde) return false;
+        if (fechaHasta && fecha > fechaHasta) return false;
       }
 
-      return true
-    })
+      if (appliedFilters.materialesEntregados !== "todos") {
+        const ofertaIds = extractOfertaIdsFromEntity(client);
+        const hasEntregasByBackend =
+          (client as any)?.tiene_materiales_entregados === true ||
+          Number((client as any)?.materiales_entregados) > 0 ||
+          ofertaIds.some((id) => ofertasConEntregasIds.has(id));
+        const shouldUseFallbackHeuristic =
+          ofertasConEntregasIds.size === 0 || ofertaIds.length === 0;
+        const hasEntregas = shouldUseFallbackHeuristic
+          ? hasEntregasByBackend || clientHasMaterialesEntregados(client)
+          : hasEntregasByBackend;
+
+        if (
+          appliedFilters.materialesEntregados === "con_entregas" &&
+          !hasEntregas
+        ) {
+          return false;
+        }
+        if (
+          appliedFilters.materialesEntregados === "sin_entregas" &&
+          hasEntregas
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
 
     // Ordenar por los últimos 3 dígitos del código de cliente (descendente)
     return filtered.sort((a, b) => {
       const getLastThreeDigits = (numero: string) => {
-        const digits = numero.match(/\d+/g)?.join('') || '0'
-        return parseInt(digits.slice(-3)) || 0
-      }
+        const digits = numero.match(/\d+/g)?.join("") || "0";
+        return parseInt(digits.slice(-3)) || 0;
+      };
 
-      const aNum = getLastThreeDigits(a.numero)
-      const bNum = getLastThreeDigits(b.numero)
+      const aNum = getLastThreeDigits(a.numero);
+      const bNum = getLastThreeDigits(b.numero);
 
-      return bNum - aNum
-    })
-  }, [clients, appliedFilters])
+      return bNum - aNum;
+    });
+  }, [clients, appliedFilters, ofertasConEntregasIds, ofertasConPendientesIds]);
 
   // Mostrar loader mientras se cargan los datos iniciales
   if (initialLoading) {
-    return <PageLoader moduleName="Instalaciones en Proceso" text="Cargando instalaciones..." />
+    return (
+      <PageLoader
+        moduleName="Instalaciones en Proceso"
+        text="Cargando instalaciones..."
+      />
+    );
   }
 
   return (
@@ -166,9 +300,10 @@ export default function InstalacionesEnProcesoPage() {
           loading={loading}
           onFiltersChange={setAppliedFilters}
           onRefresh={fetchClients}
+          ofertasConEntregasIds={ofertasConEntregasIds}
         />
       </main>
       <Toaster />
     </div>
-  )
+  );
 }
