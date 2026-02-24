@@ -875,6 +875,7 @@ export function VerOfertaClienteDialog({
               </Card>
             </div>
           </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
