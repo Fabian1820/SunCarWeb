@@ -2499,6 +2499,36 @@ export function OfertasConfeccionadasView() {
                               </span>
                             </div>
                           )}
+                          {((ofertaSeleccionada as any).compensacion || (ofertaSeleccionada as any).asumido_por_empresa) && (
+                            <div className="pt-2 border-t border-slate-200 space-y-2">
+                              {(ofertaSeleccionada as any).compensacion && (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-orange-700 font-medium">Compensación</span>
+                                    <span className="font-semibold text-orange-700">
+                                      - {formatCurrency((ofertaSeleccionada as any).compensacion.monto_usd || 0)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 italic">
+                                    {(ofertaSeleccionada as any).compensacion.justificacion}
+                                  </p>
+                                </div>
+                              )}
+                              {(ofertaSeleccionada as any).asumido_por_empresa && (
+                                <div className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-blue-700 font-medium">Asumido por Empresa</span>
+                                    <span className="font-semibold text-blue-700">
+                                      - {formatCurrency((ofertaSeleccionada as any).asumido_por_empresa.monto_usd || 0)}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 italic">
+                                    {(ofertaSeleccionada as any).asumido_por_empresa.justificacion}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {ofertaSeleccionada.notas && (
                             <div className="pt-2 border-t border-slate-200 text-xs text-slate-500">
                               <span className="font-semibold text-slate-600">

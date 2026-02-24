@@ -738,6 +738,49 @@ export function VerOfertaClienteDialog({
                           {formatCurrency(oferta.precio_final || 0)}
                         </span>
                       </div>
+                      
+                      {/* Compensación y Asumido por Empresa */}
+                      {(oferta.compensacion || oferta.asumido_por_empresa) && (
+                        <div className="pt-2 border-t border-slate-200 space-y-2">
+                          {oferta.compensacion && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-orange-700 font-medium">Compensación</span>
+                                <span className="font-semibold text-orange-700">
+                                  - {formatCurrency(oferta.compensacion.monto_usd || 0)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 italic">
+                                {oferta.compensacion.justificacion}
+                              </p>
+                            </div>
+                          )}
+                          {oferta.asumido_por_empresa && (
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-blue-700 font-medium">Asumido por Empresa</span>
+                                <span className="font-semibold text-blue-700">
+                                  - {formatCurrency(oferta.asumido_por_empresa.monto_usd || 0)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-600 italic">
+                                {oferta.asumido_por_empresa.justificacion}
+                              </p>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
+                            <span className="font-semibold text-orange-900">Monto Pendiente Real</span>
+                            <span className="text-lg font-bold text-orange-900">
+                              {formatCurrency(
+                                (oferta.precio_final || 0) - 
+                                (oferta.compensacion?.monto_usd || 0) - 
+                                (oferta.asumido_por_empresa?.monto_usd || 0)
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
                       {conversionDetalle && (
                         <div className="flex items-center justify-between text-slate-800">
                           <span className="font-semibold">

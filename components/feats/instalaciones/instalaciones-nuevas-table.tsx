@@ -1268,7 +1268,7 @@ export function InstalacionesNuevasTable({
       </Card>
 
       <Dialog open={entregaDialogOpen} onOpenChange={handleCloseEntregaDialog}>
-        <DialogContent className="max-w-4xl h-[90vh] overflow-hidden gap-3 p-4 sm:p-5">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto gap-3 p-4 sm:p-5">
           <DialogHeader className="space-y-1">
             <DialogTitle className="text-2xl font-bold text-slate-900">
               Entrega de equipo
@@ -1290,7 +1290,7 @@ export function InstalacionesNuevasTable({
               No hay oferta disponible para registrar entregas.
             </div>
           ) : (
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4 space-y-3 h-full overflow-y-auto">
+            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4 space-y-3">
               {ofertasEntrega.length > 1 && (
                 <div className="space-y-1">
                   <Label

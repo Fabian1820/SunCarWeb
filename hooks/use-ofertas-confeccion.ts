@@ -78,6 +78,18 @@ export interface OfertaConfeccion {
   pagos_acordados?: PagoAcordadoOferta[];
   aplica_contribucion?: boolean;
   porcentaje_contribucion?: number;
+  compensacion?: {
+    monto_usd: number;
+    justificacion: string;
+    fecha?: string;
+    aprobado_por?: string;
+  };
+  asumido_por_empresa?: {
+    monto_usd: number;
+    justificacion: string;
+    fecha?: string;
+    aprobado_por?: string;
+  };
   notas?: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
@@ -210,6 +222,18 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     pagos_acordados: formasPagoAcordadas ? pagosAcordados : [],
     aplica_contribucion: raw.aplica_contribucion ?? false,
     porcentaje_contribucion: raw.porcentaje_contribucion ?? 0,
+    compensacion: raw.compensacion ? {
+      monto_usd: Number(raw.compensacion.monto_usd ?? 0),
+      justificacion: raw.compensacion.justificacion ?? "",
+      fecha: raw.compensacion.fecha,
+      aprobado_por: raw.compensacion.aprobado_por,
+    } : undefined,
+    asumido_por_empresa: raw.asumido_por_empresa ? {
+      monto_usd: Number(raw.asumido_por_empresa.monto_usd ?? 0),
+      justificacion: raw.asumido_por_empresa.justificacion ?? "",
+      fecha: raw.asumido_por_empresa.fecha,
+      aprobado_por: raw.asumido_por_empresa.aprobado_por,
+    } : undefined,
     notas: raw.notas,
     fecha_creacion: raw.fecha_creacion ?? raw.created_at ?? "",
     fecha_actualizacion: raw.fecha_actualizacion ?? raw.updated_at ?? "",

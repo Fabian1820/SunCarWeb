@@ -209,6 +209,20 @@ export function ConfeccionOfertasView({
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(
     estadoInicial?.descuentoPorcentaje || 0,
   );
+  
+  // Estados para compensación y asumido por empresa
+  const [tieneCompensacion, setTieneCompensacion] = useState(estadoInicial?.tieneCompensacion || false);
+  const [montoCompensacion, setMontoCompensacion] = useState(estadoInicial?.montoCompensacion || 0);
+  const [justificacionCompensacion, setJustificacionCompensacion] = useState(estadoInicial?.justificacionCompensacion || "");
+  const [modoCompensacion, setModoCompensacion] = useState<"monto" | "porcentaje">(estadoInicial?.modoCompensacion || "monto");
+  const [porcentajeCompensacion, setPorcentajeCompensacion] = useState(estadoInicial?.porcentajeCompensacion || 0);
+  
+  const [tieneAsumidoPorEmpresa, setTieneAsumidoPorEmpresa] = useState(estadoInicial?.tieneAsumidoPorEmpresa || false);
+  const [montoAsumidoPorEmpresa, setMontoAsumidoPorEmpresa] = useState(estadoInicial?.montoAsumidoPorEmpresa || 0);
+  const [justificacionAsumidoPorEmpresa, setJustificacionAsumidoPorEmpresa] = useState(estadoInicial?.justificacionAsumidoPorEmpresa || "");
+  const [modoAsumidoPorEmpresa, setModoAsumidoPorEmpresa] = useState<"monto" | "porcentaje">(estadoInicial?.modoAsumidoPorEmpresa || "monto");
+  const [porcentajeAsumidoPorEmpresa, setPorcentajeAsumidoPorEmpresa] = useState(estadoInicial?.porcentajeAsumidoPorEmpresa || 0);
+  
   const [elementosPersonalizados, setElementosPersonalizados] = useState<
     ElementoPersonalizado[]
   >(estadoInicial?.elementosPersonalizados || []);
@@ -478,6 +492,9 @@ export function ConfeccionOfertasView({
       tiene_ofertaParaDuplicar: !!ofertaParaDuplicar,
       ofertaACopiar_id: ofertaACopiar?.id,
       descuento_en_oferta: ofertaACopiar?.descuento_porcentaje,
+      compensacion_completa: ofertaACopiar?.compensacion,
+      asumido_completo: ofertaACopiar?.asumido_por_empresa,
+      monto_pendiente_backend: ofertaACopiar?.monto_pendiente,
       leadIdInicial,
       clienteIdInicial,
       tipoContactoInicial,
@@ -701,6 +718,27 @@ export function ConfeccionOfertasView({
         tiene_campo: "descuento_porcentaje" in ofertaACopiar,
       });
 
+      // Cargar compensación y asumido por empresa
+      console.log("🔍 DEBUG - Datos de compensación y asumido:", {
+        compensacion: ofertaACopiar.compensacion,
+        asumido_por_empresa: ofertaACopiar.asumido_por_empresa,
+        tiene_compensacion: !!ofertaACopiar.compensacion,
+        tiene_asumido: !!ofertaACopiar.asumido_por_empresa
+      });
+      
+      if (ofertaACopiar.compensacion) {
+        console.log("✅ Cargando compensación:", ofertaACopiar.compensacion);
+        setTieneCompensacion(true);
+        setMontoCompensacion(ofertaACopiar.compensacion.monto_usd || 0);
+        setJustificacionCompensacion(ofertaACopiar.compensacion.justificacion || "");
+      }
+      if (ofertaACopiar.asumido_por_empresa) {
+        console.log("✅ Cargando asumido por empresa:", ofertaACopiar.asumido_por_empresa);
+        setTieneAsumidoPorEmpresa(true);
+        setMontoAsumidoPorEmpresa(ofertaACopiar.asumido_por_empresa.monto_usd || 0);
+        setJustificacionAsumidoPorEmpresa(ofertaACopiar.asumido_por_empresa.justificacion || "");
+      }
+
       // Cargar datos de pago
       setMonedaPago(ofertaACopiar.moneda_pago || "USD");
       setTasaCambio(ofertaACopiar.tasa_cambio?.toString() || "");
@@ -839,6 +877,16 @@ export function ConfeccionOfertasView({
           pagosAcordados,
           aplicaContribucion,
           porcentajeContribucion,
+          tieneCompensacion,
+          montoCompensacion,
+          justificacionCompensacion,
+          modoCompensacion,
+          porcentajeCompensacion,
+          tieneAsumidoPorEmpresa,
+          montoAsumidoPorEmpresa,
+          justificacionAsumidoPorEmpresa,
+          modoAsumidoPorEmpresa,
+          porcentajeAsumidoPorEmpresa,
           timestamp: new Date().toISOString(),
         };
         localStorage.setItem(
@@ -877,6 +925,12 @@ export function ConfeccionOfertasView({
     tasaCambio,
     pagoTransferencia,
     datosCuenta,
+    tieneCompensacion,
+    montoCompensacion,
+    justificacionCompensacion,
+    tieneAsumidoPorEmpresa,
+    montoAsumidoPorEmpresa,
+    justificacionAsumidoPorEmpresa,
     formasPagoAcordadas,
     cantidadPagosAcordados,
     pagosAcordados,
@@ -1514,6 +1568,38 @@ export function ConfeccionOfertasView({
     // Redondear al múltiplo de 10 más cercano hacia arriba
     return Math.ceil(totalSinRedondeo / 10) * 10;
   }, [totalSinRedondeo]);
+
+  // Sincronizar compensación: cuando cambia el porcentaje, actualizar el monto
+  useEffect(() => {
+    if (modoCompensacion === "porcentaje" && precioFinal > 0) {
+      const nuevoMonto = (precioFinal * porcentajeCompensacion) / 100;
+      setMontoCompensacion(Math.round(nuevoMonto * 100) / 100);
+    }
+  }, [modoCompensacion, porcentajeCompensacion, precioFinal]);
+
+  // Sincronizar asumido por empresa: cuando cambia el porcentaje, actualizar el monto
+  useEffect(() => {
+    if (modoAsumidoPorEmpresa === "porcentaje" && precioFinal > 0) {
+      const nuevoMonto = (precioFinal * porcentajeAsumidoPorEmpresa) / 100;
+      setMontoAsumidoPorEmpresa(Math.round(nuevoMonto * 100) / 100);
+    }
+  }, [modoAsumidoPorEmpresa, porcentajeAsumidoPorEmpresa, precioFinal]);
+
+  // Calcular monto pendiente restando compensación y asumido por empresa
+  const montoPendiente = useMemo(() => {
+    let pendiente = precioFinal;
+    
+    if (tieneCompensacion && montoCompensacion > 0) {
+      pendiente -= montoCompensacion;
+    }
+    
+    if (tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0) {
+      pendiente -= montoAsumidoPorEmpresa;
+    }
+    
+    // Asegurar que no sea negativo
+    return Math.max(0, pendiente);
+  }, [precioFinal, tieneCompensacion, montoCompensacion, tieneAsumidoPorEmpresa, montoAsumidoPorEmpresa]);
 
   // Crear mapa de marcas por ID
   const marcasMap = useMemo(() => {
@@ -4432,6 +4518,22 @@ export function ConfeccionOfertasView({
           subtotal_con_descuento: subtotalConDescuento,
         });
 
+        // Agregar compensación si está marcada
+        if (tieneCompensacion && montoCompensacion > 0 && justificacionCompensacion.trim()) {
+          ofertaData.compensacion = {
+            monto_usd: montoCompensacion,
+            justificacion: justificacionCompensacion.trim()
+          };
+        }
+
+        // Agregar asumido por empresa si está marcado
+        if (tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0 && justificacionAsumidoPorEmpresa.trim()) {
+          ofertaData.asumido_por_empresa = {
+            monto_usd: montoAsumidoPorEmpresa,
+            justificacion: justificacionAsumidoPorEmpresa.trim()
+          };
+        }
+
         // Agregar datos de pago
         ofertaData.moneda_pago = monedaPago;
         ofertaData.tasa_cambio =
@@ -6474,6 +6576,198 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
 
+                {/* Compensación */}
+                <div className="rounded-md border border-orange-200 bg-orange-50 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="tieneCompensacion"
+                      checked={tieneCompensacion}
+                      onChange={(e) => setTieneCompensacion(e.target.checked)}
+                      className="h-4 w-4 rounded border-orange-300"
+                    />
+                    <label htmlFor="tieneCompensacion" className="text-sm font-semibold text-orange-900 cursor-pointer">
+                      Tiene Compensación
+                    </label>
+                  </div>
+                  
+                  {tieneCompensacion && (
+                    <div className="space-y-2 pl-6">
+                      {/* Toggle entre Monto y Porcentaje */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => setModoCompensacion("monto")}
+                          className={`px-3 py-1 text-xs rounded ${
+                            modoCompensacion === "monto"
+                              ? "bg-orange-600 text-white"
+                              : "bg-white text-orange-700 border border-orange-300"
+                          }`}
+                        >
+                          Monto Fijo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModoCompensacion("porcentaje")}
+                          className={`px-3 py-1 text-xs rounded ${
+                            modoCompensacion === "porcentaje"
+                              ? "bg-orange-600 text-white"
+                              : "bg-white text-orange-700 border border-orange-300"
+                          }`}
+                        >
+                          % del Precio
+                        </button>
+                      </div>
+                      
+                      {modoCompensacion === "monto" ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-sm text-orange-700">Monto (USD)</label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={montoCompensacion}
+                            onChange={(e) => setMontoCompensacion(Number(e.target.value) || 0)}
+                            className="h-9 w-32 text-right bg-white"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="text-sm text-orange-700">Porcentaje (%)</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={porcentajeCompensacion}
+                              onChange={(e) => setPorcentajeCompensacion(Number(e.target.value) || 0)}
+                              className="h-9 w-32 text-right bg-white"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-orange-600">
+                            <span>Monto calculado:</span>
+                            <span className="font-semibold">${formatCurrency(montoCompensacion)}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <label className="text-sm text-orange-700 block mb-1">Justificación</label>
+                        <textarea
+                          value={justificacionCompensacion}
+                          onChange={(e) => setJustificacionCompensacion(e.target.value)}
+                          className="w-full h-20 px-3 py-2 text-sm border border-orange-200 rounded-md bg-white resize-none"
+                          placeholder="Ej: Compensación por retraso de 2 semanas en la instalación"
+                          minLength={10}
+                          maxLength={500}
+                        />
+                        <p className="text-xs text-orange-600 mt-1">
+                          {justificacionCompensacion.length}/500 caracteres (mínimo 10)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Asumido por Empresa */}
+                <div className="rounded-md border border-blue-200 bg-blue-50 p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="tieneAsumidoPorEmpresa"
+                      checked={tieneAsumidoPorEmpresa}
+                      onChange={(e) => setTieneAsumidoPorEmpresa(e.target.checked)}
+                      className="h-4 w-4 rounded border-blue-300"
+                    />
+                    <label htmlFor="tieneAsumidoPorEmpresa" className="text-sm font-semibold text-blue-900 cursor-pointer">
+                      Tiene Monto Asumido por Empresa
+                    </label>
+                  </div>
+                  
+                  {tieneAsumidoPorEmpresa && (
+                    <div className="space-y-2 pl-6">
+                      {/* Toggle entre Monto y Porcentaje */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => setModoAsumidoPorEmpresa("monto")}
+                          className={`px-3 py-1 text-xs rounded ${
+                            modoAsumidoPorEmpresa === "monto"
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-blue-700 border border-blue-300"
+                          }`}
+                        >
+                          Monto Fijo
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setModoAsumidoPorEmpresa("porcentaje")}
+                          className={`px-3 py-1 text-xs rounded ${
+                            modoAsumidoPorEmpresa === "porcentaje"
+                              ? "bg-blue-600 text-white"
+                              : "bg-white text-blue-700 border border-blue-300"
+                          }`}
+                        >
+                          % del Precio
+                        </button>
+                      </div>
+                      
+                      {modoAsumidoPorEmpresa === "monto" ? (
+                        <div className="flex items-center justify-between gap-3">
+                          <label className="text-sm text-blue-700">Monto (USD)</label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={montoAsumidoPorEmpresa}
+                            onChange={(e) => setMontoAsumidoPorEmpresa(Number(e.target.value) || 0)}
+                            className="h-9 w-32 text-right bg-white"
+                            placeholder="0.00"
+                          />
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <label className="text-sm text-blue-700">Porcentaje (%)</label>
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={porcentajeAsumidoPorEmpresa}
+                              onChange={(e) => setPorcentajeAsumidoPorEmpresa(Number(e.target.value) || 0)}
+                              className="h-9 w-32 text-right bg-white"
+                              placeholder="0"
+                            />
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-blue-600">
+                            <span>Monto calculado:</span>
+                            <span className="font-semibold">${formatCurrency(montoAsumidoPorEmpresa)}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div>
+                        <label className="text-sm text-blue-700 block mb-1">Justificación</label>
+                        <textarea
+                          value={justificacionAsumidoPorEmpresa}
+                          onChange={(e) => setJustificacionAsumidoPorEmpresa(e.target.value)}
+                          className="w-full h-20 px-3 py-2 text-sm border border-blue-200 rounded-md bg-white resize-none"
+                          placeholder="Ej: Descuento VIP aprobado por gerencia"
+                          minLength={10}
+                          maxLength={500}
+                        />
+                        <p className="text-xs text-blue-600 mt-1">
+                          {justificacionAsumidoPorEmpresa.length}/500 caracteres (mínimo 10)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Elementos Personalizados */}
                 <div className="rounded-md border border-slate-200 bg-white p-3">
                   <div className="flex items-center justify-between gap-2 mb-3">
@@ -6914,6 +7208,36 @@ export function ConfeccionOfertasView({
                         <p className="text-xs text-slate-600 text-right mt-1">
                           (Redondeado desde {formatCurrency(totalSinRedondeo)})
                         </p>
+                      )}
+                      
+                      {/* Mostrar compensación y asumido si existen */}
+                      {(tieneCompensacion || tieneAsumidoPorEmpresa) && (
+                        <div className="pt-2 mt-2 border-t border-slate-200 space-y-1">
+                          {tieneCompensacion && montoCompensacion > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-orange-700">Compensación</span>
+                              <span className="font-medium text-orange-700">
+                                - {formatCurrency(montoCompensacion)}
+                              </span>
+                            </div>
+                          )}
+                          {tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0 && (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-blue-700">Asumido por Empresa</span>
+                              <span className="font-medium text-blue-700">
+                                - {formatCurrency(montoAsumidoPorEmpresa)}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
+                            <span className="text-base font-bold text-orange-900">
+                              Monto Pendiente
+                            </span>
+                            <span className="text-xl font-bold text-orange-900">
+                              {formatCurrency(montoPendiente)}
+                            </span>
+                          </div>
+                        </div>
                       )}
                     </div>
 
