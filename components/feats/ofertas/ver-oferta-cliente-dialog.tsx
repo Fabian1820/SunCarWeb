@@ -9,6 +9,7 @@ import {
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
+import { Progress } from "@/components/shared/atom/progress";
 import {
   ArrowLeft,
   Building2,
@@ -21,6 +22,7 @@ import {
 import { useMaterials } from "@/hooks/use-materials";
 import { useEffect, useMemo, useState } from "react";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { GenerarLinkPagoConfeccionButton } from "./generar-link-pago-confeccion-button";
 
 interface VerOfertaClienteDialogProps {
   open: boolean;
@@ -185,6 +187,11 @@ export function VerOfertaClienteDialog({
 
   const totalesDetalle = calcularTotalesDetalle();
   const conversionDetalle = calcularConversion();
+  const precioFinalOferta = Math.max(0, Number(oferta.precio_final || 0));
+  const montoPendienteOferta = Math.max(0, Number(oferta.monto_pendiente || 0));
+  const montoPagadoOferta = Math.max(0, precioFinalOferta - montoPendienteOferta);
+  const porcentajePagadoOferta =
+    precioFinalOferta > 0 ? Math.min(100, (montoPagadoOferta / precioFinalOferta) * 100) : 0;
 
   // Early return DESPUÉS de todos los hooks
   if (!oferta) {
@@ -246,6 +253,11 @@ export function VerOfertaClienteDialog({
                     <Download className="h-4 w-4" />
                   </Button>
                 )}
+                <GenerarLinkPagoConfeccionButton
+                  oferta={oferta}
+                  variant="outline"
+                  size="sm"
+                />
                 {onEditar && (
                   <Button
                     type="button"
@@ -375,10 +387,40 @@ export function VerOfertaClienteDialog({
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[360px,1fr] gap-6 flex-1 min-h-0 overflow-hidden">
-            {/* Columna izquierda - Información general */}
-            <div className="h-full min-h-0 overflow-hidden">
-              <div className="space-y-4 pr-1 lg:pr-2 overflow-y-auto max-h-full">
+          <>
+            <Card className="border-slate-200 mb-4 shrink-0">
+              <CardContent className="p-4 space-y-2">
+                <div className="flex items-center justify-between text-sm text-slate-600">
+                  <span>Progreso de pago</span>
+                  <span className="font-semibold text-slate-900">
+                    {porcentajePagadoOferta.toFixed(1)}%
+                  </span>
+                </div>
+                <Progress
+                  value={porcentajePagadoOferta}
+                  className="h-2.5 bg-slate-200 [&>div]:bg-emerald-500"
+                />
+                <div className="flex items-center justify-between text-xs text-slate-600">
+                  <span>
+                    Pagado:{" "}
+                    <span className="font-semibold text-slate-900">
+                      {formatCurrency(montoPagadoOferta)}
+                    </span>
+                  </span>
+                  <span>
+                    Pendiente:{" "}
+                    <span className="font-semibold text-slate-900">
+                      {formatCurrency(montoPendienteOferta)}
+                    </span>
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[360px,1fr] gap-6 flex-1 min-h-0 overflow-hidden">
+              {/* Columna izquierda - Información general */}
+              <div className="h-full min-h-0 overflow-hidden">
+                <div className="space-y-4 pr-1 lg:pr-2 overflow-y-auto max-h-full">
                 {/* Foto de portada */}
                 <Card className="overflow-hidden border-slate-200">
                   <CardContent className="p-0">
@@ -670,6 +712,34 @@ export function VerOfertaClienteDialog({
                         </div>
                       )}
 
+                      {/* Progreso de pago */}
+                      <div className="pt-2 border-t border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between text-sm text-slate-600">
+                          <span>Progreso de pago</span>
+                          <span className="font-semibold text-slate-900">
+                            {porcentajePagadoOferta.toFixed(1)}%
+                          </span>
+                        </div>
+                        <Progress
+                          value={porcentajePagadoOferta}
+                          className="h-2.5 bg-slate-200 [&>div]:bg-emerald-500"
+                        />
+                        <div className="flex items-center justify-between text-xs text-slate-600">
+                          <span>
+                            Pagado:{" "}
+                            <span className="font-semibold text-slate-900">
+                              {formatCurrency(montoPagadoOferta)}
+                            </span>
+                          </span>
+                          <span>
+                            Pendiente:{" "}
+                            <span className="font-semibold text-slate-900">
+                              {formatCurrency(montoPendienteOferta)}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+
                       {/* Notas */}
                       {oferta.notas && (
                         <div className="pt-2 border-t border-slate-200 text-xs text-slate-500">
@@ -682,87 +752,88 @@ export function VerOfertaClienteDialog({
                     </div>
                   </CardContent>
                 </Card>
+                </div>
+              </div>
+
+              {/* Columna derecha - Materiales */}
+              <div className="space-y-4 overflow-y-auto pr-1 lg:pr-3">
+                <Card className="border-slate-200">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="text-sm text-slate-500">
+                      Materiales de la oferta
+                    </div>
+
+                    {(oferta.items || []).length === 0 ? (
+                      <div className="text-sm text-slate-500">
+                        No hay materiales registrados.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {Object.entries(
+                          (oferta.items || []).reduce<
+                            Record<string, NonNullable<typeof oferta.items>>
+                          >((acc, item) => {
+                            const key = item.seccion || "Sin sección";
+                            if (!acc[key]) acc[key] = [];
+                            acc[key].push(item);
+                            return acc;
+                          }, {}),
+                        ).map(([seccion, items]) => (
+                          <div key={seccion} className="space-y-2">
+                            <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                              {seccion}
+                            </div>
+                            <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
+                              {items.map((item, idx) => {
+                                const material = materialesMap.get(
+                                  item.material_codigo?.toString(),
+                                );
+                                return (
+                                  <div
+                                    key={`${item.material_codigo}-${idx}`}
+                                    className="flex items-center gap-3 p-3"
+                                  >
+                                    <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+                                      {material?.foto ? (
+                                        <img
+                                          src={material.foto}
+                                          alt={item.descripcion}
+                                          className="w-full h-full object-contain"
+                                        />
+                                      ) : (
+                                        <Package className="h-6 w-6 text-slate-300" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-slate-900 line-clamp-1">
+                                        {item.descripcion}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        {item.categoria} · Código{" "}
+                                        {item.material_codigo}
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold text-slate-900">
+                                        {item.cantidad} u
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        ${formatCurrency(item.precio)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
             </div>
-
-            {/* Columna derecha - Materiales */}
-            <div className="space-y-4 overflow-y-auto pr-1 lg:pr-3">
-              <Card className="border-slate-200">
-                <CardContent className="p-4 space-y-4">
-                  <div className="text-sm text-slate-500">
-                    Materiales de la oferta
-                  </div>
-
-                  {(oferta.items || []).length === 0 ? (
-                    <div className="text-sm text-slate-500">
-                      No hay materiales registrados.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {Object.entries(
-                        (oferta.items || []).reduce<
-                          Record<string, NonNullable<typeof oferta.items>>
-                        >((acc, item) => {
-                          const key = item.seccion || "Sin sección";
-                          if (!acc[key]) acc[key] = [];
-                          acc[key].push(item);
-                          return acc;
-                        }, {}),
-                      ).map(([seccion, items]) => (
-                        <div key={seccion} className="space-y-2">
-                          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                            {seccion}
-                          </div>
-                          <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
-                            {items.map((item, idx) => {
-                              const material = materialesMap.get(
-                                item.material_codigo?.toString(),
-                              );
-                              return (
-                                <div
-                                  key={`${item.material_codigo}-${idx}`}
-                                  className="flex items-center gap-3 p-3"
-                                >
-                                  <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                    {material?.foto ? (
-                                      <img
-                                        src={material.foto}
-                                        alt={item.descripcion}
-                                        className="w-full h-full object-contain"
-                                      />
-                                    ) : (
-                                      <Package className="h-6 w-6 text-slate-300" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 line-clamp-1">
-                                      {item.descripcion}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      {item.categoria} · Código{" "}
-                                      {item.material_codigo}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold text-slate-900">
-                                      {item.cantidad} u
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      ${formatCurrency(item.precio)}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>

@@ -541,7 +541,7 @@ export default function ClientesPage() {
           </div>
         }
       />
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <ClientsTable
           clients={clients}
           onEdit={handleEditClient}

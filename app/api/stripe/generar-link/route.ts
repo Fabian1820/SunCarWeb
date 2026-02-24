@@ -84,6 +84,10 @@ export async function POST(request: NextRequest) {
         },
       ],
       payment_method_types: paymentMethodTypes,
+      invoice_creation: {
+        enabled: true,
+      },
+      customer_creation: 'always',
       metadata: {
         oferta_id: oferta_id || '',
         cliente_id: cliente_id || '',
@@ -97,6 +101,7 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Link de pago generado exitosamente',
       payment_link: paymentLink.url,
+      payment_link_id: paymentLink.id,
       precio_con_recargo: precioConRecargo,
     })
   } catch (error) {

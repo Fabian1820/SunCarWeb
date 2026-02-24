@@ -72,9 +72,9 @@ export function PriorityDot({ prioridad = "Baja", onChange, disabled = false }: 
               <Button
                 key={p}
                 type="button"
-                variant={p === prioridadValida ? "default" : "ghost"}
+                variant="ghost"
                 size="sm"
-                className={`w-full justify-start text-sm ${p === prioridadValida ? 'bg-gray-100' : ''}`}
+                className={`w-full justify-start text-sm text-black hover:text-black ${p === prioridadValida ? 'bg-gray-200 font-semibold' : 'text-gray-700'}`}
                 onClick={() => handleChange(p)}
               >
                 <span className={`w-2.5 h-2.5 rounded-full ${pConfig.color} mr-2`} />

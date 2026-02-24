@@ -31,6 +31,7 @@ export interface OfertaConfeccion {
   nombre_lead_sin_agregar?: string;
   foto_portada?: string;
   precio_final: number;
+  monto_pendiente?: number;
   total_materiales: number;
   margen_comercial: number;
   margen_instalacion?: number;
@@ -121,6 +122,11 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
   const cantidadPagosAcordados = Number.isFinite(cantidadPagosAcordadosRaw)
     ? cantidadPagosAcordadosRaw
     : pagosAcordados.length;
+  const montoPendienteRaw = raw.monto_pendiente ?? raw.saldo_pendiente;
+  const montoPendiente =
+    montoPendienteRaw !== undefined && montoPendienteRaw !== null
+      ? Number(montoPendienteRaw)
+      : undefined;
 
   return {
     id: raw.id ?? raw._id ?? raw.oferta_id ?? "",
@@ -145,6 +151,7 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     nombre_lead_sin_agregar: raw.nombre_lead_sin_agregar,
     foto_portada: raw.foto_portada ?? raw.foto_portada_url ?? raw.foto,
     precio_final: raw.precio_final ?? raw.precio ?? 0,
+    monto_pendiente: Number.isFinite(montoPendiente) ? montoPendiente : undefined,
     total_materiales: raw.total_materiales ?? 0,
     margen_comercial: raw.margen_comercial ?? 0,
     margen_instalacion: raw.margen_instalacion ?? 0,

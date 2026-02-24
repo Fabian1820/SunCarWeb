@@ -15,43 +15,99 @@ interface RegistrarPagoDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     oferta: OfertaConfirmadaSinPago | null
-    onSuccess: () => void
+    onSuccess: (payload?: RegistrarPagoSuccessPayload) => void
+    initialData?: RegistrarPagoInitialData | null
 }
 
-export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: RegistrarPagoDialogProps) {
+export interface RegistrarPagoSuccessPayload {
+    pagoId?: string
+}
+
+export interface RegistrarPagoInitialData {
+    monto?: string | number
+    fecha?: string
+    tipo_pago?: 'anticipo' | 'pendiente'
+    metodo_pago?: 'efectivo' | 'transferencia_bancaria' | 'stripe'
+    moneda?: 'USD' | 'EUR' | 'CUP'
+    tasa_cambio?: number
+    pago_cliente?: boolean
+    nombre_pagador?: string
+    carnet_pagador?: string
+    recibido_por?: string
+    comprobante_transferencia?: string
+    notas?: string
+    justificacion_diferencia?: string
+}
+
+const getDefaultFormData = () => ({
+    monto: '',
+    fecha: new Date().toISOString().slice(0, 10),
+    tipo_pago: 'anticipo' as 'anticipo' | 'pendiente',
+    metodo_pago: 'efectivo' as 'efectivo' | 'transferencia_bancaria' | 'stripe',
+    moneda: 'USD' as 'USD' | 'EUR' | 'CUP',
+    tasa_cambio: 1.0,
+    pago_cliente: true,
+    nombre_pagador: '',
+    carnet_pagador: '',
+    recibido_por: '',
+    comprobante_transferencia: '',
+    notas: '',
+    justificacion_diferencia: '',
+})
+
+const normalizeDate = (value?: string) => {
+    if (!value) return new Date().toISOString().slice(0, 10)
+    return value.length >= 10 ? value.slice(0, 10) : value
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === 'object' && value !== null
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error instanceof Error && error.message) return error.message
+    if (isRecord(error) && typeof error.message === 'string') return error.message
+    return fallback
+}
+
+export function RegistrarPagoDialog({
+    open,
+    onOpenChange,
+    oferta,
+    onSuccess,
+    initialData = null,
+}: RegistrarPagoDialogProps) {
     const [loading, setLoading] = useState(false)
     const [uploadingFile, setUploadingFile] = useState(false)
     const [error, setError] = useState<string | null>(null)
     
-    const [formData, setFormData] = useState({
-        monto: '',
-        fecha: new Date().toISOString().slice(0, 10),
-        tipo_pago: 'anticipo' as 'anticipo' | 'pendiente',
-        metodo_pago: 'efectivo' as 'efectivo' | 'transferencia_bancaria' | 'stripe',
-        moneda: 'USD' as 'USD' | 'EUR' | 'CUP',
-        tasa_cambio: 1.0,
-        pago_cliente: true,
-        nombre_pagador: '',
-        carnet_pagador: '',
-        recibido_por: '',
-        comprobante_transferencia: '',
-        notas: '',
-        justificacion_diferencia: '',
-    })
+    const [formData, setFormData] = useState(getDefaultFormData)
 
     const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, number>>({})
 
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-    // Actualizar fecha cuando se abre el diálogo
+    // Reset/prellenado cuando se abre el diálogo
     useEffect(() => {
         if (open) {
-            setFormData(prev => ({
-                ...prev,
-                fecha: new Date().toISOString().slice(0, 10)
-            }))
+            const base = getDefaultFormData()
+            setFormData({
+                ...base,
+                ...(initialData
+                    ? {
+                        ...initialData,
+                        monto:
+                            typeof initialData.monto === 'number'
+                                ? initialData.monto.toFixed(2)
+                                : initialData.monto ?? base.monto,
+                        fecha: normalizeDate(initialData.fecha),
+                    }
+                    : {}),
+            })
+            setSelectedFile(null)
+            setDesgloseBilletes({})
+            setError(null)
         }
-    }, [open])
+    }, [open, initialData])
 
     // Actualizar tasa de cambio cuando cambia la moneda
     useEffect(() => {
@@ -145,8 +201,8 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
 
             const data = await response.json()
             setFormData(prev => ({ ...prev, comprobante_transferencia: data.url }))
-        } catch (err: any) {
-            setError(err.message || 'Error al subir el archivo')
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, 'Error al subir el archivo'))
             setSelectedFile(null)
         } finally {
             setUploadingFile(false)
@@ -260,37 +316,33 @@ export function RegistrarPagoDialog({ open, onOpenChange, oferta, onSuccess }: R
 
             console.log('📤 Payload completo a enviar al backend:', JSON.stringify(pagoData, null, 2))
 
-            await PagoService.crearPago(pagoData)
+            const createdPago = await PagoService.crearPago(pagoData)
+            const pagoIdCreado =
+                (typeof createdPago?.pago_id === 'string' && createdPago.pago_id.trim()) ||
+                (typeof createdPago?.pago?.id === 'string' && createdPago.pago.id.trim()) ||
+                undefined
 
             // Resetear formulario
-            setFormData({
-                monto: '',
-                fecha: new Date().toISOString().slice(0, 10),
-                tipo_pago: 'anticipo',
-                metodo_pago: 'efectivo',
-                moneda: 'USD',
-                tasa_cambio: 1.0,
-                pago_cliente: true,
-                nombre_pagador: '',
-                carnet_pagador: '',
-                recibido_por: '',
-                comprobante_transferencia: '',
-                notas: '',
-                justificacion_diferencia: '',
-            })
+            setFormData(getDefaultFormData())
             setSelectedFile(null)
             setDesgloseBilletes({})
 
-            onSuccess()
+            onSuccess({ pagoId: pagoIdCreado })
             onOpenChange(false)
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('❌ [RegistrarPago] Error capturado:', err)
             console.error('📋 Tipo de error:', typeof err)
             console.error('📋 Error completo:', JSON.stringify(err, null, 2))
-            console.error('📋 Error.message:', err.message)
-            console.error('📋 Error.response:', err.response)
+            console.error(
+                '📋 Error.message:',
+                err instanceof Error ? err.message : 'Sin mensaje'
+            )
+            console.error(
+                '📋 Error.response:',
+                isRecord(err) ? (err as Record<string, unknown>).response : undefined
+            )
             
-            setError(err.message || 'Error al registrar el pago')
+            setError(getErrorMessage(err, 'Error al registrar el pago'))
         } finally {
             setLoading(false)
         }

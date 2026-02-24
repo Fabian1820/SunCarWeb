@@ -48,6 +48,7 @@ import {
   ChevronDown,
   AlertTriangle,
   Loader2,
+  MoreHorizontal,
 } from "lucide-react";
 import { ReportsTable } from "@/components/feats/reports/reports-table";
 import { ClienteService, ReporteService } from "@/lib/api-services";
@@ -185,7 +186,6 @@ const normalizeClienteNumero = (value?: string) =>
 export function ClientsTable({
   clients,
   onEdit,
-  onDelete,
   onViewLocation,
   onUploadFotos,
   onUpdatePrioridad,
@@ -2697,29 +2697,29 @@ export function ClientsTable({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[980px] lg:min-w-0">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
+                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
                       Cliente
                     </th>
-                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">
+                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[22%]">
                       Contacto
                     </th>
-                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[20%]">
+                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
                       Estado
                     </th>
                     {filteredClients.some(
                       (c) => c.estado === "Instalación en Proceso",
                     ) && (
-                      <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[15%]">
+                      <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[8%]">
                         Falta Instalación
                       </th>
                     )}
-                    <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[24%]">
+                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[20%]">
                       Oferta
                     </th>
-                    <th className="text-right py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
+                    <th className="text-right py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
                       Acciones
                     </th>
                   </tr>
@@ -2774,25 +2774,37 @@ export function ClientsTable({
                         className="hover:bg-gray-50 transition-colors"
                       >
                         <td className="py-4 px-3">
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm mb-1">
-                              {client.nombre}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {client.numero}
-                            </p>
+                          <div className="flex items-start gap-2">
+                            <div className="pt-0.5">
+                              <PriorityDot
+                                prioridad={client.prioridad}
+                                onChange={(prioridad) =>
+                                  client.id &&
+                                  handlePrioridadChange(client.id, prioridad)
+                                }
+                                disabled={!onUpdatePrioridad || !client.id}
+                              />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900 text-base mb-1">
+                                {client.nombre}
+                              </p>
+                              <p className="text-sm text-gray-500">
+                                {client.numero}
+                              </p>
+                            </div>
                           </div>
                         </td>
                         <td className="py-4 px-3">
                           <div className="flex flex-col gap-1">
-                            <div className="flex items-center text-sm text-gray-900">
+                            <div className="flex items-center text-base text-gray-900">
                               <Phone className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
                               <span className="font-medium">
                                 {client.telefono || "Sin teléfono"}
                               </span>
                             </div>
                             {client.direccion && (
-                              <div className="flex items-start text-xs text-gray-500">
+                              <div className="flex items-start text-sm text-gray-500">
                                 <MapPin className="h-3.5 w-3.5 text-gray-400 mr-1.5 mt-0.5 flex-shrink-0" />
                                 <span className="line-clamp-2">
                                   {client.direccion}
@@ -2805,20 +2817,20 @@ export function ClientsTable({
                           <div className="w-full">
                             {client.estado && (
                               <Badge
-                                className={`${getEstadoColor(client.estado)} text-xs whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
+                                className={`${getEstadoColor(client.estado)} text-sm whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
                               >
                                 {client.estado}
                               </Badge>
                             )}
                             {client.comercial && (
-                              <div className="text-xs text-gray-500 flex items-center mt-2">
+                              <div className="text-sm text-gray-500 flex items-center mt-2">
                                 <span className="truncate">
                                   {client.comercial}
                                 </span>
                               </div>
                             )}
                             {client.fuente && (
-                              <div className="text-xs text-gray-500 mt-1">
+                              <div className="text-sm text-gray-500 mt-1">
                                 <span className="text-gray-400">Fuente:</span>{" "}
                                 {client.fuente}
                               </div>
@@ -2830,7 +2842,7 @@ export function ClientsTable({
                         ) && (
                           <td className="py-4 px-3">
                             {client.estado === "Instalación en Proceso" && (
-                              <div className="text-xs">
+                              <div className="text-sm">
                                 <div className="text-gray-500 mb-1">Falta:</div>
                                 <div className="text-gray-900 font-medium">
                                   {client.falta_instalacion ||
@@ -2844,7 +2856,7 @@ export function ClientsTable({
                           <div className="space-y-1">
                             {client.ofertas && client.ofertas.length > 0 ? (
                               client.ofertas.map((oferta: any, idx: number) => (
-                                <div key={idx} className="text-xs space-y-0.5">
+                                <div key={idx} className="text-sm space-y-0.5">
                                   {oferta.inversor_codigo &&
                                     oferta.inversor_cantidad > 0 && (
                                       <div>
@@ -2898,7 +2910,7 @@ export function ClientsTable({
                                 </div>
                               ))
                             ) : (
-                              <div className="text-xs text-gray-400">
+                              <div className="text-sm text-gray-400">
                                 Sin ofertas
                               </div>
                             )}
@@ -2906,16 +2918,6 @@ export function ClientsTable({
                         </td>
                         <td className="py-4 px-3">
                           <div className="flex items-center justify-end gap-2">
-                            <div className="flex items-center h-8 w-8 justify-center">
-                              <PriorityDot
-                                prioridad={client.prioridad}
-                                onChange={(prioridad) =>
-                                  client.id &&
-                                  handlePrioridadChange(client.id, prioridad)
-                                }
-                                disabled={!onUpdatePrioridad}
-                              />
-                            </div>
                             <Button
                               variant="ghost"
                               size="sm"
@@ -2972,25 +2974,6 @@ export function ClientsTable({
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => openAveriasCliente(client)}
-                              className={getAveriaStatus(client).color}
-                              title={getAveriaStatus(client).title}
-                            >
-                              <AlertTriangle className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => openUploadFotosDialog(client)}
-                              className="text-violet-600 hover:text-violet-700 hover:bg-violet-50"
-                              title="Agregar foto o video"
-                              disabled={!onUploadFotos}
-                            >
-                              <Camera className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               onClick={() => handleViewClientDetails(client)}
                               className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
                               title="Ver detalles"
@@ -3006,15 +2989,52 @@ export function ClientsTable({
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onDelete(client)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              title="Eliminar"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                                  title="Más acciones"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                align="end"
+                                className="w-56 p-3"
+                              >
+                                <div className="grid grid-cols-2 gap-3">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openAveriasCliente(client)}
+                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                    title={getAveriaStatus(client).title}
+                                  >
+                                    <AlertTriangle className="h-5 w-5 text-amber-600" />
+                                    <span className="text-xs text-gray-700 leading-tight text-center">
+                                      Avería
+                                    </span>
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openUploadFotosDialog(client)}
+                                    disabled={!onUploadFotos}
+                                    className="h-auto flex-col items-center justify-center gap-1 py-3"
+                                    title="Agregar foto o video"
+                                  >
+                                    <Camera className="h-5 w-5 text-violet-600" />
+                                    <span className="text-xs text-gray-700 leading-tight text-center">
+                                      Agregar foto
+                                    </span>
+                                  </Button>
+                                </div>
+                              </PopoverContent>
+                            </Popover>
                           </div>
                         </td>
                       </tr>

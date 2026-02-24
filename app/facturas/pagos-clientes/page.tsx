@@ -13,13 +13,14 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/shared/atom/select"
-import { ArrowLeft, Search, Plus, List, RefreshCw, AlertCircle } from "lucide-react"
+import { ArrowLeft, Search, Plus, List, RefreshCw, AlertCircle, CreditCard } from "lucide-react"
 import { usePagos } from "@/hooks/use-pagos"
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table"
 import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table"
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table"
 import { EnProcesoPagoTable } from "@/components/feats/pagos/en-proceso-pago-table"
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog"
+import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { useToast } from "@/hooks/use-toast"
 
@@ -46,6 +47,7 @@ export default function PagosClientesPage() {
     const [pagoDialogOpen, setPagoDialogOpen] = useState(false)
     const [selectedOferta, setSelectedOferta] = useState<OfertaConfirmadaSinPago | null>(null)
     const [loadingPagos, setLoadingPagos] = useState(false)
+    const [stripeModalOpen, setStripeModalOpen] = useState(false)
 
     // Filtrar ofertas según búsqueda y vista
     const filteredOfertas = useMemo(() => {
@@ -159,6 +161,15 @@ export default function PagosClientesPage() {
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => setStripeModalOpen(true)}
+                                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                            >
+                                <CreditCard className="h-4 w-4 sm:mr-2" />
+                                <span className="hidden sm:inline">Cobros Stripe</span>
+                                <span className="sr-only">Cobros Stripe</span>
+                            </Button>
                             <Button
                                 size="icon"
                                 className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 touch-manipulation"
@@ -349,6 +360,12 @@ export default function PagosClientesPage() {
                 onOpenChange={setPagoDialogOpen}
                 oferta={selectedOferta}
                 onSuccess={handlePagoSuccess}
+            />
+
+            <StripePagosModal
+                open={stripeModalOpen}
+                onOpenChange={setStripeModalOpen}
+                onPagoSuccess={handlePagoSuccess}
             />
         </div>
     )
