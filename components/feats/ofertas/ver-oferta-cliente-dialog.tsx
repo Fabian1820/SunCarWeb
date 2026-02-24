@@ -85,6 +85,15 @@ const formatDateTime = (value?: string) => {
   });
 };
 
+const formatDateOnly = (value?: string) => {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("es-ES", {
+    dateStyle: "short",
+  });
+};
+
 export function VerOfertaClienteDialog({
   open,
   onOpenChange,
@@ -185,6 +194,39 @@ export function VerOfertaClienteDialog({
 
   const totalesDetalle = calcularTotalesDetalle();
   const conversionDetalle = calcularConversion();
+  const materialesEntregadosDetalle = useMemo(() => {
+    return (oferta?.items || []).map((item, index) => {
+      const entregas = Array.isArray(item.entregas)
+        ? item.entregas.map((entrega) => ({
+            cantidad: Number(entrega?.cantidad || 0),
+            fecha: entrega?.fecha || "",
+          }))
+        : [];
+      const totalEntregado = entregas.reduce(
+        (sum, entrega) => sum + (Number(entrega.cantidad) || 0),
+        0,
+      );
+      const pendienteCalculado = Math.max(
+        0,
+        (Number(item.cantidad) || 0) - totalEntregado,
+      );
+      const pendiente =
+        Number.isFinite(Number(item.cantidad_pendiente_por_entregar)) &&
+        item.cantidad_pendiente_por_entregar !== undefined
+          ? Number(item.cantidad_pendiente_por_entregar)
+          : pendienteCalculado;
+
+      return {
+        id: `${item.material_codigo || "sin-codigo"}-${index}`,
+        descripcion: item.descripcion || "Material sin descripción",
+        material_codigo: item.material_codigo || "--",
+        cantidadTotal: Number(item.cantidad) || 0,
+        totalEntregado,
+        cantidadPendiente: pendiente,
+        entregas,
+      };
+    });
+  }, [oferta]);
 
   // Early return DESPUÉS de todos los hooks
   if (!oferta) {
@@ -755,6 +797,80 @@ export function VerOfertaClienteDialog({
                               );
                             })}
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="border-slate-200">
+                <CardContent className="p-4 space-y-4">
+                  <div className="text-sm text-slate-500">
+                    Materiales entregados
+                  </div>
+
+                  {materialesEntregadosDetalle.length === 0 ? (
+                    <div className="text-sm text-slate-500">
+                      No hay materiales registrados.
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {materialesEntregadosDetalle.map((item) => (
+                        <div
+                          key={item.id}
+                          className="rounded-lg border border-slate-200 bg-white p-3 space-y-2"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 line-clamp-1">
+                                {item.descripcion}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Código {item.material_codigo}
+                              </p>
+                            </div>
+                            <div className="text-right text-xs text-slate-600 space-y-0.5">
+                              <p>
+                                Total:{" "}
+                                <span className="font-semibold text-slate-900">
+                                  {item.cantidadTotal} u
+                                </span>
+                              </p>
+                              <p>
+                                Entregado:{" "}
+                                <span className="font-semibold text-slate-900">
+                                  {item.totalEntregado} u
+                                </span>
+                              </p>
+                              <p>
+                                Pendiente:{" "}
+                                <span className="font-semibold text-slate-900">
+                                  {item.cantidadPendiente} u
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          {item.entregas.length > 0 ? (
+                            <div className="rounded-md border border-slate-100 bg-slate-50 px-2 py-2 space-y-1">
+                              {item.entregas.map((entrega, entregaIndex) => (
+                                <div
+                                  key={`${item.id}-entrega-${entregaIndex}`}
+                                  className="flex items-center justify-between text-xs text-slate-600"
+                                >
+                                  <span>{formatDateOnly(entrega.fecha)}</span>
+                                  <span className="font-medium text-slate-900">
+                                    {entrega.cantidad} u
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-500">
+                              Sin entregas registradas.
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>

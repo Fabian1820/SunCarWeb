@@ -41,14 +41,7 @@ export interface OfertaConfeccion {
   subtotal_con_descuento?: number;
   total_elementos_personalizados?: number;
   total_costos_extras?: number;
-  items?: {
-    material_codigo: string;
-    descripcion: string;
-    precio: number;
-    cantidad: number;
-    categoria: string;
-    seccion: string;
-  }[];
+  items?: OfertaConfeccionItem[];
   elementos_personalizados?: {
     material_codigo: string;
     descripcion: string;
@@ -89,6 +82,23 @@ export interface OfertaConfeccion {
   fecha_actualizacion: string;
 }
 
+export interface OfertaConfeccionEntregaItem {
+  cantidad: number;
+  fecha: string;
+}
+
+export interface OfertaConfeccionItem {
+  material_codigo: string;
+  descripcion: string;
+  precio: number;
+  cantidad: number;
+  categoria: string;
+  seccion: string;
+  entregas?: OfertaConfeccionEntregaItem[];
+  cantidad_pendiente_por_entregar?: number;
+  [key: string]: unknown;
+}
+
 export type MetodoPagoAcordado = "efectivo" | "transferencia" | "stripe";
 
 export interface PagoAcordadoOferta {
@@ -121,6 +131,29 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
   const cantidadPagosAcordados = Number.isFinite(cantidadPagosAcordadosRaw)
     ? cantidadPagosAcordadosRaw
     : pagosAcordados.length;
+  const itemsRaw = Array.isArray(raw.items ?? raw.materiales)
+    ? (raw.items ?? raw.materiales)
+    : [];
+  const items: OfertaConfeccionItem[] = itemsRaw.map((item: any) => ({
+    ...item,
+    material_codigo: item?.material_codigo ?? "",
+    descripcion: item?.descripcion ?? "",
+    precio: Number(item?.precio ?? 0),
+    cantidad: Number(item?.cantidad ?? 0),
+    categoria: item?.categoria ?? "",
+    seccion: item?.seccion ?? "",
+    entregas: Array.isArray(item?.entregas)
+      ? item.entregas.map((entrega: any) => ({
+          cantidad: Number(entrega?.cantidad ?? 0),
+          fecha: typeof entrega?.fecha === "string" ? entrega.fecha : "",
+        }))
+      : [],
+    cantidad_pendiente_por_entregar: Number.isFinite(
+      Number(item?.cantidad_pendiente_por_entregar),
+    )
+      ? Number(item.cantidad_pendiente_por_entregar)
+      : undefined,
+  }));
 
   return {
     id: raw.id ?? raw._id ?? raw.oferta_id ?? "",
@@ -155,7 +188,7 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     subtotal_con_descuento: raw.subtotal_con_descuento ?? 0,
     total_elementos_personalizados: raw.total_elementos_personalizados ?? 0,
     total_costos_extras: raw.total_costos_extras ?? 0,
-    items: raw.items ?? raw.materiales ?? [],
+    items,
     elementos_personalizados: raw.elementos_personalizados ?? [],
     secciones_personalizadas: raw.secciones_personalizadas ?? [],
     componentes_principales: raw.componentes_principales ?? {},
