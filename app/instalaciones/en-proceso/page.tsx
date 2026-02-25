@@ -38,7 +38,7 @@ export default function InstalacionesEnProcesoPage() {
   const fetchClients = useCallback(async () => {
     setLoading(true);
     try {
-      const [allClients, entregasIndex] = await Promise.all([
+      const [clientsResponse, entregasIndex] = await Promise.all([
         ClienteService.getClientes({}),
         InstalacionesService.getOfertasConMaterialesEntregadosIndex(),
       ]);
@@ -59,7 +59,7 @@ export default function InstalacionesEnProcesoPage() {
       };
 
       // Filtrar solo los que tienen estado "Instalación en Proceso"
-      const clientesEnProceso = allClients
+      const clientesEnProceso = clientsResponse.clients
         .filter((client) => client.estado === "Instalación en Proceso")
         .map((client) => ({
           ...client,

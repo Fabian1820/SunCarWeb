@@ -175,7 +175,8 @@ export function OfertasConfeccionadasView() {
     const loadClientes = async () => {
       try {
         const data = await ClienteService.getClientes();
-        setClientes(Array.isArray(data) ? data : []);
+        // El servicio devuelve { clients: Cliente[], total, skip, limit }
+        setClientes(data.clients || []);
       } catch (error) {
         setClientes([]);
       }
