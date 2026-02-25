@@ -27,7 +27,6 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 export default function LeadsPage() {
   const {
     leads,
-    filteredLeads,
     availableSources,
     filters,
     loading,
@@ -286,7 +285,7 @@ const formatEstado = (estado: string): string => {
       titulo = `Listado de Leads - ${filters.estado}`
     }
     
-    const exportData = filteredLeads.map((lead, index) => {
+    const exportData = leads.map((lead, index) => {
       // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
       let ofertaTexto = ''
       
@@ -532,12 +531,12 @@ const formatEstado = (estado: string): string => {
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 </CardTitle>
                 <CardDescription>
-                  Mostrando {filteredLeads.length} leads
+                  Mostrando {leads.length} de {totalLeads} leads
                 </CardDescription>
               </div>
               
               {/* Botones de exportación */}
-              {filteredLeads.length > 0 && (
+              {leads.length > 0 && (
                 <div className="flex-shrink-0">
                   <ExportButtons
                     exportOptions={getExportOptions()}
@@ -557,7 +556,7 @@ const formatEstado = (estado: string): string => {
             ) : (
               <div className="space-y-4">
                 <LeadsTable
-                  leads={filteredLeads}
+                  leads={leads}
                   onEdit={handleEditLead}
                   onDelete={handleDeleteLead}
                   onConvert={handleConvertLead}

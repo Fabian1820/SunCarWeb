@@ -376,71 +376,6 @@ export default function ClientesPage() {
     return parts.join(" ").toLowerCase()
   }
 
-  // Clientes filtrados usando la misma lógica que ClientsTable
-  const filteredClients = useMemo(() => {
-    const search = appliedFilters.searchTerm.trim().toLowerCase()
-    const fechaDesde = parseDateValue(appliedFilters.fechaDesde)
-    const fechaHasta = parseDateValue(appliedFilters.fechaHasta)
-    const selectedEstados = appliedFilters.estado.map((estado) => estado.toLowerCase())
-    const selectedFuente = appliedFilters.fuente.trim().toLowerCase()
-    const selectedComercial = appliedFilters.comercial.trim().toLowerCase()
-
-    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0)
-    if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999)
-
-    const filtered = clients.filter((client) => {
-      if (search) {
-        const text = buildSearchText(client)
-        if (!text.includes(search)) {
-          return false
-        }
-      }
-
-      if (appliedFilters.estado.length > 0) {
-        const estado = client.estado?.trim()
-        if (!estado || !selectedEstados.includes(estado.toLowerCase())) {
-          return false
-        }
-      }
-
-      if (appliedFilters.fuente) {
-        const fuente = client.fuente?.trim().toLowerCase()
-        if (!fuente || fuente !== selectedFuente) {
-          return false
-        }
-      }
-
-      if (appliedFilters.comercial) {
-        const comercial = client.comercial?.trim().toLowerCase()
-        if (!comercial || comercial !== selectedComercial) {
-          return false
-        }
-      }
-
-      if (fechaDesde || fechaHasta) {
-        const fecha = parseDateValue(client.fecha_contacto)
-        if (!fecha) return false
-        if (fechaDesde && fecha < fechaDesde) return false
-        if (fechaHasta && fecha > fechaHasta) return false
-      }
-
-      return true
-    })
-
-    // Ordenar por los últimos 3 dígitos del código de cliente (descendente)
-    return filtered.sort((a, b) => {
-      const getLastThreeDigits = (numero: string) => {
-        const digits = numero.match(/\d+/g)?.join('') || '0'
-        return parseInt(digits.slice(-3)) || 0
-      }
-
-      const aNum = getLastThreeDigits(a.numero)
-      const bNum = getLastThreeDigits(b.numero)
-
-      return bNum - aNum
-    })
-  }, [clients, appliedFilters])
-
   // Preparar opciones de exportación para clientes
   const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
     // Construir título con filtro de estado si aplica
@@ -452,10 +387,10 @@ export default function ClientesPage() {
     }
     
     // Verificar si hay clientes con estado "Instalación en Proceso"
-    const tieneInstalacionEnProceso = filteredClients.some(c => c.estado === 'Instalación en Proceso')
+    const tieneInstalacionEnProceso = clients.some(c => c.estado === 'Instalación en Proceso')
     
     // Ordenar clientes por provincia: La Habana primero, luego el resto alfabéticamente
-    const clientesOrdenados = [...filteredClients].sort((a, b) => {
+    const clientesOrdenados = [...clients].sort((a, b) => {
       const provinciaA = (a.provincia_montaje || '').trim()
       const provinciaB = (b.provincia_montaje || '').trim()
       
@@ -599,7 +534,7 @@ export default function ClientesPage() {
             loading={loading}
             onFiltersChange={handleFiltersChange}
             exportButtons={
-              filteredClients.length > 0 ? (
+              totalClients > 0 ? (
                 <ExportButtons
                   exportOptions={getExportOptions()}
                   baseFilename="clientes"
