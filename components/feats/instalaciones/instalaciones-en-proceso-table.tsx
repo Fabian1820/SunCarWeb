@@ -28,6 +28,8 @@ import {
   Truck,
   Plus,
   Trash2,
+  FileText,
+  Zap,
 } from "lucide-react";
 import type { Cliente } from "@/lib/api-types";
 import { ClienteService } from "@/lib/api-services";
@@ -312,6 +314,29 @@ export function InstalacionesEnProcesoTable({
     Record<string, boolean>
   >({});
   const [showEntregaCelebration, setShowEntregaCelebration] = useState(false);
+  const [verOfertaDialogOpen, setVerOfertaDialogOpen] = useState(false);
+  const [clienteOfertaSeleccionado, setClienteOfertaSeleccionado] =
+    useState<Cliente | null>(null);
+  const [ofertaConfeccionCargada, setOfertaConfeccionCargada] = useState<
+    OfertaParaEntrega | null
+  >(null);
+  const [loadingOfertaConfeccion, setLoadingOfertaConfeccion] = useState(false);
+  const [materialServicioDialogOpen, setMaterialServicioDialogOpen] =
+    useState(false);
+  const [clienteMaterialServicio, setClienteMaterialServicio] =
+    useState<Cliente | null>(null);
+  const [ofertaServicioCargada, setOfertaServicioCargada] =
+    useState<OfertaParaEntrega | null>(null);
+  const [loadingOfertaServicio, setLoadingOfertaServicio] = useState(false);
+  const [equiposEnServicio, setEquiposEnServicio] = useState<{
+    inversores: string[];
+    paneles: string[];
+    baterias: string[];
+  }>({
+    inversores: [],
+    paneles: [],
+    baterias: [],
+  });
 
   // Actualizar filtros cuando cambien
   useEffect(() => {
@@ -419,6 +444,69 @@ export function InstalacionesEnProcesoTable({
 
   const handleOpenFotos = (client: Cliente) => {
     setClienteFotosSeleccionado(client);
+  };
+
+  const handleVerOferta = async (client: Cliente) => {
+    setClienteOfertaSeleccionado(client);
+    setVerOfertaDialogOpen(true);
+    setLoadingOfertaConfeccion(true);
+    setOfertaConfeccionCargada(null);
+
+    try {
+      const ofertas = await loadOfertasParaEntrega(client);
+      if (ofertas.length > 0) {
+        setOfertaConfeccionCargada(ofertas[0]);
+      } else {
+        toast({
+          title: "Sin oferta confeccionada",
+          description: "No se encontró una oferta confeccionada para este cliente.",
+          variant: "default",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error cargando oferta confeccionada:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo cargar la oferta confeccionada",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingOfertaConfeccion(false);
+    }
+  };
+
+  const handleMaterialEnServicio = async (client: Cliente) => {
+    setClienteMaterialServicio(client);
+    setMaterialServicioDialogOpen(true);
+    setLoadingOfertaServicio(true);
+    setOfertaServicioCargada(null);
+    setEquiposEnServicio({
+      inversores: [],
+      paneles: [],
+      baterias: [],
+    });
+
+    try {
+      const ofertas = await loadOfertasParaEntrega(client);
+      if (ofertas.length > 0) {
+        setOfertaServicioCargada(ofertas[0]);
+      } else {
+        toast({
+          title: "Sin oferta confeccionada",
+          description: "No se encontró una oferta confeccionada para este cliente.",
+          variant: "default",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error cargando oferta para servicio:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo cargar la oferta",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingOfertaServicio(false);
+    }
   };
 
   const clienteTieneEntregas = (client: Cliente) => {
@@ -1039,6 +1127,24 @@ export function InstalacionesEnProcesoTable({
                       <div className="flex flex-wrap gap-2 pt-2">
                         <Button
                           size="icon"
+                          variant="outline"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleVerOferta(client)}
+                          title="Ver oferta"
+                        >
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                          onClick={() => handleMaterialEnServicio(client)}
+                          title="Equipos en servicio"
+                        >
+                          <Zap className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
                           variant={
                             getEntregaStatus(client) ? "default" : "outline"
                           }
@@ -1148,6 +1254,24 @@ export function InstalacionesEnProcesoTable({
                         </td>
                         <td className="py-4 px-4">
                           <div className="flex items-center space-x-2">
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                              onClick={() => handleVerOferta(client)}
+                              title="Ver oferta"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="outline"
+                              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                              onClick={() => handleMaterialEnServicio(client)}
+                              title="Equipos en servicio"
+                            >
+                              <Zap className="h-4 w-4" />
+                            </Button>
                             <Button
                               size="icon"
                               variant={
@@ -1648,6 +1772,419 @@ export function InstalacionesEnProcesoTable({
         open={showEntregaCelebration}
         onClose={() => setShowEntregaCelebration(false)}
       />
+
+      {/* Diálogo para ver oferta */}
+      <Dialog
+        open={verOfertaDialogOpen}
+        onOpenChange={(open) => {
+          setVerOfertaDialogOpen(open);
+          if (!open) {
+            setClienteOfertaSeleccionado(null);
+            setOfertaConfeccionCargada(null);
+            setLoadingOfertaConfeccion(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Oferta Confeccionada</DialogTitle>
+            {clienteOfertaSeleccionado && (
+              <p className="text-sm text-gray-600">
+                {clienteOfertaSeleccionado.nombre} - Código: {clienteOfertaSeleccionado.numero}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="space-y-4">
+            {loadingOfertaConfeccion ? (
+              <div className="py-12 text-center">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-4 text-sm text-gray-600">
+                  Cargando oferta...
+                </p>
+              </div>
+            ) : ofertaConfeccionCargada ? (
+              <div className="space-y-4">
+                {ofertaConfeccionCargada.items &&
+                ofertaConfeccionCargada.items.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b-2 border-gray-300">
+                            <th className="text-left py-3 px-3 text-sm font-semibold text-gray-700">
+                              Material
+                            </th>
+                            <th className="text-center py-3 px-3 text-sm font-semibold text-gray-700">
+                              Cantidad
+                            </th>
+                            <th className="text-center py-3 px-3 text-sm font-semibold text-emerald-700">
+                              Entregado
+                            </th>
+                            <th className="text-center py-3 px-3 text-sm font-semibold text-amber-700">
+                              Pendiente
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ofertaConfeccionCargada.items.map((item, index) => {
+                            const totalEntregado = Array.isArray(item.entregas)
+                              ? item.entregas.reduce(
+                                  (sum, entrega) =>
+                                    sum + parseNumber(entrega.cantidad),
+                                  0,
+                                )
+                              : 0;
+                            const pendiente = Number.isFinite(
+                              Number(item.cantidad_pendiente_por_entregar),
+                            )
+                              ? parseNumber(
+                                  item.cantidad_pendiente_por_entregar,
+                                )
+                              : Math.max(0, item.cantidad - totalEntregado);
+
+                            return (
+                              <tr
+                                key={index}
+                                className="border-b border-gray-100 hover:bg-gray-50"
+                              >
+                                <td className="py-3 px-3">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900">
+                                      {item.descripcion || "Sin descripción"}
+                                    </p>
+                                    {item.material_codigo && (
+                                      <p className="text-xs text-gray-500">
+                                        {item.material_codigo}
+                                      </p>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <span className="text-sm font-semibold text-gray-900">
+                                    {item.cantidad}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <span className="text-sm font-semibold text-emerald-600">
+                                    {totalEntregado}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-3 text-center">
+                                  <span className="text-sm font-semibold text-amber-600">
+                                    {pendiente}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Resumen simplificado */}
+                    <div className="grid grid-cols-3 gap-3 pt-2">
+                      <div className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-xs text-gray-600 mb-1">
+                          Materiales
+                        </p>
+                        <p className="text-xl font-bold text-gray-900">
+                          {ofertaConfeccionCargada.items.length}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-emerald-50 rounded-lg">
+                        <p className="text-xs text-emerald-700 mb-1">
+                          Entregado
+                        </p>
+                        <p className="text-xl font-bold text-emerald-700">
+                          {ofertaConfeccionCargada.items.reduce(
+                            (sum, item) =>
+                              sum +
+                              (Array.isArray(item.entregas)
+                                ? item.entregas.reduce(
+                                    (s, e) => s + parseNumber(e.cantidad),
+                                    0,
+                                  )
+                                : 0),
+                            0,
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-center p-3 bg-amber-50 rounded-lg">
+                        <p className="text-xs text-amber-700 mb-1">
+                          Pendiente
+                        </p>
+                        <p className="text-xl font-bold text-amber-700">
+                          {ofertaConfeccionCargada.items.reduce((sum, item) => {
+                            const totalEntregado = Array.isArray(item.entregas)
+                              ? item.entregas.reduce(
+                                  (s, e) => s + parseNumber(e.cantidad),
+                                  0,
+                                )
+                              : 0;
+                            const pendiente = Number.isFinite(
+                              Number(item.cantidad_pendiente_por_entregar),
+                            )
+                              ? parseNumber(
+                                  item.cantidad_pendiente_por_entregar,
+                                )
+                              : Math.max(0, item.cantidad - totalEntregado);
+                            return sum + pendiente;
+                          }, 0)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No hay materiales en esta oferta
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p>No se encontró una oferta confeccionada</p>
+              </div>
+            )}
+            <div className="flex justify-end pt-2 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setVerOfertaDialogOpen(false)}
+              >
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Diálogo para equipos en servicio */}
+      <Dialog
+        open={materialServicioDialogOpen}
+        onOpenChange={(open) => {
+          setMaterialServicioDialogOpen(open);
+          if (!open) {
+            setClienteMaterialServicio(null);
+            setOfertaServicioCargada(null);
+            setLoadingOfertaServicio(false);
+            setEquiposEnServicio({
+              inversores: [],
+              paneles: [],
+              baterias: [],
+            });
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-purple-900">
+              <Zap className="h-5 w-5 text-purple-600" />
+              Equipos en Servicio
+            </DialogTitle>
+            {clienteMaterialServicio && (
+              <p className="text-sm text-gray-600">
+                {clienteMaterialServicio.nombre}
+              </p>
+            )}
+          </DialogHeader>
+
+          {loadingOfertaServicio ? (
+            <div className="py-8 text-center">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+              <p className="mt-3 text-sm text-gray-600">Cargando equipos...</p>
+            </div>
+          ) : ofertaServicioCargada ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Marca los equipos que están conectados y dando corriente:
+              </p>
+
+              {ofertaServicioCargada.items &&
+              ofertaServicioCargada.items.length > 0 ? (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                  {/* Inversores */}
+                  {ofertaServicioCargada.items
+                    .filter(
+                      (item) =>
+                        item.descripcion?.toLowerCase().includes("inversor") ||
+                        item.material_codigo?.toLowerCase().includes("inv"),
+                    )
+                    .map((item, index) => (
+                      <label
+                        key={`inv-${index}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
+                          checked={equiposEnServicio.inversores.includes(
+                            item.material_codigo || `inv-${index}`,
+                          )}
+                          onChange={(e) => {
+                            const id = item.material_codigo || `inv-${index}`;
+                            setEquiposEnServicio((prev) => ({
+                              ...prev,
+                              inversores: e.target.checked
+                                ? [...prev.inversores, id]
+                                : prev.inversores.filter((i) => i !== id),
+                            }));
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {item.descripcion || "Sin descripción"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.material_codigo || "--"} • Cant: {item.cantidad}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                          Inversor
+                        </span>
+                      </label>
+                    ))}
+
+                  {/* Paneles */}
+                  {ofertaServicioCargada.items
+                    .filter(
+                      (item) =>
+                        item.descripcion?.toLowerCase().includes("panel") ||
+                        item.material_codigo?.toLowerCase().includes("pan"),
+                    )
+                    .map((item, index) => (
+                      <label
+                        key={`pan-${index}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
+                          checked={equiposEnServicio.paneles.includes(
+                            item.material_codigo || `pan-${index}`,
+                          )}
+                          onChange={(e) => {
+                            const id = item.material_codigo || `pan-${index}`;
+                            setEquiposEnServicio((prev) => ({
+                              ...prev,
+                              paneles: e.target.checked
+                                ? [...prev.paneles, id]
+                                : prev.paneles.filter((i) => i !== id),
+                            }));
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {item.descripcion || "Sin descripción"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.material_codigo || "--"} • Cant: {item.cantidad}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                          Panel
+                        </span>
+                      </label>
+                    ))}
+
+                  {/* Baterías */}
+                  {ofertaServicioCargada.items
+                    .filter(
+                      (item) =>
+                        item.descripcion?.toLowerCase().includes("bateria") ||
+                        item.descripcion?.toLowerCase().includes("batería") ||
+                        item.material_codigo?.toLowerCase().includes("bat"),
+                    )
+                    .map((item, index) => (
+                      <label
+                        key={`bat-${index}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
+                          checked={equiposEnServicio.baterias.includes(
+                            item.material_codigo || `bat-${index}`,
+                          )}
+                          onChange={(e) => {
+                            const id = item.material_codigo || `bat-${index}`;
+                            setEquiposEnServicio((prev) => ({
+                              ...prev,
+                              baterias: e.target.checked
+                                ? [...prev.baterias, id]
+                                : prev.baterias.filter((i) => i !== id),
+                            }));
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {item.descripcion || "Sin descripción"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {item.material_codigo || "--"} • Cant: {item.cantidad}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                          Batería
+                        </span>
+                      </label>
+                    ))}
+
+                  {ofertaServicioCargada.items.filter(
+                    (item) =>
+                      item.descripcion?.toLowerCase().includes("inversor") ||
+                      item.material_codigo?.toLowerCase().includes("inv") ||
+                      item.descripcion?.toLowerCase().includes("panel") ||
+                      item.material_codigo?.toLowerCase().includes("pan") ||
+                      item.descripcion?.toLowerCase().includes("bateria") ||
+                      item.descripcion?.toLowerCase().includes("batería") ||
+                      item.material_codigo?.toLowerCase().includes("bat"),
+                  ).length === 0 && (
+                    <div className="text-center py-8 text-gray-500">
+                      No se encontraron equipos en esta oferta
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No hay materiales en esta oferta
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t">
+                <Button
+                  variant="outline"
+                  onClick={() => setMaterialServicioDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={() => {
+                    toast({
+                      title: "Equipos registrados",
+                      description:
+                        "Los equipos en servicio se han registrado correctamente.",
+                    });
+                    setMaterialServicioDialogOpen(false);
+                  }}
+                  disabled={
+                    equiposEnServicio.inversores.length === 0 &&
+                    equiposEnServicio.paneles.length === 0 &&
+                    equiposEnServicio.baterias.length === 0
+                  }
+                >
+                  Guardar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p>No se encontró una oferta confeccionada</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

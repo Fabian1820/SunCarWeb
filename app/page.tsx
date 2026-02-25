@@ -91,12 +91,12 @@ export default function Dashboard() {
             description: 'Confección de ofertas y herramientas de ventas.',
             color: 'amber-600',
         },
-        // 4. Gestionar Instalaciones
+        // 4. Operaciones
         {
             id: 'instalaciones',
             href: '/instalaciones',
             icon: Wrench,
-            title: 'Gestionar Instalaciones',
+            title: 'Operaciones',
             description: 'Instalaciones en proceso, nuevas y averías.',
             color: 'purple-600',
         },
