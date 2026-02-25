@@ -68,7 +68,7 @@ export function useTrabajoPendientes() {
    */
   const loadLeads = useCallback(async () => {
     try {
-      const leadsData = await LeadService.getLeads({})
+      const { leads: leadsData } = await LeadService.getLeads({})
       setLeads(Array.isArray(leadsData) ? leadsData : [])
     } catch (err) {
       console.error('Error loading leads:', err)

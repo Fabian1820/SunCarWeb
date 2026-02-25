@@ -54,7 +54,8 @@ export function ClienteSelectorField({
       setClientesLoading(true)
       try {
         const data = await ClienteService.getClientes()
-        setClientes(Array.isArray(data) ? (data as ClienteWithId[]) : [])
+        // El servicio devuelve { clients: Cliente[], total, skip, limit }
+        setClientes(data.clients || [])
       } catch (error) {
         console.error('Error loading clientes:', error)
         setClientes([])
@@ -70,8 +71,8 @@ export function ClienteSelectorField({
     const loadLeads = async () => {
       setLeadsLoading(true)
       try {
-        const data = await LeadService.getLeads()
-        setLeads(Array.isArray(data) ? data : [])
+        const { leads } = await LeadService.getLeads()
+        setLeads(Array.isArray(leads) ? leads : [])
       } catch (error) {
         console.error('Error loading leads:', error)
         setLeads([])

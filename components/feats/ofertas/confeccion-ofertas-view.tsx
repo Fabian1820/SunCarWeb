@@ -3766,7 +3766,8 @@ export function ConfeccionOfertasView({
       setClientesLoading(true);
       try {
         const data = await ClienteService.getClientes();
-        setClientes(Array.isArray(data) ? data : []);
+        // El servicio devuelve { clients: Cliente[], total, skip, limit }
+        setClientes(data.clients || []);
       } catch (error) {
         setClientes([]);
       } finally {
@@ -3777,8 +3778,8 @@ export function ConfeccionOfertasView({
     const loadLeads = async () => {
       setLeadsLoading(true);
       try {
-        const data = await LeadService.getLeads();
-        setLeads(Array.isArray(data) ? data : []);
+        const { leads } = await LeadService.getLeads();
+        setLeads(Array.isArray(leads) ? leads : []);
       } catch (error) {
         setLeads([]);
       } finally {

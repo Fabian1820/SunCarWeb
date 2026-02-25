@@ -72,7 +72,8 @@ export function CreateOrdenTrabajoDialog({
       console.log('📊 Datos cargados:', { brigadasData, clientesData })
 
       setBrigadas(Array.isArray(brigadasData) ? brigadasData : [])
-      setClientes(Array.isArray(clientesData) ? clientesData : [])
+      // El servicio devuelve { clients: Cliente[], total, skip, limit }
+      setClientes(clientesData.clients || [])
     } catch (error) {
       console.error('Error al cargar datos:', error)
       toast({
@@ -91,7 +92,8 @@ export function CreateOrdenTrabajoDialog({
     setLoadingData(true)
     try {
       const data = await ClienteService.getClientes(nombre ? { nombre } : {})
-      setClientes(Array.isArray(data) ? data : [])
+      // El servicio devuelve { clients: Cliente[], total, skip, limit }
+      setClientes(data.clients || [])
     } catch (error) {
       console.error('Error al buscar clientes:', error)
       toast({

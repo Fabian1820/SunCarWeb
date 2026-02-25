@@ -9,18 +9,26 @@ interface LeadFilters {
   comercial: string
   fechaDesde: string
   fechaHasta: string
+  skip: number
+  limit: number
 }
 
 interface UseLeadsReturn {
   leads: Lead[]
-  filteredLeads: Lead[]
   availableSources: string[]
   filters: LeadFilters
   loading: boolean
   error: string | null
+  totalLeads: number
+  skip: number
+  limit: number
+  page: number
+  pageSize: number
   searchTerm: string
   setSearchTerm: (term: string) => void
   setFilters: (filters: Partial<LeadFilters>) => void
+  setPage: (page: number) => void
+  setPageSize: (size: number) => void
   loadLeads: () => Promise<void>
   createLead: (data: LeadCreateData) => Promise<boolean>
   updateLead: (id: string, data: LeadUpdateData) => Promise<boolean>
@@ -53,6 +61,7 @@ export function useLeads(): UseLeadsReturn {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [totalLeads, setTotalLeads] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFiltersState] = useState<LeadFilters>({
     searchTerm: '',
@@ -60,40 +69,43 @@ export function useLeads(): UseLeadsReturn {
     fuente: '',
     comercial: '',
     fechaDesde: '',
-    fechaHasta: ''
+    fechaHasta: '',
+    skip: 0,
+    limit: 20
   })
 
-  // Función para convertir fecha DD/MM/YYYY a Date
-  const parseDate = (dateStr: string): Date | null => {
-    if (!dateStr) return null
+  // Sincronizar searchTerm con filters y resetear paginación
+  const handleSetSearchTerm = useCallback((term: string) => {
+    setSearchTerm(term)
+    setFiltersState(prev => ({ ...prev, searchTerm: term, skip: 0 }))
+  }, [])
 
-    // Si está en formato DD/MM/YYYY
-    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      const [day, month, year] = dateStr.split('/')
-      return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
-    }
-
-    // Si está en formato ISO
-    const date = new Date(dateStr)
-    return isNaN(date.getTime()) ? null : date
-  }
-
-  const loadLeads = useCallback(async () => {
+  const loadLeads = useCallback(async (overrideFilters?: Partial<LeadFilters>) => {
     setLoading(true)
     setError(null)
     try {
-      const data = await LeadService.getLeads()
-      console.log('Backend response for leads:', data)
-      console.log('Type of data:', typeof data)
-      console.log('Is array:', Array.isArray(data))
-      setLeads(Array.isArray(data) ? data.filter((lead) => !isTemporaryCodegenLead(lead)) : [])
+      const effectiveFilters = { ...filters, ...overrideFilters }
+      const { leads: fetchedLeads, total, skip, limit } = await LeadService.getLeads({
+        nombre: effectiveFilters.searchTerm || undefined,
+        estado: effectiveFilters.estado || undefined,
+        fuente: effectiveFilters.fuente || undefined,
+        skip: effectiveFilters.skip,
+        limit: effectiveFilters.limit
+      })
+      console.log('Backend response for leads:', { fetchedLeads, total, skip, limit })
+      setLeads(fetchedLeads.filter((lead) => !isTemporaryCodegenLead(lead)))
+      setTotalLeads(total)
+      // Actualizar filters con los valores reales de skip/limit devueltos por el backend
+      if (overrideFilters?.skip !== undefined || overrideFilters?.limit !== undefined) {
+        setFiltersState(prev => ({ ...prev, skip, limit }))
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar los leads')
       console.error('Error loading leads:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filters])
 
   // Obtener fuentes únicas de los leads existentes
   const availableSources = useMemo(() => {
@@ -106,72 +118,17 @@ export function useLeads(): UseLeadsReturn {
     return sources as string[]
   }, [leads])
 
-  // Filtrar leads basado en todos los filtros
-  const filteredLeads = useMemo(() => {
-    let filtered = leads
-
-    // Filtro por término de búsqueda
-    if (searchTerm.trim()) {
-      const searchLower = searchTerm.toLowerCase()
-      filtered = filtered.filter(lead => {
-        return (
-          lead.nombre?.toLowerCase().includes(searchLower) ||
-          lead.telefono?.toLowerCase().includes(searchLower) ||
-          lead.telefono_adicional?.toLowerCase().includes(searchLower) ||
-          lead.estado?.toLowerCase().includes(searchLower) ||
-          lead.fuente?.toLowerCase().includes(searchLower) ||
-          lead.referencia?.toLowerCase().includes(searchLower) ||
-          lead.direccion?.toLowerCase().includes(searchLower) ||
-          lead.pais_contacto?.toLowerCase().includes(searchLower) ||
-          lead.provincia_montaje?.toLowerCase().includes(searchLower) ||
-          lead.comercial?.toLowerCase().includes(searchLower) ||
-          lead.comentario?.toLowerCase().includes(searchLower) ||
-          lead.metodo_pago?.toLowerCase().includes(searchLower) ||
-          lead.moneda?.toLowerCase().includes(searchLower)
-        )
-      })
-    }
-
-    // Filtro por estado
-    if (filters.estado) {
-      filtered = filtered.filter(lead => lead.estado === filters.estado)
-    }
-
-    // Filtro por fuente
-    if (filters.fuente) {
-      filtered = filtered.filter(lead => lead.fuente === filters.fuente)
-    }
-
-    // Filtro por comercial
-    if (filters.comercial) {
-      filtered = filtered.filter(lead => lead.comercial === filters.comercial)
-    }
-
-    // Filtro por rango de fechas
-    if (filters.fechaDesde || filters.fechaHasta) {
-      filtered = filtered.filter(lead => {
-        const leadDate = parseDate(lead.fecha_contacto)
-        if (!leadDate) return false
-
-        if (filters.fechaDesde) {
-          const fechaDesde = parseDate(filters.fechaDesde)
-          if (fechaDesde && leadDate < fechaDesde) return false
-        }
-
-        if (filters.fechaHasta) {
-          const fechaHasta = parseDate(filters.fechaHasta)
-          if (fechaHasta && leadDate > fechaHasta) return false
-        }
-
-        return true
-      })
-    }
-
-    return filtered
-  }, [leads, searchTerm, filters])
-
   const setFilters = useCallback((newFilters: Partial<LeadFilters>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }))
+  }, [])
+
+  const setPage = useCallback((page: number) => {
+    const newSkip = (page - 1) * filters.limit
+    setFiltersState(prev => ({ ...prev, skip: newSkip }))
+  }, [filters.limit])
+
+  const setPageSize = useCallback((size: number) => {
+    setFiltersState(prev => ({ ...prev, limit: size, skip: 0 }))
   }, [])
 
   const createLead = useCallback(async (data: LeadCreateData): Promise<boolean> => {
@@ -290,21 +247,31 @@ export function useLeads(): UseLeadsReturn {
     setError(null)
   }, [])
 
-  // Cargar leads solo al montar el componente
+  // Cargar leads al montar y cuando cambien filtros (incluyendo búsqueda)
   useEffect(() => {
     loadLeads()
-  }, [loadLeads])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.estado, filters.fuente, filters.comercial, filters.fechaDesde, filters.fechaHasta, filters.skip, filters.limit, filters.searchTerm])
+
+  const pageSize = filters.limit
+  const page = pageSize > 0 ? Math.floor(filters.skip / pageSize) + 1 : 1
 
   return {
     leads,
-    filteredLeads,
     availableSources,
     filters,
     loading,
     error,
+    totalLeads,
+    skip: filters.skip,
+    limit: filters.limit,
+    page,
+    pageSize,
     searchTerm,
-    setSearchTerm,
+    setSearchTerm: handleSetSearchTerm,
     setFilters,
+    setPage,
+    setPageSize,
     loadLeads,
     createLead,
     updateLead,

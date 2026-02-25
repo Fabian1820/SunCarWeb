@@ -56,7 +56,8 @@ export function CrearAveriaDialog({
     setLoadingClientes(true)
     try {
       const data = await ClienteService.getClientes({})
-      setClientes(data)
+      // El servicio devuelve { clients: Cliente[], total, skip, limit }
+      setClientes(data.clients || [])
     } catch (error) {
       console.error('Error cargando clientes:', error)
       toast({

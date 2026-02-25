@@ -14,26 +14,25 @@ export class LeadService {
     telefono?: string
     estado?: string
     fuente?: string
-  } = {}): Promise<Lead[]> {
+    skip?: number
+    limit?: number
+  } = {}): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
     console.log('Calling getLeads endpoint with params:', params)
     const search = new URLSearchParams()
     if (params.nombre) search.append('nombre', params.nombre)
     if (params.telefono) search.append('telefono', params.telefono)
     if (params.estado) search.append('estado', params.estado)
     if (params.fuente) search.append('fuente', params.fuente)
+    if (params.skip !== undefined) search.append('skip', params.skip.toString())
+    if (params.limit !== undefined) search.append('limit', params.limit.toString())
     const endpoint = `/leads/${search.toString() ? `?${search.toString()}` : ''}`
     const response = await apiRequest<LeadResponse>(endpoint)
     console.log('LeadService.getLeads response:', response)
-    
-    // Manejar respuesta paginada (nuevo formato del backend)
-    // Estructura: { success: true, data: [...], total: 100 }
-    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-      console.log('LeadService.getLeads - Formato paginado detectado, extrayendo array de leads')
-      return Array.isArray(response.data.data) ? response.data.data : []
-    }
-    
-    // Formato antiguo (compatibilidad): { data: [...] }
-    return Array.isArray(response.data) ? response.data : []
+    const leads = Array.isArray(response.data) ? response.data : []
+    const total = response.total ?? leads.length
+    const skip = response.skip ?? params.skip ?? 0
+    const limit = response.limit ?? params.limit ?? (params.skip !== undefined || params.limit !== undefined ? 50 : 0)
+    return { leads, total, skip, limit }
   }
 
   static async getLeadById(leadId: string): Promise<Lead> {

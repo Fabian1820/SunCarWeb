@@ -60,13 +60,10 @@ export interface Lead {
 export interface LeadResponse {
   success: boolean;
   message: string;
-  data: Lead | Lead[] | LeadPaginatedData | null;
-}
-
-// Nuevo formato paginado del backend
-export interface LeadPaginatedData {
-  data: Lead[];
-  total: number;
+  data: Lead | Lead[] | null;
+  total?: number;
+  skip?: number;
+  limit?: number;
 }
 
 export interface LeadCreateData {

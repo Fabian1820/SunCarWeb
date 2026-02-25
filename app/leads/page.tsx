@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
 import { LeadsTable } from "@/components/feats/leads/leads-table"
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
@@ -26,14 +27,20 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 export default function LeadsPage() {
   const {
     leads,
-    filteredLeads,
     availableSources,
     filters,
     loading,
     error,
+    totalLeads,
+    skip,
+    limit,
+    page,
+    pageSize,
     searchTerm,
     setSearchTerm,
     setFilters,
+    setPage,
+    setPageSize,
     createLead,
     updateLead,
     deleteLead,
@@ -278,7 +285,7 @@ const formatEstado = (estado: string): string => {
       titulo = `Listado de Leads - ${filters.estado}`
     }
     
-    const exportData = filteredLeads.map((lead, index) => {
+    const exportData = leads.map((lead, index) => {
       // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
       let ofertaTexto = ''
       
@@ -524,12 +531,12 @@ const formatEstado = (estado: string): string => {
                   {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 </CardTitle>
                 <CardDescription>
-                  Mostrando {filteredLeads.length} leads
+                  Mostrando {leads.length} de {totalLeads} leads
                 </CardDescription>
               </div>
               
               {/* Botones de exportación */}
-              {filteredLeads.length > 0 && (
+              {leads.length > 0 && (
                 <div className="flex-shrink-0">
                   <ExportButtons
                     exportOptions={getExportOptions()}
@@ -547,18 +554,27 @@ const formatEstado = (estado: string): string => {
                 <p className="text-gray-600">Cargando leads...</p>
               </div>
             ) : (
-              <LeadsTable
-                leads={filteredLeads}
-                onEdit={handleEditLead}
-                onDelete={handleDeleteLead}
-                onConvert={handleConvertLead}
-                onGenerarCodigo={handleGenerarCodigoCliente}
-                onUploadComprobante={handleUploadLeadComprobante}
-                onDownloadComprobante={handleDownloadLeadComprobante}
-                onUpdatePrioridad={handleUpdateLeadPrioridad}
-                loading={loading}
-                disableActions={loadingAction}
-              />
+              <div className="space-y-4">
+                <LeadsTable
+                  leads={leads}
+                  onEdit={handleEditLead}
+                  onDelete={handleDeleteLead}
+                  onConvert={handleConvertLead}
+                  onGenerarCodigo={handleGenerarCodigoCliente}
+                  onUploadComprobante={handleUploadLeadComprobante}
+                  onDownloadComprobante={handleDownloadLeadComprobante}
+                  onUpdatePrioridad={handleUpdateLeadPrioridad}
+                  loading={loading}
+                  disableActions={loadingAction}
+                />
+                {totalLeads > limit && (
+                  <SmartPagination
+                    currentPage={page}
+                    totalPages={Math.ceil(totalLeads / limit)}
+                    onPageChange={setPage}
+                  />
+                )}
+              </div>
             )}
           </CardContent>
         </Card>

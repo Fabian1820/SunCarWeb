@@ -314,7 +314,8 @@ export default function Dashboard() {
         const fetchClients = async () => {
             try {
                 const response = await ClienteService.getClientes();
-                setClients(response.data || []);
+                // El servicio devuelve { clients: Cliente[], total, skip, limit }
+                setClients(response.clients || []);
             } catch (e) {
                 setClients([]);
             }

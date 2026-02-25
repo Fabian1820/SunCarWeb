@@ -12,7 +12,6 @@ export { transformBackendToFrontend, transformCategories } from './types/feats/m
 export type {
   Lead,
   LeadResponse,
-  LeadPaginatedData,
   LeadCreateData,
   LeadUpdateData,
   LeadConversionRequest,

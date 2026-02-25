@@ -21,7 +21,7 @@ export async function migrarFuentesDesdeDB(): Promise<{
 
     // Cargar todos los leads
     console.log('📥 Cargando leads...')
-    const leads = await LeadService.getLeads()
+    const { leads } = await LeadService.getLeads()
     console.log(`✅ ${leads.length} leads cargados`)
 
     // Cargar todos los clientes

@@ -51,7 +51,8 @@ export function PagoDialog({
       setClientesLoading(true)
       try {
         const data = await ClienteService.getClientes()
-        setClientes(Array.isArray(data) ? data : [])
+        // El servicio devuelve { clients: Cliente[], total, skip, limit }
+        setClientes(data.clients || [])
       } catch (error) {
         console.error("Error loading clientes:", error)
         setClientes([])

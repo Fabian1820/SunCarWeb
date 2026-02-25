@@ -14,6 +14,7 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { CreateClientDialog } from "@/components/feats/cliente/create-client-dialog"
 import { FuentesManager } from "@/components/shared/molecule/fuentes-manager"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
 import type {
   Cliente,
   ClienteCreateData,
@@ -25,6 +26,7 @@ import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog"
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Cliente[]>([])
+  const [totalClients, setTotalClients] = useState(0)
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
@@ -49,24 +51,59 @@ export default function ClientesPage() {
     comercial: "",
     fechaDesde: "",
     fechaHasta: "",
+    skip: 0,
+    limit: 20,
   })
 
+  const handleFiltersChange = useCallback((newFilters: {
+    searchTerm: string;
+    estado: string[];
+    fuente: string;
+    comercial: string;
+    fechaDesde: string;
+    fechaHasta: string;
+  }) => {
+    setAppliedFilters(prev => ({ ...prev, ...newFilters, skip: 0 }))
+  }, [])
+
+  const setPage = useCallback((page: number) => {
+    const newSkip = (page - 1) * appliedFilters.limit
+    setAppliedFilters(prev => ({ ...prev, skip: newSkip }))
+  }, [appliedFilters.limit])
+
+  const setPageSize = useCallback((size: number) => {
+    setAppliedFilters(prev => ({ ...prev, limit: size, skip: 0 }))
+  }, [])
+
   // Cargar clientes
-  const fetchClients = useCallback(async () => {
+  const fetchClients = useCallback(async (overrideFilters?: Partial<typeof appliedFilters>) => {
     setLoading(true)
     try {
-      // Primero obtener todos los clientes
-      const allClients = await ClienteService.getClientes({})
+      const filters = { ...appliedFilters, ...overrideFilters }
+      // Llamada al servicio con paginación y filtros
+      const { clients: fetchedClients, total, skip, limit } = await ClienteService.getClientes({
+        nombre: filters.searchTerm || undefined,
+        fuente: filters.fuente || undefined,
+        comercial: filters.comercial || undefined,
+        fechaDesde: filters.fechaDesde || undefined,
+        fechaHasta: filters.fechaHasta || undefined,
+        skip: filters.skip,
+        limit: filters.limit,
+      })
       
-      // Si hay término de búsqueda, filtrar en el frontend
-      setClients(allClients)
+      setClients(fetchedClients)
+      setTotalClients(total)
+      // Actualizar skip/limit si se pasaron overrideFilters
+      if (overrideFilters?.skip !== undefined || overrideFilters?.limit !== undefined) {
+        setAppliedFilters(prev => ({ ...prev, skip, limit }))
+      }
     } catch (error: unknown) {
       console.error('Error cargando clientes:', error)
       setClients([])
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [appliedFilters])
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
@@ -84,6 +121,12 @@ export default function ClientesPage() {
     loadInitialData()
     // eslint-disable-next-line
   }, [])
+
+  useEffect(() => {
+    if (initialLoading) return
+    fetchClients()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appliedFilters.estado, appliedFilters.fuente, appliedFilters.comercial, appliedFilters.fechaDesde, appliedFilters.fechaHasta, appliedFilters.skip, appliedFilters.limit])
 
   useEffect(() => {
     if (!initialLoading) {
@@ -333,71 +376,6 @@ export default function ClientesPage() {
     return parts.join(" ").toLowerCase()
   }
 
-  // Clientes filtrados usando la misma lógica que ClientsTable
-  const filteredClients = useMemo(() => {
-    const search = appliedFilters.searchTerm.trim().toLowerCase()
-    const fechaDesde = parseDateValue(appliedFilters.fechaDesde)
-    const fechaHasta = parseDateValue(appliedFilters.fechaHasta)
-    const selectedEstados = appliedFilters.estado.map((estado) => estado.toLowerCase())
-    const selectedFuente = appliedFilters.fuente.trim().toLowerCase()
-    const selectedComercial = appliedFilters.comercial.trim().toLowerCase()
-
-    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0)
-    if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999)
-
-    const filtered = clients.filter((client) => {
-      if (search) {
-        const text = buildSearchText(client)
-        if (!text.includes(search)) {
-          return false
-        }
-      }
-
-      if (appliedFilters.estado.length > 0) {
-        const estado = client.estado?.trim()
-        if (!estado || !selectedEstados.includes(estado.toLowerCase())) {
-          return false
-        }
-      }
-
-      if (appliedFilters.fuente) {
-        const fuente = client.fuente?.trim().toLowerCase()
-        if (!fuente || fuente !== selectedFuente) {
-          return false
-        }
-      }
-
-      if (appliedFilters.comercial) {
-        const comercial = client.comercial?.trim().toLowerCase()
-        if (!comercial || comercial !== selectedComercial) {
-          return false
-        }
-      }
-
-      if (fechaDesde || fechaHasta) {
-        const fecha = parseDateValue(client.fecha_contacto)
-        if (!fecha) return false
-        if (fechaDesde && fecha < fechaDesde) return false
-        if (fechaHasta && fecha > fechaHasta) return false
-      }
-
-      return true
-    })
-
-    // Ordenar por los últimos 3 dígitos del código de cliente (descendente)
-    return filtered.sort((a, b) => {
-      const getLastThreeDigits = (numero: string) => {
-        const digits = numero.match(/\d+/g)?.join('') || '0'
-        return parseInt(digits.slice(-3)) || 0
-      }
-
-      const aNum = getLastThreeDigits(a.numero)
-      const bNum = getLastThreeDigits(b.numero)
-
-      return bNum - aNum
-    })
-  }, [clients, appliedFilters])
-
   // Preparar opciones de exportación para clientes
   const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
     // Construir título con filtro de estado si aplica
@@ -409,10 +387,10 @@ export default function ClientesPage() {
     }
     
     // Verificar si hay clientes con estado "Instalación en Proceso"
-    const tieneInstalacionEnProceso = filteredClients.some(c => c.estado === 'Instalación en Proceso')
+    const tieneInstalacionEnProceso = clients.some(c => c.estado === 'Instalación en Proceso')
     
     // Ordenar clientes por provincia: La Habana primero, luego el resto alfabéticamente
-    const clientesOrdenados = [...filteredClients].sort((a, b) => {
+    const clientesOrdenados = [...clients].sort((a, b) => {
       const provinciaA = (a.provincia_montaje || '').trim()
       const provinciaB = (b.provincia_montaje || '').trim()
       
@@ -517,6 +495,9 @@ export default function ClientesPage() {
     return <PageLoader moduleName="Clientes" text="Cargando lista de clientes..." />
   }
 
+   const page = appliedFilters.limit > 0 ? Math.floor(appliedFilters.skip / appliedFilters.limit) + 1 : 1
+  const totalPages = appliedFilters.limit > 0 ? Math.ceil(totalClients / appliedFilters.limit) : 1
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
@@ -542,25 +523,34 @@ export default function ClientesPage() {
         }
       />
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        <ClientsTable
-          clients={clients}
-          onEdit={handleEditClient}
-          onDelete={handleDeleteClient}
-          onViewLocation={handleViewClientLocation}
-          onUploadFotos={handleUploadClientFoto}
-          onUpdatePrioridad={handleUpdateClientPrioridad}
-          loading={loading}
-          onFiltersChange={setAppliedFilters}
-          exportButtons={
-            filteredClients.length > 0 ? (
-              <ExportButtons
-                exportOptions={getExportOptions()}
-                baseFilename="clientes"
-                variant="compact"
-              />
-            ) : undefined
-          }
-        />
+        <div className="space-y-4">
+          <ClientsTable
+            clients={clients}
+            onEdit={handleEditClient}
+            onDelete={handleDeleteClient}
+            onViewLocation={handleViewClientLocation}
+            onUploadFotos={handleUploadClientFoto}
+            onUpdatePrioridad={handleUpdateClientPrioridad}
+            loading={loading}
+            onFiltersChange={handleFiltersChange}
+            exportButtons={
+              totalClients > 0 ? (
+                <ExportButtons
+                  exportOptions={getExportOptions()}
+                  baseFilename="clientes"
+                  variant="compact"
+                />
+              ) : undefined
+            }
+          />
+          {totalClients > appliedFilters.limit && appliedFilters.limit > 0 && (
+            <SmartPagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          )}
+        </div>
         {/* Modal de creacion de cliente */}
         <Dialog open={isCreateClientDialogOpen} onOpenChange={setIsCreateClientDialogOpen}>
           <DialogContent className="max-w-2xl">
