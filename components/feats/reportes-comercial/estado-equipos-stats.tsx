@@ -48,6 +48,9 @@ export function EstadoEquiposStats({ data, loading, onRefresh }: EstadoEquiposSt
   }
 
   if (!data) {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.suncarsrl.com'
+    const apiUrl = backendUrl.endsWith('/api') ? backendUrl : `${backendUrl}/api`
+    
     return (
       <Card className="border-2 border-orange-200">
         <CardContent className="p-8 text-center">
@@ -61,7 +64,7 @@ export function EstadoEquiposStats({ data, loading, onRefresh }: EstadoEquiposSt
             Verifica que el backend esté corriendo en:
           </p>
           <code className="bg-gray-100 px-3 py-1 rounded text-sm text-gray-800 mb-4 inline-block">
-            http://localhost:8000/api/reportes/estado-equipos
+            {apiUrl}/reportes/estado-equipos
           </code>
           <div className="mt-6">
             <Button onClick={onRefresh} className="bg-orange-600 hover:bg-orange-700">
