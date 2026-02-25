@@ -494,7 +494,8 @@ export function PosView({ tiendaId, sesionId }: PosViewProps) {
         setCargandoClientesCaja(true)
         try {
           const data = await ClienteService.getClientes()
-          setClientesCaja(Array.isArray(data) ? data : [])
+          // El servicio devuelve { clients: Cliente[], total, skip, limit }
+          setClientesCaja(data.clients || [])
         } catch (error) {
           setClientesCaja([])
         } finally {
