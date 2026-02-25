@@ -44,7 +44,8 @@ export default function ReportesPage() {
     try {
       const data = await ClienteService.getClientes()
       console.log('Clientes cargados:', data)
-      setClients(Array.isArray(data) ? data : [])
+      // El servicio devuelve { clients: Cliente[], total, skip, limit }
+      setClients(data.clients || [])
     } catch (e: any) {
       console.error('Error cargando clientes:', e)
       setClients([])
