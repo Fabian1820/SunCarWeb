@@ -113,7 +113,8 @@ export function TacticalDetailPanel({
       setLoading(true);
       try {
         // Cargar todos los clientes
-        const allClientes = await ClienteService.getClientes();
+        const response = await ClienteService.getClientes();
+        const allClientes = response.clients || [];
 
         // Filtrar por código de municipio
         // Para simplificar, usamos los primeros 4 dígitos/letras del número como código de municipio
