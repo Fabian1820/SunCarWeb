@@ -24,6 +24,15 @@ export class LeadService {
     const endpoint = `/leads/${search.toString() ? `?${search.toString()}` : ''}`
     const response = await apiRequest<LeadResponse>(endpoint)
     console.log('LeadService.getLeads response:', response)
+    
+    // Manejar respuesta paginada (nuevo formato del backend)
+    // Estructura: { success: true, data: [...], total: 100 }
+    if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+      console.log('LeadService.getLeads - Formato paginado detectado, extrayendo array de leads')
+      return Array.isArray(response.data.data) ? response.data.data : []
+    }
+    
+    // Formato antiguo (compatibilidad): { data: [...] }
     return Array.isArray(response.data) ? response.data : []
   }
 
