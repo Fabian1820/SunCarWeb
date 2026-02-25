@@ -61,6 +61,9 @@ export interface LeadResponse {
   success: boolean;
   message: string;
   data: Lead | Lead[] | null;
+  total?: number;
+  skip?: number;
+  limit?: number;
 }
 
 export interface LeadCreateData {

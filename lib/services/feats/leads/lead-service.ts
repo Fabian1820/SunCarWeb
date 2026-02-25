@@ -14,17 +14,25 @@ export class LeadService {
     telefono?: string
     estado?: string
     fuente?: string
-  } = {}): Promise<Lead[]> {
+    skip?: number
+    limit?: number
+  } = {}): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
     console.log('Calling getLeads endpoint with params:', params)
     const search = new URLSearchParams()
     if (params.nombre) search.append('nombre', params.nombre)
     if (params.telefono) search.append('telefono', params.telefono)
     if (params.estado) search.append('estado', params.estado)
     if (params.fuente) search.append('fuente', params.fuente)
+    if (params.skip !== undefined) search.append('skip', params.skip.toString())
+    if (params.limit !== undefined) search.append('limit', params.limit.toString())
     const endpoint = `/leads/${search.toString() ? `?${search.toString()}` : ''}`
     const response = await apiRequest<LeadResponse>(endpoint)
     console.log('LeadService.getLeads response:', response)
-    return Array.isArray(response.data) ? response.data : []
+    const leads = Array.isArray(response.data) ? response.data : []
+    const total = response.total ?? leads.length
+    const skip = response.skip ?? params.skip ?? 0
+    const limit = response.limit ?? params.limit ?? (params.skip !== undefined || params.limit !== undefined ? 50 : 0)
+    return { leads, total, skip, limit }
   }
 
   static async getLeadById(leadId: string): Promise<Lead> {

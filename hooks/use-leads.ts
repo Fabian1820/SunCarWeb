@@ -9,6 +9,8 @@ interface LeadFilters {
   comercial: string
   fechaDesde: string
   fechaHasta: string
+  skip: number
+  limit: number
 }
 
 interface UseLeadsReturn {
@@ -18,9 +20,16 @@ interface UseLeadsReturn {
   filters: LeadFilters
   loading: boolean
   error: string | null
+  totalLeads: number
+  skip: number
+  limit: number
+  page: number
+  pageSize: number
   searchTerm: string
   setSearchTerm: (term: string) => void
   setFilters: (filters: Partial<LeadFilters>) => void
+  setPage: (page: number) => void
+  setPageSize: (size: number) => void
   loadLeads: () => Promise<void>
   createLead: (data: LeadCreateData) => Promise<boolean>
   updateLead: (id: string, data: LeadUpdateData) => Promise<boolean>
@@ -53,6 +62,7 @@ export function useLeads(): UseLeadsReturn {
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [totalLeads, setTotalLeads] = useState(0)
   const [searchTerm, setSearchTerm] = useState('')
   const [filters, setFiltersState] = useState<LeadFilters>({
     searchTerm: '',
@@ -60,7 +70,9 @@ export function useLeads(): UseLeadsReturn {
     fuente: '',
     comercial: '',
     fechaDesde: '',
-    fechaHasta: ''
+    fechaHasta: '',
+    skip: 0,
+    limit: 20
   })
 
   // Función para convertir fecha DD/MM/YYYY a Date
@@ -78,22 +90,32 @@ export function useLeads(): UseLeadsReturn {
     return isNaN(date.getTime()) ? null : date
   }
 
-  const loadLeads = useCallback(async () => {
+  const loadLeads = useCallback(async (overrideFilters?: Partial<LeadFilters>) => {
     setLoading(true)
     setError(null)
     try {
-      const data = await LeadService.getLeads()
-      console.log('Backend response for leads:', data)
-      console.log('Type of data:', typeof data)
-      console.log('Is array:', Array.isArray(data))
-      setLeads(Array.isArray(data) ? data.filter((lead) => !isTemporaryCodegenLead(lead)) : [])
+      const effectiveFilters = { ...filters, ...overrideFilters }
+      const { leads: fetchedLeads, total, skip, limit } = await LeadService.getLeads({
+        nombre: effectiveFilters.searchTerm || undefined,
+        estado: effectiveFilters.estado || undefined,
+        fuente: effectiveFilters.fuente || undefined,
+        skip: effectiveFilters.skip,
+        limit: effectiveFilters.limit
+      })
+      console.log('Backend response for leads:', { fetchedLeads, total, skip, limit })
+      setLeads(fetchedLeads.filter((lead) => !isTemporaryCodegenLead(lead)))
+      setTotalLeads(total)
+      // Actualizar filters con los valores reales de skip/limit devueltos por el backend
+      if (overrideFilters?.skip !== undefined || overrideFilters?.limit !== undefined) {
+        setFiltersState(prev => ({ ...prev, skip, limit }))
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar los leads')
       console.error('Error loading leads:', err)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filters])
 
   // Obtener fuentes únicas de los leads existentes
   const availableSources = useMemo(() => {
@@ -172,6 +194,15 @@ export function useLeads(): UseLeadsReturn {
 
   const setFilters = useCallback((newFilters: Partial<LeadFilters>) => {
     setFiltersState(prev => ({ ...prev, ...newFilters }))
+  }, [])
+
+  const setPage = useCallback((page: number) => {
+    const newSkip = (page - 1) * filters.limit
+    setFiltersState(prev => ({ ...prev, skip: newSkip }))
+  }, [filters.limit])
+
+  const setPageSize = useCallback((size: number) => {
+    setFiltersState(prev => ({ ...prev, limit: size, skip: 0 }))
   }, [])
 
   const createLead = useCallback(async (data: LeadCreateData): Promise<boolean> => {
@@ -290,10 +321,14 @@ export function useLeads(): UseLeadsReturn {
     setError(null)
   }, [])
 
-  // Cargar leads solo al montar el componente
+  // Cargar leads al montar y cuando cambien filtros (excepto searchTerm)
   useEffect(() => {
     loadLeads()
-  }, [loadLeads])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.estado, filters.fuente, filters.comercial, filters.fechaDesde, filters.fechaHasta, filters.skip, filters.limit])
+
+  const pageSize = filters.limit
+  const page = pageSize > 0 ? Math.floor(filters.skip / pageSize) + 1 : 1
 
   return {
     leads,
@@ -302,9 +337,16 @@ export function useLeads(): UseLeadsReturn {
     filters,
     loading,
     error,
+    totalLeads,
+    skip: filters.skip,
+    limit: filters.limit,
+    page,
+    pageSize,
     searchTerm,
     setSearchTerm,
     setFilters,
+    setPage,
+    setPageSize,
     loadLeads,
     createLead,
     updateLead,

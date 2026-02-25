@@ -50,6 +50,9 @@ export interface ClienteResponse {
   success: boolean;
   message: string;
   data: Cliente | Cliente[] | null;
+  total?: number;
+  skip?: number;
+  limit?: number;
 }
 
 export interface ClienteCreateData {

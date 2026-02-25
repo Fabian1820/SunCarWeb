@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
 import { LeadsTable } from "@/components/feats/leads/leads-table"
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
 import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
@@ -31,9 +32,16 @@ export default function LeadsPage() {
     filters,
     loading,
     error,
+    totalLeads,
+    skip,
+    limit,
+    page,
+    pageSize,
     searchTerm,
     setSearchTerm,
     setFilters,
+    setPage,
+    setPageSize,
     createLead,
     updateLead,
     deleteLead,
@@ -547,18 +555,27 @@ const formatEstado = (estado: string): string => {
                 <p className="text-gray-600">Cargando leads...</p>
               </div>
             ) : (
-              <LeadsTable
-                leads={filteredLeads}
-                onEdit={handleEditLead}
-                onDelete={handleDeleteLead}
-                onConvert={handleConvertLead}
-                onGenerarCodigo={handleGenerarCodigoCliente}
-                onUploadComprobante={handleUploadLeadComprobante}
-                onDownloadComprobante={handleDownloadLeadComprobante}
-                onUpdatePrioridad={handleUpdateLeadPrioridad}
-                loading={loading}
-                disableActions={loadingAction}
-              />
+              <div className="space-y-4">
+                <LeadsTable
+                  leads={filteredLeads}
+                  onEdit={handleEditLead}
+                  onDelete={handleDeleteLead}
+                  onConvert={handleConvertLead}
+                  onGenerarCodigo={handleGenerarCodigoCliente}
+                  onUploadComprobante={handleUploadLeadComprobante}
+                  onDownloadComprobante={handleDownloadLeadComprobante}
+                  onUpdatePrioridad={handleUpdateLeadPrioridad}
+                  loading={loading}
+                  disableActions={loadingAction}
+                />
+                {totalLeads > limit && (
+                  <SmartPagination
+                    currentPage={page}
+                    totalPages={Math.ceil(totalLeads / limit)}
+                    onPageChange={setPage}
+                  />
+                )}
+              </div>
             )}
           </CardContent>
         </Card>
