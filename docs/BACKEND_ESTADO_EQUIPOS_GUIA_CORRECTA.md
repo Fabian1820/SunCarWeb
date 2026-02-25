@@ -18,8 +18,13 @@ GET /reportes/estado-equipos
 
 1. **VENDIDOS** = Equipos en `ofertas_confeccionadas` que tienen pagos (`pago_cliente = true`)
 2. **ENTREGADOS** = Items donde `ofertas_confeccionadas_elementos.entregado = true`
-3. **SIN ENTREGAR** = Items donde `ofertas_confeccionadas_elementos.entregado = false` o `NULL`
-4. **EN SERVICIO** = Entregados + Cliente con `estado = "Instalación completada"`
+3. **EN SERVICIO** = Entregados + Cliente con `estado = "Instalación completada"`
+4. **PENDIENTES** = Vendidos - En Servicio (equipos que aún no están funcionando)
+
+**Relaciones importantes:**
+- `Vendidos = En Servicio + Pendientes`
+- `En Servicio ≤ Entregados ≤ Vendidos`
+- `Pendientes = Vendidos - En Servicio` (incluye no entregados + entregados sin instalar)
 
 ---
 
@@ -33,7 +38,7 @@ SELECT
   m.categoria,
   m.tipo,
   oce.cantidad,
-  oce.entregado,
+  oce.entregado,  -- CAMPO CLAVE: determina si está entregado
   oc.id as oferta_id,
   oc.codigo_cliente,
   c.id as cliente_id,
@@ -56,6 +61,10 @@ WHERE oc.id IN (
 AND m.categoria IN ('Inversores', 'Baterías', 'Paneles Solares')
 ORDER BY m.categoria, m.descripcion, c.nombre
 ```
+
+**IMPORTANTE**: El campo `oce.entregado` es el que determina si el equipo está entregado o no.
+- `entregado = true/1` → Equipo entregado
+- `entregado = false/0/NULL` → Equipo pendiente de entrega
 
 **Nota**: Ajusta los nombres de categorías según tu BD. Pueden ser:
 - "Inversor" / "Inversores"
@@ -106,16 +115,22 @@ async function getEstadoEquipos() {
       if (row.cliente_estado === 'Instalación completada') {
         equipo.unidades_en_servicio += row.cantidad
       }
-    } else {
-      equipo.unidades_sin_entregar += row.cantidad
     }
+    // No es necesario calcular sin_entregar aquí, se calcula después
     
-    // Agregar cliente
+    // Agregar cliente con información del estado de entrega del equipo
     if (row.cliente_id) {
       const codigoCliente = row.cliente_codigo
+      const estaEntregado = row.entregado === true || row.entregado === 1
+      const estaEnServicio = estaEntregado && row.cliente_estado === 'Instalación completada'
       
-      if (!equipo.clientes[codigoCliente]) {
-        equipo.clientes[codigoCliente] = {
+      // IMPORTANTE: Crear una key única que incluya el estado de entrega
+      // Esto permite que el mismo cliente aparezca múltiples veces si tiene
+      // equipos entregados Y pendientes del mismo tipo
+      const clienteKey = `${codigoCliente}-${row.oferta_id}-${estaEntregado ? 'entregado' : 'pendiente'}`
+      
+      if (!equipo.clientes[clienteKey]) {
+        equipo.clientes[clienteKey] = {
           id: row.cliente_id,
           codigo: row.cliente_codigo,
           nombre: row.cliente_nombre,
@@ -124,11 +139,14 @@ async function getEstadoEquipos() {
           provincia: row.provincia,
           estado: row.cliente_estado,
           fecha_instalacion: row.fecha_instalacion,
-          cantidad_equipos: 0
+          cantidad_equipos: 0,
+          // CAMPOS CRÍTICOS PARA EL FRONTEND
+          equipo_entregado: estaEntregado,      // true si oce.entregado = true
+          equipo_en_servicio: estaEnServicio    // true si entregado Y cliente.estado = 'Instalación completada'
         }
       }
       
-      equipo.clientes[codigoCliente].cantidad_equipos += row.cantidad
+      equipo.clientes[clienteKey].cantidad_equipos += row.cantidad
     }
   })
   
@@ -136,6 +154,10 @@ async function getEstadoEquipos() {
   const categorias = {}
   
   Object.values(equiposPorCodigo).forEach(equipo => {
+    // IMPORTANTE: Calcular pendientes como Vendidos - En Servicio
+    // Esto incluye tanto los no entregados como los entregados pero no instalados
+    equipo.unidades_sin_entregar = equipo.unidades_vendidas - equipo.unidades_en_servicio
+    
     // Calcular porcentajes del equipo
     equipo.porcentaje_entregado = equipo.unidades_vendidas > 0 
       ? Math.round((equipo.unidades_entregadas / equipo.unidades_vendidas) * 100)
@@ -317,13 +339,102 @@ async function calcularVariacionMensual() {
         "unidades_sin_entregar": 24,
         "unidades_en_servicio": 68,
         "porcentaje_entregado": 75,
-        "equipos": [...]
+        "equipos": [
+          {
+            "id": "123",
+            "codigo": "INV-8KW",
+            "nombre": "Inversor Híbrido 8kW",
+            "categoria": "Inversores",
+            "tipo": "Monofásico",
+            "unidades_vendidas": 15,
+            "unidades_entregadas": 12,
+            "unidades_sin_entregar": 3,
+            "unidades_en_servicio": 10,
+            "porcentaje_entregado": 80,
+            "porcentaje_en_servicio": 67,
+            "clientes": [
+              {
+                "id": "c1",
+                "codigo": "CLI-001",
+                "nombre": "Juan Pérez",
+                "telefono": "555-1234",
+                "direccion": "Calle 123",
+                "provincia": "La Habana",
+                "estado": "Instalación completada",
+                "fecha_instalacion": "2024-01-15",
+                "cantidad_equipos": 2,
+                "equipo_entregado": true,
+                "equipo_en_servicio": true
+              },
+              {
+                "id": "c2",
+                "codigo": "CLI-002",
+                "nombre": "María García",
+                "telefono": "555-5678",
+                "direccion": "Avenida 456",
+                "provincia": "Matanzas",
+                "estado": "Instalación en proceso",
+                "fecha_instalacion": null,
+                "cantidad_equipos": 1,
+                "equipo_entregado": true,
+                "equipo_en_servicio": false
+              },
+              {
+                "id": "c3",
+                "codigo": "CLI-003",
+                "nombre": "Pedro López",
+                "telefono": "555-9012",
+                "direccion": "Calle 789",
+                "provincia": "Villa Clara",
+                "estado": "Pendiente de instalación",
+                "fecha_instalacion": null,
+                "cantidad_equipos": 1,
+                "equipo_entregado": false,
+                "equipo_en_servicio": false
+              }
+            ]
+          }
+        ]
       }
     ],
     "fecha_actualizacion": "2026-02-24T10:30:00Z"
   }
 }
 ```
+
+### Explicación de los campos de cliente:
+
+- **equipo_entregado**: `true` si `ofertas_confeccionadas_elementos.entregado = true` para este equipo
+- **equipo_en_servicio**: `true` si `equipo_entregado = true` Y `clientes.estado = 'Instalación completada'`
+
+### Caso especial: Cliente con equipos entregados Y pendientes
+
+Si un cliente tiene 2 inversores entregados y 1 pendiente del mismo modelo, aparecerá DOS VECES en el array de clientes:
+
+```json
+{
+  "clientes": [
+    {
+      "codigo": "CLI-004",
+      "nombre": "Ana Martínez",
+      "cantidad_equipos": 2,
+      "equipo_entregado": true,
+      "equipo_en_servicio": true
+    },
+    {
+      "codigo": "CLI-004",
+      "nombre": "Ana Martínez",
+      "cantidad_equipos": 1,
+      "equipo_entregado": false,
+      "equipo_en_servicio": false
+    }
+  ]
+}
+```
+
+Esto permite al frontend mostrar correctamente:
+- En "Entregados": Ana Martínez con 2 unidades
+- En "Pendientes": Ana Martínez con 1 unidad
 
 ---
 

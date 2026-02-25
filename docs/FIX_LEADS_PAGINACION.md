@@ -2,7 +2,7 @@
 
 ## Problema
 
-El endpoint `/leads/` del backend cambió su estructura de respuesta de un formato simple a un formato paginado:
+El endpoint `/leads/` del backend cambió su estructura de respuesta para incluir información de paginación:
 
 **Formato Antiguo:**
 ```json
@@ -16,101 +16,98 @@ El endpoint `/leads/` del backend cambió su estructura de respuesta de un forma
 }
 ```
 
-**Formato Nuevo (Paginado):**
+**Formato Nuevo (Con Paginación):**
 ```json
 {
   "success": true,
-  "data": {
-    "data": [
-      { "id": "1", "nombre": "Lead 1", ... },
-      { "id": "2", "nombre": "Lead 2", ... }
-    ],
-    "total": 100
-  }
+  "message": "Leads obtenidos",
+  "data": [
+    { "id": "1", "nombre": "Lead 1", ... },
+    { "id": "2", "nombre": "Lead 2", ... }
+  ],
+  "total": 100,
+  "skip": 0,
+  "limit": 20
 }
 ```
 
-Esto causaba que el frontend no pudiera cargar los leads en:
-- Confección de ofertas
-- Ofertas personalizadas
-- Gestión de leads
-- Trabajos pendientes
+Esto causaba que el frontend no pudiera cargar los leads correctamente en varios componentes.
 
 ## Solución Implementada
 
 ### 1. Actualización del Servicio (`lib/services/feats/leads/lead-service.ts`)
 
-Se modificó el método `getLeads()` para detectar y manejar ambos formatos:
+Se modificó el método `getLeads()` para devolver un objeto con la información de paginación:
 
 ```typescript
-static async getLeads(params: {...} = {}): Promise<Lead[]> {
+static async getLeads(params: {
+  nombre?: string
+  telefono?: string
+  estado?: string
+  fuente?: string
+  skip?: number
+  limit?: number
+} = {}): Promise<{ leads: Lead[]; total: number; skip: number; limit: number }> {
   const response = await apiRequest<LeadResponse>(endpoint)
-  
-  // Manejar respuesta paginada (nuevo formato del backend)
-  // Estructura: { success: true, data: { data: [...], total: 100 } }
-  if (response.data && typeof response.data === 'object' && 'data' in response.data) {
-    console.log('LeadService.getLeads - Formato paginado detectado')
-    return Array.isArray(response.data.data) ? response.data.data : []
-  }
-  
-  // Formato antiguo (compatibilidad): { data: [...] }
-  return Array.isArray(response.data) ? response.data : []
+  const leads = Array.isArray(response.data) ? response.data : []
+  const total = response.total ?? leads.length
+  const skip = response.skip ?? params.skip ?? 0
+  const limit = response.limit ?? params.limit ?? (params.skip !== undefined || params.limit !== undefined ? 50 : 0)
+  return { leads, total, skip, limit }
 }
 ```
 
+**Cambio importante:** Ahora devuelve `{ leads, total, skip, limit }` en lugar de solo un array.
+
 ### 2. Actualización de Tipos (`lib/types/feats/leads/lead-types.ts`)
 
-Se agregó el tipo `LeadPaginatedData` y se actualizó `LeadResponse`:
+Se actualizó `LeadResponse` para incluir los campos de paginación:
 
 ```typescript
 export interface LeadResponse {
   success: boolean;
   message: string;
-  data: Lead | Lead[] | LeadPaginatedData | null;
-}
-
-// Nuevo formato paginado del backend
-export interface LeadPaginatedData {
-  data: Lead[];
-  total: number;
+  data: Lead | Lead[] | null;
+  total?: number;    // ← Nuevo
+  skip?: number;     // ← Nuevo
+  limit?: number;    // ← Nuevo
 }
 ```
 
-### 3. Exportación de Tipos (`lib/api-types.ts`)
+### 3. Actualización de Componentes
 
-Se agregó la exportación del nuevo tipo:
+Se actualizaron todos los lugares que usan `LeadService.getLeads()` para desestructurar la respuesta:
 
+**Antes:**
 ```typescript
-export type {
-  Lead,
-  LeadResponse,
-  LeadPaginatedData,  // ← Nuevo
-  LeadCreateData,
-  LeadUpdateData,
-  LeadConversionRequest,
-  OfertaAsignacion,
-  OfertaEmbebida,
-  ElementoPersonalizado,
-} from './types/feats/leads/lead-types'
+const data = await LeadService.getLeads()
+setLeads(Array.isArray(data) ? data : [])
 ```
+
+**Después:**
+```typescript
+const { leads } = await LeadService.getLeads()
+setLeads(Array.isArray(leads) ? leads : [])
+```
+
+## Archivos Modificados
+
+1. ✅ `lib/services/feats/leads/lead-service.ts` - Servicio actualizado
+2. ✅ `lib/types/feats/leads/lead-types.ts` - Tipos actualizados
+3. ✅ `lib/api-types.ts` - Exportaciones actualizadas
+4. ✅ `hooks/use-leads.ts` - Hook actualizado (ya incluía soporte de paginación)
+5. ✅ `components/feats/ofertas/confeccion-ofertas-view.tsx` - Componente actualizado
+6. ✅ `components/feats/ofertas/ofertas-confeccionadas-view.tsx` - Componente actualizado
+7. ✅ `components/feats/ofertas-personalizadas/cliente-selector-field.tsx` - Componente actualizado
+8. ✅ `hooks/use-trabajos-pendientes.ts` - Hook actualizado
+9. ✅ `lib/utils/migrate-fuentes.ts` - Utilidad actualizada
 
 ## Compatibilidad
 
 La solución es **retrocompatible**:
 - ✅ Funciona con el nuevo formato paginado
-- ✅ Funciona con el formato antiguo (si el backend lo devuelve)
-- ✅ No requiere cambios en los componentes que usan `LeadService.getLeads()`
-
-## Lugares Afectados
-
-Todos estos lugares ahora funcionan correctamente sin cambios adicionales:
-
-1. `components/feats/ofertas/confeccion-ofertas-view.tsx` - Buscar lead al crear oferta
-2. `components/feats/ofertas/ofertas-confeccionadas-view.tsx` - Filtrar ofertas por lead
-3. `components/feats/ofertas-personalizadas/cliente-selector-field.tsx` - Selector de lead
-4. `hooks/use-leads.ts` - Hook para cargar leads
-5. `hooks/use-trabajos-pendientes.ts` - Cargar leads pendientes
-6. `lib/utils/migrate-fuentes.ts` - Migración de datos
+- ✅ Maneja correctamente cuando `total`, `skip` o `limit` no están presentes
+- ✅ Los componentes que no necesitan paginación simplemente ignoran esos campos
 
 ## Verificación
 
@@ -123,8 +120,8 @@ Para verificar que funciona correctamente:
 
 Si hay problemas:
 - Abre la consola del navegador (F12)
-- Busca el log: `LeadService.getLeads - Formato paginado detectado`
-- Verifica que `response.data.data` contenga el array de leads
+- Busca el log: `LeadService.getLeads response:`
+- Verifica que la respuesta tenga los campos `data`, `total`, `skip`, `limit`
 
 ## Endpoint en Swagger
 
@@ -134,20 +131,29 @@ El endpoint correcto en Swagger es:
 GET /leads/
 ```
 
-O:
-
-```
-GET /leads
-```
-
 **Parámetros opcionales:**
 - `nombre` (string) - Filtrar por nombre
 - `telefono` (string) - Filtrar por teléfono
 - `estado` (string) - Filtrar por estado
 - `fuente` (string) - Filtrar por fuente
+- `skip` (number) - Número de registros a saltar (paginación)
+- `limit` (number) - Número máximo de registros a devolver
+
+**Respuesta:**
+```json
+{
+  "success": true,
+  "message": "Leads obtenidos exitosamente",
+  "data": [...],
+  "total": 100,
+  "skip": 0,
+  "limit": 20
+}
+```
 
 ## Notas Adicionales
 
-- El campo `total` de la respuesta paginada actualmente no se usa en el frontend
-- Si en el futuro se necesita paginación real (límite/offset), se puede extender el servicio
-- La detección del formato se hace verificando si `response.data` tiene una propiedad `data`
+- El hook `use-leads.ts` ya tenía soporte completo de paginación
+- Los componentes simples que no usan paginación solo extraen el array `leads`
+- La paginación real (con controles de página) solo está implementada en `use-leads.ts`
+- Si otros componentes necesitan paginación en el futuro, pueden usar el mismo patrón

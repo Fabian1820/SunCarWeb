@@ -126,6 +126,10 @@ export interface ClienteConEquipo {
   estado: string
   fecha_instalacion?: string
   cantidad_equipos: number
+  unidades_vendidas: number      // Total de unidades vendidas a este cliente
+  unidades_entregadas: number    // Unidades ya entregadas al cliente
+  unidades_pendientes: number    // Unidades que faltan por entregar
+  unidades_en_servicio: number   // Unidades entregadas con instalación completada
 }
 
 export interface EquipoDetalle {
