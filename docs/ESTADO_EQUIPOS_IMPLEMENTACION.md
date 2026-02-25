@@ -1,10 +1,11 @@
 # Módulo Estado de Equipos - Documentación de Implementación
 
-## ⚠️ Estado Actual
+## ✅ Estado Actual
 
-**El módulo está funcionando con datos MOCK mientras se implementa el endpoint backend.**
+**El módulo está COMPLETO y funcionando con datos reales del backend.**
 
-El frontend está completo y funcional. Cuando el endpoint `/reportes/estado-equipos` esté disponible, los datos reales reemplazarán automáticamente los datos de ejemplo.
+Endpoint: `GET /reportes/estado-equipos`  
+URL: `http://localhost:8000/api/reportes/estado-equipos`
 
 ## Descripción
 

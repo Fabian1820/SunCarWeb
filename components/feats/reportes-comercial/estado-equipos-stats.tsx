@@ -49,12 +49,26 @@ export function EstadoEquiposStats({ data, loading, onRefresh }: EstadoEquiposSt
 
   if (!data) {
     return (
-      <Card>
+      <Card className="border-2 border-orange-200">
         <CardContent className="p-8 text-center">
-          <p className="text-gray-600">No hay datos disponibles</p>
-          <Button onClick={onRefresh} className="mt-4">
-            Reintentar
-          </Button>
+          <div className="mb-4">
+            <Package className="h-16 w-16 text-orange-400 mx-auto mb-4" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            No se pudieron cargar los datos
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Verifica que el backend esté corriendo en:
+          </p>
+          <code className="bg-gray-100 px-3 py-1 rounded text-sm text-gray-800 mb-4 inline-block">
+            http://localhost:8000/api/reportes/estado-equipos
+          </code>
+          <div className="mt-6">
+            <Button onClick={onRefresh} className="bg-orange-600 hover:bg-orange-700">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reintentar
+            </Button>
+          </div>
         </CardContent>
       </Card>
     )

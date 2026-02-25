@@ -1,10 +1,11 @@
 # API Estado de Equipos - Documentación
 
-## ⚠️ Estado de Implementación
+## ✅ Estado de Implementación
 
-**PENDIENTE**: Este endpoint aún no está implementado en el backend.
+**IMPLEMENTADO**: Este endpoint está funcionando en el backend.
 
-El frontend está listo y funcionando con datos mock. Una vez implementado este endpoint, los datos reales se mostrarán automáticamente.
+URL: `http://localhost:8000/api/reportes/estado-equipos`  
+Documentación Swagger disponible.
 
 ## Descripción General
 Endpoint para obtener estadísticas sobre el estado de los equipos vendidos, entregados y en servicio.
