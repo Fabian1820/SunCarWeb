@@ -114,3 +114,56 @@ export interface EstadisticaComercial {
   ofertas_cerradas: number
   total_margen: number
 }
+
+// Tipos para Estado de Equipos
+export interface ClienteConEquipo {
+  id: string
+  codigo: string
+  nombre: string
+  telefono: string
+  direccion: string
+  provincia: string
+  estado: string
+  fecha_instalacion?: string
+  cantidad_equipos: number
+}
+
+export interface EquipoDetalle {
+  id: string
+  codigo: string
+  nombre: string
+  categoria: string
+  tipo: string
+  unidades_vendidas: number
+  unidades_entregadas: number
+  unidades_sin_entregar: number
+  unidades_en_servicio: number
+  porcentaje_entregado: number
+  porcentaje_en_servicio: number
+  clientes: ClienteConEquipo[]
+}
+
+export interface CategoriaEquipos {
+  categoria: string
+  descripcion: string
+  unidades_vendidas: number
+  unidades_entregadas: number
+  unidades_sin_entregar: number
+  unidades_en_servicio: number
+  porcentaje_entregado: number
+  equipos: EquipoDetalle[]
+}
+
+export interface EstadoEquiposData {
+  resumen: {
+    total_vendidos: number
+    total_entregados: number
+    total_sin_entregar: number
+    total_en_servicio: number
+    porcentaje_entregados: number
+    porcentaje_en_servicio: number
+    variacion_mensual: number
+  }
+  categorias: CategoriaEquipos[]
+  fecha_actualizacion: string
+}

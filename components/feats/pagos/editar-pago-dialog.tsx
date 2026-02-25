@@ -15,7 +15,7 @@ interface EditarPagoDialogProps {
     onOpenChange: (open: boolean) => void
     pago: any | null
     oferta: any
-    onSuccess: () => void
+    onSuccess: (montoPendienteActualizado?: number) => void
 }
 
 export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }: EditarPagoDialogProps) {
@@ -272,8 +272,9 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
             const response = await PagoService.actualizarPago(pago.id, updateData)
             
             console.log('✅ Pago actualizado exitosamente:', response)
+            console.log('💰 Monto pendiente actualizado:', response.monto_pendiente_actualizado)
 
-            onSuccess()
+            onSuccess(response.monto_pendiente_actualizado)
             onOpenChange(false)
         } catch (err: any) {
             setError(err.message || 'Error al actualizar el pago')

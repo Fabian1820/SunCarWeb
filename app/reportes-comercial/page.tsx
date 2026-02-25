@@ -28,6 +28,14 @@ export default function ReportesComercialPage() {
       href: '/reportes-comercial/resultados-comercial',
       // Ocultar para Lorena Pérez
       hidden: user?.nombre === 'Lorena Pérez'
+    },
+    {
+      id: 'estado-equipos',
+      title: 'Estado de Equipos',
+      description: 'Equipos vendidos, entregados y en servicio',
+      icon: BarChart3,
+      color: 'orange',
+      href: '/reportes-comercial/estado-equipos'
     }
   ]
 
@@ -47,6 +55,12 @@ export default function ReportesComercialPage() {
         border: 'border-green-200',
         icon: 'text-green-600',
         hover: 'hover:bg-green-100'
+      },
+      orange: {
+        bg: 'bg-orange-50',
+        border: 'border-orange-200',
+        icon: 'text-orange-600',
+        hover: 'hover:bg-orange-100'
       }
     }
     return colors[color as keyof typeof colors] || colors.blue

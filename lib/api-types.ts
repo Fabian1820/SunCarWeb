@@ -81,4 +81,8 @@ export type {
 export type {
   InstalacionPendiente,
   PendientesInstalacionFilters,
+  EstadoEquiposData,
+  CategoriaEquipos,
+  EquipoDetalle,
+  ClienteConEquipo,
 } from './types/feats/reportes-comercial/reportes-comercial-types'

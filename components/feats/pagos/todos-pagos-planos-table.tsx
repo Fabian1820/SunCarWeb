@@ -210,8 +210,18 @@ export function TodosPagosPlanosTable({ ofertasConPagos, loading, onPagoUpdated 
         setEditDialogOpen(true)
     }
 
-    const handlePagoEditSuccess = () => {
+    const handlePagoEditSuccess = (montoPendienteActualizado?: number) => {
         setEditDialogOpen(false)
+        
+        // Si recibimos el monto pendiente actualizado, actualizar la UI inmediatamente
+        if (montoPendienteActualizado !== undefined && selectedPago) {
+            console.log('💰 Actualizando monto pendiente en UI:', montoPendienteActualizado)
+            console.log('📝 Oferta afectada:', selectedPago.oferta.numero_oferta)
+            
+            // Actualizar el monto pendiente en el objeto de la oferta seleccionada
+            selectedPago.oferta.monto_pendiente = montoPendienteActualizado
+        }
+        
         setSelectedPago(null)
         console.log('🔄 Recargando datos después de editar pago...')
         if (onPagoUpdated) {

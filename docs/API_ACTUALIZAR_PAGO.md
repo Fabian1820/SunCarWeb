@@ -82,9 +82,12 @@ Todos los campos son opcionales. Solo se actualizan los campos enviados.
 {
   "success": true,
   "message": "Pago actualizado exitosamente",
-  "pago_id": "20240215-001"
+  "pago_id": "20240215-001",
+  "monto_pendiente_actualizado": 2500.00
 }
 ```
+
+El campo `monto_pendiente_actualizado` contiene el nuevo monto pendiente de la oferta después de aplicar los cambios del pago.
 
 ## Comportamiento Automático
 

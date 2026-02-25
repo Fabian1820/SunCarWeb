@@ -199,7 +199,7 @@ export class PagoService {
   /**
    * Actualizar un pago existente
    */
-  static async actualizarPago(pagoId: string, data: Partial<PagoCreateData>): Promise<{ success: boolean; message: string; pago_id: string }> {
+  static async actualizarPago(pagoId: string, data: Partial<PagoCreateData>): Promise<{ success: boolean; message: string; pago_id: string; monto_pendiente_actualizado: number }> {
     try {
       console.log('🚀 [PagoService.actualizarPago] Iniciando actualización de pago')
       console.log('🆔 Pago ID:', pagoId)
@@ -215,7 +215,7 @@ export class PagoService {
         }
       }
       
-      const response = await apiRequest<{ success: boolean; message: string; pago_id: string }>(
+      const response = await apiRequest<{ success: boolean; message: string; pago_id: string; monto_pendiente_actualizado: number }>(
         `/pagos/${pagoId}`,
         {
           method: 'PUT',
@@ -224,6 +224,7 @@ export class PagoService {
       )
       
       console.log('✅ [PagoService.actualizarPago] Respuesta exitosa:', response)
+      console.log('💰 Monto pendiente actualizado:', response.monto_pendiente_actualizado)
       return response
     } catch (error: any) {
       console.error('❌ [PagoService.actualizarPago] Error al actualizar pago:', error)
