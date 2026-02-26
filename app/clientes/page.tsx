@@ -96,40 +96,6 @@ export default function ClientesPage() {
       setLoading(true);
       try {
         const filters = { ...appliedFilters, ...overrideFilters };
-        const hasSearch = filters.searchTerm.trim().length > 0;
-
-        if (hasSearch) {
-          const searchLimit = 200;
-          let skip = 0;
-          let totalExpected = Number.POSITIVE_INFINITY;
-          const allClients: Cliente[] = [];
-
-          while (skip < totalExpected) {
-            const { clients: batch, total } = await ClienteService.getClientes({
-              fuente: filters.fuente || undefined,
-              comercial: filters.comercial || undefined,
-              fechaDesde: filters.fechaDesde || undefined,
-              fechaHasta: filters.fechaHasta || undefined,
-              skip,
-              limit: searchLimit,
-            });
-
-            if (batch.length === 0) break;
-            allClients.push(...batch);
-            totalExpected = total > 0 ? total : allClients.length;
-            skip += batch.length;
-
-            if (batch.length < searchLimit) break;
-          }
-
-          setClients(allClients);
-          setTotalClients(allClients.length);
-          if (filters.skip !== 0) {
-            setAppliedFilters((prev) => ({ ...prev, skip: 0 }));
-          }
-          return;
-        }
-
         // Llamada al servicio con paginación y filtros
         const {
           clients: fetchedClients,
@@ -137,6 +103,7 @@ export default function ClientesPage() {
           skip,
           limit,
         } = await ClienteService.getClientes({
+          nombre: filters.searchTerm || undefined,
           fuente: filters.fuente || undefined,
           comercial: filters.comercial || undefined,
           fechaDesde: filters.fechaDesde || undefined,
@@ -154,9 +121,6 @@ export default function ClientesPage() {
         ) {
           setAppliedFilters((prev) => ({ ...prev, skip, limit }));
         }
-      } catch (error: unknown) {
-        console.error("Error cargando clientes:", error);
-        setClients([]);
       } finally {
         setLoading(false);
       }

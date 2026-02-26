@@ -447,19 +447,14 @@ export function ClientsTable({
     // Ordenar por últimos dígitos del código de cliente:
     // 8 dígitos -> últimos 3, más de 8 -> últimos 5.
     return filtered.sort((a, b) => {
-      const tailA = getClientTailSortNumber(a);
-      const tailB = getClientTailSortNumber(b);
-      if (tailA !== tailB) return tailB - tailA;
+      // Extraer los últimos 3 dígitos del código
+      const getLastThreeDigits = (numero: string) => {
+        const digits = numero.match(/\d+/g)?.join("") || "0";
+        return parseInt(digits.slice(-3)) || 0;
+      };
 
-      const codeA = getClientSortCode(a);
-      const codeB = getClientSortCode(b);
-      if (codeA && codeB) {
-        const byCode = codeB.localeCompare(codeA, "es", {
-          numeric: true,
-          sensitivity: "base",
-        });
-        if (byCode !== 0) return byCode;
-      }
+      const aNum = getLastThreeDigits(a.numero);
+      const bNum = getLastThreeDigits(b.numero);
 
       return (b.nombre || "").localeCompare(a.nombre || "", "es", {
         sensitivity: "base",

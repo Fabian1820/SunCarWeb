@@ -56,9 +56,7 @@ const cleanPayload = <T extends Record<string, unknown>>(
 };
 
 export class ClienteService {
-  static async getClientes(
-    params: ClienteListParams = {},
-  ): Promise<{
+  static async getClientes(params: ClienteListParams = {}): Promise<{
     clients: Cliente[];
     total: number;
     skip: number;

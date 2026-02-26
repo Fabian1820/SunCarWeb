@@ -90,96 +90,46 @@ const isClientePendiente = (cliente: ClienteConEquipo) => {
   );
 };
 
-const getCantidadFallback = (cliente: ClienteConEquipo) =>
-  Math.max(
-    cliente.cantidad_equipos || 0,
-    cliente.unidades_vendidas || 0,
-    cliente.unidades_entregadas || 0,
-    cliente.unidades_en_servicio || 0,
-    cliente.unidades_pendientes || 0,
-  );
-
 const getCantidadPorEstado = (
   cliente: ClienteConEquipo,
   estado: EstadoCliente,
 ) => {
-  if (estado === "servicio") {
-    if (cliente.unidades_en_servicio > 0) return cliente.unidades_en_servicio;
-    if (isClienteEnServicio(cliente))
-      return Math.max(getCantidadFallback(cliente), 1);
-    return 0;
+  const directa =
+    estado === "entregados"
+      ? cliente.unidades_entregadas
+      : estado === "servicio"
+        ? cliente.unidades_en_servicio
+        : cliente.unidades_pendientes;
+
+  if (cantidadBase > 0) return cantidadBase;
+
+  if (estado === "entregados" && isClienteEntregado(cliente)) {
+    return cliente.cantidad_equipos;
+  }
+  if (estado === "servicio" && isClienteEnServicio(cliente)) {
+    return cliente.cantidad_equipos;
+  }
+  if (estado === "pendientes" && isClientePendiente(cliente)) {
+    return cliente.cantidad_equipos;
   }
 
-  if (estado === "entregados") {
-    const entregadosSinServicio = Math.max(
-      (cliente.unidades_entregadas || 0) - (cliente.unidades_en_servicio || 0),
-      0,
-    );
-    if (entregadosSinServicio > 0) return entregadosSinServicio;
-    if (isClienteEntregado(cliente) && !isClienteEnServicio(cliente)) {
-      return Math.max(getCantidadFallback(cliente), 1);
-    }
-    return 0;
-  }
-
-  const pendientesDirecto = Math.max(
-    cliente.unidades_pendientes || 0,
-    (cliente.unidades_vendidas || 0) - (cliente.unidades_entregadas || 0),
-    0,
-  );
-  if (pendientesDirecto > 0) return pendientesDirecto;
-  if (isClientePendiente(cliente))
-    return Math.max(getCantidadFallback(cliente), 1);
   return 0;
 };
 
-const getClientesEstado = (equipo: EquipoDetalle, estado: EstadoCliente) => {
-  const clientes = equipo.clientes || [];
-  return clientes.filter(
-    (cliente) => getCantidadPorEstado(cliente, estado) > 0,
-  );
-};
+const getClientesPorEstado = (equipo: EquipoDetalle) => ({
+  entregados: (equipo.clientes || []).filter(
+    (cliente) => cliente.unidades_entregadas > 0 || isClienteEntregado(cliente),
+  ),
+  servicio: (equipo.clientes || []).filter(
+    (cliente) =>
+      cliente.unidades_en_servicio > 0 || isClienteEnServicio(cliente),
+  ),
+  pendientes: (equipo.clientes || []).filter(
+    (cliente) => cliente.unidades_pendientes > 0 || isClientePendiente(cliente),
+  ),
+});
 
-const mapEquipos = (equipos: EquipoDetalle[], prefix: string): EquipoItem[] =>
-  equipos.map((equipo, index) => ({
-    key: `${prefix}-${equipo.id || equipo.codigo || index}-${normalizeText(equipo.nombre)}`,
-    equipo,
-  }));
-
-function ClienteRow({
-  cliente,
-  estado,
-}: {
-  cliente: ClienteConEquipo;
-  estado: EstadoCliente;
-}) {
-  const cantidad = getCantidadPorEstado(cliente, estado);
-
-  return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-800">
-            {cliente.nombre}
-          </p>
-          <p className="truncate text-xs text-slate-500">
-            {cliente.direccion} - {cliente.provincia}
-          </p>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
-            {cantidad} eq.
-          </span>
-          <span className="max-w-[160px] truncate text-xs text-slate-500">
-            {cliente.estado}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CategoriaAccordion({
+function EstadoClientesList({
   title,
   estado,
   clientes,
@@ -248,23 +198,11 @@ export function EstadoEquiposStats({
   loading,
   onRefresh,
 }: EstadoEquiposStatsProps) {
-  const [vistaActiva, setVistaActiva] = useState<VistaKey>("inversores");
-  const [expandedCategorias, setExpandedCategorias] = useState<
-    Record<EstadoCliente, boolean>
-  >({
-    entregados: true,
-    servicio: false,
-    pendientes: false,
-  });
-  const [selectedByVista, setSelectedByVista] = useState<
-    Record<VistaKey, string | null>
-  >({
-    inversores: null,
-    baterias: null,
-    paneles: null,
-  });
+  const [expandedEquipos, setExpandedEquipos] = useState<Set<string>>(
+    new Set(),
+  );
 
-  const todosLosEquipos = useMemo(() => {
+  const equipos = useMemo(() => {
     if (!data) return [];
     return data.categorias.flatMap((categoria) => categoria.equipos);
   }, [data]);
@@ -291,11 +229,28 @@ export function EstadoEquiposStats({
             isBateria(item.nombre),
         )
         .sort((a, b) => b.unidades_vendidas - a.unidades_vendidas),
-      "bat",
-    );
+    [equipos],
+  );
 
-    const paneles = mapEquipos(
-      [...todosLosEquipos]
+  const equiposOtros = useMemo(
+    () =>
+      equipos.filter((equipo) => {
+        const inversor =
+          isInversor(equipo.categoria) ||
+          isInversor(equipo.tipo) ||
+          isInversor(equipo.nombre);
+        const bateria =
+          isBateria(equipo.categoria) ||
+          isBateria(equipo.tipo) ||
+          isBateria(equipo.nombre);
+        return !inversor && !bateria;
+      }),
+    [equipos],
+  );
+
+  const equiposPaneles = useMemo(
+    () =>
+      equipos
         .filter(
           (item) =>
             isPanel(item.categoria) ||
