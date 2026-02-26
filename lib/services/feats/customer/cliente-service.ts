@@ -56,13 +56,24 @@ const cleanPayload = <T extends Record<string, unknown>>(
 };
 
 export class ClienteService {
-  static async getClientes(params: ClienteListParams = {}): Promise<{ clients: Cliente[]; total: number; skip: number; limit: number }> {
+  static async getClientes(
+    params: ClienteListParams = {},
+  ): Promise<{
+    clients: Cliente[];
+    total: number;
+    skip: number;
+    limit: number;
+  }> {
     const search = new URLSearchParams();
     if (params.numero) search.append("numero", params.numero);
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.direccion) search.append("direccion", params.direccion);
-    if (params.skip !== undefined) search.append("skip", params.skip.toString());
-    if (params.limit !== undefined) search.append("limit", params.limit.toString());
+    if (params.estado) search.append("estado", params.estado);
+    if (params.fuente) search.append("fuente", params.fuente);
+    if (params.skip !== undefined)
+      search.append("skip", params.skip.toString());
+    if (params.limit !== undefined)
+      search.append("limit", params.limit.toString());
     if (params.comercial) search.append("comercial", params.comercial);
     if (params.fechaDesde) search.append("fechaDesde", params.fechaDesde);
     if (params.fechaHasta) search.append("fechaHasta", params.fechaHasta);
@@ -73,34 +84,36 @@ export class ClienteService {
     // Manejar ambos formatos de respuesta:
     // 1. Backend devuelve { success: true, data: [...], total, skip, limit }
     // 2. Backend devuelve directamente [...]
-    let clients: Cliente[] = []
-    let total = 0
-    let skip = params.skip ?? 0
-    let limit = params.limit ?? (params.skip !== undefined || params.limit !== undefined ? 50 : 0)
-    
+    let clients: Cliente[] = [];
+    let total = 0;
+    let skip = params.skip ?? 0;
+    let limit =
+      params.limit ??
+      (params.skip !== undefined || params.limit !== undefined ? 50 : 0);
+
     if (Array.isArray(response)) {
       console.log(
         "📦 Backend returned array directly, using it:",
         response.length,
         "clients",
       );
-      clients = response
-      total = response.length
+      clients = response;
+      total = response.length;
     } else if (response.data && Array.isArray(response.data)) {
       console.log(
         "📦 Backend returned wrapped response, extracting data:",
         response.data.length,
         "clients",
       );
-      clients = response.data
-      total = response.total ?? clients.length
-      skip = response.skip ?? skip
-      limit = response.limit ?? limit
+      clients = response.data;
+      total = response.total ?? clients.length;
+      skip = response.skip ?? skip;
+      limit = response.limit ?? limit;
     } else {
       console.warn("⚠️ Unexpected response format from backend:", response);
     }
 
-    return { clients, total, skip, limit }
+    return { clients, total, skip, limit };
   }
 
   static async generarCodigoCliente(params: {

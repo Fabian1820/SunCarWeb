@@ -183,6 +183,35 @@ const normalizeClienteNumero = (value?: string) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
+const getClientSortCode = (client: Cliente) => {
+  if (typeof client.numero === "string" && client.numero.trim()) {
+    return client.numero.trim();
+  }
+
+  const dynamicClient = client as Record<string, unknown>;
+  const codigoCliente = dynamicClient.codigo_cliente;
+  if (typeof codigoCliente === "string" && codigoCliente.trim()) {
+    return codigoCliente.trim();
+  }
+
+  const numeroCliente = dynamicClient.numero_cliente;
+  if (typeof numeroCliente === "string" && numeroCliente.trim()) {
+    return numeroCliente.trim();
+  }
+
+  return "";
+};
+
+const getClientTailSortNumber = (client: Cliente) => {
+  const code = getClientSortCode(client);
+  const digits = code.match(/\d+/g)?.join("") ?? "";
+  if (!digits) return -1;
+
+  const tailLength = digits.length > 8 ? 5 : 3;
+  const tail = digits.slice(-tailLength);
+  return Number.parseInt(tail, 10) || 0;
+};
+
 export function ClientsTable({
   clients,
   onEdit,
@@ -415,19 +444,26 @@ export function ClientsTable({
       return true;
     });
 
-    // Ordenar por los últimos 3 dígitos del código de cliente (descendente)
+    // Ordenar por últimos dígitos del código de cliente:
+    // 8 dígitos -> últimos 3, más de 8 -> últimos 5.
     return filtered.sort((a, b) => {
-      // Extraer los últimos 3 dígitos del código
-      const getLastThreeDigits = (numero: string) => {
-        const digits = numero.match(/\d+/g)?.join("") || "0";
-        return parseInt(digits.slice(-3)) || 0;
-      };
+      const tailA = getClientTailSortNumber(a);
+      const tailB = getClientTailSortNumber(b);
+      if (tailA !== tailB) return tailB - tailA;
 
-      const aNum = getLastThreeDigits(a.numero);
-      const bNum = getLastThreeDigits(b.numero);
+      const codeA = getClientSortCode(a);
+      const codeB = getClientSortCode(b);
+      if (codeA && codeB) {
+        const byCode = codeB.localeCompare(codeA, "es", {
+          numeric: true,
+          sensitivity: "base",
+        });
+        if (byCode !== 0) return byCode;
+      }
 
-      // Ordenar de mayor a menor (más reciente primero)
-      return bNum - aNum;
+      return (b.nombre || "").localeCompare(a.nombre || "", "es", {
+        sensitivity: "base",
+      });
     });
   }, [clients, searchTerm, filters]);
 
@@ -3000,10 +3036,7 @@ export function ClientsTable({
                                   <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent
-                                align="end"
-                                className="w-56 p-3"
-                              >
+                              <PopoverContent align="end" className="w-56 p-3">
                                 <div className="grid grid-cols-2 gap-3">
                                   <Button
                                     type="button"
@@ -3022,7 +3055,9 @@ export function ClientsTable({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => openUploadFotosDialog(client)}
+                                    onClick={() =>
+                                      openUploadFotosDialog(client)
+                                    }
                                     disabled={!onUploadFotos}
                                     className="h-auto flex-col items-center justify-center gap-1 py-3"
                                     title="Agregar foto o video"

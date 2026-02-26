@@ -8,7 +8,13 @@ import {
   CardTitle,
 } from "@/components/shared/molecule/card";
 import { Button } from "@/components/shared/atom/button";
-import { RefreshCw, Cpu, Battery, SunMedium, Clock3 } from "lucide-react";
+import {
+  Cpu,
+  Battery,
+  SunMedium,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 import type {
   EstadoEquiposData,
   EquipoDetalle,
@@ -46,6 +52,13 @@ const isClienteEnServicio = (cliente: ClienteConEquipo) => {
   const estado = getEstadoNormalizado(cliente);
   return (
     estado.includes("instalacion completada") ||
+    estado.includes("instalacion terminada") ||
+    estado.includes("instalada") ||
+    estado.includes("instalado") ||
+    estado.includes("finalizada") ||
+    estado.includes("finalizado") ||
+    estado.includes("operativo") ||
+    estado.includes("funcionando") ||
     estado.includes("servicio") ||
     estado.includes("completada")
   );
@@ -56,52 +69,74 @@ const isClienteEntregado = (cliente: ClienteConEquipo) => {
   return (
     isClienteEnServicio(cliente) ||
     estado.includes("instalacion en proceso") ||
+    estado.includes("en instalacion") ||
     estado.includes("en proceso") ||
+    estado.includes("proceso") ||
     estado.includes("entregado")
   );
 };
 
 const isClientePendiente = (cliente: ClienteConEquipo) => {
   const estado = getEstadoNormalizado(cliente);
+  // Pendiente = cualquier cliente que aún NO está en servicio
+  if (!isClienteEnServicio(cliente)) return true;
+
   return (
     estado.includes("pendiente") ||
     estado.includes("sin entregar") ||
     estado.includes("por entregar") ||
-    (!isClienteEntregado(cliente) && !isClienteEnServicio(cliente))
+    estado.includes("por instalar") ||
+    estado.includes("no iniciado")
   );
 };
+
+const getCantidadFallback = (cliente: ClienteConEquipo) =>
+  Math.max(
+    cliente.cantidad_equipos || 0,
+    cliente.unidades_vendidas || 0,
+    cliente.unidades_entregadas || 0,
+    cliente.unidades_en_servicio || 0,
+    cliente.unidades_pendientes || 0,
+  );
 
 const getCantidadPorEstado = (
   cliente: ClienteConEquipo,
   estado: EstadoCliente,
 ) => {
-  const directa =
-    estado === "entregados"
-      ? cliente.unidades_entregadas
-      : estado === "servicio"
-        ? cliente.unidades_en_servicio
-        : cliente.unidades_pendientes;
+  if (estado === "servicio") {
+    if (cliente.unidades_en_servicio > 0) return cliente.unidades_en_servicio;
+    if (isClienteEnServicio(cliente))
+      return Math.max(getCantidadFallback(cliente), 1);
+    return 0;
+  }
 
-  if (directa > 0) return directa;
-  return cliente.cantidad_equipos || 0;
+  if (estado === "entregados") {
+    const entregadosSinServicio = Math.max(
+      (cliente.unidades_entregadas || 0) - (cliente.unidades_en_servicio || 0),
+      0,
+    );
+    if (entregadosSinServicio > 0) return entregadosSinServicio;
+    if (isClienteEntregado(cliente) && !isClienteEnServicio(cliente)) {
+      return Math.max(getCantidadFallback(cliente), 1);
+    }
+    return 0;
+  }
+
+  const pendientesDirecto = Math.max(
+    cliente.unidades_pendientes || 0,
+    (cliente.unidades_vendidas || 0) - (cliente.unidades_entregadas || 0),
+    0,
+  );
+  if (pendientesDirecto > 0) return pendientesDirecto;
+  if (isClientePendiente(cliente))
+    return Math.max(getCantidadFallback(cliente), 1);
+  return 0;
 };
 
 const getClientesEstado = (equipo: EquipoDetalle, estado: EstadoCliente) => {
   const clientes = equipo.clientes || [];
-  if (estado === "entregados") {
-    return clientes.filter(
-      (cliente) =>
-        cliente.unidades_entregadas > 0 || isClienteEntregado(cliente),
-    );
-  }
-  if (estado === "servicio") {
-    return clientes.filter(
-      (cliente) =>
-        cliente.unidades_en_servicio > 0 || isClienteEnServicio(cliente),
-    );
-  }
   return clientes.filter(
-    (cliente) => cliente.unidades_pendientes > 0 || isClientePendiente(cliente),
+    (cliente) => getCantidadPorEstado(cliente, estado) > 0,
   );
 };
 
@@ -121,21 +156,21 @@ function ClienteRow({
   const cantidad = getCantidadPorEstado(cliente, estado);
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-2 py-1.5">
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[11px] font-semibold text-slate-800">
+          <p className="truncate text-sm font-semibold text-slate-800">
             {cliente.nombre}
           </p>
-          <p className="truncate text-[10px] text-slate-500">
+          <p className="truncate text-xs text-slate-500">
             {cliente.direccion} - {cliente.provincia}
           </p>
         </div>
         <div className="flex flex-col items-end gap-1">
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
             {cantidad} eq.
           </span>
-          <span className="max-w-[130px] truncate text-[10px] text-slate-500">
+          <span className="max-w-[160px] truncate text-xs text-slate-500">
             {cliente.estado}
           </span>
         </div>
@@ -144,40 +179,64 @@ function ClienteRow({
   );
 }
 
-function EstadoPanel({
+function CategoriaAccordion({
   title,
   estado,
   clientes,
+  totalEquipos,
+  isOpen,
+  onToggle,
   className,
 }: {
   title: string;
   estado: EstadoCliente;
   clientes: ClienteConEquipo[];
+  totalEquipos: number;
+  isOpen: boolean;
+  onToggle: () => void;
   className: string;
 }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-      <div className="mb-2 flex items-center justify-between">
-        <span
-          className={`rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${className}`}
-        >
-          {title}
-        </span>
-        <span className="text-[10px] text-slate-500">{clientes.length}</span>
-      </div>
-      {clientes.length === 0 ? (
-        <div className="rounded-md border border-dashed border-slate-200 bg-white px-2 py-2 text-center text-[10px] text-slate-400">
-          Sin clientes
+    <div className="rounded-lg border border-slate-200 bg-slate-50">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left hover:bg-slate-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          {isOpen ? (
+            <ChevronDown className="h-4 w-4 text-slate-600" />
+          ) : (
+            <ChevronRight className="h-4 w-4 text-slate-600" />
+          )}
+          <span
+            className={`rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${className}`}
+          >
+            {title}
+          </span>
         </div>
-      ) : (
-        <div className="max-h-[32vh] space-y-1 overflow-y-auto pr-1">
-          {clientes.map((cliente) => (
-            <ClienteRow
-              key={`${estado}-${cliente.id}`}
-              cliente={cliente}
-              estado={estado}
-            />
-          ))}
+        <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-700">
+          {totalEquipos} eq.
+        </span>
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-slate-200 px-3 pb-3 pt-2">
+          {clientes.length === 0 ? (
+            <div className="rounded-md border border-dashed border-slate-200 bg-white px-3 py-4 text-center text-sm text-slate-400">
+              Sin clientes
+            </div>
+          ) : (
+            <div className="max-h-[34vh] space-y-2 overflow-y-auto pr-1">
+              {clientes.map((cliente) => (
+                <ClienteRow
+                  key={`${estado}-${cliente.id}`}
+                  cliente={cliente}
+                  estado={estado}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -190,6 +249,13 @@ export function EstadoEquiposStats({
   onRefresh,
 }: EstadoEquiposStatsProps) {
   const [vistaActiva, setVistaActiva] = useState<VistaKey>("inversores");
+  const [expandedCategorias, setExpandedCategorias] = useState<
+    Record<EstadoCliente, boolean>
+  >({
+    entregados: true,
+    servicio: false,
+    pendientes: false,
+  });
   const [selectedByVista, setSelectedByVista] = useState<
     Record<VistaKey, string | null>
   >({
@@ -270,9 +336,17 @@ export function EstadoEquiposStats({
   }, [equiposPorVista]);
 
   const itemsVista = equiposPorVista[vistaActiva];
+  const selectedEquipoKey = selectedByVista[vistaActiva];
   const equipoSeleccionado =
-    itemsVista.find((item) => item.key === selectedByVista[vistaActiva])
-      ?.equipo || null;
+    itemsVista.find((item) => item.key === selectedEquipoKey)?.equipo || null;
+
+  useEffect(() => {
+    setExpandedCategorias({
+      entregados: true,
+      servicio: false,
+      pendientes: false,
+    });
+  }, [vistaActiva, selectedEquipoKey]);
 
   const clientesEntregados = equipoSeleccionado
     ? getClientesEstado(equipoSeleccionado, "entregados")
@@ -284,12 +358,26 @@ export function EstadoEquiposStats({
     ? getClientesEstado(equipoSeleccionado, "pendientes")
     : [];
 
+  const equiposEntregadosSinServicio = equipoSeleccionado
+    ? Math.max(
+        equipoSeleccionado.unidades_entregadas -
+          equipoSeleccionado.unidades_en_servicio,
+        0,
+      )
+    : 0;
+  const equiposServicio = equipoSeleccionado?.unidades_en_servicio || 0;
+  const equiposPendientes = equipoSeleccionado?.unidades_sin_entregar || 0;
+
   const metricasVista = useMemo(() => {
     const items = itemsVista.map((item) => item.equipo);
     return {
       equipos: items.length,
       vendidos: items.reduce((acc, it) => acc + it.unidades_vendidas, 0),
-      entregados: items.reduce((acc, it) => acc + it.unidades_entregadas, 0),
+      entregados: items.reduce(
+        (acc, it) =>
+          acc + Math.max(it.unidades_entregadas - it.unidades_en_servicio, 0),
+        0,
+      ),
       servicio: items.reduce((acc, it) => acc + it.unidades_en_servicio, 0),
       pendientes: items.reduce((acc, it) => acc + it.unidades_sin_entregar, 0),
     };
@@ -299,7 +387,7 @@ export function EstadoEquiposStats({
     return (
       <div className="flex min-h-[380px] items-center justify-center">
         <div className="text-center">
-          <RefreshCw className="mx-auto mb-3 h-8 w-8 animate-spin text-blue-700" />
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700" />
           <p className="text-sm text-slate-600">Cargando datos...</p>
         </div>
       </div>
@@ -320,7 +408,7 @@ export function EstadoEquiposStats({
             onClick={onRefresh}
             className="mt-5 bg-orange-600 hover:bg-orange-700"
           >
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <div className="mr-2 h-4 w-4 rounded-full border-2 border-white/40 border-t-white" />
             Reintentar
           </Button>
         </CardContent>
@@ -360,29 +448,14 @@ export function EstadoEquiposStats({
 
   const vistaConfig = vistas.find((vista) => vista.key === vistaActiva)!;
 
-  return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <p className="flex items-center gap-2 text-sm text-slate-600">
-          <Clock3 className="h-4 w-4 text-slate-500" />
-          Última actualización:{" "}
-          {new Date(data.fecha_actualizacion).toLocaleString("es-ES")}
-        </p>
-        <Button
-          onClick={onRefresh}
-          variant="outline"
-          size="sm"
-          disabled={loading}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`}
-          />
-          Actualizar
-        </Button>
-      </div>
+  const toggleCategoria = (estado: EstadoCliente) => {
+    setExpandedCategorias((prev) => ({ ...prev, [estado]: !prev[estado] }));
+  };
 
-      <div className="rounded-lg border border-slate-200 bg-white p-1.5">
-        <div className="flex gap-1.5 overflow-x-auto">
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border border-slate-200 bg-white p-2">
+        <div className="flex gap-2 overflow-x-auto">
           {vistas.map((vista) => {
             const Icon = vista.icon;
             const active = vistaActiva === vista.key;
@@ -391,19 +464,19 @@ export function EstadoEquiposStats({
                 key={vista.key}
                 type="button"
                 onClick={() => setVistaActiva(vista.key)}
-                className={`flex min-w-[160px] items-center justify-between rounded-md border px-2.5 py-1.5 transition ${
+                className={`flex min-w-[180px] items-center justify-between rounded-md border px-3 py-2 transition ${
                   active
                     ? vista.activeClass
                     : "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
                 }`}
               >
-                <span className="flex items-center gap-1.5">
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="text-[11px] font-semibold uppercase tracking-wide">
+                <span className="flex items-center gap-2">
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm font-semibold uppercase tracking-wide">
                     {vista.label}
                   </span>
                 </span>
-                <span className="text-xs font-bold">
+                <span className="text-sm font-bold">
                   {equiposPorVista[vista.key].length}
                 </span>
               </button>
@@ -413,33 +486,33 @@ export function EstadoEquiposStats({
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <div className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-center">
-          <p className="text-[10px] uppercase text-slate-500">Equipos</p>
-          <p className="text-sm font-semibold text-slate-800">
+        <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-center">
+          <p className="text-xs uppercase text-slate-500">Equipos</p>
+          <p className="text-base font-semibold text-slate-800">
             {metricasVista.equipos}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-blue-50 px-2 py-1.5 text-center">
-          <p className="text-[10px] uppercase text-blue-700">Vendidos</p>
-          <p className="text-sm font-semibold text-blue-900">
+        <div className="rounded-md border border-slate-200 bg-blue-50 px-3 py-2 text-center">
+          <p className="text-xs uppercase text-blue-700">Vendidos</p>
+          <p className="text-base font-semibold text-blue-900">
             {metricasVista.vendidos}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-emerald-50 px-2 py-1.5 text-center">
-          <p className="text-[10px] uppercase text-emerald-700">Entregados</p>
-          <p className="text-sm font-semibold text-emerald-900">
+        <div className="rounded-md border border-slate-200 bg-emerald-50 px-3 py-2 text-center">
+          <p className="text-xs uppercase text-emerald-700">Entregados</p>
+          <p className="text-base font-semibold text-emerald-900">
             {metricasVista.entregados}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-violet-50 px-2 py-1.5 text-center">
-          <p className="text-[10px] uppercase text-violet-700">Servicio</p>
-          <p className="text-sm font-semibold text-violet-900">
+        <div className="rounded-md border border-slate-200 bg-violet-50 px-3 py-2 text-center">
+          <p className="text-xs uppercase text-violet-700">Servicio</p>
+          <p className="text-base font-semibold text-violet-900">
             {metricasVista.servicio}
           </p>
         </div>
-        <div className="rounded-md border border-slate-200 bg-amber-50 px-2 py-1.5 text-center">
-          <p className="text-[10px] uppercase text-amber-700">Pendientes</p>
-          <p className="text-sm font-semibold text-amber-900">
+        <div className="rounded-md border border-slate-200 bg-amber-50 px-3 py-2 text-center">
+          <p className="text-xs uppercase text-amber-700">Pendientes</p>
+          <p className="text-base font-semibold text-amber-900">
             {metricasVista.pendientes}
           </p>
         </div>
@@ -448,13 +521,13 @@ export function EstadoEquiposStats({
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1.1fr_1.4fr]">
         <Card className="overflow-hidden border border-slate-200 shadow-sm">
           <CardHeader
-            className={`border-b border-slate-100 bg-gradient-to-r ${vistaConfig.headerClass} py-2.5`}
+            className={`border-b border-slate-100 bg-gradient-to-r ${vistaConfig.headerClass} py-3`}
           >
-            <CardTitle className="text-sm font-semibold text-slate-900">
+            <CardTitle className="text-base font-semibold text-slate-900">
               Catálogo de {vistaConfig.label}
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-2.5">
+          <CardContent className="p-3">
             <div className="max-h-[calc(100vh-18rem)] space-y-1.5 overflow-y-auto pr-1">
               {itemsVista.length === 0 ? (
                 <div className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
@@ -474,33 +547,40 @@ export function EstadoEquiposStats({
                           [vistaActiva]: item.key,
                         }))
                       }
-                      className={`w-full rounded-md border px-2.5 py-2 text-left transition ${
+                      className={`w-full rounded-md border px-3 py-2.5 text-left transition ${
                         active
                           ? "border-slate-900 bg-slate-900 text-white"
                           : "border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100"
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <p className="truncate text-xs font-semibold">
+                        <p className="truncate text-sm font-semibold">
                           {equipo.nombre}
                         </p>
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             active
                               ? "bg-white/20 text-white"
                               : "bg-slate-200 text-slate-700"
                           }`}
                         >
-                          {equipo.unidades_vendidas} V
+                          {equipo.unidades_vendidas} Vendidos
                         </span>
                       </div>
                       <div
-                        className={`mt-1 grid grid-cols-4 gap-1 text-[10px] ${active ? "text-white/80" : "text-slate-600"}`}
+                        className={`mt-1.5 grid grid-cols-4 gap-1 text-xs ${active ? "text-white/80" : "text-slate-600"}`}
                       >
-                        <span>V: {equipo.unidades_vendidas}</span>
-                        <span>E: {equipo.unidades_entregadas}</span>
-                        <span>S: {equipo.unidades_en_servicio}</span>
-                        <span>P: {equipo.unidades_sin_entregar}</span>
+                        <span>Vendidos: {equipo.unidades_vendidas}</span>
+                        <span>
+                          Entregados:{" "}
+                          {Math.max(
+                            equipo.unidades_entregadas -
+                              equipo.unidades_en_servicio,
+                            0,
+                          )}
+                        </span>
+                        <span>En servicio: {equipo.unidades_en_servicio}</span>
+                        <span>Pendientes: {equipo.unidades_sin_entregar}</span>
                       </div>
                     </button>
                   );
@@ -512,13 +592,13 @@ export function EstadoEquiposStats({
 
         <Card className="overflow-hidden border border-slate-200 shadow-sm">
           <CardHeader
-            className={`border-b border-slate-100 bg-gradient-to-r ${vistaConfig.headerClass} py-2.5`}
+            className={`border-b border-slate-100 bg-gradient-to-r ${vistaConfig.headerClass} py-3`}
           >
-            <CardTitle className="text-sm font-semibold text-slate-900">
-              Clientes por estado
+            <CardTitle className="text-base font-semibold text-slate-900">
+              Desglose por categoría
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-2.5">
+          <CardContent className="p-3">
             {!equipoSeleccionado ? (
               <div className="rounded-md border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
                 Selecciona un equipo para ver su detalle.
@@ -528,38 +608,47 @@ export function EstadoEquiposStats({
                 <div className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <p className="text-sm font-semibold text-slate-900">
+                      <p className="text-base font-semibold text-slate-900">
                         {equipoSeleccionado.nombre}
                       </p>
-                      <p className="text-[11px] text-slate-500">
+                      <p className="text-sm text-slate-500">
                         {equipoSeleccionado.tipo} •{" "}
                         {equipoSeleccionado.categoria} •{" "}
                         {equipoSeleccionado.codigo}
                       </p>
                     </div>
-                    <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold text-white">
+                    <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
                       {equipoSeleccionado.unidades_vendidas} vendidos
                     </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2 2xl:grid-cols-3">
-                  <EstadoPanel
-                    title="Entregados"
+                <div className="space-y-2">
+                  <CategoriaAccordion
+                    title="Entregados (sin servicio)"
                     estado="entregados"
                     clientes={clientesEntregados}
+                    totalEquipos={equiposEntregadosSinServicio}
+                    isOpen={expandedCategorias.entregados}
+                    onToggle={() => toggleCategoria("entregados")}
                     className="bg-emerald-50 text-emerald-700"
                   />
-                  <EstadoPanel
+                  <CategoriaAccordion
                     title="En servicio"
                     estado="servicio"
                     clientes={clientesServicio}
+                    totalEquipos={equiposServicio}
+                    isOpen={expandedCategorias.servicio}
+                    onToggle={() => toggleCategoria("servicio")}
                     className="bg-violet-50 text-violet-700"
                   />
-                  <EstadoPanel
+                  <CategoriaAccordion
                     title="Pendientes"
                     estado="pendientes"
                     clientes={clientesPendientes}
+                    totalEquipos={equiposPendientes}
+                    isOpen={expandedCategorias.pendientes}
+                    onToggle={() => toggleCategoria("pendientes")}
                     className="bg-amber-50 text-amber-700"
                   />
                 </div>
