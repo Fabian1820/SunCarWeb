@@ -1,69 +1,86 @@
-import { useState, useEffect } from 'react'
-import { PagosService, type OfertaConfirmadaSinPago } from '@/lib/services/feats/pagos/pagos-service'
-import { PagoService, type OfertaConPagos } from '@/lib/services/feats/pagos/pago-service'
+import { useState, useCallback } from "react";
+import {
+  PagosService,
+  type OfertaConfirmadaSinPago,
+} from "@/lib/services/feats/pagos/pagos-service";
+import {
+  PagoService,
+  type OfertaConPagos,
+} from "@/lib/services/feats/pagos/pago-service";
+
+const getErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+};
 
 export function usePagos() {
-  const [ofertasSinPago, setOfertasSinPago] = useState<OfertaConfirmadaSinPago[]>([])
-  const [ofertasConSaldoPendiente, setOfertasConSaldoPendiente] = useState<OfertaConfirmadaSinPago[]>([])
-  const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([])
-  const [loading, setLoading] = useState(false)
-  const [loadingSinPago, setLoadingSinPago] = useState(false)
-  const [loadingConSaldo, setLoadingConSaldo] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [ofertasSinPago, setOfertasSinPago] = useState<
+    OfertaConfirmadaSinPago[]
+  >([]);
+  const [ofertasConSaldoPendiente, setOfertasConSaldoPendiente] = useState<
+    OfertaConfirmadaSinPago[]
+  >([]);
+  const [ofertasConPagos, setOfertasConPagos] = useState<OfertaConPagos[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingSinPago, setLoadingSinPago] = useState(false);
+  const [loadingConSaldo, setLoadingConSaldo] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchOfertasSinPago = async () => {
-    setLoadingSinPago(true)
+  const fetchOfertasSinPago = useCallback(async () => {
+    setLoadingSinPago(true);
     try {
-      const data = await PagosService.getOfertasConfirmadasSinPago()
-      setOfertasSinPago(data)
-    } catch (err: any) {
-      console.error('[usePagos] Error:', err)
-      setError(err.message || 'Error al cargar ofertas sin pago')
+      const data = await PagosService.getOfertasConfirmadasSinPago();
+      setOfertasSinPago(data);
+    } catch (err: unknown) {
+      console.error("[usePagos] Error:", err);
+      setError(getErrorMessage(err, "Error al cargar ofertas sin pago"));
     } finally {
-      setLoadingSinPago(false)
+      setLoadingSinPago(false);
     }
-  }
+  }, []);
 
-  const fetchOfertasConSaldoPendiente = async () => {
-    setLoadingConSaldo(true)
+  const fetchOfertasConSaldoPendiente = useCallback(async () => {
+    setLoadingConSaldo(true);
     try {
-      const data = await PagosService.getOfertasConfirmadasConSaldoPendiente()
-      setOfertasConSaldoPendiente(data)
-    } catch (err: any) {
-      console.error('[usePagos] Error:', err)
-      setError(err.message || 'Error al cargar ofertas con saldo pendiente')
+      const data = await PagosService.getOfertasConfirmadasConSaldoPendiente();
+      setOfertasConSaldoPendiente(data);
+    } catch (err: unknown) {
+      console.error("[usePagos] Error:", err);
+      setError(
+        getErrorMessage(err, "Error al cargar ofertas con saldo pendiente"),
+      );
     } finally {
-      setLoadingConSaldo(false)
+      setLoadingConSaldo(false);
     }
-  }
+  }, []);
 
-  const fetchOfertasConPagos = async () => {
+  const fetchOfertasConPagos = useCallback(async () => {
     try {
-      const data = await PagoService.getOfertasConPagos()
-      setOfertasConPagos(data)
-    } catch (err: any) {
-      console.error('[usePagos] Error:', err)
+      const data = await PagoService.getOfertasConPagos();
+      setOfertasConPagos(data);
+    } catch (err: unknown) {
+      console.error("[usePagos] Error:", err);
     }
-  }
+  }, []);
 
-  const refetch = async () => {
-    setLoading(true)
-    setError(null)
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     // Cargar en paralelo pero sin esperar a que ambas terminen
     // Cada una actualiza su estado independientemente
-    fetchOfertasSinPago()
-    fetchOfertasConSaldoPendiente()
+    fetchOfertasSinPago();
+    fetchOfertasConSaldoPendiente();
     // Desactivar loading general inmediatamente
-    setLoading(false)
-  }
+    setLoading(false);
+  }, [fetchOfertasConSaldoPendiente, fetchOfertasSinPago]);
 
-  const refetchOfertasConPagos = async () => {
+  const refetchOfertasConPagos = useCallback(async () => {
     try {
-      await fetchOfertasConPagos()
-    } catch (err: any) {
-      console.error('[usePagos] Error al cargar ofertas con pagos:', err)
+      await fetchOfertasConPagos();
+    } catch (err: unknown) {
+      console.error("[usePagos] Error al cargar ofertas con pagos:", err);
     }
-  }
+  }, [fetchOfertasConPagos]);
 
   // NO cargar nada automáticamente al montar el hook
   // La página decidirá qué cargar según la vista activa
@@ -80,5 +97,5 @@ export function usePagos() {
     refetchOfertasSinPago: fetchOfertasSinPago,
     refetchOfertasConSaldoPendiente: fetchOfertasConSaldoPendiente,
     refetchOfertasConPagos,
-  }
+  };
 }
