@@ -49,9 +49,11 @@ import {
   AlertTriangle,
   Loader2,
   MoreHorizontal,
+  CreditCard,
 } from "lucide-react";
 import { ReportsTable } from "@/components/feats/reports/reports-table";
 import { ClienteService, ReporteService } from "@/lib/api-services";
+import { apiRequest } from "@/lib/api-config";
 import { ClientReportsChart } from "@/components/feats/reports/client-reports-chart";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import { ClienteDetallesDialog } from "@/components/feats/customer/cliente-detalles-dialog";
@@ -132,50 +134,6 @@ const LEAD_COMERCIALES = [
   "Gretel María Mojena Almenares",
 ];
 
-const buildSearchText = (client: Cliente) => {
-  const parts: string[] = [];
-  const visited = new WeakSet<object>();
-
-  const addValue = (value: unknown) => {
-    if (value === null || value === undefined) return;
-    if (
-      typeof value === "string" ||
-      typeof value === "number" ||
-      typeof value === "boolean"
-    ) {
-      parts.push(String(value));
-      return;
-    }
-    if (value instanceof Date) {
-      parts.push(value.toISOString());
-      return;
-    }
-    if (Array.isArray(value)) {
-      value.forEach(addValue);
-      return;
-    }
-    if (typeof value === "object") {
-      if (visited.has(value)) return;
-      visited.add(value);
-      Object.values(value as Record<string, unknown>).forEach(addValue);
-    }
-  };
-
-  addValue(client);
-  return parts.join(" ").toLowerCase();
-};
-
-const parseDateValue = (value?: string) => {
-  if (!value) return null;
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-    const [day, month, year] = value.split("/").map(Number);
-    const parsed = new Date(year, month - 1, day);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
 const normalizeClienteNumero = (value?: string) =>
   (value ?? "")
     .toString()
@@ -207,7 +165,7 @@ const getClientTailSortNumber = (client: Cliente) => {
   const digits = code.match(/\d+/g)?.join("") ?? "";
   if (!digits) return -1;
 
-  const tailLength = digits.length > 8 ? 5 : 3;
+  const tailLength = digits.length >= 10 ? 5 : 3;
   const tail = digits.slice(-tailLength);
   return Number.parseInt(tail, 10) || 0;
 };
@@ -235,6 +193,7 @@ export function ClientsTable({
     asignarOfertaACliente,
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
+    obtenerEstadoOfertaCliente,
     eliminarOferta,
     refetch: refetchOfertas,
   } = useOfertasConfeccion();
@@ -309,6 +268,14 @@ export function ClientsTable({
   const [ofertasClienteActuales, setOfertasClienteActuales] = useState<
     OfertaConfeccion[]
   >([]);
+  const [
+    updatingClienteListoParaPagarNumero,
+    setUpdatingClienteListoParaPagarNumero,
+  ] = useState<string | null>(null);
+  const [
+    savingComentarioContabilidadOfertaId,
+    setSavingComentarioContabilidadOfertaId,
+  ] = useState<string | null>(null);
   const [clientesConOferta, setClientesConOferta] = useState<Set<string>>(
     new Set(),
   );
@@ -392,75 +359,17 @@ export function ClientsTable({
     }
   }, [searchTerm, filters, onFiltersChange]);
 
-  const filteredClients = useMemo(() => {
-    const search = searchTerm.trim().toLowerCase();
-    const fechaDesde = parseDateValue(filters.fechaDesde);
-    const fechaHasta = parseDateValue(filters.fechaHasta);
-    const selectedEstados = filters.estado.map((estado) =>
-      estado.toLowerCase(),
-    );
-    const selectedFuente = filters.fuente.trim().toLowerCase();
-    const selectedComercial = filters.comercial.trim().toLowerCase();
+  const sortedClients = useMemo(() => {
+    return [...clients].sort((a, b) => {
+      const tailA = getClientTailSortNumber(a);
+      const tailB = getClientTailSortNumber(b);
+      if (tailA !== tailB) return tailA - tailB;
 
-    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0);
-    if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999);
-
-    const filtered = clients.filter((client) => {
-      if (search) {
-        const text = buildSearchText(client);
-        if (!text.includes(search)) {
-          return false;
-        }
-      }
-
-      if (filters.estado.length > 0) {
-        const estado = client.estado?.trim();
-        if (!estado || !selectedEstados.includes(estado.toLowerCase())) {
-          return false;
-        }
-      }
-
-      if (filters.fuente) {
-        const fuente = client.fuente?.trim().toLowerCase();
-        if (!fuente || fuente !== selectedFuente) {
-          return false;
-        }
-      }
-
-      if (filters.comercial) {
-        const comercial = client.comercial?.trim().toLowerCase();
-        if (!comercial || comercial !== selectedComercial) {
-          return false;
-        }
-      }
-
-      if (fechaDesde || fechaHasta) {
-        const fecha = parseDateValue(client.fecha_contacto);
-        if (!fecha) return false;
-        if (fechaDesde && fecha < fechaDesde) return false;
-        if (fechaHasta && fecha > fechaHasta) return false;
-      }
-
-      return true;
+      const codeA = getClientSortCode(a);
+      const codeB = getClientSortCode(b);
+      return codeA.localeCompare(codeB, "es", { sensitivity: "base" });
     });
-
-    // Ordenar por últimos dígitos del código de cliente:
-    // 8 dígitos -> últimos 3, más de 8 -> últimos 5.
-    return filtered.sort((a, b) => {
-      // Extraer los últimos 3 dígitos del código
-      const getLastThreeDigits = (numero: string) => {
-        const digits = numero.match(/\d+/g)?.join("") || "0";
-        return parseInt(digits.slice(-3)) || 0;
-      };
-
-      const aNum = getLastThreeDigits(a.numero);
-      const bNum = getLastThreeDigits(b.numero);
-
-      return (b.nombre || "").localeCompare(a.nombre || "", "es", {
-        sensitivity: "base",
-      });
-    });
-  }, [clients, searchTerm, filters]);
+  }, [clients]);
 
   const cargarClientesConOfertas = useCallback(
     async (options?: { skipCache?: boolean; silent?: boolean }) => {
@@ -1068,6 +977,234 @@ export function ClientsTable({
     setMostrarDialogoEliminar(true);
     // Cerrar el diálogo de detalles si está abierto
     setShowDetalleOfertaDialog(false);
+  };
+
+  const handleToggleClienteListoParaPagar = async (
+    oferta: OfertaConfeccion,
+  ) => {
+    if (!oferta.id) {
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la oferta seleccionada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (oferta.estado !== "confirmada_por_cliente") {
+      toast({
+        title: "Estado no válido",
+        description:
+          "Solo se puede marcar listo para pagar cuando la oferta está confirmada por cliente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const nextValue = !Boolean(oferta.cliente_listo_para_pagar);
+
+    try {
+      await apiRequest(`/ofertas/confeccion/${encodeURIComponent(oferta.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({ cliente_listo_para_pagar: nextValue }),
+      });
+
+      setOfertaClienteActual((prev) =>
+        prev && prev.id === oferta.id
+          ? { ...prev, cliente_listo_para_pagar: nextValue }
+          : prev,
+      );
+      setOfertasClienteActuales((prev) =>
+        prev.map((item) =>
+          item.id === oferta.id
+            ? { ...item, cliente_listo_para_pagar: nextValue }
+            : item,
+        ),
+      );
+
+      await cargarClientesConOfertas({ skipCache: true, silent: true });
+      if (refetchOfertas) await refetchOfertas();
+
+      toast({
+        title: "Estado actualizado",
+        description: nextValue
+          ? "Cliente marcado como listo para pagar."
+          : "Cliente desmarcado de listo para pagar.",
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo actualizar el estado de pago del cliente.";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleClienteListoParaPagarDesdeCliente = async (
+    client: Cliente,
+  ) => {
+    const numeroCliente = normalizeClienteNumero(client.numero);
+    if (!numeroCliente) {
+      toast({
+        title: "Error",
+        description: "El cliente no tiene un número válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpdatingClienteListoParaPagarNumero(numeroCliente);
+
+    try {
+      const estadoResult = await obtenerEstadoOfertaCliente(numeroCliente);
+
+      if (estadoResult.error) {
+        toast({
+          title: "Error",
+          description:
+            "No se pudo validar el estado de la oferta del cliente en el servidor.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!estadoResult.tiene_oferta_confirmada_por_cliente) {
+        toast({
+          title: "Oferta no confirmada",
+          description:
+            "El cliente no tiene una oferta en estado 'confirmada por cliente'.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const result = await obtenerOfertaPorCliente(numeroCliente);
+      const ofertasCliente = result.ofertas?.length
+        ? result.ofertas
+        : result.oferta
+          ? [result.oferta]
+          : [];
+
+      if (!result.success || ofertasCliente.length === 0) {
+        toast({
+          title: "Sin oferta",
+          description:
+            "Este cliente no tiene una oferta confeccionada asignada.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const ofertaConfirmada =
+        (estadoResult.oferta_id_confirmada
+          ? ofertasCliente.find(
+              (item) => item.id === estadoResult.oferta_id_confirmada,
+            )
+          : undefined) ??
+        (estadoResult.numero_oferta_confirmada
+          ? ofertasCliente.find(
+              (item) =>
+                item.numero_oferta === estadoResult.numero_oferta_confirmada,
+            )
+          : undefined) ??
+        (estadoResult.codigo_oferta_confirmada
+          ? ofertasCliente.find(
+              (item) =>
+                item.numero_oferta === estadoResult.codigo_oferta_confirmada ||
+                item.id === estadoResult.codigo_oferta_confirmada,
+            )
+          : undefined) ??
+        ofertasCliente.find(
+          (item) =>
+            item.estado === "confirmada_por_cliente" &&
+            Boolean(item.cliente_listo_para_pagar),
+        ) ??
+        ofertasCliente.find((item) => item.estado === "confirmada_por_cliente");
+
+      if (!ofertaConfirmada) {
+        toast({
+          title: "Oferta no confirmada",
+          description:
+            "La oferta del cliente debe estar en estado 'confirmada por cliente' para marcar listo para pagar.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await handleToggleClienteListoParaPagar(ofertaConfirmada);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo validar la oferta del cliente.";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingClienteListoParaPagarNumero(null);
+    }
+  };
+
+  const handleGuardarComentarioContabilidad = async (
+    oferta: OfertaConfeccion,
+    comentario: string,
+  ) => {
+    if (!oferta.id) {
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la oferta seleccionada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingComentarioContabilidadOfertaId(oferta.id);
+
+    try {
+      await apiRequest(`/ofertas/confeccion/${encodeURIComponent(oferta.id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          comentario_contabilidad: comentario.trim(),
+        }),
+      });
+
+      setOfertaClienteActual((prev) =>
+        prev && prev.id === oferta.id
+          ? { ...prev, comentario_contabilidad: comentario.trim() }
+          : prev,
+      );
+      setOfertasClienteActuales((prev) =>
+        prev.map((item) =>
+          item.id === oferta.id
+            ? { ...item, comentario_contabilidad: comentario.trim() }
+            : item,
+        ),
+      );
+      if (refetchOfertas) await refetchOfertas();
+
+      toast({
+        title: "Comentario guardado",
+        description: "Se actualizó el comentario para contabilidad.",
+      });
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el comentario para contabilidad.";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setSavingComentarioContabilidadOfertaId(null);
+    }
   };
 
   const confirmarEliminarOferta = async () => {
@@ -2704,19 +2841,19 @@ export function ClientsTable({
             <div>
               <CardTitle>Clientes</CardTitle>
               <CardDescription>
-                Mostrando {filteredClients.length} cliente
-                {filteredClients.length === 1 ? "" : "s"}
+                Mostrando {sortedClients.length} cliente
+                {sortedClients.length === 1 ? "" : "s"}
               </CardDescription>
             </div>
 
             {/* Botones de exportación */}
-            {exportButtons && filteredClients.length > 0 && (
+            {exportButtons && sortedClients.length > 0 && (
               <div className="flex-shrink-0">{exportButtons}</div>
             )}
           </div>
         </CardHeader>
         <CardContent>
-          {filteredClients.length === 0 ? (
+          {sortedClients.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -2740,7 +2877,7 @@ export function ClientsTable({
                     <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
                       Estado
                     </th>
-                    {filteredClients.some(
+                    {sortedClients.some(
                       (c) => c.estado === "Instalación en Proceso",
                     ) && (
                       <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[8%]">
@@ -2756,7 +2893,7 @@ export function ClientsTable({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-100">
-                  {filteredClients.map((client) => {
+                  {sortedClients.map((client) => {
                     // Determinar el color del estado (igual que en leads-table)
                     const getEstadoColor = (estado: string | undefined) => {
                       if (!estado)
@@ -2868,7 +3005,7 @@ export function ClientsTable({
                             )}
                           </div>
                         </td>
-                        {filteredClients.some(
+                        {sortedClients.some(
                           (c) => c.estado === "Instalación en Proceso",
                         ) && (
                           <td className="py-4 px-3">
@@ -3002,6 +3139,43 @@ export function ClientsTable({
                                 className={`h-4 w-4 ${consultandoOfertaCliente === client.numero || !cargaSetOfertasTerminada ? "animate-pulse" : ""}`}
                               />
                             </Button>
+                            {(() => {
+                              const numeroCliente = normalizeClienteNumero(
+                                client.numero,
+                              );
+                              const tieneOferta =
+                                cargaSetOfertasTerminada &&
+                                clientesConOferta.has(numeroCliente);
+
+                              if (!tieneOferta) return null;
+
+                              const procesandoPago =
+                                updatingClienteListoParaPagarNumero ===
+                                numeroCliente;
+
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void handleToggleClienteListoParaPagarDesdeCliente(
+                                      client,
+                                    );
+                                  }}
+                                  disabled={procesandoPago}
+                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                  title="Listo para pagar (solo para ofertas confirmadas por cliente)"
+                                >
+                                  {procesandoPago ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CreditCard className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              );
+                            })()}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -3706,6 +3880,10 @@ export function ClientsTable({
         onEditar={handleEditarOferta}
         onEliminar={handleEliminarOferta}
         onExportar={handleExportarOferta}
+        onGuardarComentarioContabilidad={handleGuardarComentarioContabilidad}
+        savingComentarioContabilidadOfertaId={
+          savingComentarioContabilidadOfertaId
+        }
       />
 
       {/* Diálogo de Edición */}

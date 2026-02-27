@@ -9,12 +9,13 @@ import type {
 } from "../../../api-types";
 
 type ClienteListParams = {
+  q?: string;
   numero?: string;
   nombre?: string;
   direccion?: string;
   skip?: number;
   limit?: number;
-  estado?: string;
+  estado?: string | string[];
   fuente?: string;
   comercial?: string;
   fechaDesde?: string;
@@ -63,18 +64,35 @@ export class ClienteService {
     limit: number;
   }> {
     const search = new URLSearchParams();
+    if (params.q) search.append("q", params.q);
     if (params.numero) search.append("numero", params.numero);
     if (params.nombre) search.append("nombre", params.nombre);
     if (params.direccion) search.append("direccion", params.direccion);
-    if (params.estado) search.append("estado", params.estado);
+    const estados = Array.isArray(params.estado)
+      ? params.estado
+      : params.estado
+        ? [params.estado]
+        : [];
+    estados.forEach((estado) => search.append("estado", estado));
+    if (estados.length > 0) {
+      const estadosCsv = estados.join(",");
+      search.append("estados", estadosCsv);
+      search.append("estado_csv", estadosCsv);
+    }
     if (params.fuente) search.append("fuente", params.fuente);
     if (params.skip !== undefined)
       search.append("skip", params.skip.toString());
     if (params.limit !== undefined)
       search.append("limit", params.limit.toString());
     if (params.comercial) search.append("comercial", params.comercial);
-    if (params.fechaDesde) search.append("fechaDesde", params.fechaDesde);
-    if (params.fechaHasta) search.append("fechaHasta", params.fechaHasta);
+    if (params.fechaDesde) {
+      search.append("fechaDesde", params.fechaDesde);
+      search.append("fecha_desde", params.fechaDesde);
+    }
+    if (params.fechaHasta) {
+      search.append("fechaHasta", params.fechaHasta);
+      search.append("fecha_hasta", params.fechaHasta);
+    }
 
     const endpoint = `/clientes/${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<ClienteResponse | Cliente[]>(endpoint);

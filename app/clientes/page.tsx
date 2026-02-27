@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Dialog,
@@ -25,10 +25,61 @@ import type {
   Cliente,
   ClienteCreateData,
   ClienteUpdateData,
+  OfertaEmbebida,
 } from "@/lib/api-types";
 import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
 import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog";
+
+type ClientesFilters = {
+  searchTerm: string;
+  estado: string[];
+  fuente: string;
+  comercial: string;
+  fechaDesde: string;
+  fechaHasta: string;
+  skip: number;
+  limit: number;
+};
+
+const getCodigoCliente = (client: Cliente): string => {
+  const dynamicClient = client as Record<string, unknown>;
+  const candidates = [
+    client.numero,
+    typeof dynamicClient.codigo_cliente === "string"
+      ? dynamicClient.codigo_cliente
+      : undefined,
+    typeof dynamicClient.numero_cliente === "string"
+      ? dynamicClient.numero_cliente
+      : undefined,
+  ];
+
+  return (candidates
+    .find((value) => typeof value === "string" && value.trim())
+    ?.trim() || "") as string;
+};
+
+const getCodigoTailValue = (code: string): number => {
+  const digits = code.match(/\d+/g)?.join("") ?? "";
+  if (!digits) return -1;
+
+  const tailLength = digits.length >= 10 ? 5 : 3;
+  const tail = digits.slice(-tailLength);
+  return Number.parseInt(tail, 10) || 0;
+};
+
+const sortClientsByCodigo = (items: Cliente[]): Cliente[] => {
+  return [...items].sort((a, b) => {
+    const codeA = getCodigoCliente(a);
+    const codeB = getCodigoCliente(b);
+    const tailA = getCodigoTailValue(codeA);
+    const tailB = getCodigoTailValue(codeB);
+
+    if (tailA !== tailB) return tailA - tailB;
+
+    return codeA.localeCompare(codeB, "es", { sensitivity: "base" });
+  });
+};
 
 export default function ClientesPage() {
   const [clients, setClients] = useState<Cliente[]>([]);
@@ -51,7 +102,7 @@ export default function ClientesPage() {
   useFuentesSync([], clients, !initialLoading);
 
   // Estado para capturar los filtros aplicados desde ClientsTable
-  const [appliedFilters, setAppliedFilters] = useState({
+  const [appliedFilters, setAppliedFilters] = useState<ClientesFilters>({
     searchTerm: "",
     estado: [] as string[],
     fuente: "",
@@ -61,49 +112,63 @@ export default function ClientesPage() {
     skip: 0,
     limit: 20,
   });
-  const isSearchActive = appliedFilters.searchTerm.trim().length > 0;
-
   const handleFiltersChange = useCallback(
-    (newFilters: {
-      searchTerm: string;
-      estado: string[];
-      fuente: string;
-      comercial: string;
-      fechaDesde: string;
-      fechaHasta: string;
-    }) => {
-      setAppliedFilters((prev) => ({ ...prev, ...newFilters, skip: 0 }));
+    (newFilters: Omit<ClientesFilters, "skip" | "limit">) => {
+      const normalizedEstado = Array.from(
+        new Set(newFilters.estado.map((value) => value.trim()).filter(Boolean)),
+      );
+      setAppliedFilters((prev) => {
+        const isSameEstado =
+          normalizedEstado.length === prev.estado.length &&
+          normalizedEstado.every(
+            (value, index) => value === prev.estado[index],
+          );
+        const filtersChanged =
+          prev.searchTerm !== newFilters.searchTerm ||
+          !isSameEstado ||
+          prev.fuente !== newFilters.fuente ||
+          prev.comercial !== newFilters.comercial ||
+          prev.fechaDesde !== newFilters.fechaDesde ||
+          prev.fechaHasta !== newFilters.fechaHasta;
+
+        if (!filtersChanged) return prev;
+
+        return {
+          ...prev,
+          ...newFilters,
+          estado: normalizedEstado,
+          skip: 0,
+        };
+      });
     },
     [],
   );
 
   const setPage = useCallback(
     (page: number) => {
-      if (isSearchActive) return;
       const newSkip = (page - 1) * appliedFilters.limit;
       setAppliedFilters((prev) => ({ ...prev, skip: newSkip }));
     },
-    [appliedFilters.limit, isSearchActive],
+    [appliedFilters.limit],
   );
 
-  const setPageSize = useCallback((size: number) => {
-    setAppliedFilters((prev) => ({ ...prev, limit: size, skip: 0 }));
-  }, []);
-
-  // Cargar clientes
   const fetchClients = useCallback(
-    async (overrideFilters?: Partial<typeof appliedFilters>) => {
+    async (overrideFilters?: Partial<ClientesFilters>) => {
       setLoading(true);
       try {
         const filters = { ...appliedFilters, ...overrideFilters };
-        // Llamada al servicio con paginación y filtros
+        const normalizedEstado = Array.from(
+          new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
+        );
         const {
           clients: fetchedClients,
           total,
           skip,
           limit,
         } = await ClienteService.getClientes({
+          q: filters.searchTerm || undefined,
           nombre: filters.searchTerm || undefined,
+          estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
           fuente: filters.fuente || undefined,
           comercial: filters.comercial || undefined,
           fechaDesde: filters.fechaDesde || undefined,
@@ -112,9 +177,8 @@ export default function ClientesPage() {
           limit: filters.limit,
         });
 
-        setClients(fetchedClients);
+        setClients(sortClientsByCodigo(fetchedClients));
         setTotalClients(total);
-        // Actualizar skip/limit si se pasaron overrideFilters
         if (
           overrideFilters?.skip !== undefined ||
           overrideFilters?.limit !== undefined
@@ -127,6 +191,52 @@ export default function ClientesPage() {
     },
     [appliedFilters],
   );
+
+  const getAllFilteredClientsForExport = useCallback(async (): Promise<
+    Cliente[]
+  > => {
+    const normalizedEstado = Array.from(
+      new Set(
+        appliedFilters.estado.map((value) => value.trim()).filter(Boolean),
+      ),
+    );
+
+    const pageSize = 500;
+    const baseParams = {
+      q: appliedFilters.searchTerm || undefined,
+      nombre: appliedFilters.searchTerm || undefined,
+      estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
+      fuente: appliedFilters.fuente || undefined,
+      comercial: appliedFilters.comercial || undefined,
+      fechaDesde: appliedFilters.fechaDesde || undefined,
+      fechaHasta: appliedFilters.fechaHasta || undefined,
+    };
+
+    const firstPage = await ClienteService.getClientes({
+      ...baseParams,
+      skip: 0,
+      limit: pageSize,
+    });
+
+    let allClients = [...firstPage.clients];
+    const total = firstPage.total ?? firstPage.clients.length;
+
+    for (
+      let nextSkip = firstPage.clients.length;
+      nextSkip < total;
+      nextSkip += pageSize
+    ) {
+      const pageResult = await ClienteService.getClientes({
+        ...baseParams,
+        skip: nextSkip,
+        limit: pageSize,
+      });
+      if (pageResult.clients.length === 0) break;
+      allClients = allClients.concat(pageResult.clients);
+    }
+
+    return sortClientsByCodigo(allClients);
+  }, [appliedFilters]);
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
@@ -384,116 +494,38 @@ export default function ClientesPage() {
     void client;
   };
 
-  // Función para parsear fechas
-  const parseDateValue = (value?: string) => {
-    if (!value) return null;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-      const [day, month, year] = value.split("/").map(Number);
-      const parsed = new Date(year, month - 1, day);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
-
-  // Función para construir texto de búsqueda
-  const buildSearchText = (client: Cliente) => {
-    const parts: string[] = [];
-    const visited = new WeakSet<object>();
-
-    const addValue = (value: unknown) => {
-      if (value === null || value === undefined) return;
-      if (
-        typeof value === "string" ||
-        typeof value === "number" ||
-        typeof value === "boolean"
-      ) {
-        parts.push(String(value));
-        return;
-      }
-      if (value instanceof Date) {
-        parts.push(value.toISOString());
-        return;
-      }
-      if (Array.isArray(value)) {
-        value.forEach(addValue);
-        return;
-      }
-      if (typeof value === "object") {
-        if (visited.has(value)) return;
-        visited.add(value);
-        Object.values(value as Record<string, unknown>).forEach(addValue);
-      }
-    };
-
-    addValue(client);
-    return parts.join(" ").toLowerCase();
-  };
-
-  // Preparar opciones de exportación para clientes
-  const getExportOptions = (): Omit<ExportOptions, "filename"> => {
-    // Construir título con filtro de estado si aplica
-    let titulo = "Listado de Clientes";
-    if (appliedFilters.estado.length === 1) {
-      titulo = `Listado de Clientes - ${appliedFilters.estado[0]}`;
-    } else if (appliedFilters.estado.length > 1) {
-      titulo = `Listado de Clientes - ${appliedFilters.estado.length} estados`;
-    }
-
-    // Verificar si hay clientes con estado "Instalación en Proceso"
-    const tieneInstalacionEnProceso = clients.some(
+  const buildClientesExportData = (clientesToExport: Cliente[]) => {
+    const tieneInstalacionEnProceso = clientesToExport.some(
       (c) => c.estado === "Instalación en Proceso",
     );
 
-    // Ordenar clientes por provincia: La Habana primero, luego el resto alfabéticamente
-    const clientesOrdenados = [...clients].sort((a, b) => {
-      const provinciaA = (a.provincia_montaje || "").trim();
-      const provinciaB = (b.provincia_montaje || "").trim();
-
-      // Si ambos son La Habana, mantener orden original
-      if (provinciaA === "La Habana" && provinciaB === "La Habana") return 0;
-
-      // La Habana siempre va primero
-      if (provinciaA === "La Habana") return -1;
-      if (provinciaB === "La Habana") return 1;
-
-      // Para el resto, ordenar alfabéticamente
-      return provinciaA.localeCompare(provinciaB, "es");
-    });
-
-    const exportData = clientesOrdenados.map((client, index) => {
-      // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
+    const exportData = clientesToExport.map((client, index) => {
       let ofertaTexto = "";
 
       if (client.ofertas && client.ofertas.length > 0) {
         const ofertasFormateadas = client.ofertas
-          .map((oferta: any) => {
+          .map((oferta: OfertaEmbebida) => {
             const productos: string[] = [];
 
-            // Inversor
             if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
               const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
               productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
             }
 
-            // Batería
             if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
               const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
               productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
             }
 
-            // Paneles
             if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
               const nombre = oferta.panel_nombre || oferta.panel_codigo;
               productos.push(`${oferta.panel_cantidad}x ${nombre}`);
             }
 
-            // Elementos personalizados de la oferta
             if (oferta.elementos_personalizados) {
               productos.push(oferta.elementos_personalizados);
             }
 
-            // Agregar • al inicio de cada producto
             return productos.length > 0 ? "• " + productos.join(" • ") : "";
           })
           .filter(Boolean);
@@ -501,7 +533,7 @@ export default function ClientesPage() {
         ofertaTexto = ofertasFormateadas.join(" • ") || "";
       }
 
-      const baseData: any = {
+      const baseData: Record<string, string | number> = {
         numero: index + 1,
         nombre: client.nombre || "N/A",
         telefono: client.telefono || "N/A",
@@ -510,7 +542,6 @@ export default function ClientesPage() {
         direccion: client.direccion || "N/A",
       };
 
-      // Si hay clientes con "Instalación en Proceso", agregar columna "falta"
       if (tieneInstalacionEnProceso) {
         baseData.falta =
           client.estado === "Instalación en Proceso"
@@ -519,12 +550,10 @@ export default function ClientesPage() {
       }
 
       baseData.oferta = ofertaTexto;
-
       return baseData;
     });
 
-    // Definir columnas base
-    const baseColumns = [
+    const columns: Array<{ header: string; key: string; width: number }> = [
       { header: "No.", key: "numero", width: 4 },
       { header: "Nombre", key: "nombre", width: 14 },
       { header: "Teléfono", key: "telefono", width: 14 },
@@ -533,19 +562,34 @@ export default function ClientesPage() {
       { header: "Dirección", key: "direccion", width: 38 },
     ];
 
-    // Si hay clientes con "Instalación en Proceso", agregar columna "Falta"
     if (tieneInstalacionEnProceso) {
-      baseColumns.push({ header: "Falta", key: "falta", width: 20 });
+      columns.push({ header: "Falta", key: "falta", width: 20 });
+    }
+    columns.push({ header: "Oferta", key: "oferta", width: 23.57 });
+
+    return { data: exportData, columns };
+  };
+
+  // Preparar opciones de exportación para clientes (siempre desde backend con filtros actuales)
+  const getExportOptions = async (): Promise<
+    Omit<ExportOptions, "filename">
+  > => {
+    // Construir título con filtro de estado si aplica
+    let titulo = "Listado de Clientes";
+    if (appliedFilters.estado.length === 1) {
+      titulo = `Listado de Clientes - ${appliedFilters.estado[0]}`;
+    } else if (appliedFilters.estado.length > 1) {
+      titulo = `Listado de Clientes - ${appliedFilters.estado.length} estados`;
     }
 
-    // Agregar columna de oferta al final
-    baseColumns.push({ header: "Oferta", key: "oferta", width: 23.57 });
+    const allFilteredClients = await getAllFilteredClientsForExport();
+    const { data, columns } = buildClientesExportData(allFilteredClients);
 
     return {
       title: `Suncar SRL: ${titulo}`,
       subtitle: `Fecha: ${new Date().toLocaleDateString("es-ES")}`,
-      columns: baseColumns,
-      data: exportData,
+      columns,
+      data,
     };
   };
 
@@ -603,22 +647,20 @@ export default function ClientesPage() {
             exportButtons={
               totalClients > 0 ? (
                 <ExportButtons
-                  exportOptions={getExportOptions()}
+                  getExportOptions={getExportOptions}
                   baseFilename="clientes"
                   variant="compact"
                 />
               ) : undefined
             }
           />
-          {!isSearchActive &&
-            totalClients > appliedFilters.limit &&
-            appliedFilters.limit > 0 && (
-              <SmartPagination
-                currentPage={page}
-                totalPages={totalPages}
-                onPageChange={setPage}
-              />
-            )}
+          {totalClients > appliedFilters.limit && appliedFilters.limit > 0 && (
+            <SmartPagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+            />
+          )}
         </div>
         {/* Modal de creacion de cliente */}
         <Dialog

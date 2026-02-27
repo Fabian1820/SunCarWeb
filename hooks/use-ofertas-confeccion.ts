@@ -91,6 +91,8 @@ export interface OfertaConfeccion {
     aprobado_por?: string;
   };
   notas?: string;
+  comentario_contabilidad?: string;
+  cliente_listo_para_pagar?: boolean;
   fecha_creacion: string;
   fecha_actualizacion: string;
 }
@@ -118,6 +120,15 @@ export interface PagoAcordadoOferta {
   monto_usd: number;
   metodo_pago: MetodoPagoAcordado;
   fecha_estimada: string;
+}
+
+export interface EstadoOfertaCliente {
+  success: boolean;
+  tiene_oferta_confirmada_por_cliente: boolean;
+  oferta_id_confirmada: string | null;
+  numero_oferta_confirmada: string | null;
+  codigo_oferta_confirmada: string | null;
+  error: boolean;
 }
 
 const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
@@ -196,7 +207,9 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     nombre_lead_sin_agregar: raw.nombre_lead_sin_agregar,
     foto_portada: raw.foto_portada ?? raw.foto_portada_url ?? raw.foto,
     precio_final: raw.precio_final ?? raw.precio ?? 0,
-    monto_pendiente: Number.isFinite(montoPendiente) ? montoPendiente : undefined,
+    monto_pendiente: Number.isFinite(montoPendiente)
+      ? montoPendiente
+      : undefined,
     total_materiales: raw.total_materiales ?? 0,
     margen_comercial: raw.margen_comercial ?? 0,
     margen_instalacion: raw.margen_instalacion ?? 0,
@@ -222,19 +235,28 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
     pagos_acordados: formasPagoAcordadas ? pagosAcordados : [],
     aplica_contribucion: raw.aplica_contribucion ?? false,
     porcentaje_contribucion: raw.porcentaje_contribucion ?? 0,
-    compensacion: raw.compensacion ? {
-      monto_usd: Number(raw.compensacion.monto_usd ?? 0),
-      justificacion: raw.compensacion.justificacion ?? "",
-      fecha: raw.compensacion.fecha,
-      aprobado_por: raw.compensacion.aprobado_por,
-    } : undefined,
-    asumido_por_empresa: raw.asumido_por_empresa ? {
-      monto_usd: Number(raw.asumido_por_empresa.monto_usd ?? 0),
-      justificacion: raw.asumido_por_empresa.justificacion ?? "",
-      fecha: raw.asumido_por_empresa.fecha,
-      aprobado_por: raw.asumido_por_empresa.aprobado_por,
-    } : undefined,
+    compensacion: raw.compensacion
+      ? {
+          monto_usd: Number(raw.compensacion.monto_usd ?? 0),
+          justificacion: raw.compensacion.justificacion ?? "",
+          fecha: raw.compensacion.fecha,
+          aprobado_por: raw.compensacion.aprobado_por,
+        }
+      : undefined,
+    asumido_por_empresa: raw.asumido_por_empresa
+      ? {
+          monto_usd: Number(raw.asumido_por_empresa.monto_usd ?? 0),
+          justificacion: raw.asumido_por_empresa.justificacion ?? "",
+          fecha: raw.asumido_por_empresa.fecha,
+          aprobado_por: raw.asumido_por_empresa.aprobado_por,
+        }
+      : undefined,
     notas: raw.notas,
+    comentario_contabilidad:
+      raw.comentario_contabilidad ?? raw.comentarioContabilidad,
+    cliente_listo_para_pagar: Boolean(
+      raw.cliente_listo_para_pagar ?? raw.clienteListoParaPagar,
+    ),
     fecha_creacion: raw.fecha_creacion ?? raw.created_at ?? "",
     fecha_actualizacion: raw.fecha_actualizacion ?? raw.updated_at ?? "",
   };
@@ -822,6 +844,102 @@ export function useOfertasConfeccion() {
     }
   }, []);
 
+  const obtenerEstadoOfertaCliente = useCallback(
+    async (clienteNumero: string): Promise<EstadoOfertaCliente> => {
+      try {
+        const numeroNormalizado = normalizeClienteNumero(clienteNumero);
+        if (!numeroNormalizado) {
+          return {
+            success: false,
+            tiene_oferta_confirmada_por_cliente: false,
+            oferta_id_confirmada: null,
+            numero_oferta_confirmada: null,
+            codigo_oferta_confirmada: null,
+            error: false,
+          };
+        }
+
+        const url = buildApiUrl(
+          OFERTAS_CONFECCION_ENDPOINTS.ESTADO_OFERTA_CLIENTE(numeroNormalizado),
+        );
+        console.log(
+          "🌐 Fetching estado de oferta para cliente:",
+          numeroNormalizado,
+        );
+        console.log("🔗 URL:", url);
+
+        const response = await fetch(url, {
+          method: "GET",
+          headers: getCommonHeaders(),
+        });
+
+        if (response.status === 404) {
+          return {
+            success: true,
+            tiene_oferta_confirmada_por_cliente: false,
+            oferta_id_confirmada: null,
+            numero_oferta_confirmada: null,
+            codigo_oferta_confirmada: null,
+            error: false,
+          };
+        }
+
+        if (!response.ok) {
+          console.error(
+            "❌ Error en endpoint estado-oferta cliente:",
+            response.status,
+          );
+          return {
+            success: false,
+            tiene_oferta_confirmada_por_cliente: false,
+            oferta_id_confirmada: null,
+            numero_oferta_confirmada: null,
+            codigo_oferta_confirmada: null,
+            error: true,
+          };
+        }
+
+        const data = await response.json();
+        const payload = data?.data ?? data ?? {};
+
+        const tieneConfirmada = Boolean(
+          payload.tiene_oferta_confirmada_por_cliente ??
+          payload.tieneOfertaConfirmadaPorCliente,
+        );
+
+        return {
+          success: true,
+          tiene_oferta_confirmada_por_cliente: tieneConfirmada,
+          oferta_id_confirmada:
+            payload.oferta_id_confirmada ??
+            payload.ofertaIdConfirmada ??
+            payload.id_oferta_confirmada ??
+            null,
+          numero_oferta_confirmada:
+            payload.numero_oferta_confirmada ??
+            payload.numeroOfertaConfirmada ??
+            null,
+          codigo_oferta_confirmada:
+            payload.codigo_oferta_confirmada ??
+            payload.codigoOfertaConfirmada ??
+            null,
+          error: false,
+        };
+      } catch (error) {
+        console.error("💥 Error en obtenerEstadoOfertaCliente:", error);
+        return {
+          success: false,
+          tiene_oferta_confirmada_por_cliente: false,
+          oferta_id_confirmada: null,
+          numero_oferta_confirmada: null,
+          codigo_oferta_confirmada: null,
+          error: true,
+        };
+      }
+    },
+    [],
+  );
+
   const asignarOfertaALead = useCallback(
     async (ofertaGenericaId: string, leadId: string) => {
       try {
@@ -878,6 +996,7 @@ export function useOfertasConfeccion() {
     asignarOfertaACliente,
     obtenerNumerosClientesConOfertas,
     obtenerOfertaPorCliente,
+    obtenerEstadoOfertaCliente,
     obtenerIdsLeadsConOfertas,
     obtenerOfertaPorLead,
     asignarOfertaALead,

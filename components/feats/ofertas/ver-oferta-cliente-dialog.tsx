@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Card, CardContent } from "@/components/shared/molecule/card";
+import { Textarea } from "@/components/shared/molecule/textarea";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Progress } from "@/components/shared/atom/progress";
@@ -18,6 +19,7 @@ import {
   Download,
   Edit,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { useMaterials } from "@/hooks/use-materials";
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +34,11 @@ interface VerOfertaClienteDialogProps {
   onEditar?: (oferta: OfertaConfeccion) => void;
   onEliminar?: (oferta: OfertaConfeccion) => void;
   onExportar?: (oferta: OfertaConfeccion) => void;
+  onGuardarComentarioContabilidad?: (
+    oferta: OfertaConfeccion,
+    comentario: string,
+  ) => Promise<void>;
+  savingComentarioContabilidadOfertaId?: string | null;
 }
 
 const getEstadoBadge = (estado: string) => {
@@ -104,10 +111,13 @@ export function VerOfertaClienteDialog({
   onEditar,
   onEliminar,
   onExportar,
+  onGuardarComentarioContabilidad,
+  savingComentarioContabilidadOfertaId,
 }: VerOfertaClienteDialogProps) {
   const { materials } = useMaterials();
   const [modoVista, setModoVista] = useState<"listado" | "detalle">("detalle");
   const [ofertaSeleccionadaIndex, setOfertaSeleccionadaIndex] = useState(0);
+  const [comentarioContabilidad, setComentarioContabilidad] = useState("");
 
   const ofertasDisponibles = useMemo(() => {
     if (ofertas.length > 0) return ofertas;
@@ -135,6 +145,10 @@ export function VerOfertaClienteDialog({
     if (ofertasDisponibles.length === 0) return null;
     return ofertasDisponibles[ofertaSeleccionadaIndex] ?? ofertasDisponibles[0];
   }, [ofertasDisponibles, ofertaSeleccionadaIndex]);
+
+  useEffect(() => {
+    setComentarioContabilidad(oferta?.comentario_contabilidad || "");
+  }, [oferta?.id, oferta?.comentario_contabilidad]);
 
   // Manejar el cierre del diálogo
   const handleClose = () => {
@@ -229,11 +243,20 @@ export function VerOfertaClienteDialog({
       };
     });
   }, [oferta]);
-  const precioFinalOferta = oferta ? Math.max(0, Number(oferta.precio_final || 0)) : 0;
-  const montoPendienteOferta = oferta ? Math.max(0, Number(oferta.monto_pendiente || 0)) : 0;
-  const montoPagadoOferta = Math.max(0, precioFinalOferta - montoPendienteOferta);
+  const precioFinalOferta = oferta
+    ? Math.max(0, Number(oferta.precio_final || 0))
+    : 0;
+  const montoPendienteOferta = oferta
+    ? Math.max(0, Number(oferta.monto_pendiente || 0))
+    : 0;
+  const montoPagadoOferta = Math.max(
+    0,
+    precioFinalOferta - montoPendienteOferta,
+  );
   const porcentajePagadoOferta =
-    precioFinalOferta > 0 ? Math.min(100, (montoPagadoOferta / precioFinalOferta) * 100) : 0;
+    precioFinalOferta > 0
+      ? Math.min(100, (montoPagadoOferta / precioFinalOferta) * 100)
+      : 0;
 
   // Early return DESPUÉS de todos los hooks
   if (!oferta) {
@@ -463,380 +486,448 @@ export function VerOfertaClienteDialog({
               {/* Columna izquierda - Información general */}
               <div className="h-full min-h-0 overflow-hidden">
                 <div className="space-y-4 pr-1 lg:pr-2 overflow-y-auto max-h-full">
-                {/* Foto de portada */}
-                <Card className="overflow-hidden border-slate-200">
-                  <CardContent className="p-0">
-                    <div className="relative h-52 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
-                      {oferta.foto_portada ? (
-                        <img
-                          src={oferta.foto_portada}
-                          alt={oferta.nombre}
-                          className="w-full h-full object-contain"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <div className="h-20 w-20 rounded-2xl bg-white/80 border border-orange-100 flex items-center justify-center shadow-sm">
-                            <Building2 className="h-10 w-10 text-orange-400" />
+                  {/* Foto de portada */}
+                  <Card className="overflow-hidden border-slate-200">
+                    <CardContent className="p-0">
+                      <div className="relative h-52 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
+                        {oferta.foto_portada ? (
+                          <img
+                            src={oferta.foto_portada}
+                            alt={oferta.nombre}
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <div className="h-20 w-20 rounded-2xl bg-white/80 border border-orange-100 flex items-center justify-center shadow-sm">
+                              <Building2 className="h-10 w-10 text-orange-400" />
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                {/* Información de la oferta */}
-                <Card className="border-slate-200">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="text-sm text-slate-500">
-                      Información de la oferta
-                    </div>
-                    <div className="space-y-2 text-sm text-slate-700">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Tipo</span>
-                        <span className="font-semibold text-slate-900">
-                          {oferta.tipo === "personalizada"
-                            ? "Personalizada"
-                            : "Genérica"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Estado</span>
-                        <span className="font-semibold text-slate-900">
-                          {getEstadoBadge(oferta.estado).label}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Almacén</span>
-                        <span className="font-semibold text-slate-900">
-                          {oferta.almacen_nombre || "--"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">Número</span>
-                        <span className="font-semibold text-slate-900">
-                          {oferta.numero_oferta || oferta.id}
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Información del cliente */}
-                {oferta.tipo === "personalizada" && (
+                  {/* Información de la oferta */}
                   <Card className="border-slate-200">
                     <CardContent className="p-4 space-y-3">
                       <div className="text-sm text-slate-500">
-                        Información del cliente
+                        Información de la oferta
                       </div>
                       <div className="space-y-2 text-sm text-slate-700">
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-500">Nombre</span>
+                          <span className="text-slate-500">Tipo</span>
                           <span className="font-semibold text-slate-900">
-                            {oferta.cliente_nombre || "--"}
+                            {oferta.tipo === "personalizada"
+                              ? "Personalizada"
+                              : "Genérica"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Estado</span>
+                          <span className="font-semibold text-slate-900">
+                            {getEstadoBadge(oferta.estado).label}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">Almacén</span>
+                          <span className="font-semibold text-slate-900">
+                            {oferta.almacen_nombre || "--"}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Número</span>
                           <span className="font-semibold text-slate-900">
-                            {oferta.cliente_numero || "--"}
+                            {oferta.numero_oferta || oferta.id}
                           </span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                )}
 
-                {/* Totales */}
-                <Card className="border-slate-200">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="text-sm text-slate-500">Totales</div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Total materiales</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(oferta.total_materiales || 0)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Margen comercial</span>
-                        <span className="font-semibold text-slate-900">
-                          {oferta.margen_comercial ?? 0}%
-                        </span>
-                      </div>
-                      {oferta.margen_instalacion !== undefined &&
-                        oferta.margen_instalacion > 0 && (
-                          <div className="flex items-center justify-between text-slate-600">
-                            <span>Margen instalación</span>
+                  {/* Información del cliente */}
+                  {oferta.tipo === "personalizada" && (
+                    <Card className="border-slate-200">
+                      <CardContent className="p-4 space-y-3">
+                        <div className="text-sm text-slate-500">
+                          Información del cliente
+                        </div>
+                        <div className="space-y-2 text-sm text-slate-700">
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Nombre</span>
                             <span className="font-semibold text-slate-900">
-                              {formatCurrency(oferta.margen_instalacion)}
+                              {oferta.cliente_nombre || "--"}
                             </span>
                           </div>
-                        )}
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Subtotal con margen</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(oferta.subtotal_con_margen || 0)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Transporte</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(oferta.costo_transportacion || 0)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Costos extras</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(oferta.total_costos_extras || 0)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Elementos personalizados</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(
-                            oferta.total_elementos_personalizados || 0,
-                          )}
-                        </span>
-                      </div>
-                      {oferta.descuento_porcentaje !== undefined &&
-                        oferta.descuento_porcentaje > 0 && (
-                          <div className="flex items-center justify-between text-red-600">
-                            <span>
-                              Descuento ({oferta.descuento_porcentaje}%)
-                            </span>
-                            <span className="font-semibold">
-                              -{formatCurrency(oferta.monto_descuento || 0)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500">Número</span>
+                            <span className="font-semibold text-slate-900">
+                              {oferta.cliente_numero || "--"}
                             </span>
                           </div>
-                        )}
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Contribución</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(totalesDetalle.contribucion)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Total sin redondeo</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(totalesDetalle.totalSinRedondeo)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>Redondeo</span>
-                        <span className="font-semibold text-slate-900">
-                          {formatCurrency(totalesDetalle.redondeo)}
-                        </span>
-                      </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
 
-                      {/* Información de pago */}
-                      <div className="pt-2 border-t border-slate-200 space-y-2 text-sm text-slate-600">
-                        <div className="text-sm text-slate-500">Pago</div>
-                        <div className="flex items-center justify-between">
-                          <span>Pago por transferencia</span>
+                  {/* Totales */}
+                  <Card className="border-slate-200">
+                    <CardContent className="p-4 space-y-3">
+                      <div className="text-sm text-slate-500">Totales</div>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Total materiales</span>
                           <span className="font-semibold text-slate-900">
-                            {oferta.pago_transferencia ? "Sí" : "No"}
+                            {formatCurrency(oferta.total_materiales || 0)}
                           </span>
                         </div>
-                        {oferta.pago_transferencia && oferta.datos_cuenta && (
-                          <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
-                            {oferta.datos_cuenta}
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between">
-                          <span>Aplica contribución</span>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Margen comercial</span>
                           <span className="font-semibold text-slate-900">
-                            {oferta.aplica_contribucion ? "Sí" : "No"}
+                            {oferta.margen_comercial ?? 0}%
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span>Formas de pago acordadas</span>
-                          <span className="font-semibold text-slate-900">
-                            {oferta.formas_pago_acordadas ? "Sí" : "No"}
-                          </span>
-                        </div>
-                        {oferta.formas_pago_acordadas && (
-                          <div className="space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2">
-                            <div className="flex items-center justify-between text-xs text-slate-600">
-                              <span>Cantidad de pagos</span>
+                        {oferta.margen_instalacion !== undefined &&
+                          oferta.margen_instalacion > 0 && (
+                            <div className="flex items-center justify-between text-slate-600">
+                              <span>Margen instalación</span>
                               <span className="font-semibold text-slate-900">
-                                {oferta.cantidad_pagos_acordados ??
-                                  oferta.pagos_acordados?.length ??
-                                  0}
+                                {formatCurrency(oferta.margen_instalacion)}
                               </span>
                             </div>
-                            {(oferta.pagos_acordados || []).map(
-                              (pago, index) => (
-                                <div
-                                  key={`${pago.fecha_estimada}-${index}`}
-                                  className="rounded border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-700 space-y-1"
-                                >
-                                  <div className="font-semibold text-slate-800">
-                                    Pago #{index + 1}
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span>Monto</span>
-                                    <span className="font-medium text-slate-900">
-                                      {formatCurrency(pago.monto_usd || 0)}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span>Método</span>
-                                    <span className="font-medium text-slate-900 capitalize">
-                                      {pago.metodo_pago}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center justify-between">
-                                    <span>Fecha estimada</span>
-                                    <span className="font-medium text-slate-900">
-                                      {formatDateTime(pago.fecha_estimada)}
-                                    </span>
-                                  </div>
-                                </div>
-                              ),
-                            )}
-                          </div>
-                        )}
-                        {oferta.aplica_contribucion && (
-                          <div className="flex items-center justify-between">
-                            <span>% Contribución</span>
-                            <span className="font-semibold text-slate-900">
-                              {oferta.porcentaje_contribucion || 0}%
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Moneda de pago */}
-                      <div className="pt-2 border-t border-slate-200 space-y-2 text-sm text-slate-600">
-                        <div className="flex items-center justify-between">
-                          <span>Moneda de pago</span>
+                          )}
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Subtotal con margen</span>
                           <span className="font-semibold text-slate-900">
-                            {oferta.moneda_pago || "USD"}
+                            {formatCurrency(oferta.subtotal_con_margen || 0)}
                           </span>
                         </div>
-                        {oferta.moneda_pago && oferta.moneda_pago !== "USD" && (
-                          <div className="flex items-center justify-between">
-                            <span>
-                              {oferta.moneda_pago === "EUR"
-                                ? "1 EUR ="
-                                : "1 USD ="}
-                            </span>
-                            <span className="font-semibold text-slate-900">
-                              {formatCurrencyWithSymbol(
-                                oferta.tasa_cambio || 0,
-                                oferta.moneda_pago === "EUR" ? "$" : "CUP",
-                              )}
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Transporte</span>
+                          <span className="font-semibold text-slate-900">
+                            {formatCurrency(oferta.costo_transportacion || 0)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Costos extras</span>
+                          <span className="font-semibold text-slate-900">
+                            {formatCurrency(oferta.total_costos_extras || 0)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Elementos personalizados</span>
+                          <span className="font-semibold text-slate-900">
+                            {formatCurrency(
+                              oferta.total_elementos_personalizados || 0,
+                            )}
+                          </span>
+                        </div>
+                        {oferta.descuento_porcentaje !== undefined &&
+                          oferta.descuento_porcentaje > 0 && (
+                            <div className="flex items-center justify-between text-red-600">
+                              <span>
+                                Descuento ({oferta.descuento_porcentaje}%)
+                              </span>
+                              <span className="font-semibold">
+                                -{formatCurrency(oferta.monto_descuento || 0)}
+                              </span>
+                            </div>
+                          )}
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Contribución</span>
+                          <span className="font-semibold text-slate-900">
+                            {formatCurrency(totalesDetalle.contribucion)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Total sin redondeo</span>
+                          <span className="font-semibold text-slate-900">
+                            {formatCurrency(totalesDetalle.totalSinRedondeo)}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>Redondeo</span>
+                          <span className="font-semibold text-slate-900">
+                            {formatCurrency(totalesDetalle.redondeo)}
+                          </span>
+                        </div>
 
-                      {/* Precio final */}
-                      <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-slate-800">
-                        <span className="font-semibold">Precio final</span>
-                        <span className="text-lg font-bold text-orange-600">
-                          {formatCurrency(oferta.precio_final || 0)}
-                        </span>
-                      </div>
-                      
-                      {/* Compensación y Asumido por Empresa */}
-                      {(oferta.compensacion || oferta.asumido_por_empresa) && (
-                        <div className="pt-2 border-t border-slate-200 space-y-2">
-                          {oferta.compensacion && (
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-orange-700 font-medium">Compensación</span>
-                                <span className="font-semibold text-orange-700">
-                                  - {formatCurrency(oferta.compensacion.monto_usd || 0)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-600 italic">
-                                {oferta.compensacion.justificacion}
-                              </p>
-                            </div>
-                          )}
-                          {oferta.asumido_por_empresa && (
-                            <div className="space-y-1">
-                              <div className="flex items-center justify-between text-sm">
-                                <span className="text-blue-700 font-medium">Asumido por Empresa</span>
-                                <span className="font-semibold text-blue-700">
-                                  - {formatCurrency(oferta.asumido_por_empresa.monto_usd || 0)}
-                                </span>
-                              </div>
-                              <p className="text-xs text-slate-600 italic">
-                                {oferta.asumido_por_empresa.justificacion}
-                              </p>
-                            </div>
-                          )}
-                          <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
-                            <span className="font-semibold text-orange-900">Monto Pendiente Real</span>
-                            <span className="text-lg font-bold text-orange-900">
-                              {formatCurrency(
-                                (oferta.precio_final || 0) - 
-                                (oferta.compensacion?.monto_usd || 0) - 
-                                (oferta.asumido_por_empresa?.monto_usd || 0)
-                              )}
+                        {/* Información de pago */}
+                        <div className="pt-2 border-t border-slate-200 space-y-2 text-sm text-slate-600">
+                          <div className="text-sm text-slate-500">Pago</div>
+                          <div className="flex items-center justify-between">
+                            <span>Pago por transferencia</span>
+                            <span className="font-semibold text-slate-900">
+                              {oferta.pago_transferencia ? "Sí" : "No"}
                             </span>
                           </div>
+                          {oferta.pago_transferencia && oferta.datos_cuenta && (
+                            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700">
+                              {oferta.datos_cuenta}
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <span>Aplica contribución</span>
+                            <span className="font-semibold text-slate-900">
+                              {oferta.aplica_contribucion ? "Sí" : "No"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Formas de pago acordadas</span>
+                            <span className="font-semibold text-slate-900">
+                              {oferta.formas_pago_acordadas ? "Sí" : "No"}
+                            </span>
+                          </div>
+                          {oferta.formas_pago_acordadas && (
+                            <div className="space-y-2 rounded-md border border-slate-200 bg-white px-3 py-2">
+                              <div className="flex items-center justify-between text-xs text-slate-600">
+                                <span>Cantidad de pagos</span>
+                                <span className="font-semibold text-slate-900">
+                                  {oferta.cantidad_pagos_acordados ??
+                                    oferta.pagos_acordados?.length ??
+                                    0}
+                                </span>
+                              </div>
+                              {(oferta.pagos_acordados || []).map(
+                                (pago, index) => (
+                                  <div
+                                    key={`${pago.fecha_estimada}-${index}`}
+                                    className="rounded border border-slate-200 bg-slate-50 px-2 py-2 text-xs text-slate-700 space-y-1"
+                                  >
+                                    <div className="font-semibold text-slate-800">
+                                      Pago #{index + 1}
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span>Monto</span>
+                                      <span className="font-medium text-slate-900">
+                                        {formatCurrency(pago.monto_usd || 0)}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span>Método</span>
+                                      <span className="font-medium text-slate-900 capitalize">
+                                        {pago.metodo_pago}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span>Fecha estimada</span>
+                                      <span className="font-medium text-slate-900">
+                                        {formatDateTime(pago.fecha_estimada)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                ),
+                              )}
+                            </div>
+                          )}
+                          {oferta.aplica_contribucion && (
+                            <div className="flex items-center justify-between">
+                              <span>% Contribución</span>
+                              <span className="font-semibold text-slate-900">
+                                {oferta.porcentaje_contribucion || 0}%
+                              </span>
+                            </div>
+                          )}
                         </div>
-                      )}
-                      
-                      {conversionDetalle && (
-                        <div className="flex items-center justify-between text-slate-800">
-                          <span className="font-semibold">
-                            Precio final en {conversionDetalle.moneda}
-                          </span>
+
+                        {/* Comentario para contabilidad */}
+                        <div className="pt-2 border-t border-slate-200 space-y-2 text-sm text-slate-600">
+                          <div className="text-sm text-slate-500">
+                            Comentario para contabilidad
+                          </div>
+                          <Textarea
+                            value={comentarioContabilidad}
+                            onChange={(event) =>
+                              setComentarioContabilidad(event.target.value)
+                            }
+                            placeholder="Agregar comentario para contabilidad..."
+                            rows={3}
+                            className="text-sm"
+                            readOnly={!onGuardarComentarioContabilidad}
+                            disabled={
+                              savingComentarioContabilidadOfertaId === oferta.id
+                            }
+                          />
+                          {onGuardarComentarioContabilidad && (
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  void onGuardarComentarioContabilidad(
+                                    oferta,
+                                    comentarioContabilidad,
+                                  );
+                                }}
+                                disabled={
+                                  savingComentarioContabilidadOfertaId ===
+                                    oferta.id ||
+                                  comentarioContabilidad.trim() ===
+                                    (
+                                      oferta.comentario_contabilidad || ""
+                                    ).trim()
+                                }
+                              >
+                                {savingComentarioContabilidadOfertaId ===
+                                oferta.id ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Guardando...
+                                  </>
+                                ) : (
+                                  "Guardar comentario"
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Moneda de pago */}
+                        <div className="pt-2 border-t border-slate-200 space-y-2 text-sm text-slate-600">
+                          <div className="flex items-center justify-between">
+                            <span>Moneda de pago</span>
+                            <span className="font-semibold text-slate-900">
+                              {oferta.moneda_pago || "USD"}
+                            </span>
+                          </div>
+                          {oferta.moneda_pago &&
+                            oferta.moneda_pago !== "USD" && (
+                              <div className="flex items-center justify-between">
+                                <span>
+                                  {oferta.moneda_pago === "EUR"
+                                    ? "1 EUR ="
+                                    : "1 USD ="}
+                                </span>
+                                <span className="font-semibold text-slate-900">
+                                  {formatCurrencyWithSymbol(
+                                    oferta.tasa_cambio || 0,
+                                    oferta.moneda_pago === "EUR" ? "$" : "CUP",
+                                  )}
+                                </span>
+                              </div>
+                            )}
+                        </div>
+
+                        {/* Precio final */}
+                        <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-slate-800">
+                          <span className="font-semibold">Precio final</span>
                           <span className="text-lg font-bold text-orange-600">
-                            {formatCurrencyWithSymbol(
-                              conversionDetalle.convertido,
-                              conversionDetalle.moneda === "EUR"
-                                ? "EUR "
-                                : "CUP",
+                            {formatCurrency(oferta.precio_final || 0)}
+                          </span>
+                        </div>
+
+                        {/* Compensación y Asumido por Empresa */}
+                        {(oferta.compensacion ||
+                          oferta.asumido_por_empresa) && (
+                          <div className="pt-2 border-t border-slate-200 space-y-2">
+                            {oferta.compensacion && (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-orange-700 font-medium">
+                                    Compensación
+                                  </span>
+                                  <span className="font-semibold text-orange-700">
+                                    -{" "}
+                                    {formatCurrency(
+                                      oferta.compensacion.monto_usd || 0,
+                                    )}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-600 italic">
+                                  {oferta.compensacion.justificacion}
+                                </p>
+                              </div>
                             )}
-                          </span>
-                        </div>
-                      )}
+                            {oferta.asumido_por_empresa && (
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between text-sm">
+                                  <span className="text-blue-700 font-medium">
+                                    Asumido por Empresa
+                                  </span>
+                                  <span className="font-semibold text-blue-700">
+                                    -{" "}
+                                    {formatCurrency(
+                                      oferta.asumido_por_empresa.monto_usd || 0,
+                                    )}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-600 italic">
+                                  {oferta.asumido_por_empresa.justificacion}
+                                </p>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
+                              <span className="font-semibold text-orange-900">
+                                Monto Pendiente Real
+                              </span>
+                              <span className="text-lg font-bold text-orange-900">
+                                {formatCurrency(
+                                  (oferta.precio_final || 0) -
+                                    (oferta.compensacion?.monto_usd || 0) -
+                                    (oferta.asumido_por_empresa?.monto_usd ||
+                                      0),
+                                )}
+                              </span>
+                            </div>
+                          </div>
+                        )}
 
-                      {/* Progreso de pago */}
-                      <div className="pt-2 border-t border-slate-200 space-y-2">
-                        <div className="flex items-center justify-between text-sm text-slate-600">
-                          <span>Progreso de pago</span>
-                          <span className="font-semibold text-slate-900">
-                            {porcentajePagadoOferta.toFixed(1)}%
-                          </span>
-                        </div>
-                        <Progress
-                          value={porcentajePagadoOferta}
-                          className="h-2.5 bg-slate-200 [&>div]:bg-emerald-500"
-                        />
-                        <div className="flex items-center justify-between text-xs text-slate-600">
-                          <span>
-                            Pagado:{" "}
-                            <span className="font-semibold text-slate-900">
-                              {formatCurrency(montoPagadoOferta)}
+                        {conversionDetalle && (
+                          <div className="flex items-center justify-between text-slate-800">
+                            <span className="font-semibold">
+                              Precio final en {conversionDetalle.moneda}
                             </span>
-                          </span>
-                          <span>
-                            Pendiente:{" "}
-                            <span className="font-semibold text-slate-900">
-                              {formatCurrency(montoPendienteOferta)}
+                            <span className="text-lg font-bold text-orange-600">
+                              {formatCurrencyWithSymbol(
+                                conversionDetalle.convertido,
+                                conversionDetalle.moneda === "EUR"
+                                  ? "EUR "
+                                  : "CUP",
+                              )}
                             </span>
-                          </span>
+                          </div>
+                        )}
+
+                        {/* Progreso de pago */}
+                        <div className="pt-2 border-t border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between text-sm text-slate-600">
+                            <span>Progreso de pago</span>
+                            <span className="font-semibold text-slate-900">
+                              {porcentajePagadoOferta.toFixed(1)}%
+                            </span>
+                          </div>
+                          <Progress
+                            value={porcentajePagadoOferta}
+                            className="h-2.5 bg-slate-200 [&>div]:bg-emerald-500"
+                          />
+                          <div className="flex items-center justify-between text-xs text-slate-600">
+                            <span>
+                              Pagado:{" "}
+                              <span className="font-semibold text-slate-900">
+                                {formatCurrency(montoPagadoOferta)}
+                              </span>
+                            </span>
+                            <span>
+                              Pendiente:{" "}
+                              <span className="font-semibold text-slate-900">
+                                {formatCurrency(montoPendienteOferta)}
+                              </span>
+                            </span>
+                          </div>
                         </div>
+
+                        {/* Notas */}
+                        {oferta.notas && (
+                          <div className="pt-2 border-t border-slate-200 text-xs text-slate-500">
+                            <span className="font-semibold text-slate-600">
+                              Notas:
+                            </span>{" "}
+                            {oferta.notas}
+                          </div>
+                        )}
                       </div>
-
-                      {/* Notas */}
-                      {oferta.notas && (
-                        <div className="pt-2 border-t border-slate-200 text-xs text-slate-500">
-                          <span className="font-semibold text-slate-600">
-                            Notas:
-                          </span>{" "}
-                          {oferta.notas}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
                 </div>
               </div>
 
@@ -848,76 +939,76 @@ export function VerOfertaClienteDialog({
                       Materiales de la oferta
                     </div>
 
-                  {(oferta.items || []).length === 0 ? (
-                    <div className="text-sm text-slate-500">
-                      No hay materiales registrados.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {Object.entries(
-                        (oferta.items || []).reduce<
-                          Record<string, NonNullable<typeof oferta.items>>
-                        >((acc, item) => {
-                          const key = item.seccion || "Sin sección";
-                          if (!acc[key]) acc[key] = [];
-                          acc[key].push(item);
-                          return acc;
-                        }, {}),
-                      ).map(([seccion, items]) => (
-                        <div key={seccion} className="space-y-2">
-                          <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
-                            {seccion}
+                    {(oferta.items || []).length === 0 ? (
+                      <div className="text-sm text-slate-500">
+                        No hay materiales registrados.
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {Object.entries(
+                          (oferta.items || []).reduce<
+                            Record<string, NonNullable<typeof oferta.items>>
+                          >((acc, item) => {
+                            const key = item.seccion || "Sin sección";
+                            if (!acc[key]) acc[key] = [];
+                            acc[key].push(item);
+                            return acc;
+                          }, {}),
+                        ).map(([seccion, items]) => (
+                          <div key={seccion} className="space-y-2">
+                            <div className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                              {seccion}
+                            </div>
+                            <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
+                              {items.map((item, idx) => {
+                                const material = materialesMap.get(
+                                  item.material_codigo?.toString(),
+                                );
+                                return (
+                                  <div
+                                    key={`${item.material_codigo}-${idx}`}
+                                    className="flex items-center gap-3 p-3"
+                                  >
+                                    <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
+                                      {material?.foto ? (
+                                        <img
+                                          src={material.foto}
+                                          alt={item.descripcion}
+                                          className="w-full h-full object-contain"
+                                        />
+                                      ) : (
+                                        <Package className="h-6 w-6 text-slate-300" />
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-semibold text-slate-900 line-clamp-1">
+                                        {item.descripcion}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        {item.categoria} · Código{" "}
+                                        {item.material_codigo}
+                                      </p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold text-slate-900">
+                                        {item.cantidad} u
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        ${formatCurrency(item.precio)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                          <div className="divide-y divide-slate-100 rounded-lg border border-slate-100 bg-white">
-                            {items.map((item, idx) => {
-                              const material = materialesMap.get(
-                                item.material_codigo?.toString(),
-                              );
-                              return (
-                                <div
-                                  key={`${item.material_codigo}-${idx}`}
-                                  className="flex items-center gap-3 p-3"
-                                >
-                                  <div className="h-12 w-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden">
-                                    {material?.foto ? (
-                                      <img
-                                        src={material.foto}
-                                        alt={item.descripcion}
-                                        className="w-full h-full object-contain"
-                                      />
-                                    ) : (
-                                      <Package className="h-6 w-6 text-slate-300" />
-                                    )}
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-semibold text-slate-900 line-clamp-1">
-                                      {item.descripcion}
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      {item.categoria} · Código{" "}
-                                      {item.material_codigo}
-                                    </p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold text-slate-900">
-                                      {item.cantidad} u
-                                    </p>
-                                    <p className="text-xs text-slate-500">
-                                      ${formatCurrency(item.precio)}
-                                    </p>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </div>
-          </div>
           </>
         )}
       </DialogContent>
