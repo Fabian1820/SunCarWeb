@@ -164,15 +164,16 @@ const getClientSortCode = (client: Cliente) => {
 
 const getClientTailSortNumber = (client: Cliente) => {
   const code = getClientSortCode(client);
-  const digits = code.match(/\d+/g)?.join("") ?? "";
+  const normalizedCode = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const digits = normalizedCode.match(/\d+/g)?.join("") ?? "";
   if (!digits) return -1;
 
   const tailLength =
-    digits.length === 10
+    normalizedCode.length === 10
       ? 5
-      : digits.length === 8
+      : normalizedCode.length === 8
         ? 3
-        : digits.length > 10
+        : normalizedCode.length > 10
           ? 5
           : 3;
   const tail = digits.slice(-tailLength);
@@ -480,11 +481,11 @@ export function ClientsTable({
     return [...clients].sort((a, b) => {
       const tailA = getClientTailSortNumber(a);
       const tailB = getClientTailSortNumber(b);
-      if (tailA !== tailB) return tailA - tailB;
+      if (tailA !== tailB) return tailB - tailA;
 
       const codeA = getClientSortCode(a);
       const codeB = getClientSortCode(b);
-      return codeA.localeCompare(codeB, "es", { sensitivity: "base" });
+      return codeB.localeCompare(codeA, "es", { sensitivity: "base" });
     });
   }, [clients]);
 

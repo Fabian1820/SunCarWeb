@@ -82,15 +82,16 @@ const getCodigoCliente = (client: Cliente): string => {
 };
 
 const getCodigoTailValue = (code: string): number => {
-  const digits = code.match(/\d+/g)?.join("") ?? "";
+  const normalizedCode = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const digits = normalizedCode.match(/\d+/g)?.join("") ?? "";
   if (!digits) return -1;
 
   const tailLength =
-    digits.length === 10
+    normalizedCode.length === 10
       ? 5
-      : digits.length === 8
+      : normalizedCode.length === 8
         ? 3
-        : digits.length > 10
+        : normalizedCode.length > 10
           ? 5
           : 3;
   const tail = digits.slice(-tailLength);
@@ -104,9 +105,9 @@ const sortClientsByCodigo = (items: Cliente[]): Cliente[] => {
     const tailA = getCodigoTailValue(codeA);
     const tailB = getCodigoTailValue(codeB);
 
-    if (tailA !== tailB) return tailA - tailB;
+    if (tailA !== tailB) return tailB - tailA;
 
-    return codeA.localeCompare(codeB, "es", { sensitivity: "base" });
+    return codeB.localeCompare(codeA, "es", { sensitivity: "base" });
   });
 };
 
@@ -273,7 +274,7 @@ export default function ClientesPage() {
       fechaDesde?: string;
       fechaHasta?: string;
     }): Promise<Cliente[]> => {
-      const pageSize = 500;
+      const pageSize = 200;
       const allClients: Cliente[] = [];
       const seenKeys = new Set<string>();
       let nextSkip = 0;
@@ -296,21 +297,32 @@ export default function ClientesPage() {
           totalHint = Math.max(0, pageResult.total);
         }
 
+        let addedInPage = 0;
         for (const client of pageClients) {
           const key = `${client.id || ""}-${client.numero || ""}-${client.nombre || ""}`;
           if (seenKeys.has(key)) continue;
           seenKeys.add(key);
           allClients.push(client);
+          addedInPage += 1;
         }
 
-        nextSkip += pageClients.length;
+        const responseSkip =
+          typeof pageResult.skip === "number" ? pageResult.skip : nextSkip;
+        const responseLimit =
+          typeof pageResult.limit === "number" && pageResult.limit > 0
+            ? pageResult.limit
+            : pageClients.length;
+        nextSkip = responseSkip + responseLimit;
         safetyCounter += 1;
-
-        // Si llegó una página incompleta, ya no hay más resultados.
-        if (pageClients.length < pageSize) break;
 
         // Si el backend sí envía total confiable y ya lo alcanzamos.
         if (totalHint > 0 && nextSkip >= totalHint) break;
+
+        // Evitar bucles si el backend repite la misma página.
+        if (addedInPage === 0) break;
+
+        // Si llegó una página incompleta respecto al límite real de backend.
+        if (pageClients.length < responseLimit) break;
       }
 
       return allClients;
@@ -344,56 +356,37 @@ export default function ClientesPage() {
           Boolean(filters.fechaDesde) ||
           Boolean(filters.fechaHasta);
 
-        if (hasActiveFilters) {
-          const allBaseClients = await fetchAllClientsByBaseFilters(baseParams);
-          const filteredClients = allBaseClients.filter((client) =>
-            matchesClientFilters(client, {
-              searchTerm: searchValue,
-              estado: normalizedEstado,
-              fuente: filters.fuente,
-              comercial: filters.comercial,
-              fechaDesde: filters.fechaDesde,
-              fechaHasta: filters.fechaHasta,
-            }),
-          );
-          const start = Math.max(0, filters.skip);
-          const end = start + Math.max(1, filters.limit);
-          const paginatedClients = filteredClients.slice(start, end);
+        const allBaseClients = await fetchAllClientsByBaseFilters(baseParams);
+        const allFilteredAndSortedClients = sortClientsByCodigo(
+          hasActiveFilters
+            ? allBaseClients.filter((client) =>
+                matchesClientFilters(client, {
+                  searchTerm: searchValue,
+                  estado: normalizedEstado,
+                  fuente: filters.fuente,
+                  comercial: filters.comercial,
+                  fechaDesde: filters.fechaDesde,
+                  fechaHasta: filters.fechaHasta,
+                }),
+              )
+            : allBaseClients,
+        );
 
-          setClients(sortClientsByCodigo(paginatedClients));
-          setTotalClients(filteredClients.length);
+        const start = Math.max(0, filters.skip);
+        const end = start + Math.max(1, filters.limit);
+        const paginatedClients = allFilteredAndSortedClients.slice(start, end);
 
-          if (
-            overrideFilters?.skip !== undefined ||
-            overrideFilters?.limit !== undefined
-          ) {
-            setAppliedFilters((prev) => ({
-              ...prev,
-              skip: filters.skip,
-              limit: filters.limit,
-            }));
-          }
-          return;
-        }
-
-        const {
-          clients: fetchedClients,
-          total,
-          skip,
-          limit,
-        } = await ClienteService.getClientes({
-          ...baseParams,
-          skip: filters.skip,
-          limit: filters.limit,
-        });
-
-        setClients(sortClientsByCodigo(fetchedClients));
-        setTotalClients(total);
+        setClients(paginatedClients);
+        setTotalClients(allFilteredAndSortedClients.length);
         if (
           overrideFilters?.skip !== undefined ||
           overrideFilters?.limit !== undefined
         ) {
-          setAppliedFilters((prev) => ({ ...prev, skip, limit }));
+          setAppliedFilters((prev) => ({
+            ...prev,
+            skip: filters.skip,
+            limit: filters.limit,
+          }));
         }
       } finally {
         setLoading(false);
