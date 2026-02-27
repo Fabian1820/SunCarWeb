@@ -250,11 +250,28 @@ const extractOfertasConfeccion = (response: any): OfertaParaEntrega[] => {
   return [];
 };
 
+const isValidOfertaIdForEdit = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^[a-f0-9]{24}$/i.test(trimmed)) return true;
+  if (/^OF-\d{8}-\d{3,}$/.test(trimmed)) return true;
+  return false;
+};
+
 const getOfertaPersistedId = (oferta: OfertaParaEntrega | null) => {
   if (!oferta) return null;
-  const id =
-    oferta.id || oferta._id || oferta.oferta_id || oferta.numero_oferta;
-  return id ? String(id) : null;
+  const candidatos = [
+    oferta._id,
+    oferta.oferta_id,
+    oferta.numero_oferta,
+    oferta.id,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const preferido = candidatos.find((value) => isValidOfertaIdForEdit(value));
+  if (preferido) return preferido;
+  return candidatos[0] || null;
 };
 
 const extractApiErrorMessage = (response: any) => {
@@ -446,6 +463,7 @@ export function InstalacionesEnProcesoTable({
       ofertaServicioCargada.items.length === 0
     ) {
       return [] as Array<{
+        itemIndex: number;
         itemId: string;
         categoria: ServicioCategoria;
         materialCodigo: string;
@@ -460,6 +478,7 @@ export function InstalacionesEnProcesoTable({
         const categoria = getServicioCategoria(item);
         if (!categoria) return null;
         return {
+          itemIndex: index,
           itemId: getServicioItemId(item, index, categoria),
           categoria,
           materialCodigo: String(item.material_codigo || "")
@@ -474,6 +493,7 @@ export function InstalacionesEnProcesoTable({
         (
           item,
         ): item is {
+          itemIndex: number;
           itemId: string;
           categoria: ServicioCategoria;
           materialCodigo: string;
@@ -697,7 +717,15 @@ export function InstalacionesEnProcesoTable({
       return;
     }
 
-    const cambiosPorMaterial: Array<{ codigo: string; cantidad: number }> = [];
+    const cambiosEsperadosPorIndex = new Map<
+      number,
+      {
+        codigo: string;
+        descripcion: string;
+        cantidad: number;
+      }
+    >();
+
     for (const item of servicioItems) {
       const seleccionados = equiposEnServicio[item.categoria];
       const marcado = seleccionados.includes(item.itemId);
@@ -728,27 +756,14 @@ export function InstalacionesEnProcesoTable({
         continue;
       }
 
-      const existente = cambiosPorMaterial.find(
-        (entry) => entry.codigo === item.materialCodigoPayload,
-      );
-      if (existente && existente.cantidad !== cantidad) {
-        toast({
-          title: "Material repetido",
-          description: `El material ${item.materialCodigo} aparece con cantidades distintas.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!existente) {
-        cambiosPorMaterial.push({
-          codigo: item.materialCodigoPayload,
-          cantidad,
-        });
-      }
+      cambiosEsperadosPorIndex.set(item.itemIndex, {
+        codigo: item.materialCodigoPayload,
+        descripcion: item.descripcion,
+        cantidad,
+      });
     }
 
-    if (cambiosPorMaterial.length === 0) {
+    if (cambiosEsperadosPorIndex.size === 0) {
       toast({
         title: "Sin materiales",
         description: "No hay materiales válidos para guardar en servicio.",
@@ -757,27 +772,63 @@ export function InstalacionesEnProcesoTable({
       return;
     }
 
+    const itemsActualizados = (ofertaServicioCargada.items || []).map(
+      (item, index) => {
+        const cambio = cambiosEsperadosPorIndex.get(index);
+        if (!cambio) return item;
+        return {
+          ...item,
+          cantidad_en_servicio: cambio.cantidad,
+          en_servicio: cambio.cantidad > 0,
+        };
+      },
+    );
+
     setSavingOfertaServicio(true);
     try {
-      for (const cambio of cambiosPorMaterial) {
-        const response = await apiRequest<any>(
-          `/ofertas/confeccion/${encodeURIComponent(ofertaId)}/materiales-en-servicio`,
+      const ofertaPayloadCompleta: Record<string, unknown> = {
+        ...ofertaServicioCargada,
+        items: itemsActualizados,
+        materiales: itemsActualizados,
+      };
+      delete ofertaPayloadCompleta._uid;
+
+      let response = await apiRequest<any>(
+        `/ofertas/confeccion/${encodeURIComponent(ofertaId)}`,
+        {
+          method: "PUT",
+          body: JSON.stringify(ofertaPayloadCompleta),
+        },
+      );
+
+      if (response?.success === false || response?.error) {
+        response = await apiRequest<any>(
+          `/ofertas/confeccion/${encodeURIComponent(ofertaId)}`,
+          {
+            method: "PATCH",
+            body: JSON.stringify(ofertaPayloadCompleta),
+          },
+        );
+      }
+
+      if (response?.success === false || response?.error) {
+        response = await apiRequest<any>(
+          `/ofertas/confeccion/${encodeURIComponent(ofertaId)}`,
           {
             method: "PATCH",
             body: JSON.stringify({
-              material_codigos: [cambio.codigo],
-              en_servicio: cambio.cantidad > 0,
-              cantidad_en_servicio: cambio.cantidad,
+              items: itemsActualizados,
+              materiales: itemsActualizados,
             }),
           },
         );
+      }
 
-        if (response?.success === false || response?.error) {
-          throw new Error(
-            extractApiErrorMessage(response) ||
-              "No se pudo actualizar materiales en servicio.",
-          );
-        }
+      if (response?.success === false || response?.error) {
+        throw new Error(
+          extractApiErrorMessage(response) ||
+            "No se pudieron actualizar los materiales en servicio.",
+        );
       }
 
       const ofertasRecargadas = await loadOfertasParaEntrega(
@@ -786,6 +837,59 @@ export function InstalacionesEnProcesoTable({
       const ofertaRecargada = ofertasRecargadas.find(
         (oferta) => getOfertaPersistedId(oferta) === ofertaId,
       );
+      if (!ofertaRecargada) {
+        throw new Error(
+          "La oferta no apareció al recargar después de guardar.",
+        );
+      }
+
+      const itemsRecargados = Array.isArray(ofertaRecargada.items)
+        ? ofertaRecargada.items
+        : [];
+
+      for (const [
+        itemIndex,
+        cambioEsperado,
+      ] of cambiosEsperadosPorIndex.entries()) {
+        const codeEsperado = normalizeMaterialCode(cambioEsperado.codigo);
+        const descripcionEsperada = normalizeMaterialDescription(
+          cambioEsperado.descripcion,
+        );
+
+        const itemByIndex = itemsRecargados[itemIndex];
+        const itemRecargado =
+          itemByIndex &&
+          (normalizeMaterialCode(itemByIndex.material_codigo) ===
+            codeEsperado ||
+            normalizeMaterialDescription(itemByIndex.descripcion) ===
+              descripcionEsperada)
+            ? itemByIndex
+            : itemsRecargados.find((item) => {
+                const sameCode =
+                  codeEsperado !== "" &&
+                  normalizeMaterialCode(item.material_codigo) === codeEsperado;
+                const sameDescription =
+                  descripcionEsperada !== "" &&
+                  normalizeMaterialDescription(item.descripcion) ===
+                    descripcionEsperada;
+                return sameCode || sameDescription;
+              });
+
+        if (!itemRecargado) {
+          throw new Error(
+            "El backend respondió éxito, pero no devolvió el material actualizado.",
+          );
+        }
+
+        const cantidadGuardada = parseNumber(
+          itemRecargado.cantidad_en_servicio,
+        );
+        if (cantidadGuardada !== cambioEsperado.cantidad) {
+          throw new Error(
+            "El backend respondió éxito, pero no persistió cantidad_en_servicio en la oferta.",
+          );
+        }
+      }
 
       if (ofertaRecargada) {
         setOfertaServicioCargada(ofertaRecargada);
