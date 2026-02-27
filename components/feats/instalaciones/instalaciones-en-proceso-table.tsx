@@ -406,7 +406,7 @@ export function InstalacionesEnProcesoTable({
     "todos" | "con_servicio" | "sin_servicio"
   >("todos");
   const [tiposEquipoEnServicioFilter, setTiposEquipoEnServicioFilter] =
-    useState<"todos" | "1" | "2" | "3">("todos");
+    useState<ServicioCategoria[]>([]);
 
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [isEditFaltaDialogOpen, setIsEditFaltaDialogOpen] = useState(false);
@@ -1075,6 +1075,14 @@ export function InstalacionesEnProcesoTable({
     return clienteTieneEquiposEnServicio(client);
   };
 
+  const toggleTipoEquipoEnServicio = (tipo: ServicioCategoria) => {
+    setTiposEquipoEnServicioFilter((prev) =>
+      prev.includes(tipo)
+        ? prev.filter((current) => current !== tipo)
+        : [...prev, tipo],
+    );
+  };
+
   const resetEntregaForm = () => {
     setEntregaDrafts([createEntregaDraft()]);
     setEntregaError(null);
@@ -1606,21 +1614,42 @@ export function InstalacionesEnProcesoTable({
             </div>
             <div>
               <Label htmlFor="tipo-equipo-servicio">Tipos en Servicio</Label>
-              <select
+              <div
                 id="tipo-equipo-servicio"
-                className="w-full border rounded px-3 py-2 bg-white"
-                value={tiposEquipoEnServicioFilter}
-                onChange={(e) =>
-                  setTiposEquipoEnServicioFilter(
-                    e.target.value as "todos" | "1" | "2" | "3",
-                  )
-                }
+                className="border rounded px-3 py-2 bg-white space-y-2"
               >
-                <option value="todos">Todos</option>
-                <option value="1">1 tipo</option>
-                <option value="2">2 tipos</option>
-                <option value="3">3 tipos</option>
-              </select>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={tiposEquipoEnServicioFilter.includes("inversores")}
+                    onChange={() => toggleTipoEquipoEnServicio("inversores")}
+                  />
+                  Inversores
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={tiposEquipoEnServicioFilter.includes("baterias")}
+                    onChange={() => toggleTipoEquipoEnServicio("baterias")}
+                  />
+                  Baterias
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={tiposEquipoEnServicioFilter.includes("paneles")}
+                    onChange={() => toggleTipoEquipoEnServicio("paneles")}
+                  />
+                  Paneles
+                </label>
+                <button
+                  type="button"
+                  className="text-xs text-blue-700 hover:underline"
+                  onClick={() => setTiposEquipoEnServicioFilter([])}
+                >
+                  Todos
+                </button>
+              </div>
             </div>
             <div>
               <Label htmlFor="fecha-desde">Fecha Desde</Label>

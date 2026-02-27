@@ -69,7 +69,7 @@ export default function InstalacionesEnProcesoPage() {
     fechaHasta: "",
     materialesEntregados: "todos" as "todos" | "con_entregas" | "sin_entregas",
     equiposEnServicio: "todos" as "todos" | "con_servicio" | "sin_servicio",
-    tiposEquipoEnServicio: "todos" as "todos" | "1" | "2" | "3",
+    tiposEquipoEnServicio: [] as ServicioComponente[],
   });
   const [ofertasConEntregasIds, setOfertasConEntregasIds] = useState<
     Set<string>
@@ -441,16 +441,19 @@ export default function InstalacionesEnProcesoPage() {
 
       if (appliedFilters.equiposEnServicio !== "todos") {
         const resumenServicio = getServicioResumenCliente(client);
-        const tiposActivos = [
-          resumenServicio.inversores > 0,
-          resumenServicio.paneles > 0,
-          resumenServicio.baterias > 0,
-        ].filter(Boolean).length;
+        const tiposSeleccionados = appliedFilters.tiposEquipoEnServicio;
+        const servicioPorTipo = {
+          inversores: resumenServicio.inversores > 0,
+          paneles: resumenServicio.paneles > 0,
+          baterias: resumenServicio.baterias > 0,
+        };
         const hasServicioSeleccionado =
-          resumenServicio.tiene ||
-          resumenServicio.inversores > 0 ||
-          resumenServicio.paneles > 0 ||
-          resumenServicio.baterias > 0;
+          tiposSeleccionados.length > 0
+            ? tiposSeleccionados.some((tipo) => servicioPorTipo[tipo])
+            : resumenServicio.tiene ||
+              servicioPorTipo.inversores ||
+              servicioPorTipo.paneles ||
+              servicioPorTipo.baterias;
 
         if (
           appliedFilters.equiposEnServicio === "con_servicio" &&
@@ -461,14 +464,6 @@ export default function InstalacionesEnProcesoPage() {
         if (
           appliedFilters.equiposEnServicio === "sin_servicio" &&
           hasServicioSeleccionado
-        ) {
-          return false;
-        }
-
-        if (
-          appliedFilters.equiposEnServicio === "con_servicio" &&
-          appliedFilters.tiposEquipoEnServicio !== "todos" &&
-          tiposActivos !== Number(appliedFilters.tiposEquipoEnServicio)
         ) {
           return false;
         }
