@@ -64,6 +64,8 @@ interface ItemOfertaEntrega {
   descripcion: string;
   cantidad: number;
   cantidad_pendiente_por_entregar?: number;
+  cantidad_en_servicio?: number;
+  en_servicio?: boolean;
   entregas: EntregaOferta[];
   [key: string]: any;
 }
@@ -79,6 +81,8 @@ interface OfertaParaEntrega {
   _uid: string;
   [key: string]: any;
 }
+
+type ServicioCategoria = "inversores" | "paneles" | "baterias";
 
 const getClienteKey = (cliente: Cliente) =>
   String(cliente.numero || cliente.id || "");
@@ -118,6 +122,51 @@ const normalizeMaterialDescription = (value: unknown) =>
     .trim()
     .toLowerCase();
 
+const getServicioCategoria = (
+  item: ItemOfertaEntrega,
+): ServicioCategoria | null => {
+  const descripcion = String(item.descripcion || "").toLowerCase();
+  const codigo = String(item.material_codigo || "").toLowerCase();
+  const seccion = String(item.seccion || "").toLowerCase();
+
+  if (
+    seccion.includes("inversor") ||
+    descripcion.includes("inversor") ||
+    codigo.includes("inv")
+  ) {
+    return "inversores";
+  }
+  if (
+    seccion.includes("panel") ||
+    descripcion.includes("panel") ||
+    codigo.includes("pan")
+  ) {
+    return "paneles";
+  }
+  if (
+    seccion.includes("bateria") ||
+    seccion.includes("batería") ||
+    descripcion.includes("bateria") ||
+    descripcion.includes("batería") ||
+    codigo.includes("bat")
+  ) {
+    return "baterias";
+  }
+
+  return null;
+};
+
+const getServicioItemId = (
+  item: ItemOfertaEntrega,
+  index: number,
+  categoria: ServicioCategoria,
+) => {
+  const codigo = String(item.material_codigo || "")
+    .trim()
+    .toUpperCase();
+  return codigo ? `${codigo}-${index}` : `${categoria}-${index}`;
+};
+
 const normalizeEntrega = (entrega: any): EntregaOferta => ({
   cantidad: parseNumber(entrega?.cantidad),
   fecha: typeof entrega?.fecha === "string" ? entrega.fecha : "",
@@ -133,6 +182,15 @@ const normalizeOfertaParaEntrega = (
         material_codigo: String(item?.material_codigo || ""),
         descripcion: String(item?.descripcion || ""),
         cantidad: parseNumber(item?.cantidad),
+        cantidad_en_servicio: Number.isFinite(
+          Number(item?.cantidad_en_servicio),
+        )
+          ? parseNumber(item?.cantidad_en_servicio)
+          : undefined,
+        en_servicio:
+          item?.en_servicio === undefined
+            ? undefined
+            : Boolean(item?.en_servicio),
         cantidad_pendiente_por_entregar: Number.isFinite(
           Number(item?.cantidad_pendiente_por_entregar),
         )
@@ -317,9 +375,8 @@ export function InstalacionesEnProcesoTable({
   const [verOfertaDialogOpen, setVerOfertaDialogOpen] = useState(false);
   const [clienteOfertaSeleccionado, setClienteOfertaSeleccionado] =
     useState<Cliente | null>(null);
-  const [ofertaConfeccionCargada, setOfertaConfeccionCargada] = useState<
-    OfertaParaEntrega | null
-  >(null);
+  const [ofertaConfeccionCargada, setOfertaConfeccionCargada] =
+    useState<OfertaParaEntrega | null>(null);
   const [loadingOfertaConfeccion, setLoadingOfertaConfeccion] = useState(false);
   const [materialServicioDialogOpen, setMaterialServicioDialogOpen] =
     useState(false);
@@ -328,6 +385,7 @@ export function InstalacionesEnProcesoTable({
   const [ofertaServicioCargada, setOfertaServicioCargada] =
     useState<OfertaParaEntrega | null>(null);
   const [loadingOfertaServicio, setLoadingOfertaServicio] = useState(false);
+  const [savingOfertaServicio, setSavingOfertaServicio] = useState(false);
   const [equiposEnServicio, setEquiposEnServicio] = useState<{
     inversores: string[];
     paneles: string[];
@@ -337,6 +395,107 @@ export function InstalacionesEnProcesoTable({
     paneles: [],
     baterias: [],
   });
+  const [cantidadEnServicioPorItem, setCantidadEnServicioPorItem] = useState<
+    Record<string, string>
+  >({});
+
+  const buildServicioDraftFromOferta = (
+    oferta: OfertaParaEntrega | null,
+  ): {
+    equipos: { inversores: string[]; paneles: string[]; baterias: string[] };
+    cantidades: Record<string, string>;
+  } => {
+    const equipos = {
+      inversores: [] as string[],
+      paneles: [] as string[],
+      baterias: [] as string[],
+    };
+    const cantidades: Record<string, string> = {};
+
+    if (!oferta?.items || oferta.items.length === 0) {
+      return { equipos, cantidades };
+    }
+
+    oferta.items.forEach((item, index) => {
+      const categoria = getServicioCategoria(item);
+      if (!categoria) return;
+
+      const itemId = getServicioItemId(item, index, categoria);
+      const cantidadTotal = Math.max(0, parseNumber(item.cantidad));
+      const cantidadEnServicioRaw = parseNumber(item.cantidad_en_servicio);
+      const marcadoEnServicio = item.en_servicio === true;
+      const cantidadEnServicio =
+        cantidadEnServicioRaw > 0
+          ? Math.min(cantidadTotal, cantidadEnServicioRaw)
+          : marcadoEnServicio
+            ? cantidadTotal
+            : 0;
+
+      cantidades[itemId] = String(cantidadEnServicio);
+      if (cantidadEnServicio > 0 || marcadoEnServicio) {
+        equipos[categoria].push(itemId);
+      }
+    });
+
+    return { equipos, cantidades };
+  };
+
+  const servicioItems = useMemo(() => {
+    if (
+      !ofertaServicioCargada?.items ||
+      ofertaServicioCargada.items.length === 0
+    ) {
+      return [] as Array<{
+        itemId: string;
+        categoria: ServicioCategoria;
+        materialCodigo: string;
+        materialCodigoPayload: string;
+        descripcion: string;
+        cantidadTotal: number;
+      }>;
+    }
+
+    return ofertaServicioCargada.items
+      .map((item, index) => {
+        const categoria = getServicioCategoria(item);
+        if (!categoria) return null;
+        return {
+          itemId: getServicioItemId(item, index, categoria),
+          categoria,
+          materialCodigo: String(item.material_codigo || "")
+            .trim()
+            .toUpperCase(),
+          materialCodigoPayload: String(item.material_codigo || "").trim(),
+          descripcion: item.descripcion || "Sin descripción",
+          cantidadTotal: Math.max(0, parseNumber(item.cantidad)),
+        };
+      })
+      .filter(
+        (
+          item,
+        ): item is {
+          itemId: string;
+          categoria: ServicioCategoria;
+          materialCodigo: string;
+          materialCodigoPayload: string;
+          descripcion: string;
+          cantidadTotal: number;
+        } => Boolean(item),
+      );
+  }, [ofertaServicioCargada]);
+
+  const inversoresServicioItems = useMemo(
+    () => servicioItems.filter((item) => item.categoria === "inversores"),
+    [servicioItems],
+  );
+  const panelesServicioItems = useMemo(
+    () => servicioItems.filter((item) => item.categoria === "paneles"),
+    [servicioItems],
+  );
+  const bateriasServicioItems = useMemo(
+    () => servicioItems.filter((item) => item.categoria === "baterias"),
+    [servicioItems],
+  );
 
   // Actualizar filtros cuando cambien
   useEffect(() => {
@@ -459,7 +618,8 @@ export function InstalacionesEnProcesoTable({
       } else {
         toast({
           title: "Sin oferta confeccionada",
-          description: "No se encontró una oferta confeccionada para este cliente.",
+          description:
+            "No se encontró una oferta confeccionada para este cliente.",
           variant: "default",
         });
       }
@@ -467,7 +627,8 @@ export function InstalacionesEnProcesoTable({
       console.error("Error cargando oferta confeccionada:", error);
       toast({
         title: "Error",
-        description: error?.message || "No se pudo cargar la oferta confeccionada",
+        description:
+          error?.message || "No se pudo cargar la oferta confeccionada",
         variant: "destructive",
       });
     } finally {
@@ -479,21 +640,28 @@ export function InstalacionesEnProcesoTable({
     setClienteMaterialServicio(client);
     setMaterialServicioDialogOpen(true);
     setLoadingOfertaServicio(true);
+    setSavingOfertaServicio(false);
     setOfertaServicioCargada(null);
     setEquiposEnServicio({
       inversores: [],
       paneles: [],
       baterias: [],
     });
+    setCantidadEnServicioPorItem({});
 
     try {
       const ofertas = await loadOfertasParaEntrega(client);
       if (ofertas.length > 0) {
-        setOfertaServicioCargada(ofertas[0]);
+        const oferta = ofertas[0];
+        setOfertaServicioCargada(oferta);
+        const draft = buildServicioDraftFromOferta(oferta);
+        setEquiposEnServicio(draft.equipos);
+        setCantidadEnServicioPorItem(draft.cantidades);
       } else {
         toast({
           title: "Sin oferta confeccionada",
-          description: "No se encontró una oferta confeccionada para este cliente.",
+          description:
+            "No se encontró una oferta confeccionada para este cliente.",
           variant: "default",
         });
       }
@@ -506,6 +674,143 @@ export function InstalacionesEnProcesoTable({
       });
     } finally {
       setLoadingOfertaServicio(false);
+    }
+  };
+
+  const handleGuardarEquiposEnServicio = async () => {
+    if (!ofertaServicioCargada || !clienteMaterialServicio) {
+      toast({
+        title: "Error",
+        description: "No hay oferta cargada para actualizar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const ofertaId = getOfertaPersistedId(ofertaServicioCargada);
+    if (!ofertaId) {
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la oferta.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cambiosPorMaterial: Array<{ codigo: string; cantidad: number }> = [];
+    for (const item of servicioItems) {
+      const seleccionados = equiposEnServicio[item.categoria];
+      const marcado = seleccionados.includes(item.itemId);
+      const cantidadRaw = marcado
+        ? parseNumber(cantidadEnServicioPorItem[item.itemId])
+        : 0;
+      const cantidad = Math.max(0, Math.min(item.cantidadTotal, cantidadRaw));
+
+      if (marcado && cantidad <= 0) {
+        toast({
+          title: "Cantidad inválida",
+          description: `Debes indicar una cantidad en servicio mayor que 0 para ${item.descripcion}.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!item.materialCodigoPayload) {
+        if (marcado || cantidad > 0) {
+          toast({
+            title: "Material sin código",
+            description:
+              "Hay materiales seleccionados sin código, no se pueden guardar en servicio.",
+            variant: "destructive",
+          });
+          return;
+        }
+        continue;
+      }
+
+      const existente = cambiosPorMaterial.find(
+        (entry) => entry.codigo === item.materialCodigoPayload,
+      );
+      if (existente && existente.cantidad !== cantidad) {
+        toast({
+          title: "Material repetido",
+          description: `El material ${item.materialCodigo} aparece con cantidades distintas.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!existente) {
+        cambiosPorMaterial.push({
+          codigo: item.materialCodigoPayload,
+          cantidad,
+        });
+      }
+    }
+
+    if (cambiosPorMaterial.length === 0) {
+      toast({
+        title: "Sin materiales",
+        description: "No hay materiales válidos para guardar en servicio.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSavingOfertaServicio(true);
+    try {
+      for (const cambio of cambiosPorMaterial) {
+        const response = await apiRequest<any>(
+          `/ofertas/confeccion/${encodeURIComponent(ofertaId)}/materiales-en-servicio`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({
+              material_codigos: [cambio.codigo],
+              en_servicio: cambio.cantidad > 0,
+              cantidad_en_servicio: cambio.cantidad,
+            }),
+          },
+        );
+
+        if (response?.success === false || response?.error) {
+          throw new Error(
+            extractApiErrorMessage(response) ||
+              "No se pudo actualizar materiales en servicio.",
+          );
+        }
+      }
+
+      const ofertasRecargadas = await loadOfertasParaEntrega(
+        clienteMaterialServicio,
+      );
+      const ofertaRecargada = ofertasRecargadas.find(
+        (oferta) => getOfertaPersistedId(oferta) === ofertaId,
+      );
+
+      if (ofertaRecargada) {
+        setOfertaServicioCargada(ofertaRecargada);
+        const draft = buildServicioDraftFromOferta(ofertaRecargada);
+        setEquiposEnServicio(draft.equipos);
+        setCantidadEnServicioPorItem(draft.cantidades);
+      }
+
+      toast({
+        title: "Equipos registrados",
+        description:
+          "Los materiales en servicio se actualizaron correctamente en la oferta.",
+      });
+      setMaterialServicioDialogOpen(false);
+      onRefresh();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description:
+          error?.message ||
+          "No se pudieron actualizar los materiales en servicio.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingOfertaServicio(false);
     }
   };
 
@@ -1790,7 +2095,8 @@ export function InstalacionesEnProcesoTable({
             <DialogTitle>Oferta Confeccionada</DialogTitle>
             {clienteOfertaSeleccionado && (
               <p className="text-sm text-gray-600">
-                {clienteOfertaSeleccionado.nombre} - Código: {clienteOfertaSeleccionado.numero}
+                {clienteOfertaSeleccionado.nombre} - Código:{" "}
+                {clienteOfertaSeleccionado.numero}
               </p>
             )}
           </DialogHeader>
@@ -1798,9 +2104,7 @@ export function InstalacionesEnProcesoTable({
             {loadingOfertaConfeccion ? (
               <div className="py-12 text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-4 text-sm text-gray-600">
-                  Cargando oferta...
-                </p>
+                <p className="mt-4 text-sm text-gray-600">Cargando oferta...</p>
               </div>
             ) : ofertaConfeccionCargada ? (
               <div className="space-y-4">
@@ -1884,9 +2188,7 @@ export function InstalacionesEnProcesoTable({
                     {/* Resumen simplificado */}
                     <div className="grid grid-cols-3 gap-3 pt-2">
                       <div className="text-center p-3 bg-gray-50 rounded-lg">
-                        <p className="text-xs text-gray-600 mb-1">
-                          Materiales
-                        </p>
+                        <p className="text-xs text-gray-600 mb-1">Materiales</p>
                         <p className="text-xl font-bold text-gray-900">
                           {ofertaConfeccionCargada.items.length}
                         </p>
@@ -1910,9 +2212,7 @@ export function InstalacionesEnProcesoTable({
                         </p>
                       </div>
                       <div className="text-center p-3 bg-amber-50 rounded-lg">
-                        <p className="text-xs text-amber-700 mb-1">
-                          Pendiente
-                        </p>
+                        <p className="text-xs text-amber-700 mb-1">Pendiente</p>
                         <p className="text-xl font-bold text-amber-700">
                           {ofertaConfeccionCargada.items.reduce((sum, item) => {
                             const totalEntregado = Array.isArray(item.entregas)
@@ -1967,11 +2267,13 @@ export function InstalacionesEnProcesoTable({
             setClienteMaterialServicio(null);
             setOfertaServicioCargada(null);
             setLoadingOfertaServicio(false);
+            setSavingOfertaServicio(false);
             setEquiposEnServicio({
               inversores: [],
               paneles: [],
               baterias: [],
             });
+            setCantidadEnServicioPorItem({});
           }
         }}
       >
@@ -1996,157 +2298,301 @@ export function InstalacionesEnProcesoTable({
           ) : ofertaServicioCargada ? (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">
-                Marca los equipos que están conectados y dando corriente:
+                Marca los equipos que están conectados y define la cantidad en
+                servicio:
               </p>
 
-              {ofertaServicioCargada.items &&
-              ofertaServicioCargada.items.length > 0 ? (
+              {servicioItems.length > 0 ? (
                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                   {/* Inversores */}
-                  {ofertaServicioCargada.items
-                    .filter(
-                      (item) =>
-                        item.descripcion?.toLowerCase().includes("inversor") ||
-                        item.material_codigo?.toLowerCase().includes("inv"),
-                    )
-                    .map((item, index) => (
-                      <label
-                        key={`inv-${index}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all"
+                  {inversoresServicioItems.map((item) => {
+                    const checked = equiposEnServicio.inversores.includes(
+                      item.itemId,
+                    );
+                    return (
+                      <div
+                        key={`inv-${item.itemId}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
                           className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
-                          checked={equiposEnServicio.inversores.includes(
-                            item.material_codigo || `inv-${index}`,
-                          )}
+                          checked={checked}
+                          disabled={
+                            item.cantidadTotal <= 0 || savingOfertaServicio
+                          }
                           onChange={(e) => {
-                            const id = item.material_codigo || `inv-${index}`;
                             setEquiposEnServicio((prev) => ({
                               ...prev,
                               inversores: e.target.checked
-                                ? [...prev.inversores, id]
-                                : prev.inversores.filter((i) => i !== id),
+                                ? Array.from(
+                                    new Set([...prev.inversores, item.itemId]),
+                                  )
+                                : prev.inversores.filter(
+                                    (current) => current !== item.itemId,
+                                  ),
                             }));
+                            setCantidadEnServicioPorItem((prev) => {
+                              const current = parseNumber(prev[item.itemId]);
+                              const nextQty = e.target.checked
+                                ? Math.max(
+                                    1,
+                                    Math.min(
+                                      item.cantidadTotal,
+                                      current > 0 ? current : 1,
+                                    ),
+                                  )
+                                : 0;
+                              return {
+                                ...prev,
+                                [item.itemId]: String(nextQty),
+                              };
+                            });
                           }}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {item.descripcion || "Sin descripción"}
+                            {item.descripcion}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {item.material_codigo || "--"} • Cant: {item.cantidad}
+                            {item.materialCodigo || "--"} • Cant:{" "}
+                            {item.cantidadTotal}
                           </p>
+                        </div>
+                        <div className="w-28">
+                          <Label className="text-[10px] uppercase tracking-wide text-gray-500">
+                            En servicio
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.cantidadTotal}
+                            value={
+                              cantidadEnServicioPorItem[item.itemId] ?? "0"
+                            }
+                            disabled={!checked || savingOfertaServicio}
+                            onChange={(event) => {
+                              const raw = event.target.value;
+                              if (raw === "") {
+                                setCantidadEnServicioPorItem((prev) => ({
+                                  ...prev,
+                                  [item.itemId]: "",
+                                }));
+                                return;
+                              }
+                              const value = Math.max(
+                                0,
+                                Math.min(item.cantidadTotal, parseNumber(raw)),
+                              );
+                              setCantidadEnServicioPorItem((prev) => ({
+                                ...prev,
+                                [item.itemId]: String(value),
+                              }));
+                            }}
+                            className="h-8"
+                          />
                         </div>
                         <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                           Inversor
                         </span>
-                      </label>
-                    ))}
+                      </div>
+                    );
+                  })}
 
                   {/* Paneles */}
-                  {ofertaServicioCargada.items
-                    .filter(
-                      (item) =>
-                        item.descripcion?.toLowerCase().includes("panel") ||
-                        item.material_codigo?.toLowerCase().includes("pan"),
-                    )
-                    .map((item, index) => (
-                      <label
-                        key={`pan-${index}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all"
+                  {panelesServicioItems.map((item) => {
+                    const checked = equiposEnServicio.paneles.includes(
+                      item.itemId,
+                    );
+                    return (
+                      <div
+                        key={`pan-${item.itemId}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
                           className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
-                          checked={equiposEnServicio.paneles.includes(
-                            item.material_codigo || `pan-${index}`,
-                          )}
+                          checked={checked}
+                          disabled={
+                            item.cantidadTotal <= 0 || savingOfertaServicio
+                          }
                           onChange={(e) => {
-                            const id = item.material_codigo || `pan-${index}`;
                             setEquiposEnServicio((prev) => ({
                               ...prev,
                               paneles: e.target.checked
-                                ? [...prev.paneles, id]
-                                : prev.paneles.filter((i) => i !== id),
+                                ? Array.from(
+                                    new Set([...prev.paneles, item.itemId]),
+                                  )
+                                : prev.paneles.filter(
+                                    (current) => current !== item.itemId,
+                                  ),
                             }));
+                            setCantidadEnServicioPorItem((prev) => {
+                              const current = parseNumber(prev[item.itemId]);
+                              const nextQty = e.target.checked
+                                ? Math.max(
+                                    1,
+                                    Math.min(
+                                      item.cantidadTotal,
+                                      current > 0 ? current : 1,
+                                    ),
+                                  )
+                                : 0;
+                              return {
+                                ...prev,
+                                [item.itemId]: String(nextQty),
+                              };
+                            });
                           }}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {item.descripcion || "Sin descripción"}
+                            {item.descripcion}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {item.material_codigo || "--"} • Cant: {item.cantidad}
+                            {item.materialCodigo || "--"} • Cant:{" "}
+                            {item.cantidadTotal}
                           </p>
+                        </div>
+                        <div className="w-28">
+                          <Label className="text-[10px] uppercase tracking-wide text-gray-500">
+                            En servicio
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.cantidadTotal}
+                            value={
+                              cantidadEnServicioPorItem[item.itemId] ?? "0"
+                            }
+                            disabled={!checked || savingOfertaServicio}
+                            onChange={(event) => {
+                              const raw = event.target.value;
+                              if (raw === "") {
+                                setCantidadEnServicioPorItem((prev) => ({
+                                  ...prev,
+                                  [item.itemId]: "",
+                                }));
+                                return;
+                              }
+                              const value = Math.max(
+                                0,
+                                Math.min(item.cantidadTotal, parseNumber(raw)),
+                              );
+                              setCantidadEnServicioPorItem((prev) => ({
+                                ...prev,
+                                [item.itemId]: String(value),
+                              }));
+                            }}
+                            className="h-8"
+                          />
                         </div>
                         <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                           Panel
                         </span>
-                      </label>
-                    ))}
+                      </div>
+                    );
+                  })}
 
                   {/* Baterías */}
-                  {ofertaServicioCargada.items
-                    .filter(
-                      (item) =>
-                        item.descripcion?.toLowerCase().includes("bateria") ||
-                        item.descripcion?.toLowerCase().includes("batería") ||
-                        item.material_codigo?.toLowerCase().includes("bat"),
-                    )
-                    .map((item, index) => (
-                      <label
-                        key={`bat-${index}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer transition-all"
+                  {bateriasServicioItems.map((item) => {
+                    const checked = equiposEnServicio.baterias.includes(
+                      item.itemId,
+                    );
+                    return (
+                      <div
+                        key={`bat-${item.itemId}`}
+                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
                           className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
-                          checked={equiposEnServicio.baterias.includes(
-                            item.material_codigo || `bat-${index}`,
-                          )}
+                          checked={checked}
+                          disabled={
+                            item.cantidadTotal <= 0 || savingOfertaServicio
+                          }
                           onChange={(e) => {
-                            const id = item.material_codigo || `bat-${index}`;
                             setEquiposEnServicio((prev) => ({
                               ...prev,
                               baterias: e.target.checked
-                                ? [...prev.baterias, id]
-                                : prev.baterias.filter((i) => i !== id),
+                                ? Array.from(
+                                    new Set([...prev.baterias, item.itemId]),
+                                  )
+                                : prev.baterias.filter(
+                                    (current) => current !== item.itemId,
+                                  ),
                             }));
+                            setCantidadEnServicioPorItem((prev) => {
+                              const current = parseNumber(prev[item.itemId]);
+                              const nextQty = e.target.checked
+                                ? Math.max(
+                                    1,
+                                    Math.min(
+                                      item.cantidadTotal,
+                                      current > 0 ? current : 1,
+                                    ),
+                                  )
+                                : 0;
+                              return {
+                                ...prev,
+                                [item.itemId]: String(nextQty),
+                              };
+                            });
                           }}
                         />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">
-                            {item.descripcion || "Sin descripción"}
+                            {item.descripcion}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {item.material_codigo || "--"} • Cant: {item.cantidad}
+                            {item.materialCodigo || "--"} • Cant:{" "}
+                            {item.cantidadTotal}
                           </p>
+                        </div>
+                        <div className="w-28">
+                          <Label className="text-[10px] uppercase tracking-wide text-gray-500">
+                            En servicio
+                          </Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={item.cantidadTotal}
+                            value={
+                              cantidadEnServicioPorItem[item.itemId] ?? "0"
+                            }
+                            disabled={!checked || savingOfertaServicio}
+                            onChange={(event) => {
+                              const raw = event.target.value;
+                              if (raw === "") {
+                                setCantidadEnServicioPorItem((prev) => ({
+                                  ...prev,
+                                  [item.itemId]: "",
+                                }));
+                                return;
+                              }
+                              const value = Math.max(
+                                0,
+                                Math.min(item.cantidadTotal, parseNumber(raw)),
+                              );
+                              setCantidadEnServicioPorItem((prev) => ({
+                                ...prev,
+                                [item.itemId]: String(value),
+                              }));
+                            }}
+                            className="h-8"
+                          />
                         </div>
                         <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                           Batería
                         </span>
-                      </label>
-                    ))}
-
-                  {ofertaServicioCargada.items.filter(
-                    (item) =>
-                      item.descripcion?.toLowerCase().includes("inversor") ||
-                      item.material_codigo?.toLowerCase().includes("inv") ||
-                      item.descripcion?.toLowerCase().includes("panel") ||
-                      item.material_codigo?.toLowerCase().includes("pan") ||
-                      item.descripcion?.toLowerCase().includes("bateria") ||
-                      item.descripcion?.toLowerCase().includes("batería") ||
-                      item.material_codigo?.toLowerCase().includes("bat"),
-                  ).length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      No se encontraron equipos en esta oferta
-                    </div>
-                  )}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  No hay materiales en esta oferta
+                  No se encontraron inversores, paneles o baterías en esta
+                  oferta
                 </div>
               )}
 
@@ -2160,20 +2606,11 @@ export function InstalacionesEnProcesoTable({
                 <Button
                   className="bg-purple-600 hover:bg-purple-700"
                   onClick={() => {
-                    toast({
-                      title: "Equipos registrados",
-                      description:
-                        "Los equipos en servicio se han registrado correctamente.",
-                    });
-                    setMaterialServicioDialogOpen(false);
+                    void handleGuardarEquiposEnServicio();
                   }}
-                  disabled={
-                    equiposEnServicio.inversores.length === 0 &&
-                    equiposEnServicio.paneles.length === 0 &&
-                    equiposEnServicio.baterias.length === 0
-                  }
+                  disabled={savingOfertaServicio || servicioItems.length === 0}
                 >
-                  Guardar
+                  {savingOfertaServicio ? "Guardando..." : "Guardar"}
                 </Button>
               </div>
             </div>
