@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ClienteService } from "@/lib/api-services";
 import { InstalacionesService } from "@/lib/services/feats/instalaciones/instalaciones-service";
 import type { ResumenEquiposEnServicioCliente } from "@/lib/services/feats/instalaciones/instalaciones-service";
@@ -81,6 +81,41 @@ export default function InstalacionesEnProcesoPage() {
   const [resumenServicioPorCliente, setResumenServicioPorCliente] = useState<
     Record<string, ResumenEquiposEnServicioCliente>
   >({});
+  const resumenRequestIdRef = useRef(0);
+
+  const cargarResumenServicioEnSegundoPlano = useCallback(
+    async (numerosClientes: string[]) => {
+      const requestId = ++resumenRequestIdRef.current;
+      const resumenMap: Record<string, ResumenEquiposEnServicioCliente> = {};
+      const batchSize = 12;
+
+      for (let i = 0; i < numerosClientes.length; i += batchSize) {
+        const batch = numerosClientes.slice(i, i + batchSize);
+        const resumenEntries = await Promise.all(
+          batch.map(async (numero) => {
+            const resumen =
+              await InstalacionesService.getResumenEnServicioPorCliente(numero);
+            return [numero, resumen] as const;
+          }),
+        );
+
+        if (requestId !== resumenRequestIdRef.current) {
+          return;
+        }
+
+        resumenEntries.forEach(([numero, resumen]) => {
+          resumenMap[numero] = resumen;
+        });
+      }
+
+      if (requestId !== resumenRequestIdRef.current) {
+        return;
+      }
+
+      setResumenServicioPorCliente(resumenMap);
+    },
+    [],
+  );
 
   // Cargar clientes con estado "Instalación en Proceso"
   const fetchClients = useCallback(async () => {
@@ -120,24 +155,9 @@ export default function InstalacionesEnProcesoPage() {
             .filter(Boolean),
         ),
       );
-      const resumenMap: Record<string, ResumenEquiposEnServicioCliente> = {};
-      const batchSize = 8;
-      for (let i = 0; i < numerosUnicos.length; i += batchSize) {
-        const batch = numerosUnicos.slice(i, i + batchSize);
-        const resumenEntries = await Promise.all(
-          batch.map(async (numero) => {
-            const resumen =
-              await InstalacionesService.getResumenEnServicioPorCliente(numero);
-            return [numero, resumen] as const;
-          }),
-        );
-        resumenEntries.forEach(([numero, resumen]) => {
-          resumenMap[numero] = resumen;
-        });
-      }
-
-      setResumenServicioPorCliente(resumenMap);
       setClients(clientesEnProceso);
+      setResumenServicioPorCliente({});
+      void cargarResumenServicioEnSegundoPlano(numerosUnicos);
     } catch (error: unknown) {
       console.error("Error cargando clientes:", error);
       setClients([]);
@@ -151,7 +171,7 @@ export default function InstalacionesEnProcesoPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, cargarResumenServicioEnSegundoPlano]);
 
   // Cargar datos iniciales
   const loadInitialData = async () => {
