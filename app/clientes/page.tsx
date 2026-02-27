@@ -85,7 +85,14 @@ const getCodigoTailValue = (code: string): number => {
   const digits = code.match(/\d+/g)?.join("") ?? "";
   if (!digits) return -1;
 
-  const tailLength = digits.length >= 10 ? 5 : 3;
+  const tailLength =
+    digits.length === 10
+      ? 5
+      : digits.length === 8
+        ? 3
+        : digits.length > 10
+          ? 5
+          : 3;
   const tail = digits.slice(-tailLength);
   return Number.parseInt(tail, 10) || 0;
 };
@@ -267,27 +274,43 @@ export default function ClientesPage() {
       fechaHasta?: string;
     }): Promise<Cliente[]> => {
       const pageSize = 500;
-      const firstPage = await ClienteService.getClientes({
-        ...baseParams,
-        skip: 0,
-        limit: pageSize,
-      });
+      const allClients: Cliente[] = [];
+      const seenKeys = new Set<string>();
+      let nextSkip = 0;
+      let safetyCounter = 0;
+      let totalHint = 0;
 
-      let allClients = [...firstPage.clients];
-      const total = firstPage.total ?? firstPage.clients.length;
-
-      for (
-        let nextSkip = firstPage.clients.length;
-        nextSkip < total;
-        nextSkip += pageSize
-      ) {
+      while (safetyCounter < 500) {
         const pageResult = await ClienteService.getClientes({
           ...baseParams,
           skip: nextSkip,
           limit: pageSize,
         });
-        if (pageResult.clients.length === 0) break;
-        allClients = allClients.concat(pageResult.clients);
+
+        const pageClients = Array.isArray(pageResult.clients)
+          ? pageResult.clients
+          : [];
+        if (pageClients.length === 0) break;
+
+        if (totalHint === 0 && typeof pageResult.total === "number") {
+          totalHint = Math.max(0, pageResult.total);
+        }
+
+        for (const client of pageClients) {
+          const key = `${client.id || ""}-${client.numero || ""}-${client.nombre || ""}`;
+          if (seenKeys.has(key)) continue;
+          seenKeys.add(key);
+          allClients.push(client);
+        }
+
+        nextSkip += pageClients.length;
+        safetyCounter += 1;
+
+        // Si llegó una página incompleta, ya no hay más resultados.
+        if (pageClients.length < pageSize) break;
+
+        // Si el backend sí envía total confiable y ya lo alcanzamos.
+        if (totalHint > 0 && nextSkip >= totalHint) break;
       }
 
       return allClients;

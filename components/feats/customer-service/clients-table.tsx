@@ -51,6 +51,7 @@ import {
   Loader2,
   MoreHorizontal,
   CreditCard,
+  Truck,
 } from "lucide-react";
 import { ReportsTable } from "@/components/feats/reports/reports-table";
 import { ClienteService, ReporteService } from "@/lib/api-services";
@@ -166,7 +167,14 @@ const getClientTailSortNumber = (client: Cliente) => {
   const digits = code.match(/\d+/g)?.join("") ?? "";
   if (!digits) return -1;
 
-  const tailLength = digits.length >= 10 ? 5 : 3;
+  const tailLength =
+    digits.length === 10
+      ? 5
+      : digits.length === 8
+        ? 3
+        : digits.length > 10
+          ? 5
+          : 3;
   const tail = digits.slice(-tailLength);
   return Number.parseInt(tail, 10) || 0;
 };
@@ -184,6 +192,70 @@ const formatOfertaMoney = (value?: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(value ?? 0));
+
+const parseNumber = (value: unknown) => {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : 0;
+};
+
+const itemTieneEntregas = (item: unknown) => {
+  if (!item || typeof item !== "object") return false;
+  const raw = item as Record<string, unknown>;
+
+  const entregasRaw = Array.isArray(raw.entregas) ? raw.entregas : [];
+  const totalEntregadoEnEntregas = entregasRaw.reduce((sum, entrega) => {
+    if (!entrega || typeof entrega !== "object") return sum;
+    return sum + parseNumber((entrega as Record<string, unknown>).cantidad);
+  }, 0);
+  if (totalEntregadoEnEntregas > 0) return true;
+
+  if (
+    parseNumber(raw.cantidad_entregada) > 0 ||
+    parseNumber(raw.total_entregado) > 0
+  ) {
+    return true;
+  }
+
+  const cantidadTotal = parseNumber(raw.cantidad);
+  const cantidadPendiente = Number(raw.cantidad_pendiente_por_entregar);
+  if (
+    Number.isFinite(cantidadPendiente) &&
+    cantidadTotal > 0 &&
+    parseNumber(cantidadPendiente) < cantidadTotal
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const ofertaTieneEntregas = (oferta: OfertaConfeccion | null | undefined) => {
+  if (!oferta) return false;
+  const raw = oferta as OfertaConfeccion & Record<string, unknown>;
+
+  if (
+    raw.tiene_materiales_entregados === true ||
+    raw.tiene_entregas === true ||
+    parseNumber(raw.materiales_entregados) > 0 ||
+    parseNumber(raw.total_entregado) > 0
+  ) {
+    return true;
+  }
+
+  const items = Array.isArray(oferta.items) ? oferta.items : [];
+  return items.some((item) => itemTieneEntregas(item));
+};
+
+const formatEntregaDate = (value?: string) => {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleDateString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
 
 export function ClientsTable({
   clients,
@@ -290,6 +362,9 @@ export function ClientsTable({
   const [clienteListoParaPagarMap, setClienteListoParaPagarMap] = useState<
     Record<string, boolean>
   >({});
+  const [clienteEquipoEntregadoMap, setClienteEquipoEntregadoMap] = useState<
+    Record<string, boolean>
+  >({});
   const [showListoPagoDialog, setShowListoPagoDialog] = useState(false);
   const [clientForListoPago, setClientForListoPago] = useState<Cliente | null>(
     null,
@@ -303,10 +378,21 @@ export function ClientsTable({
     useState(false);
   const [comentarioContabilidadListoPago, setComentarioContabilidadListoPago] =
     useState("");
+  const [showEquipoEntregadoDialog, setShowEquipoEntregadoDialog] =
+    useState(false);
+  const [clientForEquipoEntregado, setClientForEquipoEntregado] =
+    useState<Cliente | null>(null);
+  const [loadingEquipoEntregadoDialog, setLoadingEquipoEntregadoDialog] =
+    useState(false);
   const [
-    savingComentarioContabilidadOfertaId,
-    setSavingComentarioContabilidadOfertaId,
+    consultandoEquipoEntregadoNumero,
+    setConsultandoEquipoEntregadoNumero,
   ] = useState<string | null>(null);
+  const [ofertasEquipoEntregado, setOfertasEquipoEntregado] = useState<
+    OfertaConfeccion[]
+  >([]);
+  const [ofertaEquipoEntregadoIndex, setOfertaEquipoEntregadoIndex] =
+    useState(0);
   const [clientesConOferta, setClientesConOferta] = useState<Set<string>>(
     new Set(),
   );
@@ -409,7 +495,11 @@ export function ClientsTable({
       .map((client) => normalizeClienteNumero(client.numero))
       .filter(Boolean)
       .filter((numero) => clientesConOferta.has(numero))
-      .filter((numero) => !(numero in clienteListoParaPagarMap))
+      .filter(
+        (numero) =>
+          !(numero in clienteListoParaPagarMap) ||
+          !(numero in clienteEquipoEntregadoMap),
+      )
       .slice(0, 30);
 
     if (numerosPendientes.length === 0) return;
@@ -436,6 +526,9 @@ export function ClientsTable({
         return {
           numero,
           listoParaPagar: Boolean(ofertaReferencia?.cliente_listo_para_pagar),
+          equipoEntregado: ofertasCliente.some((item) =>
+            ofertaTieneEntregas(item),
+          ),
         };
       }),
     )
@@ -445,6 +538,13 @@ export function ClientsTable({
           const next = { ...prev };
           for (const item of items) {
             next[item.numero] = item.listoParaPagar;
+          }
+          return next;
+        });
+        setClienteEquipoEntregadoMap((prev) => {
+          const next = { ...prev };
+          for (const item of items) {
+            next[item.numero] = item.equipoEntregado;
           }
           return next;
         });
@@ -461,6 +561,7 @@ export function ClientsTable({
     cargaSetOfertasTerminada,
     clientesConOferta,
     clienteListoParaPagarMap,
+    clienteEquipoEntregadoMap,
     obtenerOfertaPorCliente,
   ]);
 
@@ -1082,6 +1183,197 @@ export function ClientsTable({
     setLoadingListoPagoDialog(false);
   };
 
+  const getFallbackEquipoEntregadoStatus = useCallback((client: Cliente) => {
+    const rawClient = client as Cliente & Record<string, unknown>;
+    if (
+      rawClient.tiene_materiales_entregados === true ||
+      parseNumber(rawClient.materiales_entregados) > 0
+    ) {
+      return true;
+    }
+
+    const ofertasCliente = Array.isArray(rawClient.ofertas)
+      ? (rawClient.ofertas as OfertaConfeccion[])
+      : [];
+    return ofertasCliente.some((oferta) => ofertaTieneEntregas(oferta));
+  }, []);
+
+  const getEquipoEntregadoStatus = useCallback(
+    (client: Cliente) => {
+      const numeroCliente = normalizeClienteNumero(client.numero);
+      if (numeroCliente && numeroCliente in clienteEquipoEntregadoMap) {
+        return clienteEquipoEntregadoMap[numeroCliente] === true;
+      }
+      return getFallbackEquipoEntregadoStatus(client);
+    },
+    [clienteEquipoEntregadoMap, getFallbackEquipoEntregadoStatus],
+  );
+
+  const closeEquipoEntregadoDialog = () => {
+    setShowEquipoEntregadoDialog(false);
+    setClientForEquipoEntregado(null);
+    setLoadingEquipoEntregadoDialog(false);
+    setOfertasEquipoEntregado([]);
+    setOfertaEquipoEntregadoIndex(0);
+  };
+
+  const handleOpenEquipoEntregadoDialog = async (client: Cliente) => {
+    const numeroCliente = normalizeClienteNumero(client.numero);
+    if (!numeroCliente) {
+      toast({
+        title: "Error",
+        description: "El cliente no tiene un número válido.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setConsultandoEquipoEntregadoNumero(numeroCliente);
+    setShowEquipoEntregadoDialog(true);
+    setClientForEquipoEntregado(client);
+    setLoadingEquipoEntregadoDialog(true);
+    setOfertasEquipoEntregado([]);
+    setOfertaEquipoEntregadoIndex(0);
+
+    try {
+      const result = await obtenerOfertaPorCliente(numeroCliente);
+      const ofertasCliente = result.ofertas?.length
+        ? result.ofertas
+        : result.oferta
+          ? [result.oferta]
+          : [];
+
+      setOfertasEquipoEntregado(ofertasCliente);
+
+      const ofertaConEntregasIndex = ofertasCliente.findIndex((item) =>
+        ofertaTieneEntregas(item),
+      );
+      setOfertaEquipoEntregadoIndex(
+        ofertaConEntregasIndex >= 0 ? ofertaConEntregasIndex : 0,
+      );
+
+      setClienteEquipoEntregadoMap((prev) => ({
+        ...prev,
+        [numeroCliente]: ofertasCliente.some((item) =>
+          ofertaTieneEntregas(item),
+        ),
+      }));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar la información de entregas del cliente.";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+      setOfertasEquipoEntregado([]);
+    } finally {
+      setLoadingEquipoEntregadoDialog(false);
+      setConsultandoEquipoEntregadoNumero((prev) =>
+        prev === numeroCliente ? null : prev,
+      );
+    }
+  };
+
+  const ofertaEquipoEntregadoSeleccionada = useMemo(() => {
+    if (ofertasEquipoEntregado.length === 0) return null;
+    return (
+      ofertasEquipoEntregado[ofertaEquipoEntregadoIndex] ??
+      ofertasEquipoEntregado[0] ??
+      null
+    );
+  }, [ofertasEquipoEntregado, ofertaEquipoEntregadoIndex]);
+
+  const detalleItemsEquipoEntregado = useMemo(() => {
+    if (!ofertaEquipoEntregadoSeleccionada) return [];
+
+    return (ofertaEquipoEntregadoSeleccionada.items || []).map(
+      (item, index) => {
+        const cantidadTotal = parseNumber(item.cantidad);
+        const entregas = Array.isArray(item.entregas) ? item.entregas : [];
+        const totalEntregado = entregas.reduce(
+          (sum, entrega) => sum + parseNumber(entrega?.cantidad),
+          0,
+        );
+        const cantidadPendienteRaw = Number(
+          item.cantidad_pendiente_por_entregar,
+        );
+        const pendiente = Number.isFinite(cantidadPendienteRaw)
+          ? Math.max(0, parseNumber(cantidadPendienteRaw))
+          : Math.max(0, cantidadTotal - totalEntregado);
+
+        const ultimaFechaEntrega = entregas.reduce<Date | null>(
+          (latest, entrega) => {
+            if (!entrega?.fecha) return latest;
+            const parsed = new Date(entrega.fecha);
+            if (Number.isNaN(parsed.getTime())) return latest;
+            if (!latest || parsed.getTime() > latest.getTime()) return parsed;
+            return latest;
+          },
+          null,
+        );
+
+        return {
+          key: `${index}-${item.material_codigo || "sin-codigo"}`,
+          descripcion: item.descripcion || "Material sin descripción",
+          codigo: item.material_codigo || "--",
+          cantidadTotal,
+          totalEntregado,
+          pendiente,
+          ultimaFechaEntrega,
+        };
+      },
+    );
+  }, [ofertaEquipoEntregadoSeleccionada]);
+
+  const detalleItemsEntregadosEquipo = useMemo(
+    () => detalleItemsEquipoEntregado.filter((item) => item.totalEntregado > 0),
+    [detalleItemsEquipoEntregado],
+  );
+
+  const detalleItemsPendientesEquipo = useMemo(
+    () => detalleItemsEquipoEntregado.filter((item) => item.pendiente > 0),
+    [detalleItemsEquipoEntregado],
+  );
+
+  const resumenEquipoEntregado = useMemo(() => {
+    const totalMateriales = detalleItemsEquipoEntregado.length;
+    const totalUnidades = detalleItemsEquipoEntregado.reduce(
+      (acc, item) => acc + item.cantidadTotal,
+      0,
+    );
+    const unidadesEntregadas = detalleItemsEquipoEntregado.reduce(
+      (acc, item) => acc + item.totalEntregado,
+      0,
+    );
+    const unidadesPendientes = detalleItemsEquipoEntregado.reduce(
+      (acc, item) => acc + item.pendiente,
+      0,
+    );
+
+    return {
+      totalMateriales,
+      materialesEntregados: detalleItemsEntregadosEquipo.length,
+      materialesPendientes: detalleItemsPendientesEquipo.length,
+      totalUnidades,
+      unidadesEntregadas,
+      unidadesPendientes,
+      avance:
+        totalUnidades > 0
+          ? Math.min(
+              100,
+              Math.round((unidadesEntregadas / totalUnidades) * 100),
+            )
+          : 0,
+    };
+  }, [
+    detalleItemsEquipoEntregado,
+    detalleItemsEntregadosEquipo,
+    detalleItemsPendientesEquipo,
+  ]);
+
   const resolveOfertaConfirmadaCliente = (
     ofertasCliente: OfertaConfeccion[],
     estadoResult: {
@@ -1288,62 +1580,6 @@ export function ClientsTable({
       });
     } finally {
       setUpdatingClienteListoParaPagarNumero(null);
-    }
-  };
-
-  const handleGuardarComentarioContabilidad = async (
-    oferta: OfertaConfeccion,
-    comentario: string,
-  ) => {
-    if (!oferta.id) {
-      toast({
-        title: "Error",
-        description: "No se pudo identificar la oferta seleccionada.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSavingComentarioContabilidadOfertaId(oferta.id);
-
-    try {
-      await apiRequest(`/ofertas/confeccion/${encodeURIComponent(oferta.id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({
-          comentario_contabilidad: comentario.trim(),
-        }),
-      });
-
-      setOfertaClienteActual((prev) =>
-        prev && prev.id === oferta.id
-          ? { ...prev, comentario_contabilidad: comentario.trim() }
-          : prev,
-      );
-      setOfertasClienteActuales((prev) =>
-        prev.map((item) =>
-          item.id === oferta.id
-            ? { ...item, comentario_contabilidad: comentario.trim() }
-            : item,
-        ),
-      );
-      if (refetchOfertas) await refetchOfertas();
-
-      toast({
-        title: "Comentario guardado",
-        description: "Se actualizó el comentario para contabilidad.",
-      });
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo guardar el comentario para contabilidad.";
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
-      });
-    } finally {
-      setSavingComentarioContabilidadOfertaId(null);
     }
   };
 
@@ -3316,6 +3552,47 @@ export function ClientsTable({
                                 </Button>
                               );
                             })()}
+                            {(() => {
+                              const numeroCliente = normalizeClienteNumero(
+                                client.numero,
+                              );
+                              const consultandoEquipo =
+                                consultandoEquipoEntregadoNumero ===
+                                numeroCliente;
+                              const equipoEntregado =
+                                getEquipoEntregadoStatus(client);
+
+                              return (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    void handleOpenEquipoEntregadoDialog(
+                                      client,
+                                    );
+                                  }}
+                                  disabled={consultandoEquipo}
+                                  className={
+                                    equipoEntregado
+                                      ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border border-emerald-300"
+                                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50 border border-gray-300"
+                                  }
+                                  title={
+                                    equipoEntregado
+                                      ? "Ver equipos entregados"
+                                      : "Ver estado de equipo entregado"
+                                  }
+                                >
+                                  {consultandoEquipo ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Truck className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              );
+                            })()}
                             <Button
                               variant="ghost"
                               size="sm"
@@ -4056,6 +4333,228 @@ export function ClientsTable({
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={showEquipoEntregadoDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeEquipoEntregadoDialog();
+            return;
+          }
+          setShowEquipoEntregadoDialog(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Equipo entregado</DialogTitle>
+            <DialogDescription>
+              {clientForEquipoEntregado
+                ? `Cliente: ${clientForEquipoEntregado.nombre} (${clientForEquipoEntregado.numero})`
+                : "Ver estado de entregas por oferta."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingEquipoEntregadoDialog ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+            </div>
+          ) : ofertasEquipoEntregado.length === 0 ? (
+            <div className="rounded-md border border-slate-200 p-4 text-sm text-slate-600">
+              No hay oferta con entregas para mostrar en este cliente.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {ofertasEquipoEntregado.length > 1 && (
+                <div className="space-y-2">
+                  <Label htmlFor="oferta-equipo-entregado">Oferta</Label>
+                  <select
+                    id="oferta-equipo-entregado"
+                    className="w-full border border-slate-300 rounded-md px-3 py-2 bg-white text-slate-900"
+                    value={String(ofertaEquipoEntregadoIndex)}
+                    onChange={(event) => {
+                      setOfertaEquipoEntregadoIndex(Number(event.target.value));
+                    }}
+                  >
+                    {ofertasEquipoEntregado.map((oferta, index) => (
+                      <option
+                        key={`${oferta.id || oferta.numero_oferta || index}-${index}`}
+                        value={String(index)}
+                      >
+                        {oferta.nombre || `Oferta ${index + 1}`} (
+                        {oferta.numero_oferta || oferta.id || "Sin código"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {ofertaEquipoEntregadoSeleccionada && (
+                <div className="rounded-md border border-slate-200 p-3 space-y-2 text-sm text-slate-700">
+                  <p>
+                    <span className="text-slate-500">Código:</span>{" "}
+                    {ofertaEquipoEntregadoSeleccionada.numero_oferta ||
+                      ofertaEquipoEntregadoSeleccionada.id}
+                  </p>
+                  <p>
+                    <span className="text-slate-500">Estado:</span>{" "}
+                    {formatOfertaEstado(
+                      ofertaEquipoEntregadoSeleccionada.estado,
+                    )}
+                  </p>
+                  <p>
+                    <span className="text-slate-500">Nombre:</span>{" "}
+                    {ofertaEquipoEntregadoSeleccionada.nombre}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">
+                    Materiales
+                  </p>
+                  <p className="text-lg font-semibold text-slate-900">
+                    {resumenEquipoEntregado.totalMateriales}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-emerald-700">
+                    Entregados
+                  </p>
+                  <p className="text-lg font-semibold text-emerald-800">
+                    {resumenEquipoEntregado.materialesEntregados}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-amber-700">
+                    Pendientes
+                  </p>
+                  <p className="text-lg font-semibold text-amber-800">
+                    {resumenEquipoEntregado.materialesPendientes}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2">
+                  <p className="text-[11px] uppercase tracking-wide text-sky-700">
+                    Avance
+                  </p>
+                  <p className="text-lg font-semibold text-sky-800">
+                    {resumenEquipoEntregado.avance}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs text-slate-600">
+                  <span>
+                    {resumenEquipoEntregado.unidadesEntregadas} u entregadas
+                  </span>
+                  <span>
+                    {resumenEquipoEntregado.unidadesPendientes} u pendientes
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-200 overflow-hidden">
+                  <div
+                    className="h-full bg-sky-500 transition-all"
+                    style={{ width: `${resumenEquipoEntregado.avance}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <Card className="border-emerald-200 bg-white shadow-sm">
+                  <CardContent className="p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-emerald-800">
+                        Materiales entregados
+                      </h4>
+                      <span className="text-xs font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+                        {detalleItemsEntregadosEquipo.length}
+                      </span>
+                    </div>
+                    {detalleItemsEntregadosEquipo.length === 0 ? (
+                      <div className="rounded-md border border-emerald-100 bg-emerald-50/40 px-3 py-4 text-sm text-emerald-700">
+                        Aún no se han registrado entregas.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {detalleItemsEntregadosEquipo.map((item) => (
+                          <div
+                            key={item.key}
+                            className="rounded-lg border border-emerald-100 bg-emerald-50/40 p-2.5 space-y-1.5"
+                          >
+                            <div className="flex flex-col gap-1">
+                              <p className="text-sm font-semibold text-slate-900">
+                                {item.descripcion}
+                              </p>
+                              <p className="text-xs text-emerald-700 font-semibold">
+                                Entregados {item.totalEntregado} de{" "}
+                                {item.cantidadTotal}
+                              </p>
+                              <p className="text-xs text-slate-600">
+                                Código: {item.codigo} | Última entrega:{" "}
+                                {formatEntregaDate(
+                                  item.ultimaFechaEntrega?.toISOString(),
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-amber-200 bg-white shadow-sm">
+                  <CardContent className="p-3 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-semibold text-amber-800">
+                        Materiales pendientes
+                      </h4>
+                      <span className="text-xs font-medium text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+                        {detalleItemsPendientesEquipo.length}
+                      </span>
+                    </div>
+                    {detalleItemsPendientesEquipo.length === 0 ? (
+                      <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-4 text-sm text-emerald-700">
+                        Todo el material de esta oferta ya fue entregado.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                        {detalleItemsPendientesEquipo.map((item) => (
+                          <div
+                            key={item.key}
+                            className="rounded-lg border border-amber-100 bg-amber-50/40 p-2.5 space-y-1"
+                          >
+                            <p className="text-sm font-semibold text-slate-900">
+                              {item.descripcion}
+                            </p>
+                            <p className="text-xs text-amber-700 font-semibold">
+                              Pendiente: {item.pendiente} u
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              Código: {item.codigo}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2 border-t flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeEquipoEntregadoDialog}
+            >
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de crear oferta personalizada (confección) */}
       <Dialog
         open={showCrearOfertaPersonalizadaDialog}
@@ -4170,10 +4669,6 @@ export function ClientsTable({
         onEditar={handleEditarOferta}
         onEliminar={handleEliminarOferta}
         onExportar={handleExportarOferta}
-        onGuardarComentarioContabilidad={handleGuardarComentarioContabilidad}
-        savingComentarioContabilidadOfertaId={
-          savingComentarioContabilidadOfertaId
-        }
       />
 
       {/* Diálogo de Edición */}

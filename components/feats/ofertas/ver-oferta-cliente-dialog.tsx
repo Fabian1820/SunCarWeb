@@ -7,7 +7,6 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Card, CardContent } from "@/components/shared/molecule/card";
-import { Textarea } from "@/components/shared/molecule/textarea";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Progress } from "@/components/shared/atom/progress";
@@ -19,7 +18,6 @@ import {
   Download,
   Edit,
   Trash2,
-  Loader2,
 } from "lucide-react";
 import { useMaterials } from "@/hooks/use-materials";
 import { useEffect, useMemo, useState } from "react";
@@ -34,11 +32,6 @@ interface VerOfertaClienteDialogProps {
   onEditar?: (oferta: OfertaConfeccion) => void;
   onEliminar?: (oferta: OfertaConfeccion) => void;
   onExportar?: (oferta: OfertaConfeccion) => void;
-  onGuardarComentarioContabilidad?: (
-    oferta: OfertaConfeccion,
-    comentario: string,
-  ) => Promise<void>;
-  savingComentarioContabilidadOfertaId?: string | null;
 }
 
 const getEstadoBadge = (estado: string) => {
@@ -111,13 +104,10 @@ export function VerOfertaClienteDialog({
   onEditar,
   onEliminar,
   onExportar,
-  onGuardarComentarioContabilidad,
-  savingComentarioContabilidadOfertaId,
 }: VerOfertaClienteDialogProps) {
   const { materials } = useMaterials();
   const [modoVista, setModoVista] = useState<"listado" | "detalle">("detalle");
   const [ofertaSeleccionadaIndex, setOfertaSeleccionadaIndex] = useState(0);
-  const [comentarioContabilidad, setComentarioContabilidad] = useState("");
 
   const ofertasDisponibles = useMemo(() => {
     if (ofertas.length > 0) return ofertas;
@@ -145,10 +135,6 @@ export function VerOfertaClienteDialog({
     if (ofertasDisponibles.length === 0) return null;
     return ofertasDisponibles[ofertaSeleccionadaIndex] ?? ofertasDisponibles[0];
   }, [ofertasDisponibles, ofertaSeleccionadaIndex]);
-
-  useEffect(() => {
-    setComentarioContabilidad(oferta?.comentario_contabilidad || "");
-  }, [oferta?.id, oferta?.comentario_contabilidad]);
 
   // Manejar el cierre del diálogo
   const handleClose = () => {
@@ -725,59 +711,6 @@ export function VerOfertaClienteDialog({
                               <span className="font-semibold text-slate-900">
                                 {oferta.porcentaje_contribucion || 0}%
                               </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Comentario para contabilidad */}
-                        <div className="pt-2 border-t border-slate-200 space-y-2 text-sm text-slate-600">
-                          <div className="text-sm text-slate-500">
-                            Comentario para contabilidad
-                          </div>
-                          <Textarea
-                            value={comentarioContabilidad}
-                            onChange={(event) =>
-                              setComentarioContabilidad(event.target.value)
-                            }
-                            placeholder="Agregar comentario para contabilidad..."
-                            rows={3}
-                            className="text-sm"
-                            readOnly={!onGuardarComentarioContabilidad}
-                            disabled={
-                              savingComentarioContabilidadOfertaId === oferta.id
-                            }
-                          />
-                          {onGuardarComentarioContabilidad && (
-                            <div className="flex justify-end">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  void onGuardarComentarioContabilidad(
-                                    oferta,
-                                    comentarioContabilidad,
-                                  );
-                                }}
-                                disabled={
-                                  savingComentarioContabilidadOfertaId ===
-                                    oferta.id ||
-                                  comentarioContabilidad.trim() ===
-                                    (
-                                      oferta.comentario_contabilidad || ""
-                                    ).trim()
-                                }
-                              >
-                                {savingComentarioContabilidadOfertaId ===
-                                oferta.id ? (
-                                  <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Guardando...
-                                  </>
-                                ) : (
-                                  "Guardar comentario"
-                                )}
-                              </Button>
                             </div>
                           )}
                         </div>
