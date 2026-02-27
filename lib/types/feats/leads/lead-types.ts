@@ -33,6 +33,12 @@ export interface OfertaEmbebida {
   razon_costo_extra: string | null;
 }
 
+export interface LeadFoto {
+  url: string;
+  fecha: string;
+  tipo: "instalacion" | "averia";
+}
+
 export interface Lead {
   id?: string;
   fecha_contacto: string;
@@ -49,6 +55,7 @@ export interface Lead {
   municipio?: string;
   comercial?: string;
   ofertas?: OfertaEmbebida[];
+  fotos?: LeadFoto[];
   elementos_personalizados?: ElementoPersonalizado[];
   comprobante_pago_url?: string;
   metodo_pago?: string;

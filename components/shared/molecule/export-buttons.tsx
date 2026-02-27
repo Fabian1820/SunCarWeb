@@ -1,85 +1,116 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/shared/atom/button"
-import { FileSpreadsheet, FileText, Download } from "lucide-react"
-import { exportToExcel, exportToPDF, generateFilename, type ExportOptions } from "@/lib/export-service"
-import { useToast } from "@/hooks/use-toast"
+import { useState } from "react";
+import { Button } from "@/components/shared/atom/button";
+import { FileSpreadsheet, FileText, Download } from "lucide-react";
+import {
+  exportToExcel,
+  exportToPDF,
+  generateFilename,
+  type ExportOptions,
+} from "@/lib/export-service";
+import { useToast } from "@/hooks/use-toast";
 
 interface ExportButtonsProps {
-  exportOptions: Omit<ExportOptions, 'filename'>
-  baseFilename: string
-  variant?: 'default' | 'compact'
+  exportOptions?: Omit<ExportOptions, "filename">;
+  getExportOptions?: () =>
+    | Omit<ExportOptions, "filename">
+    | Promise<Omit<ExportOptions, "filename">>;
+  baseFilename: string;
+  variant?: "default" | "compact";
+  showPdf?: boolean;
 }
 
 /**
  * Componente reutilizable para botones de exportación
  * Proporciona botones para exportar a Excel y PDF
  */
-export function ExportButtons({ exportOptions, baseFilename, variant = 'default' }: ExportButtonsProps) {
-  const [exporting, setExporting] = useState<'excel' | 'pdf' | null>(null)
-  const { toast } = useToast()
+export function ExportButtons({
+  exportOptions,
+  getExportOptions,
+  baseFilename,
+  variant = "default",
+  showPdf = true,
+}: ExportButtonsProps) {
+  const [exporting, setExporting] = useState<"excel" | "pdf" | null>(null);
+  const { toast } = useToast();
+
+  const resolveExportOptions = async (): Promise<
+    Omit<ExportOptions, "filename">
+  > => {
+    if (getExportOptions) {
+      return await getExportOptions();
+    }
+
+    if (!exportOptions) {
+      throw new Error("No se proporcionaron opciones de exportación");
+    }
+
+    return exportOptions;
+  };
 
   const handleExportExcel = async () => {
     try {
-      setExporting('excel')
-      const filename = generateFilename(baseFilename)
-      
+      setExporting("excel");
+      const filename = generateFilename(baseFilename);
+      const resolvedExportOptions = await resolveExportOptions();
+
       await exportToExcel({
-        ...exportOptions,
-        filename
-      })
+        ...resolvedExportOptions,
+        filename,
+      });
 
       toast({
         title: "Exportación exitosa",
         description: `Archivo Excel generado: ${filename}.xlsx`,
-      })
+      });
     } catch (error) {
-      console.error('Error exportando a Excel:', error)
+      console.error("Error exportando a Excel:", error);
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el archivo Excel",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setExporting(null)
+      setExporting(null);
     }
-  }
+  };
 
   const handleExportPDF = async () => {
     try {
-      setExporting('pdf')
-      const filename = generateFilename(baseFilename)
-      
-      console.log('🔍 DEBUG ExportButtons - exportOptions:', {
-        sinPrecios: exportOptions.sinPrecios,
-        conPreciosCliente: exportOptions.conPreciosCliente,
-        columns: exportOptions.columns,
-      })
-      
+      setExporting("pdf");
+      const filename = generateFilename(baseFilename);
+      const resolvedExportOptions = await resolveExportOptions();
+
+      console.log("🔍 DEBUG ExportButtons - exportOptions:", {
+        sinPrecios: resolvedExportOptions.sinPrecios,
+        conPreciosCliente: resolvedExportOptions.conPreciosCliente,
+        columns: resolvedExportOptions.columns,
+      });
+
       await exportToPDF({
-        ...exportOptions,
+        ...resolvedExportOptions,
         filename,
-        logoUrl: '/logo Suncar.png'
-      })
+        logoUrl: "/logo Suncar.png",
+      });
 
       toast({
         title: "Exportación exitosa",
         description: `Archivo PDF generado: ${filename}.pdf`,
-      })
+      });
     } catch (error) {
-      console.error('Error exportando a PDF:', error)
+      console.error("Error exportando a PDF:", error);
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el archivo PDF",
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     } finally {
-      setExporting(null)
+      setExporting(null);
     }
-  }
+  };
 
-  if (variant === 'compact') {
+  if (variant === "compact") {
     return (
       <div className="flex gap-2">
         <Button
@@ -89,7 +120,7 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
           size="sm"
           className="border-green-300 text-green-700 hover:bg-green-50 min-w-[90px]"
         >
-          {exporting === 'excel' ? (
+          {exporting === "excel" ? (
             <>
               <Download className="mr-2 h-4 w-4 animate-bounce" />
               <span className="text-xs">...</span>
@@ -101,27 +132,29 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
             </>
           )}
         </Button>
-        <Button
-          onClick={handleExportPDF}
-          disabled={exporting !== null}
-          variant="outline"
-          size="sm"
-          className="border-red-300 text-red-700 hover:bg-red-50 min-w-[90px]"
-        >
-          {exporting === 'pdf' ? (
-            <>
-              <Download className="mr-2 h-4 w-4 animate-bounce" />
-              <span className="text-xs">...</span>
-            </>
-          ) : (
-            <>
-              <FileText className="mr-2 h-4 w-4" />
-              PDF
-            </>
-          )}
-        </Button>
+        {showPdf && (
+          <Button
+            onClick={handleExportPDF}
+            disabled={exporting !== null}
+            variant="outline"
+            size="sm"
+            className="border-red-300 text-red-700 hover:bg-red-50 min-w-[90px]"
+          >
+            {exporting === "pdf" ? (
+              <>
+                <Download className="mr-2 h-4 w-4 animate-bounce" />
+                <span className="text-xs">...</span>
+              </>
+            ) : (
+              <>
+                <FileText className="mr-2 h-4 w-4" />
+                PDF
+              </>
+            )}
+          </Button>
+        )}
       </div>
-    )
+    );
   }
 
   return (
@@ -132,7 +165,7 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
         variant="outline"
         className="border-green-300 text-green-700 hover:bg-green-50"
       >
-        {exporting === 'excel' ? (
+        {exporting === "excel" ? (
           <>
             <Download className="mr-2 h-4 w-4 animate-bounce" />
             Exportando a Excel...
@@ -144,24 +177,26 @@ export function ExportButtons({ exportOptions, baseFilename, variant = 'default'
           </>
         )}
       </Button>
-      <Button
-        onClick={handleExportPDF}
-        disabled={exporting !== null}
-        variant="outline"
-        className="border-red-300 text-red-700 hover:bg-red-50"
-      >
-        {exporting === 'pdf' ? (
-          <>
-            <Download className="mr-2 h-4 w-4 animate-bounce" />
-            Exportando a PDF...
-          </>
-        ) : (
-          <>
-            <FileText className="mr-2 h-4 w-4" />
-            Exportar a PDF
-          </>
-        )}
-      </Button>
+      {showPdf && (
+        <Button
+          onClick={handleExportPDF}
+          disabled={exporting !== null}
+          variant="outline"
+          className="border-red-300 text-red-700 hover:bg-red-50"
+        >
+          {exporting === "pdf" ? (
+            <>
+              <Download className="mr-2 h-4 w-4 animate-bounce" />
+              Exportando a PDF...
+            </>
+          ) : (
+            <>
+              <FileText className="mr-2 h-4 w-4" />
+              Exportar a PDF
+            </>
+          )}
+        </Button>
+      )}
     </div>
-  )
+  );
 }

@@ -6,8 +6,11 @@ export type {
   BackendCatalogoProductos,
   BackendCategoria,
   Material,
-} from './types/feats/materials/material-types'
-export { transformBackendToFrontend, transformCategories } from './types/feats/materials/material-types'
+} from "./types/feats/materials/material-types";
+export {
+  transformBackendToFrontend,
+  transformCategories,
+} from "./types/feats/materials/material-types";
 
 export type {
   Lead,
@@ -15,10 +18,11 @@ export type {
   LeadCreateData,
   LeadUpdateData,
   LeadConversionRequest,
+  LeadFoto,
   OfertaAsignacion,
   OfertaEmbebida,
   ElementoPersonalizado,
-} from './types/feats/leads/lead-types'
+} from "./types/feats/leads/lead-types";
 
 export type {
   Cliente,
@@ -27,11 +31,14 @@ export type {
   ClienteCreateData,
   ClienteSimpleCreateData,
   ClienteUpdateData,
-} from './types/feats/customer/cliente-types'
+} from "./types/feats/customer/cliente-types";
 
-export type { Trabajador, Brigada } from './types/feats/brigade/brigade-types'
+export type { Trabajador, Brigada } from "./types/feats/brigade/brigade-types";
 
-export type { MensajeCliente, RespuestaMensaje } from './types/feats/customer-service/customer-service-types'
+export type {
+  MensajeCliente,
+  RespuestaMensaje,
+} from "./types/feats/customer-service/customer-service-types";
 
 export type {
   ElementoOferta,
@@ -41,7 +48,7 @@ export type {
   OfertaSimplificada,
   CreateOfertaRequest,
   UpdateOfertaRequest,
-} from './types/feats/ofertas/oferta-types'
+} from "./types/feats/ofertas/oferta-types";
 
 export type {
   TipoReporte,
@@ -51,7 +58,7 @@ export type {
   CreateOrdenTrabajoResponse,
   ListOrdenesTrabajoResponse,
   CreateOrdenTrabajoItem,
-} from './types/feats/ordenes-trabajo/orden-trabajo-types'
+} from "./types/feats/ordenes-trabajo/orden-trabajo-types";
 
 export type {
   ArticuloTienda,
@@ -61,7 +68,7 @@ export type {
   ArticuloTiendaFilters,
   BackendArticuloTiendaResponse,
   EspecificacionesSugeridas,
-} from './types/feats/articulos-tienda/articulos-tienda-types'
+} from "./types/feats/articulos-tienda/articulos-tienda-types";
 
 export type {
   InventarioMovimientoTipo,
@@ -76,7 +83,7 @@ export type {
   MovimientoCreateData,
   VentaItem,
   VentaCreateData,
-} from './types/feats/inventario/inventario-types'
+} from "./types/feats/inventario/inventario-types";
 
 export type {
   InstalacionPendiente,
@@ -85,4 +92,4 @@ export type {
   CategoriaEquipos,
   EquipoDetalle,
   ClienteConEquipo,
-} from './types/feats/reportes-comercial/reportes-comercial-types'
+} from "./types/feats/reportes-comercial/reportes-comercial-types";

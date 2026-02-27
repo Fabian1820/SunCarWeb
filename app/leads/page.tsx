@@ -1,46 +1,69 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/shared/atom/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/shared/molecule/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { Plus, Search, Loader2, Filter, Calendar } from "lucide-react"
-import { LeadsTable } from "@/components/feats/leads/leads-table"
-import { SmartPagination } from "@/components/shared/molecule/smart-pagination"
-import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog"
-import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog"
-import { ExportButtons } from "@/components/shared/molecule/export-buttons"
-import { FuentesManager } from "@/components/shared/molecule/fuentes-manager"
-import { useLeads } from "@/hooks/use-leads"
-import { useFuentesSync } from "@/hooks/use-fuentes-sync"
-import { PageLoader } from "@/components/shared/atom/page-loader"
-import { useToast } from "@/hooks/use-toast"
-import { Toaster } from "@/components/shared/molecule/toaster"
-import type { Lead, LeadCreateData, LeadUpdateData, LeadConversionRequest } from "@/lib/api-types"
-import type { ExportOptions } from "@/lib/export-service"
-import { downloadFile } from "@/lib/utils/download-file"
-import { ModuleHeader } from "@/components/shared/organism/module-header"
+import { useState } from "react";
+import { Button } from "@/components/shared/atom/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/shared/molecule/card";
+import { Input } from "@/components/shared/molecule/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/shared/molecule/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
+import { Plus, Search, Loader2 } from "lucide-react";
+import { LeadsTable } from "@/components/feats/leads/leads-table";
+import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
+import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
+import { EditLeadDialog } from "@/components/feats/leads/edit-lead-dialog";
+import { ExportButtons } from "@/components/shared/molecule/export-buttons";
+import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
+import { useLeads } from "@/hooks/use-leads";
+import { useFuentesSync } from "@/hooks/use-fuentes-sync";
+import { LeadService } from "@/lib/api-services";
+import { PageLoader } from "@/components/shared/atom/page-loader";
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/shared/molecule/toaster";
+import type {
+  Lead,
+  LeadCreateData,
+  LeadUpdateData,
+  LeadConversionRequest,
+} from "@/lib/api-types";
+import type { ExportOptions } from "@/lib/export-service";
+import { downloadFile } from "@/lib/utils/download-file";
+import { ModuleHeader } from "@/components/shared/organism/module-header";
 
 export default function LeadsPage() {
   const {
     leads,
     availableSources,
     filters,
+    initialLoading,
     loading,
     error,
     totalLeads,
-    skip,
     limit,
     page,
-    pageSize,
     searchTerm,
     setSearchTerm,
     setFilters,
     setPage,
-    setPageSize,
+    loadLeads,
+    getAllFilteredLeadsForExport,
     createLead,
     updateLead,
     deleteLead,
@@ -48,38 +71,40 @@ export default function LeadsPage() {
     generarCodigoCliente,
     uploadLeadComprobante,
     clearError,
-  } = useLeads()
+  } = useLeads();
 
   // Sincronizar fuentes de leads con localStorage
-  useFuentesSync(leads, [], !loading)
+  useFuentesSync(leads, [], !loading);
 
-  const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false)
-  const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false)
-  const [editingLead, setEditingLead] = useState<Lead | null>(null)
-  const [loadingAction, setLoadingAction] = useState(false)
-  const { toast } = useToast()
+  const [isCreateLeadDialogOpen, setIsCreateLeadDialogOpen] = useState(false);
+  const [isEditLeadDialogOpen, setIsEditLeadDialogOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [loadingAction, setLoadingAction] = useState(false);
+  const { toast } = useToast();
 
   const handleCreateLead = async (data: LeadCreateData) => {
-    console.log('handleCreateLead called with data:', data)
-    setLoadingAction(true)
+    console.log("handleCreateLead called with data:", data);
+    setLoadingAction(true);
     try {
-      await createLead(data)
+      await createLead(data);
       toast({
         title: "Éxito",
-        description: 'Lead creado correctamente',
-      })
-      setIsCreateLeadDialogOpen(false)
+        description: "Lead creado correctamente",
+      });
+      setIsCreateLeadDialogOpen(false);
     } catch (e) {
-      console.error('Error in handleCreateLead:', e)
+      console.error("Error in handleCreateLead:", e);
       toast({
         title: "Error",
-        description: 'Error al crear lead: ' + (e instanceof Error ? e.message : 'Error desconocido'),
+        description:
+          "Error al crear lead: " +
+          (e instanceof Error ? e.message : "Error desconocido"),
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoadingAction(false)
+      setLoadingAction(false);
     }
-  }
+  };
 
   const handleUpdateLead = async (leadId: string, data: LeadUpdateData) => {
     if (!leadId) {
@@ -87,95 +112,105 @@ export default function LeadsPage() {
         title: "Error",
         description: "No se puede actualizar un lead sin identificador.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-    setLoadingAction(true)
+    setLoadingAction(true);
     try {
-      await updateLead(leadId, data)
+      await updateLead(leadId, data);
       toast({
         title: "Éxito",
-        description: 'Lead actualizado correctamente',
-      })
-      setIsEditLeadDialogOpen(false)
-      setEditingLead(null)
+        description: "Lead actualizado correctamente",
+      });
+      setIsEditLeadDialogOpen(false);
+      setEditingLead(null);
     } catch (e) {
-      console.error('Error in handleUpdateLead:', e)
+      console.error("Error in handleUpdateLead:", e);
       toast({
         title: "Error",
-        description: 'Error al actualizar lead: ' + (e instanceof Error ? e.message : 'Error desconocido'),
+        description:
+          "Error al actualizar lead: " +
+          (e instanceof Error ? e.message : "Error desconocido"),
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoadingAction(false)
+      setLoadingAction(false);
     }
-  }
+  };
 
-  const handleUpdateLeadPrioridad = async (leadId: string, prioridad: "Alta" | "Media" | "Baja") => {
-    if (!leadId) return
+  const handleUpdateLeadPrioridad = async (
+    leadId: string,
+    prioridad: "Alta" | "Media" | "Baja",
+  ) => {
+    if (!leadId) return;
     try {
-      await updateLead(leadId, { prioridad })
+      await updateLead(leadId, { prioridad });
       // No mostrar toast aquí, lo maneja la tabla
     } catch (e) {
-      console.error('Error updating lead priority:', e)
-      throw e // Re-lanzar para que la tabla maneje el error
+      console.error("Error updating lead priority:", e);
+      throw e; // Re-lanzar para que la tabla maneje el error
     }
-  }
+  };
 
   const handleDeleteLead = async (leadId: string) => {
-    setLoadingAction(true)
+    setLoadingAction(true);
     try {
-      await deleteLead(leadId)
+      await deleteLead(leadId);
       toast({
         title: "Éxito",
-        description: 'Lead eliminado correctamente',
-      })
+        description: "Lead eliminado correctamente",
+      });
     } catch (error: unknown) {
       toast({
         title: "Error",
-        description: 'Error al eliminar lead: ' + (error instanceof Error ? error.message : 'Error desconocido'),
+        description:
+          "Error al eliminar lead: " +
+          (error instanceof Error ? error.message : "Error desconocido"),
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoadingAction(false)
+      setLoadingAction(false);
     }
-  }
+  };
 
   const handleUploadLeadComprobante = async (
     lead: Lead,
-    payload: { file: File; metodo_pago?: string; moneda?: string }
+    payload: { file: File; metodo_pago?: string; moneda?: string },
   ) => {
     if (!lead.id) {
-      const message = "No se puede subir un comprobante sin ID de lead."
+      const message = "No se puede subir un comprobante sin ID de lead.";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
-      })
-      throw new Error(message)
+      });
+      throw new Error(message);
     }
 
-    setLoadingAction(true)
+    setLoadingAction(true);
     try {
-      const result = await uploadLeadComprobante(lead.id, payload)
+      const result = await uploadLeadComprobante(lead.id, payload);
       toast({
         title: "Comprobante actualizado",
         description: result.metodo_pago
-          ? `Método: ${result.metodo_pago}${result.moneda ? ` • Moneda: ${result.moneda}` : ''}`
-          : 'Comprobante subido correctamente',
-      })
+          ? `Método: ${result.metodo_pago}${result.moneda ? ` • Moneda: ${result.moneda}` : ""}`
+          : "Comprobante subido correctamente",
+      });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'No se pudo subir el comprobante'
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo subir el comprobante";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
-      })
-      throw error instanceof Error ? error : new Error(message)
+      });
+      throw error instanceof Error ? error : new Error(message);
     } finally {
-      setLoadingAction(false)
+      setLoadingAction(false);
     }
-  }
+  };
 
   const handleDownloadLeadComprobante = async (lead: Lead) => {
     if (!lead.comprobante_pago_url) {
@@ -183,30 +218,69 @@ export default function LeadsPage() {
         title: "Sin comprobante",
         description: "Este lead aún no tiene un comprobante asociado.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     try {
-      await downloadFile(lead.comprobante_pago_url, `comprobante-lead-${lead.nombre || lead.id || 'archivo'}`)
+      await downloadFile(
+        lead.comprobante_pago_url,
+        `comprobante-lead-${lead.nombre || lead.id || "archivo"}`,
+      );
       toast({
         title: "Descarga iniciada",
         description: "Revisa tu carpeta de descargas para ver el comprobante.",
-      })
+      });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'No se pudo descargar el comprobante'
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo descargar el comprobante";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
+
+  const handleUploadLeadFoto = async (
+    lead: Lead,
+    payload: { file: File; tipo: "instalacion" | "averia" },
+  ) => {
+    if (!lead.id) {
+      const message = "No se puede subir archivo sin ID de lead.";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+      throw new Error(message);
+    }
+
+    try {
+      await LeadService.uploadFotoLead(lead.id, payload);
+      toast({
+        title: "Archivo agregado",
+        description: `Se adjuntó correctamente como ${payload.tipo}.`,
+      });
+      await loadLeads();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo subir el archivo";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+      throw error instanceof Error ? error : new Error(message);
+    }
+  };
 
   const handleEditLead = (lead: Lead) => {
-    setEditingLead(lead)
-    setIsEditLeadDialogOpen(true)
-  }
+    setEditingLead(lead);
+    setIsEditLeadDialogOpen(true);
+  };
 
   const handleConvertLead = async (lead: Lead, data: LeadConversionRequest) => {
     if (!lead.id) {
@@ -214,144 +288,132 @@ export default function LeadsPage() {
         title: "Error",
         description: "No se puede convertir un lead sin identificador.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setLoadingAction(true)
+    setLoadingAction(true);
     try {
-      const cliente = await convertLead(lead.id, data)
+      const cliente = await convertLead(lead.id, data);
       toast({
         title: "Lead convertido",
-        description: `Se creó el cliente ${cliente.numero || 'sin número asignado'} a partir del lead.`,
-      })
+        description: `Se creó el cliente ${cliente.numero || "sin número asignado"} a partir del lead.`,
+      });
     } catch (e) {
-      console.error('Error converting lead:', e)
+      console.error("Error converting lead:", e);
       toast({
         title: "Error",
-        description: 'No se pudo convertir el lead: ' + (e instanceof Error ? e.message : 'Error desconocido'),
+        description:
+          "No se pudo convertir el lead: " +
+          (e instanceof Error ? e.message : "Error desconocido"),
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoadingAction(false)
+      setLoadingAction(false);
     }
-  }
+  };
 
   // Wrapper para generarCodigoCliente que NO lanza excepciones
   // Devuelve el código o null en caso de error
-  const handleGenerarCodigoCliente = async (leadId: string, equipoPropio?: boolean): Promise<string> => {
+  const handleGenerarCodigoCliente = async (
+    leadId: string,
+    equipoPropio?: boolean,
+  ): Promise<string> => {
     try {
-      return await generarCodigoCliente(leadId, equipoPropio)
+      return await generarCodigoCliente(leadId, equipoPropio);
     } catch (error) {
       // NO re-lanzar el error, devolverlo como string vacío
       // El componente LeadsTable manejará esto
-      console.error('Error in handleGenerarCodigoCliente:', error)
+      console.error("Error in handleGenerarCodigoCliente:", error);
       // Lanzar el error para que LeadsTable lo capture en su try-catch
-      throw error
+      throw error;
     }
-  }
+  };
 
- // Función para formatear el estado de manera legible
-const formatEstado = (estado: string): string => {
-  const estados: Record<string, string> = {
-    'pendiente_visita': 'Pendiente de visita',
-    'pendiente_visitarnos': 'Pendiente de visitarnos',
-    'pendiente_pago': 'Pendiente de pago',
-    'revisando_ofertas': 'Revisando ofertas',
-    'sin_respuesta': 'Sin respuesta aun',
-    'proximamente': 'Proximamente',
-    'pendiente_instalacion': 'Pendiente de instalación',
-    'pendiente_presupuesto': 'Pendiente de presupuesto',
-  }
-  return estados[estado] || estado
-}
-  const formatFecha = (valor?: string): string => {
-    if (!valor) return 'N/A'
-    if (valor.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      return valor
-    }
-    const fecha = new Date(valor)
-    if (!Number.isNaN(fecha.getTime())) {
-      return fecha.toLocaleDateString('es-ES')
-    }
-    return valor
-  }
-
-  // Preparar opciones de exportación para leads
-  const getExportOptions = (): Omit<ExportOptions, 'filename'> => {
-    // Construir título con filtro de estado si aplica
-    let titulo = 'Listado de Leads'
-    if (filters.estado) {
-      titulo = `Listado de Leads - ${filters.estado}`
-    }
-    
-    const exportData = leads.map((lead, index) => {
+  const buildLeadsExportData = (leadsToExport: Lead[]) => {
+    return leadsToExport.map((lead, index) => {
       // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
-      let ofertaTexto = ''
-      
+      let ofertaTexto = "";
+
       if (lead.ofertas && lead.ofertas.length > 0) {
-        const ofertasFormateadas = lead.ofertas.map(oferta => {
-          const productos: string[] = []
-          
-          // Inversor
-          if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-            const nombre = oferta.inversor_nombre || oferta.inversor_codigo
-            productos.push(`${oferta.inversor_cantidad}x ${nombre}`)
-          }
-          
-          // Batería
-          if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-            const nombre = oferta.bateria_nombre || oferta.bateria_codigo
-            productos.push(`${oferta.bateria_cantidad}x ${nombre}`)
-          }
-          
-          // Paneles
-          if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-            const nombre = oferta.panel_nombre || oferta.panel_codigo
-            productos.push(`${oferta.panel_cantidad}x ${nombre}`)
-          }
-          
-          // Elementos personalizados de la oferta
-          if (oferta.elementos_personalizados) {
-            productos.push(oferta.elementos_personalizados)
-          }
-          
-          // Agregar • al inicio de cada producto
-          return productos.length > 0 ? '• ' + productos.join(' • ') : ''
-        }).filter(Boolean)
-        
-        ofertaTexto = ofertasFormateadas.join(' • ') || ''
+        const ofertasFormateadas = lead.ofertas
+          .map((oferta) => {
+            const productos: string[] = [];
+
+            // Inversor
+            if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+              const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
+              productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
+            }
+
+            // Batería
+            if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+              const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
+              productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
+            }
+
+            // Paneles
+            if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+              const nombre = oferta.panel_nombre || oferta.panel_codigo;
+              productos.push(`${oferta.panel_cantidad}x ${nombre}`);
+            }
+
+            // Elementos personalizados de la oferta
+            if (oferta.elementos_personalizados) {
+              productos.push(oferta.elementos_personalizados);
+            }
+
+            // Agregar • al inicio de cada producto
+            return productos.length > 0 ? "• " + productos.join(" • ") : "";
+          })
+          .filter(Boolean);
+
+        ofertaTexto = ofertasFormateadas.join(" • ") || "";
       }
 
       return {
         numero: index + 1,
-        nombre: lead.nombre || 'N/A',
-        telefono: lead.telefono || 'N/A',
-        provincia: lead.provincia_montaje || 'N/A',
-        municipio: lead.municipio || 'N/A',
-        direccion: lead.direccion || 'N/A',
-        oferta: ofertaTexto
-      }
-    })
+        nombre: lead.nombre || "N/A",
+        telefono: lead.telefono || "N/A",
+        provincia: lead.provincia_montaje || "N/A",
+        municipio: lead.municipio || "N/A",
+        direccion: lead.direccion || "N/A",
+        oferta: ofertaTexto,
+      };
+    });
+  };
+
+  // Preparar opciones de exportación para leads (siempre consultando backend con filtros actuales)
+  const getExportOptions = async (): Promise<
+    Omit<ExportOptions, "filename">
+  > => {
+    // Construir título con filtro de estado si aplica
+    let titulo = "Listado de Leads";
+    if (filters.estado) {
+      titulo = `Listado de Leads - ${filters.estado}`;
+    }
+    const allFilteredLeads = await getAllFilteredLeadsForExport();
+    const exportData = buildLeadsExportData(allFilteredLeads);
 
     return {
       title: `Suncar SRL: ${titulo}`,
-      subtitle: `Fecha: ${new Date().toLocaleDateString('es-ES')}`,
+      subtitle: `Fecha: ${new Date().toLocaleDateString("es-ES")}`,
       columns: [
-        { header: 'No.', key: 'numero', width: 4 },
-        { header: 'Nombre', key: 'nombre', width: 14 },
-        { header: 'Teléfono', key: 'telefono', width: 14 },
-        { header: 'Provincia', key: 'provincia', width: 12 },
-        { header: 'Municipio', key: 'municipio', width: 12 },
-        { header: 'Dirección', key: 'direccion', width: 38 },
-        { header: 'Oferta', key: 'oferta', width: 23.57 },
+        { header: "No.", key: "numero", width: 4 },
+        { header: "Nombre", key: "nombre", width: 14 },
+        { header: "Teléfono", key: "telefono", width: 14 },
+        { header: "Provincia", key: "provincia", width: 12 },
+        { header: "Municipio", key: "municipio", width: 12 },
+        { header: "Dirección", key: "direccion", width: 38 },
+        { header: "Oferta", key: "oferta", width: 23.57 },
       ],
-      data: exportData
-    }
-  }
+      data: exportData,
+    };
+  };
 
-  if (loading && leads.length === 0) return <PageLoader moduleName="Leads" text="Cargando leads..." />
-  if (error) return <div>Error: {error}</div>
+  if (initialLoading)
+    return <PageLoader moduleName="Leads" text="Cargando leads..." />;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -363,7 +425,10 @@ const formatEstado = (estado: string): string => {
         actions={
           <div className="flex items-center gap-2">
             <FuentesManager />
-            <Dialog open={isCreateLeadDialogOpen} onOpenChange={setIsCreateLeadDialogOpen}>
+            <Dialog
+              open={isCreateLeadDialogOpen}
+              onOpenChange={setIsCreateLeadDialogOpen}
+            >
               <DialogTrigger asChild>
                 <Button
                   size="icon"
@@ -399,7 +464,12 @@ const formatEstado = (estado: string): string => {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <p className="text-red-800">{error}</p>
-                <Button variant="ghost" size="sm" onClick={clearError} className="text-red-600">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearError}
+                  className="text-red-600"
+                >
                   ✕
                 </Button>
               </div>
@@ -425,15 +495,15 @@ const formatEstado = (estado: string): string => {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setSearchTerm('')
+                  setSearchTerm("");
                   setFilters({
-                    searchTerm: '',
-                    estado: '',
-                    fuente: '',
-                    comercial: '',
-                    fechaDesde: '',
-                    fechaHasta: ''
-                  })
+                    searchTerm: "",
+                    estado: "",
+                    fuente: "",
+                    comercial: "",
+                    fechaDesde: "",
+                    fechaHasta: "",
+                  });
                 }}
                 className="text-gray-600 hover:text-gray-800 whitespace-nowrap"
               >
@@ -445,20 +515,37 @@ const formatEstado = (estado: string): string => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
               {/* Filtro por Estado */}
               <div>
-                <Select value={filters.estado || "todos"} onValueChange={(value) => setFilters({ estado: value === "todos" ? "" : value })}>
+                <Select
+                  value={filters.estado || "todos"}
+                  onValueChange={(value) =>
+                    setFilters({ estado: value === "todos" ? "" : value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los estados" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="Esperando equipo">Esperando equipo</SelectItem>
+                    <SelectItem value="Esperando equipo">
+                      Esperando equipo
+                    </SelectItem>
                     <SelectItem value="No interesado">No interesado</SelectItem>
-                    <SelectItem value="Pendiente de instalación">Pendiente de instalación</SelectItem>
-                    <SelectItem value="Pendiente de presupuesto">Pendiente de presupuesto</SelectItem>
-                    <SelectItem value="Pendiente de visita">Pendiente de visita</SelectItem>
-                    <SelectItem value="Pendiente de visitarnos">Pendiente de visitarnos</SelectItem>
+                    <SelectItem value="Pendiente de instalación">
+                      Pendiente de instalación
+                    </SelectItem>
+                    <SelectItem value="Pendiente de presupuesto">
+                      Pendiente de presupuesto
+                    </SelectItem>
+                    <SelectItem value="Pendiente de visita">
+                      Pendiente de visita
+                    </SelectItem>
+                    <SelectItem value="Pendiente de visitarnos">
+                      Pendiente de visitarnos
+                    </SelectItem>
                     <SelectItem value="Proximamente">Proximamente</SelectItem>
-                    <SelectItem value="Revisando ofertas">Revisando ofertas</SelectItem>
+                    <SelectItem value="Revisando ofertas">
+                      Revisando ofertas
+                    </SelectItem>
                     <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
                   </SelectContent>
                 </Select>
@@ -466,7 +553,12 @@ const formatEstado = (estado: string): string => {
 
               {/* Filtro por Fuente */}
               <div>
-                <Select value={filters.fuente || "todas"} onValueChange={(value) => setFilters({ fuente: value === "todas" ? "" : value })}>
+                <Select
+                  value={filters.fuente || "todas"}
+                  onValueChange={(value) =>
+                    setFilters({ fuente: value === "todas" ? "" : value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Todas las fuentes" />
                   </SelectTrigger>
@@ -476,7 +568,9 @@ const formatEstado = (estado: string): string => {
                     <SelectItem value="Instagram">Instagram</SelectItem>
                     <SelectItem value="Facebook">Facebook</SelectItem>
                     <SelectItem value="Directo">Directo</SelectItem>
-                    <SelectItem value="Mensaje de Whatsapp">Mensaje de Whatsapp</SelectItem>
+                    <SelectItem value="Mensaje de Whatsapp">
+                      Mensaje de Whatsapp
+                    </SelectItem>
                     <SelectItem value="Visita">Visita</SelectItem>
                   </SelectContent>
                 </Select>
@@ -484,16 +578,29 @@ const formatEstado = (estado: string): string => {
 
               {/* Filtro por Comercial */}
               <div>
-                <Select value={filters.comercial || "todos"} onValueChange={(value) => setFilters({ comercial: value === "todos" ? "" : value })}>
+                <Select
+                  value={filters.comercial || "todos"}
+                  onValueChange={(value) =>
+                    setFilters({ comercial: value === "todos" ? "" : value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los comerciales" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos los comerciales</SelectItem>
-                    <SelectItem value="Enelido Alexander Calero Perez">Enelido Alexander Calero Perez</SelectItem>
-                    <SelectItem value="Yanet Clara Rodríguez Quintana">Yanet Clara Rodríguez Quintana</SelectItem>
-                    <SelectItem value="Dashel Pinillos Zubiaur">Dashel Pinillos Zubiaur</SelectItem>
-                    <SelectItem value="Gretel María Mojena Almenares">Gretel María Mojena Almenares</SelectItem>
+                    <SelectItem value="Enelido Alexander Calero Perez">
+                      Enelido Alexander Calero Perez
+                    </SelectItem>
+                    <SelectItem value="Yanet Clara Rodríguez Quintana">
+                      Yanet Clara Rodríguez Quintana
+                    </SelectItem>
+                    <SelectItem value="Dashel Pinillos Zubiaur">
+                      Dashel Pinillos Zubiaur
+                    </SelectItem>
+                    <SelectItem value="Gretel María Mojena Almenares">
+                      Gretel María Mojena Almenares
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -534,14 +641,15 @@ const formatEstado = (estado: string): string => {
                   Mostrando {leads.length} de {totalLeads} leads
                 </CardDescription>
               </div>
-              
+
               {/* Botones de exportación */}
               {leads.length > 0 && (
                 <div className="flex-shrink-0">
                   <ExportButtons
-                    exportOptions={getExportOptions()}
+                    getExportOptions={getExportOptions}
                     baseFilename="leads"
                     variant="compact"
+                    showPdf={false}
                   />
                 </div>
               )}
@@ -562,6 +670,7 @@ const formatEstado = (estado: string): string => {
                   onConvert={handleConvertLead}
                   onGenerarCodigo={handleGenerarCodigoCliente}
                   onUploadComprobante={handleUploadLeadComprobante}
+                  onUploadFotos={handleUploadLeadFoto}
                   onDownloadComprobante={handleDownloadLeadComprobante}
                   onUpdatePrioridad={handleUpdateLeadPrioridad}
                   loading={loading}
@@ -585,13 +694,12 @@ const formatEstado = (estado: string): string => {
             open={isEditLeadDialogOpen}
             onOpenChange={setIsEditLeadDialogOpen}
             lead={editingLead}
-            onSubmit={(data) => handleUpdateLead(editingLead.id || '', data)}
+            onSubmit={(data) => handleUpdateLead(editingLead.id || "", data)}
             isLoading={loadingAction}
           />
         )}
-
       </main>
       <Toaster />
     </div>
-  )
+  );
 }

@@ -23,8 +23,10 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { UploadComprobanteDialog } from "@/components/shared/molecule/upload-comprobante-dialog";
 import { downloadFile } from "@/lib/utils/download-file";
+import { LeadService } from "@/lib/api-services";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 import {
+  Camera,
   Edit,
   Trash2,
   Phone,
@@ -68,7 +70,7 @@ import type {
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { useToast } from "@/hooks/use-toast";
-import type { Lead, LeadConversionRequest } from "@/lib/api-types";
+import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 
 interface LeadsTableProps {
   leads: Lead[];
@@ -79,6 +81,10 @@ interface LeadsTableProps {
   onUploadComprobante: (
     lead: Lead,
     payload: { file: File; metodo_pago?: string; moneda?: string },
+  ) => Promise<void>;
+  onUploadFotos?: (
+    lead: Lead,
+    payload: { file: File; tipo: "instalacion" | "averia" },
   ) => Promise<void>;
   onDownloadComprobante?: (lead: Lead) => Promise<void>;
   onUpdatePrioridad?: (
@@ -122,6 +128,7 @@ export function LeadsTable({
   onConvert,
   onGenerarCodigo,
   onUploadComprobante,
+  onUploadFotos,
   onDownloadComprobante,
   onUpdatePrioridad,
   loading,
@@ -162,6 +169,17 @@ export function LeadsTable({
   const [leadForComprobante, setLeadForComprobante] = useState<Lead | null>(
     null,
   );
+  const [showUploadFotosDialog, setShowUploadFotosDialog] = useState(false);
+  const [leadForUploadFotos, setLeadForUploadFotos] = useState<Lead | null>(
+    null,
+  );
+  const [uploadFotoTipo, setUploadFotoTipo] = useState<
+    "instalacion" | "averia"
+  >("instalacion");
+  const [uploadFotoFile, setUploadFotoFile] = useState<File | null>(null);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
+  const [fotosLeadDetails, setFotosLeadDetails] = useState<LeadFoto[]>([]);
+  const [loadingFotosLeadDetails, setLoadingFotosLeadDetails] = useState(false);
   const [showOfertasDialog, setShowOfertasDialog] = useState(false);
   const [selectedLeadForOfertas, setSelectedLeadForOfertas] =
     useState<Lead | null>(null);
@@ -617,9 +635,66 @@ export function LeadsTable({
     setOfertaLeadActual(null);
   };
 
-  const openDetailDialog = (lead: Lead) => {
+  const openDetailDialog = async (lead: Lead) => {
     setSelectedLead(lead);
     setIsDetailDialogOpen(true);
+    setLoadingFotosLeadDetails(true);
+
+    try {
+      if (!lead.id) {
+        setFotosLeadDetails([]);
+        return;
+      }
+      const fotos = await LeadService.getFotosLead(lead.id);
+      setFotosLeadDetails(fotos);
+    } catch (error) {
+      console.error("Error cargando fotos del lead:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los archivos del lead.",
+        variant: "destructive",
+      });
+      setFotosLeadDetails([]);
+    } finally {
+      setLoadingFotosLeadDetails(false);
+    }
+  };
+
+  const openUploadFotosDialog = (lead: Lead) => {
+    if (!onUploadFotos) return;
+    setLeadForUploadFotos(lead);
+    setUploadFotoTipo("instalacion");
+    setUploadFotoFile(null);
+    setShowUploadFotosDialog(true);
+  };
+
+  const closeUploadFotosDialog = () => {
+    setShowUploadFotosDialog(false);
+    setLeadForUploadFotos(null);
+    setUploadFotoTipo("instalacion");
+    setUploadFotoFile(null);
+    setUploadingFoto(false);
+  };
+
+  const handleUploadFotosLead = async () => {
+    if (!leadForUploadFotos || !uploadFotoFile || !onUploadFotos) return;
+
+    try {
+      setUploadingFoto(true);
+      await onUploadFotos(leadForUploadFotos, {
+        file: uploadFotoFile,
+        tipo: uploadFotoTipo,
+      });
+      closeUploadFotosDialog();
+      if (selectedLead?.id && leadForUploadFotos.id === selectedLead.id) {
+        const fotos = await LeadService.getFotosLead(selectedLead.id);
+        setFotosLeadDetails(fotos);
+      }
+    } catch (error) {
+      console.error("Error subiendo foto/video del lead:", error);
+    } finally {
+      setUploadingFoto(false);
+    }
   };
 
   const handleDeleteClick = (lead: Lead) => {
@@ -2332,6 +2407,29 @@ export function LeadsTable({
     return dateString;
   };
 
+  const isVideoUrl = (url: string) =>
+    /\.(mp4|webm|ogg|mov|m4v|avi|mkv|3gp)(\?|#|$)/i.test(url);
+
+  const formatFechaArchivo = (value?: string) => {
+    if (!value) return "Sin fecha";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return parsed.toLocaleString("es-ES");
+  };
+
+  const handleDownloadArchivo = async (url: string, index: number) => {
+    if (!selectedLead?.id) return;
+    try {
+      await downloadFile(url, `lead-${selectedLead.id}-archivo-${index + 1}`);
+    } catch (error) {
+      console.error(
+        "Error descargando archivo del lead",
+        selectedLead.id,
+        error,
+      );
+    }
+  };
+
   if (loading && leads.length === 0) {
     return (
       <div className="text-center py-8">
@@ -2565,7 +2663,19 @@ export function LeadsTable({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => openDetailDialog(lead)}
+                        onClick={() => openUploadFotosDialog(lead)}
+                        className="text-violet-600 hover:text-violet-800 h-7 w-7 p-0"
+                        title="Agregar foto o video"
+                        disabled={disableActions || !onUploadFotos}
+                      >
+                        <Camera className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          void openDetailDialog(lead);
+                        }}
                         className="text-blue-600 hover:text-blue-800 h-7 w-7 p-0"
                         title="Ver detalles"
                         disabled={disableActions}
@@ -2602,7 +2712,17 @@ export function LeadsTable({
       </div>
 
       {/* Detail Dialog */}
-      <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+      <Dialog
+        open={isDetailDialogOpen}
+        onOpenChange={(open) => {
+          setIsDetailDialogOpen(open);
+          if (!open) {
+            setSelectedLead(null);
+            setFotosLeadDetails([]);
+            setLoadingFotosLeadDetails(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
             <DialogTitle className="text-xl font-semibold text-gray-900">
@@ -3008,7 +3128,88 @@ export function LeadsTable({
                 </div>
               )}
 
-              {/* Sección 4: Comentarios (Condicional) */}
+              {/* Sección 4: Evidencias (Fotos/Videos) */}
+              <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
+                <div className="pb-4 mb-4 border-b-2 border-gray-200">
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Evidencias
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Archivos subidos del lead (instalación o avería)
+                  </p>
+                </div>
+
+                {loadingFotosLeadDetails ? (
+                  <p className="text-sm text-gray-500">Cargando archivos...</p>
+                ) : fotosLeadDetails.length === 0 ? (
+                  <p className="text-sm text-gray-500">
+                    Este lead no tiene archivos subidos.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {fotosLeadDetails.map((archivo, index) => (
+                      <div
+                        key={`${archivo.url}-${index}`}
+                        className="border rounded-lg p-3 bg-gray-50"
+                      >
+                        <div className="w-full h-48 bg-black/5 rounded-md overflow-hidden mb-3">
+                          {isVideoUrl(archivo.url) ? (
+                            <video
+                              src={archivo.url}
+                              controls
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <img
+                              src={archivo.url}
+                              alt={`Evidencia ${index + 1}`}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <Badge className="bg-blue-100 text-blue-700 border-blue-200">
+                              {archivo.tipo === "instalacion"
+                                ? "Instalación"
+                                : "Avería"}
+                            </Badge>
+                            <span className="text-xs text-gray-500">
+                              {formatFechaArchivo(archivo.fecha)}
+                            </span>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => window.open(archivo.url, "_blank")}
+                              className="flex-1"
+                            >
+                              Ver
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                void handleDownloadArchivo(archivo.url, index)
+                              }
+                              className="flex-1"
+                            >
+                              Descargar
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sección 5: Comentarios (Condicional) */}
               {selectedLead.comentario && (
                 <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
                   <div className="pb-4 mb-4 border-b-2 border-gray-200">
@@ -3027,7 +3228,7 @@ export function LeadsTable({
                 </div>
               )}
 
-              {/* Sección 5: Elementos Personalizados (Condicional) */}
+              {/* Sección 6: Elementos Personalizados (Condicional) */}
               {selectedLead.elementos_personalizados &&
                 selectedLead.elementos_personalizados.length > 0 && (
                   <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
@@ -3434,6 +3635,88 @@ export function LeadsTable({
         lockContactType="lead"
         lockLeadId={selectedLeadForOfertas?.id || ""}
       />
+
+      <Dialog
+        open={showUploadFotosDialog}
+        onOpenChange={(open) => {
+          setShowUploadFotosDialog(open);
+          if (!open) closeUploadFotosDialog();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Agregar foto/video del lead</DialogTitle>
+            <DialogDescription>
+              {leadForUploadFotos
+                ? `${leadForUploadFotos.nombre || leadForUploadFotos.telefono || leadForUploadFotos.id || "Lead"}`
+                : "Selecciona un lead"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="lead-foto-tipo">Tipo</Label>
+              <Select
+                value={uploadFotoTipo}
+                onValueChange={(value: "instalacion" | "averia") =>
+                  setUploadFotoTipo(value)
+                }
+              >
+                <SelectTrigger id="lead-foto-tipo">
+                  <SelectValue placeholder="Selecciona un tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="instalacion">Instalación</SelectItem>
+                  <SelectItem value="averia">Avería</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lead-foto-archivo">Archivo</Label>
+              <Input
+                id="lead-foto-archivo"
+                type="file"
+                accept="image/*,video/*"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] || null;
+                  setUploadFotoFile(file);
+                }}
+                disabled={uploadingFoto}
+              />
+              <p className="text-xs text-gray-500">Acepta imágenes y videos.</p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeUploadFotosDialog}
+                disabled={uploadingFoto}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  void handleUploadFotosLead();
+                }}
+                disabled={!uploadFotoFile || uploadingFoto || !onUploadFotos}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                {uploadingFoto ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Subiendo...
+                  </>
+                ) : (
+                  "Subir archivo"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <UploadComprobanteDialog
         open={isComprobanteDialogOpen}
