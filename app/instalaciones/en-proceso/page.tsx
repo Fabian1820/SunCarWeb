@@ -69,11 +69,7 @@ export default function InstalacionesEnProcesoPage() {
     fechaHasta: "",
     materialesEntregados: "todos" as "todos" | "con_entregas" | "sin_entregas",
     equiposEnServicio: "todos" as "todos" | "con_servicio" | "sin_servicio",
-    tipoEquipoServicio: "todos" as
-      | "todos"
-      | "inversores"
-      | "paneles"
-      | "baterias",
+    tiposEquipoEnServicio: "todos" as "todos" | "1" | "2" | "3",
   });
   const [ofertasConEntregasIds, setOfertasConEntregasIds] = useState<
     Set<string>
@@ -82,15 +78,28 @@ export default function InstalacionesEnProcesoPage() {
     Record<string, ResumenEquiposEnServicioCliente>
   >({});
   const resumenRequestIdRef = useRef(0);
+  const resumenServicioCacheRef = useRef<
+    Record<string, ResumenEquiposEnServicioCliente>
+  >({});
 
   const cargarResumenServicioEnSegundoPlano = useCallback(
     async (numerosClientes: string[]) => {
       const requestId = ++resumenRequestIdRef.current;
-      const resumenMap: Record<string, ResumenEquiposEnServicioCliente> = {};
+      const cache = resumenServicioCacheRef.current;
+      const resumenInicial: Record<string, ResumenEquiposEnServicioCliente> =
+        {};
+      numerosClientes.forEach((numero) => {
+        if (cache[numero]) resumenInicial[numero] = cache[numero];
+      });
+      setResumenServicioPorCliente(resumenInicial);
+
+      const pendientes = numerosClientes.filter((numero) => !cache[numero]);
+      if (pendientes.length === 0) return;
+
       const batchSize = 12;
 
-      for (let i = 0; i < numerosClientes.length; i += batchSize) {
-        const batch = numerosClientes.slice(i, i + batchSize);
+      for (let i = 0; i < pendientes.length; i += batchSize) {
+        const batch = pendientes.slice(i, i + batchSize);
         const resumenEntries = await Promise.all(
           batch.map(async (numero) => {
             const resumen =
@@ -104,15 +113,14 @@ export default function InstalacionesEnProcesoPage() {
         }
 
         resumenEntries.forEach(([numero, resumen]) => {
-          resumenMap[numero] = resumen;
+          cache[numero] = resumen;
         });
+        const vistaActual: Record<string, ResumenEquiposEnServicioCliente> = {};
+        numerosClientes.forEach((numero) => {
+          if (cache[numero]) vistaActual[numero] = cache[numero];
+        });
+        setResumenServicioPorCliente(vistaActual);
       }
-
-      if (requestId !== resumenRequestIdRef.current) {
-        return;
-      }
-
-      setResumenServicioPorCliente(resumenMap);
     },
     [],
   );
@@ -163,6 +171,7 @@ export default function InstalacionesEnProcesoPage() {
       setClients([]);
       setOfertasConEntregasIds(new Set());
       setResumenServicioPorCliente({});
+      resumenServicioCacheRef.current = {};
       toast({
         title: "Error",
         description: "No se pudieron cargar las instalaciones",
@@ -432,20 +441,16 @@ export default function InstalacionesEnProcesoPage() {
 
       if (appliedFilters.equiposEnServicio !== "todos") {
         const resumenServicio = getServicioResumenCliente(client);
-        const cantidadSeleccionada =
-          appliedFilters.tipoEquipoServicio === "inversores"
-            ? resumenServicio.inversores
-            : appliedFilters.tipoEquipoServicio === "paneles"
-              ? resumenServicio.paneles
-              : appliedFilters.tipoEquipoServicio === "baterias"
-                ? resumenServicio.baterias
-                : resumenServicio.inversores +
-                  resumenServicio.paneles +
-                  resumenServicio.baterias;
+        const tiposActivos = [
+          resumenServicio.inversores > 0,
+          resumenServicio.paneles > 0,
+          resumenServicio.baterias > 0,
+        ].filter(Boolean).length;
         const hasServicioSeleccionado =
-          appliedFilters.tipoEquipoServicio === "todos"
-            ? resumenServicio.tiene || cantidadSeleccionada > 0
-            : cantidadSeleccionada > 0;
+          resumenServicio.tiene ||
+          resumenServicio.inversores > 0 ||
+          resumenServicio.paneles > 0 ||
+          resumenServicio.baterias > 0;
 
         if (
           appliedFilters.equiposEnServicio === "con_servicio" &&
@@ -456,6 +461,14 @@ export default function InstalacionesEnProcesoPage() {
         if (
           appliedFilters.equiposEnServicio === "sin_servicio" &&
           hasServicioSeleccionado
+        ) {
+          return false;
+        }
+
+        if (
+          appliedFilters.equiposEnServicio === "con_servicio" &&
+          appliedFilters.tiposEquipoEnServicio !== "todos" &&
+          tiposActivos !== Number(appliedFilters.tiposEquipoEnServicio)
         ) {
           return false;
         }

@@ -405,9 +405,8 @@ export function InstalacionesEnProcesoTable({
   const [equiposEnServicioFilter, setEquiposEnServicioFilter] = useState<
     "todos" | "con_servicio" | "sin_servicio"
   >("todos");
-  const [tipoEquipoServicioFilter, setTipoEquipoServicioFilter] = useState<
-    "todos" | "inversores" | "paneles" | "baterias"
-  >("todos");
+  const [tiposEquipoEnServicioFilter, setTiposEquipoEnServicioFilter] =
+    useState<"todos" | "1" | "2" | "3">("todos");
 
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const [isEditFaltaDialogOpen, setIsEditFaltaDialogOpen] = useState(false);
@@ -572,7 +571,7 @@ export function InstalacionesEnProcesoTable({
       fechaHasta,
       materialesEntregados: materialesEntregadosFilter,
       equiposEnServicio: equiposEnServicioFilter,
-      tipoEquipoServicio: tipoEquipoServicioFilter,
+      tiposEquipoEnServicio: tiposEquipoEnServicioFilter,
     });
   }, [
     searchTerm,
@@ -580,7 +579,7 @@ export function InstalacionesEnProcesoTable({
     fechaHasta,
     materialesEntregadosFilter,
     equiposEnServicioFilter,
-    tipoEquipoServicioFilter,
+    tiposEquipoEnServicioFilter,
     onFiltersChange,
   ]);
 
@@ -1606,25 +1605,21 @@ export function InstalacionesEnProcesoTable({
               </select>
             </div>
             <div>
-              <Label htmlFor="tipo-equipo-servicio">Tipo de Equipo</Label>
+              <Label htmlFor="tipo-equipo-servicio">Tipos en Servicio</Label>
               <select
                 id="tipo-equipo-servicio"
                 className="w-full border rounded px-3 py-2 bg-white"
-                value={tipoEquipoServicioFilter}
+                value={tiposEquipoEnServicioFilter}
                 onChange={(e) =>
-                  setTipoEquipoServicioFilter(
-                    e.target.value as
-                      | "todos"
-                      | "inversores"
-                      | "paneles"
-                      | "baterias",
+                  setTiposEquipoEnServicioFilter(
+                    e.target.value as "todos" | "1" | "2" | "3",
                   )
                 }
               >
                 <option value="todos">Todos</option>
-                <option value="inversores">Inversores</option>
-                <option value="paneles">Paneles</option>
-                <option value="baterias">Baterias</option>
+                <option value="1">1 tipo</option>
+                <option value="2">2 tipos</option>
+                <option value="3">3 tipos</option>
               </select>
             </div>
             <div>

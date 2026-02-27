@@ -116,8 +116,6 @@ export interface ResumenEquiposEnServicioCliente {
   tiene_alguno_en_servicio: boolean;
 }
 
-type ServicioCategoria = "inversores" | "paneles" | "baterias";
-
 const parseArrayToIdSet = (values: unknown): Set<string> => {
   const ids = new Set<string>();
   if (!Array.isArray(values)) return ids;
@@ -155,127 +153,6 @@ const buildResumenServicioDefault = (
   baterias_en_servicio: 0,
   tiene_alguno_en_servicio: false,
 });
-
-const getServicioCategoriaFromItem = (
-  item: Record<string, unknown>,
-): ServicioCategoria | null => {
-  const descripcion = String(item.descripcion || "").toLowerCase();
-  const codigo = String(item.material_codigo || "").toLowerCase();
-  const seccion = String(item.seccion || "").toLowerCase();
-
-  if (
-    seccion.includes("inversor") ||
-    descripcion.includes("inversor") ||
-    codigo.includes("inv")
-  ) {
-    return "inversores";
-  }
-  if (
-    seccion.includes("panel") ||
-    descripcion.includes("panel") ||
-    codigo.includes("pan")
-  ) {
-    return "paneles";
-  }
-  if (
-    seccion.includes("bateria") ||
-    seccion.includes("batería") ||
-    descripcion.includes("bateria") ||
-    descripcion.includes("batería") ||
-    codigo.includes("bat")
-  ) {
-    return "baterias";
-  }
-  return null;
-};
-
-const getResumenEnServicioDesdeOfertasCliente = async (
-  numeroCliente: string,
-): Promise<ResumenEquiposEnServicioCliente> => {
-  const fallback = buildResumenServicioDefault(numeroCliente);
-
-  try {
-    const response = await apiRequest<unknown>(
-      `/ofertas/confeccion/cliente/${encodeURIComponent(numeroCliente)}`,
-      { method: "GET" },
-    );
-    const responseObj =
-      response && typeof response === "object"
-        ? (response as Record<string, unknown>)
-        : null;
-    if (!responseObj || responseObj.success === false || responseObj.error) {
-      return fallback;
-    }
-
-    const payload = responseObj.data ?? responseObj;
-    const payloadObj =
-      payload && typeof payload === "object"
-        ? (payload as Record<string, unknown>)
-        : null;
-    const dataRoot =
-      payloadObj?.data && typeof payloadObj.data === "object"
-        ? (payloadObj.data as Record<string, unknown>)
-        : payloadObj;
-    if (!dataRoot) return fallback;
-
-    const ofertas = Array.isArray(dataRoot.ofertas)
-      ? (dataRoot.ofertas as Array<Record<string, unknown>>)
-      : [];
-    if (ofertas.length === 0) return fallback;
-
-    let inversores = 0;
-    let paneles = 0;
-    let baterias = 0;
-
-    for (const oferta of ofertas) {
-      const items = Array.isArray(oferta.items)
-        ? (oferta.items as Array<Record<string, unknown>>)
-        : Array.isArray(oferta.materiales)
-          ? (oferta.materiales as Array<Record<string, unknown>>)
-          : [];
-
-      for (const item of items) {
-        const categoria = getServicioCategoriaFromItem(item);
-        if (!categoria) continue;
-
-        const cantidadEnServicio = parsePositiveInt(item.cantidad_en_servicio);
-        const cantidadTotal = parsePositiveInt(item.cantidad);
-        const incremento =
-          cantidadEnServicio > 0
-            ? cantidadEnServicio
-            : item.en_servicio === true
-              ? Math.max(1, cantidadTotal)
-              : 0;
-
-        if (incremento <= 0) continue;
-        if (categoria === "inversores") inversores += incremento;
-        if (categoria === "paneles") paneles += incremento;
-        if (categoria === "baterias") baterias += incremento;
-      }
-    }
-
-    const ofertaPrincipal = ofertas[0] || null;
-    return {
-      numero_cliente: numeroCliente,
-      oferta_id: ofertaPrincipal?.oferta_id
-        ? String(ofertaPrincipal.oferta_id)
-        : ofertaPrincipal?._id
-          ? String(ofertaPrincipal._id)
-          : ofertaPrincipal?.id
-            ? String(ofertaPrincipal.id)
-            : null,
-      numero_oferta: ofertaPrincipal?.numero_oferta
-        ? String(ofertaPrincipal.numero_oferta)
-        : null,
-      inversores_en_servicio: inversores,
-      paneles_en_servicio: paneles,
-      baterias_en_servicio: baterias,
-      tiene_alguno_en_servicio: inversores > 0 || paneles > 0 || baterias > 0,
-    };
-  } catch {
-    return fallback;
-  }
-};
 
 export const InstalacionesService = {
   /**
@@ -423,7 +300,7 @@ export const InstalacionesService = {
         !rawData ||
         typeof rawData !== "object"
       ) {
-        return await getResumenEnServicioDesdeOfertasCliente(numeroCliente);
+        return buildResumenServicioDefault(numeroCliente);
       }
 
       const data = rawData as Record<string, unknown>;
@@ -436,7 +313,7 @@ export const InstalacionesService = {
         paneles > 0 ||
         baterias > 0;
 
-      const resumenEndpoint: ResumenEquiposEnServicioCliente = {
+      return {
         numero_cliente: String(data.numero_cliente || numeroCliente),
         oferta_id: data.oferta_id ? String(data.oferta_id) : null,
         numero_oferta: data.numero_oferta ? String(data.numero_oferta) : null,
@@ -445,16 +322,8 @@ export const InstalacionesService = {
         baterias_en_servicio: baterias,
         tiene_alguno_en_servicio: tieneAlguno,
       };
-      if (!resumenEndpoint.tiene_alguno_en_servicio) {
-        const resumenFallback =
-          await getResumenEnServicioDesdeOfertasCliente(numeroCliente);
-        if (resumenFallback.tiene_alguno_en_servicio) {
-          return resumenFallback;
-        }
-      }
-      return resumenEndpoint;
     } catch {
-      return await getResumenEnServicioDesdeOfertasCliente(numeroCliente);
+      return buildResumenServicioDefault(numeroCliente);
     }
   },
 };
