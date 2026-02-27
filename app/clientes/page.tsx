@@ -42,6 +42,28 @@ type ClientesFilters = {
   limit: number;
 };
 
+const normalizeFilterValue = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+const parseClientDate = (value?: string): Date | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split("/").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const getCodigoCliente = (client: Cliente): string => {
   const dynamicClient = client as Record<string, unknown>;
   const candidates = [
@@ -79,6 +101,90 @@ const sortClientsByCodigo = (items: Cliente[]): Cliente[] => {
 
     return codeA.localeCompare(codeB, "es", { sensitivity: "base" });
   });
+};
+
+const normalizeSearchText = (value: string): string =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+const buildClientSearchText = (client: Cliente): string => {
+  const dynamicClient = client as Record<string, unknown>;
+  const provinciaAlterna =
+    typeof dynamicClient.provincia === "string" ? dynamicClient.provincia : "";
+  const referenciaAlterna =
+    typeof dynamicClient.referencia_cliente === "string"
+      ? dynamicClient.referencia_cliente
+      : "";
+
+  const fields = [
+    client.nombre,
+    client.direccion,
+    client.telefono,
+    client.municipio,
+    client.provincia_montaje,
+    provinciaAlterna,
+    client.referencia,
+    referenciaAlterna,
+    client.comercial,
+    client.fuente,
+    client.numero,
+  ]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .map((value) => value.trim());
+
+  return normalizeSearchText(fields.join(" "));
+};
+
+const matchesClientFilters = (
+  client: Cliente,
+  filters: Pick<
+    ClientesFilters,
+    | "searchTerm"
+    | "estado"
+    | "fuente"
+    | "comercial"
+    | "fechaDesde"
+    | "fechaHasta"
+  >,
+): boolean => {
+  const normalizedSearch = normalizeSearchText(filters.searchTerm.trim());
+  if (normalizedSearch) {
+    if (!buildClientSearchText(client).includes(normalizedSearch)) return false;
+  }
+
+  if (filters.estado.length > 0) {
+    const estadoCliente = normalizeFilterValue(client.estado || "");
+    const estadosSeleccionados = filters.estado.map(normalizeFilterValue);
+    if (!estadosSeleccionados.includes(estadoCliente)) return false;
+  }
+
+  if (filters.fuente.trim()) {
+    const fuenteCliente = normalizeFilterValue(client.fuente || "");
+    if (fuenteCliente !== normalizeFilterValue(filters.fuente)) return false;
+  }
+
+  if (filters.comercial.trim()) {
+    const comercialCliente = normalizeFilterValue(client.comercial || "");
+    if (comercialCliente !== normalizeFilterValue(filters.comercial))
+      return false;
+  }
+
+  if (filters.fechaDesde || filters.fechaHasta) {
+    const fechaCliente = parseClientDate(client.fecha_contacto);
+    if (!fechaCliente) return false;
+
+    const desde = parseClientDate(filters.fechaDesde);
+    const hasta = parseClientDate(filters.fechaHasta);
+    if (desde) desde.setHours(0, 0, 0, 0);
+    if (hasta) hasta.setHours(23, 59, 59, 999);
+
+    if (desde && fechaCliente < desde) return false;
+    if (hasta && fechaCliente > hasta) return false;
+  }
+
+  return true;
 };
 
 export default function ClientesPage() {
@@ -152,27 +258,108 @@ export default function ClientesPage() {
     [appliedFilters.limit],
   );
 
+  const fetchAllClientsByBaseFilters = useCallback(
+    async (baseParams: {
+      estado?: string[];
+      fuente?: string;
+      comercial?: string;
+      fechaDesde?: string;
+      fechaHasta?: string;
+    }): Promise<Cliente[]> => {
+      const pageSize = 500;
+      const firstPage = await ClienteService.getClientes({
+        ...baseParams,
+        skip: 0,
+        limit: pageSize,
+      });
+
+      let allClients = [...firstPage.clients];
+      const total = firstPage.total ?? firstPage.clients.length;
+
+      for (
+        let nextSkip = firstPage.clients.length;
+        nextSkip < total;
+        nextSkip += pageSize
+      ) {
+        const pageResult = await ClienteService.getClientes({
+          ...baseParams,
+          skip: nextSkip,
+          limit: pageSize,
+        });
+        if (pageResult.clients.length === 0) break;
+        allClients = allClients.concat(pageResult.clients);
+      }
+
+      return allClients;
+    },
+    [],
+  );
+
   const fetchClients = useCallback(
     async (overrideFilters?: Partial<ClientesFilters>) => {
       setLoading(true);
       try {
         const filters = { ...appliedFilters, ...overrideFilters };
+        const searchValue = filters.searchTerm.trim();
         const normalizedEstado = Array.from(
           new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
         );
+
+        const baseParams = {
+          estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
+          fuente: filters.fuente || undefined,
+          comercial: filters.comercial || undefined,
+          fechaDesde: filters.fechaDesde || undefined,
+          fechaHasta: filters.fechaHasta || undefined,
+        };
+
+        const hasActiveFilters =
+          Boolean(searchValue) ||
+          normalizedEstado.length > 0 ||
+          Boolean(filters.fuente.trim()) ||
+          Boolean(filters.comercial.trim()) ||
+          Boolean(filters.fechaDesde) ||
+          Boolean(filters.fechaHasta);
+
+        if (hasActiveFilters) {
+          const allBaseClients = await fetchAllClientsByBaseFilters(baseParams);
+          const filteredClients = allBaseClients.filter((client) =>
+            matchesClientFilters(client, {
+              searchTerm: searchValue,
+              estado: normalizedEstado,
+              fuente: filters.fuente,
+              comercial: filters.comercial,
+              fechaDesde: filters.fechaDesde,
+              fechaHasta: filters.fechaHasta,
+            }),
+          );
+          const start = Math.max(0, filters.skip);
+          const end = start + Math.max(1, filters.limit);
+          const paginatedClients = filteredClients.slice(start, end);
+
+          setClients(sortClientsByCodigo(paginatedClients));
+          setTotalClients(filteredClients.length);
+
+          if (
+            overrideFilters?.skip !== undefined ||
+            overrideFilters?.limit !== undefined
+          ) {
+            setAppliedFilters((prev) => ({
+              ...prev,
+              skip: filters.skip,
+              limit: filters.limit,
+            }));
+          }
+          return;
+        }
+
         const {
           clients: fetchedClients,
           total,
           skip,
           limit,
         } = await ClienteService.getClientes({
-          q: filters.searchTerm || undefined,
-          nombre: filters.searchTerm || undefined,
-          estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
-          fuente: filters.fuente || undefined,
-          comercial: filters.comercial || undefined,
-          fechaDesde: filters.fechaDesde || undefined,
-          fechaHasta: filters.fechaHasta || undefined,
+          ...baseParams,
           skip: filters.skip,
           limit: filters.limit,
         });
@@ -189,22 +376,19 @@ export default function ClientesPage() {
         setLoading(false);
       }
     },
-    [appliedFilters],
+    [appliedFilters, fetchAllClientsByBaseFilters],
   );
 
   const getAllFilteredClientsForExport = useCallback(async (): Promise<
     Cliente[]
   > => {
+    const searchValue = appliedFilters.searchTerm.trim();
     const normalizedEstado = Array.from(
       new Set(
         appliedFilters.estado.map((value) => value.trim()).filter(Boolean),
       ),
     );
-
-    const pageSize = 500;
     const baseParams = {
-      q: appliedFilters.searchTerm || undefined,
-      nombre: appliedFilters.searchTerm || undefined,
       estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
       fuente: appliedFilters.fuente || undefined,
       comercial: appliedFilters.comercial || undefined,
@@ -212,31 +396,20 @@ export default function ClientesPage() {
       fechaHasta: appliedFilters.fechaHasta || undefined,
     };
 
-    const firstPage = await ClienteService.getClientes({
-      ...baseParams,
-      skip: 0,
-      limit: pageSize,
-    });
+    const allClients = await fetchAllClientsByBaseFilters(baseParams);
+    const exportClients = allClients.filter((client) =>
+      matchesClientFilters(client, {
+        searchTerm: searchValue,
+        estado: normalizedEstado,
+        fuente: appliedFilters.fuente,
+        comercial: appliedFilters.comercial,
+        fechaDesde: appliedFilters.fechaDesde,
+        fechaHasta: appliedFilters.fechaHasta,
+      }),
+    );
 
-    let allClients = [...firstPage.clients];
-    const total = firstPage.total ?? firstPage.clients.length;
-
-    for (
-      let nextSkip = firstPage.clients.length;
-      nextSkip < total;
-      nextSkip += pageSize
-    ) {
-      const pageResult = await ClienteService.getClientes({
-        ...baseParams,
-        skip: nextSkip,
-        limit: pageSize,
-      });
-      if (pageResult.clients.length === 0) break;
-      allClients = allClients.concat(pageResult.clients);
-    }
-
-    return sortClientsByCodigo(allClients);
-  }, [appliedFilters]);
+    return sortClientsByCodigo(exportClients);
+  }, [appliedFilters, fetchAllClientsByBaseFilters]);
 
   // Cargar datos iniciales
   const loadInitialData = async () => {

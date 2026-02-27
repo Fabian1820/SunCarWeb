@@ -78,7 +78,6 @@ const isClienteEntregado = (cliente: ClienteConEquipo) => {
 
 const isClientePendiente = (cliente: ClienteConEquipo) => {
   const estado = getEstadoNormalizado(cliente);
-  // Pendiente = cualquier cliente que aún NO está en servicio
   if (!isClienteEnServicio(cliente)) return true;
 
   return (
@@ -94,14 +93,14 @@ const getCantidadPorEstado = (
   cliente: ClienteConEquipo,
   estado: EstadoCliente,
 ) => {
-  const directa =
+  const cantidadDirecta =
     estado === "entregados"
       ? cliente.unidades_entregadas
       : estado === "servicio"
         ? cliente.unidades_en_servicio
         : cliente.unidades_pendientes;
 
-  if (cantidadBase > 0) return cantidadBase;
+  if (cantidadDirecta > 0) return cantidadDirecta;
 
   if (estado === "entregados" && isClienteEntregado(cliente)) {
     return cliente.cantidad_equipos;
@@ -128,6 +127,43 @@ const getClientesPorEstado = (equipo: EquipoDetalle) => ({
     (cliente) => cliente.unidades_pendientes > 0 || isClientePendiente(cliente),
   ),
 });
+
+const mapEquipos = (items: EquipoDetalle[], prefix: string): EquipoItem[] =>
+  items.map((equipo, index) => ({
+    key: `${prefix}-${equipo.id || equipo.codigo || index}`,
+    equipo,
+  }));
+
+function ClienteRow({
+  cliente,
+  estado,
+}: {
+  cliente: ClienteConEquipo;
+  estado: EstadoCliente;
+}) {
+  const cantidad = getCantidadPorEstado(cliente, estado);
+  return (
+    <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {cliente.nombre || "Sin nombre"}
+          </p>
+          <p className="truncate text-xs text-slate-500">
+            {cliente.codigo || cliente.id}
+            {cliente.telefono ? ` • ${cliente.telefono}` : ""}
+          </p>
+        </div>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+          {cantidad} eq.
+        </span>
+      </div>
+      {cliente.direccion && (
+        <p className="mt-1 truncate text-xs text-slate-500">{cliente.direccion}</p>
+      )}
+    </div>
+  );
+}
 
 function EstadoClientesList({
   title,
@@ -198,9 +234,21 @@ export function EstadoEquiposStats({
   loading,
   onRefresh,
 }: EstadoEquiposStatsProps) {
-  const [expandedEquipos, setExpandedEquipos] = useState<Set<string>>(
-    new Set(),
-  );
+  const [vistaActiva, setVistaActiva] = useState<VistaKey>("inversores");
+  const [selectedByVista, setSelectedByVista] = useState<
+    Record<VistaKey, string | null>
+  >({
+    inversores: null,
+    baterias: null,
+    paneles: null,
+  });
+  const [expandedCategorias, setExpandedCategorias] = useState<
+    Record<EstadoCliente, boolean>
+  >({
+    entregados: true,
+    servicio: false,
+    pendientes: false,
+  });
 
   const equipos = useMemo(() => {
     if (!data) return [];
@@ -209,7 +257,7 @@ export function EstadoEquiposStats({
 
   const equiposPorVista = useMemo(() => {
     const inversores = mapEquipos(
-      [...todosLosEquipos]
+      [...equipos]
         .filter(
           (item) =>
             isInversor(item.categoria) ||
@@ -221,7 +269,7 @@ export function EstadoEquiposStats({
     );
 
     const baterias = mapEquipos(
-      [...todosLosEquipos]
+      [...equipos]
         .filter(
           (item) =>
             isBateria(item.categoria) ||
@@ -229,28 +277,11 @@ export function EstadoEquiposStats({
             isBateria(item.nombre),
         )
         .sort((a, b) => b.unidades_vendidas - a.unidades_vendidas),
-    [equipos],
-  );
+      "bat",
+    );
 
-  const equiposOtros = useMemo(
-    () =>
-      equipos.filter((equipo) => {
-        const inversor =
-          isInversor(equipo.categoria) ||
-          isInversor(equipo.tipo) ||
-          isInversor(equipo.nombre);
-        const bateria =
-          isBateria(equipo.categoria) ||
-          isBateria(equipo.tipo) ||
-          isBateria(equipo.nombre);
-        return !inversor && !bateria;
-      }),
-    [equipos],
-  );
-
-  const equiposPaneles = useMemo(
-    () =>
-      equipos
+    const paneles = mapEquipos(
+      [...equipos]
         .filter(
           (item) =>
             isPanel(item.categoria) ||
@@ -262,7 +293,7 @@ export function EstadoEquiposStats({
     );
 
     return { inversores, baterias, paneles };
-  }, [todosLosEquipos]);
+  }, [equipos]);
 
   useEffect(() => {
     setSelectedByVista((prev) => {
@@ -302,6 +333,21 @@ export function EstadoEquiposStats({
       pendientes: false,
     });
   }, [vistaActiva, selectedEquipoKey]);
+
+  const getClientesEstado = (
+    equipo: EquipoDetalle,
+    estado: EstadoCliente,
+  ): ClienteConEquipo[] => {
+    const grupos = getClientesPorEstado(equipo);
+    return [...grupos[estado]].sort((a, b) => {
+      const diff =
+        getCantidadPorEstado(b, estado) - getCantidadPorEstado(a, estado);
+      if (diff !== 0) return diff;
+      return (a.nombre || "").localeCompare(b.nombre || "", "es", {
+        sensitivity: "base",
+      });
+    });
+  };
 
   const clientesEntregados = equipoSeleccionado
     ? getClientesEstado(equipoSeleccionado, "entregados")
@@ -579,7 +625,7 @@ export function EstadoEquiposStats({
                 </div>
 
                 <div className="space-y-2">
-                  <CategoriaAccordion
+                  <EstadoClientesList
                     title="Entregados (sin servicio)"
                     estado="entregados"
                     clientes={clientesEntregados}
@@ -588,7 +634,7 @@ export function EstadoEquiposStats({
                     onToggle={() => toggleCategoria("entregados")}
                     className="bg-emerald-50 text-emerald-700"
                   />
-                  <CategoriaAccordion
+                  <EstadoClientesList
                     title="En servicio"
                     estado="servicio"
                     clientes={clientesServicio}
@@ -597,7 +643,7 @@ export function EstadoEquiposStats({
                     onToggle={() => toggleCategoria("servicio")}
                     className="bg-violet-50 text-violet-700"
                   />
-                  <CategoriaAccordion
+                  <EstadoClientesList
                     title="Pendientes"
                     estado="pendientes"
                     clientes={clientesPendientes}

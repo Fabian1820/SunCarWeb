@@ -27,6 +27,7 @@ import {
   DialogDescription,
 } from "@/components/shared/molecule/dialog";
 import { Input } from "@/components/shared/molecule/input";
+import { Textarea } from "@/components/shared/molecule/textarea";
 import {
   Popover,
   PopoverContent,
@@ -170,6 +171,20 @@ const getClientTailSortNumber = (client: Cliente) => {
   return Number.parseInt(tail, 10) || 0;
 };
 
+const formatOfertaEstado = (estado?: string) => {
+  if (!estado) return "--";
+  return estado
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
+const formatOfertaMoney = (value?: number) =>
+  new Intl.NumberFormat("es-ES", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value ?? 0));
+
 export function ClientsTable({
   clients,
   onEdit,
@@ -272,6 +287,22 @@ export function ClientsTable({
     updatingClienteListoParaPagarNumero,
     setUpdatingClienteListoParaPagarNumero,
   ] = useState<string | null>(null);
+  const [clienteListoParaPagarMap, setClienteListoParaPagarMap] = useState<
+    Record<string, boolean>
+  >({});
+  const [showListoPagoDialog, setShowListoPagoDialog] = useState(false);
+  const [clientForListoPago, setClientForListoPago] = useState<Cliente | null>(
+    null,
+  );
+  const [loadingListoPagoDialog, setLoadingListoPagoDialog] = useState(false);
+  const [ofertaListoPagoSeleccionada, setOfertaListoPagoSeleccionada] =
+    useState<OfertaConfeccion | null>(null);
+  const [tieneOfertaAsignadaListoPago, setTieneOfertaAsignadaListoPago] =
+    useState(false);
+  const [tieneOfertaConfirmadaListoPago, setTieneOfertaConfirmadaListoPago] =
+    useState(false);
+  const [comentarioContabilidadListoPago, setComentarioContabilidadListoPago] =
+    useState("");
   const [
     savingComentarioContabilidadOfertaId,
     setSavingComentarioContabilidadOfertaId,
@@ -370,6 +401,68 @@ export function ClientsTable({
       return codeA.localeCompare(codeB, "es", { sensitivity: "base" });
     });
   }, [clients]);
+
+  useEffect(() => {
+    if (!cargaSetOfertasTerminada) return;
+
+    const numerosPendientes = sortedClients
+      .map((client) => normalizeClienteNumero(client.numero))
+      .filter(Boolean)
+      .filter((numero) => clientesConOferta.has(numero))
+      .filter((numero) => !(numero in clienteListoParaPagarMap))
+      .slice(0, 30);
+
+    if (numerosPendientes.length === 0) return;
+
+    let cancelado = false;
+
+    Promise.all(
+      numerosPendientes.map(async (numero) => {
+        const result = await obtenerOfertaPorCliente(numero);
+        const ofertasCliente = result.ofertas?.length
+          ? result.ofertas
+          : result.oferta
+            ? [result.oferta]
+            : [];
+        const ofertaReferencia =
+          ofertasCliente.find((item) =>
+            Boolean(item.cliente_listo_para_pagar),
+          ) ??
+          ofertasCliente.find(
+            (item) => item.estado === "confirmada_por_cliente",
+          ) ??
+          ofertasCliente[0];
+
+        return {
+          numero,
+          listoParaPagar: Boolean(ofertaReferencia?.cliente_listo_para_pagar),
+        };
+      }),
+    )
+      .then((items) => {
+        if (cancelado) return;
+        setClienteListoParaPagarMap((prev) => {
+          const next = { ...prev };
+          for (const item of items) {
+            next[item.numero] = item.listoParaPagar;
+          }
+          return next;
+        });
+      })
+      .catch((error) => {
+        console.error("Error obteniendo estados listo para pagar:", error);
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    sortedClients,
+    cargaSetOfertasTerminada,
+    clientesConOferta,
+    clienteListoParaPagarMap,
+    obtenerOfertaPorCliente,
+  ]);
 
   const cargarClientesConOfertas = useCallback(
     async (options?: { skipCache?: boolean; silent?: boolean }) => {
@@ -979,74 +1072,45 @@ export function ClientsTable({
     setShowDetalleOfertaDialog(false);
   };
 
-  const handleToggleClienteListoParaPagar = async (
-    oferta: OfertaConfeccion,
-  ) => {
-    if (!oferta.id) {
-      toast({
-        title: "Error",
-        description: "No se pudo identificar la oferta seleccionada.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (oferta.estado !== "confirmada_por_cliente") {
-      toast({
-        title: "Estado no válido",
-        description:
-          "Solo se puede marcar listo para pagar cuando la oferta está confirmada por cliente.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const nextValue = !Boolean(oferta.cliente_listo_para_pagar);
-
-    try {
-      await apiRequest(`/ofertas/confeccion/${encodeURIComponent(oferta.id)}`, {
-        method: "PATCH",
-        body: JSON.stringify({ cliente_listo_para_pagar: nextValue }),
-      });
-
-      setOfertaClienteActual((prev) =>
-        prev && prev.id === oferta.id
-          ? { ...prev, cliente_listo_para_pagar: nextValue }
-          : prev,
-      );
-      setOfertasClienteActuales((prev) =>
-        prev.map((item) =>
-          item.id === oferta.id
-            ? { ...item, cliente_listo_para_pagar: nextValue }
-            : item,
-        ),
-      );
-
-      await cargarClientesConOfertas({ skipCache: true, silent: true });
-      if (refetchOfertas) await refetchOfertas();
-
-      toast({
-        title: "Estado actualizado",
-        description: nextValue
-          ? "Cliente marcado como listo para pagar."
-          : "Cliente desmarcado de listo para pagar.",
-      });
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo actualizar el estado de pago del cliente.";
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
-      });
-    }
+  const closeListoPagoDialog = () => {
+    setShowListoPagoDialog(false);
+    setClientForListoPago(null);
+    setOfertaListoPagoSeleccionada(null);
+    setTieneOfertaAsignadaListoPago(false);
+    setTieneOfertaConfirmadaListoPago(false);
+    setComentarioContabilidadListoPago("");
+    setLoadingListoPagoDialog(false);
   };
 
-  const handleToggleClienteListoParaPagarDesdeCliente = async (
-    client: Cliente,
-  ) => {
+  const resolveOfertaConfirmadaCliente = (
+    ofertasCliente: OfertaConfeccion[],
+    estadoResult: {
+      oferta_id_confirmada: string | null;
+      numero_oferta_confirmada: string | null;
+      codigo_oferta_confirmada: string | null;
+    },
+  ) =>
+    (estadoResult.oferta_id_confirmada
+      ? ofertasCliente.find(
+          (item) => item.id === estadoResult.oferta_id_confirmada,
+        )
+      : undefined) ??
+    (estadoResult.numero_oferta_confirmada
+      ? ofertasCliente.find(
+          (item) =>
+            item.numero_oferta === estadoResult.numero_oferta_confirmada,
+        )
+      : undefined) ??
+    (estadoResult.codigo_oferta_confirmada
+      ? ofertasCliente.find(
+          (item) =>
+            item.numero_oferta === estadoResult.codigo_oferta_confirmada ||
+            item.id === estadoResult.codigo_oferta_confirmada,
+        )
+      : undefined) ??
+    ofertasCliente.find((item) => item.estado === "confirmada_por_cliente");
+
+  const handleOpenListoPagoDialog = async (client: Cliente) => {
     const numeroCliente = normalizeClienteNumero(client.numero);
     if (!numeroCliente) {
       toast({
@@ -1057,90 +1121,166 @@ export function ClientsTable({
       return;
     }
 
+    setShowListoPagoDialog(true);
+    setClientForListoPago(client);
     setUpdatingClienteListoParaPagarNumero(numeroCliente);
+    setLoadingListoPagoDialog(true);
+    setOfertaListoPagoSeleccionada(null);
+    setTieneOfertaAsignadaListoPago(false);
+    setTieneOfertaConfirmadaListoPago(false);
+    setComentarioContabilidadListoPago("");
 
     try {
-      const estadoResult = await obtenerEstadoOfertaCliente(numeroCliente);
-
-      if (estadoResult.error) {
-        toast({
-          title: "Error",
-          description:
-            "No se pudo validar el estado de la oferta del cliente en el servidor.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (!estadoResult.tiene_oferta_confirmada_por_cliente) {
-        toast({
-          title: "Oferta no confirmada",
-          description:
-            "El cliente no tiene una oferta en estado 'confirmada por cliente'.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const result = await obtenerOfertaPorCliente(numeroCliente);
+      const [estadoResult, result] = await Promise.all([
+        obtenerEstadoOfertaCliente(numeroCliente),
+        obtenerOfertaPorCliente(numeroCliente),
+      ]);
       const ofertasCliente = result.ofertas?.length
         ? result.ofertas
         : result.oferta
           ? [result.oferta]
           : [];
 
-      if (!result.success || ofertasCliente.length === 0) {
+      const tieneOfertaAsignada =
+        result.success &&
+        Array.isArray(ofertasCliente) &&
+        ofertasCliente.length > 0;
+      setTieneOfertaAsignadaListoPago(tieneOfertaAsignada);
+
+      const ofertaConfirmada = resolveOfertaConfirmadaCliente(ofertasCliente, {
+        oferta_id_confirmada: estadoResult.oferta_id_confirmada,
+        numero_oferta_confirmada: estadoResult.numero_oferta_confirmada,
+        codigo_oferta_confirmada: estadoResult.codigo_oferta_confirmada,
+      });
+
+      const tieneConfirmada =
+        !estadoResult.error &&
+        Boolean(estadoResult.tiene_oferta_confirmada_por_cliente) &&
+        Boolean(ofertaConfirmada);
+      setTieneOfertaConfirmadaListoPago(tieneConfirmada);
+
+      const ofertaPreview = ofertaConfirmada ?? ofertasCliente[0] ?? null;
+      setOfertaListoPagoSeleccionada(ofertaPreview);
+      setComentarioContabilidadListoPago(
+        ofertaConfirmada?.comentario_contabilidad || "",
+      );
+      setClienteListoParaPagarMap((prev) => ({
+        ...prev,
+        [numeroCliente]: ofertasCliente.some((item) =>
+          Boolean(item.cliente_listo_para_pagar),
+        ),
+      }));
+
+      if (estadoResult.error) {
         toast({
-          title: "Sin oferta",
+          title: "Aviso",
           description:
-            "Este cliente no tiene una oferta confeccionada asignada.",
+            "No se pudo validar completamente el estado de oferta; revisa el detalle en el diálogo.",
           variant: "destructive",
         });
-        return;
       }
-
-      const ofertaConfirmada =
-        (estadoResult.oferta_id_confirmada
-          ? ofertasCliente.find(
-              (item) => item.id === estadoResult.oferta_id_confirmada,
-            )
-          : undefined) ??
-        (estadoResult.numero_oferta_confirmada
-          ? ofertasCliente.find(
-              (item) =>
-                item.numero_oferta === estadoResult.numero_oferta_confirmada,
-            )
-          : undefined) ??
-        (estadoResult.codigo_oferta_confirmada
-          ? ofertasCliente.find(
-              (item) =>
-                item.numero_oferta === estadoResult.codigo_oferta_confirmada ||
-                item.id === estadoResult.codigo_oferta_confirmada,
-            )
-          : undefined) ??
-        ofertasCliente.find(
-          (item) =>
-            item.estado === "confirmada_por_cliente" &&
-            Boolean(item.cliente_listo_para_pagar),
-        ) ??
-        ofertasCliente.find((item) => item.estado === "confirmada_por_cliente");
-
-      if (!ofertaConfirmada) {
-        toast({
-          title: "Oferta no confirmada",
-          description:
-            "La oferta del cliente debe estar en estado 'confirmada por cliente' para marcar listo para pagar.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      await handleToggleClienteListoParaPagar(ofertaConfirmada);
     } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
           : "No se pudo validar la oferta del cliente.";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingListoPagoDialog(false);
+      setUpdatingClienteListoParaPagarNumero(null);
+    }
+  };
+
+  const handleConfirmarListoParaPagar = async () => {
+    if (!ofertaListoPagoSeleccionada?.id) {
+      toast({
+        title: "Error",
+        description: "No se pudo identificar la oferta confirmada del cliente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!tieneOfertaConfirmadaListoPago) {
+      toast({
+        title: "Oferta no confirmada",
+        description:
+          "Solo puedes marcar como listo para pagar una oferta confirmada por cliente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const numeroCliente = normalizeClienteNumero(clientForListoPago?.numero);
+    setUpdatingClienteListoParaPagarNumero(numeroCliente || null);
+
+    try {
+      const comentario = comentarioContabilidadListoPago.trim();
+      await apiRequest(
+        `/ofertas/confeccion/${encodeURIComponent(ofertaListoPagoSeleccionada.id)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            cliente_listo_para_pagar: true,
+            comentario_contabilidad: comentario,
+          }),
+        },
+      );
+
+      setOfertaListoPagoSeleccionada((prev) =>
+        prev
+          ? {
+              ...prev,
+              cliente_listo_para_pagar: true,
+              comentario_contabilidad: comentario,
+            }
+          : prev,
+      );
+      setOfertaClienteActual((prev) =>
+        prev && prev.id === ofertaListoPagoSeleccionada.id
+          ? {
+              ...prev,
+              cliente_listo_para_pagar: true,
+              comentario_contabilidad: comentario,
+            }
+          : prev,
+      );
+      setOfertasClienteActuales((prev) =>
+        prev.map((item) =>
+          item.id === ofertaListoPagoSeleccionada.id
+            ? {
+                ...item,
+                cliente_listo_para_pagar: true,
+                comentario_contabilidad: comentario,
+              }
+            : item,
+        ),
+      );
+
+      await cargarClientesConOfertas({ skipCache: true, silent: true });
+      if (refetchOfertas) await refetchOfertas();
+      if (numeroCliente) {
+        setClienteListoParaPagarMap((prev) => ({
+          ...prev,
+          [numeroCliente]: true,
+        }));
+      }
+
+      toast({
+        title: "Cliente listo para pagar",
+        description:
+          "Se actualizó la oferta con cliente_listo_para_pagar y comentario de contabilidad.",
+      });
+      closeListoPagoDialog();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo marcar la oferta como lista para pagar.";
       toast({
         title: "Error",
         description: message,
@@ -3143,11 +3283,9 @@ export function ClientsTable({
                               const numeroCliente = normalizeClienteNumero(
                                 client.numero,
                               );
-                              const tieneOferta =
-                                cargaSetOfertasTerminada &&
-                                clientesConOferta.has(numeroCliente);
-
-                              if (!tieneOferta) return null;
+                              const listoParaPagar =
+                                clienteListoParaPagarMap[numeroCliente] ===
+                                true;
 
                               const procesandoPago =
                                 updatingClienteListoParaPagarNumero ===
@@ -3160,13 +3298,15 @@ export function ClientsTable({
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    void handleToggleClienteListoParaPagarDesdeCliente(
-                                      client,
-                                    );
+                                    void handleOpenListoPagoDialog(client);
                                   }}
                                   disabled={procesandoPago}
-                                  className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                  title="Listo para pagar (solo para ofertas confirmadas por cliente)"
+                                  className={
+                                    listoParaPagar
+                                      ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                  }
+                                  title="Validar y marcar cliente listo para pagar"
                                 >
                                   {procesandoPago ? (
                                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -3761,6 +3901,156 @@ export function ClientsTable({
             </Button>
             <Button type="button" onClick={() => handleContinuarOfertaFlow()}>
               Continuar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showListoPagoDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeListoPagoDialog();
+            return;
+          }
+          setShowListoPagoDialog(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Cliente listo para pagar</DialogTitle>
+            <DialogDescription>
+              {clientForListoPago
+                ? `Cliente: ${clientForListoPago.nombre} (${clientForListoPago.numero})`
+                : "Validar oferta antes de enviar a contabilidad."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingListoPagoDialog ? (
+            <div className="py-8 flex items-center justify-center">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-md border border-slate-200 p-3 space-y-2">
+                  <p className="text-sm text-slate-600">
+                    1. Oferta asignada al cliente
+                  </p>
+                  <Badge
+                    className={
+                      tieneOfertaAsignadaListoPago
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-700"
+                    }
+                  >
+                    {tieneOfertaAsignadaListoPago ? "Sí" : "No"}
+                  </Badge>
+                </div>
+                <div className="rounded-md border border-slate-200 p-3 space-y-2">
+                  <p className="text-sm text-slate-600">
+                    2. Oferta confirmada por cliente
+                  </p>
+                  <Badge
+                    className={
+                      tieneOfertaConfirmadaListoPago
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-700"
+                    }
+                  >
+                    {tieneOfertaConfirmadaListoPago ? "Sí" : "No"}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-slate-200 p-3 space-y-2">
+                <p className="text-sm font-medium text-slate-800">
+                  Datos de la oferta
+                </p>
+                {ofertaListoPagoSeleccionada ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-slate-700">
+                    <p>
+                      <span className="text-slate-500">Código:</span>{" "}
+                      {ofertaListoPagoSeleccionada.numero_oferta ||
+                        ofertaListoPagoSeleccionada.id}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Estado:</span>{" "}
+                      {formatOfertaEstado(ofertaListoPagoSeleccionada.estado)}
+                    </p>
+                    <p className="sm:col-span-2">
+                      <span className="text-slate-500">Nombre:</span>{" "}
+                      {ofertaListoPagoSeleccionada.nombre}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Precio final:</span>{" "}
+                      {formatOfertaMoney(
+                        ofertaListoPagoSeleccionada.precio_final,
+                      )}
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Listo para pagar:</span>{" "}
+                      {ofertaListoPagoSeleccionada.cliente_listo_para_pagar
+                        ? "Sí"
+                        : "No"}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">
+                    No hay oferta para mostrar.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="comentario-contabilidad-listo-pago">
+                  Comentario para contabilidad
+                </Label>
+                <Textarea
+                  id="comentario-contabilidad-listo-pago"
+                  rows={3}
+                  placeholder="Escribe el comentario para contabilidad..."
+                  value={comentarioContabilidadListoPago}
+                  onChange={(event) =>
+                    setComentarioContabilidadListoPago(event.target.value)
+                  }
+                  disabled={!tieneOfertaConfirmadaListoPago}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="pt-2 border-t flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeListoPagoDialog}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                void handleConfirmarListoParaPagar();
+              }}
+              disabled={
+                loadingListoPagoDialog ||
+                !tieneOfertaAsignadaListoPago ||
+                !tieneOfertaConfirmadaListoPago ||
+                updatingClienteListoParaPagarNumero ===
+                  normalizeClienteNumero(clientForListoPago?.numero)
+              }
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {updatingClienteListoParaPagarNumero ===
+              normalizeClienteNumero(clientForListoPago?.numero) ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Marcar como listo"
+              )}
             </Button>
           </div>
         </DialogContent>

@@ -12,7 +12,11 @@ type ClienteListParams = {
   q?: string;
   numero?: string;
   nombre?: string;
+  telefono?: string;
   direccion?: string;
+  provincia?: string;
+  municipio?: string;
+  referencia?: string;
   skip?: number;
   limit?: number;
   estado?: string | string[];
@@ -67,7 +71,11 @@ export class ClienteService {
     if (params.q) search.append("q", params.q);
     if (params.numero) search.append("numero", params.numero);
     if (params.nombre) search.append("nombre", params.nombre);
+    if (params.telefono) search.append("telefono", params.telefono);
     if (params.direccion) search.append("direccion", params.direccion);
+    if (params.provincia) search.append("provincia", params.provincia);
+    if (params.municipio) search.append("municipio", params.municipio);
+    if (params.referencia) search.append("referencia", params.referencia);
     const estados = Array.isArray(params.estado)
       ? params.estado
       : params.estado
