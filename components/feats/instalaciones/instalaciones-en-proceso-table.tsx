@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import type { Cliente } from "@/lib/api-types";
 import { ClienteService } from "@/lib/api-services";
+import type { ResumenEquiposEnServicioCliente } from "@/lib/services/feats/instalaciones/instalaciones-service";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
 import { EntregaCelebrationAnimation } from "@/components/feats/instalaciones/entrega-celebration-animation";
@@ -45,6 +46,7 @@ interface InstalacionesEnProcesoTableProps {
   onFiltersChange: (filters: any) => void;
   onRefresh: () => void;
   ofertasConEntregasIds?: Set<string>;
+  resumenServicioPorCliente?: Record<string, ResumenEquiposEnServicioCliente>;
 }
 
 interface EntregaOferta {
@@ -85,7 +87,7 @@ interface OfertaParaEntrega {
 type ServicioCategoria = "inversores" | "paneles" | "baterias";
 
 const getClienteKey = (cliente: Cliente) =>
-  String(cliente.numero || cliente.id || "");
+  String(cliente.numero || cliente.id || "").trim();
 
 const getTodayDateInput = () => new Date().toISOString().split("T")[0];
 
@@ -350,12 +352,48 @@ const ofertaTieneEntregas = (oferta: any) => {
   return itemsRaw.some((item: any) => itemTieneEntregas(item));
 };
 
+const itemEstaEnServicio = (item: any) => {
+  if (!item || typeof item !== "object") return false;
+  if (item?.en_servicio === true) return true;
+  if (parseNumber(item?.cantidad_en_servicio) > 0) return true;
+  return false;
+};
+
+const ofertaTieneEquiposEnServicio = (oferta: any) => {
+  if (!oferta || typeof oferta !== "object") return false;
+
+  if (
+    oferta?.tiene_materiales_en_servicio === true ||
+    oferta?.tiene_equipos_en_servicio === true ||
+    oferta?.en_servicio === true
+  ) {
+    return true;
+  }
+
+  if (
+    parseNumber(oferta?.materiales_en_servicio) > 0 ||
+    parseNumber(oferta?.total_en_servicio) > 0 ||
+    parseNumber(oferta?.unidades_en_servicio) > 0
+  ) {
+    return true;
+  }
+
+  const itemsRaw = Array.isArray(oferta?.items)
+    ? oferta.items
+    : Array.isArray(oferta?.materiales)
+      ? oferta.materiales
+      : [];
+
+  return itemsRaw.some((item: any) => itemEstaEnServicio(item));
+};
+
 export function InstalacionesEnProcesoTable({
   clients,
   loading,
   onFiltersChange,
   onRefresh,
   ofertasConEntregasIds,
+  resumenServicioPorCliente,
 }: InstalacionesEnProcesoTableProps) {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
@@ -363,6 +401,12 @@ export function InstalacionesEnProcesoTable({
   const [fechaHasta, setFechaHasta] = useState("");
   const [materialesEntregadosFilter, setMaterialesEntregadosFilter] = useState<
     "todos" | "con_entregas" | "sin_entregas"
+  >("todos");
+  const [equiposEnServicioFilter, setEquiposEnServicioFilter] = useState<
+    "todos" | "con_servicio" | "sin_servicio"
+  >("todos");
+  const [tipoEquipoServicioFilter, setTipoEquipoServicioFilter] = useState<
+    "todos" | "inversores" | "paneles" | "baterias"
   >("todos");
 
   const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
@@ -414,6 +458,9 @@ export function InstalacionesEnProcesoTable({
   });
   const [cantidadEnServicioPorItem, setCantidadEnServicioPorItem] = useState<
     Record<string, string>
+  >({});
+  const [servicioPorCliente, setServicioPorCliente] = useState<
+    Record<string, boolean>
   >({});
 
   const buildServicioDraftFromOferta = (
@@ -524,12 +571,16 @@ export function InstalacionesEnProcesoTable({
       fechaDesde,
       fechaHasta,
       materialesEntregados: materialesEntregadosFilter,
+      equiposEnServicio: equiposEnServicioFilter,
+      tipoEquipoServicio: tipoEquipoServicioFilter,
     });
   }, [
     searchTerm,
     fechaDesde,
     fechaHasta,
     materialesEntregadosFilter,
+    equiposEnServicioFilter,
+    tipoEquipoServicioFilter,
     onFiltersChange,
   ]);
 
@@ -674,10 +725,18 @@ export function InstalacionesEnProcesoTable({
       if (ofertas.length > 0) {
         const oferta = ofertas[0];
         setOfertaServicioCargada(oferta);
+        setServicioPorCliente((prev) => ({
+          ...prev,
+          [getClienteKey(client)]: ofertaActualTieneServicio(oferta),
+        }));
         const draft = buildServicioDraftFromOferta(oferta);
         setEquiposEnServicio(draft.equipos);
         setCantidadEnServicioPorItem(draft.cantidades);
       } else {
+        setServicioPorCliente((prev) => ({
+          ...prev,
+          [getClienteKey(client)]: false,
+        }));
         toast({
           title: "Sin oferta confeccionada",
           description:
@@ -896,6 +955,11 @@ export function InstalacionesEnProcesoTable({
         const draft = buildServicioDraftFromOferta(ofertaRecargada);
         setEquiposEnServicio(draft.equipos);
         setCantidadEnServicioPorItem(draft.cantidades);
+        setServicioPorCliente((prev) => ({
+          ...prev,
+          [getClienteKey(clienteMaterialServicio)]:
+            ofertaActualTieneServicio(ofertaRecargada),
+        }));
       }
 
       toast({
@@ -944,6 +1008,72 @@ export function InstalacionesEnProcesoTable({
       return entregasPorCliente[key];
     }
     return clienteTieneEntregas(client);
+  };
+
+  const ofertaActualTieneServicio = (oferta: OfertaParaEntrega | null) => {
+    if (!oferta || !Array.isArray(oferta.items)) return false;
+    return oferta.items.some((item) => itemEstaEnServicio(item));
+  };
+
+  const getResumenServicioBackend = (
+    client: Cliente,
+  ): ResumenEquiposEnServicioCliente | null => {
+    if (!resumenServicioPorCliente) return null;
+    const keyByNumero = String(client.numero || "").trim();
+    if (keyByNumero && resumenServicioPorCliente[keyByNumero]) {
+      return resumenServicioPorCliente[keyByNumero];
+    }
+    const keyById = String(client.id || "").trim();
+    if (keyById && resumenServicioPorCliente[keyById]) {
+      return resumenServicioPorCliente[keyById];
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    if (!resumenServicioPorCliente) return;
+
+    setServicioPorCliente((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      Object.entries(resumenServicioPorCliente).forEach(([numero, resumen]) => {
+        const value = resumen?.tiene_alguno_en_servicio === true;
+        if (next[numero] !== value) {
+          next[numero] = value;
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [resumenServicioPorCliente]);
+
+  const clienteTieneEquiposEnServicio = (client: Cliente) => {
+    const backendResumen = getResumenServicioBackend(client);
+    if (backendResumen) {
+      return backendResumen.tiene_alguno_en_servicio === true;
+    }
+
+    if (
+      parseNumber((client as any)?.materiales_en_servicio) > 0 ||
+      parseNumber((client as any)?.unidades_en_servicio) > 0
+    ) {
+      return true;
+    }
+
+    return (
+      Array.isArray(client.ofertas) &&
+      client.ofertas.some((oferta) =>
+        ofertaTieneEquiposEnServicio(oferta as any),
+      )
+    );
+  };
+
+  const getServicioStatus = (client: Cliente) => {
+    const key = getClienteKey(client);
+    if (key in servicioPorCliente) {
+      return servicioPorCliente[key];
+    }
+    return clienteTieneEquiposEnServicio(client);
   };
 
   const resetEntregaForm = () => {
@@ -1425,7 +1555,7 @@ export function InstalacionesEnProcesoTable({
           <CardTitle>Filtros de Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <Label htmlFor="search">Buscar</Label>
               <div className="relative">
@@ -1456,6 +1586,45 @@ export function InstalacionesEnProcesoTable({
                 <option value="todos">Todos</option>
                 <option value="con_entregas">Con materiales entregados</option>
                 <option value="sin_entregas">Sin materiales entregados</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="equipos-servicio">Equipos en Servicio</Label>
+              <select
+                id="equipos-servicio"
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={equiposEnServicioFilter}
+                onChange={(e) =>
+                  setEquiposEnServicioFilter(
+                    e.target.value as "todos" | "con_servicio" | "sin_servicio",
+                  )
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="con_servicio">Con equipos en servicio</option>
+                <option value="sin_servicio">Sin equipos en servicio</option>
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="tipo-equipo-servicio">Tipo de Equipo</Label>
+              <select
+                id="tipo-equipo-servicio"
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={tipoEquipoServicioFilter}
+                onChange={(e) =>
+                  setTipoEquipoServicioFilter(
+                    e.target.value as
+                      | "todos"
+                      | "inversores"
+                      | "paneles"
+                      | "baterias",
+                  )
+                }
+              >
+                <option value="todos">Todos</option>
+                <option value="inversores">Inversores</option>
+                <option value="paneles">Paneles</option>
+                <option value="baterias">Baterias</option>
               </select>
             </div>
             <div>
@@ -1545,8 +1714,14 @@ export function InstalacionesEnProcesoTable({
                         </Button>
                         <Button
                           size="icon"
-                          variant="outline"
-                          className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                          variant={
+                            getServicioStatus(client) ? "default" : "outline"
+                          }
+                          className={
+                            getServicioStatus(client)
+                              ? "border-purple-800 bg-purple-700 text-white hover:bg-purple-800 hover:border-purple-900 shadow-md shadow-purple-500/40 ring-1 ring-purple-300 transition-all duration-200"
+                              : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                          }
                           onClick={() => handleMaterialEnServicio(client)}
                           title="Equipos en servicio"
                         >
@@ -1674,8 +1849,16 @@ export function InstalacionesEnProcesoTable({
                             </Button>
                             <Button
                               size="icon"
-                              variant="outline"
-                              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                              variant={
+                                getServicioStatus(client)
+                                  ? "default"
+                                  : "outline"
+                              }
+                              className={
+                                getServicioStatus(client)
+                                  ? "border-purple-800 bg-purple-700 text-white hover:bg-purple-800 hover:border-purple-900 shadow-md shadow-purple-500/40 ring-1 ring-purple-300 transition-all duration-200"
+                                  : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                              }
                               onClick={() => handleMaterialEnServicio(client)}
                               title="Equipos en servicio"
                             >

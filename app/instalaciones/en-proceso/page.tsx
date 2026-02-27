@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { ClienteService } from "@/lib/api-services";
 import { InstalacionesService } from "@/lib/services/feats/instalaciones/instalaciones-service";
+import type { ResumenEquiposEnServicioCliente } from "@/lib/services/feats/instalaciones/instalaciones-service";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
@@ -13,6 +14,47 @@ import {
   extractContactoEntregaKeysFromEntity,
   extractOfertaIdsFromEntity,
 } from "@/lib/utils/oferta-id";
+
+type ServicioComponente = "inversores" | "paneles" | "baterias";
+
+const getServicioCategoria = (
+  item: Record<string, unknown>,
+): ServicioComponente | null => {
+  const descripcion = String(item?.descripcion || "").toLowerCase();
+  const codigo = String(item?.material_codigo || "").toLowerCase();
+  const seccion = String(item?.seccion || "").toLowerCase();
+
+  if (
+    seccion.includes("inversor") ||
+    descripcion.includes("inversor") ||
+    codigo.includes("inv")
+  ) {
+    return "inversores";
+  }
+  if (
+    seccion.includes("panel") ||
+    descripcion.includes("panel") ||
+    codigo.includes("pan")
+  ) {
+    return "paneles";
+  }
+  if (
+    seccion.includes("bateria") ||
+    seccion.includes("batería") ||
+    descripcion.includes("bateria") ||
+    descripcion.includes("batería") ||
+    codigo.includes("bat")
+  ) {
+    return "baterias";
+  }
+
+  return null;
+};
+
+const getClientExtraField = (client: Cliente, field: string): unknown => {
+  const raw = client as unknown as Record<string, unknown>;
+  return raw[field];
+};
 
 export default function InstalacionesEnProcesoPage() {
   const [clients, setClients] = useState<Cliente[]>([]);
@@ -26,13 +68,19 @@ export default function InstalacionesEnProcesoPage() {
     fechaDesde: "",
     fechaHasta: "",
     materialesEntregados: "todos" as "todos" | "con_entregas" | "sin_entregas",
+    equiposEnServicio: "todos" as "todos" | "con_servicio" | "sin_servicio",
+    tipoEquipoServicio: "todos" as
+      | "todos"
+      | "inversores"
+      | "paneles"
+      | "baterias",
   });
   const [ofertasConEntregasIds, setOfertasConEntregasIds] = useState<
     Set<string>
   >(new Set());
-  const [ofertasConPendientesIds, setOfertasConPendientesIds] = useState<
-    Set<string>
-  >(new Set());
+  const [resumenServicioPorCliente, setResumenServicioPorCliente] = useState<
+    Record<string, ResumenEquiposEnServicioCliente>
+  >({});
 
   // Cargar clientes con estado "Instalación en Proceso"
   const fetchClients = useCallback(async () => {
@@ -44,9 +92,6 @@ export default function InstalacionesEnProcesoPage() {
       ]);
 
       setOfertasConEntregasIds(new Set(entregasIndex.ofertaIds));
-      setOfertasConPendientesIds(
-        new Set(entregasIndex.idsConMaterialesPendientes),
-      );
       const hasEntregasByIndex = (entity: unknown) => {
         const matchByOfertaId = extractOfertaIdsFromEntity(entity).some((id) =>
           entregasIndex.ofertaIds.has(id),
@@ -64,15 +109,40 @@ export default function InstalacionesEnProcesoPage() {
         .map((client) => ({
           ...client,
           tiene_materiales_entregados:
-            (client as any)?.tiene_materiales_entregados === true ||
-            hasEntregasByIndex(client),
+            getClientExtraField(client, "tiene_materiales_entregados") ===
+              true || hasEntregasByIndex(client),
         }));
+
+      const numerosUnicos = Array.from(
+        new Set(
+          clientesEnProceso
+            .map((client) => String(client.numero || "").trim())
+            .filter(Boolean),
+        ),
+      );
+      const resumenMap: Record<string, ResumenEquiposEnServicioCliente> = {};
+      const batchSize = 8;
+      for (let i = 0; i < numerosUnicos.length; i += batchSize) {
+        const batch = numerosUnicos.slice(i, i + batchSize);
+        const resumenEntries = await Promise.all(
+          batch.map(async (numero) => {
+            const resumen =
+              await InstalacionesService.getResumenEnServicioPorCliente(numero);
+            return [numero, resumen] as const;
+          }),
+        );
+        resumenEntries.forEach(([numero, resumen]) => {
+          resumenMap[numero] = resumen;
+        });
+      }
+
+      setResumenServicioPorCliente(resumenMap);
       setClients(clientesEnProceso);
     } catch (error: unknown) {
       console.error("Error cargando clientes:", error);
       setClients([]);
       setOfertasConEntregasIds(new Set());
-      setOfertasConPendientesIds(new Set());
+      setResumenServicioPorCliente({});
       toast({
         title: "Error",
         description: "No se pudieron cargar las instalaciones",
@@ -110,6 +180,12 @@ export default function InstalacionesEnProcesoPage() {
     }
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const parsePositiveInt = (value: unknown) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.max(0, Math.trunc(parsed));
   };
 
   // Función para construir texto de búsqueda
@@ -207,6 +283,83 @@ export default function InstalacionesEnProcesoPage() {
     return false;
   };
 
+  const getServicioResumenCliente = useCallback(
+    (client: Cliente) => {
+      const key = String(client.numero || client.id || "").trim();
+      const fromEndpoint = key ? resumenServicioPorCliente[key] : undefined;
+      if (fromEndpoint) {
+        return {
+          inversores: parsePositiveInt(fromEndpoint.inversores_en_servicio),
+          paneles: parsePositiveInt(fromEndpoint.paneles_en_servicio),
+          baterias: parsePositiveInt(fromEndpoint.baterias_en_servicio),
+          tiene:
+            fromEndpoint.tiene_alguno_en_servicio === true ||
+            parsePositiveInt(fromEndpoint.inversores_en_servicio) > 0 ||
+            parsePositiveInt(fromEndpoint.paneles_en_servicio) > 0 ||
+            parsePositiveInt(fromEndpoint.baterias_en_servicio) > 0,
+        };
+      }
+
+      const resumen = {
+        inversores: parsePositiveInt(
+          getClientExtraField(client, "inversores_en_servicio"),
+        ),
+        paneles: parsePositiveInt(
+          getClientExtraField(client, "paneles_en_servicio"),
+        ),
+        baterias: parsePositiveInt(
+          getClientExtraField(client, "baterias_en_servicio"),
+        ),
+      };
+
+      const ofertasRaw = (client as { ofertas?: unknown }).ofertas;
+      if (Array.isArray(ofertasRaw)) {
+        for (const ofertaRaw of ofertasRaw) {
+          if (!ofertaRaw || typeof ofertaRaw !== "object") continue;
+          const oferta = ofertaRaw as Record<string, unknown>;
+          const itemsRaw = Array.isArray(oferta.items)
+            ? oferta.items
+            : Array.isArray(oferta.materiales)
+              ? oferta.materiales
+              : [];
+
+          for (const itemRaw of itemsRaw) {
+            if (!itemRaw || typeof itemRaw !== "object") continue;
+            const item = itemRaw as Record<string, unknown>;
+            const categoria = getServicioCategoria(item);
+            if (!categoria) continue;
+
+            const cantidadEnServicio = parsePositiveInt(
+              item.cantidad_en_servicio,
+            );
+            const cantidadItem = parsePositiveInt(item.cantidad);
+            const incremento =
+              cantidadEnServicio > 0
+                ? cantidadEnServicio
+                : item.en_servicio === true
+                  ? Math.max(1, cantidadItem)
+                  : 0;
+
+            if (incremento <= 0) continue;
+            resumen[categoria] += incremento;
+          }
+        }
+      }
+
+      return {
+        ...resumen,
+        tiene:
+          getClientExtraField(client, "tiene_equipos_en_servicio") === true ||
+          getClientExtraField(client, "tiene_materiales_en_servicio") ===
+            true ||
+          resumen.inversores > 0 ||
+          resumen.paneles > 0 ||
+          resumen.baterias > 0,
+      };
+    },
+    [resumenServicioPorCliente],
+  );
+
   // Clientes filtrados
   const filteredClients = useMemo(() => {
     const search = appliedFilters.searchTerm.trim().toLowerCase();
@@ -234,8 +387,8 @@ export default function InstalacionesEnProcesoPage() {
       if (appliedFilters.materialesEntregados !== "todos") {
         const ofertaIds = extractOfertaIdsFromEntity(client);
         const hasEntregasByBackend =
-          (client as any)?.tiene_materiales_entregados === true ||
-          Number((client as any)?.materiales_entregados) > 0 ||
+          getClientExtraField(client, "tiene_materiales_entregados") === true ||
+          Number(getClientExtraField(client, "materiales_entregados")) > 0 ||
           ofertaIds.some((id) => ofertasConEntregasIds.has(id));
         const shouldUseFallbackHeuristic =
           ofertasConEntregasIds.size === 0 || ofertaIds.length === 0;
@@ -257,6 +410,37 @@ export default function InstalacionesEnProcesoPage() {
         }
       }
 
+      if (appliedFilters.equiposEnServicio !== "todos") {
+        const resumenServicio = getServicioResumenCliente(client);
+        const cantidadSeleccionada =
+          appliedFilters.tipoEquipoServicio === "inversores"
+            ? resumenServicio.inversores
+            : appliedFilters.tipoEquipoServicio === "paneles"
+              ? resumenServicio.paneles
+              : appliedFilters.tipoEquipoServicio === "baterias"
+                ? resumenServicio.baterias
+                : resumenServicio.inversores +
+                  resumenServicio.paneles +
+                  resumenServicio.baterias;
+        const hasServicioSeleccionado =
+          appliedFilters.tipoEquipoServicio === "todos"
+            ? resumenServicio.tiene || cantidadSeleccionada > 0
+            : cantidadSeleccionada > 0;
+
+        if (
+          appliedFilters.equiposEnServicio === "con_servicio" &&
+          !hasServicioSeleccionado
+        ) {
+          return false;
+        }
+        if (
+          appliedFilters.equiposEnServicio === "sin_servicio" &&
+          hasServicioSeleccionado
+        ) {
+          return false;
+        }
+      }
+
       return true;
     });
 
@@ -272,7 +456,12 @@ export default function InstalacionesEnProcesoPage() {
 
       return bNum - aNum;
     });
-  }, [clients, appliedFilters, ofertasConEntregasIds, ofertasConPendientesIds]);
+  }, [
+    clients,
+    appliedFilters,
+    ofertasConEntregasIds,
+    getServicioResumenCliente,
+  ]);
 
   // Mostrar loader mientras se cargan los datos iniciales
   if (initialLoading) {
@@ -301,6 +490,7 @@ export default function InstalacionesEnProcesoPage() {
           onFiltersChange={setAppliedFilters}
           onRefresh={fetchClients}
           ofertasConEntregasIds={ofertasConEntregasIds}
+          resumenServicioPorCliente={resumenServicioPorCliente}
         />
       </main>
       <Toaster />
