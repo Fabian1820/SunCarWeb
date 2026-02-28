@@ -25,8 +25,10 @@ export interface TerminosCondicionesPayload {
 
 export interface PagoAcordadoExportPayload {
   monto_usd?: number | null;
+  porcentaje_monto?: number | null;
   metodo_pago?: string | null;
   fecha_estimada?: string | null;
+  justificacion?: string | null;
 }
 
 export interface OfertaTerminosCondicionesContext {
@@ -140,9 +142,18 @@ const construirTextoPagosAcordados = (
     const montoFormateado = Number.isFinite(monto)
       ? `${monto.toFixed(2)} USD`
       : "--";
+    const porcentaje = Number(pago?.porcentaje_monto);
+    const porcentajeFormateado = Number.isFinite(porcentaje)
+      ? `${porcentaje.toFixed(2)}%`
+      : "--";
     const metodoFormateado = formatearMetodoPago(pago?.metodo_pago);
     const fechaFormateada = formatearFechaPago(pago?.fecha_estimada);
-    return `Pago ${index + 1}: Monto ${montoFormateado}; Método de pago ${metodoFormateado}; Fecha estimada ${fechaFormateada}.`;
+    const justificacion =
+      typeof pago?.justificacion === "string" ? pago.justificacion.trim() : "";
+    const baseLinea = `Pago ${index + 1}: Monto ${montoFormateado}; % del monto ${porcentajeFormateado}; Método de pago ${metodoFormateado}; Fecha estimada ${fechaFormateada}.`;
+    return justificacion
+      ? `${baseLinea} Justificación: ${justificacion}.`
+      : baseLinea;
   });
 
   if (cantidadPagos > 0 && cantidadPagos !== pagos.length) {

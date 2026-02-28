@@ -95,12 +95,16 @@ interface ServicioOferta {
 }
 
 type MetodoPagoAcordado = "efectivo" | "transferencia" | "stripe";
+type OrigenCalculoPagoAcordado = "monto" | "porcentaje";
 
 interface PagoAcordadoForm {
   id: string;
   monto_usd: number;
+  porcentaje_monto: number;
   metodo_pago: MetodoPagoAcordado;
   fecha_estimada: string;
+  justificacion: string;
+  origen_calculo: OrigenCalculoPagoAcordado;
 }
 
 interface ConfeccionOfertasViewProps {
@@ -209,20 +213,38 @@ export function ConfeccionOfertasView({
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(
     estadoInicial?.descuentoPorcentaje || 0,
   );
-  
+
   // Estados para compensación y asumido por empresa
-  const [tieneCompensacion, setTieneCompensacion] = useState(estadoInicial?.tieneCompensacion || false);
-  const [montoCompensacion, setMontoCompensacion] = useState(estadoInicial?.montoCompensacion || 0);
-  const [justificacionCompensacion, setJustificacionCompensacion] = useState(estadoInicial?.justificacionCompensacion || "");
-  const [modoCompensacion, setModoCompensacion] = useState<"monto" | "porcentaje">(estadoInicial?.modoCompensacion || "monto");
-  const [porcentajeCompensacion, setPorcentajeCompensacion] = useState(estadoInicial?.porcentajeCompensacion || 0);
-  
-  const [tieneAsumidoPorEmpresa, setTieneAsumidoPorEmpresa] = useState(estadoInicial?.tieneAsumidoPorEmpresa || false);
-  const [montoAsumidoPorEmpresa, setMontoAsumidoPorEmpresa] = useState(estadoInicial?.montoAsumidoPorEmpresa || 0);
-  const [justificacionAsumidoPorEmpresa, setJustificacionAsumidoPorEmpresa] = useState(estadoInicial?.justificacionAsumidoPorEmpresa || "");
-  const [modoAsumidoPorEmpresa, setModoAsumidoPorEmpresa] = useState<"monto" | "porcentaje">(estadoInicial?.modoAsumidoPorEmpresa || "monto");
-  const [porcentajeAsumidoPorEmpresa, setPorcentajeAsumidoPorEmpresa] = useState(estadoInicial?.porcentajeAsumidoPorEmpresa || 0);
-  
+  const [tieneCompensacion, setTieneCompensacion] = useState(
+    estadoInicial?.tieneCompensacion || false,
+  );
+  const [montoCompensacion, setMontoCompensacion] = useState(
+    estadoInicial?.montoCompensacion || 0,
+  );
+  const [justificacionCompensacion, setJustificacionCompensacion] = useState(
+    estadoInicial?.justificacionCompensacion || "",
+  );
+  const [modoCompensacion, setModoCompensacion] = useState<
+    "monto" | "porcentaje"
+  >(estadoInicial?.modoCompensacion || "monto");
+  const [porcentajeCompensacion, setPorcentajeCompensacion] = useState(
+    estadoInicial?.porcentajeCompensacion || 0,
+  );
+
+  const [tieneAsumidoPorEmpresa, setTieneAsumidoPorEmpresa] = useState(
+    estadoInicial?.tieneAsumidoPorEmpresa || false,
+  );
+  const [montoAsumidoPorEmpresa, setMontoAsumidoPorEmpresa] = useState(
+    estadoInicial?.montoAsumidoPorEmpresa || 0,
+  );
+  const [justificacionAsumidoPorEmpresa, setJustificacionAsumidoPorEmpresa] =
+    useState(estadoInicial?.justificacionAsumidoPorEmpresa || "");
+  const [modoAsumidoPorEmpresa, setModoAsumidoPorEmpresa] = useState<
+    "monto" | "porcentaje"
+  >(estadoInicial?.modoAsumidoPorEmpresa || "monto");
+  const [porcentajeAsumidoPorEmpresa, setPorcentajeAsumidoPorEmpresa] =
+    useState(estadoInicial?.porcentajeAsumidoPorEmpresa || 0);
+
   const [elementosPersonalizados, setElementosPersonalizados] = useState<
     ElementoPersonalizado[]
   >(estadoInicial?.elementosPersonalizados || []);
@@ -328,6 +350,11 @@ export function ConfeccionOfertasView({
             ? pago.id
             : `pago-local-${index}-${Date.now()}`,
         monto_usd: Number(pago?.monto_usd) || 0,
+        porcentaje_monto: Number.isFinite(Number(pago?.porcentaje_monto))
+          ? Math.round(
+              Math.min(100, Math.max(0, Number(pago.porcentaje_monto))) * 100,
+            ) / 100
+          : 0,
         metodo_pago:
           pago?.metodo_pago === "transferencia" ||
           pago?.metodo_pago === "stripe"
@@ -335,6 +362,9 @@ export function ConfeccionOfertasView({
             : "efectivo",
         fecha_estimada:
           typeof pago?.fecha_estimada === "string" ? pago.fecha_estimada : "",
+        justificacion:
+          typeof pago?.justificacion === "string" ? pago.justificacion : "",
+        origen_calculo: "monto" as OrigenCalculoPagoAcordado,
       }));
     },
   );
@@ -377,6 +407,31 @@ export function ConfeccionOfertasView({
     if (Number.isNaN(date.getTime())) return "";
     const pad = (num: number) => num.toString().padStart(2, "0");
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const roundToTwo = (value: number) => Math.round(value * 100) / 100;
+
+  const clampNumber = (value: number, min: number, max: number) =>
+    Math.min(max, Math.max(min, value));
+
+  const calcularPorcentajeDesdeMonto = (monto: number, total: number) => {
+    if (total <= 0) return 0;
+    return roundToTwo(clampNumber((monto / total) * 100, 0, 100));
+  };
+
+  const calcularMontoDesdePorcentaje = (porcentaje: number, total: number) => {
+    if (total <= 0) return 0;
+    return roundToTwo(clampNumber((porcentaje / 100) * total, 0, total));
+  };
+
+  const parseInputNumber = (value: number | string): number => {
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? value : 0;
+    }
+    const normalized = value.replace(",", ".").trim();
+    if (!normalized) return 0;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
   };
 
   const steps = [
@@ -723,20 +778,29 @@ export function ConfeccionOfertasView({
         compensacion: ofertaACopiar.compensacion,
         asumido_por_empresa: ofertaACopiar.asumido_por_empresa,
         tiene_compensacion: !!ofertaACopiar.compensacion,
-        tiene_asumido: !!ofertaACopiar.asumido_por_empresa
+        tiene_asumido: !!ofertaACopiar.asumido_por_empresa,
       });
-      
+
       if (ofertaACopiar.compensacion) {
         console.log("✅ Cargando compensación:", ofertaACopiar.compensacion);
         setTieneCompensacion(true);
         setMontoCompensacion(ofertaACopiar.compensacion.monto_usd || 0);
-        setJustificacionCompensacion(ofertaACopiar.compensacion.justificacion || "");
+        setJustificacionCompensacion(
+          ofertaACopiar.compensacion.justificacion || "",
+        );
       }
       if (ofertaACopiar.asumido_por_empresa) {
-        console.log("✅ Cargando asumido por empresa:", ofertaACopiar.asumido_por_empresa);
+        console.log(
+          "✅ Cargando asumido por empresa:",
+          ofertaACopiar.asumido_por_empresa,
+        );
         setTieneAsumidoPorEmpresa(true);
-        setMontoAsumidoPorEmpresa(ofertaACopiar.asumido_por_empresa.monto_usd || 0);
-        setJustificacionAsumidoPorEmpresa(ofertaACopiar.asumido_por_empresa.justificacion || "");
+        setMontoAsumidoPorEmpresa(
+          ofertaACopiar.asumido_por_empresa.monto_usd || 0,
+        );
+        setJustificacionAsumidoPorEmpresa(
+          ofertaACopiar.asumido_por_empresa.justificacion || "",
+        );
       }
 
       // Cargar datos de pago
@@ -747,17 +811,36 @@ export function ConfeccionOfertasView({
       const formasPagoAcordadasOferta = Boolean(
         ofertaACopiar.formas_pago_acordadas,
       );
+      const precioFinalOferta = Number(ofertaACopiar.precio_final) || 0;
       const pagosAcordadosOferta = Array.isArray(ofertaACopiar.pagos_acordados)
-        ? ofertaACopiar.pagos_acordados.map((pago: any, index: number) => ({
-            id: `pago-${index}-${Date.now()}`,
-            monto_usd: Number(pago?.monto_usd) || 0,
-            metodo_pago:
-              pago?.metodo_pago === "transferencia" ||
-              pago?.metodo_pago === "stripe"
-                ? pago.metodo_pago
-                : "efectivo",
-            fecha_estimada: toDateTimeLocalValue(pago?.fecha_estimada),
-          }))
+        ? ofertaACopiar.pagos_acordados.map((pago: any, index: number) => {
+            const montoUsd = Number(pago?.monto_usd) || 0;
+            const porcentajeMontoRaw = Number(pago?.porcentaje_monto);
+            const porcentajeMonto = Number.isFinite(porcentajeMontoRaw)
+              ? roundToTwo(clampNumber(porcentajeMontoRaw, 0, 100))
+              : precioFinalOferta > 0
+                ? roundToTwo(
+                    clampNumber((montoUsd / precioFinalOferta) * 100, 0, 100),
+                  )
+                : 0;
+
+            return {
+              id: `pago-${index}-${Date.now()}`,
+              monto_usd: montoUsd,
+              porcentaje_monto: porcentajeMonto,
+              metodo_pago:
+                pago?.metodo_pago === "transferencia" ||
+                pago?.metodo_pago === "stripe"
+                  ? pago.metodo_pago
+                  : "efectivo",
+              fecha_estimada: toDateTimeLocalValue(pago?.fecha_estimada),
+              justificacion:
+                typeof pago?.justificacion === "string"
+                  ? pago.justificacion
+                  : "",
+              origen_calculo: "monto" as OrigenCalculoPagoAcordado,
+            };
+          })
         : [];
       const cantidadPagosOfertaRaw = Number(
         ofertaACopiar.cantidad_pagos_acordados,
@@ -1588,18 +1671,24 @@ export function ConfeccionOfertasView({
   // Calcular monto pendiente restando compensación y asumido por empresa
   const montoPendiente = useMemo(() => {
     let pendiente = precioFinal;
-    
+
     if (tieneCompensacion && montoCompensacion > 0) {
       pendiente -= montoCompensacion;
     }
-    
+
     if (tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0) {
       pendiente -= montoAsumidoPorEmpresa;
     }
-    
+
     // Asegurar que no sea negativo
     return Math.max(0, pendiente);
-  }, [precioFinal, tieneCompensacion, montoCompensacion, tieneAsumidoPorEmpresa, montoAsumidoPorEmpresa]);
+  }, [
+    precioFinal,
+    tieneCompensacion,
+    montoCompensacion,
+    tieneAsumidoPorEmpresa,
+    montoAsumidoPorEmpresa,
+  ]);
 
   // Crear mapa de marcas por ID
   const marcasMap = useMemo(() => {
@@ -1904,6 +1993,11 @@ export function ConfeccionOfertasView({
       : precioFinal * tasaCambioNumero
     : 0;
 
+  const totalBasePagosAcordados = useMemo(
+    () => Math.max(0, Number(precioFinal || 0)),
+    [precioFinal],
+  );
+
   const sumaPagosAcordadosActual = useMemo(() => {
     const suma = pagosAcordados.reduce(
       (sum, pago) => sum + (Number(pago.monto_usd) || 0),
@@ -1913,16 +2007,75 @@ export function ConfeccionOfertasView({
   }, [pagosAcordados]);
 
   const restantePagosAcordados = useMemo(
-    () => Math.round((precioFinal - sumaPagosAcordadosActual) * 100) / 100,
-    [precioFinal, sumaPagosAcordadosActual],
+    () =>
+      Math.round((totalBasePagosAcordados - sumaPagosAcordadosActual) * 100) /
+      100,
+    [totalBasePagosAcordados, sumaPagosAcordadosActual],
   );
 
   const sumaPagosSuperaPrecioFinal = useMemo(
     () =>
       Math.round(sumaPagosAcordadosActual * 100) >
-      Math.round((Number(precioFinal) || 0) * 100),
-    [sumaPagosAcordadosActual, precioFinal],
+      Math.round(totalBasePagosAcordados * 100),
+    [sumaPagosAcordadosActual, totalBasePagosAcordados],
   );
+
+  useEffect(() => {
+    if (totalBasePagosAcordados <= 0) return;
+
+    setPagosAcordados((prev) => {
+      let changed = false;
+
+      const next = prev.map((pago) => {
+        const porcentajeActual = roundToTwo(
+          clampNumber(Number(pago.porcentaje_monto) || 0, 0, 100),
+        );
+
+        if (pago.origen_calculo === "porcentaje") {
+          const montoDesdePorcentaje = calcularMontoDesdePorcentaje(
+            porcentajeActual,
+            totalBasePagosAcordados,
+          );
+          if (
+            montoDesdePorcentaje !== pago.monto_usd ||
+            porcentajeActual !== pago.porcentaje_monto
+          ) {
+            changed = true;
+            return {
+              ...pago,
+              monto_usd: montoDesdePorcentaje,
+              porcentaje_monto: porcentajeActual,
+            };
+          }
+          return pago;
+        }
+
+        const montoActual = roundToTwo(
+          Math.max(0, Number(pago.monto_usd) || 0),
+        );
+        const montoAjustado = Math.min(montoActual, totalBasePagosAcordados);
+        const porcentajeDesdeMonto = calcularPorcentajeDesdeMonto(
+          montoAjustado,
+          totalBasePagosAcordados,
+        );
+
+        if (
+          montoAjustado !== pago.monto_usd ||
+          porcentajeDesdeMonto !== pago.porcentaje_monto
+        ) {
+          changed = true;
+          return {
+            ...pago,
+            monto_usd: montoAjustado,
+            porcentaje_monto: porcentajeDesdeMonto,
+          };
+        }
+        return pago;
+      });
+
+      return changed ? next : prev;
+    });
+  }, [totalBasePagosAcordados]);
 
   const totalSinMargen = useMemo(() => {
     return (
@@ -4133,8 +4286,11 @@ export function ConfeccionOfertasView({
         () => ({
           id: generarPagoAcordadoId(),
           monto_usd: 0,
+          porcentaje_monto: 0,
           metodo_pago: "efectivo" as MetodoPagoAcordado,
           fecha_estimada: "",
+          justificacion: "",
+          origen_calculo: "monto" as OrigenCalculoPagoAcordado,
         }),
       );
       return [...prev, ...faltantes];
@@ -4143,7 +4299,7 @@ export function ConfeccionOfertasView({
 
   const actualizarPagoAcordado = (
     pagoId: string,
-    field: keyof Omit<PagoAcordadoForm, "id">,
+    field: keyof Omit<PagoAcordadoForm, "id" | "origen_calculo">,
     value: number | string,
   ) => {
     setPagosAcordados((prev) =>
@@ -4151,12 +4307,43 @@ export function ConfeccionOfertasView({
         if (pago.id !== pagoId) return pago;
 
         if (field === "monto_usd") {
-          const montoNumero = Math.max(0, Number(value) || 0);
-          const montoAjustado = Math.min(montoNumero, precioFinal || 0);
-          const montoRedondeado = Math.round(montoAjustado * 100) / 100;
+          const totalBase = Number(totalBasePagosAcordados) || 0;
+          const montoNumero = Math.max(0, parseInputNumber(value));
+          const montoAjustado =
+            totalBase > 0 ? Math.min(montoNumero, totalBase) : montoNumero;
+          const montoRedondeado = roundToTwo(montoAjustado);
+          const porcentajeMonto =
+            totalBase > 0
+              ? calcularPorcentajeDesdeMonto(montoRedondeado, totalBase)
+              : pago.porcentaje_monto;
           return {
             ...pago,
             monto_usd: montoRedondeado,
+            porcentaje_monto: porcentajeMonto,
+            origen_calculo: "monto",
+          };
+        }
+
+        if (field === "porcentaje_monto") {
+          const totalBase = Number(totalBasePagosAcordados) || 0;
+          const porcentajeNumero = clampNumber(parseInputNumber(value), 0, 100);
+          const porcentajeRedondeado = roundToTwo(porcentajeNumero);
+          const montoCalculado =
+            totalBase > 0
+              ? calcularMontoDesdePorcentaje(porcentajeRedondeado, totalBase)
+              : pago.monto_usd;
+          return {
+            ...pago,
+            porcentaje_monto: porcentajeRedondeado,
+            monto_usd: montoCalculado,
+            origen_calculo: "porcentaje",
+          };
+        }
+
+        if (field === "justificacion") {
+          return {
+            ...pago,
+            justificacion: String(value ?? ""),
           };
         }
 
@@ -4268,12 +4455,16 @@ export function ConfeccionOfertasView({
 
           return {
             monto_usd: Number(pago.monto_usd) || 0,
+            porcentaje_monto: roundToTwo(
+              clampNumber(Number(pago.porcentaje_monto) || 0, 0, 100),
+            ),
             metodo_pago:
               pago.metodo_pago === "transferencia" ||
               pago.metodo_pago === "stripe"
                 ? pago.metodo_pago
                 : "efectivo",
             fecha_estimada: fechaEstimadaIso,
+            justificacion: pago.justificacion?.trim() || null,
           };
         })
       : [];
@@ -4520,18 +4711,26 @@ export function ConfeccionOfertasView({
         });
 
         // Agregar compensación si está marcada
-        if (tieneCompensacion && montoCompensacion > 0 && justificacionCompensacion.trim()) {
+        if (
+          tieneCompensacion &&
+          montoCompensacion > 0 &&
+          justificacionCompensacion.trim()
+        ) {
           ofertaData.compensacion = {
             monto_usd: montoCompensacion,
-            justificacion: justificacionCompensacion.trim()
+            justificacion: justificacionCompensacion.trim(),
           };
         }
 
         // Agregar asumido por empresa si está marcado
-        if (tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0 && justificacionAsumidoPorEmpresa.trim()) {
+        if (
+          tieneAsumidoPorEmpresa &&
+          montoAsumidoPorEmpresa > 0 &&
+          justificacionAsumidoPorEmpresa.trim()
+        ) {
           ofertaData.asumido_por_empresa = {
             monto_usd: montoAsumidoPorEmpresa,
-            justificacion: justificacionAsumidoPorEmpresa.trim()
+            justificacion: justificacionAsumidoPorEmpresa.trim(),
           };
         }
 
@@ -6587,11 +6786,14 @@ export function ConfeccionOfertasView({
                       onChange={(e) => setTieneCompensacion(e.target.checked)}
                       className="h-4 w-4 rounded border-orange-300"
                     />
-                    <label htmlFor="tieneCompensacion" className="text-sm font-semibold text-orange-900 cursor-pointer">
+                    <label
+                      htmlFor="tieneCompensacion"
+                      className="text-sm font-semibold text-orange-900 cursor-pointer"
+                    >
                       Tiene Compensación
                     </label>
                   </div>
-                  
+
                   {tieneCompensacion && (
                     <div className="space-y-2 pl-6">
                       {/* Toggle entre Monto y Porcentaje */}
@@ -6619,16 +6821,20 @@ export function ConfeccionOfertasView({
                           % del Precio
                         </button>
                       </div>
-                      
+
                       {modoCompensacion === "monto" ? (
                         <div className="flex items-center justify-between gap-3">
-                          <label className="text-sm text-orange-700">Monto (USD)</label>
+                          <label className="text-sm text-orange-700">
+                            Monto (USD)
+                          </label>
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
                             value={montoCompensacion}
-                            onChange={(e) => setMontoCompensacion(Number(e.target.value) || 0)}
+                            onChange={(e) =>
+                              setMontoCompensacion(Number(e.target.value) || 0)
+                            }
                             className="h-9 w-32 text-right bg-white"
                             placeholder="0.00"
                           />
@@ -6636,37 +6842,50 @@ export function ConfeccionOfertasView({
                       ) : (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3">
-                            <label className="text-sm text-orange-700">Porcentaje (%)</label>
+                            <label className="text-sm text-orange-700">
+                              Porcentaje (%)
+                            </label>
                             <Input
                               type="number"
                               min="0"
                               max="100"
                               step="0.1"
                               value={porcentajeCompensacion}
-                              onChange={(e) => setPorcentajeCompensacion(Number(e.target.value) || 0)}
+                              onChange={(e) =>
+                                setPorcentajeCompensacion(
+                                  Number(e.target.value) || 0,
+                                )
+                              }
                               className="h-9 w-32 text-right bg-white"
                               placeholder="0"
                             />
                           </div>
                           <div className="flex items-center justify-between text-xs text-orange-600">
                             <span>Monto calculado:</span>
-                            <span className="font-semibold">${formatCurrency(montoCompensacion)}</span>
+                            <span className="font-semibold">
+                              ${formatCurrency(montoCompensacion)}
+                            </span>
                           </div>
                         </div>
                       )}
-                      
+
                       <div>
-                        <label className="text-sm text-orange-700 block mb-1">Justificación</label>
+                        <label className="text-sm text-orange-700 block mb-1">
+                          Justificación
+                        </label>
                         <textarea
                           value={justificacionCompensacion}
-                          onChange={(e) => setJustificacionCompensacion(e.target.value)}
+                          onChange={(e) =>
+                            setJustificacionCompensacion(e.target.value)
+                          }
                           className="w-full h-20 px-3 py-2 text-sm border border-orange-200 rounded-md bg-white resize-none"
                           placeholder="Ej: Compensación por retraso de 2 semanas en la instalación"
                           minLength={10}
                           maxLength={500}
                         />
                         <p className="text-xs text-orange-600 mt-1">
-                          {justificacionCompensacion.length}/500 caracteres (mínimo 10)
+                          {justificacionCompensacion.length}/500 caracteres
+                          (mínimo 10)
                         </p>
                       </div>
                     </div>
@@ -6680,14 +6899,19 @@ export function ConfeccionOfertasView({
                       type="checkbox"
                       id="tieneAsumidoPorEmpresa"
                       checked={tieneAsumidoPorEmpresa}
-                      onChange={(e) => setTieneAsumidoPorEmpresa(e.target.checked)}
+                      onChange={(e) =>
+                        setTieneAsumidoPorEmpresa(e.target.checked)
+                      }
                       className="h-4 w-4 rounded border-blue-300"
                     />
-                    <label htmlFor="tieneAsumidoPorEmpresa" className="text-sm font-semibold text-blue-900 cursor-pointer">
+                    <label
+                      htmlFor="tieneAsumidoPorEmpresa"
+                      className="text-sm font-semibold text-blue-900 cursor-pointer"
+                    >
                       Tiene Monto Asumido por Empresa
                     </label>
                   </div>
-                  
+
                   {tieneAsumidoPorEmpresa && (
                     <div className="space-y-2 pl-6">
                       {/* Toggle entre Monto y Porcentaje */}
@@ -6715,16 +6939,22 @@ export function ConfeccionOfertasView({
                           % del Precio
                         </button>
                       </div>
-                      
+
                       {modoAsumidoPorEmpresa === "monto" ? (
                         <div className="flex items-center justify-between gap-3">
-                          <label className="text-sm text-blue-700">Monto (USD)</label>
+                          <label className="text-sm text-blue-700">
+                            Monto (USD)
+                          </label>
                           <Input
                             type="number"
                             min="0"
                             step="0.01"
                             value={montoAsumidoPorEmpresa}
-                            onChange={(e) => setMontoAsumidoPorEmpresa(Number(e.target.value) || 0)}
+                            onChange={(e) =>
+                              setMontoAsumidoPorEmpresa(
+                                Number(e.target.value) || 0,
+                              )
+                            }
                             className="h-9 w-32 text-right bg-white"
                             placeholder="0.00"
                           />
@@ -6732,37 +6962,50 @@ export function ConfeccionOfertasView({
                       ) : (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-3">
-                            <label className="text-sm text-blue-700">Porcentaje (%)</label>
+                            <label className="text-sm text-blue-700">
+                              Porcentaje (%)
+                            </label>
                             <Input
                               type="number"
                               min="0"
                               max="100"
                               step="0.1"
                               value={porcentajeAsumidoPorEmpresa}
-                              onChange={(e) => setPorcentajeAsumidoPorEmpresa(Number(e.target.value) || 0)}
+                              onChange={(e) =>
+                                setPorcentajeAsumidoPorEmpresa(
+                                  Number(e.target.value) || 0,
+                                )
+                              }
                               className="h-9 w-32 text-right bg-white"
                               placeholder="0"
                             />
                           </div>
                           <div className="flex items-center justify-between text-xs text-blue-600">
                             <span>Monto calculado:</span>
-                            <span className="font-semibold">${formatCurrency(montoAsumidoPorEmpresa)}</span>
+                            <span className="font-semibold">
+                              ${formatCurrency(montoAsumidoPorEmpresa)}
+                            </span>
                           </div>
                         </div>
                       )}
-                      
+
                       <div>
-                        <label className="text-sm text-blue-700 block mb-1">Justificación</label>
+                        <label className="text-sm text-blue-700 block mb-1">
+                          Justificación
+                        </label>
                         <textarea
                           value={justificacionAsumidoPorEmpresa}
-                          onChange={(e) => setJustificacionAsumidoPorEmpresa(e.target.value)}
+                          onChange={(e) =>
+                            setJustificacionAsumidoPorEmpresa(e.target.value)
+                          }
                           className="w-full h-20 px-3 py-2 text-sm border border-blue-200 rounded-md bg-white resize-none"
                           placeholder="Ej: Descuento VIP aprobado por gerencia"
                           minLength={10}
                           maxLength={500}
                         />
                         <p className="text-xs text-blue-600 mt-1">
-                          {justificacionAsumidoPorEmpresa.length}/500 caracteres (mínimo 10)
+                          {justificacionAsumidoPorEmpresa.length}/500 caracteres
+                          (mínimo 10)
                         </p>
                       </div>
                     </div>
@@ -7048,7 +7291,7 @@ export function ConfeccionOfertasView({
                                     </button>
                                   )}
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
                                   <div className="space-y-1">
                                     <Label className="text-[11px] text-slate-600">
                                       Monto (USD)
@@ -7056,14 +7299,39 @@ export function ConfeccionOfertasView({
                                     <Input
                                       type="number"
                                       min="0"
-                                      max={precioFinal}
+                                      max={
+                                        totalBasePagosAcordados > 0
+                                          ? totalBasePagosAcordados
+                                          : undefined
+                                      }
                                       step="0.01"
                                       value={pago.monto_usd}
                                       onChange={(e) =>
                                         actualizarPagoAcordado(
                                           pago.id,
                                           "monto_usd",
-                                          Number(e.target.value) || 0,
+                                          e.target.value,
+                                        )
+                                      }
+                                      className="h-8 bg-white"
+                                      placeholder="0.00"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <Label className="text-[11px] text-slate-600">
+                                      % del monto
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="0.01"
+                                      value={pago.porcentaje_monto}
+                                      onChange={(e) =>
+                                        actualizarPagoAcordado(
+                                          pago.id,
+                                          "porcentaje_monto",
+                                          e.target.value,
                                         )
                                       }
                                       className="h-8 bg-white"
@@ -7118,12 +7386,29 @@ export function ConfeccionOfertasView({
                                     />
                                   </div>
                                 </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[11px] text-slate-600">
+                                    Justificación
+                                  </Label>
+                                  <Textarea
+                                    value={pago.justificacion}
+                                    onChange={(e) =>
+                                      actualizarPagoAcordado(
+                                        pago.id,
+                                        "justificacion",
+                                        e.target.value,
+                                      )
+                                    }
+                                    className="min-h-[72px] bg-white"
+                                    placeholder="Opcional"
+                                  />
+                                </div>
                               </div>
                             ))}
                             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs">
                               <span className="text-slate-600">
                                 Máximo por pago y suma total:{" "}
-                                {formatCurrency(precioFinal)}
+                                {formatCurrency(totalBasePagosAcordados)}
                               </span>
                               <div className="flex flex-col items-end gap-0.5">
                                 <span
@@ -7151,6 +7436,12 @@ export function ConfeccionOfertasView({
                                 )}
                               </div>
                             </div>
+                            {totalBasePagosAcordados <= 0 && (
+                              <p className="text-[11px] text-amber-700">
+                                Para calcular % y monto automáticamente, el
+                                precio final debe ser mayor que 0.
+                              </p>
+                            )}
                           </div>
                         )}
                       </div>
@@ -7210,26 +7501,31 @@ export function ConfeccionOfertasView({
                           (Redondeado desde {formatCurrency(totalSinRedondeo)})
                         </p>
                       )}
-                      
+
                       {/* Mostrar compensación y asumido si existen */}
                       {(tieneCompensacion || tieneAsumidoPorEmpresa) && (
                         <div className="pt-2 mt-2 border-t border-slate-200 space-y-1">
                           {tieneCompensacion && montoCompensacion > 0 && (
                             <div className="flex items-center justify-between text-sm">
-                              <span className="text-orange-700">Compensación</span>
+                              <span className="text-orange-700">
+                                Compensación
+                              </span>
                               <span className="font-medium text-orange-700">
                                 - {formatCurrency(montoCompensacion)}
                               </span>
                             </div>
                           )}
-                          {tieneAsumidoPorEmpresa && montoAsumidoPorEmpresa > 0 && (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-blue-700">Asumido por Empresa</span>
-                              <span className="font-medium text-blue-700">
-                                - {formatCurrency(montoAsumidoPorEmpresa)}
-                              </span>
-                            </div>
-                          )}
+                          {tieneAsumidoPorEmpresa &&
+                            montoAsumidoPorEmpresa > 0 && (
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-blue-700">
+                                  Asumido por Empresa
+                                </span>
+                                <span className="font-medium text-blue-700">
+                                  - {formatCurrency(montoAsumidoPorEmpresa)}
+                                </span>
+                              </div>
+                            )}
                           <div className="flex items-center justify-between pt-2 border-t border-orange-200 bg-orange-50 px-3 py-2 rounded-md">
                             <span className="text-base font-bold text-orange-900">
                               Monto Pendiente

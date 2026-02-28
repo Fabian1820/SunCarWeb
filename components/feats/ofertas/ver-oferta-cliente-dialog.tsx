@@ -689,6 +689,16 @@ export function VerOfertaClienteDialog({
                                       </span>
                                     </div>
                                     <div className="flex items-center justify-between">
+                                      <span>% del monto</span>
+                                      <span className="font-medium text-slate-900">
+                                        {Number.isFinite(
+                                          Number(pago.porcentaje_monto),
+                                        )
+                                          ? `${Number(pago.porcentaje_monto).toFixed(2)}%`
+                                          : "--"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
                                       <span>Método</span>
                                       <span className="font-medium text-slate-900 capitalize">
                                         {pago.metodo_pago}
@@ -700,6 +710,17 @@ export function VerOfertaClienteDialog({
                                         {formatDateTime(pago.fecha_estimada)}
                                       </span>
                                     </div>
+                                    {typeof pago.justificacion === "string" &&
+                                      pago.justificacion.trim() && (
+                                        <div className="space-y-1">
+                                          <span className="text-slate-600">
+                                            Justificación
+                                          </span>
+                                          <p className="text-slate-900 whitespace-pre-wrap break-words">
+                                            {pago.justificacion}
+                                          </p>
+                                        </div>
+                                      )}
                                   </div>
                                 ),
                               )}

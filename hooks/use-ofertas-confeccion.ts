@@ -118,8 +118,10 @@ export type MetodoPagoAcordado = "efectivo" | "transferencia" | "stripe";
 
 export interface PagoAcordadoOferta {
   monto_usd: number;
+  porcentaje_monto?: number;
   metodo_pago: MetodoPagoAcordado;
   fecha_estimada: string;
+  justificacion?: string;
 }
 
 export interface EstadoOfertaCliente {
@@ -143,12 +145,17 @@ const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
   const pagosAcordados: PagoAcordadoOferta[] = pagosAcordadosRaw.map(
     (pago: any) => ({
       monto_usd: Number(pago?.monto_usd ?? 0),
+      porcentaje_monto: Number.isFinite(Number(pago?.porcentaje_monto))
+        ? Number(pago.porcentaje_monto)
+        : undefined,
       metodo_pago:
         pago?.metodo_pago === "transferencia" || pago?.metodo_pago === "stripe"
           ? pago.metodo_pago
           : "efectivo",
       fecha_estimada:
         typeof pago?.fecha_estimada === "string" ? pago.fecha_estimada : "",
+      justificacion:
+        typeof pago?.justificacion === "string" ? pago.justificacion : "",
     }),
   );
   const cantidadPagosAcordadosRaw = Number(raw.cantidad_pagos_acordados);

@@ -2424,6 +2424,16 @@ export function OfertasConfeccionadasView() {
                                         </span>
                                       </div>
                                       <div className="flex items-center justify-between">
+                                        <span>% del monto</span>
+                                        <span className="font-medium text-slate-900">
+                                          {Number.isFinite(
+                                            Number(pago.porcentaje_monto),
+                                          )
+                                            ? `${Number(pago.porcentaje_monto).toFixed(2)}%`
+                                            : "--"}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center justify-between">
                                         <span>Método</span>
                                         <span className="font-medium text-slate-900 capitalize">
                                           {pago.metodo_pago}
@@ -2435,6 +2445,17 @@ export function OfertasConfeccionadasView() {
                                           {formatDateTime(pago.fecha_estimada)}
                                         </span>
                                       </div>
+                                      {typeof pago.justificacion === "string" &&
+                                        pago.justificacion.trim() && (
+                                          <div className="space-y-1">
+                                            <span className="text-slate-600">
+                                              Justificación
+                                            </span>
+                                            <p className="text-slate-900 whitespace-pre-wrap break-words">
+                                              {pago.justificacion}
+                                            </p>
+                                          </div>
+                                        )}
                                     </div>
                                   ),
                                 )}
@@ -2500,31 +2521,52 @@ export function OfertasConfeccionadasView() {
                               </span>
                             </div>
                           )}
-                          {((ofertaSeleccionada as any).compensacion || (ofertaSeleccionada as any).asumido_por_empresa) && (
+                          {((ofertaSeleccionada as any).compensacion ||
+                            (ofertaSeleccionada as any)
+                              .asumido_por_empresa) && (
                             <div className="pt-2 border-t border-slate-200 space-y-2">
                               {(ofertaSeleccionada as any).compensacion && (
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between text-sm">
-                                    <span className="text-orange-700 font-medium">Compensación</span>
+                                    <span className="text-orange-700 font-medium">
+                                      Compensación
+                                    </span>
                                     <span className="font-semibold text-orange-700">
-                                      - {formatCurrency((ofertaSeleccionada as any).compensacion.monto_usd || 0)}
+                                      -{" "}
+                                      {formatCurrency(
+                                        (ofertaSeleccionada as any).compensacion
+                                          .monto_usd || 0,
+                                      )}
                                     </span>
                                   </div>
                                   <p className="text-xs text-slate-600 italic">
-                                    {(ofertaSeleccionada as any).compensacion.justificacion}
+                                    {
+                                      (ofertaSeleccionada as any).compensacion
+                                        .justificacion
+                                    }
                                   </p>
                                 </div>
                               )}
-                              {(ofertaSeleccionada as any).asumido_por_empresa && (
+                              {(ofertaSeleccionada as any)
+                                .asumido_por_empresa && (
                                 <div className="space-y-1">
                                   <div className="flex items-center justify-between text-sm">
-                                    <span className="text-blue-700 font-medium">Asumido por Empresa</span>
+                                    <span className="text-blue-700 font-medium">
+                                      Asumido por Empresa
+                                    </span>
                                     <span className="font-semibold text-blue-700">
-                                      - {formatCurrency((ofertaSeleccionada as any).asumido_por_empresa.monto_usd || 0)}
+                                      -{" "}
+                                      {formatCurrency(
+                                        (ofertaSeleccionada as any)
+                                          .asumido_por_empresa.monto_usd || 0,
+                                      )}
                                     </span>
                                   </div>
                                   <p className="text-xs text-slate-600 italic">
-                                    {(ofertaSeleccionada as any).asumido_por_empresa.justificacion}
+                                    {
+                                      (ofertaSeleccionada as any)
+                                        .asumido_por_empresa.justificacion
+                                    }
                                   </p>
                                 </div>
                               )}
