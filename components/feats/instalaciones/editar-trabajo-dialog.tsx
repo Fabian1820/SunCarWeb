@@ -21,7 +21,7 @@ import {
 } from "@/components/shared/atom/select";
 import type { TrabajoOperacion } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
-import { BrigadaService } from "@/lib/api-services";
+import { BrigadaService, TrabajadorService } from "@/lib/api-services";
 import type { Brigada } from "@/lib/api-types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,18 +80,37 @@ export function EditarTrabajoDialog({
           comentario: trabajo.comentario || "",
         });
 
-        // Cargar el nombre de la brigada actual
+        // Cargar el nombre de la brigada o trabajador actual usando el ID de MongoDB
         if (trabajo.brigada_id) {
           try {
+            // Primero intentar cargar como brigada
             const brigada = await BrigadaService.getBrigadaById(trabajo.brigada_id);
-            if (brigada?.lider?.nombre) {
-              setBrigadaActualNombre(`Brigada de ${brigada.lider.nombre}`);
+            
+            if (brigada && brigada.lider_ci) {
+              // Es una brigada, obtener el nombre del líder
+              const trabajadorLider = await TrabajadorService.getTrabajadorByCI(brigada.lider_ci);
+              
+              if (trabajadorLider?.nombre) {
+                setBrigadaActualNombre(`Brigada de ${trabajadorLider.nombre}`);
+              } else {
+                setBrigadaActualNombre(`Brigada ${brigada.lider_ci}`);
+              }
             } else {
-              setBrigadaActualNombre(`Brigada ${trabajo.brigada_id}`);
+              // No es una brigada, buscar como trabajador por ID de MongoDB
+              const todosTrabajadores = await TrabajadorService.getAllTrabajadores();
+              const trabajador = todosTrabajadores.find(
+                (t) => t.id === trabajo.brigada_id || t.CI === trabajo.brigada_id
+              );
+              
+              if (trabajador?.nombre) {
+                setBrigadaActualNombre(trabajador.nombre);
+              } else {
+                setBrigadaActualNombre(`Asignado: ${trabajo.brigada_id}`);
+              }
             }
           } catch (error) {
-            console.error("Error cargando brigada actual:", error);
-            setBrigadaActualNombre(`Brigada ${trabajo.brigada_id}`);
+            console.error("Error cargando brigada/trabajador actual:", error);
+            setBrigadaActualNombre(`Asignado: ${trabajo.brigada_id}`);
           }
         }
       } else {

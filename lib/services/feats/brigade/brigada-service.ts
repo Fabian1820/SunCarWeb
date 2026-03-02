@@ -22,29 +22,40 @@ export class BrigadaService {
       
       let brigada: ApiBrigada | null = null
       
-      // El backend devuelve { success: true, data: { id, lider: { CI }, integrantes: [] } }
+      // El backend devuelve { success: true, data: { id, lider_ci, lider: { CI }, integrantes: [] } }
       if (response?.success && response.data) {
         brigada = response.data
-      } else if (response && typeof response === 'object' && 'lider' in response) {
+      } else if (response && typeof response === 'object' && ('lider_ci' in response || 'lider' in response)) {
         // Fallback: si la respuesta es directamente la brigada (sin wrapper)
         brigada = response as ApiBrigada
       }
       
       // Si tenemos la brigada, cargar el nombre del líder desde trabajadores
-      if (brigada && brigada.lider) {
-        const liderCI = brigada.lider.CI || brigada.lider_ci
+      if (brigada) {
+        // Obtener el CI del líder (puede estar en lider_ci o en lider.CI)
+        const liderCI = brigada.lider_ci || brigada.lider?.CI
+        
         if (liderCI) {
           console.log(`Cargando nombre del líder con CI: ${liderCI}`)
           const trabajador = await TrabajadorService.getTrabajadorByCI(liderCI)
+          console.log(`Trabajador obtenido:`, trabajador)
+          
           if (trabajador?.nombre) {
-            // Actualizar el nombre del líder en el objeto brigada
+            // Actualizar el objeto lider con toda la información del trabajador
             brigada.lider = {
-              ...brigada.lider,
+              id: trabajador.id || trabajador.CI,
+              CI: trabajador.CI,
               nombre: trabajador.nombre,
-              CI: liderCI
+              tiene_contraseña: trabajador.tiene_contraseña || false,
+              telefono: trabajador.telefono,
+              email: trabajador.email
             }
             console.log(`Nombre del líder cargado: ${trabajador.nombre}`)
+          } else {
+            console.warn(`No se pudo obtener el nombre del trabajador con CI: ${liderCI}`)
           }
+        } else {
+          console.warn(`No se encontró CI del líder en la brigada`)
         }
       }
       

@@ -21,7 +21,7 @@ import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/p
 import { apiRequest } from "@/lib/api-config";
 import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { ClienteService, BrigadaService } from "@/lib/api-services";
+import { ClienteService, BrigadaService, TrabajadorService } from "@/lib/api-services";
 import { EditarTrabajoDialog } from "./editar-trabajo-dialog";
 
 interface ListaPlanificacionesTableProps {
@@ -239,30 +239,46 @@ export function ListaPlanificacionesTable({
               }
             }
 
-            // 3. Cargar información de la brigada
+            // 3. Cargar información de la brigada o trabajador usando el ID de MongoDB
             try {
+              // Primero intentar cargar como brigada usando el ID de MongoDB
               const brigada = await BrigadaService.getBrigadaById(trabajo.brigada_id);
               
               console.log(`Brigada ${trabajo.brigada_id} cargada:`, brigada);
               
-              if (brigada) {
-                const lider = brigada.lider;
-                const nombreLider = lider?.nombre ? String(lider.nombre) : "";
+              if (brigada && brigada.lider_ci) {
+                // Es una brigada, ahora obtener el nombre del líder usando su CI
+                const trabajadorLider = await TrabajadorService.getTrabajadorByCI(brigada.lider_ci);
+                console.log(`Líder de brigada cargado:`, trabajadorLider);
                 
-                if (nombreLider) {
-                  brigadaNombre = `Brigada de ${nombreLider}`;
+                if (trabajadorLider?.nombre) {
+                  brigadaNombre = `Brigada de ${trabajadorLider.nombre}`;
                   console.log(`Brigada nombre asignado: ${brigadaNombre}`);
                 } else {
-                  brigadaNombre = `Brigada ${trabajo.brigada_id}`;
-                  console.log(`Brigada sin líder, usando ID: ${brigadaNombre}`);
+                  brigadaNombre = `Brigada ${brigada.lider_ci}`;
+                  console.log(`Brigada sin nombre de líder, usando CI: ${brigadaNombre}`);
                 }
               } else {
-                console.warn(`No se pudo cargar brigada ${trabajo.brigada_id}`);
-                brigadaNombre = `Brigada ${trabajo.brigada_id}`;
+                // No es una brigada, el ID debe ser de un trabajador
+                // Necesitamos obtener todos los trabajadores y buscar por ID de MongoDB
+                console.log(`No es brigada, buscando trabajador con ID: ${trabajo.brigada_id}`);
+                const todosTrabajadores = await TrabajadorService.getAllTrabajadores();
+                const trabajador = todosTrabajadores.find(
+                  (t) => t.id === trabajo.brigada_id || t.CI === trabajo.brigada_id
+                );
+                console.log(`Trabajador encontrado:`, trabajador);
+                
+                if (trabajador?.nombre) {
+                  brigadaNombre = trabajador.nombre;
+                  console.log(`Trabajador individual asignado: ${brigadaNombre}`);
+                } else {
+                  brigadaNombre = `Asignado: ${trabajo.brigada_id}`;
+                  console.log(`No se pudo cargar ni brigada ni trabajador, usando ID: ${brigadaNombre}`);
+                }
               }
             } catch (error) {
-              console.error(`Error cargando brigada ${trabajo.brigada_id}:`, error);
-              brigadaNombre = `Brigada ${trabajo.brigada_id}`;
+              console.error(`Error cargando brigada/trabajador ${trabajo.brigada_id}:`, error);
+              brigadaNombre = `Asignado: ${trabajo.brigada_id}`;
             }
           } catch (error) {
             console.error("Error cargando información del trabajo:", error);
