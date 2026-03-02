@@ -89,6 +89,15 @@ type ServicioCategoria = "inversores" | "paneles" | "baterias";
 const getClienteKey = (cliente: Cliente) =>
   String(cliente.numero || cliente.id || "").trim();
 
+const getClienteKeys = (cliente: Cliente) =>
+  Array.from(
+    new Set(
+      [cliente.numero, cliente.id]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean),
+    ),
+  );
+
 const getTodayDateInput = () => new Date().toISOString().split("T")[0];
 
 const createEntregaDraft = (): EntregaDraft => ({
@@ -462,6 +471,19 @@ export function InstalacionesEnProcesoTable({
     Record<string, boolean>
   >({});
 
+  const updateServicioStatusForCliente = (client: Cliente, value: boolean) => {
+    const keys = getClienteKeys(client);
+    const fallbackKey = getClienteKey(client);
+    const targetKeys = keys.length > 0 ? keys : [fallbackKey];
+    setServicioPorCliente((prev) => {
+      const next = { ...prev };
+      targetKeys.forEach((key) => {
+        next[key] = value;
+      });
+      return next;
+    });
+  };
+
   const buildServicioDraftFromOferta = (
     oferta: OfertaParaEntrega | null,
   ): {
@@ -724,18 +746,15 @@ export function InstalacionesEnProcesoTable({
       if (ofertas.length > 0) {
         const oferta = ofertas[0];
         setOfertaServicioCargada(oferta);
-        setServicioPorCliente((prev) => ({
-          ...prev,
-          [getClienteKey(client)]: ofertaActualTieneServicio(oferta),
-        }));
+        updateServicioStatusForCliente(
+          client,
+          ofertaActualTieneServicio(oferta),
+        );
         const draft = buildServicioDraftFromOferta(oferta);
         setEquiposEnServicio(draft.equipos);
         setCantidadEnServicioPorItem(draft.cantidades);
       } else {
-        setServicioPorCliente((prev) => ({
-          ...prev,
-          [getClienteKey(client)]: false,
-        }));
+        updateServicioStatusForCliente(client, false);
         toast({
           title: "Sin oferta confeccionada",
           description:
@@ -840,6 +859,9 @@ export function InstalacionesEnProcesoTable({
           en_servicio: cambio.cantidad > 0,
         };
       },
+    );
+    const tieneEquiposEnServicioActualizados = itemsActualizados.some((item) =>
+      itemEstaEnServicio(item),
     );
 
     setSavingOfertaServicio(true);
@@ -954,12 +976,11 @@ export function InstalacionesEnProcesoTable({
         const draft = buildServicioDraftFromOferta(ofertaRecargada);
         setEquiposEnServicio(draft.equipos);
         setCantidadEnServicioPorItem(draft.cantidades);
-        setServicioPorCliente((prev) => ({
-          ...prev,
-          [getClienteKey(clienteMaterialServicio)]:
-            ofertaActualTieneServicio(ofertaRecargada),
-        }));
       }
+      updateServicioStatusForCliente(
+        clienteMaterialServicio,
+        tieneEquiposEnServicioActualizados,
+      );
 
       toast({
         title: "Equipos registrados",
@@ -1037,6 +1058,11 @@ export function InstalacionesEnProcesoTable({
       const next = { ...prev };
       Object.entries(resumenServicioPorCliente).forEach(([numero, resumen]) => {
         const value = resumen?.tiene_alguno_en_servicio === true;
+        // No sobrescribir un "true" local con "false" del resumen para evitar
+        // que el botón pierda estado visual mientras refresca backend.
+        if (numero in next && next[numero] === true && value === false) {
+          return;
+        }
         if (next[numero] !== value) {
           next[numero] = value;
           changed = true;
@@ -2588,8 +2614,8 @@ export function InstalacionesEnProcesoTable({
           }
         }}
       >
-        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-2xl max-h-[90vh] overflow-hidden p-3 sm:p-6 flex flex-col">
-          <DialogHeader className="space-y-1 pr-6">
+        <DialogContent className="w-[calc(100vw-0.75rem)] sm:w-full sm:max-w-2xl h-[92vh] sm:h-auto max-h-[92vh] sm:max-h-[90vh] overflow-hidden p-0 sm:p-6 flex flex-col">
+          <DialogHeader className="space-y-1 px-4 pt-4 pb-3 sm:px-0 sm:pt-0 sm:pb-0 pr-10 sm:pr-6 border-b sm:border-b-0">
             <DialogTitle className="flex items-center gap-2 text-purple-900">
               <Zap className="h-5 w-5 text-purple-600" />
               Equipos en Servicio
@@ -2602,19 +2628,19 @@ export function InstalacionesEnProcesoTable({
           </DialogHeader>
 
           {loadingOfertaServicio ? (
-            <div className="py-8 text-center">
+            <div className="py-8 px-4 text-center">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
               <p className="mt-3 text-sm text-gray-600">Cargando equipos...</p>
             </div>
           ) : ofertaServicioCargada ? (
-            <div className="space-y-4 min-h-0 flex-1 overflow-hidden">
+            <div className="space-y-4 min-h-0 flex-1 overflow-hidden px-4 pb-4 sm:px-0 sm:pb-0">
               <p className="text-sm text-gray-600">
                 Marca los equipos que están conectados y define la cantidad en
                 servicio:
               </p>
 
               {servicioItems.length > 0 ? (
-                <div className="space-y-3 max-h-[56vh] sm:max-h-[400px] overflow-y-auto pr-1 sm:pr-2">
+                <div className="space-y-2 sm:space-y-3 max-h-[58vh] sm:max-h-[400px] overflow-y-auto pr-0 sm:pr-2">
                   {/* Inversores */}
                   {inversoresServicioItems.map((item) => {
                     const checked = equiposEnServicio.inversores.includes(
@@ -2623,7 +2649,7 @@ export function InstalacionesEnProcesoTable({
                     return (
                       <div
                         key={`inv-${item.itemId}`}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        className="flex flex-col gap-2.5 sm:flex-row sm:items-center p-3 rounded-xl border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
@@ -2662,7 +2688,7 @@ export function InstalacionesEnProcesoTable({
                           }}
                         />
                         <div className="flex-1 min-w-0 w-full">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-gray-900 break-words sm:truncate">
                             {item.descripcion}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -2670,7 +2696,7 @@ export function InstalacionesEnProcesoTable({
                             {item.cantidadTotal}
                           </p>
                         </div>
-                        <div className="w-full sm:w-28">
+                        <div className="w-full sm:w-32">
                           <Label className="text-[10px] uppercase tracking-wide text-gray-500">
                             En servicio
                           </Label>
@@ -2700,7 +2726,7 @@ export function InstalacionesEnProcesoTable({
                                 [item.itemId]: String(value),
                               }));
                             }}
-                            className="h-8"
+                            className="h-9"
                           />
                         </div>
                         <span className="self-start sm:self-auto text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
@@ -2718,7 +2744,7 @@ export function InstalacionesEnProcesoTable({
                     return (
                       <div
                         key={`pan-${item.itemId}`}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        className="flex flex-col gap-2.5 sm:flex-row sm:items-center p-3 rounded-xl border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
@@ -2757,7 +2783,7 @@ export function InstalacionesEnProcesoTable({
                           }}
                         />
                         <div className="flex-1 min-w-0 w-full">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-gray-900 break-words sm:truncate">
                             {item.descripcion}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -2765,7 +2791,7 @@ export function InstalacionesEnProcesoTable({
                             {item.cantidadTotal}
                           </p>
                         </div>
-                        <div className="w-full sm:w-28">
+                        <div className="w-full sm:w-32">
                           <Label className="text-[10px] uppercase tracking-wide text-gray-500">
                             En servicio
                           </Label>
@@ -2795,7 +2821,7 @@ export function InstalacionesEnProcesoTable({
                                 [item.itemId]: String(value),
                               }));
                             }}
-                            className="h-8"
+                            className="h-9"
                           />
                         </div>
                         <span className="self-start sm:self-auto text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
@@ -2813,7 +2839,7 @@ export function InstalacionesEnProcesoTable({
                     return (
                       <div
                         key={`bat-${item.itemId}`}
-                        className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        className="flex flex-col gap-2.5 sm:flex-row sm:items-center p-3 rounded-xl border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
@@ -2852,7 +2878,7 @@ export function InstalacionesEnProcesoTable({
                           }}
                         />
                         <div className="flex-1 min-w-0 w-full">
-                          <p className="text-sm font-semibold text-gray-900 truncate">
+                          <p className="text-sm font-semibold text-gray-900 break-words sm:truncate">
                             {item.descripcion}
                           </p>
                           <p className="text-xs text-gray-500">
@@ -2860,7 +2886,7 @@ export function InstalacionesEnProcesoTable({
                             {item.cantidadTotal}
                           </p>
                         </div>
-                        <div className="w-full sm:w-28">
+                        <div className="w-full sm:w-32">
                           <Label className="text-[10px] uppercase tracking-wide text-gray-500">
                             En servicio
                           </Label>
@@ -2890,7 +2916,7 @@ export function InstalacionesEnProcesoTable({
                                 [item.itemId]: String(value),
                               }));
                             }}
-                            className="h-8"
+                            className="h-9"
                           />
                         </div>
                         <span className="self-start sm:self-auto text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
@@ -2907,7 +2933,7 @@ export function InstalacionesEnProcesoTable({
                 </div>
               )}
 
-              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t">
+              <div className="mt-auto flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t bg-white px-4 pb-4 sm:px-0 sm:pb-0 sticky bottom-0">
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
@@ -2927,7 +2953,7 @@ export function InstalacionesEnProcesoTable({
               </div>
             </div>
           ) : (
-            <div className="text-center py-12 text-gray-500">
+            <div className="text-center py-12 px-4 text-gray-500">
               <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p>No se encontró una oferta confeccionada</p>
             </div>
