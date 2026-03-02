@@ -626,6 +626,22 @@ export default function PlanificacionDiariaTrabajosPage() {
           if (!open) setPlanificacionSeleccionada(null);
         }}
         planificacion={planificacionSeleccionada}
+        onActualizar={async () => {
+          // Recargar la planificación actualizada
+          if (planificacionSeleccionada?.id) {
+            const response = await PlanificacionDiariaService.obtenerPlanificacionDiaria(
+              planificacionSeleccionada.id
+            );
+            if (response.success && response.data) {
+              setPlanificacionSeleccionada(response.data);
+              // También actualizar la lista
+              const listResponse = await PlanificacionDiariaService.obtenerTodasPlanificaciones();
+              if (listResponse.success && listResponse.data) {
+                setPlanificaciones(listResponse.data);
+              }
+            }
+          }
+        }}
       />
 
       <Toaster />

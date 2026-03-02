@@ -9,15 +9,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
-import { Truck, Zap } from "lucide-react";
+import { Truck, Zap, Pencil, Trash2 } from "lucide-react";
 import type { PlanificacionDiaria } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
+import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 import { apiRequest } from "@/lib/api-config";
+import { useToast } from "@/hooks/use-toast";
+import { EditarTrabajoDialog } from "./editar-trabajo-dialog";
 
 interface VerPlanificacionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   planificacion: PlanificacionDiaria | null;
   onDescargarPDF?: () => void;
+  onActualizar?: () => void;
 }
 
 interface MaterialPrincipal {
@@ -54,9 +58,13 @@ export function VerPlanificacionDialog({
   onOpenChange,
   planificacion,
   onDescargarPDF,
+  onActualizar,
 }: VerPlanificacionDialogProps) {
+  const { toast } = useToast();
   const [trabajosConMateriales, setTrabajosConMateriales] = useState<TrabajoConMateriales[]>([]);
   const [cargando, setCargando] = useState(false);
+  const [trabajoEditando, setTrabajoEditando] = useState<PlanificacionDiaria["trabajos"][0] | null>(null);
+  const [eliminando, setEliminando] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !planificacion) {
@@ -148,6 +156,40 @@ export function VerPlanificacionDialog({
 
     void cargarMateriales();
   }, [open, planificacion]);
+
+  const handleEliminarTrabajo = async (trabajoId: string) => {
+    if (!planificacion?.id) return;
+    
+    if (!confirm("¿Estás seguro de que deseas eliminar este trabajo de la planificación?")) {
+      return;
+    }
+
+    setEliminando(trabajoId);
+    try {
+      const response = await PlanificacionDiariaService.eliminarTrabajoDePlanificacion(
+        planificacion.id,
+        trabajoId
+      );
+
+      if (response.success) {
+        toast({
+          title: "Trabajo eliminado",
+          description: "El trabajo se eliminó correctamente de la planificación",
+        });
+        onActualizar?.();
+      } else {
+        throw new Error(response.message || "Error al eliminar el trabajo");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error al eliminar el trabajo",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminando(null);
+    }
+  };
 
   if (!planificacion) return null;
 
@@ -258,7 +300,7 @@ export function VerPlanificacionDialog({
                           )}
                         </div>
 
-                        {/* Iconos de estado */}
+                        {/* Iconos de estado y acciones */}
                         <div className="flex items-center gap-2">
                           <Button
                             type="button"
@@ -296,6 +338,29 @@ export function VerPlanificacionDialog({
                           >
                             <Zap className="h-4 w-4" />
                           </Button>
+                          
+                          {/* Botones de editar y borrar */}
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 border-blue-300 text-blue-600 hover:bg-blue-50"
+                            title="Editar trabajo"
+                            onClick={() => setTrabajoEditando(item.trabajo)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            className="h-8 w-8 border-red-300 text-red-600 hover:bg-red-50"
+                            title="Eliminar trabajo"
+                            onClick={() => item.trabajo.id && handleEliminarTrabajo(item.trabajo.id)}
+                            disabled={eliminando === item.trabajo.id}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -306,6 +371,18 @@ export function VerPlanificacionDialog({
           )}
         </div>
       </DialogContent>
+
+      <EditarTrabajoDialog
+        open={!!trabajoEditando}
+        onOpenChange={(open) => {
+          if (!open) setTrabajoEditando(null);
+        }}
+        trabajo={trabajoEditando}
+        onGuardado={() => {
+          setTrabajoEditando(null);
+          onActualizar?.();
+        }}
+      />
     </Dialog>
   );
 }

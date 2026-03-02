@@ -85,6 +85,7 @@ export function PlanificacionDiariaTrabajosTable({
   );
   const [tipoTrabajoActivo, setTipoTrabajoActivo] =
     useState<TipoTrabajoPlanificado>("visita");
+  const [busqueda, setBusqueda] = useState("");
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [asignacionPorTrabajo, setAsignacionPorTrabajo] = useState<
     Record<string, string>
@@ -243,8 +244,23 @@ export function PlanificacionDiariaTrabajosTable({
     [tipoTrabajoActivo, trabajos],
   );
 
+  // Filtrar trabajos por búsqueda
+  const trabajosFiltrados = useMemo(() => {
+    if (!busqueda.trim()) return trabajosDelTipoActivo;
+    
+    const busquedaLower = busqueda.toLowerCase().trim();
+    return trabajosDelTipoActivo.filter((trabajo) => {
+      const nombre = (trabajo.nombre || "").toLowerCase();
+      const direccion = (trabajo.direccion || "").toLowerCase();
+      return nombre.includes(busquedaLower) || direccion.includes(busquedaLower);
+    });
+  }, [trabajosDelTipoActivo, busqueda]);
+
   // Cargar resumen de servicio cuando cambia el tipo de trabajo activo
   useEffect(() => {
+    // Limpiar búsqueda al cambiar de tipo de trabajo
+    setBusqueda("");
+    
     if (
       tipoTrabajoActivo === "entrega_equipamiento" ||
       tipoTrabajoActivo === "instalacion_nueva" ||
@@ -1130,19 +1146,47 @@ export function PlanificacionDiariaTrabajosTable({
 
         <Card className="border-l-4 border-l-indigo-600">
           <CardHeader>
-            <CardTitle>
-              Trabajos de {TYPE_LABEL[tipoTrabajoActivo]} (
-              {trabajosDelTipoActivo.length})
-            </CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <CardTitle>
+                Trabajos de {TYPE_LABEL[tipoTrabajoActivo]} (
+                {trabajosFiltrados.length}
+                {busqueda && trabajosDelTipoActivo.length !== trabajosFiltrados.length
+                  ? ` de ${trabajosDelTipoActivo.length}`
+                  : ""}
+                )
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="text"
+                  placeholder="Buscar por nombre o dirección..."
+                  value={busqueda}
+                  onChange={(e) => setBusqueda(e.target.value)}
+                  className="w-full sm:w-[300px]"
+                />
+                {busqueda && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setBusqueda("")}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    Limpiar
+                  </Button>
+                )}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="py-10 text-center text-gray-600">
                 Cargando trabajos...
               </div>
-            ) : trabajosDelTipoActivo.length === 0 ? (
+            ) : trabajosFiltrados.length === 0 ? (
               <div className="py-10 text-center text-gray-600">
-                No hay trabajos para este tipo.
+                {busqueda
+                  ? "No se encontraron trabajos con esa búsqueda."
+                  : "No hay trabajos para este tipo."}
               </div>
             ) : (
               <>
@@ -1180,7 +1224,7 @@ export function PlanificacionDiariaTrabajosTable({
                       </tr>
                     </thead>
                     <tbody>
-                      {trabajosDelTipoActivo.map((trabajo) => {
+                      {trabajosFiltrados.map((trabajo) => {
                         const selected = seleccionados.has(trabajo.uid);
                         const opciones = getOpcionesAsignacion(trabajo.tipo);
                         const asignacionActual = normalizeAsignacionId(
@@ -1358,7 +1402,7 @@ export function PlanificacionDiariaTrabajosTable({
                 </div>
 
                 <div className="md:hidden space-y-3">
-                  {trabajosDelTipoActivo.map((trabajo) => {
+                  {trabajosFiltrados.map((trabajo) => {
                     const selected = seleccionados.has(trabajo.uid);
                     const opciones = getOpcionesAsignacion(trabajo.tipo);
                     const asignacionActual = normalizeAsignacionId(
