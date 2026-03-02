@@ -42,6 +42,12 @@ import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-plan
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service";
+import {
+  PagoService,
+  type OfertasEstadoPendienteData,
+  type OfertaConPagos,
+  type ResumenPagosPendientes,
+} from "@/lib/services/feats/pagos/pago-service";
 import { useToast } from "@/hooks/use-toast";
 
 type ViewMode =
@@ -70,6 +76,16 @@ export default function PagosClientesPage() {
 
   const [viewMode, setViewMode] = useState<ViewMode>("anticipos-pendientes");
   const [searchTerm, setSearchTerm] = useState("");
+  const [fechaCobroDesde, setFechaCobroDesde] = useState("");
+  const [fechaCobroHasta, setFechaCobroHasta] = useState("");
+  const [estadoOfertaPendienteFilter, setEstadoOfertaPendienteFilter] =
+    useState<"todos" | "con_pendiente" | "sin_pendiente">("todos");
+  const [resumenPagos, setResumenPagos] =
+    useState<ResumenPagosPendientes | null>(null);
+  const [loadingResumenPagos, setLoadingResumenPagos] = useState(false);
+  const [estadoPendienteData, setEstadoPendienteData] =
+    useState<OfertasEstadoPendienteData | null>(null);
+  const [loadingEstadoPendiente, setLoadingEstadoPendiente] = useState(false);
   const [pagoDialogOpen, setPagoDialogOpen] = useState(false);
   const [selectedOferta, setSelectedOferta] =
     useState<OfertaConfirmadaSinPago | null>(null);
@@ -198,6 +214,168 @@ export default function PagosClientesPage() {
       );
     });
   }, [ofertasConPagos, searchTerm]);
+
+  const filteredOfertasConPagosPorFecha = useMemo(() => {
+    const desdeTs = fechaCobroDesde
+      ? new Date(`${fechaCobroDesde}T00:00:00`).getTime()
+      : null;
+    const hastaTs = fechaCobroHasta
+      ? new Date(`${fechaCobroHasta}T23:59:59.999`).getTime()
+      : null;
+
+    return filteredOfertasConPagos
+      .map((oferta) => {
+        const ofertaIdActual = String(oferta.oferta_id || "").trim();
+        if (!ofertaIdActual) return null;
+
+        const pagosFiltrados = oferta.pagos.filter((pago) => {
+          const pagoOfertaId = String(pago.oferta_id || "").trim();
+          if (!pagoOfertaId || pagoOfertaId !== ofertaIdActual) return false;
+
+          const pagoTs = new Date(pago.fecha).getTime();
+          if (Number.isNaN(pagoTs)) return false;
+          if (desdeTs !== null && pagoTs < desdeTs) return false;
+          if (hastaTs !== null && pagoTs > hastaTs) return false;
+          return true;
+        });
+
+        if (pagosFiltrados.length === 0) return null;
+
+        const totalPagadoAplicado = pagosFiltrados.reduce((acc, pago) => {
+          const montoUSD = Number(pago.monto_usd || 0);
+          const diferencia = Number(pago.diferencia?.monto || 0);
+          const montoAplicado =
+            diferencia > 0 ? montoUSD - diferencia : montoUSD;
+          return acc + (montoAplicado > 0 ? montoAplicado : 0);
+        }, 0);
+
+        return {
+          ...oferta,
+          pagos: pagosFiltrados,
+          cantidad_pagos: pagosFiltrados.length,
+          total_pagado: totalPagadoAplicado,
+        };
+      })
+      .filter((oferta): oferta is OfertaConPagos => oferta !== null);
+  }, [fechaCobroDesde, fechaCobroHasta, filteredOfertasConPagos]);
+
+  const ofertasEstadoPendienteIds = useMemo(() => {
+    if (!estadoPendienteData) return null;
+
+    const ids = new Set<string>();
+    for (const oferta of estadoPendienteData.ofertas || []) {
+      const ofertaId = String(oferta.oferta_id || "").trim();
+      if (ofertaId) ids.add(ofertaId);
+    }
+
+    return ids;
+  }, [estadoPendienteData]);
+
+  const filteredPagosPorOfertas = useMemo(() => {
+    if (estadoOfertaPendienteFilter === "todos") {
+      return filteredOfertasConPagosPorFecha;
+    }
+
+    if (ofertasEstadoPendienteIds) {
+      return filteredOfertasConPagosPorFecha.filter((oferta) => {
+        const ofertaId = String(oferta.oferta_id || "").trim();
+        return ofertaId !== "" && ofertasEstadoPendienteIds.has(ofertaId);
+      });
+    }
+
+    // Fallback local si el endpoint falla/no responde.
+    return filteredOfertasConPagosPorFecha.filter((oferta) => {
+      const tienePendiente = Number(oferta.monto_pendiente || 0) > 0.01;
+      return estadoOfertaPendienteFilter === "con_pendiente"
+        ? tienePendiente
+        : !tienePendiente;
+    });
+  }, [
+    estadoOfertaPendienteFilter,
+    filteredOfertasConPagosPorFecha,
+    ofertasEstadoPendienteIds,
+  ]);
+
+  const filteredTodosPagosOfertas = filteredOfertasConPagosPorFecha;
+
+  const totalesPagosPorOfertas = useMemo(() => {
+    const pagosFiltrados = filteredPagosPorOfertas.flatMap(
+      (oferta) => oferta.pagos,
+    );
+
+    const totalCobrado = pagosFiltrados.reduce(
+      (acc, pago) => acc + Number(pago.monto_usd || 0),
+      0,
+    );
+
+    const totalPendientePorCobrar = filteredPagosPorOfertas.reduce(
+      (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
+      0,
+    );
+
+    return {
+      totalCobrado,
+      totalPendientePorCobrar,
+      cantidadCobros: pagosFiltrados.length,
+      cantidadOfertas: filteredPagosPorOfertas.length,
+    };
+  }, [filteredPagosPorOfertas]);
+
+  const totalesTodosPagos = useMemo(() => {
+    const pagosFiltrados = filteredTodosPagosOfertas.flatMap(
+      (oferta) => oferta.pagos,
+    );
+
+    const totalCobrado = pagosFiltrados.reduce(
+      (acc, pago) => acc + Number(pago.monto_usd || 0),
+      0,
+    );
+
+    const totalPendientePorCobrar = filteredTodosPagosOfertas.reduce(
+      (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
+      0,
+    );
+
+    return {
+      totalCobrado,
+      totalPendientePorCobrar,
+      cantidadCobros: pagosFiltrados.length,
+    };
+  }, [filteredTodosPagosOfertas]);
+
+  const showCobrosConPagosFilters =
+    viewMode === "pagos-por-ofertas" || viewMode === "todos-pagos";
+
+  const totalesVistaActual =
+    viewMode === "pagos-por-ofertas"
+      ? totalesPagosPorOfertas
+      : totalesTodosPagos;
+
+  const shouldUseResumenEndpoint =
+    showCobrosConPagosFilters &&
+    searchTerm.trim() === "" &&
+    (viewMode !== "pagos-por-ofertas" ||
+      estadoOfertaPendienteFilter === "todos");
+
+  const totalesResumen = useMemo(() => {
+    if (shouldUseResumenEndpoint && resumenPagos) {
+      return {
+        totalCobrado: Number(
+          resumenPagos.suma_montos_pagos_usd ??
+            resumenPagos.suma_montos_pagos ??
+            0,
+        ),
+        totalPendientePorCobrar: Number(
+          resumenPagos.suma_montos_pendientes_ofertas_con_pagos ?? 0,
+        ),
+      };
+    }
+
+    return {
+      totalCobrado: totalesVistaActual.totalCobrado,
+      totalPendientePorCobrar: totalesVistaActual.totalPendientePorCobrar,
+    };
+  }, [shouldUseResumenEndpoint, resumenPagos, totalesVistaActual]);
 
   const handleRegistrarPago = (oferta: OfertaConfirmadaSinPago) => {
     setSelectedOferta(oferta);
@@ -374,6 +552,113 @@ export default function PagosClientesPage() {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [refreshContabilidadSilencioso]);
+
+  useEffect(() => {
+    if (!shouldUseResumenEndpoint) {
+      setResumenPagos(null);
+      setLoadingResumenPagos(false);
+      return;
+    }
+
+    if (
+      fechaCobroDesde &&
+      fechaCobroHasta &&
+      new Date(fechaCobroDesde).getTime() > new Date(fechaCobroHasta).getTime()
+    ) {
+      setResumenPagos(null);
+      setLoadingResumenPagos(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingResumenPagos(true);
+
+    PagoService.getResumenPagosPendientes({
+      fecha_inicio: fechaCobroDesde || undefined,
+      fecha_fin: fechaCobroHasta || undefined,
+    })
+      .then((data) => {
+        if (!cancelled) {
+          setResumenPagos(data);
+        }
+      })
+      .catch((error) => {
+        console.error("Error cargando resumen de pagos y pendientes:", error);
+        if (!cancelled) {
+          setResumenPagos(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingResumenPagos(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    shouldUseResumenEndpoint,
+    fechaCobroDesde,
+    fechaCobroHasta,
+    ofertasConPagos,
+  ]);
+
+  useEffect(() => {
+    if (
+      viewMode !== "pagos-por-ofertas" ||
+      estadoOfertaPendienteFilter === "todos"
+    ) {
+      setEstadoPendienteData(null);
+      setLoadingEstadoPendiente(false);
+      return;
+    }
+
+    if (
+      fechaCobroDesde &&
+      fechaCobroHasta &&
+      new Date(fechaCobroDesde).getTime() > new Date(fechaCobroHasta).getTime()
+    ) {
+      setEstadoPendienteData(null);
+      setLoadingEstadoPendiente(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoadingEstadoPendiente(true);
+
+    PagoService.getOfertasEstadoPendiente({
+      fecha_inicio: fechaCobroDesde || undefined,
+      fecha_fin: fechaCobroHasta || undefined,
+      estado_pendiente: estadoOfertaPendienteFilter,
+    })
+      .then((data) => {
+        if (!cancelled) {
+          setEstadoPendienteData(data);
+        }
+      })
+      .catch((error) => {
+        console.error("Error cargando ofertas por estado de pendiente:", error);
+        if (!cancelled) {
+          setEstadoPendienteData(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoadingEstadoPendiente(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    estadoOfertaPendienteFilter,
+    fechaCobroDesde,
+    fechaCobroHasta,
+    ofertasConPagos,
+    viewMode,
+  ]);
 
   useEffect(() => {
     const currentCount = clientesPresentes.length;
@@ -673,24 +958,96 @@ export default function PagosClientesPage() {
 
           <Card className="border-0 shadow-md mb-6 border-l-4 border-l-green-600">
             <CardContent className="pt-6">
-              <div className="flex-1">
-                <Label
-                  htmlFor="search"
-                  className="text-sm font-medium text-gray-700 mb-2 block"
-                >
-                  Buscar Cobro
-                </Label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="search"
-                    placeholder="Buscar por cliente, N° oferta, CI, teléfono, almacén..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+                <div className="lg:col-span-2">
+                  <Label
+                    htmlFor="search"
+                    className="text-sm font-medium text-gray-700 mb-2 block"
+                  >
+                    Buscar Cobro
+                  </Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                      id="search"
+                      placeholder="Buscar por cliente, N° oferta, CI, teléfono, almacén..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                 </div>
+
+                {showCobrosConPagosFilters && (
+                  <>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                        Fecha cobro desde
+                      </Label>
+                      <Input
+                        type="date"
+                        value={fechaCobroDesde}
+                        onChange={(e) => setFechaCobroDesde(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                        Fecha cobro hasta
+                      </Label>
+                      <Input
+                        type="date"
+                        value={fechaCobroHasta}
+                        onChange={(e) => setFechaCobroHasta(e.target.value)}
+                      />
+                    </div>
+                    {viewMode === "pagos-por-ofertas" && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Estado pendiente
+                        </Label>
+                        <select
+                          value={estadoOfertaPendienteFilter}
+                          onChange={(e) =>
+                            setEstadoOfertaPendienteFilter(
+                              e.target.value as
+                                | "todos"
+                                | "con_pendiente"
+                                | "sin_pendiente",
+                            )
+                          }
+                          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="todos">Todas</option>
+                          <option value="con_pendiente">Con pendiente</option>
+                          <option value="sin_pendiente">Sin pendiente</option>
+                        </select>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+
+              {showCobrosConPagosFilters && (
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFechaCobroDesde("");
+                      setFechaCobroHasta("");
+                      setEstadoOfertaPendienteFilter("todos");
+                    }}
+                  >
+                    Limpiar filtros de cobro
+                  </Button>
+                </div>
+              )}
+              {viewMode === "pagos-por-ofertas" && loadingEstadoPendiente ? (
+                <p className="mt-2 text-xs text-gray-500">
+                  Actualizando ofertas por estado pendiente...
+                </p>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -703,21 +1060,49 @@ export default function PagosClientesPage() {
                 {viewMode === "finales-pendientes" &&
                   `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`}
                 {viewMode === "pagos-por-ofertas" &&
-                  `Mostrando ${filteredOfertasConPagos.length} de ${ofertasConPagos.length} ofertas con cobros`}
+                  `Mostrando ${filteredPagosPorOfertas.length} de ${ofertasConPagos.length} ofertas con cobros`}
                 {viewMode === "todos-pagos" &&
-                  `Mostrando ${filteredOfertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} de ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} cobros registrados`}
+                  `Mostrando ${totalesTodosPagos.cantidadCobros} de ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} cobros registrados`}
               </CardDescription>
             </CardHeader>
             <CardContent>
+              {showCobrosConPagosFilters && (
+                <div className="mb-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-green-700">
+                        Total cobrado
+                      </p>
+                      <p className="text-2xl font-bold text-green-800">
+                        {formatCurrency(totalesResumen.totalCobrado)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
+                        Total pendiente por cobrar
+                      </p>
+                      <p className="text-2xl font-bold text-blue-800">
+                        {formatCurrency(totalesResumen.totalPendientePorCobrar)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {shouldUseResumenEndpoint && loadingResumenPagos ? (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Actualizando resumen de cobros y pendientes...
+                    </p>
+                  ) : null}
+                </div>
+              )}
               {viewMode === "pagos-por-ofertas" ? (
                 <TodosPagosTable
-                  ofertasConPagos={filteredOfertasConPagos}
+                  ofertasConPagos={filteredPagosPorOfertas}
                   loading={loadingPagos}
                   showSearch={false}
                 />
               ) : viewMode === "todos-pagos" ? (
                 <TodosPagosPlanosTable
-                  ofertasConPagos={filteredOfertasConPagos}
+                  ofertasConPagos={filteredTodosPagosOfertas}
                   loading={loadingPagos}
                   onPagoUpdated={refetchOfertasConPagos}
                   showSearch={false}
