@@ -2,7 +2,13 @@
 
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
-import { Wrench, Clock, AlertTriangle, MapPin } from "lucide-react";
+import {
+  Wrench,
+  Clock,
+  AlertTriangle,
+  MapPin,
+  CalendarCheck,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 export default function InstalacionesPage() {
@@ -41,6 +47,14 @@ export default function InstalacionesPage() {
       color: "red",
       href: "/instalaciones/averias",
     },
+    {
+      id: "planificacion-diaria-trabajos",
+      title: "Planificación Diaria de Trabajos",
+      description: "Planifica trabajos del día siguiente por brigadas",
+      icon: CalendarCheck,
+      color: "purple",
+      href: "/instalaciones/planificacion-diaria-trabajos",
+    },
   ];
 
   const getColorClasses = (color: string) => {
@@ -69,6 +83,12 @@ export default function InstalacionesPage() {
         icon: "text-red-600",
         hover: "hover:bg-red-100",
       },
+      purple: {
+        bg: "bg-purple-50",
+        border: "border-purple-200",
+        icon: "text-purple-600",
+        hover: "hover:bg-purple-100",
+      },
     };
     return colors[color as keyof typeof colors] || colors.blue;
   };
@@ -85,7 +105,7 @@ export default function InstalacionesPage() {
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {opciones.map((opcion) => {
             const Icon = opcion.icon;
             const colors = getColorClasses(opcion.color);

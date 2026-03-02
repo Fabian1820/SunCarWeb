@@ -1034,28 +1034,21 @@ export function ConfeccionOfertasView({
     }
   }, [ofertaCreada, localStorageKey]);
 
-  // Obtener materiales con stock en el almacén seleccionado
+  // Obtener materiales para la oferta; si hay almacén, anexar stock (incluye 0)
   const materialesConStock = useMemo(() => {
-    if (!almacenId) return materials; // Si no hay almacén seleccionado, mostrar todos
+    if (!almacenId) return materials;
 
-    // Filtrar stock del almacén seleccionado
-    const stockAlmacen = stock.filter(
-      (s) => s.almacen_id === almacenId && s.cantidad > 0,
-    );
+    const stockMap = new Map<string, number>();
+    stock.forEach((stockItem) => {
+      if (stockItem.almacen_id !== almacenId) return;
+      const key = String(stockItem.material_codigo || "");
+      stockMap.set(key, Number(stockItem.cantidad || 0));
+    });
 
-    // Mapear a materiales con información de stock
-    return stockAlmacen
-      .map((stockItem) => {
-        const material = materials.find(
-          (m) => m.codigo.toString() === stockItem.material_codigo,
-        );
-        if (!material) return null;
-        return {
-          ...material,
-          stock_disponible: stockItem.cantidad,
-        };
-      })
-      .filter((m): m is NonNullable<typeof m> => m !== null);
+    return materials.map((material) => ({
+      ...material,
+      stock_disponible: stockMap.get(String(material.codigo ?? "")) ?? 0,
+    }));
   }, [almacenId, stock, materials]);
 
   const materialesFiltrados = useMemo(() => {
@@ -7811,7 +7804,7 @@ export function ConfeccionOfertasView({
                   </Select>
                   {almacenId && (
                     <Badge variant="outline" className="text-xs">
-                      {materialesConStock.length} materiales con stock
+                      {materialesConStock.length} materiales disponibles
                     </Badge>
                   )}
                 </div>
@@ -7851,7 +7844,8 @@ export function ConfeccionOfertasView({
                 )}
                 {!almacenId && (
                   <p className="text-xs text-orange-600 font-medium">
-                    ⚠️ Selecciona un almacén para ver los materiales disponibles
+                    ⚠️ Selecciona un almacén para consultar stock (puedes usar
+                    cualquier material).
                   </p>
                 )}
               </div>
