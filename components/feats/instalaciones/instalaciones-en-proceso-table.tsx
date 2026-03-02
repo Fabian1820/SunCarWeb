@@ -2588,8 +2588,8 @@ export function InstalacionesEnProcesoTable({
           }
         }}
       >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full sm:max-w-2xl max-h-[90vh] overflow-hidden p-3 sm:p-6 flex flex-col">
+          <DialogHeader className="space-y-1 pr-6">
             <DialogTitle className="flex items-center gap-2 text-purple-900">
               <Zap className="h-5 w-5 text-purple-600" />
               Equipos en Servicio
@@ -2607,14 +2607,14 @@ export function InstalacionesEnProcesoTable({
               <p className="mt-3 text-sm text-gray-600">Cargando equipos...</p>
             </div>
           ) : ofertaServicioCargada ? (
-            <div className="space-y-4">
+            <div className="space-y-4 min-h-0 flex-1 overflow-hidden">
               <p className="text-sm text-gray-600">
                 Marca los equipos que están conectados y define la cantidad en
                 servicio:
               </p>
 
               {servicioItems.length > 0 ? (
-                <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+                <div className="space-y-3 max-h-[56vh] sm:max-h-[400px] overflow-y-auto pr-1 sm:pr-2">
                   {/* Inversores */}
                   {inversoresServicioItems.map((item) => {
                     const checked = equiposEnServicio.inversores.includes(
@@ -2623,11 +2623,11 @@ export function InstalacionesEnProcesoTable({
                     return (
                       <div
                         key={`inv-${item.itemId}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
-                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
+                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500 self-start sm:self-auto"
                           checked={checked}
                           disabled={
                             item.cantidadTotal <= 0 || savingOfertaServicio
@@ -2661,7 +2661,7 @@ export function InstalacionesEnProcesoTable({
                             });
                           }}
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 w-full">
                           <p className="text-sm font-semibold text-gray-900 truncate">
                             {item.descripcion}
                           </p>
@@ -2670,7 +2670,7 @@ export function InstalacionesEnProcesoTable({
                             {item.cantidadTotal}
                           </p>
                         </div>
-                        <div className="w-28">
+                        <div className="w-full sm:w-28">
                           <Label className="text-[10px] uppercase tracking-wide text-gray-500">
                             En servicio
                           </Label>
@@ -2703,7 +2703,7 @@ export function InstalacionesEnProcesoTable({
                             className="h-8"
                           />
                         </div>
-                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                        <span className="self-start sm:self-auto text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                           Inversor
                         </span>
                       </div>
@@ -2718,11 +2718,11 @@ export function InstalacionesEnProcesoTable({
                     return (
                       <div
                         key={`pan-${item.itemId}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
-                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
+                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500 self-start sm:self-auto"
                           checked={checked}
                           disabled={
                             item.cantidadTotal <= 0 || savingOfertaServicio
@@ -2756,7 +2756,7 @@ export function InstalacionesEnProcesoTable({
                             });
                           }}
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 w-full">
                           <p className="text-sm font-semibold text-gray-900 truncate">
                             {item.descripcion}
                           </p>
@@ -2765,7 +2765,7 @@ export function InstalacionesEnProcesoTable({
                             {item.cantidadTotal}
                           </p>
                         </div>
-                        <div className="w-28">
+                        <div className="w-full sm:w-28">
                           <Label className="text-[10px] uppercase tracking-wide text-gray-500">
                             En servicio
                           </Label>
@@ -2798,7 +2798,7 @@ export function InstalacionesEnProcesoTable({
                             className="h-8"
                           />
                         </div>
-                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                        <span className="self-start sm:self-auto text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                           Panel
                         </span>
                       </div>
@@ -2813,11 +2813,11 @@ export function InstalacionesEnProcesoTable({
                     return (
                       <div
                         key={`bat-${item.itemId}`}
-                        className="flex items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 rounded-lg border-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 transition-all"
                       >
                         <input
                           type="checkbox"
-                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500"
+                          className="h-5 w-5 text-purple-600 rounded focus:ring-purple-500 self-start sm:self-auto"
                           checked={checked}
                           disabled={
                             item.cantidadTotal <= 0 || savingOfertaServicio
@@ -2851,7 +2851,7 @@ export function InstalacionesEnProcesoTable({
                             });
                           }}
                         />
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 w-full">
                           <p className="text-sm font-semibold text-gray-900 truncate">
                             {item.descripcion}
                           </p>
@@ -2860,7 +2860,7 @@ export function InstalacionesEnProcesoTable({
                             {item.cantidadTotal}
                           </p>
                         </div>
-                        <div className="w-28">
+                        <div className="w-full sm:w-28">
                           <Label className="text-[10px] uppercase tracking-wide text-gray-500">
                             En servicio
                           </Label>
@@ -2893,7 +2893,7 @@ export function InstalacionesEnProcesoTable({
                             className="h-8"
                           />
                         </div>
-                        <span className="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                        <span className="self-start sm:self-auto text-xs font-medium text-purple-600 bg-purple-100 px-2 py-1 rounded">
                           Batería
                         </span>
                       </div>
@@ -2907,15 +2907,16 @@ export function InstalacionesEnProcesoTable({
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-3 border-t">
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-3 border-t">
                 <Button
                   variant="outline"
+                  className="w-full sm:w-auto"
                   onClick={() => setMaterialServicioDialogOpen(false)}
                 >
                   Cancelar
                 </Button>
                 <Button
-                  className="bg-purple-600 hover:bg-purple-700"
+                  className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
                   onClick={() => {
                     void handleGuardarEquiposEnServicio();
                   }}
