@@ -23,7 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Camera,
   ClipboardList,
-  Eye,
   Save,
   Trash2,
   Truck,
@@ -34,112 +33,42 @@ import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type {
   BrigadaPlanificacionOption,
   PlanTrabajoItem,
-  PlanTrabajoStorage,
   TecnicoPlanificacionOption,
   TipoTrabajoPlanificado,
   TrabajoPlanificable,
 } from "@/lib/types/feats/instalaciones/planificacion-trabajos-types";
+import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 
-const STORAGE_KEY = "suncar_planificacion_diaria_trabajos_v1";
-
-const TYPE_LABEL: Record<TipoTrabajoPlanificado, string> = {
-  visita: "Visita",
-  entrega_equipamiento: "Entrega de Equipamiento",
-  instalacion_nueva: "Instalación Nueva",
-  instalacion_en_proceso: "Instalación en Proceso",
-  averia: "Avería",
-};
-
-const TYPE_BADGE_CLASS: Record<TipoTrabajoPlanificado, string> = {
-  visita: "bg-orange-100 text-orange-800",
-  entrega_equipamiento: "bg-blue-100 text-blue-800",
-  instalacion_nueva: "bg-emerald-100 text-emerald-800",
-  instalacion_en_proceso: "bg-purple-100 text-purple-800",
-  averia: "bg-red-100 text-red-800",
-};
-
-const TYPE_ORDER: Record<TipoTrabajoPlanificado, number> = {
-  visita: 1,
-  entrega_equipamiento: 2,
-  instalacion_nueva: 3,
-  instalacion_en_proceso: 4,
-  averia: 5,
-};
-
-const getTomorrowDateInput = () => {
-  const date = new Date();
-  date.setDate(date.getDate() + 1);
-  return date.toISOString().split("T")[0];
-};
-
-const readPlansFromStorage = (): PlanTrabajoStorage => {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as PlanTrabajoStorage;
-    if (!parsed || typeof parsed !== "object") return {};
-    return parsed;
-  } catch {
-    return {};
-  }
-};
-
-const writePlansToStorage = (plans: PlanTrabajoStorage) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(plans));
-};
-
-const BRIGADA_PREFIX = "brigada:";
-const TECNICO_PREFIX = "tecnico:";
-
-interface AsignacionOption {
-  id: string;
-  nombre: string;
-  tipo: "brigada" | "tecnico";
-}
-
-interface OfertaTrabajoItem {
-  material_codigo?: string;
-  descripcion?: string;
-  cantidad?: number;
-  cantidad_pendiente_por_entregar?: number;
-  cantidad_en_servicio?: number;
-  en_servicio?: boolean;
-  entregas?: Array<{ cantidad?: number; fecha?: string }>;
-}
-
-interface OfertaTrabajo {
-  id?: string;
-  _id?: string;
-  oferta_id?: string;
-  numero_oferta?: string;
-  nombre?: string;
-  nombre_automatico?: string;
-  items?: OfertaTrabajoItem[];
-}
-
-const isPrefixedAsignacion = (value: string) =>
-  value.startsWith(BRIGADA_PREFIX) || value.startsWith(TECNICO_PREFIX);
-
-const toNumber = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const ofertaTieneEntregas = (oferta: OfertaTrabajo) =>
-  Array.isArray(oferta.items) &&
-  oferta.items.some((item) =>
-    Array.isArray(item.entregas)
-      ? item.entregas.some((entrega) => toNumber(entrega.cantidad) > 0)
-      : false,
-  );
+// Imports de módulos locales
+import {
+  TYPE_LABEL,
+  TYPE_BADGE_CLASS,
+  TYPE_ORDER,
+  SUMMARY_VISIBLE_LIMIT,
+  BRIGADA_PREFIX,
+  TECNICO_PREFIX,
+} from "./planificacion/constants";
+import {
+  getTomorrowDateInput,
+  readPlansFromStorage,
+  writePlansToStorage,
+} from "./planificacion/storage-utils";
+import {
+  trabajoTieneEntregas,
+  trabajoTieneEnServicio,
+  isPrefixedAsignacion,
+} from "./planificacion/trabajo-utils";
+import { usePlanificacionData } from "./planificacion/use-planificacion-data";
+import type { AsignacionOption, OfertaTrabajo, OfertaTrabajoItem } from "./planificacion/types";
+import { toNumber, ofertaTieneEntregas } from "./planificacion/oferta-utils";
 
 interface PlanificacionDiariaTrabajosTableProps {
   trabajos: TrabajoPlanificable[];
   brigadas: BrigadaPlanificacionOption[];
   tecnicos: TecnicoPlanificacionOption[];
   loading: boolean;
+  onGuardadoExitoso?: () => void;
+  onCancelar?: () => void;
 }
 
 export function PlanificacionDiariaTrabajosTable({
@@ -147,6 +76,8 @@ export function PlanificacionDiariaTrabajosTable({
   brigadas,
   tecnicos,
   loading,
+  onGuardadoExitoso,
+  onCancelar,
 }: PlanificacionDiariaTrabajosTableProps) {
   const { toast } = useToast();
   const [fechaPlanificacion, setFechaPlanificacion] = useState(
@@ -163,6 +94,9 @@ export function PlanificacionDiariaTrabajosTable({
   >({});
   const [planEnCurso, setPlanEnCurso] = useState<PlanTrabajoItem[]>([]);
   const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
+  const [planificacionId, setPlanificacionId] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [verPlanificacionDialog, setVerPlanificacionDialog] = useState(false);
   const [ofertaDialogOpen, setOfertaDialogOpen] = useState(false);
   const [ofertaCargada, setOfertaCargada] = useState<OfertaConfeccion | null>(
     null,
@@ -183,6 +117,14 @@ export function PlanificacionDiariaTrabajosTable({
     trabajoNombre: string;
     itemsEnServicio: OfertaTrabajoItem[];
   } | null>(null);
+  
+  // Hook personalizado para cargar datos de entregas y servicio
+  const {
+    ofertasConEntregasIds,
+    contactoKeysConEntregas,
+    resumenServicioPorContacto,
+    cargarResumenServicioEnSegundoPlano,
+  } = usePlanificacionData();
 
   const trabajosByUid = useMemo(() => {
     const map = new Map<string, TrabajoPlanificable>();
@@ -301,6 +243,17 @@ export function PlanificacionDiariaTrabajosTable({
     [tipoTrabajoActivo, trabajos],
   );
 
+  // Cargar resumen de servicio cuando cambia el tipo de trabajo activo
+  useEffect(() => {
+    if (
+      tipoTrabajoActivo === "entrega_equipamiento" ||
+      tipoTrabajoActivo === "instalacion_nueva" ||
+      tipoTrabajoActivo === "instalacion_en_proceso"
+    ) {
+      void cargarResumenServicioEnSegundoPlano(trabajosDelTipoActivo);
+    }
+  }, [tipoTrabajoActivo, trabajosDelTipoActivo, cargarResumenServicioEnSegundoPlano]);
+
   const planificadosIds = useMemo(
     () => new Set(planEnCurso.map((item) => item.uid)),
     [planEnCurso],
@@ -317,6 +270,16 @@ export function PlanificacionDiariaTrabajosTable({
       (a, b) => TYPE_ORDER[a[0]] - TYPE_ORDER[b[0]],
     );
   }, [planEnCurso]);
+
+  const resumenPlanVisible = useMemo(
+    () =>
+      resumenPlanPorTipo.map(([tipo, items]) => ({
+        tipo,
+        total: items.length,
+        visible: items.slice(0, SUMMARY_VISIBLE_LIMIT),
+      })),
+    [resumenPlanPorTipo],
+  );
 
   const buildPlanItem = (trabajo: TrabajoPlanificable): PlanTrabajoItem => {
     const brigadaId = normalizeAsignacionId(
@@ -340,46 +303,146 @@ export function PlanificacionDiariaTrabajosTable({
   };
 
   useEffect(() => {
-    const plans = readPlansFromStorage();
-    const saved = plans[fechaPlanificacion] || null;
+    const cargarPlanificacion = async () => {
+      try {
+        // Intentar cargar desde el backend
+        const response = await PlanificacionDiariaService.obtenerPlanificacionPorFecha(fechaPlanificacion);
+        
+        if (response.success && response.data) {
+          const planificacion = response.data;
+          setPlanificacionId(planificacion.id || null);
+          setActualizadoEn(planificacion.updated_at || planificacion.created_at || null);
+          
+          // Convertir trabajos del backend a items del plan
+          const items: PlanTrabajoItem[] = planificacion.trabajos.map((trabajo) => {
+            const trabajoLocal = trabajosByUid.get(
+              `${trabajo.tipo_trabajo}:${trabajo.contacto_tipo}:${trabajo.contacto_id}`
+            );
+            
+            const normalizedId = normalizeAsignacionId(
+              trabajo.brigada_id || "",
+              trabajo.tipo_trabajo as TipoTrabajoPlanificado,
+            );
+            
+            return {
+              uid: `${trabajo.tipo_trabajo}:${trabajo.contacto_tipo}:${trabajo.contacto_id}`,
+              tipo: trabajo.tipo_trabajo as TipoTrabajoPlanificado,
+              nombre: trabajoLocal?.nombre || "Trabajo",
+              telefono: trabajoLocal?.telefono || "",
+              direccion: trabajoLocal?.direccion || "",
+              descripcionTrabajo: trabajo.tipo_trabajo,
+              brigadaId: normalizedId,
+              brigadaNombre: getNombreAsignacion(normalizedId),
+              comentario: trabajo.comentario,
+              fechaReferencia: trabajoLocal?.fechaReferencia,
+            };
+          });
+          
+          const seleccionadosSet = new Set<string>();
+          const asignaciones: Record<string, string> = {};
+          const comentarios: Record<string, string> = {};
 
-    if (!saved) {
-      setPlanEnCurso([]);
-      setActualizadoEn(null);
-      setSeleccionados(new Set());
-      setAsignacionPorTrabajo({});
-      setComentarioPorTrabajo({});
-      return;
-    }
+          items.forEach((item) => {
+            seleccionadosSet.add(item.uid);
+            if (item.brigadaId) asignaciones[item.uid] = item.brigadaId;
+            if (item.comentario) comentarios[item.uid] = item.comentario;
+          });
 
-    const itemsRaw = Array.isArray(saved.items) ? saved.items : [];
-    const items = itemsRaw.map((item) => {
-      const normalizedId = normalizeAsignacionId(
-        item.brigadaId || "",
-        item.tipo,
-      );
-      return {
-        ...item,
-        brigadaId: normalizedId,
-        brigadaNombre: getNombreAsignacion(normalizedId) || item.brigadaNombre,
-      };
-    });
-    const seleccionadosSet = new Set<string>();
-    const asignaciones: Record<string, string> = {};
-    const comentarios: Record<string, string> = {};
+          setPlanEnCurso(items);
+          setSeleccionados(seleccionadosSet);
+          setAsignacionPorTrabajo(asignaciones);
+          setComentarioPorTrabajo(comentarios);
+        } else {
+          // No hay planificación para esta fecha, intentar cargar desde localStorage como fallback
+          const plans = readPlansFromStorage();
+          const saved = plans[fechaPlanificacion] || null;
 
-    items.forEach((item) => {
-      seleccionadosSet.add(item.uid);
-      if (item.brigadaId) asignaciones[item.uid] = item.brigadaId;
-      if (item.comentario) comentarios[item.uid] = item.comentario;
-    });
+          if (saved) {
+            const itemsRaw = Array.isArray(saved.items) ? saved.items : [];
+            const items = itemsRaw.map((item) => {
+              const normalizedId = normalizeAsignacionId(
+                item.brigadaId || "",
+                item.tipo,
+              );
+              return {
+                ...item,
+                brigadaId: normalizedId,
+                brigadaNombre: getNombreAsignacion(normalizedId) || item.brigadaNombre,
+              };
+            });
+            const seleccionadosSet = new Set<string>();
+            const asignaciones: Record<string, string> = {};
+            const comentarios: Record<string, string> = {};
 
-    setPlanEnCurso(items);
-    setActualizadoEn(saved.actualizadoEn || null);
-    setSeleccionados(seleccionadosSet);
-    setAsignacionPorTrabajo(asignaciones);
-    setComentarioPorTrabajo(comentarios);
-  }, [fechaPlanificacion, getNombreAsignacion, normalizeAsignacionId]);
+            items.forEach((item) => {
+              seleccionadosSet.add(item.uid);
+              if (item.brigadaId) asignaciones[item.uid] = item.brigadaId;
+              if (item.comentario) comentarios[item.uid] = item.comentario;
+            });
+
+            setPlanEnCurso(items);
+            setActualizadoEn(saved.actualizadoEn || null);
+            setSeleccionados(seleccionadosSet);
+            setAsignacionPorTrabajo(asignaciones);
+            setComentarioPorTrabajo(comentarios);
+            setPlanificacionId(null);
+          } else {
+            // No hay datos ni en backend ni en localStorage
+            setPlanEnCurso([]);
+            setActualizadoEn(null);
+            setSeleccionados(new Set());
+            setAsignacionPorTrabajo({});
+            setComentarioPorTrabajo({});
+            setPlanificacionId(null);
+          }
+        }
+      } catch (error) {
+        // Error al cargar desde backend, intentar localStorage
+        const plans = readPlansFromStorage();
+        const saved = plans[fechaPlanificacion] || null;
+
+        if (saved) {
+          const itemsRaw = Array.isArray(saved.items) ? saved.items : [];
+          const items = itemsRaw.map((item) => {
+            const normalizedId = normalizeAsignacionId(
+              item.brigadaId || "",
+              item.tipo,
+            );
+            return {
+              ...item,
+              brigadaId: normalizedId,
+              brigadaNombre: getNombreAsignacion(normalizedId) || item.brigadaNombre,
+            };
+          });
+          const seleccionadosSet = new Set<string>();
+          const asignaciones: Record<string, string> = {};
+          const comentarios: Record<string, string> = {};
+
+          items.forEach((item) => {
+            seleccionadosSet.add(item.uid);
+            if (item.brigadaId) asignaciones[item.uid] = item.brigadaId;
+            if (item.comentario) comentarios[item.uid] = item.comentario;
+          });
+
+          setPlanEnCurso(items);
+          setActualizadoEn(saved.actualizadoEn || null);
+          setSeleccionados(seleccionadosSet);
+          setAsignacionPorTrabajo(asignaciones);
+          setComentarioPorTrabajo(comentarios);
+          setPlanificacionId(null);
+        } else {
+          setPlanEnCurso([]);
+          setActualizadoEn(null);
+          setSeleccionados(new Set());
+          setAsignacionPorTrabajo({});
+          setComentarioPorTrabajo({});
+          setPlanificacionId(null);
+        }
+      }
+    };
+
+    void cargarPlanificacion();
+  }, [fechaPlanificacion, getNombreAsignacion, normalizeAsignacionId, trabajosByUid]);
 
   const syncPlanItem = (
     uid: string,
@@ -599,7 +662,7 @@ export function PlanificacionDiariaTrabajosTable({
     }
   };
 
-  const guardarPlan = () => {
+  const guardarPlan = async () => {
     if (planEnCurso.length === 0) {
       toast({
         title: "Plan vacío",
@@ -622,37 +685,135 @@ export function PlanificacionDiariaTrabajosTable({
       return;
     }
 
-    const nowIso = new Date().toISOString();
-    const plans = readPlansFromStorage();
-    plans[fechaPlanificacion] = {
-      fecha: fechaPlanificacion,
-      actualizadoEn: nowIso,
-      items: planEnCurso,
-    };
-    writePlansToStorage(plans);
-    setActualizadoEn(nowIso);
+    setGuardando(true);
+    try {
+      // Paso 1: Crear cada trabajo de operación individualmente
+      const trabajosCreados = await Promise.all(
+        planEnCurso.map(async (item) => {
+          // Extraer contacto_id del uid (formato: tipo:contactoTipo:contactoId)
+          const parts = item.uid.split(":");
+          const contactoId = parts[2] || item.uid;
+          
+          // Extraer el ID real de la brigada (quitar prefijo brigada: o tecnico:)
+          let brigadaIdReal = item.brigadaId;
+          if (brigadaIdReal.startsWith(BRIGADA_PREFIX)) {
+            brigadaIdReal = brigadaIdReal.substring(BRIGADA_PREFIX.length);
+          } else if (brigadaIdReal.startsWith(TECNICO_PREFIX)) {
+            brigadaIdReal = brigadaIdReal.substring(TECNICO_PREFIX.length);
+          }
+          
+          const trabajoData = {
+            tipo_trabajo: item.tipo,
+            contacto_tipo: parts[1] as "cliente" | "lead",
+            contacto_id: contactoId,
+            brigada_id: brigadaIdReal,
+            comentario: item.comentario,
+          };
 
-    toast({
-      title: "Planificación guardada",
-      description: `Plan guardado para ${fechaPlanificacion}.`,
-    });
+          // Crear el trabajo de operación
+          const response = await PlanificacionDiariaService.crearTrabajoOperacion(trabajoData);
+          
+          if (!response.success || !response.data) {
+            throw new Error(`Error al crear trabajo para ${item.nombre}`);
+          }
+          
+          return response.data;
+        })
+      );
+
+      // Paso 2: Crear la planificación diaria con los trabajos creados
+      const planificacion = {
+        fecha: `${fechaPlanificacion}T00:00:00`,
+        trabajos: trabajosCreados,
+      };
+
+      let response;
+      if (planificacionId) {
+        // Actualizar planificación existente
+        response = await PlanificacionDiariaService.actualizarPlanificacionDiaria(
+          planificacionId,
+          planificacion
+        );
+      } else {
+        // Crear nueva planificación
+        response = await PlanificacionDiariaService.crearPlanificacionDiaria(
+          planificacion
+        );
+      }
+
+      if (response.success && response.data) {
+        const nowIso = response.data.updated_at || response.data.created_at || new Date().toISOString();
+        setActualizadoEn(nowIso);
+        setPlanificacionId(response.data.id || null);
+
+        // También guardar en localStorage como backup
+        const plans = readPlansFromStorage();
+        plans[fechaPlanificacion] = {
+          fecha: fechaPlanificacion,
+          actualizadoEn: nowIso,
+          items: planEnCurso,
+        };
+        writePlansToStorage(plans);
+
+        toast({
+          title: "Planificación guardada",
+          description: `Plan guardado exitosamente con ${trabajosCreados.length} trabajo(s) para ${fechaPlanificacion}.`,
+        });
+
+        // Limpiar los checkboxes y campos de entrada
+        // pero mantener planEnCurso para que se vea en "Planificación en curso"
+        setSeleccionados(new Set());
+        setAsignacionPorTrabajo({});
+        setComentarioPorTrabajo({});
+
+        // Abrir el diálogo para ver la planificación
+        setVerPlanificacionDialog(true);
+      } else {
+        throw new Error(response.message || "Error al guardar la planificación");
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al guardar la planificación";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setGuardando(false);
+    }
   };
 
-  const nuevaPlanificacion = () => {
-    const plans = readPlansFromStorage();
-    delete plans[fechaPlanificacion];
-    writePlansToStorage(plans);
+  const nuevaPlanificacion = async () => {
+    try {
+      // Si existe una planificación en el backend, eliminarla
+      if (planificacionId) {
+        await PlanificacionDiariaService.eliminarPlanificacionDiaria(planificacionId);
+      }
 
-    setPlanEnCurso([]);
-    setActualizadoEn(null);
-    setSeleccionados(new Set());
-    setAsignacionPorTrabajo({});
-    setComentarioPorTrabajo({});
+      // Eliminar del localStorage
+      const plans = readPlansFromStorage();
+      delete plans[fechaPlanificacion];
+      writePlansToStorage(plans);
 
-    toast({
-      title: "Nueva planificación",
-      description: "Se limpió el plan del día seleccionado.",
-    });
+      setPlanEnCurso([]);
+      setActualizadoEn(null);
+      setSeleccionados(new Set());
+      setAsignacionPorTrabajo({});
+      setComentarioPorTrabajo({});
+      setPlanificacionId(null);
+
+      toast({
+        title: "Nueva planificación",
+        description: "Se limpió el plan del día seleccionado.",
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al limpiar la planificación";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    }
   };
 
   const materialesEntregadosRows = useMemo(() => {
@@ -681,621 +842,780 @@ export function PlanificacionDiariaTrabajosTable({
       .filter((row) => row.total > 0 || row.entregado > 0 || row.pendiente > 0);
   }, [materialesDialogData]);
 
+  const descargarPlanificacionPDF = () => {
+    if (planEnCurso.length === 0) {
+      toast({
+        title: "Sin datos",
+        description: "No hay trabajos en la planificación para descargar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Crear contenido HTML para el PDF
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Planificación Diaria - ${fechaPlanificacion}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            color: #333;
+          }
+          h1 {
+            color: #7c3aed;
+            border-bottom: 3px solid #7c3aed;
+            padding-bottom: 10px;
+          }
+          .info {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f3f4f6;
+            border-radius: 5px;
+          }
+          .tipo-section {
+            margin: 30px 0;
+            page-break-inside: avoid;
+          }
+          .tipo-header {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 18px;
+          }
+          .visita { background-color: #fed7aa; color: #9a3412; }
+          .entrega_equipamiento { background-color: #bfdbfe; color: #1e3a8a; }
+          .instalacion_nueva { background-color: #a7f3d0; color: #065f46; }
+          .instalacion_en_proceso { background-color: #ddd6fe; color: #5b21b6; }
+          .averia { background-color: #fecaca; color: #991b1b; }
+          .trabajo {
+            border: 1px solid #e5e7eb;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            background-color: #ffffff;
+            page-break-inside: avoid;
+          }
+          .trabajo-nombre {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+          }
+          .trabajo-detalle {
+            margin: 5px 0;
+            font-size: 14px;
+          }
+          .trabajo-detalle strong {
+            color: #6b7280;
+          }
+          .comentario {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #eff6ff;
+            border-left: 3px solid #3b82f6;
+            font-style: italic;
+          }
+          @media print {
+            body { margin: 10px; }
+            .tipo-section { page-break-inside: avoid; }
+            .trabajo { page-break-inside: avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Planificación Diaria de Trabajos</h1>
+        <div class="info">
+          <p><strong>Fecha:</strong> ${fechaPlanificacion}</p>
+          <p><strong>Total de trabajos:</strong> ${planEnCurso.length}</p>
+          ${actualizadoEn ? `<p><strong>Última actualización:</strong> ${new Date(actualizadoEn).toLocaleString("es-ES")}</p>` : ""}
+        </div>
+        ${resumenPlanPorTipo
+          .map(
+            ([tipo, items]) => `
+          <div class="tipo-section">
+            <div class="tipo-header ${tipo}">
+              ${TYPE_LABEL[tipo]} (${items.length})
+            </div>
+            ${items
+              .map(
+                (item) => `
+              <div class="trabajo">
+                <div class="trabajo-nombre">${item.nombre}</div>
+                <div class="trabajo-detalle"><strong>Teléfono:</strong> ${item.telefono}</div>
+                <div class="trabajo-detalle"><strong>Dirección:</strong> ${item.direccion}</div>
+                <div class="trabajo-detalle"><strong>Descripción:</strong> ${item.descripcionTrabajo}</div>
+                <div class="trabajo-detalle"><strong>Asignado a:</strong> ${item.brigadaNombre || "Sin asignar"}</div>
+                ${item.comentario ? `<div class="comentario"><strong>Comentario:</strong> ${item.comentario}</div>` : ""}
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+        `
+          )
+          .join("")}
+      </body>
+      </html>
+    `;
+
+    // Crear un blob y descargarlo
+    const blob = new Blob([htmlContent], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `planificacion-${fechaPlanificacion}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Abrir en nueva ventana para imprimir como PDF
+    const printWindow = window.open("", "_blank");
+    if (printWindow) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+
+    toast({
+      title: "PDF generado",
+      description: "Se abrió una ventana para imprimir/guardar como PDF.",
+    });
+  };
+
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start min-h-0">
-      <div className="xl:col-span-9 min-h-0">
-        <div className="space-y-6 max-h-[62vh] sm:max-h-[68vh] xl:max-h-[calc(100vh-var(--module-header-height,96px)-2.25rem)] overflow-y-auto overscroll-contain pr-1">
-          <Card className="border-l-4 border-l-purple-600">
-            <CardHeader>
-              <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <span>Planificación para el día {fechaPlanificacion}</span>
-                <div className="flex flex-wrap gap-2">
-                  <Input
-                    type="date"
-                    value={fechaPlanificacion}
-                    onChange={(event) =>
-                      setFechaPlanificacion(event.target.value)
-                    }
-                    className="w-[190px]"
-                  />
+    <div className="space-y-6 min-h-0">
+      <div className="space-y-6 min-h-0">
+        <Card className="border-l-4 border-l-purple-600">
+          <CardHeader>
+            <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>Planificación para el día {fechaPlanificacion}</span>
+              <div className="flex flex-wrap gap-2">
+                <Input
+                  type="date"
+                  value={fechaPlanificacion}
+                  onChange={(event) =>
+                    setFechaPlanificacion(event.target.value)
+                  }
+                  className="w-[190px]"
+                />
+                {onCancelar && (
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={nuevaPlanificacion}
+                    onClick={onCancelar}
                   >
-                    Nueva planificación
+                    Cancelar
                   </Button>
-                  <Button
-                    type="button"
-                    className="bg-purple-700 hover:bg-purple-800"
-                    onClick={guardarPlan}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    Guardar
-                  </Button>
-                </div>
-              </CardTitle>
-              {actualizadoEn ? (
-                <p className="text-sm text-gray-500">
-                  Última actualización:{" "}
-                  {new Date(actualizadoEn).toLocaleString("es-ES")}
-                </p>
-              ) : null}
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-3">
-                Selecciona el tipo de trabajo tocando una tarjeta:
-              </p>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-                <button
+                )}
+                <Button
                   type="button"
-                  onClick={() => setTipoTrabajoActivo("visita")}
-                  className={`rounded-md border p-2 text-left transition-all ${
-                    tipoTrabajoActivo === "visita"
-                      ? "border-orange-500 bg-orange-100 ring-1 ring-orange-300"
-                      : "border-orange-200 bg-orange-50 hover:bg-orange-100"
-                  }`}
+                  variant="outline"
+                  onClick={nuevaPlanificacion}
                 >
-                  <p className="text-[11px] font-medium text-orange-700">
-                    Visitas
-                  </p>
-                  <p className="text-lg leading-tight font-bold text-orange-900">
-                    {cantidadesPorTipo.visita}
-                  </p>
-                </button>
-
-                <button
+                  Nueva planificación
+                </Button>
+                <Button
                   type="button"
-                  onClick={() => setTipoTrabajoActivo("entrega_equipamiento")}
-                  className={`rounded-md border p-2 text-left transition-all ${
-                    tipoTrabajoActivo === "entrega_equipamiento"
-                      ? "border-blue-500 bg-blue-100 ring-1 ring-blue-300"
-                      : "border-blue-200 bg-blue-50 hover:bg-blue-100"
-                  }`}
+                  className="bg-purple-700 hover:bg-purple-800"
+                  onClick={guardarPlan}
+                  disabled={guardando}
                 >
-                  <p className="text-[11px] font-medium text-blue-700">
-                    Entrega Equip.
-                  </p>
-                  <p className="text-lg leading-tight font-bold text-blue-900">
-                    {cantidadesPorTipo.entrega_equipamiento}
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTipoTrabajoActivo("instalacion_nueva")}
-                  className={`rounded-md border p-2 text-left transition-all ${
-                    tipoTrabajoActivo === "instalacion_nueva"
-                      ? "border-emerald-500 bg-emerald-100 ring-1 ring-emerald-300"
-                      : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
-                  }`}
-                >
-                  <p className="text-[11px] font-medium text-emerald-700">
-                    Instal. Nuevas
-                  </p>
-                  <p className="text-lg leading-tight font-bold text-emerald-900">
-                    {cantidadesPorTipo.instalacion_nueva}
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTipoTrabajoActivo("instalacion_en_proceso")}
-                  className={`rounded-md border p-2 text-left transition-all ${
-                    tipoTrabajoActivo === "instalacion_en_proceso"
-                      ? "border-purple-500 bg-purple-100 ring-1 ring-purple-300"
-                      : "border-purple-200 bg-purple-50 hover:bg-purple-100"
-                  }`}
-                >
-                  <p className="text-[11px] font-medium text-purple-700">
-                    Instal. Proceso
-                  </p>
-                  <p className="text-lg leading-tight font-bold text-purple-900">
-                    {cantidadesPorTipo.instalacion_en_proceso}
-                  </p>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setTipoTrabajoActivo("averia")}
-                  className={`rounded-md border p-2 text-left transition-all ${
-                    tipoTrabajoActivo === "averia"
-                      ? "border-red-500 bg-red-100 ring-1 ring-red-300"
-                      : "border-red-200 bg-red-50 hover:bg-red-100"
-                  }`}
-                >
-                  <p className="text-[11px] font-medium text-red-700">
-                    Averías
-                  </p>
-                  <p className="text-lg leading-tight font-bold text-red-900">
-                    {cantidadesPorTipo.averia}
-                  </p>
-                </button>
+                  <Save className="h-4 w-4 mr-2" />
+                  {guardando ? "Guardando..." : "Guardar"}
+                </Button>
               </div>
-            </CardContent>
-          </Card>
+            </CardTitle>
+            {actualizadoEn ? (
+              <p className="text-sm text-gray-500">
+                Última actualización:{" "}
+                {new Date(actualizadoEn).toLocaleString("es-ES")}
+              </p>
+            ) : null}
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 mb-3">
+              Selecciona el tipo de trabajo tocando una tarjeta:
+            </p>
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+              <button
+                type="button"
+                onClick={() => setTipoTrabajoActivo("visita")}
+                className={`rounded-md border p-2 text-left transition-all ${
+                  tipoTrabajoActivo === "visita"
+                    ? "border-orange-500 bg-orange-100 ring-1 ring-orange-300"
+                    : "border-orange-200 bg-orange-50 hover:bg-orange-100"
+                }`}
+              >
+                <p className="text-sm font-medium text-orange-700">Visitas</p>
+                <p className="text-lg leading-tight font-bold text-orange-900">
+                  {cantidadesPorTipo.visita}
+                </p>
+              </button>
 
-          <Card className="border-l-4 border-l-indigo-600">
-            <CardHeader>
-              <CardTitle>
-                Trabajos de {TYPE_LABEL[tipoTrabajoActivo]} (
-                {trabajosDelTipoActivo.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="py-10 text-center text-gray-600">
-                  Cargando trabajos...
-                </div>
-              ) : trabajosDelTipoActivo.length === 0 ? (
-                <div className="py-10 text-center text-gray-600">
-                  No hay trabajos para este tipo.
-                </div>
-              ) : (
-                <>
-                  <div className="hidden md:block">
-                    <table className="w-full table-fixed text-xs">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-2 px-2 w-10">Sel.</th>
-                          <th className="text-left py-2 px-2">Nombre</th>
-                          <th className="text-left py-2 px-2">Teléfono</th>
-                          <th className="text-left py-2 px-2">Dirección</th>
-                          {tipoTrabajoActivo === "visita" ? (
-                            <>
-                              <th className="text-left py-2 px-2">
-                                Motivo de visita
-                              </th>
-                              <th className="text-left py-2 px-2">Comercial</th>
-                            </>
-                          ) : null}
-                          {tipoTrabajoActivo === "instalacion_en_proceso" ? (
-                            <th className="text-left py-2 px-2">Qué falta</th>
-                          ) : null}
-                          <th className="text-left py-2 px-2">Acciones</th>
-                          <th className="text-left py-2 px-2">
-                            Brigada / Técnico
-                          </th>
-                          <th className="text-left py-2 px-2">
-                            Comentario de planificación
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {trabajosDelTipoActivo.map((trabajo) => {
-                          const selected = seleccionados.has(trabajo.uid);
-                          const opciones = getOpcionesAsignacion(trabajo.tipo);
-                          const asignacionActual = normalizeAsignacionId(
-                            asignacionPorTrabajo[trabajo.uid] || "",
-                            trabajo.tipo,
-                          );
-                          const comentarioPlaceholder =
-                            trabajo.tipo === "entrega_equipamiento" ||
-                            trabajo.tipo === "instalacion_nueva" ||
-                            trabajo.tipo === "instalacion_en_proceso"
-                              ? "Ej: Entregar paneles + inversor a las 9:30 AM"
-                              : "Comentario...";
+              <button
+                type="button"
+                onClick={() => setTipoTrabajoActivo("entrega_equipamiento")}
+                className={`rounded-md border p-2 text-left transition-all ${
+                  tipoTrabajoActivo === "entrega_equipamiento"
+                    ? "border-blue-500 bg-blue-100 ring-1 ring-blue-300"
+                    : "border-blue-200 bg-blue-50 hover:bg-blue-100"
+                }`}
+              >
+                <p className="text-sm font-medium text-blue-700">
+                  Entrega Equip.
+                </p>
+                <p className="text-lg leading-tight font-bold text-blue-900">
+                  {cantidadesPorTipo.entrega_equipamiento}
+                </p>
+              </button>
 
-                          return (
-                            <tr
-                              key={trabajo.uid}
-                              className="border-b border-gray-100 hover:bg-gray-50"
-                            >
-                              <td className="py-2 px-2 align-top">
-                                <input
-                                  type="checkbox"
-                                  checked={selected}
-                                  onChange={() => toggleSeleccion(trabajo.uid)}
-                                />
-                              </td>
-                              <td className="py-2 px-2 align-top">
-                                <p className="font-medium text-gray-900 break-words">
-                                  {trabajo.nombre}
-                                </p>
-                                <p className="text-[11px] text-gray-500">
-                                  {trabajo.contactoTipo === "cliente"
-                                    ? "Cliente"
-                                    : "Lead"}
-                                  {trabajo.contactoNumero
-                                    ? ` • ${trabajo.contactoNumero}`
-                                    : ""}
-                                </p>
-                              </td>
-                              <td className="py-2 px-2 align-top text-gray-700 break-words">
-                                {trabajo.telefono || "Sin teléfono"}
-                              </td>
-                              <td className="py-2 px-2 align-top text-gray-700 break-words">
-                                {trabajo.direccion || "Sin dirección"}
-                              </td>
+              <button
+                type="button"
+                onClick={() => setTipoTrabajoActivo("instalacion_nueva")}
+                className={`rounded-md border p-2 text-left transition-all ${
+                  tipoTrabajoActivo === "instalacion_nueva"
+                    ? "border-emerald-500 bg-emerald-100 ring-1 ring-emerald-300"
+                    : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100"
+                }`}
+              >
+                <p className="text-sm font-medium text-emerald-700">
+                  Instal. Nuevas
+                </p>
+                <p className="text-lg leading-tight font-bold text-emerald-900">
+                  {cantidadesPorTipo.instalacion_nueva}
+                </p>
+              </button>
 
-                              {tipoTrabajoActivo === "visita" ? (
-                                <>
-                                  <td className="py-2 px-2 align-top text-gray-700 break-words">
-                                    {trabajo.motivo || "N/A"}
-                                  </td>
-                                  <td className="py-2 px-2 align-top text-gray-700 break-words">
-                                    {trabajo.comercial || "N/A"}
-                                  </td>
-                                </>
-                              ) : null}
+              <button
+                type="button"
+                onClick={() => setTipoTrabajoActivo("instalacion_en_proceso")}
+                className={`rounded-md border p-2 text-left transition-all ${
+                  tipoTrabajoActivo === "instalacion_en_proceso"
+                    ? "border-purple-500 bg-purple-100 ring-1 ring-purple-300"
+                    : "border-purple-200 bg-purple-50 hover:bg-purple-100"
+                }`}
+              >
+                <p className="text-sm font-medium text-purple-700">
+                  Instal. Proceso
+                </p>
+                <p className="text-lg leading-tight font-bold text-purple-900">
+                  {cantidadesPorTipo.instalacion_en_proceso}
+                </p>
+              </button>
 
-                              {tipoTrabajoActivo ===
-                              "instalacion_en_proceso" ? (
-                                <td className="py-2 px-2 align-top text-gray-700 break-words">
-                                  {trabajo.faltaInstalacion ||
-                                    "No especificado"}
-                                </td>
-                              ) : null}
+              <button
+                type="button"
+                onClick={() => setTipoTrabajoActivo("averia")}
+                className={`rounded-md border p-2 text-left transition-all ${
+                  tipoTrabajoActivo === "averia"
+                    ? "border-red-500 bg-red-100 ring-1 ring-red-300"
+                    : "border-red-200 bg-red-50 hover:bg-red-100"
+                }`}
+              >
+                <p className="text-sm font-medium text-red-700">Averías</p>
+                <p className="text-lg leading-tight font-bold text-red-900">
+                  {cantidadesPorTipo.averia}
+                </p>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
 
-                              <td className="py-2 px-2 align-top">
-                                <div className="flex flex-wrap gap-1.5">
-                                  {(trabajo.tipo === "visita" ||
-                                    trabajo.tipo === "entrega_equipamiento" ||
-                                    trabajo.tipo === "instalacion_nueva" ||
-                                    trabajo.tipo ===
-                                      "instalacion_en_proceso") && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-[11px] border-sky-300 text-sky-700 hover:bg-sky-50"
-                                      onClick={() => handleVerFotos(trabajo)}
-                                    >
-                                      <Camera className="h-3 w-3 mr-1" />
-                                      Fotos
-                                    </Button>
-                                  )}
+        <Card className="border-l-4 border-l-indigo-600">
+          <CardHeader>
+            <CardTitle>
+              Trabajos de {TYPE_LABEL[tipoTrabajoActivo]} (
+              {trabajosDelTipoActivo.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="py-10 text-center text-gray-600">
+                Cargando trabajos...
+              </div>
+            ) : trabajosDelTipoActivo.length === 0 ? (
+              <div className="py-10 text-center text-gray-600">
+                No hay trabajos para este tipo.
+              </div>
+            ) : (
+              <>
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full min-w-[1200px] table-fixed text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-2 w-10">Sel.</th>
+                        <th className="text-left py-2 px-2">Nombre</th>
+                        <th className="text-left py-2 px-2 w-[10rem]">
+                          Teléfono
+                        </th>
+                        <th className="text-left py-2 px-2">Dirección</th>
+                        {tipoTrabajoActivo === "visita" ? (
+                          <>
+                            <th className="text-left py-2 px-2">Comentario</th>
+                            <th className="text-left py-2 px-2">
+                              Motivo de visita
+                            </th>
+                            <th className="text-left py-2 px-2">Comercial</th>
+                          </>
+                        ) : null}
+                        {tipoTrabajoActivo === "instalacion_en_proceso" ? (
+                          <th className="text-left py-2 px-2">Qué falta</th>
+                        ) : null}
+                        <th className="text-left py-2 px-2">
+                          Brigada / Técnico
+                        </th>
+                        <th className="text-left py-2 px-2">
+                          Comentario de planificación
+                        </th>
+                        <th className="text-left py-2 px-2 w-[8rem]">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {trabajosDelTipoActivo.map((trabajo) => {
+                        const selected = seleccionados.has(trabajo.uid);
+                        const opciones = getOpcionesAsignacion(trabajo.tipo);
+                        const asignacionActual = normalizeAsignacionId(
+                          asignacionPorTrabajo[trabajo.uid] || "",
+                          trabajo.tipo,
+                        );
+                        const comentarioPlaceholder =
+                          trabajo.tipo === "entrega_equipamiento" ||
+                          trabajo.tipo === "instalacion_nueva" ||
+                          trabajo.tipo === "instalacion_en_proceso"
+                            ? "Ej: Entregar paneles + inversor a las 9:30 AM"
+                            : "Comentario...";
 
-                                  {(trabajo.tipo === "visita" ||
-                                    trabajo.tipo === "entrega_equipamiento" ||
-                                    trabajo.tipo === "instalacion_nueva" ||
-                                    trabajo.tipo ===
-                                      "instalacion_en_proceso") && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-[11px]"
-                                      onClick={() => handleVerOferta(trabajo)}
-                                    >
-                                      <Eye className="h-3 w-3 mr-1" />
-                                      Oferta
-                                    </Button>
-                                  )}
-
-                                  {(trabajo.tipo === "entrega_equipamiento" ||
-                                    trabajo.tipo === "instalacion_nueva" ||
-                                    trabajo.tipo ===
-                                      "instalacion_en_proceso") && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-[11px] border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                      onClick={() =>
-                                        handleVerMaterialesEntregados(trabajo)
-                                      }
-                                    >
-                                      <Truck className="h-3 w-3 mr-1" />
-                                      Entregados
-                                    </Button>
-                                  )}
-
-                                  {trabajo.tipo ===
-                                    "instalacion_en_proceso" && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-7 px-2 text-[11px] border-purple-300 text-purple-700 hover:bg-purple-50"
-                                      onClick={() =>
-                                        handleVerEnServicio(trabajo)
-                                      }
-                                    >
-                                      <Zap className="h-3 w-3 mr-1" />
-                                      En servicio
-                                    </Button>
-                                  )}
-                                </div>
-                              </td>
-
-                              <td className="py-2 px-2 align-top">
-                                <select
-                                  className="w-full border rounded-md h-9 px-2 bg-white text-xs"
-                                  value={asignacionActual}
-                                  onChange={(event) =>
-                                    handleAsignacionChange(
-                                      trabajo.uid,
-                                      event.target.value,
-                                    )
-                                  }
-                                >
-                                  <option value="">Sin asignar</option>
-                                  <optgroup label="Brigadas">
-                                    {opciones.brigadas.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.nombre}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                  <optgroup label="Técnicos">
-                                    {opciones.tecnicos.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.nombre}
-                                      </option>
-                                    ))}
-                                  </optgroup>
-                                </select>
-                              </td>
-
-                              <td className="py-2 px-2 align-top">
-                                <Input
-                                  value={
-                                    comentarioPorTrabajo[trabajo.uid] || ""
-                                  }
-                                  placeholder={comentarioPlaceholder}
-                                  onChange={(event) =>
-                                    handleComentarioChange(
-                                      trabajo.uid,
-                                      event.target.value,
-                                    )
-                                  }
-                                />
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="md:hidden space-y-3">
-                    {trabajosDelTipoActivo.map((trabajo) => {
-                      const selected = seleccionados.has(trabajo.uid);
-                      const opciones = getOpcionesAsignacion(trabajo.tipo);
-                      const asignacionActual = normalizeAsignacionId(
-                        asignacionPorTrabajo[trabajo.uid] || "",
-                        trabajo.tipo,
-                      );
-                      const comentarioPlaceholder =
-                        trabajo.tipo === "entrega_equipamiento" ||
-                        trabajo.tipo === "instalacion_nueva" ||
-                        trabajo.tipo === "instalacion_en_proceso"
-                          ? "Equipos + horario"
-                          : "Comentario...";
-
-                      return (
-                        <div
-                          key={trabajo.uid}
-                          className="border rounded-lg p-3 space-y-2"
-                        >
-                          <div className="flex items-start gap-2">
-                            <input
-                              type="checkbox"
-                              className="mt-1"
-                              checked={selected}
-                              onChange={() => toggleSeleccion(trabajo.uid)}
-                            />
-                            <div className="flex-1 min-w-0">
+                        return (
+                          <tr
+                            key={trabajo.uid}
+                            className="border-b border-gray-100 hover:bg-gray-50"
+                          >
+                            <td className="py-2 px-2 align-top">
+                              <input
+                                type="checkbox"
+                                checked={selected}
+                                onChange={() => toggleSeleccion(trabajo.uid)}
+                              />
+                            </td>
+                            <td className="py-2 px-2 align-top">
                               <p className="font-medium text-gray-900 break-words">
                                 {trabajo.nombre}
                               </p>
-                              <p className="text-xs text-gray-500 mt-1 break-words">
-                                {trabajo.telefono || "Sin teléfono"}
+                              <p className="text-sm text-gray-500">
+                                {trabajo.contactoTipo === "cliente"
+                                  ? "Cliente"
+                                  : "Lead"}
+                                {trabajo.contactoNumero
+                                  ? ` • ${trabajo.contactoNumero}`
+                                  : ""}
                               </p>
-                              <p className="text-xs text-gray-600 mt-1 break-words">
-                                {trabajo.direccion || "Sin dirección"}
-                              </p>
-                            </div>
-                          </div>
+                            </td>
+                            <td className="py-2 px-2 align-top text-gray-700 break-words">
+                              {trabajo.telefono || "Sin teléfono"}
+                            </td>
+                            <td className="py-2 px-2 align-top text-gray-700 break-words">
+                              {trabajo.direccion || "Sin dirección"}
+                            </td>
 
-                          {trabajo.tipo === "visita" ? (
-                            <>
-                              <p className="text-xs text-gray-600">
-                                Motivo de visita: {trabajo.motivo || "N/A"}
-                              </p>
-                              <p className="text-xs text-gray-600">
-                                Comercial: {trabajo.comercial || "N/A"}
-                              </p>
-                            </>
-                          ) : null}
+                            {tipoTrabajoActivo === "visita" ? (
+                              <>
+                                <td className="py-2 px-2 align-top text-gray-700 break-words">
+                                  {trabajo.comentarioModulo || "N/A"}
+                                </td>
+                                <td className="py-2 px-2 align-top text-gray-700 break-words">
+                                  {trabajo.motivo || "N/A"}
+                                </td>
+                                <td className="py-2 px-2 align-top text-gray-700 break-words">
+                                  {trabajo.comercial || "N/A"}
+                                </td>
+                              </>
+                            ) : null}
 
-                          {trabajo.tipo === "instalacion_en_proceso" ? (
-                            <p className="text-xs text-gray-600">
-                              Qué falta:{" "}
-                              {trabajo.faltaInstalacion || "No especificado"}
-                            </p>
-                          ) : null}
+                            {tipoTrabajoActivo === "instalacion_en_proceso" ? (
+                              <td className="py-2 px-2 align-top text-gray-700 break-words">
+                                {trabajo.faltaInstalacion || "No especificado"}
+                              </td>
+                            ) : null}
 
-                          <div className="grid grid-cols-2 gap-2">
-                            {(trabajo.tipo === "visita" ||
-                              trabajo.tipo === "entrega_equipamiento" ||
-                              trabajo.tipo === "instalacion_nueva" ||
-                              trabajo.tipo === "instalacion_en_proceso") && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs border-sky-300 text-sky-700 hover:bg-sky-50"
-                                onClick={() => handleVerFotos(trabajo)}
-                              >
-                                <Camera className="h-3.5 w-3.5 mr-1" />
-                                Fotos
-                              </Button>
-                            )}
-
-                            {(trabajo.tipo === "visita" ||
-                              trabajo.tipo === "entrega_equipamiento" ||
-                              trabajo.tipo === "instalacion_nueva" ||
-                              trabajo.tipo === "instalacion_en_proceso") && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs"
-                                onClick={() => handleVerOferta(trabajo)}
-                              >
-                                <Eye className="h-3.5 w-3.5 mr-1" />
-                                Oferta
-                              </Button>
-                            )}
-
-                            {(trabajo.tipo === "entrega_equipamiento" ||
-                              trabajo.tipo === "instalacion_nueva" ||
-                              trabajo.tipo === "instalacion_en_proceso") && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                                onClick={() =>
-                                  handleVerMaterialesEntregados(trabajo)
+                            <td className="py-2 px-2 align-baseline">
+                              <select
+                                className="w-full border rounded-md h-9 px-2 bg-white text-sm"
+                                value={asignacionActual}
+                                onChange={(event) =>
+                                  handleAsignacionChange(
+                                    trabajo.uid,
+                                    event.target.value,
+                                  )
                                 }
                               >
-                                <Truck className="h-3.5 w-3.5 mr-1" />
-                                Entregados
-                              </Button>
-                            )}
+                                <option value="">Sin asignar</option>
+                                <optgroup label="Brigadas">
+                                  {opciones.brigadas.map((option) => (
+                                    <option key={option.id} value={option.id}>
+                                      {option.nombre}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                                <optgroup label="Técnicos">
+                                  {opciones.tecnicos.map((option) => (
+                                    <option key={option.id} value={option.id}>
+                                      {option.nombre}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              </select>
+                            </td>
 
-                            {trabajo.tipo === "instalacion_en_proceso" && (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="h-8 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
-                                onClick={() => handleVerEnServicio(trabajo)}
-                              >
-                                <Zap className="h-3.5 w-3.5 mr-1" />
-                                Servicio
-                              </Button>
-                            )}
-                          </div>
+                            <td className="py-2 px-2 align-baseline">
+                              <Input
+                                value={comentarioPorTrabajo[trabajo.uid] || ""}
+                                placeholder={comentarioPlaceholder}
+                                onChange={(event) =>
+                                  handleComentarioChange(
+                                    trabajo.uid,
+                                    event.target.value,
+                                  )
+                                }
+                              />
+                            </td>
 
-                          <select
-                            className="w-full border rounded-md h-10 px-3 bg-white"
-                            value={asignacionActual}
-                            onChange={(event) =>
-                              handleAsignacionChange(
-                                trabajo.uid,
-                                event.target.value,
-                              )
-                            }
-                          >
-                            <option value="">Sin asignar</option>
-                            <optgroup label="Brigadas">
-                              {opciones.brigadas.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {option.nombre}
-                                </option>
-                              ))}
-                            </optgroup>
-                            <optgroup label="Técnicos">
-                              {opciones.tecnicos.map((option) => (
-                                <option key={option.id} value={option.id}>
-                                  {option.nombre}
-                                </option>
-                              ))}
-                            </optgroup>
-                          </select>
+                            <td className="py-2 px-2 align-top">
+                              <div className="inline-flex items-center gap-1 flex-nowrap">
+                                {(trabajo.tipo === "visita" ||
+                                  trabajo.tipo === "entrega_equipamiento" ||
+                                  trabajo.tipo === "instalacion_nueva" ||
+                                  trabajo.tipo ===
+                                    "instalacion_en_proceso") && (
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className="h-8 w-8 border-sky-300 text-sky-700 hover:bg-sky-50"
+                                    onClick={() => handleVerFotos(trabajo)}
+                                    title="Ver fotos y videos"
+                                  >
+                                    <Camera className="h-4 w-4" />
+                                  </Button>
+                                )}
 
-                          <Input
-                            value={comentarioPorTrabajo[trabajo.uid] || ""}
-                            placeholder={comentarioPlaceholder}
-                            onChange={(event) =>
-                              handleComentarioChange(
-                                trabajo.uid,
-                                event.target.value,
-                              )
-                            }
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+                                {(trabajo.tipo === "entrega_equipamiento" ||
+                                  trabajo.tipo === "instalacion_nueva" ||
+                                  trabajo.tipo ===
+                                    "instalacion_en_proceso") && (
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className={`h-8 w-8 ${
+                                      trabajoTieneEntregas(trabajo, ofertasConEntregasIds, contactoKeysConEntregas)
+                                        ? "border-green-600 bg-green-500 text-white hover:bg-green-600 hover:border-green-700"
+                                        : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                                    }`}
+                                    onClick={() =>
+                                      handleVerMaterialesEntregados(trabajo)
+                                    }
+                                    title="Ver materiales entregados"
+                                  >
+                                    <Truck className="h-4 w-4" />
+                                  </Button>
+                                )}
 
-      <div className="xl:col-span-3 min-h-0">
-        <div className="max-h-[52vh] sm:max-h-[56vh] xl:max-h-[calc(100vh-var(--module-header-height,96px)-2.25rem)] overflow-y-auto overscroll-contain pr-1">
-          <Card className="border-l-4 border-l-emerald-600">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5 text-emerald-700" />
-                  Planificación en curso ({planEnCurso.length})
-                </span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {planEnCurso.length === 0 ? (
-                <p className="text-sm text-gray-600">
-                  Aún no has seleccionado trabajos para la planificación.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {resumenPlanPorTipo.map(([tipo, items]) => (
-                    <div key={tipo} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <Badge className={TYPE_BADGE_CLASS[tipo]}>
-                          {TYPE_LABEL[tipo]}
-                        </Badge>
-                        <span className="text-sm text-gray-600">
-                          {items.length} trabajo(s)
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {items.map((item) => (
-                          <div
-                            key={item.uid}
-                            className="border border-gray-100 rounded-md p-3 bg-gray-50"
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div>
-                                <p className="font-medium text-gray-900">
-                                  {item.nombre}
-                                </p>
-                                <p className="text-sm text-gray-700">
-                                  {item.descripcionTrabajo}
-                                </p>
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {item.direccion}
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                  Asignado a:{" "}
-                                  <span className="font-medium">
-                                    {item.brigadaNombre || "Sin asignar"}
-                                  </span>
-                                </p>
-                                {item.comentario ? (
-                                  <p className="text-xs text-blue-700 mt-1">
-                                    Comentario: {item.comentario}
-                                  </p>
-                                ) : null}
+                                {(trabajo.tipo === "entrega_equipamiento" ||
+                                  trabajo.tipo === "instalacion_nueva" ||
+                                  trabajo.tipo ===
+                                    "instalacion_en_proceso") && (
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    className={`h-8 w-8 ${
+                                      trabajoTieneEnServicio(trabajo, resumenServicioPorContacto)
+                                        ? "border-purple-600 bg-purple-500 text-white hover:bg-purple-600 hover:border-purple-700"
+                                        : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                                    }`}
+                                    onClick={() => handleVerEnServicio(trabajo)}
+                                    title="Ver equipos en servicio"
+                                  >
+                                    <Zap className="h-4 w-4" />
+                                  </Button>
+                                )}
                               </div>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="border-red-200 text-red-700 hover:bg-red-50"
-                                onClick={() => quitarDelPlan(item.uid)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+
+                <div className="md:hidden space-y-3">
+                  {trabajosDelTipoActivo.map((trabajo) => {
+                    const selected = seleccionados.has(trabajo.uid);
+                    const opciones = getOpcionesAsignacion(trabajo.tipo);
+                    const asignacionActual = normalizeAsignacionId(
+                      asignacionPorTrabajo[trabajo.uid] || "",
+                      trabajo.tipo,
+                    );
+                    const comentarioPlaceholder =
+                      trabajo.tipo === "entrega_equipamiento" ||
+                      trabajo.tipo === "instalacion_nueva" ||
+                      trabajo.tipo === "instalacion_en_proceso"
+                        ? "Equipos + horario"
+                        : "Comentario...";
+
+                    return (
+                      <div
+                        key={trabajo.uid}
+                        className="border rounded-lg p-3 space-y-2"
+                      >
+                        <div className="flex items-start gap-2">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={selected}
+                            onChange={() => toggleSeleccion(trabajo.uid)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 break-words">
+                              {trabajo.nombre}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-1 break-words">
+                              {trabajo.telefono || "Sin teléfono"}
+                            </p>
+                            <p className="text-sm text-gray-600 mt-1 break-words">
+                              {trabajo.direccion || "Sin dirección"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {trabajo.tipo === "visita" ? (
+                          <>
+                            <p className="text-sm text-gray-600">
+                              Comentario: {trabajo.comentarioModulo || "N/A"}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Motivo de visita: {trabajo.motivo || "N/A"}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              Comercial: {trabajo.comercial || "N/A"}
+                            </p>
+                          </>
+                        ) : null}
+
+                        {trabajo.tipo === "instalacion_en_proceso" ? (
+                          <p className="text-sm text-gray-600">
+                            Qué falta:{" "}
+                            {trabajo.faltaInstalacion || "No especificado"}
+                          </p>
+                        ) : null}
+
+                        <select
+                          className="w-full border rounded-md h-10 px-3 bg-white"
+                          value={asignacionActual}
+                          onChange={(event) =>
+                            handleAsignacionChange(
+                              trabajo.uid,
+                              event.target.value,
+                            )
+                          }
+                        >
+                          <option value="">Sin asignar</option>
+                          <optgroup label="Brigadas">
+                            {opciones.brigadas.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.nombre}
+                              </option>
+                            ))}
+                          </optgroup>
+                          <optgroup label="Técnicos">
+                            {opciones.tecnicos.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.nombre}
+                              </option>
+                            ))}
+                          </optgroup>
+                        </select>
+
+                        <Input
+                          value={comentarioPorTrabajo[trabajo.uid] || ""}
+                          placeholder={comentarioPlaceholder}
+                          onChange={(event) =>
+                            handleComentarioChange(
+                              trabajo.uid,
+                              event.target.value,
+                            )
+                          }
+                        />
+
+                        <div className="inline-flex items-center gap-1.5 flex-wrap">
+                          {(trabajo.tipo === "visita" ||
+                            trabajo.tipo === "entrega_equipamiento" ||
+                            trabajo.tipo === "instalacion_nueva" ||
+                            trabajo.tipo === "instalacion_en_proceso") && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              className="h-8 w-8 border-sky-300 text-sky-700 hover:bg-sky-50"
+                              onClick={() => handleVerFotos(trabajo)}
+                              title="Ver fotos y videos"
+                            >
+                              <Camera className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {(trabajo.tipo === "entrega_equipamiento" ||
+                            trabajo.tipo === "instalacion_nueva" ||
+                            trabajo.tipo === "instalacion_en_proceso") && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              className={`h-8 w-8 ${
+                                trabajoTieneEntregas(trabajo, ofertasConEntregasIds, contactoKeysConEntregas)
+                                  ? "border-green-600 bg-green-500 text-white hover:bg-green-600 hover:border-green-700"
+                                  : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                              }`}
+                              onClick={() =>
+                                handleVerMaterialesEntregados(trabajo)
+                              }
+                              title="Ver materiales entregados"
+                            >
+                              <Truck className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {(trabajo.tipo === "entrega_equipamiento" ||
+                            trabajo.tipo === "instalacion_nueva" ||
+                            trabajo.tipo === "instalacion_en_proceso") && (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="outline"
+                              className={`h-8 w-8 ${
+                                trabajoTieneEnServicio(trabajo, resumenServicioPorContacto)
+                                  ? "border-purple-600 bg-purple-500 text-white hover:bg-purple-600 hover:border-purple-700"
+                                  : "border-gray-300 text-gray-500 hover:bg-gray-50"
+                              }`}
+                              onClick={() => handleVerEnServicio(trabajo)}
+                              title="Ver equipos en servicio"
+                            >
+                              <Zap className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="border-l-4 border-l-emerald-600">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between gap-3">
+              <span className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-emerald-700" />
+                Planificación en curso ({planEnCurso.length})
+              </span>
+              <div className="flex items-center gap-2">
+                {planEnCurso.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setVerPlanificacionDialog(true)}
+                    className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                  >
+                    Ver planificación
+                  </Button>
+                )}
+                <span className="text-sm text-gray-500">
+                  Máximo {SUMMARY_VISIBLE_LIMIT} por tipo (scroll)
+                </span>
+              </div>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {planEnCurso.length === 0 ? (
+              <p className="text-sm text-gray-600">
+                Aún no has seleccionado trabajos para la planificación.
+              </p>
+            ) : (
+              <div className="space-y-4 max-h-[34vh] sm:max-h-[38vh] xl:max-h-[42vh] overflow-y-auto overscroll-contain pr-1">
+                {resumenPlanVisible.map(({ tipo, total, visible }) => (
+                  <div key={tipo} className="border rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <Badge className={TYPE_BADGE_CLASS[tipo]}>
+                        {TYPE_LABEL[tipo]}
+                      </Badge>
+                      <span className="text-sm text-gray-600">
+                        {total} trabajo(s)
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {visible.map((item) => (
+                        <div
+                          key={item.uid}
+                          className="border border-gray-100 rounded-md p-3 bg-gray-50"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                {item.nombre}
+                              </p>
+                              <p className="text-sm text-gray-700">
+                                {item.descripcionTrabajo}
+                              </p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {item.direccion}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Asignado a:{" "}
+                                <span className="font-medium">
+                                  {item.brigadaNombre || "Sin asignar"}
+                                </span>
+                              </p>
+                              {item.comentario ? (
+                                <p className="text-sm text-blue-700 mt-1">
+                                  Comentario: {item.comentario}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="border-red-200 text-red-700 hover:bg-red-50"
+                              onClick={() => quitarDelPlan(item.uid)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {total > visible.length ? (
+                        <p className="text-sm text-gray-500">
+                          + {total - visible.length} más en este tipo.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <VerOfertaClienteDialog
@@ -1424,6 +1744,86 @@ export function PlanificacionDiariaTrabajosTable({
         clienteCodigo={fotosDialogData?.codigo}
         fotos={fotosDialogData?.fotos || []}
       />
+
+      <Dialog open={verPlanificacionDialog} onOpenChange={(open) => {
+        setVerPlanificacionDialog(open);
+        if (!open && onGuardadoExitoso) {
+          // Cuando se cierra el diálogo después de guardar, volver a la lista
+          onGuardadoExitoso();
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>Planificación del {fechaPlanificacion}</span>
+              <Button
+                type="button"
+                onClick={descargarPlanificacionPDF}
+                className="bg-purple-700 hover:bg-purple-800"
+              >
+                Descargar PDF
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Total de trabajos:</strong> {planEnCurso.length}
+              </p>
+              {actualizadoEn && (
+                <p className="text-sm text-gray-600">
+                  <strong>Última actualización:</strong>{" "}
+                  {new Date(actualizadoEn).toLocaleString("es-ES")}
+                </p>
+              )}
+            </div>
+
+            {resumenPlanPorTipo.map(([tipo, items]) => (
+              <div key={tipo} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <Badge className={TYPE_BADGE_CLASS[tipo]}>
+                    {TYPE_LABEL[tipo]}
+                  </Badge>
+                  <span className="text-sm text-gray-600">
+                    {items.length} trabajo(s)
+                  </span>
+                </div>
+                <div className="space-y-3">
+                  {items.map((item) => (
+                    <div
+                      key={item.uid}
+                      className="border border-gray-200 rounded-md p-3 bg-white"
+                    >
+                      <p className="font-medium text-gray-900">{item.nombre}</p>
+                      <p className="text-sm text-gray-700 mt-1">
+                        <strong>Teléfono:</strong> {item.telefono}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <strong>Dirección:</strong> {item.direccion}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <strong>Descripción:</strong> {item.descripcionTrabajo}
+                      </p>
+                      <p className="text-sm text-gray-700">
+                        <strong>Asignado a:</strong>{" "}
+                        <span className="font-medium text-purple-700">
+                          {item.brigadaNombre || "Sin asignar"}
+                        </span>
+                      </p>
+                      {item.comentario && (
+                        <p className="text-sm text-blue-700 mt-2 p-2 bg-blue-50 rounded border-l-2 border-blue-500">
+                          <strong>Comentario:</strong> {item.comentario}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -18,15 +18,24 @@ import {
 import type { Cliente, Brigada, Trabajador } from "@/lib/api-types";
 import type { Averia } from "@/lib/types/feats/averias/averia-types";
 import { PlanificacionDiariaTrabajosTable } from "@/components/feats/instalaciones/planificacion-diaria-trabajos-table";
+import { ListaPlanificacionesTable } from "@/components/feats/instalaciones/lista-planificaciones-table";
+import { VerPlanificacionDialog } from "@/components/feats/instalaciones/ver-planificacion-dialog";
 import type {
   BrigadaPlanificacionOption,
   TecnicoPlanificacionOption,
   TrabajoPlanificable,
 } from "@/lib/types/feats/instalaciones/planificacion-trabajos-types";
+import type { PlanificacionDiaria } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
+import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 
 interface PendientesVisitaRawResponse {
   clientes?: Array<Record<string, unknown>>;
   leads?: Array<Record<string, unknown>>;
+}
+
+interface VisitaPendienteEnriquecida {
+  motivo?: string;
+  comentario?: string;
 }
 
 const EMPTY_PENDIENTES: PendientesInstalacionResponse = {
@@ -40,6 +49,98 @@ const EMPTY_PENDIENTES: PendientesInstalacionResponse = {
 const safeText = (value: unknown, fallback = "") => {
   const text = String(value ?? "").trim();
   return text || fallback;
+};
+
+const getArrayFromPayload = (
+  payload: unknown,
+): Array<Record<string, unknown>> => {
+  if (Array.isArray(payload)) return payload as Array<Record<string, unknown>>;
+  if (!payload || typeof payload !== "object") return [];
+  const record = payload as Record<string, unknown>;
+  const data = record.data;
+  if (Array.isArray(data)) return data as Array<Record<string, unknown>>;
+  if (data && typeof data === "object") {
+    const dataRecord = data as Record<string, unknown>;
+    if (Array.isArray(dataRecord.visitas)) {
+      return dataRecord.visitas as Array<Record<string, unknown>>;
+    }
+  }
+  if (Array.isArray(record.visitas)) {
+    return record.visitas as Array<Record<string, unknown>>;
+  }
+  return [];
+};
+
+const fetchVisitasPendientesMap = async (): Promise<
+  Map<string, VisitaPendienteEnriquecida>
+> => {
+  const map = new Map<string, VisitaPendienteEnriquecida>();
+  const pageSize = 200;
+  let skip = 0;
+  let total = Number.POSITIVE_INFINITY;
+  let safety = 0;
+
+  while (skip < total && safety < 50) {
+    const response = await apiRequest<Record<string, unknown>>(
+      `/visitas/?skip=${skip}&limit=${pageSize}`,
+    );
+    const pageData = getArrayFromPayload(response);
+    const responseTotal = Number(
+      (response?.data as Record<string, unknown> | undefined)?.total ??
+        response?.total ??
+        pageData.length,
+    );
+    if (Number.isFinite(responseTotal)) {
+      total = responseTotal;
+    }
+
+    pageData.forEach((visita) => {
+      const tipoRaw = safeText(
+        visita.tipo ||
+          visita.tipo_entidad ||
+          (visita.lead_id ? "lead" : visita.cliente_numero ? "cliente" : ""),
+      ).toLowerCase();
+      const tipo: "lead" | "cliente" = tipoRaw.includes("cliente")
+        ? "cliente"
+        : "lead";
+      const entidadId = safeText(
+        visita.entidad_id ||
+          visita.lead_id ||
+          visita.cliente_numero ||
+          visita.numero ||
+          visita.numero_cliente,
+      );
+      if (!entidadId) return;
+
+      const estado = safeText(visita.estado).toLowerCase();
+      if (estado.includes("complet") || estado.includes("cancel")) return;
+
+      const motivo =
+        safeText(visita.motivo) ||
+        safeText(visita.motivo_visita) ||
+        safeText(visita.razon) ||
+        safeText(visita.comentario) ||
+        safeText(visita.notas) ||
+        safeText(visita.evidencia_texto) ||
+        undefined;
+      const comentario =
+        safeText(visita.comentario) ||
+        safeText(visita.notas) ||
+        safeText(visita.evidencia_texto) ||
+        undefined;
+
+      const key = `${tipo}:${entidadId}`;
+      if (!map.has(key)) {
+        map.set(key, { motivo, comentario });
+      }
+    });
+
+    if (pageData.length < pageSize) break;
+    skip += pageSize;
+    safety += 1;
+  }
+
+  return map;
 };
 
 const isAveriaPendiente = (averia: Averia) =>
@@ -70,6 +171,7 @@ const getTecnicoOption = (
 
 const buildVisitas = (
   response: PendientesVisitaRawResponse,
+  visitasPendientesMap: Map<string, VisitaPendienteEnriquecida>,
 ): TrabajoPlanificable[] => {
   const visitas: TrabajoPlanificable[] = [];
   const clientes = Array.isArray(response.clientes) ? response.clientes : [];
@@ -79,6 +181,13 @@ const buildVisitas = (
     const numero = safeText(cliente.numero);
     const contactoId = numero || safeText(cliente.id);
     if (!contactoId) return;
+    const visitaAsociada = [
+      numero ? `cliente:${numero}` : "",
+      `cliente:${contactoId}`,
+    ]
+      .filter(Boolean)
+      .map((key) => visitasPendientesMap.get(key))
+      .find(Boolean);
 
     visitas.push({
       uid: `visita:cliente:${contactoId}`,
@@ -95,10 +204,17 @@ const buildVisitas = (
       prioridad: safeText(cliente.prioridad) || undefined,
       descripcionTrabajo: "Visita técnica pendiente",
       fechaReferencia: safeText(cliente.fecha_contacto) || undefined,
-      comentarioModulo: safeText(cliente.comentario) || undefined,
+      comentarioModulo:
+        safeText(cliente.comentario) ||
+        safeText(visitaAsociada?.comentario) ||
+        safeText(cliente.notas) ||
+        safeText(cliente.evidencia_texto) ||
+        undefined,
       motivo:
-        safeText(cliente.motivo_visita) ||
+        safeText(visitaAsociada?.motivo) ||
         safeText(cliente.motivo) ||
+        safeText(cliente.motivo_visita) ||
+        safeText(cliente.razon) ||
         undefined,
       comercial: safeText(cliente.comercial) || undefined,
       ofertas: Array.isArray(cliente.ofertas)
@@ -113,6 +229,7 @@ const buildVisitas = (
   leads.forEach((lead) => {
     const contactoId = safeText(lead.id || lead._id);
     if (!contactoId) return;
+    const visitaAsociada = visitasPendientesMap.get(`lead:${contactoId}`);
 
     visitas.push({
       uid: `visita:lead:${contactoId}`,
@@ -128,9 +245,18 @@ const buildVisitas = (
       prioridad: safeText(lead.prioridad) || undefined,
       descripcionTrabajo: "Visita a lead pendiente",
       fechaReferencia: safeText(lead.fecha_contacto) || undefined,
-      comentarioModulo: safeText(lead.comentario) || undefined,
+      comentarioModulo:
+        safeText(lead.comentario) ||
+        safeText(visitaAsociada?.comentario) ||
+        safeText(lead.notas) ||
+        safeText(lead.evidencia_texto) ||
+        undefined,
       motivo:
-        safeText(lead.motivo_visita) || safeText(lead.motivo) || undefined,
+        safeText(visitaAsociada?.motivo) ||
+        safeText(lead.motivo) ||
+        safeText(lead.motivo_visita) ||
+        safeText(lead.razon) ||
+        undefined,
       comercial: safeText(lead.comercial) || undefined,
       ofertas: Array.isArray(lead.ofertas)
         ? (lead.ofertas as unknown[])
@@ -300,12 +426,16 @@ export default function PlanificacionDiariaTrabajosPage() {
   const [tecnicos, setTecnicos] = useState<TecnicoPlanificacionOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [modo, setModo] = useState<"lista" | "crear">("lista");
+  const [planificaciones, setPlanificaciones] = useState<PlanificacionDiaria[]>([]);
+  const [planificacionSeleccionada, setPlanificacionSeleccionada] = useState<PlanificacionDiaria | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const results = await Promise.allSettled([
         apiRequest<PendientesVisitaRawResponse>("/pendientes-visita/"),
+        fetchVisitasPendientesMap(),
         InstalacionesService.getPendientesInstalacion(),
         ClienteService.getClientes({}),
         ClienteService.getClientesConAverias(),
@@ -315,6 +445,7 @@ export default function PlanificacionDiariaTrabajosPage() {
 
       const [
         visitasResult,
+        visitasPendientesMapResult,
         pendientesInstalacionResult,
         clientesResult,
         averiasResult,
@@ -324,6 +455,10 @@ export default function PlanificacionDiariaTrabajosPage() {
 
       const visitasRaw =
         visitasResult.status === "fulfilled" ? visitasResult.value : {};
+      const visitasPendientesMap =
+        visitasPendientesMapResult.status === "fulfilled"
+          ? visitasPendientesMapResult.value
+          : new Map<string, VisitaPendienteEnriquecida>();
       const pendientesInstalacion =
         pendientesInstalacionResult.status === "fulfilled"
           ? pendientesInstalacionResult.value
@@ -344,7 +479,7 @@ export default function PlanificacionDiariaTrabajosPage() {
         (cliente) => safeText(cliente.estado) === "Instalación en Proceso",
       );
 
-      const visitas = buildVisitas(visitasRaw);
+      const visitas = buildVisitas(visitasRaw, visitasPendientesMap);
       const instalacionesNuevas = buildInstalacionesNuevas(
         pendientesInstalacion,
       );
@@ -416,14 +551,23 @@ export default function PlanificacionDiariaTrabajosPage() {
     const loadInitialData = async () => {
       setInitialLoading(true);
       try {
-        await fetchData();
+        if (modo === "lista") {
+          // Cargar lista de planificaciones
+          const response = await PlanificacionDiariaService.obtenerTodasPlanificaciones();
+          if (response.success && response.data) {
+            setPlanificaciones(response.data);
+          }
+        } else {
+          // Cargar datos para crear planificación
+          await fetchData();
+        }
       } finally {
         setInitialLoading(false);
       }
     };
 
     void loadInitialData();
-  }, [fetchData]);
+  }, [modo]);
 
   if (initialLoading) {
     return (
@@ -448,13 +592,42 @@ export default function PlanificacionDiariaTrabajosPage() {
       />
 
       <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 space-y-6">
-        <PlanificacionDiariaTrabajosTable
-          trabajos={trabajos}
-          brigadas={brigadas}
-          tecnicos={tecnicos}
-          loading={loading}
-        />
+        {modo === "lista" ? (
+          <ListaPlanificacionesTable
+            planificaciones={planificaciones}
+            loading={initialLoading}
+            onVerPlanificacion={(planificacion) => {
+              setPlanificacionSeleccionada(planificacion);
+            }}
+            onCrearNueva={() => setModo("crear")}
+          />
+        ) : (
+          <PlanificacionDiariaTrabajosTable
+            trabajos={trabajos}
+            brigadas={brigadas}
+            tecnicos={tecnicos}
+            loading={loading}
+            onGuardadoExitoso={async () => {
+              // Recargar lista y volver al modo lista
+              const response = await PlanificacionDiariaService.obtenerTodasPlanificaciones();
+              if (response.success && response.data) {
+                setPlanificaciones(response.data);
+              }
+              setModo("lista");
+            }}
+            onCancelar={() => setModo("lista")}
+          />
+        )}
       </main>
+
+      <VerPlanificacionDialog
+        open={!!planificacionSeleccionada}
+        onOpenChange={(open) => {
+          if (!open) setPlanificacionSeleccionada(null);
+        }}
+        planificacion={planificacionSeleccionada}
+      />
+
       <Toaster />
     </div>
   );
