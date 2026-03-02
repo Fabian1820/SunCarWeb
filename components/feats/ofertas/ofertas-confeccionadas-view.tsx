@@ -20,7 +20,14 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { Loader } from "@/components/shared/atom/loader";
-import { ExportButtons } from "@/components/shared/molecule/export-buttons";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/shared/molecule/table";
 import { EditarOfertaDialog } from "./editar-oferta-dialog";
 import { ExportSelectionDialog } from "./export-selection-dialog";
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
@@ -40,7 +47,6 @@ import {
   FileText,
   Package,
   Search,
-  User,
   Download,
   Edit,
   Trash2,
@@ -55,9 +61,16 @@ export function OfertasConfeccionadasView() {
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchPrecioFinal, setSearchPrecioFinal] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
   const [tipoFiltro, setTipoFiltro] = useState("todas");
   const [almacenFiltro, setAlmacenFiltro] = useState("todos");
+  const [inversorFiltro, setInversorFiltro] = useState("todos");
+  const [cantidadInversorFiltro, setCantidadInversorFiltro] = useState("");
+  const [bateriaFiltro, setBateriaFiltro] = useState("todos");
+  const [cantidadBateriaFiltro, setCantidadBateriaFiltro] = useState("");
+  const [panelFiltro, setPanelFiltro] = useState("todos");
+  const [cantidadPanelFiltro, setCantidadPanelFiltro] = useState("");
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
@@ -110,12 +123,6 @@ export function OfertasConfeccionadasView() {
       },
     };
     return badges[estado as keyof typeof badges] || badges.en_revision;
-  };
-
-  const getTipoBadge = (tipo: string) => {
-    return tipo === "personalizada"
-      ? { label: "Personalizada", className: "bg-pink-100 text-pink-800" }
-      : { label: "Genérica", className: "bg-slate-100 text-slate-800" };
   };
 
   const formatCurrency = (value: number) => {
@@ -279,45 +286,184 @@ export function OfertasConfeccionadasView() {
 
   // Filtrado de ofertas
   const ofertasFiltradas = useMemo(() => {
-    if (!searchQuery.trim()) return ofertas;
+    if (!searchQuery.trim() && !searchPrecioFinal.trim()) return ofertas;
     const query = searchQuery.trim().toLowerCase();
+    const parsePrecioLimite = (value: string): number | null => {
+      const raw = value.trim();
+      if (!raw) return null;
+      const normalized = raw
+        .replace(/\$/g, "")
+        .replace(/\s/g, "")
+        .replace(",", ".");
+      const parsed = Number(normalized);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const precioLimite = parsePrecioLimite(searchPrecioFinal);
+
     return ofertas.filter((oferta) => {
-      // Buscar en nombre de oferta
-      if (oferta.nombre.toLowerCase().includes(query)) return true;
+      let matchTexto = true;
+      if (query) {
+        matchTexto = false;
+        if (oferta.nombre.toLowerCase().includes(query)) matchTexto = true;
+        if (oferta.cliente_nombre?.toLowerCase().includes(query))
+          matchTexto = true;
+        if (oferta.nombre_lead_sin_agregar?.toLowerCase().includes(query))
+          matchTexto = true;
+        if (oferta.lead_nombre?.toLowerCase().includes(query))
+          matchTexto = true;
 
-      // Buscar en nombre de cliente
-      if (oferta.cliente_nombre?.toLowerCase().includes(query)) return true;
-
-      // Buscar en nombre de lead sin agregar
-      if (oferta.nombre_lead_sin_agregar?.toLowerCase().includes(query))
-        return true;
-
-      // Buscar en nombre de lead
-      if (oferta.lead_nombre?.toLowerCase().includes(query)) return true;
-
-      // Buscar en lead cargado
-      if (oferta.lead_id) {
-        const lead = leadPorId.get(oferta.lead_id);
-        if (lead?.nombre_completo?.toLowerCase().includes(query)) return true;
-        if (lead?.nombre?.toLowerCase().includes(query)) return true;
-        if (lead?.telefono?.toLowerCase().includes(query)) return true;
-        if (lead?.email?.toLowerCase().includes(query)) return true;
+        if (!matchTexto && oferta.lead_id) {
+          const lead = leadPorId.get(oferta.lead_id);
+          if (lead?.nombre_completo?.toLowerCase().includes(query))
+            matchTexto = true;
+          if (lead?.nombre?.toLowerCase().includes(query)) matchTexto = true;
+          if (lead?.telefono?.toLowerCase().includes(query)) matchTexto = true;
+          if (lead?.email?.toLowerCase().includes(query)) matchTexto = true;
+        }
       }
 
-      return false;
+      let matchPrecio = true;
+      if (searchPrecioFinal.trim() && precioLimite !== null) {
+        const precioFinal = Number(oferta.precio_final || 0);
+        matchPrecio = precioFinal <= precioLimite;
+      }
+
+      return matchTexto && matchPrecio;
     });
-  }, [ofertas, searchQuery, leadPorId]);
+  }, [ofertas, searchQuery, searchPrecioFinal, leadPorId]);
+
+  const opcionesMaterialesPrincipales = useMemo(() => {
+    const construirOpciones = (
+      seccion: "INVERSORES" | "BATERIAS" | "PANELES",
+    ) => {
+      const map = new Map<string, string>();
+
+      ofertas.forEach((oferta) => {
+        (oferta.items || []).forEach((item) => {
+          if (item.seccion !== seccion) return;
+          const codigo = String(item.material_codigo || "").trim();
+          if (!codigo) return;
+          const descripcion = String(item.descripcion || "").trim();
+          const label = descripcion ? `${codigo} - ${descripcion}` : codigo;
+          if (!map.has(codigo)) {
+            map.set(codigo, label);
+          }
+        });
+      });
+
+      return Array.from(map.entries())
+        .map(([codigo, label]) => ({ codigo, label }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    };
+
+    return {
+      inversores: construirOpciones("INVERSORES"),
+      baterias: construirOpciones("BATERIAS"),
+      paneles: construirOpciones("PANELES"),
+    };
+  }, [ofertas]);
 
   const ofertasFiltradasConFiltros = useMemo(() => {
+    const normalizar = (value: unknown) =>
+      String(value ?? "")
+        .trim()
+        .toLowerCase();
+    const parseCantidad = (value: string) => {
+      if (!value.trim()) return null;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n <= 0) return null;
+      return n;
+    };
+    const cumpleFiltroPrincipal = (
+      oferta: (typeof ofertas)[number],
+      seccion: "INVERSORES" | "BATERIAS" | "PANELES",
+      textoFiltro: string,
+      cantidadFiltro: string,
+    ) => {
+      const texto = normalizar(textoFiltro);
+      const materialSeleccionado =
+        texto !== "" && texto !== "todos" ? texto : "";
+      const cantidadObjetivo = parseCantidad(cantidadFiltro);
+      const hayFiltro =
+        materialSeleccionado !== "" || cantidadObjetivo !== null;
+      if (!hayFiltro) return true;
+
+      const itemsSeccion = (oferta.items || []).filter(
+        (item) => item.seccion === seccion,
+      );
+      if (itemsSeccion.length === 0) return false;
+
+      if (materialSeleccionado) {
+        const matchTexto = itemsSeccion.some((item) => {
+          const codigo = normalizar(item.material_codigo);
+          return codigo === materialSeleccionado;
+        });
+        if (!matchTexto) return false;
+      }
+
+      if (cantidadObjetivo !== null) {
+        const itemsCantidad = materialSeleccionado
+          ? itemsSeccion.filter(
+              (item) =>
+                normalizar(item.material_codigo) === materialSeleccionado,
+            )
+          : itemsSeccion;
+        const cantidadTotal = itemsCantidad.reduce(
+          (sum, item) => sum + (Number(item.cantidad) || 0),
+          0,
+        );
+        if (cantidadTotal !== cantidadObjetivo) return false;
+      }
+
+      return true;
+    };
+
     return ofertasFiltradas.filter((oferta) => {
       const matchEstado =
         estadoFiltro === "todos" || oferta.estado === estadoFiltro;
       const matchTipo = tipoFiltro === "todas" || oferta.tipo === tipoFiltro;
       const matchAlmacen =
         almacenFiltro === "todos" || oferta.almacen_id === almacenFiltro;
-      return matchEstado && matchTipo && matchAlmacen;
+      const matchInversor = cumpleFiltroPrincipal(
+        oferta,
+        "INVERSORES",
+        inversorFiltro,
+        cantidadInversorFiltro,
+      );
+      const matchBateria = cumpleFiltroPrincipal(
+        oferta,
+        "BATERIAS",
+        bateriaFiltro,
+        cantidadBateriaFiltro,
+      );
+      const matchPanel = cumpleFiltroPrincipal(
+        oferta,
+        "PANELES",
+        panelFiltro,
+        cantidadPanelFiltro,
+      );
+
+      return (
+        matchEstado &&
+        matchTipo &&
+        matchAlmacen &&
+        matchInversor &&
+        matchBateria &&
+        matchPanel
+      );
     });
-  }, [ofertasFiltradas, estadoFiltro, tipoFiltro, almacenFiltro]);
+  }, [
+    ofertasFiltradas,
+    estadoFiltro,
+    tipoFiltro,
+    almacenFiltro,
+    inversorFiltro,
+    cantidadInversorFiltro,
+    bateriaFiltro,
+    cantidadBateriaFiltro,
+    panelFiltro,
+    cantidadPanelFiltro,
+  ]);
 
   const clientePorOferta = useMemo(() => {
     const map = new Map<string, Cliente>();
@@ -1846,6 +1992,14 @@ export function OfertasConfeccionadasView() {
                   className="pl-10"
                 />
               </div>
+              <div className="w-full lg:w-56">
+                <Input
+                  inputMode="decimal"
+                  placeholder="Precio final máximo"
+                  value={searchPrecioFinal}
+                  onChange={(e) => setSearchPrecioFinal(e.target.value)}
+                />
+              </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
                 <span className="font-semibold text-slate-900">
                   {ofertasFiltradasConFiltros.length}
@@ -1856,6 +2010,26 @@ export function OfertasConfeccionadasView() {
                     : "ofertas"}
                 </span>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearchQuery("");
+                  setSearchPrecioFinal("");
+                  setEstadoFiltro("todos");
+                  setTipoFiltro("todas");
+                  setAlmacenFiltro("todos");
+                  setInversorFiltro("todos");
+                  setCantidadInversorFiltro("");
+                  setBateriaFiltro("todos");
+                  setCantidadBateriaFiltro("");
+                  setPanelFiltro("todos");
+                  setCantidadPanelFiltro("");
+                }}
+              >
+                Limpiar filtros
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1902,6 +2076,92 @@ export function OfertasConfeccionadasView() {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                  Inversor
+                </p>
+                <Select
+                  value={inversorFiltro}
+                  onValueChange={setInversorFiltro}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los inversores" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los inversores</SelectItem>
+                    {opcionesMaterialesPrincipales.inversores.map((item) => (
+                      <SelectItem key={item.codigo} value={item.codigo}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Cantidad exacta"
+                  value={cantidadInversorFiltro}
+                  onChange={(e) => setCantidadInversorFiltro(e.target.value)}
+                />
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                  Batería
+                </p>
+                <Select value={bateriaFiltro} onValueChange={setBateriaFiltro}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todas las baterías" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas las baterías</SelectItem>
+                    {opcionesMaterialesPrincipales.baterias.map((item) => (
+                      <SelectItem key={item.codigo} value={item.codigo}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Cantidad exacta"
+                  value={cantidadBateriaFiltro}
+                  onChange={(e) => setCantidadBateriaFiltro(e.target.value)}
+                />
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-2">
+                <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide">
+                  Paneles
+                </p>
+                <Select value={panelFiltro} onValueChange={setPanelFiltro}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los paneles" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los paneles</SelectItem>
+                    {opcionesMaterialesPrincipales.paneles.map((item) => (
+                      <SelectItem key={item.codigo} value={item.codigo}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Cantidad exacta"
+                  value={cantidadPanelFiltro}
+                  onChange={(e) => setCantidadPanelFiltro(e.target.value)}
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1911,135 +2171,135 @@ export function OfertasConfeccionadasView() {
           <p className="text-gray-500">No se encontraron ofertas</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {ofertasFiltradasConFiltros.map((oferta) => {
-            const estadoBadge = getEstadoBadge(oferta.estado);
-            const tipoBadge = getTipoBadge(oferta.tipo);
+        <Card className="border border-slate-200 shadow-sm">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[90px]">Foto</TableHead>
+                  <TableHead>Nombre automático</TableHead>
+                  <TableHead>Lead / Cliente</TableHead>
+                  <TableHead className="w-[120px]">Fecha creación</TableHead>
+                  <TableHead className="w-[140px] text-right">
+                    Precio final
+                  </TableHead>
+                  <TableHead className="w-[140px]">Estado</TableHead>
+                  <TableHead className="w-[280px] text-center">
+                    Acciones
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ofertasFiltradasConFiltros.map((oferta) => {
+                  const estadoBadge = getEstadoBadge(oferta.estado);
+                  const contactoNombre =
+                    oferta.tipo === "personalizada"
+                      ? oferta.nombre_lead_sin_agregar ||
+                        (oferta.lead_id &&
+                          leadPorId.get(oferta.lead_id)?.nombre_completo) ||
+                        (oferta.lead_id &&
+                          leadPorId.get(oferta.lead_id)?.nombre) ||
+                        oferta.lead_nombre ||
+                        oferta.cliente_nombre ||
+                        clienteNombrePorOferta.get(oferta.cliente_id || "") ||
+                        clienteNombrePorOferta.get(
+                          oferta.cliente_numero || "",
+                        ) ||
+                        "Contacto no asignado"
+                      : "Genérica";
 
-            return (
-              <Card
-                key={oferta.id}
-                className="group overflow-hidden border border-slate-200 bg-white shadow-sm hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300"
-              >
-                <CardContent className="p-0">
-                  <div className="relative h-48 bg-gradient-to-br from-slate-50 via-orange-50 to-yellow-100 overflow-hidden">
-                    {oferta.foto_portada ? (
-                      <img
-                        src={oferta.foto_portada}
-                        alt={oferta.nombre}
-                        className="w-full h-full object-contain transition-transform duration-500 group-hover:scale-[1.03]"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <div className="h-20 w-20 rounded-2xl bg-white/80 border border-orange-100 flex items-center justify-center shadow-sm">
-                          <Building2 className="h-10 w-10 text-orange-400" />
+                  return (
+                    <TableRow key={oferta.id}>
+                      <TableCell>
+                        <div className="h-14 w-14 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
+                          {oferta.foto_portada ? (
+                            <img
+                              src={oferta.foto_portada}
+                              alt={oferta.nombre}
+                              className="h-full w-full object-contain p-1"
+                            />
+                          ) : (
+                            <Building2 className="h-6 w-6 text-slate-400" />
+                          )}
                         </div>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-                    <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                      <Badge className={estadoBadge.className}>
-                        {estadoBadge.label}
-                      </Badge>
-                      {oferta.nombre_lead_sin_agregar && (
-                        <Badge className="bg-amber-500 text-white border-amber-600 shadow-md">
-                          <span className="mr-1">⚠️</span>
-                          Lead pendiente
+                      </TableCell>
+                      <TableCell>
+                        <p className="font-semibold text-slate-900 line-clamp-2">
+                          {oferta.nombre_automatico || oferta.nombre || "--"}
+                        </p>
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm text-slate-700">
+                          {contactoNombre}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-600">
+                        {formatDateOnly(oferta.fecha_creacion)}
+                      </TableCell>
+                      <TableCell className="text-right font-semibold text-emerald-700">
+                        {formatCurrency(Number(oferta.precio_final || 0))}
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={estadoBadge.className}>
+                          {estadoBadge.label}
                         </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="p-4 flex flex-col h-[220px]">
-                    {/* Título - altura fija */}
-                    <h3 className="font-semibold text-base text-slate-900 line-clamp-2 h-[48px] mb-3">
-                      {oferta.nombre}
-                    </h3>
-
-                    {/* Sección de contacto - flex-1 para ocupar espacio disponible */}
-                    <div className="flex-1 space-y-1.5 min-h-0">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <div className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                          <User className="h-4 w-4 text-slate-600" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => abrirDialogoExportar(oferta)}
+                            title="Exportar oferta"
+                          >
+                            <Download className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => irADuplicar(oferta)}
+                            title="Duplicar oferta"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => abrirEditar(oferta)}
+                            title="Editar oferta"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => abrirDialogoEliminar(oferta)}
+                            title="Eliminar oferta"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => abrirDetalle(oferta)}
+                            title="Ver detalle"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
-                        <span className="truncate">
-                          {oferta.tipo === "personalizada"
-                            ? oferta.nombre_lead_sin_agregar ||
-                              (oferta.lead_id &&
-                                leadPorId.get(oferta.lead_id)
-                                  ?.nombre_completo) ||
-                              (oferta.lead_id &&
-                                leadPorId.get(oferta.lead_id)?.nombre) ||
-                              oferta.lead_nombre ||
-                              oferta.cliente_nombre ||
-                              clienteNombrePorOferta.get(
-                                oferta.cliente_id || "",
-                              ) ||
-                              clienteNombrePorOferta.get(
-                                oferta.cliente_numero || "",
-                              ) ||
-                              "Contacto no asignado"
-                            : "Oferta Genérica"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Botones - siempre en la misma posición */}
-                    <div className="pt-3 border-t border-slate-100 space-y-2 mt-auto">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 flex-1"
-                          onClick={() => abrirDialogoExportar(oferta)}
-                          title="Exportar oferta"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 flex-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                          onClick={() => irADuplicar(oferta)}
-                          title="Duplicar oferta"
-                        >
-                          <Copy className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 flex-1"
-                          onClick={() => abrirEditar(oferta)}
-                          title="Editar oferta"
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => abrirDialogoEliminar(oferta)}
-                          title="Eliminar oferta"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 px-2 flex-1"
-                          onClick={() => abrirDetalle(oferta)}
-                          title="Ver detalle"
-                        >
-                          <FileText className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       <Dialog open={detalleAbierto} onOpenChange={setDetalleAbierto}>
