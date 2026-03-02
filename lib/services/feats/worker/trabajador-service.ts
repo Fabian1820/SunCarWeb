@@ -15,6 +15,28 @@ export class TrabajadorService {
     return data
   }
 
+  static async getTrabajadorByCI(ci: string): Promise<ApiTrabajador | null> {
+    try {
+      const response = await apiRequest<{ success?: boolean; data?: ApiTrabajador }>(`/trabajadores/ci/${ci}`)
+      console.log(`getTrabajadorByCI(${ci}) response:`, response)
+      
+      // El backend devuelve { success: true, data: { CI, nombre, cargo, ... } }
+      if (response?.success && response.data) {
+        return response.data
+      }
+      
+      // Fallback: si la respuesta es directamente el trabajador
+      if (response && typeof response === 'object' && 'CI' in response) {
+        return response as ApiTrabajador
+      }
+      
+      return null
+    } catch (error) {
+      console.error(`Error obteniendo trabajador ${ci}:`, error)
+      return null
+    }
+  }
+
   static async buscarTrabajadores(nombre: string): Promise<ApiTrabajador[]> {
     return apiRequest<ApiTrabajador[]>(`/trabajadores/buscar?nombre=${encodeURIComponent(nombre)}`)
   }

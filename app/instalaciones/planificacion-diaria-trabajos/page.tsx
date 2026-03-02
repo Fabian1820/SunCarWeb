@@ -547,6 +547,13 @@ export default function PlanificacionDiariaTrabajosPage() {
     }
   }, [toast]);
 
+  const recargarPlanificaciones = async () => {
+    const response = await PlanificacionDiariaService.obtenerTodasPlanificaciones();
+    if (response.success && response.data) {
+      setPlanificaciones(response.data);
+    }
+  };
+
   useEffect(() => {
     const loadInitialData = async () => {
       setInitialLoading(true);
@@ -600,6 +607,7 @@ export default function PlanificacionDiariaTrabajosPage() {
               setPlanificacionSeleccionada(planificacion);
             }}
             onCrearNueva={() => setModo("crear")}
+            onRecargar={recargarPlanificaciones}
           />
         ) : (
           <PlanificacionDiariaTrabajosTable

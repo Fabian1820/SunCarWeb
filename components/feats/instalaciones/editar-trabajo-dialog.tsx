@@ -49,6 +49,7 @@ export function EditarTrabajoDialog({
   const { toast } = useToast();
   const [guardando, setGuardando] = useState(false);
   const [brigadas, setBrigadas] = useState<Brigada[]>([]);
+  const [brigadaActualNombre, setBrigadaActualNombre] = useState<string>("");
   const [formData, setFormData] = useState({
     tipo_trabajo: "",
     brigada_id: "",
@@ -71,13 +72,39 @@ export function EditarTrabajoDialog({
   }, [open]);
 
   useEffect(() => {
-    if (trabajo) {
-      setFormData({
-        tipo_trabajo: trabajo.tipo_trabajo || "",
-        brigada_id: trabajo.brigada_id || "",
-        comentario: trabajo.comentario || "",
-      });
-    }
+    const cargarDatosTrabajo = async () => {
+      if (trabajo) {
+        setFormData({
+          tipo_trabajo: trabajo.tipo_trabajo || "",
+          brigada_id: trabajo.brigada_id || "",
+          comentario: trabajo.comentario || "",
+        });
+
+        // Cargar el nombre de la brigada actual
+        if (trabajo.brigada_id) {
+          try {
+            const brigada = await BrigadaService.getBrigadaById(trabajo.brigada_id);
+            if (brigada?.lider?.nombre) {
+              setBrigadaActualNombre(`Brigada de ${brigada.lider.nombre}`);
+            } else {
+              setBrigadaActualNombre(`Brigada ${trabajo.brigada_id}`);
+            }
+          } catch (error) {
+            console.error("Error cargando brigada actual:", error);
+            setBrigadaActualNombre(`Brigada ${trabajo.brigada_id}`);
+          }
+        }
+      } else {
+        setFormData({
+          tipo_trabajo: "",
+          brigada_id: "",
+          comentario: "",
+        });
+        setBrigadaActualNombre("");
+      }
+    };
+
+    void cargarDatosTrabajo();
   }, [trabajo]);
 
   const handleGuardar = async () => {
@@ -97,7 +124,6 @@ export function EditarTrabajoDialog({
       const response = await PlanificacionDiariaService.actualizarTrabajoOperacion(
         trabajo.id,
         {
-          tipo_trabajo: formData.tipo_trabajo,
           brigada_id: formData.brigada_id,
           comentario: formData.comentario || undefined,
         }
@@ -143,28 +169,22 @@ export function EditarTrabajoDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tipo_trabajo">Tipo de Trabajo</Label>
-            <Select
-              value={formData.tipo_trabajo}
-              onValueChange={(value) =>
-                setFormData({ ...formData, tipo_trabajo: value })
-              }
-            >
-              <SelectTrigger id="tipo_trabajo">
-                <SelectValue placeholder="Selecciona el tipo de trabajo" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(TYPE_LABEL).map(([value, label]) => (
-                  <SelectItem key={value} value={value}>
-                    {label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label>Tipo de Trabajo</Label>
+            <Input
+              value={TYPE_LABEL[formData.tipo_trabajo] || formData.tipo_trabajo}
+              disabled
+              className="bg-gray-50"
+            />
+            <p className="text-xs text-gray-500">El tipo de trabajo no se puede modificar</p>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="brigada_id">Brigada</Label>
+            {brigadaActualNombre && (
+              <div className="text-sm text-gray-600 mb-2 p-2 bg-gray-50 rounded border">
+                <strong>Brigada actual:</strong> {brigadaActualNombre}
+              </div>
+            )}
             <Select
               value={formData.brigada_id}
               onValueChange={(value) =>
@@ -179,7 +199,7 @@ export function EditarTrabajoDialog({
                   const brigadaId = String(brigada.id || brigada._id || brigada.lider_ci || "");
                   const nombreLider = String(brigada.lider?.nombre || "");
                   const nombre = nombreLider
-                    ? `Brigada ${nombreLider}`
+                    ? `Brigada de ${nombreLider}`
                     : `Brigada ${brigadaId}`;
                   
                   return (
