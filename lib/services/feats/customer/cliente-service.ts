@@ -181,6 +181,35 @@ export class ClienteService {
     });
   }
 
+  static async getClienteByNumero(numero: string): Promise<Cliente | null> {
+    const normalized = String(numero || "").trim();
+    if (!normalized) return null;
+
+    try {
+      const response = await apiRequest<Cliente | ClienteResponse>(
+        `/clientes/${encodeURIComponent(normalized)}`,
+      );
+
+      if (!response) return null;
+
+      if ("data" in response) {
+        const payload = response.data;
+        if (Array.isArray(payload)) {
+          return payload[0] ?? null;
+        }
+        return payload ?? null;
+      }
+
+      return response as Cliente;
+    } catch (error) {
+      console.error(
+        `[ClienteService] Error al obtener cliente por número (${normalized}):`,
+        error,
+      );
+      return null;
+    }
+  }
+
   static async verificarCliente(numero: string): Promise<ClienteResponse> {
     const endpoint = `/clientes/${encodeURIComponent(numero)}/verificar`;
     return apiRequest<ClienteResponse>(endpoint);

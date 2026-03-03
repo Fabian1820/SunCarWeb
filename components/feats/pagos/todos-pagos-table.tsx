@@ -28,6 +28,70 @@ interface TodosPagosTableProps {
   showSearch?: boolean;
 }
 
+const toCleanString = (value: unknown): string | null => {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const normalizeEstadoKey = (estado: string) =>
+  estado
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+const ESTADO_CLIENTE_LABELS: Record<string, string> = {
+  "equipo instalado con exito": "Equipo instalado con éxito",
+  "pendiente de instalacion": "Pendiente de instalación",
+  "instalacion en proceso": "Instalación en Proceso",
+  "esperando equipo": "Esperando equipo",
+  "no interesado": "No interesado",
+  "pendiente de presupuesto": "Pendiente de presupuesto",
+  "pendiente de visita": "Pendiente de visita",
+  "pendiente de visitarnos": "Pendiente de visitarnos",
+  proximamente: "Próximamente",
+  "revisando ofertas": "Revisando ofertas",
+  "sin respuesta": "Sin respuesta",
+};
+
+const ESTADO_CLIENTE_BADGE_CLASS: Record<string, string> = {
+  "equipo instalado con exito": "bg-green-100 text-green-700 border-green-300",
+  "pendiente de instalacion": "bg-amber-100 text-amber-800 border-amber-300",
+  "instalacion en proceso": "bg-blue-100 text-blue-700 border-blue-300",
+  "esperando equipo": "bg-cyan-100 text-cyan-800 border-cyan-300",
+  "no interesado": "bg-slate-200 text-slate-700 border-slate-300",
+  "pendiente de presupuesto": "bg-purple-100 text-purple-800 border-purple-300",
+  "pendiente de visita": "bg-sky-100 text-sky-800 border-sky-300",
+  "pendiente de visitarnos": "bg-pink-100 text-pink-800 border-pink-300",
+  proximamente: "bg-indigo-100 text-indigo-800 border-indigo-300",
+  "revisando ofertas": "bg-violet-100 text-violet-800 border-violet-300",
+  "sin respuesta": "bg-red-100 text-red-700 border-red-300",
+};
+
+const normalizeEstadoClienteLabel = (estado: string) =>
+  ESTADO_CLIENTE_LABELS[normalizeEstadoKey(estado)] || estado;
+
+const getEstadoCliente = (oferta: OfertaConPagos): string => {
+  const estado =
+    toCleanString(oferta.contacto?.estado) ||
+    toCleanString(oferta.contacto?.estado_cliente) ||
+    toCleanString(oferta.estado_cliente) ||
+    toCleanString(oferta.cliente_estado) ||
+    toCleanString(oferta.cliente?.estado) ||
+    toCleanString(oferta.lead?.estado) ||
+    "Sin estado";
+
+  return normalizeEstadoClienteLabel(estado);
+};
+
+const getEstadoClienteBadgeClass = (estado: string) => {
+  return (
+    ESTADO_CLIENTE_BADGE_CLASS[normalizeEstadoKey(estado)] ||
+    "bg-gray-100 text-gray-700 border-gray-300"
+  );
+};
+
 export function TodosPagosTable({
   ofertasConPagos,
   loading,
@@ -50,13 +114,15 @@ export function TodosPagosTable({
       const clienteNombre = oferta.contacto?.nombre || "";
       const clienteTelefono = oferta.contacto?.telefono || "";
       const clienteCarnet = oferta.contacto?.carnet || "";
+      const estadoCliente = getEstadoCliente(oferta).toLowerCase();
 
       return (
         oferta.numero_oferta.toLowerCase().includes(term) ||
         clienteNombre.toLowerCase().includes(term) ||
         clienteTelefono.includes(term) ||
         clienteCarnet.includes(term) ||
-        oferta.almacen_nombre?.toLowerCase().includes(term)
+        oferta.almacen_nombre?.toLowerCase().includes(term) ||
+        estadoCliente.includes(term)
       );
     });
   }, [ofertasConPagos, searchTerm]);
@@ -194,6 +260,7 @@ export function TodosPagosTable({
             <TableHead className="w-[40px]"></TableHead>
             <TableHead className="w-[110px]">N° Oferta</TableHead>
             <TableHead className="w-[160px]">Cliente</TableHead>
+            <TableHead className="w-[140px]">Estado Cliente</TableHead>
             <TableHead className="w-[100px]">CI</TableHead>
             <TableHead className="text-right w-[110px]">Precio Final</TableHead>
             <TableHead className="text-right w-[110px]">
@@ -240,6 +307,16 @@ export function TodosPagosTable({
                     </div>
                   </TableCell>
                   <TableCell className="py-3">
+                    <Badge
+                      variant="outline"
+                      className={getEstadoClienteBadgeClass(
+                        getEstadoCliente(oferta),
+                      )}
+                    >
+                      {getEstadoCliente(oferta)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="py-3">
                     <span className="text-sm break-words">
                       {oferta.contacto.carnet || "-"}
                     </span>
@@ -277,7 +354,7 @@ export function TodosPagosTable({
                 {/* Filas expandidas con los pagos */}
                 {isExpanded && (
                   <TableRow>
-                    <TableCell colSpan={9} className="bg-gray-50 p-0">
+                    <TableCell colSpan={10} className="bg-gray-50 p-0">
                       <div className="p-3 border-t border-gray-200">
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                           <span className="h-1 w-1 rounded-full bg-blue-600"></span>

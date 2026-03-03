@@ -94,6 +94,8 @@ export interface Contacto {
   direccion: string | null;
   codigo: string | null;
   tipo_contacto: "cliente" | "lead" | "lead_sin_agregar" | null;
+  estado?: string | null;
+  estado_cliente?: string | null;
 }
 
 export interface OfertaConPagos {
@@ -103,6 +105,7 @@ export interface OfertaConPagos {
   nombre_completo: string;
   tipo_oferta: string;
   estado: string;
+  cliente_numero?: string | null;
   precio_final: number;
   monto_pendiente: number;
   almacen_id: string;
@@ -111,6 +114,14 @@ export interface OfertaConPagos {
   total_pagado: number;
   cantidad_pagos: number;
   contacto: Contacto;
+  estado_cliente?: string | null;
+  cliente_estado?: string | null;
+  cliente?: {
+    estado?: string | null;
+  } | null;
+  lead?: {
+    estado?: string | null;
+  } | null;
 }
 
 export interface OfertasConPagosResponse {

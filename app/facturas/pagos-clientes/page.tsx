@@ -48,6 +48,7 @@ import {
   type OfertaConPagos,
   type ResumenPagosPendientes,
 } from "@/lib/services/feats/pagos/pago-service";
+import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { useToast } from "@/hooks/use-toast";
 
 type ViewMode =
@@ -57,6 +58,43 @@ type ViewMode =
   | "todos-pagos";
 
 const AUTO_REFRESH_MS = 20000;
+
+const normalizeEstadoClienteKey = (estado: string) =>
+  estado
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+const ESTADO_CLIENTE_LABELS: Record<string, string> = {
+  "equipo instalado con exito": "Equipo instalado con éxito",
+  "pendiente de instalacion": "Pendiente de instalación",
+  "instalacion en proceso": "Instalación en Proceso",
+  "esperando equipo": "Esperando equipo",
+  "no interesado": "No interesado",
+  "pendiente de presupuesto": "Pendiente de presupuesto",
+  "pendiente de visita": "Pendiente de visita",
+  "pendiente de visitarnos": "Pendiente de visitarnos",
+  proximamente: "Próximamente",
+  "revisando ofertas": "Revisando ofertas",
+  "sin respuesta": "Sin respuesta",
+  "sin estado": "Sin estado",
+};
+
+const ESTADO_CLIENTE_ORDER = [
+  "equipo instalado con exito",
+  "pendiente de instalacion",
+  "instalacion en proceso",
+  "esperando equipo",
+  "no interesado",
+  "pendiente de presupuesto",
+  "pendiente de visita",
+  "pendiente de visitarnos",
+  "proximamente",
+  "revisando ofertas",
+  "sin respuesta",
+  "sin estado",
+];
 
 export default function PagosClientesPage() {
   const {
@@ -80,6 +118,7 @@ export default function PagosClientesPage() {
   const [fechaCobroHasta, setFechaCobroHasta] = useState("");
   const [estadoOfertaPendienteFilter, setEstadoOfertaPendienteFilter] =
     useState<"todos" | "con_pendiente" | "sin_pendiente">("todos");
+  const [estadoClienteFilter, setEstadoClienteFilter] = useState("todos");
   const [resumenPagos, setResumenPagos] =
     useState<ResumenPagosPendientes | null>(null);
   const [loadingResumenPagos, setLoadingResumenPagos] = useState(false);
@@ -90,6 +129,9 @@ export default function PagosClientesPage() {
   const [selectedOferta, setSelectedOferta] =
     useState<OfertaConfirmadaSinPago | null>(null);
   const [loadingPagos, setLoadingPagos] = useState(false);
+  const [estadoClientePorNumero, setEstadoClientePorNumero] = useState<
+    Record<string, string | null>
+  >({});
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [showPresentesDialog, setShowPresentesDialog] = useState(false);
   const [highlightNotification, setHighlightNotification] = useState(false);
@@ -296,30 +338,228 @@ export default function PagosClientesPage() {
     ofertasEstadoPendienteIds,
   ]);
 
+  const getNumeroClienteOferta = useCallback((oferta: OfertaConPagos) => {
+    if (oferta.contacto?.tipo_contacto !== "cliente") return "";
+
+    const numero = String(
+      oferta.cliente_numero || oferta.contacto?.codigo || "",
+    ).trim();
+    return numero;
+  }, []);
+
+  const resolveEstadoClienteOferta = useCallback(
+    (oferta: OfertaConPagos) => {
+      const value =
+        (typeof oferta.contacto?.estado === "string" &&
+        oferta.contacto.estado.trim()
+          ? oferta.contacto.estado
+          : "") ||
+        (typeof oferta.contacto?.estado_cliente === "string" &&
+        oferta.contacto.estado_cliente.trim()
+          ? oferta.contacto.estado_cliente
+          : "") ||
+        (typeof oferta.estado_cliente === "string" &&
+        oferta.estado_cliente.trim()
+          ? oferta.estado_cliente
+          : "") ||
+        (typeof oferta.cliente_estado === "string" &&
+        oferta.cliente_estado.trim()
+          ? oferta.cliente_estado
+          : "") ||
+        (typeof oferta.cliente?.estado === "string" &&
+        oferta.cliente.estado.trim()
+          ? oferta.cliente.estado
+          : "") ||
+        (typeof oferta.lead?.estado === "string" && oferta.lead.estado.trim()
+          ? oferta.lead.estado
+          : "") ||
+        (() => {
+          const numero = getNumeroClienteOferta(oferta);
+          return numero ? estadoClientePorNumero[numero] || "" : "";
+        })();
+
+      const normalized = normalizeEstadoClienteKey(value || "sin estado");
+      return ESTADO_CLIENTE_LABELS[normalized] || value || "Sin estado";
+    },
+    [estadoClientePorNumero, getNumeroClienteOferta],
+  );
+
+  const numerosClienteEnPagosPorOferta = useMemo(() => {
+    if (viewMode !== "pagos-por-ofertas") return [];
+
+    const numeros = new Set<string>();
+    filteredPagosPorOfertas.forEach((oferta) => {
+      const numero = getNumeroClienteOferta(oferta);
+      if (numero) numeros.add(numero);
+    });
+
+    return Array.from(numeros);
+  }, [filteredPagosPorOfertas, getNumeroClienteOferta, viewMode]);
+
+  useEffect(() => {
+    if (numerosClienteEnPagosPorOferta.length === 0) return;
+
+    const numerosPendientes = numerosClienteEnPagosPorOferta.filter(
+      (numero) => !(numero in estadoClientePorNumero),
+    );
+    if (numerosPendientes.length === 0) return;
+
+    let cancelled = false;
+
+    Promise.all(
+      numerosPendientes.map(async (numero) => {
+        try {
+          const cliente = await ClienteService.getClienteByNumero(numero);
+          const estado =
+            typeof cliente?.estado === "string" ? cliente.estado.trim() : "";
+          return [numero, estado || null] as const;
+        } catch (error) {
+          console.error(
+            `Error cargando estado del cliente ${numero} para pagos por oferta:`,
+            error,
+          );
+          return [numero, null] as const;
+        }
+      }),
+    ).then((results) => {
+      if (cancelled) return;
+      setEstadoClientePorNumero((prev) => {
+        const next = { ...prev };
+        results.forEach(([numero, estado]) => {
+          next[numero] = estado;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [estadoClientePorNumero, numerosClienteEnPagosPorOferta]);
+
+  const filteredPagosPorOfertasConEstadoCliente = useMemo(
+    () =>
+      filteredPagosPorOfertas.map((oferta) => {
+        const numero = getNumeroClienteOferta(oferta);
+        const estadoActual = resolveEstadoClienteOferta(oferta);
+        const normalizedEstadoActual = normalizeEstadoClienteKey(estadoActual);
+        const estadoCanonico =
+          ESTADO_CLIENTE_LABELS[normalizedEstadoActual] || estadoActual;
+
+        if (!numero) {
+          return {
+            ...oferta,
+            estado_cliente: estadoCanonico,
+          };
+        }
+
+        const estadoCliente = estadoClientePorNumero[numero];
+        if (!estadoCliente) {
+          return {
+            ...oferta,
+            estado_cliente: estadoCanonico,
+          };
+        }
+
+        return {
+          ...oferta,
+          estado_cliente:
+            ESTADO_CLIENTE_LABELS[normalizeEstadoClienteKey(estadoCliente)] ||
+            estadoCliente,
+        };
+      }),
+    [
+      estadoClientePorNumero,
+      filteredPagosPorOfertas,
+      getNumeroClienteOferta,
+      resolveEstadoClienteOferta,
+    ],
+  );
+
+  const estadoClienteFilterOptions = useMemo(() => {
+    const optionsMap = new Map<string, string>();
+
+    filteredPagosPorOfertasConEstadoCliente.forEach((oferta) => {
+      const label =
+        (typeof oferta.estado_cliente === "string" &&
+        oferta.estado_cliente.trim()
+          ? oferta.estado_cliente
+          : resolveEstadoClienteOferta(oferta)) || "Sin estado";
+      const key = normalizeEstadoClienteKey(label || "Sin estado");
+      optionsMap.set(key, ESTADO_CLIENTE_LABELS[key] || label || "Sin estado");
+    });
+
+    const ordered: Array<{ value: string; label: string }> = [];
+    ESTADO_CLIENTE_ORDER.forEach((key) => {
+      if (optionsMap.has(key)) {
+        ordered.push({
+          value: key,
+          label: optionsMap.get(key) || ESTADO_CLIENTE_LABELS[key] || key,
+        });
+        optionsMap.delete(key);
+      }
+    });
+
+    Array.from(optionsMap.entries())
+      .sort((a, b) => a[1].localeCompare(b[1], "es"))
+      .forEach(([value, label]) => {
+        ordered.push({ value, label });
+      });
+
+    return ordered;
+  }, [filteredPagosPorOfertasConEstadoCliente, resolveEstadoClienteOferta]);
+
+  useEffect(() => {
+    if (estadoClienteFilter === "todos") return;
+    const exists = estadoClienteFilterOptions.some(
+      (option) => option.value === estadoClienteFilter,
+    );
+    if (!exists) {
+      setEstadoClienteFilter("todos");
+    }
+  }, [estadoClienteFilter, estadoClienteFilterOptions]);
+
+  const filteredPagosPorOfertasConEstadoClienteFiltrado = useMemo(() => {
+    if (estadoClienteFilter === "todos") {
+      return filteredPagosPorOfertasConEstadoCliente;
+    }
+
+    return filteredPagosPorOfertasConEstadoCliente.filter((oferta) => {
+      const estado = resolveEstadoClienteOferta(oferta);
+      return normalizeEstadoClienteKey(estado) === estadoClienteFilter;
+    });
+  }, [
+    estadoClienteFilter,
+    filteredPagosPorOfertasConEstadoCliente,
+    resolveEstadoClienteOferta,
+  ]);
+
   const filteredTodosPagosOfertas = filteredOfertasConPagosPorFecha;
 
   const totalesPagosPorOfertas = useMemo(() => {
-    const pagosFiltrados = filteredPagosPorOfertas.flatMap(
-      (oferta) => oferta.pagos,
-    );
+    const pagosFiltrados =
+      filteredPagosPorOfertasConEstadoClienteFiltrado.flatMap(
+        (oferta) => oferta.pagos,
+      );
 
     const totalCobrado = pagosFiltrados.reduce(
       (acc, pago) => acc + Number(pago.monto_usd || 0),
       0,
     );
 
-    const totalPendientePorCobrar = filteredPagosPorOfertas.reduce(
-      (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
-      0,
-    );
+    const totalPendientePorCobrar =
+      filteredPagosPorOfertasConEstadoClienteFiltrado.reduce(
+        (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
+        0,
+      );
 
     return {
       totalCobrado,
       totalPendientePorCobrar,
       cantidadCobros: pagosFiltrados.length,
-      cantidadOfertas: filteredPagosPorOfertas.length,
+      cantidadOfertas: filteredPagosPorOfertasConEstadoClienteFiltrado.length,
     };
-  }, [filteredPagosPorOfertas]);
+  }, [filteredPagosPorOfertasConEstadoClienteFiltrado]);
 
   const totalesTodosPagos = useMemo(() => {
     const pagosFiltrados = filteredTodosPagosOfertas.flatMap(
@@ -355,7 +595,8 @@ export default function PagosClientesPage() {
     showCobrosConPagosFilters &&
     searchTerm.trim() === "" &&
     (viewMode !== "pagos-por-ofertas" ||
-      estadoOfertaPendienteFilter === "todos");
+      (estadoOfertaPendienteFilter === "todos" &&
+        estadoClienteFilter === "todos"));
 
   const totalesResumen = useMemo(() => {
     if (shouldUseResumenEndpoint && resumenPagos) {
@@ -958,7 +1199,7 @@ export default function PagosClientesPage() {
 
           <Card className="border-0 shadow-md mb-6 border-l-4 border-l-green-600">
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-6 gap-4">
                 <div className="lg:col-span-2">
                   <Label
                     htmlFor="search"
@@ -1001,27 +1242,49 @@ export default function PagosClientesPage() {
                       />
                     </div>
                     {viewMode === "pagos-por-ofertas" && (
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Estado pendiente
-                        </Label>
-                        <select
-                          value={estadoOfertaPendienteFilter}
-                          onChange={(e) =>
-                            setEstadoOfertaPendienteFilter(
-                              e.target.value as
-                                | "todos"
-                                | "con_pendiente"
-                                | "sin_pendiente",
-                            )
-                          }
-                          className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                          <option value="todos">Todas</option>
-                          <option value="con_pendiente">Con pendiente</option>
-                          <option value="sin_pendiente">Sin pendiente</option>
-                        </select>
-                      </div>
+                      <>
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                            Estado pendiente
+                          </Label>
+                          <select
+                            value={estadoOfertaPendienteFilter}
+                            onChange={(e) =>
+                              setEstadoOfertaPendienteFilter(
+                                e.target.value as
+                                  | "todos"
+                                  | "con_pendiente"
+                                  | "sin_pendiente",
+                              )
+                            }
+                            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="todos">Todas</option>
+                            <option value="con_pendiente">Con pendiente</option>
+                            <option value="sin_pendiente">Sin pendiente</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                            Estado cliente
+                          </Label>
+                          <select
+                            value={estadoClienteFilter}
+                            onChange={(e) =>
+                              setEstadoClienteFilter(e.target.value)
+                            }
+                            className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          >
+                            <option value="todos">Todos</option>
+                            {estadoClienteFilterOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
                     )}
                   </>
                 )}
@@ -1037,6 +1300,7 @@ export default function PagosClientesPage() {
                       setFechaCobroDesde("");
                       setFechaCobroHasta("");
                       setEstadoOfertaPendienteFilter("todos");
+                      setEstadoClienteFilter("todos");
                     }}
                   >
                     Limpiar filtros de cobro
@@ -1060,7 +1324,7 @@ export default function PagosClientesPage() {
                 {viewMode === "finales-pendientes" &&
                   `Mostrando ${filteredOfertas.length} de ${ofertasConSaldoPendiente.length} ofertas con saldo pendiente`}
                 {viewMode === "pagos-por-ofertas" &&
-                  `Mostrando ${filteredPagosPorOfertas.length} de ${ofertasConPagos.length} ofertas con cobros`}
+                  `Mostrando ${filteredPagosPorOfertasConEstadoClienteFiltrado.length} de ${ofertasConPagos.length} ofertas con cobros`}
                 {viewMode === "todos-pagos" &&
                   `Mostrando ${totalesTodosPagos.cantidadCobros} de ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} cobros registrados`}
               </CardDescription>
@@ -1096,7 +1360,9 @@ export default function PagosClientesPage() {
               )}
               {viewMode === "pagos-por-ofertas" ? (
                 <TodosPagosTable
-                  ofertasConPagos={filteredPagosPorOfertas}
+                  ofertasConPagos={
+                    filteredPagosPorOfertasConEstadoClienteFiltrado
+                  }
                   loading={loadingPagos}
                   showSearch={false}
                 />
