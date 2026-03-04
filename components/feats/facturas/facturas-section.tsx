@@ -35,6 +35,7 @@ type OfertaConfeccionParaExport = {
   estado?: string;
   precio_final?: number | string | null;
   fecha_creacion?: string;
+  fecha_actualizacion?: string;
 };
 
 const parseNullableNumber = (value: unknown): number | null => {
@@ -59,10 +60,7 @@ const normalizeEstadoOferta = (estado: unknown): string =>
 
 const isEstadoConfirmadaCliente = (estado: unknown): boolean => {
   const normalized = normalizeEstadoOferta(estado);
-  return (
-    normalized === "confirmada_por_cliente" ||
-    normalized === "confirmada_cliente"
-  );
+  return normalized === "confirmada_cliente";
 };
 
 const formatDateForExcel = (value?: string): string => {
@@ -101,6 +99,39 @@ const extractOfertasConfeccion = (
     return ofertasRaw as OfertaConfeccionParaExport[];
   }
   return [];
+};
+
+const getTimestamp = (value?: string): number | null => {
+  if (!value) return null;
+  const ts = new Date(value).getTime();
+  return Number.isNaN(ts) ? null : ts;
+};
+
+const seleccionarPrecioFinalOfertaConfirmada = (
+  ofertasConfirmadas: OfertaConfeccionParaExport[],
+): number | null => {
+  if (ofertasConfirmadas.length === 0) return null;
+
+  const ofertasConPrecio = ofertasConfirmadas
+    .map((oferta) => ({
+      precioFinal: parseNullableNumber(oferta.precio_final),
+      fechaReferenciaTs:
+        getTimestamp(oferta.fecha_actualizacion) ??
+        getTimestamp(oferta.fecha_creacion),
+    }))
+    .filter(
+      (
+        item,
+      ): item is { precioFinal: number; fechaReferenciaTs: number | null } =>
+        item.precioFinal !== null,
+    );
+
+  if (ofertasConPrecio.length === 0) return null;
+
+  const ordenadas = [...ofertasConPrecio].sort(
+    (a, b) => (b.fechaReferenciaTs || 0) - (a.fechaReferenciaTs || 0),
+  );
+  return ordenadas[0].precioFinal;
 };
 
 export function FacturasSection() {
@@ -275,36 +306,26 @@ export function FacturasSection() {
     });
   }, [facturas, filters.nombre_cliente]);
 
-  const getPrecioFinalOfertaConfirmada = async (
+  const getOfertasConfirmadasCliente = async (
     clienteNumero: string,
-  ): Promise<number | null> => {
+  ): Promise<OfertaConfeccionParaExport[]> => {
     try {
       const response = await apiRequest<{ success?: boolean; data?: unknown }>(
         `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
       );
       const ofertas = extractOfertasConfeccion(response);
-      if (ofertas.length === 0) return null;
+      if (ofertas.length === 0) return [];
 
       const ofertasConfirmadas = ofertas.filter((oferta) =>
         isEstadoConfirmadaCliente(oferta.estado),
       );
-      if (ofertasConfirmadas.length === 0) return null;
-
-      const ofertaConfirmada = [...ofertasConfirmadas].sort((a, b) => {
-        const aTime = new Date(a.fecha_creacion || "").getTime();
-        const bTime = new Date(b.fecha_creacion || "").getTime();
-        const safeATime = Number.isNaN(aTime) ? 0 : aTime;
-        const safeBTime = Number.isNaN(bTime) ? 0 : bTime;
-        return safeBTime - safeATime;
-      })[0];
-
-      return parseNullableNumber(ofertaConfirmada?.precio_final);
+      return ofertasConfirmadas;
     } catch (error) {
       console.error(
         `No se pudo obtener oferta confirmada para cliente ${clienteNumero}:`,
         error,
       );
-      return null;
+      return [];
     }
   };
 
@@ -328,12 +349,15 @@ export function FacturasSection() {
         ),
       );
 
-      const precioFinalPorCliente = new Map<string, number | null>();
+      const ofertasConfirmadasPorCliente = new Map<
+        string,
+        OfertaConfeccionParaExport[]
+      >();
       await Promise.all(
         clientesUnicos.map(async (clienteNumero) => {
-          const precioFinal =
-            await getPrecioFinalOfertaConfirmada(clienteNumero);
-          precioFinalPorCliente.set(clienteNumero, precioFinal);
+          const ofertasConfirmadas =
+            await getOfertasConfirmadasCliente(clienteNumero);
+          ofertasConfirmadasPorCliente.set(clienteNumero, ofertasConfirmadas);
         }),
       );
 
@@ -342,7 +366,9 @@ export function FacturasSection() {
         const totalMateriales = calcularTotalMaterialesFactura(factura);
         const precioFinal =
           clienteNumero.length > 0
-            ? (precioFinalPorCliente.get(clienteNumero) ?? null)
+            ? seleccionarPrecioFinalOfertaConfirmada(
+                ofertasConfirmadasPorCliente.get(clienteNumero) || [],
+              )
             : null;
         const ganancia =
           precioFinal !== null ? precioFinal - totalMateriales : null;
