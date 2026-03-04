@@ -106,6 +106,8 @@ export interface OfertaConPagos {
   tipo_oferta: string;
   estado: string;
   cliente_numero?: string | null;
+  total_materiales?: number | string | null;
+  totalMateriales?: number | string | null;
   precio_final: number;
   monto_pendiente: number;
   almacen_id: string;

@@ -11,27 +11,49 @@ import {
 } from "@/components/shared/molecule/table";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
+import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
 import {
   Loader2,
   ChevronDown,
   ChevronRight,
+  Receipt,
   FileText,
   Search,
 } from "lucide-react";
 import type { OfertaConPagos } from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
+import { FacturaContabilidadService } from "@/lib/services/feats/facturas/factura-contabilidad-service";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 
 interface TodosPagosTableProps {
   ofertasConPagos: OfertaConPagos[];
   loading: boolean;
   showSearch?: boolean;
+  onFacturaCreada?: () => void | Promise<void>;
 }
 
 const toCleanString = (value: unknown): string | null => {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const getTodayInputDate = () => {
+  const today = new Date();
+  const localDate = new Date(
+    today.getTime() - today.getTimezoneOffset() * 60000,
+  );
+  return localDate.toISOString().slice(0, 10);
 };
 
 const normalizeEstadoKey = (estado: string) =>
@@ -92,11 +114,25 @@ const getEstadoClienteBadgeClass = (estado: string) => {
   );
 };
 
+const parseNullableNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().replace(",", ".");
+    if (!normalized) return null;
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 export function TodosPagosTable({
   ofertasConPagos,
   loading,
   showSearch = true,
+  onFacturaCreada,
 }: TodosPagosTableProps) {
+  const { toast } = useToast();
+  const { user } = useAuth();
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(
     new Set(),
   );
@@ -104,6 +140,12 @@ export function TodosPagosTable({
     new Set(),
   );
   const [searchTerm, setSearchTerm] = useState("");
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [ofertaParaFacturar, setOfertaParaFacturar] =
+    useState<OfertaConPagos | null>(null);
+  const [nombreFactura, setNombreFactura] = useState("");
+  const [fechaEmision, setFechaEmision] = useState(getTodayInputDate);
+  const [creandoFactura, setCreandoFactura] = useState(false);
 
   // Filtrar ofertas según búsqueda
   const filteredOfertas = useMemo(() => {
@@ -214,6 +256,131 @@ export function TodosPagosTable({
     });
   };
 
+  const openMoveDialog = (oferta: OfertaConPagos) => {
+    setOfertaParaFacturar(oferta);
+    setNombreFactura(oferta.numero_oferta || "");
+    setFechaEmision(getTodayInputDate());
+    setMoveDialogOpen(true);
+  };
+
+  const closeMoveDialog = (open: boolean) => {
+    setMoveDialogOpen(open);
+    if (!open && !creandoFactura) {
+      setOfertaParaFacturar(null);
+      setNombreFactura("");
+      setFechaEmision(getTodayInputDate());
+    }
+  };
+
+  const handleMoverAFacturacion = async () => {
+    if (!ofertaParaFacturar) return;
+
+    const numeroFactura = nombreFactura.trim();
+    if (!numeroFactura) {
+      toast({
+        title: "Nombre de factura requerido",
+        description: "Debes escribir un nombre para la factura.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!fechaEmision) {
+      toast({
+        title: "Fecha requerida",
+        description: "Debes seleccionar la fecha de emisión.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setCreandoFactura(true);
+    try {
+      const emitidaPor =
+        toCleanString(user?.nombre) || toCleanString(user?.ci) || "Sistema";
+      const tipoContacto = toCleanString(
+        ofertaParaFacturar.contacto?.tipo_contacto,
+      );
+      if (tipoContacto && tipoContacto !== "cliente") {
+        throw new Error(
+          "Solo se pueden emitir facturas de contabilidad para ofertas asociadas a clientes.",
+        );
+      }
+
+      const idOfertaConfeccion =
+        toCleanString(ofertaParaFacturar.oferta_id) ||
+        toCleanString(ofertaParaFacturar.numero_oferta);
+
+      if (!idOfertaConfeccion) {
+        throw new Error("La oferta no tiene un identificador válido.");
+      }
+
+      const fechaEmisionIso = new Date(
+        `${fechaEmision}T12:00:00`,
+      ).toISOString();
+      const payload = {
+        numero_factura: numeroFactura,
+        fecha_emision: fechaEmisionIso,
+        emitida_por: emitidaPor,
+        id_oferta_confeccion: idOfertaConfeccion,
+      };
+
+      const response = await FacturaContabilidadService.crearFactura(payload);
+
+      if (
+        response?.success === false ||
+        response?.error?.message ||
+        response?.detail
+      ) {
+        throw new Error(
+          response.error?.message ||
+            response.detail ||
+            response.message ||
+            "No se pudo mover la oferta a facturación.",
+        );
+      }
+
+      if (!response?.id) {
+        throw new Error(
+          "El backend no confirmó la creación de la factura de contabilidad.",
+        );
+      }
+
+      toast({
+        title: "Factura enviada a contabilidad",
+        description: `Factura ${numeroFactura} creada correctamente.`,
+      });
+
+      if (onFacturaCreada) {
+        try {
+          await onFacturaCreada();
+        } catch (refreshError) {
+          console.error(
+            "No se pudo refrescar la vista tras crear factura de contabilidad:",
+            refreshError,
+          );
+        }
+      }
+
+      setMoveDialogOpen(false);
+      setOfertaParaFacturar(null);
+      setNombreFactura("");
+      setFechaEmision(getTodayInputDate());
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo crear la factura de contabilidad para esta oferta.";
+      toast({
+        title: "Error al mover a facturación",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setCreandoFactura(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -263,12 +430,17 @@ export function TodosPagosTable({
             <TableHead className="w-[140px]">Estado Cliente</TableHead>
             <TableHead className="w-[100px]">CI</TableHead>
             <TableHead className="text-right w-[110px]">Precio Final</TableHead>
+            <TableHead className="text-right w-[120px]">
+              Total Materiales
+            </TableHead>
+            <TableHead className="text-right w-[110px]">Ganancia</TableHead>
             <TableHead className="text-right w-[110px]">
               Total Cobrado
             </TableHead>
             <TableHead className="text-right w-[110px]">Pendiente</TableHead>
             <TableHead className="w-[80px] text-center">Cobros</TableHead>
             <TableHead className="w-[140px]">Almacén</TableHead>
+            <TableHead className="w-[70px] text-center">Acción</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -327,6 +499,36 @@ export function TodosPagosTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-semibold text-sm py-3">
+                    {(() => {
+                      const totalMateriales = parseNullableNumber(
+                        oferta.total_materiales ?? oferta.totalMateriales,
+                      );
+                      return (
+                        <div className="break-words text-slate-700">
+                          {totalMateriales !== null
+                            ? formatCurrency(totalMateriales)
+                            : "-"}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-sm py-3">
+                    {(() => {
+                      const totalMateriales = parseNullableNumber(
+                        oferta.total_materiales ?? oferta.totalMateriales,
+                      );
+                      const ganancia =
+                        totalMateriales !== null
+                          ? oferta.precio_final - totalMateriales
+                          : null;
+                      return (
+                        <div className="break-words text-blue-700">
+                          {ganancia !== null ? formatCurrency(ganancia) : "-"}
+                        </div>
+                      );
+                    })()}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-sm py-3">
                     <div className="break-words text-green-700">
                       {formatCurrency(oferta.total_pagado)}
                     </div>
@@ -349,12 +551,28 @@ export function TodosPagosTable({
                       {oferta.almacen_nombre || "-"}
                     </span>
                   </TableCell>
+                  <TableCell className="py-3 text-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      title="Mover a facturación"
+                      aria-label="Mover a facturación"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openMoveDialog(oferta);
+                      }}
+                    >
+                      <Receipt className="h-4 w-4" />
+                      <span className="sr-only">Mover a facturación</span>
+                    </Button>
+                  </TableCell>
                 </TableRow>
 
                 {/* Filas expandidas con los pagos */}
                 {isExpanded && (
                   <TableRow>
-                    <TableCell colSpan={10} className="bg-gray-50 p-0">
+                    <TableCell colSpan={13} className="bg-gray-50 p-0">
                       <div className="p-3 border-t border-gray-200">
                         <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
                           <span className="h-1 w-1 rounded-full bg-blue-600"></span>
@@ -684,6 +902,69 @@ export function TodosPagosTable({
           })}
         </TableBody>
       </Table>
+
+      <Dialog open={moveDialogOpen} onOpenChange={closeMoveDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mover a facturación</DialogTitle>
+            <DialogDescription>
+              {ofertaParaFacturar ? (
+                <>
+                  Oferta <strong>{ofertaParaFacturar.numero_oferta}</strong> de{" "}
+                  <strong>
+                    {ofertaParaFacturar.contacto.nombre || "Sin contacto"}
+                  </strong>
+                </>
+              ) : (
+                "Completa los datos de la factura."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="nombre-factura-mover">Nombre de factura</Label>
+              <Input
+                id="nombre-factura-mover"
+                value={nombreFactura}
+                onChange={(e) => setNombreFactura(e.target.value)}
+                placeholder="Ej: FC-2026-001"
+                disabled={creandoFactura}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fecha-emision-mover">Fecha de emisión</Label>
+              <Input
+                id="fecha-emision-mover"
+                type="date"
+                value={fechaEmision}
+                onChange={(e) => setFechaEmision(e.target.value)}
+                disabled={creandoFactura}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => closeMoveDialog(false)}
+              disabled={creandoFactura}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleMoverAFacturacion} disabled={creandoFactura}>
+              {creandoFactura ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                "Crear factura"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

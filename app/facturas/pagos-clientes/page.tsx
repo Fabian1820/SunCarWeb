@@ -24,6 +24,7 @@ import {
   Search,
   Plus,
   List,
+  FileText,
   RefreshCw,
   AlertCircle,
   CreditCard,
@@ -39,6 +40,7 @@ import { usePagos } from "@/hooks/use-pagos";
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table";
 import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table";
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table";
+import { FacturasContabilidadTable } from "@/components/feats/facturas/facturas-contabilidad-table";
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service";
@@ -49,13 +51,18 @@ import {
   type ResumenPagosPendientes,
 } from "@/lib/services/feats/pagos/pago-service";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import {
+  FacturaContabilidadService,
+  type FacturaContabilidad,
+} from "@/lib/services/feats/facturas/factura-contabilidad-service";
 import { useToast } from "@/hooks/use-toast";
 
 type ViewMode =
   | "anticipos-pendientes"
   | "finales-pendientes"
   | "pagos-por-ofertas"
-  | "todos-pagos";
+  | "todos-pagos"
+  | "facturas-emitidas";
 
 const AUTO_REFRESH_MS = 20000;
 
@@ -129,6 +136,10 @@ export default function PagosClientesPage() {
   const [selectedOferta, setSelectedOferta] =
     useState<OfertaConfirmadaSinPago | null>(null);
   const [loadingPagos, setLoadingPagos] = useState(false);
+  const [facturasEmitidas, setFacturasEmitidas] = useState<
+    FacturaContabilidad[]
+  >([]);
+  const [loadingFacturasEmitidas, setLoadingFacturasEmitidas] = useState(false);
   const [estadoClientePorNumero, setEstadoClientePorNumero] = useState<
     Record<string, string | null>
   >({});
@@ -256,6 +267,25 @@ export default function PagosClientesPage() {
       );
     });
   }, [ofertasConPagos, searchTerm]);
+
+  const filteredFacturasEmitidas = useMemo(() => {
+    if (!searchTerm) return facturasEmitidas;
+
+    const term = searchTerm.toLowerCase();
+    return facturasEmitidas.filter((factura) => {
+      const numeroFactura = (factura.numero_factura || "").toLowerCase();
+      const emitidaPor = (factura.emitida_por || "").toLowerCase();
+      const idOferta = (factura.id_oferta_confeccion || "").toLowerCase();
+      const numeroCliente = (factura.numero_cliente || "").toLowerCase();
+
+      return (
+        numeroFactura.includes(term) ||
+        emitidaPor.includes(term) ||
+        idOferta.includes(term) ||
+        numeroCliente.includes(term)
+      );
+    });
+  }, [facturasEmitidas, searchTerm]);
 
   const filteredOfertasConPagosPorFecha = useMemo(() => {
     const desdeTs = fechaCobroDesde
@@ -618,6 +648,34 @@ export default function PagosClientesPage() {
     };
   }, [shouldUseResumenEndpoint, resumenPagos, totalesVistaActual]);
 
+  const loadFacturasEmitidas = useCallback(
+    async ({ silent = false }: { silent?: boolean } = {}) => {
+      setLoadingFacturasEmitidas(true);
+      try {
+        const data = await FacturaContabilidadService.listarTodasFacturas();
+        const sorted = [...data].sort(
+          (a, b) =>
+            new Date(b.fecha_emision).getTime() -
+            new Date(a.fecha_emision).getTime(),
+        );
+        setFacturasEmitidas(sorted);
+      } catch (error) {
+        console.error("Error cargando facturas emitidas:", error);
+        if (!silent) {
+          toast({
+            title: "Error",
+            description: "No se pudieron cargar las facturas emitidas",
+            variant: "destructive",
+          });
+        }
+        setFacturasEmitidas([]);
+      } finally {
+        setLoadingFacturasEmitidas(false);
+      }
+    },
+    [toast],
+  );
+
   const handleRegistrarPago = (oferta: OfertaConfirmadaSinPago) => {
     setSelectedOferta(oferta);
     setPagoDialogOpen(true);
@@ -655,6 +713,8 @@ export default function PagosClientesPage() {
       setLoadingPagos(true);
       await refetchOfertasConPagos();
       setLoadingPagos(false);
+    } else if (mode === "facturas-emitidas") {
+      await loadFacturasEmitidas();
     }
   };
 
@@ -666,8 +726,11 @@ export default function PagosClientesPage() {
 
     if (viewMode === "pagos-por-ofertas" || viewMode === "todos-pagos") {
       await refetchOfertasConPagos();
+    } else if (viewMode === "facturas-emitidas") {
+      await loadFacturasEmitidas({ silent: true });
     }
   }, [
+    loadFacturasEmitidas,
     refetchOfertasConPagos,
     refetchOfertasConSaldoPendiente,
     refetchOfertasSinPago,
@@ -946,7 +1009,7 @@ export default function PagosClientesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
               <Link href="/facturas">
@@ -977,30 +1040,51 @@ export default function PagosClientesPage() {
                   </span>
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  Gestión de cobros recibidos
+                  {viewMode === "facturas-emitidas"
+                    ? "Listado de facturas emitidas para contabilidad"
+                    : "Gestión de cobros recibidos"}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStripeModalOpen(true)}
-                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-              >
-                <CreditCard className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Cobros Stripe</span>
-                <span className="sr-only">Cobros Stripe</span>
-              </Button>
-              <Button
-                size="icon"
-                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 touch-manipulation"
-                aria-label="Registrar cobro"
-                title="Registrar cobro"
-              >
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Registrar Cobro</span>
-                <span className="sr-only">Registrar cobro</span>
-              </Button>
+              {viewMode === "facturas-emitidas" ? (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    loadFacturasEmitidas().catch(() => null);
+                  }}
+                  disabled={loadingFacturasEmitidas}
+                  className="border-orange-200 text-orange-700 hover:bg-orange-50"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 sm:mr-2 ${loadingFacturasEmitidas ? "animate-spin" : ""}`}
+                  />
+                  <span className="hidden sm:inline">Recargar Facturas</span>
+                  <span className="sr-only">Recargar facturas emitidas</span>
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStripeModalOpen(true)}
+                    className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                  >
+                    <CreditCard className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Cobros Stripe</span>
+                    <span className="sr-only">Cobros Stripe</span>
+                  </Button>
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-green-600 hover:bg-green-700 touch-manipulation"
+                    aria-label="Registrar cobro"
+                    title="Registrar cobro"
+                  >
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Registrar Cobro</span>
+                    <span className="sr-only">Registrar cobro</span>
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1092,7 +1176,7 @@ export default function PagosClientesPage() {
         </div>
       </div>
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         {error && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-6">
             <div className="flex items-start gap-3">
@@ -1192,6 +1276,25 @@ export default function PagosClientesPage() {
                     <List className="h-4 w-4 mr-2" />
                     Todos los Cobros
                   </Button>
+                  <Button
+                    variant={
+                      viewMode === "facturas-emitidas" ? "default" : "outline"
+                    }
+                    onClick={() => {
+                      handleViewModeChange("facturas-emitidas").catch(
+                        () => null,
+                      );
+                    }}
+                    disabled={loadingFacturasEmitidas}
+                    className={
+                      viewMode === "facturas-emitidas"
+                        ? "bg-green-600 hover:bg-green-700"
+                        : ""
+                    }
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Facturas Emitidas
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -1205,13 +1308,19 @@ export default function PagosClientesPage() {
                     htmlFor="search"
                     className="text-sm font-medium text-gray-700 mb-2 block"
                   >
-                    Buscar Cobro
+                    {viewMode === "facturas-emitidas"
+                      ? "Buscar Factura"
+                      : "Buscar Cobro"}
                   </Label>
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
                       id="search"
-                      placeholder="Buscar por cliente, N° oferta, CI, teléfono, almacén..."
+                      placeholder={
+                        viewMode === "facturas-emitidas"
+                          ? "Buscar por N° factura, emisor, oferta, cliente..."
+                          : "Buscar por cliente, N° oferta, CI, teléfono, almacén..."
+                      }
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10"
@@ -1317,7 +1426,11 @@ export default function PagosClientesPage() {
 
           <Card className="border-0 shadow-md border-l-4 border-l-green-600">
             <CardHeader>
-              <CardTitle>Cobros Clientes</CardTitle>
+              <CardTitle>
+                {viewMode === "facturas-emitidas"
+                  ? "Facturas Emitidas"
+                  : "Cobros Clientes"}
+              </CardTitle>
               <CardDescription>
                 {viewMode === "anticipos-pendientes" &&
                   `Mostrando ${filteredOfertas.length} de ${ofertasSinPago.length} ofertas confirmadas sin pago`}
@@ -1327,6 +1440,8 @@ export default function PagosClientesPage() {
                   `Mostrando ${filteredPagosPorOfertasConEstadoClienteFiltrado.length} de ${ofertasConPagos.length} ofertas con cobros`}
                 {viewMode === "todos-pagos" &&
                   `Mostrando ${totalesTodosPagos.cantidadCobros} de ${ofertasConPagos.reduce((acc, o) => acc + o.cantidad_pagos, 0)} cobros registrados`}
+                {viewMode === "facturas-emitidas" &&
+                  `Mostrando ${filteredFacturasEmitidas.length} de ${facturasEmitidas.length} facturas emitidas`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -1358,13 +1473,24 @@ export default function PagosClientesPage() {
                   ) : null}
                 </div>
               )}
-              {viewMode === "pagos-por-ofertas" ? (
+              {viewMode === "facturas-emitidas" ? (
+                <FacturasContabilidadTable
+                  facturas={filteredFacturasEmitidas}
+                  loading={loadingFacturasEmitidas}
+                />
+              ) : viewMode === "pagos-por-ofertas" ? (
                 <TodosPagosTable
                   ofertasConPagos={
                     filteredPagosPorOfertasConEstadoClienteFiltrado
                   }
                   loading={loadingPagos}
                   showSearch={false}
+                  onFacturaCreada={async () => {
+                    await Promise.all([
+                      refetchOfertasConPagos(),
+                      loadFacturasEmitidas({ silent: true }),
+                    ]);
+                  }}
                 />
               ) : viewMode === "todos-pagos" ? (
                 <TodosPagosPlanosTable
