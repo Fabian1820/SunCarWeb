@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
-import { Plus } from "lucide-react";
+import { ArrowLeft, FileSpreadsheet, Loader2, Plus } from "lucide-react";
 import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
 import { FacturasTable } from "./facturas-table";
@@ -27,7 +27,81 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { ValeForm } from "./vale-form";
 import { useMaterials } from "@/hooks/use-materials";
-import { ArrowLeft } from "lucide-react";
+import { apiRequest } from "@/lib/api-config";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
+import { useToast } from "@/hooks/use-toast";
+
+type OfertaConfeccionParaExport = {
+  estado?: string;
+  precio_final?: number | string | null;
+  fecha_creacion?: string;
+};
+
+const parseNullableNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const normalized = trimmed.replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const normalizeEstadoOferta = (estado: unknown): string =>
+  String(estado || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s-]+/g, "_")
+    .trim();
+
+const isEstadoConfirmadaCliente = (estado: unknown): boolean => {
+  const normalized = normalizeEstadoOferta(estado);
+  return (
+    normalized === "confirmada_por_cliente" ||
+    normalized === "confirmada_cliente"
+  );
+};
+
+const formatDateForExcel = (value?: string): string => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
+};
+
+const calcularTotalMaterialesFactura = (factura: Factura): number => {
+  const totalFactura = parseNullableNumber(factura.total);
+  if (totalFactura !== null) return totalFactura;
+
+  return (factura.vales || []).reduce((accVale, vale) => {
+    const totalVale = (vale.items || []).reduce((accItem, item) => {
+      const precio = parseNullableNumber(item.precio) || 0;
+      const cantidad = parseNullableNumber(item.cantidad) || 0;
+      return accItem + precio * cantidad;
+    }, 0);
+    return accVale + totalVale;
+  }, 0);
+};
+
+const extractOfertasConfeccion = (
+  response: { success?: boolean; data?: unknown } | null,
+): OfertaConfeccionParaExport[] => {
+  if (!response?.success || !response.data) return [];
+  const payload =
+    typeof response.data === "object" && response.data !== null
+      ? (response.data as Record<string, unknown>)
+      : null;
+  if (!payload) return [];
+
+  const ofertasRaw = payload.ofertas;
+  if (Array.isArray(ofertasRaw)) {
+    return ofertasRaw as OfertaConfeccionParaExport[];
+  }
+  return [];
+};
 
 export function FacturasSection() {
   const {
@@ -45,6 +119,7 @@ export function FacturasSection() {
     agregarVale,
   } = useFacturas();
   const { materials, loading: loadingMaterials } = useMaterials();
+  const { toast } = useToast();
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [selectedFactura, setSelectedFactura] = useState<Factura | null>(null);
@@ -55,6 +130,7 @@ export function FacturasSection() {
   const [valesListDialogOpen, setValesListDialogOpen] = useState(false);
   const [valeDialogOpen, setValeDialogOpen] = useState(false);
   const [facturaForVale, setFacturaForVale] = useState<Factura | null>(null);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [valeDraft, setValeDraft] = useState<Vale>({
     fecha: "",
     items: [],
@@ -199,6 +275,119 @@ export function FacturasSection() {
     });
   }, [facturas, filters.nombre_cliente]);
 
+  const getPrecioFinalOfertaConfirmada = async (
+    clienteNumero: string,
+  ): Promise<number | null> => {
+    try {
+      const response = await apiRequest<{ success?: boolean; data?: unknown }>(
+        `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
+      );
+      const ofertas = extractOfertasConfeccion(response);
+      if (ofertas.length === 0) return null;
+
+      const ofertasConfirmadas = ofertas.filter((oferta) =>
+        isEstadoConfirmadaCliente(oferta.estado),
+      );
+      if (ofertasConfirmadas.length === 0) return null;
+
+      const ofertaConfirmada = [...ofertasConfirmadas].sort((a, b) => {
+        const aTime = new Date(a.fecha_creacion || "").getTime();
+        const bTime = new Date(b.fecha_creacion || "").getTime();
+        const safeATime = Number.isNaN(aTime) ? 0 : aTime;
+        const safeBTime = Number.isNaN(bTime) ? 0 : bTime;
+        return safeBTime - safeATime;
+      })[0];
+
+      return parseNullableNumber(ofertaConfirmada?.precio_final);
+    } catch (error) {
+      console.error(
+        `No se pudo obtener oferta confirmada para cliente ${clienteNumero}:`,
+        error,
+      );
+      return null;
+    }
+  };
+
+  const handleExportFacturasExcel = async () => {
+    if (facturasFiltradas.length === 0) {
+      toast({
+        title: "Sin datos para exportar",
+        description: "No hay facturas en la vista actual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setExportingExcel(true);
+    try {
+      const clientesUnicos = Array.from(
+        new Set(
+          facturasFiltradas
+            .map((factura) => String(factura.cliente_id || "").trim())
+            .filter((value) => value.length > 0),
+        ),
+      );
+
+      const precioFinalPorCliente = new Map<string, number | null>();
+      await Promise.all(
+        clientesUnicos.map(async (clienteNumero) => {
+          const precioFinal =
+            await getPrecioFinalOfertaConfirmada(clienteNumero);
+          precioFinalPorCliente.set(clienteNumero, precioFinal);
+        }),
+      );
+
+      const data = facturasFiltradas.map((factura) => {
+        const clienteNumero = String(factura.cliente_id || "").trim();
+        const totalMateriales = calcularTotalMaterialesFactura(factura);
+        const precioFinal =
+          clienteNumero.length > 0
+            ? (precioFinalPorCliente.get(clienteNumero) ?? null)
+            : null;
+        const ganancia =
+          precioFinal !== null ? precioFinal - totalMateriales : null;
+
+        return {
+          nombre_cliente: factura.nombre_cliente || "Sin nombre",
+          numero_factura: factura.numero_factura || "",
+          fecha: formatDateForExcel(factura.fecha_creacion),
+          total_materiales: totalMateriales,
+          precio_final: precioFinal ?? "",
+          ganancia: ganancia ?? "",
+        };
+      });
+
+      await exportToExcel({
+        title: "Suncar SRL - Facturas de Instaladora",
+        subtitle: `Registros exportados: ${data.length} (según filtros aplicados)`,
+        filename: generateFilename("facturas_instaladora"),
+        columns: [
+          { header: "Nombre cliente", key: "nombre_cliente", width: 28 },
+          { header: "Número de factura", key: "numero_factura", width: 20 },
+          { header: "Fecha", key: "fecha", width: 14 },
+          { header: "Total de Materiales", key: "total_materiales", width: 20 },
+          { header: "Precio Final", key: "precio_final", width: 16 },
+          { header: "Ganancia", key: "ganancia", width: 14 },
+        ],
+        data,
+      });
+
+      toast({
+        title: "Exportación completada",
+        description: "Se generó el Excel con las facturas filtradas.",
+      });
+    } catch (error) {
+      console.error("Error exportando facturas a Excel:", error);
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo generar el archivo Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
@@ -242,6 +431,26 @@ export function FacturasSection() {
               <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
                 Total facturado: {formatCurrency(stats?.total_facturado || 0)}
               </div>
+              <Button
+                onClick={handleExportFacturasExcel}
+                variant="outline"
+                size="sm"
+                disabled={exportingExcel || facturasFiltradas.length === 0}
+                className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 border-green-300 text-green-700 hover:bg-green-50 touch-manipulation"
+              >
+                {exportingExcel ? (
+                  <>
+                    <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Exportando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar Excel</span>
+                  </>
+                )}
+                <span className="sr-only">Exportar facturas a Excel</span>
+              </Button>
               <Button
                 onClick={handleCreate}
                 size="sm"
