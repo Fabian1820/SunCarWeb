@@ -27,40 +27,42 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { ValeForm } from "./vale-form";
 import { useMaterials } from "@/hooks/use-materials";
-import { apiRequest } from "@/lib/api-config";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 import { useToast } from "@/hooks/use-toast";
-
-type OfertaConfeccionParaExport = {
-  estado?: string;
-  precio_final?: number | string | null;
-  fecha_creacion?: string;
-  fecha_actualizacion?: string;
-};
+import {
+  FacturaContabilidadService,
+  type FacturaContabilidadReporteMensualItem,
+} from "@/lib/services/feats/facturas/factura-contabilidad-service";
 
 const parseNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) return null;
-    const normalized = trimmed.replace(",", ".");
+
+    // Limpiar símbolos y espacios, preservando separadores decimales/millares.
+    const cleaned = trimmed.replace(/[^\d,.-]/g, "");
+    if (!cleaned) return null;
+
+    const lastComma = cleaned.lastIndexOf(",");
+    const lastDot = cleaned.lastIndexOf(".");
+    let normalized = cleaned;
+
+    // Si existen ambos separadores, el último se considera decimal.
+    if (lastComma !== -1 && lastDot !== -1) {
+      if (lastComma > lastDot) {
+        normalized = cleaned.replace(/\./g, "").replace(",", ".");
+      } else {
+        normalized = cleaned.replace(/,/g, "");
+      }
+    } else if (lastComma !== -1) {
+      normalized = cleaned.replace(",", ".");
+    }
+
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
-};
-
-const normalizeEstadoOferta = (estado: unknown): string =>
-  String(estado || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[\s-]+/g, "_")
-    .trim();
-
-const isEstadoConfirmadaCliente = (estado: unknown): boolean => {
-  const normalized = normalizeEstadoOferta(estado);
-  return normalized === "confirmada_cliente";
 };
 
 const formatDateForExcel = (value?: string): string => {
@@ -84,54 +86,17 @@ const calcularTotalMaterialesFactura = (factura: Factura): number => {
   }, 0);
 };
 
-const extractOfertasConfeccion = (
-  response: { success?: boolean; data?: unknown } | null,
-): OfertaConfeccionParaExport[] => {
-  if (!response?.success || !response.data) return [];
-  const payload =
-    typeof response.data === "object" && response.data !== null
-      ? (response.data as Record<string, unknown>)
-      : null;
-  if (!payload) return [];
-
-  const ofertasRaw = payload.ofertas;
-  if (Array.isArray(ofertasRaw)) {
-    return ofertasRaw as OfertaConfeccionParaExport[];
-  }
-  return [];
-};
-
-const getTimestamp = (value?: string): number | null => {
-  if (!value) return null;
-  const ts = new Date(value).getTime();
-  return Number.isNaN(ts) ? null : ts;
-};
-
-const seleccionarPrecioFinalOfertaConfirmada = (
-  ofertasConfirmadas: OfertaConfeccionParaExport[],
-): number | null => {
-  if (ofertasConfirmadas.length === 0) return null;
-
-  const ofertasConPrecio = ofertasConfirmadas
-    .map((oferta) => ({
-      precioFinal: parseNullableNumber(oferta.precio_final),
-      fechaReferenciaTs:
-        getTimestamp(oferta.fecha_actualizacion) ??
-        getTimestamp(oferta.fecha_creacion),
-    }))
-    .filter(
-      (
-        item,
-      ): item is { precioFinal: number; fechaReferenciaTs: number | null } =>
-        item.precioFinal !== null,
-    );
-
-  if (ofertasConPrecio.length === 0) return null;
-
-  const ordenadas = [...ofertasConPrecio].sort(
-    (a, b) => (b.fechaReferenciaTs || 0) - (a.fechaReferenciaTs || 0),
-  );
-  return ordenadas[0].precioFinal;
+const getMesAnioFactura = (
+  factura: Factura,
+): { mes: number; anio: number } | null => {
+  const source = factura.fecha_creacion;
+  if (!source) return null;
+  const date = new Date(source);
+  if (Number.isNaN(date.getTime())) return null;
+  return {
+    mes: date.getMonth() + 1,
+    anio: date.getFullYear(),
+  };
 };
 
 export function FacturasSection() {
@@ -306,29 +271,6 @@ export function FacturasSection() {
     });
   }, [facturas, filters.nombre_cliente]);
 
-  const getOfertasConfirmadasCliente = async (
-    clienteNumero: string,
-  ): Promise<OfertaConfeccionParaExport[]> => {
-    try {
-      const response = await apiRequest<{ success?: boolean; data?: unknown }>(
-        `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
-      );
-      const ofertas = extractOfertasConfeccion(response);
-      if (ofertas.length === 0) return [];
-
-      const ofertasConfirmadas = ofertas.filter((oferta) =>
-        isEstadoConfirmadaCliente(oferta.estado),
-      );
-      return ofertasConfirmadas;
-    } catch (error) {
-      console.error(
-        `No se pudo obtener oferta confirmada para cliente ${clienteNumero}:`,
-        error,
-      );
-      return [];
-    }
-  };
-
   const handleExportFacturasExcel = async () => {
     if (facturasFiltradas.length === 0) {
       toast({
@@ -341,42 +283,77 @@ export function FacturasSection() {
 
     setExportingExcel(true);
     try {
-      const clientesUnicos = Array.from(
-        new Set(
-          facturasFiltradas
-            .map((factura) => String(factura.cliente_id || "").trim())
-            .filter((value) => value.length > 0),
-        ),
-      );
+      const mesesAnios = new Map<string, { mes: number; anio: number }>();
+      facturasFiltradas.forEach((factura) => {
+        const mesAnio = getMesAnioFactura(factura);
+        if (!mesAnio) return;
+        mesesAnios.set(`${mesAnio.anio}-${mesAnio.mes}`, mesAnio);
+      });
 
-      const ofertasConfirmadasPorCliente = new Map<
-        string,
-        OfertaConfeccionParaExport[]
-      >();
-      await Promise.all(
-        clientesUnicos.map(async (clienteNumero) => {
-          const ofertasConfirmadas =
-            await getOfertasConfirmadasCliente(clienteNumero);
-          ofertasConfirmadasPorCliente.set(clienteNumero, ofertasConfirmadas);
+      if (mesesAnios.size === 0) {
+        const today = new Date();
+        mesesAnios.set(`${today.getFullYear()}-${today.getMonth() + 1}`, {
+          mes: today.getMonth() + 1,
+          anio: today.getFullYear(),
+        });
+      }
+
+      const reportesMensuales = await Promise.all(
+        Array.from(mesesAnios.values()).map(async ({ mes, anio }) => {
+          try {
+            return await FacturaContabilidadService.obtenerReporteMensual({
+              mes,
+              anio,
+            });
+          } catch (error) {
+            console.error(
+              `No se pudo obtener reporte mensual de facturas para ${mes}/${anio}:`,
+              error,
+            );
+            return { facturas: [] };
+          }
         }),
       );
 
+      const reportePorNumeroFactura = new Map<
+        string,
+        FacturaContabilidadReporteMensualItem
+      >();
+      reportesMensuales.forEach((reporte) => {
+        (reporte.facturas || []).forEach((item) => {
+          const numeroFactura = String(item.numero_factura || "").trim();
+          if (!numeroFactura) return;
+          reportePorNumeroFactura.set(numeroFactura, item);
+        });
+      });
+
       const data = facturasFiltradas.map((factura) => {
-        const clienteNumero = String(factura.cliente_id || "").trim();
-        const totalMateriales = calcularTotalMaterialesFactura(factura);
-        const precioFinal =
-          clienteNumero.length > 0
-            ? seleccionarPrecioFinalOfertaConfirmada(
-                ofertasConfirmadasPorCliente.get(clienteNumero) || [],
-              )
-            : null;
+        const numeroFactura = String(factura.numero_factura || "").trim();
+        const reporte = numeroFactura
+          ? reportePorNumeroFactura.get(numeroFactura)
+          : undefined;
+
+        const totalMateriales =
+          parseNullableNumber(reporte?.total_facturado_materiales) ??
+          calcularTotalMaterialesFactura(factura);
+        const precioFinal = parseNullableNumber(reporte?.precio_final_oferta);
+        const gananciaReporte = parseNullableNumber(reporte?.ganancia);
         const ganancia =
-          precioFinal !== null ? precioFinal - totalMateriales : null;
+          gananciaReporte !== null
+            ? gananciaReporte
+            : precioFinal !== null
+              ? precioFinal - totalMateriales
+              : null;
 
         return {
-          nombre_cliente: factura.nombre_cliente || "Sin nombre",
+          nombre_cliente:
+            String(reporte?.cliente || "").trim() ||
+            factura.nombre_cliente ||
+            "Sin nombre",
           numero_factura: factura.numero_factura || "",
-          fecha: formatDateForExcel(factura.fecha_creacion),
+          fecha: formatDateForExcel(
+            reporte?.fecha_emision || factura.fecha_creacion,
+          ),
           total_materiales: totalMateriales,
           precio_final: precioFinal ?? "",
           ganancia: ganancia ?? "",

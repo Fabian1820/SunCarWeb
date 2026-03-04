@@ -30,6 +30,25 @@ export interface CrearFacturaContabilidadResponse {
   };
 }
 
+export interface FacturaContabilidadReporteMensualItem {
+  numero_factura: string;
+  cliente?: string;
+  fecha_emision?: string;
+  total_facturado_materiales?: number | string | null;
+  precio_final_oferta?: number | string | null;
+  ganancia?: number | string | null;
+}
+
+export interface FacturaContabilidadReporteMensualData {
+  mes?: number;
+  anio?: number;
+  total_facturas?: number;
+  total_facturado_materiales?: number;
+  total_precio_final_ofertas?: number;
+  total_ganancia?: number;
+  facturas: FacturaContabilidadReporteMensualItem[];
+}
+
 export class FacturaContabilidadService {
   private static readonly ENDPOINT_CANDIDATES = [
     "/facturas-contabilidad/",
@@ -58,6 +77,41 @@ export class FacturaContabilidadService {
       const endpoint = options.query
         ? `${endpointBase}${endpointBase.includes("?") ? "&" : "?"}${options.query}`
         : endpointBase;
+
+      try {
+        return await apiRequest<T>(endpoint, {
+          method: options.method,
+          ...(options.body ? { body: options.body } : {}),
+        });
+      } catch (error) {
+        lastError = error;
+        if (!this.isNotFoundError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (lastError) {
+      throw lastError;
+    }
+    throw new Error(
+      "No se encontró un endpoint válido para facturas contabilidad.",
+    );
+  }
+
+  private static async requestPathWithFallback<T>(options: {
+    method: "GET" | "POST";
+    pathSuffix: string;
+    query?: string;
+    body?: string;
+  }): Promise<T> {
+    let lastError: unknown = null;
+
+    for (const endpointBase of this.ENDPOINT_CANDIDATES) {
+      const baseWithoutTrailingSlash = endpointBase.endsWith("/")
+        ? endpointBase.slice(0, -1)
+        : endpointBase;
+      const endpoint = `${baseWithoutTrailingSlash}${options.pathSuffix}${options.query ? `?${options.query}` : ""}`;
 
       try {
         return await apiRequest<T>(endpoint, {
@@ -128,5 +182,64 @@ export class FacturaContabilidadService {
     }
 
     return allFacturas;
+  }
+
+  static async obtenerReporteMensual(params: {
+    mes: number;
+    anio: number;
+  }): Promise<FacturaContabilidadReporteMensualData> {
+    const query = new URLSearchParams({
+      mes: String(params.mes),
+      anio: String(params.anio),
+    }).toString();
+
+    const response = await this.requestPathWithFallback<unknown>({
+      method: "GET",
+      pathSuffix: "/reporte-mensual",
+      query,
+    });
+
+    const payload =
+      response && typeof response === "object"
+        ? (response as Record<string, unknown>)
+        : {};
+
+    const maybeData =
+      payload.data && typeof payload.data === "object"
+        ? (payload.data as Record<string, unknown>)
+        : payload;
+
+    const facturasRaw = maybeData.facturas;
+    const facturas = Array.isArray(facturasRaw)
+      ? (facturasRaw as FacturaContabilidadReporteMensualItem[])
+      : [];
+
+    return {
+      mes:
+        typeof maybeData.mes === "number"
+          ? maybeData.mes
+          : Number(maybeData.mes || params.mes),
+      anio:
+        typeof maybeData.anio === "number"
+          ? maybeData.anio
+          : Number(maybeData.anio || params.anio),
+      total_facturas:
+        typeof maybeData.total_facturas === "number"
+          ? maybeData.total_facturas
+          : Number(maybeData.total_facturas || facturas.length),
+      total_facturado_materiales:
+        typeof maybeData.total_facturado_materiales === "number"
+          ? maybeData.total_facturado_materiales
+          : Number(maybeData.total_facturado_materiales || 0),
+      total_precio_final_ofertas:
+        typeof maybeData.total_precio_final_ofertas === "number"
+          ? maybeData.total_precio_final_ofertas
+          : Number(maybeData.total_precio_final_ofertas || 0),
+      total_ganancia:
+        typeof maybeData.total_ganancia === "number"
+          ? maybeData.total_ganancia
+          : Number(maybeData.total_ganancia || 0),
+      facturas,
+    };
   }
 }
