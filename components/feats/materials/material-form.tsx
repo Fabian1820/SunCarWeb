@@ -413,7 +413,7 @@ export function MaterialForm({
                 }
                 placeholder="Ej: ABC123 o 5401090096"
                 className={error && !formData.codigo ? "border-red-300" : ""}
-                disabled={isSubmitting || uploadingFoto}
+                disabled={isEditing || isSubmitting || uploadingFoto}
               />
             </div>
 
