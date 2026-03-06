@@ -3540,10 +3540,25 @@ export function ConfeccionOfertasView({
 
     const itemId = `${activeStep.id}-${codigo}`;
 
-    // Calcular precio con descuento del 15% para inversores y baterías
-    // Redondear a 2 decimales
+    const categoriaNormalizada = normalizeText(material.categoria || "");
+    const esCategoriaInversorOBateria =
+      categoriaNormalizada.includes("INVERSOR") ||
+      categoriaNormalizada.includes("BATERIA");
+
+    const esSeccionPersonalizadaDeMateriales =
+      !!activeStep.esPersonalizada &&
+      activeStep.seccionData?.tipo === "materiales";
+
+    const esSeccionConDescuentoEspecial =
+      activeStep.id === "INVERSORES" ||
+      activeStep.id === "BATERIAS" ||
+      activeStep.id === SECCION_AMPLIACION_ID ||
+      esSeccionPersonalizadaDeMateriales;
+
+    // Aplicar 15% solo cuando la categoría del material sea inversores o baterías
+    // en las secciones estándar, ampliación y secciones personalizadas de materiales.
     const precioBase =
-      activeStep.id === "INVERSORES" || activeStep.id === "BATERIAS"
+      esSeccionConDescuentoEspecial && esCategoriaInversorOBateria
         ? Number(((material.precio || 0) * 0.85).toFixed(2))
         : material.precio || 0;
 

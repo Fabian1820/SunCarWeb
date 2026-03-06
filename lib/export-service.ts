@@ -1374,6 +1374,11 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     minute: '2-digit',
     hour12: false
   })
+  const numeroOfertaFooter = ofertaData?.numero_oferta?.toString().trim()
+  const marcaExportacionFooter = numeroOfertaFooter
+    ? `Oferta: ${numeroOfertaFooter} | Exportado: ${fechaExportacion} ${horaExportacion}`
+    : `Exportado: ${fechaExportacion} ${horaExportacion}`
+
   
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
@@ -1400,7 +1405,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     doc.setFontSize(6.5)
     doc.setTextColor(120, 120, 120)
     doc.text(
-      `Exportado: ${fechaExportacion} ${horaExportacion}`,
+      marcaExportacionFooter,
       pageWidth - 10,
       doc.internal.pageSize.getHeight() - 8,
       { align: 'right' }
