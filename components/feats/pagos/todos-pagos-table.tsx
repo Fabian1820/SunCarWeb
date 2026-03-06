@@ -125,6 +125,33 @@ const parseNullableNumber = (value: unknown): number | null => {
   return null;
 };
 
+const toEpochMs = (value: string): number => {
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const roundToCents = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
+const getMontoAplicadoUsd = (pago: OfertaConPagos["pagos"][number]): number => {
+  const diferencia = pago.diferencia?.monto ?? 0;
+  return Math.max(0, pago.monto_usd - diferencia);
+};
+
+const ordenarPagosCronologicamente = (
+  pagos: OfertaConPagos["pagos"],
+): OfertaConPagos["pagos"] =>
+  [...pagos].sort((a, b) => {
+    const diffFecha = toEpochMs(a.fecha) - toEpochMs(b.fecha);
+    if (diffFecha !== 0) return diffFecha;
+
+    const diffCreacion =
+      toEpochMs(a.fecha_creacion) - toEpochMs(b.fecha_creacion);
+    if (diffCreacion !== 0) return diffCreacion;
+
+    return a.id.localeCompare(b.id);
+  });
+
 export function TodosPagosTable({
   ofertasConPagos,
   loading,
@@ -228,15 +255,46 @@ export function TodosPagosTable({
     setExpandedExcedentes(newExpanded);
   };
 
+  const getTotalesParaPago = (
+    oferta: OfertaConPagos,
+    pagoId: string,
+  ): { totalPagadoAnteriormente: number; pendienteDespuesPago: number } => {
+    const pagosOrdenados = ordenarPagosCronologicamente(oferta.pagos);
+    const indicePago = pagosOrdenados.findIndex((p) => p.id === pagoId);
+
+    if (indicePago < 0) {
+      return {
+        totalPagadoAnteriormente: 0,
+        pendienteDespuesPago: roundToCents(Math.max(0, oferta.precio_final)),
+      };
+    }
+
+    const totalPagadoAnteriormente = pagosOrdenados
+      .slice(0, indicePago)
+      .reduce((sum, p) => sum + getMontoAplicadoUsd(p), 0);
+
+    const totalPagadoConEste =
+      totalPagadoAnteriormente +
+      getMontoAplicadoUsd(pagosOrdenados[indicePago]);
+
+    const pendienteCrudo = oferta.precio_final - totalPagadoConEste;
+    const pendienteNormalizado =
+      pendienteCrudo < 0.01 && pendienteCrudo > -0.01
+        ? 0
+        : Math.max(0, pendienteCrudo);
+
+    return {
+      totalPagadoAnteriormente: roundToCents(totalPagadoAnteriormente),
+      pendienteDespuesPago: roundToCents(pendienteNormalizado),
+    };
+  };
+
   const handleExportarComprobante = (
     oferta: OfertaConPagos,
     pago: OfertaConPagos["pagos"][number],
   ) => {
-    // Calcular el total pagado antes de este pago sumando los monto_usd de pagos con fecha anterior
-    const fechaPagoActual = new Date(pago.fecha).getTime();
-    const totalPagadoAnteriormente = oferta.pagos
-      .filter((p) => new Date(p.fecha).getTime() < fechaPagoActual)
-      .reduce((sum, p) => sum + p.monto_usd, 0);
+    const { totalPagadoAnteriormente, pendienteDespuesPago } =
+      getTotalesParaPago(oferta, pago.id);
 
     ExportComprobanteService.generarComprobantePDF({
       pago: pago,
@@ -253,6 +311,7 @@ export function TodosPagosTable({
       },
       total_pagado_anteriormente:
         totalPagadoAnteriormente > 0 ? totalPagadoAnteriormente : undefined,
+      monto_pendiente_despues_pago: pendienteDespuesPago,
     });
   };
 
@@ -580,46 +639,10 @@ export function TodosPagosTable({
                         </h4>
                         <div className="space-y-2">
                           {/* Ordenar pagos por fecha (más antiguos primero) */}
-                          {[...oferta.pagos]
-                            .sort(
-                              (a, b) =>
-                                new Date(a.fecha).getTime() -
-                                new Date(b.fecha).getTime(),
-                            )
-                            .map((pago, index) => {
-                              // Calcular el total pagado hasta este pago (inclusive)
-                              const pagosOrdenados = [...oferta.pagos].sort(
-                                (a, b) =>
-                                  new Date(a.fecha).getTime() -
-                                  new Date(b.fecha).getTime(),
-                              );
-                              const indicePago = pagosOrdenados.findIndex(
-                                (p) => p.id === pago.id,
-                              );
-
-                              // Calcular total pagado hasta aquí, excluyendo diferencias
-                              const totalPagadoHastaAqui = pagosOrdenados
-                                .slice(0, indicePago + 1)
-                                .reduce((sum, p) => {
-                                  // Si el pago tiene diferencia, restar ese monto
-                                  const montoEfectivo =
-                                    p.diferencia && p.diferencia.monto > 0
-                                      ? p.monto_usd - p.diferencia.monto
-                                      : p.monto_usd;
-                                  return sum + montoEfectivo;
-                                }, 0);
-
-                              // Calcular el pendiente después de este pago
-                              let pendienteDespuesPago =
-                                oferta.precio_final - totalPagadoHastaAqui;
-
-                              // Si es muy cercano a 0, mostrarlo como 0
-                              if (
-                                pendienteDespuesPago < 0.01 &&
-                                pendienteDespuesPago > -0.01
-                              ) {
-                                pendienteDespuesPago = 0;
-                              }
+                          {ordenarPagosCronologicamente(oferta.pagos).map(
+                            (pago, index) => {
+                              const { pendienteDespuesPago } =
+                                getTotalesParaPago(oferta, pago.id);
 
                               return (
                                 <div
@@ -891,7 +914,8 @@ export function TodosPagosTable({
                                   </div>
                                 </div>
                               );
-                            })}
+                            },
+                          )}
                         </div>
                       </div>
                     </TableCell>

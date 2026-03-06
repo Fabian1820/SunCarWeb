@@ -45,6 +45,31 @@ interface PagoConOferta extends Pago {
   pendienteDespuesPago?: number;
 }
 
+const toEpochMs = (value: string): number => {
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const roundToCents = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
+const getMontoAplicadoUsd = (pago: Pago): number => {
+  const diferencia = pago.diferencia?.monto ?? 0;
+  return Math.max(0, pago.monto_usd - diferencia);
+};
+
+const ordenarPagosCronologicamente = (pagos: Pago[]): Pago[] =>
+  [...pagos].sort((a, b) => {
+    const diffFecha = toEpochMs(a.fecha) - toEpochMs(b.fecha);
+    if (diffFecha !== 0) return diffFecha;
+
+    const diffCreacion =
+      toEpochMs(a.fecha_creacion) - toEpochMs(b.fecha_creacion);
+    if (diffCreacion !== 0) return diffCreacion;
+
+    return a.id.localeCompare(b.id);
+  });
+
 export function TodosPagosPlanosTable({
   ofertasConPagos,
   loading,
@@ -81,9 +106,50 @@ export function TodosPagosPlanosTable({
   );
 
   // Ordenar por fecha más reciente primero
-  const pagosOrdenados = [...todosPagos].sort(
-    (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-  );
+  const pagosOrdenados = [...todosPagos].sort((a, b) => {
+    const diffFecha = toEpochMs(b.fecha) - toEpochMs(a.fecha);
+    if (diffFecha !== 0) return diffFecha;
+
+    const diffCreacion =
+      toEpochMs(b.fecha_creacion) - toEpochMs(a.fecha_creacion);
+    if (diffCreacion !== 0) return diffCreacion;
+
+    return b.id.localeCompare(a.id);
+  });
+
+  const getTotalesParaPago = (
+    oferta: OfertaConPagos,
+    pagoId: string,
+  ): { totalPagadoAnteriormente: number; pendienteDespuesPago: number } => {
+    const pagosOrdenadosOferta = ordenarPagosCronologicamente(oferta.pagos);
+    const indicePago = pagosOrdenadosOferta.findIndex((p) => p.id === pagoId);
+
+    if (indicePago < 0) {
+      return {
+        totalPagadoAnteriormente: 0,
+        pendienteDespuesPago: roundToCents(Math.max(0, oferta.precio_final)),
+      };
+    }
+
+    const totalPagadoAnteriormente = pagosOrdenadosOferta
+      .slice(0, indicePago)
+      .reduce((sum, p) => sum + getMontoAplicadoUsd(p), 0);
+
+    const totalPagadoConEste =
+      totalPagadoAnteriormente +
+      getMontoAplicadoUsd(pagosOrdenadosOferta[indicePago]);
+
+    const pendienteCrudo = oferta.precio_final - totalPagadoConEste;
+    const pendienteNormalizado =
+      pendienteCrudo < 0.01 && pendienteCrudo > -0.01
+        ? 0
+        : Math.max(0, pendienteCrudo);
+
+    return {
+      totalPagadoAnteriormente: roundToCents(totalPagadoAnteriormente),
+      pendienteDespuesPago: roundToCents(pendienteNormalizado),
+    };
+  };
 
   // Calcular el pendiente después de cada pago
   const pagosConPendiente = pagosOrdenados.map((pago) => {
@@ -92,35 +158,10 @@ export function TodosPagosPlanosTable({
       (o) => o.numero_oferta === pago.oferta.numero_oferta,
     );
     if (!ofertaOriginal) return { ...pago, pendienteDespuesPago: 0 };
-
-    // Ordenar los pagos de la oferta por fecha
-    const pagosOfertaOrdenados = [...ofertaOriginal.pagos].sort(
-      (a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+    const { pendienteDespuesPago } = getTotalesParaPago(
+      ofertaOriginal,
+      pago.id,
     );
-
-    // Encontrar el índice de este pago
-    const indicePago = pagosOfertaOrdenados.findIndex((p) => p.id === pago.id);
-
-    // Calcular total pagado hasta este pago (inclusive), excluyendo diferencias
-    const totalPagadoHastaAqui = pagosOfertaOrdenados
-      .slice(0, indicePago + 1)
-      .reduce((sum, p) => {
-        // Si el pago tiene diferencia, restar ese monto
-        const montoEfectivo =
-          p.diferencia && p.diferencia.monto > 0
-            ? p.monto_usd - p.diferencia.monto
-            : p.monto_usd;
-        return sum + montoEfectivo;
-      }, 0);
-
-    // Calcular pendiente después de este pago
-    let pendienteDespuesPago =
-      ofertaOriginal.precio_final - totalPagadoHastaAqui;
-
-    // Si es muy cercano a 0, mostrarlo como 0
-    if (pendienteDespuesPago < 0.01 && pendienteDespuesPago > -0.01) {
-      pendienteDespuesPago = 0;
-    }
 
     return { ...pago, pendienteDespuesPago };
   });
@@ -199,14 +240,14 @@ export function TodosPagosPlanosTable({
       (o) => o.numero_oferta === pago.oferta.numero_oferta,
     );
 
-    // Calcular el total pagado antes de este pago (pagos con fecha anterior)
-    let totalPagadoAnteriormente = 0;
-    if (ofertaOriginal) {
-      const fechaPagoActual = new Date(pago.fecha).getTime();
-      totalPagadoAnteriormente = ofertaOriginal.pagos
-        .filter((p) => new Date(p.fecha).getTime() < fechaPagoActual)
-        .reduce((sum, p) => sum + p.monto_usd, 0);
-    }
+    const { totalPagadoAnteriormente, pendienteDespuesPago } = ofertaOriginal
+      ? getTotalesParaPago(ofertaOriginal, pago.id)
+      : {
+          totalPagadoAnteriormente: 0,
+          pendienteDespuesPago: roundToCents(
+            Math.max(0, pago.oferta.precio_final - getMontoAplicadoUsd(pago)),
+          ),
+        };
 
     ExportComprobanteService.generarComprobantePDF({
       pago: pago,
@@ -223,6 +264,7 @@ export function TodosPagosPlanosTable({
       },
       total_pagado_anteriormente:
         totalPagadoAnteriormente > 0 ? totalPagadoAnteriormente : undefined,
+      monto_pendiente_despues_pago: pendienteDespuesPago,
     });
   };
 
