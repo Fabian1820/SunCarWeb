@@ -717,6 +717,47 @@ export function OfertasConfeccionadasView() {
           ? (oferta.precio_final || 0) / tasaCambioNumero
           : (oferta.precio_final || 0) * tasaCambioNumero
         : 0;
+    const tieneMonedaCambio =
+      oferta.moneda_pago !== "USD" && tasaCambioNumero > 0;
+    const codigoMonedaCambio = tieneMonedaCambio ? oferta.moneda_pago : "USD";
+    const simboloMonedaCambio =
+      oferta.moneda_pago === "EUR"
+        ? "€"
+        : oferta.moneda_pago === "CUP"
+          ? "CUP"
+          : "$";
+    const convertirMontoMonedaPago = (monto: number) => {
+      if (!tieneMonedaCambio) return monto;
+      return oferta.moneda_pago === "EUR"
+        ? monto / tasaCambioNumero
+        : monto * tasaCambioNumero;
+    };
+    const convertirTextoTotalMonedaPago = (valor: unknown) => {
+      if (
+        !tieneMonedaCambio ||
+        valor === null ||
+        valor === undefined ||
+        valor === ""
+      ) {
+        return valor;
+      }
+
+      if (typeof valor === "number") {
+        return convertirMontoMonedaPago(valor).toFixed(2);
+      }
+
+      const valorStr = valor.toString().trim();
+      const esNegativo = valorStr.startsWith("-");
+      const normalizado = valorStr.replace(",", ".").replace(/[^0-9.-]/g, "");
+      const numero = Number.parseFloat(normalizado);
+
+      if (!Number.isFinite(numero)) return valor;
+
+      const montoBase = esNegativo ? -Math.abs(numero) : numero;
+      const convertido = convertirMontoMonedaPago(montoBase);
+      const textoMonto = Math.abs(convertido).toFixed(2);
+      return convertido < 0 ? `- ${textoMonto}` : textoMonto;
+    };
 
     // Debug: ver campos de descuento de la oferta
     console.log("🔍 DEBUG - Oferta completa:", oferta);
@@ -1943,10 +1984,96 @@ export function OfertasConfeccionadasView() {
       ),
     };
 
+    const rowsClienteConPreciosTasaCambio = rowsClienteConPrecios.map((row) => {
+      if (!tieneMonedaCambio || row.total === undefined || row.total === "") {
+        return row;
+      }
+
+      if (
+        row.tipo === "Datos" ||
+        row.tipo === "Info" ||
+        row.tipo === "Tasa" ||
+        row.tipo === "Conversión"
+      ) {
+        return row;
+      }
+
+      return {
+        ...row,
+        total: convertirTextoTotalMonedaPago(row.total),
+      };
+    });
+
+    const exportOptionsClienteConPreciosTasaCambio = {
+      title: "Oferta - Cliente con precios y tasa de cambio",
+      subtitle:
+        oferta.nombre_completo &&
+        oferta.nombre_completo !== "0.00" &&
+        isNaN(Number(oferta.nombre_completo))
+          ? oferta.nombre_completo
+          : oferta.nombre,
+      columns: [
+        { header: "Material", key: "descripcion", width: 50 },
+        { header: "Cant", key: "cantidad", width: 10 },
+        { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
+      ],
+      data: rowsClienteConPreciosTasaCambio,
+      logoUrl: "/logo Suncar.png",
+      clienteData:
+        oferta.tipo === "personalizada" && cliente
+          ? {
+              numero: cliente.numero || cliente.id,
+              nombre: cliente.nombre,
+              carnet_identidad: cliente.carnet_identidad,
+              telefono: cliente.telefono,
+              provincia_montaje: cliente.provincia_montaje,
+              direccion: cliente.direccion,
+              atencion_de: cliente.nombre,
+            }
+          : undefined,
+      leadData:
+        oferta.tipo === "personalizada" && lead
+          ? {
+              id: lead.id,
+              nombre: lead.nombre_completo || lead.nombre,
+              telefono: lead.telefono,
+              email: lead.email,
+              provincia: lead.provincia,
+              direccion: lead.direccion,
+              atencion_de: lead.nombre_completo || lead.nombre,
+            }
+          : undefined,
+      leadSinAgregarData:
+        oferta.tipo === "personalizada" && oferta.nombre_lead_sin_agregar
+          ? {
+              nombre: oferta.nombre_lead_sin_agregar,
+              atencion_de: oferta.nombre_lead_sin_agregar,
+            }
+          : undefined,
+      ofertaData: {
+        numero_oferta: oferta.numero_oferta || oferta.id,
+        nombre_oferta: oferta.nombre_completo || oferta.nombre,
+        tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
+      },
+      incluirFotos: true,
+      fotosMap,
+      conPreciosCliente: true,
+      simboloMoneda: tieneMonedaCambio ? simboloMonedaCambio : "$",
+      codigoMoneda: codigoMonedaCambio,
+      componentesPrincipales,
+      terminosCondiciones: terminosCondicionesExport || undefined,
+      seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
+        (s: any) =>
+          s.tipo === "extra" &&
+          (s.tipo_extra === "escritura" || s.tipo_extra === "costo"),
+      ),
+    };
+
     return {
       exportOptionsCompleto,
       exportOptionsSinPrecios,
       exportOptionsClienteConPrecios,
+      exportOptionsClienteConPreciosTasaCambio,
       baseFilename,
     };
   };

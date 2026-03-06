@@ -1765,6 +1765,47 @@ export function ClientsTable({
             ? (oferta.precio_final || 0) / tasaCambioNumero
             : (oferta.precio_final || 0) * tasaCambioNumero
           : 0;
+      const tieneMonedaCambio =
+        oferta.moneda_pago !== "USD" && tasaCambioNumero > 0;
+      const codigoMonedaCambio = tieneMonedaCambio ? oferta.moneda_pago : "USD";
+      const simboloMonedaCambio =
+        oferta.moneda_pago === "EUR"
+          ? "€"
+          : oferta.moneda_pago === "CUP"
+            ? "CUP"
+            : "$";
+      const convertirMontoMonedaPago = (monto: number) => {
+        if (!tieneMonedaCambio) return monto;
+        return oferta.moneda_pago === "EUR"
+          ? monto / tasaCambioNumero
+          : monto * tasaCambioNumero;
+      };
+      const convertirTextoTotalMonedaPago = (valor: unknown) => {
+        if (
+          !tieneMonedaCambio ||
+          valor === null ||
+          valor === undefined ||
+          valor === ""
+        ) {
+          return valor;
+        }
+
+        if (typeof valor === "number") {
+          return convertirMontoMonedaPago(valor).toFixed(2);
+        }
+
+        const valorStr = valor.toString().trim();
+        const esNegativo = valorStr.startsWith("-");
+        const normalizado = valorStr.replace(",", ".").replace(/[^0-9.-]/g, "");
+        const numero = Number.parseFloat(normalizado);
+
+        if (!Number.isFinite(numero)) return valor;
+
+        const montoBase = esNegativo ? -Math.abs(numero) : numero;
+        const convertido = convertirMontoMonedaPago(montoBase);
+        const textoMonto = Math.abs(convertido).toFixed(2);
+        return convertido < 0 ? `- ${textoMonto}` : textoMonto;
+      };
 
       // EXPORTACIÓN COMPLETA
       const rowsCompleto: any[] = [];
@@ -2727,6 +2768,32 @@ export function ClientsTable({
         }
       }
 
+      const rowsClienteConPreciosTasaCambio = rowsClienteConPrecios.map(
+        (row) => {
+          if (
+            !tieneMonedaCambio ||
+            row.total === undefined ||
+            row.total === ""
+          ) {
+            return row;
+          }
+
+          if (
+            row.tipo === "Datos" ||
+            row.tipo === "Info" ||
+            row.tipo === "Tasa" ||
+            row.tipo === "Conversión"
+          ) {
+            return row;
+          }
+
+          return {
+            ...row,
+            total: convertirTextoTotalMonedaPago(row.total),
+          };
+        },
+      );
+
       const exportOptionsClienteConPrecios = {
         title: "Oferta - Cliente con precios",
         subtitle:
@@ -2779,11 +2846,66 @@ export function ClientsTable({
         ),
       };
 
+      const exportOptionsClienteConPreciosTasaCambio = {
+        title: "Oferta - Cliente con precios y tasa de cambio",
+        subtitle:
+          oferta.nombre_completo &&
+          oferta.nombre_completo !== "0.00" &&
+          isNaN(Number(oferta.nombre_completo))
+            ? oferta.nombre_completo
+            : oferta.nombre,
+        columns: [
+          { header: "Material", key: "descripcion", width: 50 },
+          { header: "Cant", key: "cantidad", width: 10 },
+          { header: `Total (${codigoMonedaCambio})`, key: "total", width: 15 },
+        ],
+        data: rowsClienteConPreciosTasaCambio,
+        logoUrl: "/logo Suncar.png",
+        clienteData:
+          oferta.tipo === "personalizada" && cliente
+            ? {
+                numero: cliente.numero || cliente.id,
+                nombre: cliente.nombre,
+                telefono: cliente.telefono,
+                carnet_identidad: cliente.carnet_identidad,
+                provincia_montaje: cliente.provincia_montaje,
+                direccion: cliente.direccion,
+                atencion_de: cliente.nombre,
+              }
+            : undefined,
+        leadSinAgregarData:
+          oferta.tipo === "personalizada" && oferta.nombre_lead_sin_agregar
+            ? {
+                nombre: oferta.nombre_lead_sin_agregar,
+                atencion_de: oferta.nombre_lead_sin_agregar,
+              }
+            : undefined,
+        ofertaData: {
+          numero_oferta: oferta.numero_oferta || oferta.id,
+          nombre_oferta: oferta.nombre_completo || oferta.nombre,
+          tipo_oferta:
+            oferta.tipo === "generica" ? "Genérica" : "Personalizada",
+        },
+        incluirFotos: true,
+        fotosMap,
+        conPreciosCliente: true,
+        simboloMoneda: tieneMonedaCambio ? simboloMonedaCambio : "$",
+        codigoMoneda: codigoMonedaCambio,
+        componentesPrincipales,
+        terminosCondiciones: terminosCondicionesExport || undefined,
+        seccionesPersonalizadas: seccionesPersonalizadasOferta.filter(
+          (s: any) =>
+            s.tipo === "extra" &&
+            (s.tipo_extra === "escritura" || s.tipo_extra === "costo"),
+        ),
+      };
+
       const resultado = {
         baseFilename,
         exportOptionsCompleto,
         exportOptionsSinPrecios,
         exportOptionsClienteConPrecios,
+        exportOptionsClienteConPreciosTasaCambio,
       };
 
       console.log("✅ generarOpcionesExportacion RESULTADO:", {
@@ -2794,6 +2916,8 @@ export function ClientsTable({
         columns_sinPrecios: resultado.exportOptionsSinPrecios?.columns?.length,
         columns_conPrecios:
           resultado.exportOptionsClienteConPrecios?.columns?.length,
+        columns_conPrecios_tasa:
+          resultado.exportOptionsClienteConPreciosTasaCambio?.columns?.length,
       });
 
       return resultado;
