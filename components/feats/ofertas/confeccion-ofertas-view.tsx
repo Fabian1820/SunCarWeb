@@ -78,6 +78,7 @@ interface SeccionPersonalizada {
 }
 
 const SECCION_AMPLIACION_ID = "AMPLIACION_SISTEMA";
+const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
 interface CostoExtra {
   id: string;
@@ -1761,17 +1762,37 @@ export function ConfeccionOfertasView({
           item.materialCodigo === bateriaSeleccionada,
       );
       if (bateriasDelTipo.length > 0) {
-        const cantidad = bateriasDelTipo.reduce(
+        const cantidadSeleccionada = bateriasDelTipo.reduce(
           (sum, bat) => sum + bat.cantidad,
           0,
         );
-        const potencia = obtenerPotencia(bateriaSeleccionada);
+        const potenciaSeleccionada = obtenerPotencia(bateriaSeleccionada) || 0;
+        const bateriasEspeciales = items.filter(
+          (item) =>
+            item.seccion === "BATERIAS" &&
+            item.materialCodigo === CODIGO_BATERIA_ESPECIAL_NOMBRE &&
+            item.materialCodigo !== bateriaSeleccionada,
+        );
+        const cantidadEspecial = bateriasEspeciales.reduce(
+          (sum, bat) => sum + bat.cantidad,
+          0,
+        );
+        const potenciaEspecial =
+          cantidadEspecial > 0
+            ? obtenerPotencia(CODIGO_BATERIA_ESPECIAL_NOMBRE) || 0
+            : 0;
+
+        const cantidad = cantidadSeleccionada + cantidadEspecial;
+        const potenciaTotal =
+          cantidadSeleccionada * potenciaSeleccionada +
+          cantidadEspecial * potenciaEspecial;
+        const potencia = cantidad > 0 ? potenciaTotal / cantidad : 0;
 
         console.log(
-          `🔋 [nombreAutomatico] Baterías: código=${bateriaSeleccionada}, cantidad=${cantidad}, potencia=${potencia}`,
+          `🔋 [nombreAutomatico] Baterías: código=${bateriaSeleccionada}, cantidad_sel=${cantidadSeleccionada}, potencia_sel=${potenciaSeleccionada}, cantidad_fls=${cantidadEspecial}, potencia_fls=${potenciaEspecial}, cantidad_total=${cantidad}, potencia_promedio=${potencia}, potencia_total=${potenciaTotal}`,
         );
 
-        if (potencia) {
+        if (potencia > 0) {
           componentes.push(`B-${cantidad}x${formatearPotencia(potencia)}kWh`);
         } else {
           componentes.push(`B-${cantidad}x`);
@@ -1898,20 +1919,45 @@ export function ConfeccionOfertasView({
           item.materialCodigo === bateriaSeleccionada,
       );
       if (bateriasDelTipo.length > 0) {
-        const cantidad = bateriasDelTipo.reduce(
+        const cantidadSeleccionada = bateriasDelTipo.reduce(
           (sum, bat) => sum + bat.cantidad,
           0,
         );
-        const potencia = obtenerPotencia(bateriaSeleccionada);
-        const marca = obtenerMarca(bateriaSeleccionada);
+        const potenciaSeleccionada = obtenerPotencia(bateriaSeleccionada) || 0;
+        const marcaSeleccionada = obtenerMarca(bateriaSeleccionada);
+        const bateriasEspeciales = items.filter(
+          (item) =>
+            item.seccion === "BATERIAS" &&
+            item.materialCodigo === CODIGO_BATERIA_ESPECIAL_NOMBRE &&
+            item.materialCodigo !== bateriaSeleccionada,
+        );
+        const cantidadEspecial = bateriasEspeciales.reduce(
+          (sum, bat) => sum + bat.cantidad,
+          0,
+        );
+        const potenciaEspecial =
+          cantidadEspecial > 0
+            ? obtenerPotencia(CODIGO_BATERIA_ESPECIAL_NOMBRE) || 0
+            : 0;
+        const marcaEspecial =
+          cantidadEspecial > 0
+            ? obtenerMarca(CODIGO_BATERIA_ESPECIAL_NOMBRE)
+            : "";
+
+        const cantidad = cantidadSeleccionada + cantidadEspecial;
+        const potenciaTotal =
+          cantidadSeleccionada * potenciaSeleccionada +
+          cantidadEspecial * potenciaEspecial;
+        const potencia = cantidad > 0 ? potenciaTotal / cantidad : 0;
+        const marca = marcaSeleccionada || marcaEspecial;
 
         console.log(
-          `🔋 [nombreCompleto] Baterías: código=${bateriaSeleccionada}, cantidad=${cantidad}, potencia=${potencia}, marca=${marca}`,
+          `🔋 [nombreCompleto] Baterías: código=${bateriaSeleccionada}, cantidad_sel=${cantidadSeleccionada}, potencia_sel=${potenciaSeleccionada}, cantidad_fls=${cantidadEspecial}, potencia_fls=${potenciaEspecial}, cantidad_total=${cantidad}, potencia_promedio=${potencia}, potencia_total=${potenciaTotal}, marca=${marca}`,
         );
 
-        if (potencia && marca) {
+        if (potencia > 0 && marca) {
           componentes.push(`${cantidad}x ${potencia}kWh Batería ${marca}`);
-        } else if (potencia) {
+        } else if (potencia > 0) {
           componentes.push(`${cantidad}x ${potencia}kWh Batería`);
         } else if (marca) {
           componentes.push(`${cantidad}x Batería ${marca}`);
@@ -2644,7 +2690,7 @@ export function ConfeccionOfertasView({
           );
 
           if (bateriasDelTipo.length > 0) {
-            const cantidad = bateriasDelTipo.reduce(
+            const cantidadSeleccionada = bateriasDelTipo.reduce(
               (sum, bat) => sum + bat.cantidad,
               0,
             );
@@ -2654,15 +2700,50 @@ export function ConfeccionOfertasView({
             const capacidadMatch =
               material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i);
-            const capacidad = capacidadMatch
+            const capacidadSeleccionada = capacidadMatch
               ? parseFloat(capacidadMatch[1])
               : 0;
+            const bateriasEspeciales = items.filter(
+              (item) =>
+                item.seccion === "BATERIAS" &&
+                item.materialCodigo.toString() ===
+                  CODIGO_BATERIA_ESPECIAL_NOMBRE &&
+                item.materialCodigo.toString() !==
+                  bateriaSeleccionada.toString(),
+            );
+            const cantidadEspecial = bateriasEspeciales.reduce(
+              (sum, bat) => sum + bat.cantidad,
+              0,
+            );
+            const materialEspecial = materials.find(
+              (m) =>
+                m.codigo.toString() ===
+                CODIGO_BATERIA_ESPECIAL_NOMBRE.toString(),
+            );
+            const capacidadEspecialMatch =
+              materialEspecial?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
+              materialEspecial?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i);
+            const capacidadEspecial =
+              cantidadEspecial > 0 && capacidadEspecialMatch
+                ? parseFloat(capacidadEspecialMatch[1])
+                : 0;
+
+            const cantidad = cantidadSeleccionada + cantidadEspecial;
+            const capacidadTotal =
+              cantidadSeleccionada * capacidadSeleccionada +
+              cantidadEspecial * capacidadEspecial;
+            const capacidad = cantidad > 0 ? capacidadTotal / cantidad : 0;
 
             console.log("✅ [exportOptionsCompleto] Batería para PDF:", {
               codigo: bateriaSeleccionada,
-              cantidad,
-              capacidad,
-              totalKWH: cantidad * capacidad,
+              cantidad_sel: cantidadSeleccionada,
+              capacidad_sel: capacidadSeleccionada,
+              cantidad_fls: cantidadEspecial,
+              capacidad_fls: capacidadEspecial,
+              cantidad_total: cantidad,
+              capacidad_promedio: capacidad,
+              capacidad_total: capacidadTotal,
+              totalKWH: capacidadTotal,
             });
 
             componentes.bateria = {
@@ -3034,7 +3115,7 @@ export function ConfeccionOfertasView({
               item.materialCodigo.toString() === bateriaSeleccionada.toString(),
           );
           if (bateriasDelTipo.length > 0) {
-            const cantidad = bateriasDelTipo.reduce(
+            const cantidadSeleccionada = bateriasDelTipo.reduce(
               (sum, bat) => sum + bat.cantidad,
               0,
             );
@@ -3044,9 +3125,39 @@ export function ConfeccionOfertasView({
             const capacidadMatch =
               material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i);
-            const capacidad = capacidadMatch
+            const capacidadSeleccionada = capacidadMatch
               ? parseFloat(capacidadMatch[1])
               : 0;
+            const bateriasEspeciales = items.filter(
+              (item) =>
+                item.seccion === "BATERIAS" &&
+                item.materialCodigo.toString() ===
+                  CODIGO_BATERIA_ESPECIAL_NOMBRE &&
+                item.materialCodigo.toString() !==
+                  bateriaSeleccionada.toString(),
+            );
+            const cantidadEspecial = bateriasEspeciales.reduce(
+              (sum, bat) => sum + bat.cantidad,
+              0,
+            );
+            const materialEspecial = materials.find(
+              (m) =>
+                m.codigo.toString() ===
+                CODIGO_BATERIA_ESPECIAL_NOMBRE.toString(),
+            );
+            const capacidadEspecialMatch =
+              materialEspecial?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
+              materialEspecial?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i);
+            const capacidadEspecial =
+              cantidadEspecial > 0 && capacidadEspecialMatch
+                ? parseFloat(capacidadEspecialMatch[1])
+                : 0;
+
+            const cantidad = cantidadSeleccionada + cantidadEspecial;
+            const capacidadTotal =
+              cantidadSeleccionada * capacidadSeleccionada +
+              cantidadEspecial * capacidadEspecial;
+            const capacidad = cantidad > 0 ? capacidadTotal / cantidad : 0;
 
             componentes.bateria = {
               codigo: bateriaSeleccionada,
@@ -3446,7 +3557,7 @@ export function ConfeccionOfertasView({
               item.materialCodigo.toString() === bateriaSeleccionada.toString(),
           );
           if (bateriasDelTipo.length > 0) {
-            const cantidad = bateriasDelTipo.reduce(
+            const cantidadSeleccionada = bateriasDelTipo.reduce(
               (sum, bat) => sum + bat.cantidad,
               0,
             );
@@ -3456,9 +3567,39 @@ export function ConfeccionOfertasView({
             const capacidadMatch =
               material?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
               material?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i);
-            const capacidad = capacidadMatch
+            const capacidadSeleccionada = capacidadMatch
               ? parseFloat(capacidadMatch[1])
               : 0;
+            const bateriasEspeciales = items.filter(
+              (item) =>
+                item.seccion === "BATERIAS" &&
+                item.materialCodigo.toString() ===
+                  CODIGO_BATERIA_ESPECIAL_NOMBRE &&
+                item.materialCodigo.toString() !==
+                  bateriaSeleccionada.toString(),
+            );
+            const cantidadEspecial = bateriasEspeciales.reduce(
+              (sum, bat) => sum + bat.cantidad,
+              0,
+            );
+            const materialEspecial = materials.find(
+              (m) =>
+                m.codigo.toString() ===
+                CODIGO_BATERIA_ESPECIAL_NOMBRE.toString(),
+            );
+            const capacidadEspecialMatch =
+              materialEspecial?.nombre?.match(/(\d+(?:\.\d+)?)\s*kwh/i) ||
+              materialEspecial?.descripcion?.match(/(\d+(?:\.\d+)?)\s*kwh/i);
+            const capacidadEspecial =
+              cantidadEspecial > 0 && capacidadEspecialMatch
+                ? parseFloat(capacidadEspecialMatch[1])
+                : 0;
+
+            const cantidad = cantidadSeleccionada + cantidadEspecial;
+            const capacidadTotal =
+              cantidadSeleccionada * capacidadSeleccionada +
+              cantidadEspecial * capacidadEspecial;
+            const capacidad = cantidad > 0 ? capacidadTotal / cantidad : 0;
 
             componentes.bateria = {
               codigo: bateriaSeleccionada,

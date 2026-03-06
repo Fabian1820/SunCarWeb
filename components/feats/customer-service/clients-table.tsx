@@ -86,6 +86,8 @@ import type {
 import { useToast } from "@/hooks/use-toast";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
 
+const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
+
 interface ClientsTableProps {
   clients: Cliente[];
   onEdit: (client: Cliente) => void;
@@ -2068,15 +2070,58 @@ export function ClientsTable({
         (item) => item.seccion === "BATERIAS",
       );
       if (itemsBaterias.length > 0) {
-        const bateria = itemsBaterias[0];
-        const material = materials.find(
-          (m) => m.codigo.toString() === bateria.material_codigo,
+        const codigoBateriaSeleccionada = (
+          (oferta as { bateria_seleccionada?: string | number | null })
+            .bateria_seleccionada || ""
+        )
+          .toString()
+          .trim();
+        const codigoBateriaBase =
+          codigoBateriaSeleccionada &&
+          itemsBaterias.some(
+            (item) =>
+              item.material_codigo?.toString() === codigoBateriaSeleccionada,
+          )
+            ? codigoBateriaSeleccionada
+            : itemsBaterias[0]?.material_codigo?.toString() || "";
+        const itemsBateriaBase = itemsBaterias.filter(
+          (item) => item.material_codigo?.toString() === codigoBateriaBase,
         );
-        const capacidad = material?.potenciaKW || 0;
+        const cantidadBateriaSeleccionada = itemsBateriaBase.reduce(
+          (sum, bat) => sum + (Number(bat.cantidad) || 0),
+          0,
+        );
+        const materialSeleccionado = materials.find(
+          (m) => m.codigo.toString() === codigoBateriaBase,
+        );
+        const capacidadSeleccionada = materialSeleccionado?.potenciaKW || 0;
+        const itemsBateriaEspecial = itemsBaterias.filter(
+          (item) =>
+            item.material_codigo?.toString() ===
+              CODIGO_BATERIA_ESPECIAL_NOMBRE &&
+            item.material_codigo?.toString() !== codigoBateriaBase,
+        );
+        const cantidadBateriaEspecial = itemsBateriaEspecial.reduce(
+          (sum, bat) => sum + (Number(bat.cantidad) || 0),
+          0,
+        );
+        const materialEspecial = materials.find(
+          (m) => m.codigo.toString() === CODIGO_BATERIA_ESPECIAL_NOMBRE,
+        );
+        const capacidadEspecial =
+          cantidadBateriaEspecial > 0 ? materialEspecial?.potenciaKW || 0 : 0;
+
+        const cantidadBateria =
+          cantidadBateriaSeleccionada + cantidadBateriaEspecial;
+        const capacidadTotal =
+          cantidadBateriaSeleccionada * capacidadSeleccionada +
+          cantidadBateriaEspecial * capacidadEspecial;
+        const capacidad =
+          cantidadBateria > 0 ? capacidadTotal / cantidadBateria : 0;
 
         componentesPrincipales.bateria = {
-          codigo: bateria.material_codigo,
-          cantidad: bateria.cantidad,
+          codigo: codigoBateriaBase,
+          cantidad: cantidadBateria,
           capacidad: capacidad,
         };
       }

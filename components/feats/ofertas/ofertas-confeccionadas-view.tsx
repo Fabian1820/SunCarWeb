@@ -55,6 +55,8 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
+
 export function OfertasConfeccionadasView() {
   const router = useRouter();
   const { ofertas, loading, eliminarOferta, refetch } = useOfertasConfeccion();
@@ -872,22 +874,51 @@ export function OfertasConfeccionadasView() {
     );
     if (itemsBaterias.length > 0) {
       const codigoBateria = normalizarCodigo(itemsBaterias[0]?.material_codigo);
-      const cantidadBateria = itemsBaterias.reduce(
+      const cantidadBateriaSeleccionada = itemsBaterias.reduce(
         (sum, item) => sum + (Number(item.cantidad) || 0),
         0,
       );
-      const material = materials.find(
+      const materialSeleccionado = materials.find(
         (m) => m.codigo.toString() === codigoBateria,
+      );
+      const itemsBateriaEspecial = itemsOrdenados.filter(
+        (item) =>
+          item.seccion === "BATERIAS" &&
+          normalizarCodigo(item.material_codigo) ===
+            normalizarCodigo(CODIGO_BATERIA_ESPECIAL_NOMBRE) &&
+          normalizarCodigo(item.material_codigo) !== codigoBateria,
+      );
+      const cantidadBateriaEspecial = itemsBateriaEspecial.reduce(
+        (sum, item) => sum + (Number(item.cantidad) || 0),
+        0,
+      );
+      const materialEspecial = materials.find(
+        (m) => m.codigo.toString() === CODIGO_BATERIA_ESPECIAL_NOMBRE,
       );
 
       // Usar el campo potenciaKW del material directamente (para baterías es la capacidad en kWh)
-      const capacidad = material?.potenciaKW || 0;
+      const capacidadSeleccionada = materialSeleccionado?.potenciaKW || 0;
+      const capacidadEspecial =
+        cantidadBateriaEspecial > 0 ? materialEspecial?.potenciaKW || 0 : 0;
+      const cantidadBateria =
+        cantidadBateriaSeleccionada + cantidadBateriaEspecial;
+      const capacidadTotal =
+        cantidadBateriaSeleccionada * capacidadSeleccionada +
+        cantidadBateriaEspecial * capacidadEspecial;
+      const capacidad =
+        cantidadBateria > 0 ? capacidadTotal / cantidadBateria : 0;
 
       console.log("🔋 DEBUG Batería:", {
         material_codigo: codigoBateria,
-        material_nombre: material?.nombre,
-        potenciaKW: material?.potenciaKW,
-        capacidad,
+        material_nombre: materialSeleccionado?.nombre,
+        potenciaKW: materialSeleccionado?.potenciaKW,
+        cantidad_sel: cantidadBateriaSeleccionada,
+        capacidad_sel: capacidadSeleccionada,
+        cantidad_fls: cantidadBateriaEspecial,
+        capacidad_fls: capacidadEspecial,
+        cantidad_total: cantidadBateria,
+        capacidad_promedio: capacidad,
+        capacidad_total: capacidadTotal,
         cantidad: cantidadBateria,
       });
 
