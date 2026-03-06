@@ -398,6 +398,15 @@ export function ConfeccionOfertasView({
       .replace(/[\u0300-\u036f]/g, "")
       .toUpperCase();
 
+  const limpiarNombreSinPaneles = (value?: string | null) =>
+    (value || "")
+      .replace(
+        /\s*\(?\s*SIN\s+PANELES\s+SOLARES(?:\s+EN\s+LA\s+EXPORTACI(?:ON|ÓN))?\s*\)?\s*/gi,
+        " ",
+      )
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
   const generarPagoAcordadoId = () =>
     `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -862,7 +871,9 @@ export function ConfeccionOfertasView({
       // Cargar nombre completo del backend SOLO en modo edición
       // En modo duplicación, regenerar el nombre para reflejar los cambios
       if (modoEdicion && ofertaACopiar.nombre_completo) {
-        setNombreCompletoBackend(ofertaACopiar.nombre_completo);
+        setNombreCompletoBackend(
+          limpiarNombreSinPaneles(ofertaACopiar.nombre_completo),
+        );
       }
 
       // En modo edición, guardar el ID para la actualización
@@ -1792,9 +1803,12 @@ export function ConfeccionOfertasView({
       }
     }
 
+    const nombreSeccionSeleccionada =
+      activeStep?.label || "Sección seleccionada";
+
     // Construir el nombre final
     if (componentes.length === 0) {
-      return "Oferta sin componentes principales";
+      return `Oferta de ${nombreSeccionSeleccionada}`;
     } else {
       return componentes.join(", ");
     }
@@ -1804,6 +1818,7 @@ export function ConfeccionOfertasView({
     bateriaSeleccionada,
     panelSeleccionado,
     materials,
+    activeStep?.label,
   ]);
 
   // Generar nombre completo para exportaciones (formato largo con marcas)
@@ -1936,9 +1951,12 @@ export function ConfeccionOfertasView({
       }
     }
 
+    const nombreSeccionSeleccionada =
+      activeStep?.label || "Sección seleccionada";
+
     // Construir el nombre final
     if (componentes.length === 0) {
-      return "Oferta sin componentes principales";
+      return `Oferta de ${nombreSeccionSeleccionada}`;
     } else if (componentes.length === 1) {
       return `Oferta de ${componentes[0]}`;
     } else if (componentes.length === 2) {
@@ -1954,6 +1972,7 @@ export function ConfeccionOfertasView({
     panelSeleccionado,
     materials,
     marcasMap,
+    activeStep?.label,
   ]);
 
   const formatCurrency = (value: number) => {
@@ -2160,15 +2179,20 @@ export function ConfeccionOfertasView({
     nombreLeadSinAgregar,
   ]);
 
+  const nombreCompletoExportable = useMemo(
+    () =>
+      limpiarNombreSinPaneles(
+        nombreCompletoBackend || nombreCompletoParaExportar,
+      ),
+    [nombreCompletoBackend, nombreCompletoParaExportar],
+  );
+
   const exportOptionsCompleto = useMemo(() => {
     // Debug: verificar qué nombre se está usando
     console.log("🔍 Debug exportación:");
     console.log("  - nombreCompletoBackend:", nombreCompletoBackend);
     console.log("  - nombreCompletoParaExportar:", nombreCompletoParaExportar);
-    console.log(
-      "  - Se usará:",
-      nombreCompletoBackend || nombreCompletoParaExportar,
-    );
+    console.log("  - Se usará:", nombreCompletoExportable);
 
     // Nota: El filtrado de items ahora se maneja en ExportSelectionDialog
     const itemsFiltrados = items;
@@ -2478,7 +2502,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Exportación completa",
-      subtitle: nombreCompletoBackend || nombreCompletoParaExportar,
+      subtitle: nombreCompletoExportable,
       columns: [
         { header: "Sección", key: "seccion", width: 18 },
         { header: "Tipo", key: "tipo", width: 12 },
@@ -2712,6 +2736,7 @@ export function ConfeccionOfertasView({
     precioFinal,
     nombreCompletoBackend,
     nombreCompletoParaExportar,
+    nombreCompletoExportable,
     nombreAutomatico,
     materials,
     marcas,
@@ -2916,7 +2941,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Cliente sin precios",
-      subtitle: nombreCompletoBackend || nombreCompletoParaExportar,
+      subtitle: nombreCompletoExportable,
       columns: [
         { header: "Material", key: "descripcion", width: 60 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -3072,8 +3097,7 @@ export function ConfeccionOfertasView({
     items,
     seccionLabelMap,
     precioFinal,
-    nombreCompletoBackend,
-    nombreCompletoParaExportar,
+    nombreCompletoExportable,
     nombreAutomatico,
     materials,
     marcas,
@@ -3328,7 +3352,7 @@ export function ConfeccionOfertasView({
 
     return {
       title: "Oferta - Cliente con precios",
-      subtitle: nombreCompletoBackend || nombreCompletoParaExportar,
+      subtitle: nombreCompletoExportable,
       columns: [
         { header: "Material", key: "descripcion", width: 50 },
         { header: "Cant", key: "cantidad", width: 10 },
@@ -3490,8 +3514,7 @@ export function ConfeccionOfertasView({
     costoTransportacion,
     precioFinal,
     totalSinRedondeo,
-    nombreCompletoBackend,
-    nombreCompletoParaExportar,
+    nombreCompletoExportable,
     nombreAutomatico,
     materials,
     marcas,
@@ -5058,7 +5081,9 @@ export function ConfeccionOfertasView({
 
         // Guardar el nombre completo del backend para usar en exportaciones
         if (responseData.nombre_completo) {
-          setNombreCompletoBackend(responseData.nombre_completo);
+          setNombreCompletoBackend(
+            limpiarNombreSinPaneles(responseData.nombre_completo),
+          );
         }
 
         toast({

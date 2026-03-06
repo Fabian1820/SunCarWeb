@@ -27,6 +27,16 @@ function formatNumberWithComma(value: number, decimals: number = 2): string {
   return value.toFixed(decimals).replace('.', ',')
 }
 
+function limpiarTextoSinPaneles(value?: string): string {
+  return (value || '')
+    .replace(
+      /\s*\(?\s*SIN\s+PANELES\s+SOLARES(?:\s+EN\s+LA\s+EXPORTACI(?:ON|ÓN))?\s*\)?\s*/gi,
+      ' ',
+    )
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 export interface ExportColumn {
   header: string
   key: string
@@ -243,6 +253,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
  */
 export async function exportToPDF(options: ExportOptions): Promise<void> {
   const { title, subtitle, filename, columns, data, logoUrl, clienteData, leadData, leadSinAgregarData, ofertaData, componentesPrincipales, incluirFotos, fotosMap, sinPrecios, conPreciosCliente } = options
+  const subtitleLimpio = limpiarTextoSinPaneles(subtitle)
 
   // Debug: verificar si los términos llegaron
   console.log('📄 exportToPDF - Términos y condiciones:', options.terminosCondiciones ? 'SÍ (' + options.terminosCondiciones.length + ' caracteres)' : 'NO')
@@ -293,8 +304,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   }
   
   // Si no hay componentes principales, usar el subtitle como fallback
-  if (!descripcionSistema && subtitle) {
-    descripcionSistema = subtitle.toUpperCase()
+  if (!descripcionSistema && subtitleLimpio) {
+    descripcionSistema = subtitleLimpio.toUpperCase()
   }
   
   // Calcular altura del encabezado basado en el contenido
