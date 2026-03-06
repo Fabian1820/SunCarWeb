@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
-import { ArrowLeft, FileSpreadsheet, Loader2, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  FileSpreadsheet,
+  Loader2,
+  Pencil,
+  Plus,
+} from "lucide-react";
 import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
 import { FacturasTable } from "./facturas-table";
@@ -113,6 +119,7 @@ export function FacturasSection() {
     actualizarFactura,
     eliminarFactura,
     agregarVale,
+    actualizarVale,
   } = useFacturas();
   const { materials, loading: loadingMaterials } = useMaterials();
   const { toast } = useToast();
@@ -126,11 +133,22 @@ export function FacturasSection() {
   const [valesListDialogOpen, setValesListDialogOpen] = useState(false);
   const [valeDialogOpen, setValeDialogOpen] = useState(false);
   const [facturaForVale, setFacturaForVale] = useState<Factura | null>(null);
+  const [valeToEdit, setValeToEdit] = useState<{ valeId: string } | null>(null);
+  const [savingVale, setSavingVale] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [valeDraft, setValeDraft] = useState<Vale>({
     fecha: "",
     items: [],
   });
+
+  useEffect(() => {
+    if (!facturaDetails?.id) return;
+
+    const facturaActualizada = facturas.find((f) => f.id === facturaDetails.id);
+    if (facturaActualizada) {
+      setFacturaDetails(facturaActualizada);
+    }
+  }, [facturas, facturaDetails?.id]);
 
   const exportFacturaItems = () => {
     if (!facturaDetails || !facturaDetails.vales) return;
@@ -196,6 +214,12 @@ export function FacturasSection() {
     setFormDialogOpen(true);
   };
 
+  const handleEditFacturaFromDetails = () => {
+    if (!facturaDetails) return;
+    setDetailsDialogOpen(false);
+    handleEdit(facturaDetails);
+  };
+
   const handleViewDetails = (factura: Factura) => {
     setFacturaDetails(factura);
     setDetailsDialogOpen(true);
@@ -208,6 +232,7 @@ export function FacturasSection() {
 
   const handleAddValeClick = (factura: Factura) => {
     setFacturaForVale(factura);
+    setValeToEdit(null);
     setValeDraft({
       fecha: "",
       items: [],
@@ -215,10 +240,82 @@ export function FacturasSection() {
     setValeDialogOpen(true);
   };
 
+  const handleEditValeClick = (factura: Factura, vale: Vale) => {
+    if (!vale.id) {
+      toast({
+        title: "Vale sin identificador",
+        description:
+          "No se puede editar este vale porque no tiene ID en la respuesta del backend.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setFacturaForVale(factura);
+    setValeToEdit({ valeId: vale.id });
+    setValeDraft({
+      id: vale.id,
+      fecha: vale.fecha,
+      items: (vale.items || []).map((item) => ({ ...item })),
+    });
+    setValesListDialogOpen(false);
+    setValeDialogOpen(true);
+  };
+
+  const resetValeDialogState = () => {
+    setFacturaForVale(null);
+    setValeToEdit(null);
+    setValeDraft({
+      fecha: "",
+      items: [],
+    });
+  };
+
+  const handleValeDialogOpenChange = (open: boolean) => {
+    setValeDialogOpen(open);
+    if (!open && !savingVale) {
+      resetValeDialogState();
+    }
+  };
+
   const handleSaveVale = async () => {
     if (!facturaForVale?.id) return;
-    await agregarVale(facturaForVale.id, valeDraft);
-    setValeDialogOpen(false);
+
+    setSavingVale(true);
+    try {
+      if (valeToEdit?.valeId) {
+        await actualizarVale(facturaForVale.id, valeToEdit.valeId, {
+          id: valeToEdit.valeId,
+          fecha: valeDraft.fecha,
+          items: valeDraft.items,
+        });
+      } else {
+        await agregarVale(facturaForVale.id, {
+          fecha: valeDraft.fecha,
+          items: valeDraft.items,
+        });
+      }
+
+      setValeDialogOpen(false);
+      resetValeDialogState();
+      toast({
+        title: valeToEdit ? "Vale actualizado" : "Vale agregado",
+        description: valeToEdit
+          ? "Se actualizó correctamente el vale de la factura."
+          : "Se agregó correctamente el vale a la factura.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error guardando vale",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar el vale.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingVale(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -555,22 +652,34 @@ export function FacturasSection() {
           <DialogHeader>
             <div className="flex items-center justify-between">
               <DialogTitle>Detalles de Factura</DialogTitle>
-              {facturaDetails?.vales?.length ? (
+              {facturaDetails ? (
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={exportFacturaItems}
+                    onClick={handleEditFacturaFromDetails}
                   >
-                    Exportar CSV
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar factura
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setValesListDialogOpen(true)}
-                  >
-                    Ver vales ({facturaDetails.vales.length})
-                  </Button>
+                  {facturaDetails.vales?.length ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportFacturaItems}
+                      >
+                        Exportar CSV
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setValesListDialogOpen(true)}
+                      >
+                        Ver vales ({facturaDetails.vales.length})
+                      </Button>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -690,13 +799,26 @@ export function FacturasSection() {
             <div className="space-y-4">
               {facturaDetails.vales.map((vale, valeIndex) => (
                 <div
-                  key={valeIndex}
+                  key={vale.id || valeIndex}
                   className="border rounded-lg p-4 bg-gray-50"
                 >
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-semibold">Vale #{valeIndex + 1}</h4>
-                    <div className="text-sm text-gray-600">
-                      Fecha: {new Date(vale.fecha).toLocaleDateString("es-ES")}
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-gray-600">
+                        Fecha:{" "}
+                        {new Date(vale.fecha).toLocaleDateString("es-ES")}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          handleEditValeClick(facturaDetails, vale)
+                        }
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" />
+                        Editar
+                      </Button>
                     </div>
                   </div>
 
@@ -742,10 +864,12 @@ export function FacturasSection() {
       </Dialog>
 
       {/* Dialogo para agregar vale a factura existente */}
-      <Dialog open={valeDialogOpen} onOpenChange={setValeDialogOpen}>
+      <Dialog open={valeDialogOpen} onOpenChange={handleValeDialogOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Agregar Vale</DialogTitle>
+            <DialogTitle>
+              {valeToEdit ? "Editar Vale" : "Agregar Vale"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
@@ -766,7 +890,8 @@ export function FacturasSection() {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => setValeDialogOpen(false)}
+                onClick={() => handleValeDialogOpenChange(false)}
+                disabled={savingVale}
               >
                 Cancelar
               </Button>
@@ -774,12 +899,22 @@ export function FacturasSection() {
                 onClick={handleSaveVale}
                 className="bg-orange-600 hover:bg-orange-700"
                 disabled={
+                  savingVale ||
                   loadingMaterials ||
                   valeDraft.items.length === 0 ||
                   !valeDraft.fecha
                 }
               >
-                Guardar Vale
+                {savingVale ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : valeToEdit ? (
+                  "Actualizar Vale"
+                ) : (
+                  "Guardar Vale"
+                )}
               </Button>
             </div>
           </div>
