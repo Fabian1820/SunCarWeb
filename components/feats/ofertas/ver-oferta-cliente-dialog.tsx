@@ -58,6 +58,7 @@ const getEstadoBadge = (estado: string) => {
     },
     rechazada: { label: "Rechazada", className: "bg-red-100 text-red-800" },
     cancelada: { label: "Cancelada", className: "bg-slate-200 text-slate-700" },
+    agotada: { label: "Agotada", className: "bg-gray-100 text-gray-800" },
   };
   return badges[estado as keyof typeof badges] || badges.en_revision;
 };

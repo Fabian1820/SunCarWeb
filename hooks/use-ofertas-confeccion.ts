@@ -20,7 +20,8 @@ export interface OfertaConfeccion {
     | "confirmada_por_cliente"
     | "reservada"
     | "rechazada"
-    | "cancelada";
+    | "cancelada"
+    | "agotada";
   almacen_id?: string;
   almacen_nombre?: string;
   cliente_id?: string;

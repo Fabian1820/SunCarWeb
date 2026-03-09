@@ -47,6 +47,7 @@ export function OfertasGridView() {
       enviada_a_cliente: { label: "Enviada", className: "bg-purple-100 text-purple-800" },
       confirmada_por_cliente: { label: "Confirmada", className: "bg-green-100 text-green-800" },
       reservada: { label: "Reservada", className: "bg-orange-100 text-orange-800" },
+      agotada: { label: "Agotada", className: "bg-gray-100 text-gray-800" },
     }
     return badges[estado as keyof typeof badges] || badges.en_revision
   }
@@ -115,6 +116,7 @@ export function OfertasGridView() {
             <SelectItem value="enviada_a_cliente">Enviada</SelectItem>
             <SelectItem value="confirmada_por_cliente">Confirmada</SelectItem>
             <SelectItem value="reservada">Reservada</SelectItem>
+            <SelectItem value="agotada">Agotada</SelectItem>
           </SelectContent>
         </Select>
       </div>
