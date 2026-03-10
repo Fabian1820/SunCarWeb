@@ -14,7 +14,10 @@
       "Bash(mkdir -p \"D:/SunCar/SunCarWeb/lib/types/feats/resultados\")",
       "Bash(mkdir -p \"D:/SunCar/SunCarWeb/components/feats/resultados\")",
       "Bash(mkdir -p \"D:/SunCar/SunCarWeb/app/resultados\")",
-      "Bash(npx tsc --noEmit --pretty)"
+      "Bash(npx tsc --noEmit --pretty)",
+      "Bash(node -e \"try { const { Trophy } = require\\(''lucide-react''\\); console.log\\(''Trophy exists:'', !!Trophy\\) } catch\\(e\\) { console.log\\(''Error:'', e.message\\) }\")",
+      "Bash(node -e \"const { Trophy } = require\\(''lucide-react''\\); console.log\\(''Trophy exists:'', !!Trophy\\)\")",
+      "Bash(node -e \"const m = require\\(''lucide-react''\\); console.log\\(''Trophy:'', typeof m.Trophy\\)\")"
     ],
     "deny": [],
     "ask": []
