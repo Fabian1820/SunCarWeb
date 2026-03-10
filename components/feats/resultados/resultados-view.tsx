@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from "react"
 import type { Feature, GeoJsonObject } from "geojson"
 import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet"
 import { GeoJSON, MapContainer, TileLayer } from "react-leaflet"
-import { Users, Sun, Cpu, Battery, ArrowLeft, Loader2 } from "lucide-react"
+import { Users, Sun, Cpu, Battery, ArrowLeft, Loader2, Trophy } from "lucide-react"
 import Link from "next/link"
 import { ResultadosService } from "@/lib/api-services"
 import type { DashboardEmpresaPrincipal, MunicipioInstalado } from "@/lib/types/feats/resultados/resultados-types"
@@ -22,6 +22,7 @@ function normalizeText(value: string | undefined | null): string {
 }
 
 function formatNumber(value: number, decimals = 1): string {
+  if (value == null || isNaN(value)) return "0"
   return new Intl.NumberFormat("es-CU", {
     minimumFractionDigits: 0,
     maximumFractionDigits: decimals,
@@ -91,7 +92,7 @@ export default function ResultadosView() {
   // Max clients for color scaling
   const maxClientes = useMemo(() => {
     if (!data?.municipios_instalados?.length) return 1
-    return Math.max(...data.municipios_instalados.map(m => m.cantidad_clientes), 1)
+    return Math.max(...data.municipios_instalados.map(m => m.cantidad_clientes || 0), 1)
   }, [data])
 
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
@@ -101,30 +102,30 @@ export default function ResultadosView() {
     const key = normalizeText(shapeName)
     const muni = municipioMap.get(key)
 
-    if (!muni || muni.cantidad_clientes === 0) {
+    if (!muni || !muni.cantidad_clientes) {
       return {
         color: "#d4d4d8",
-        weight: 0.8,
+        weight: 0.5,
         fillColor: "#f4f4f5",
-        fillOpacity: 0.6,
+        fillOpacity: 0.4,
       }
     }
 
     // Gradient from light yellow to warm amber/gold
     const ratio = Math.min(muni.cantidad_clientes / maxClientes, 1)
-    const fillColor = ratio < 0.2
-      ? "#fef9c3" // yellow-100
-      : ratio < 0.4
-      ? "#fde68a" // amber-200
-      : ratio < 0.6
-      ? "#fbbf24" // amber-400
-      : ratio < 0.8
-      ? "#f59e0b" // amber-500
-      : "#d97706" // amber-600
+    const fillColor = ratio < 0.15
+      ? "#fef9c3"
+      : ratio < 0.3
+      ? "#fde68a"
+      : ratio < 0.5
+      ? "#fbbf24"
+      : ratio < 0.75
+      ? "#f59e0b"
+      : "#d97706"
 
     return {
       color: "#92400e",
-      weight: 1,
+      weight: 1.2,
       fillColor,
       fillOpacity: 0.85,
     }
@@ -137,40 +138,52 @@ export default function ResultadosView() {
     const key = normalizeText(shapeName)
     const muni = municipioMap.get(key)
 
-    layer.on({
-      mouseover: (e: LeafletMouseEvent) => {
-        const target = e.target
-        target.setStyle({
-          weight: 2.5,
-          color: "#92400e",
-          fillOpacity: 0.95,
-        })
-        target.bringToFront()
-        setTooltip({
-          municipio: muni?.municipio || shapeName,
-          provincia: muni?.provincia || "",
-          clientes: muni?.cantidad_clientes || 0,
-          x: e.originalEvent.clientX,
-          y: e.originalEvent.clientY,
-        })
-      },
-      mousemove: (e: LeafletMouseEvent) => {
-        setTooltip(prev => prev ? {
-          ...prev,
-          x: e.originalEvent.clientX,
-          y: e.originalEvent.clientY,
-        } : null)
-      },
-      mouseout: (e: LeafletMouseEvent) => {
-        e.target.setStyle(getFeatureStyle(feature))
-        setTooltip(null)
-      },
-    })
+    // Solo interactuar con municipios que tienen instalaciones
+    if (!muni || !muni.cantidad_clientes) return
+
+    if ("on" in layer && "setStyle" in layer) {
+      const typedLayer = layer as {
+        on: (events: Record<string, (event: LeafletMouseEvent) => void>) => void
+        setStyle: (style: PathOptions) => void
+        bringToFront: () => void
+      }
+
+      typedLayer.on({
+        mouseover: (event: LeafletMouseEvent) => {
+          event.target.setStyle({
+            weight: 3,
+            color: "#78350f",
+            fillOpacity: 0.95,
+          })
+          event.target.bringToFront()
+          const e = event.originalEvent as MouseEvent
+          setTooltip({
+            municipio: muni.municipio,
+            provincia: muni.provincia || "",
+            clientes: muni.cantidad_clientes,
+            x: e.clientX,
+            y: e.clientY,
+          })
+        },
+        mousemove: (event: LeafletMouseEvent) => {
+          const e = event.originalEvent as MouseEvent
+          setTooltip(prev => prev ? {
+            ...prev,
+            x: e.clientX,
+            y: e.clientY,
+          } : null)
+        },
+        mouseout: (event: LeafletMouseEvent) => {
+          event.target.setStyle(getFeatureStyle(feature))
+          setTooltip(null)
+        },
+      })
+    }
   }, [municipioMap, getFeatureStyle])
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-10 w-10 text-amber-600 animate-spin" />
           <p className="text-amber-800 font-medium">Cargando resultados...</p>
@@ -181,7 +194,7 @@ export default function ResultadosView() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 flex items-center justify-center">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md text-center">
           <p className="text-red-600 font-medium mb-2">Error al cargar datos</p>
           <p className="text-gray-500 text-sm">{error}</p>
@@ -198,64 +211,66 @@ export default function ResultadosView() {
       value: formatNumber(data.cantidad_clientes, 0),
       subtitle: `${formatNumber(data.cantidad_municipios_instalados, 0)} municipios`,
       icon: Users,
-      gradient: "from-orange-500 to-amber-500",
+      iconColor: "text-orange-600",
       bgLight: "bg-orange-50",
+      accentColor: "bg-orange-500",
     },
     {
       title: "Total kW Paneles",
       value: formatNumber(data.total_kw_paneles),
       subtitle: `Prom: ${formatNumber(data.promedio_kw_paneles_por_cliente)} kW/cliente`,
       icon: Sun,
-      gradient: "from-yellow-500 to-orange-500",
+      iconColor: "text-yellow-600",
       bgLight: "bg-yellow-50",
+      accentColor: "bg-yellow-500",
     },
     {
       title: "Total kW Inversores",
       value: formatNumber(data.total_kw_inversores),
       subtitle: `Prom: ${formatNumber(data.promedio_kw_inversores_por_cliente)} kW/cliente`,
       icon: Cpu,
-      gradient: "from-emerald-500 to-teal-500",
+      iconColor: "text-emerald-600",
       bgLight: "bg-emerald-50",
+      accentColor: "bg-emerald-500",
     },
     {
       title: "Total kWh Baterías",
       value: formatNumber(data.total_kw_baterias),
       subtitle: `Prom: ${formatNumber(data.promedio_kw_baterias_por_cliente)} kWh/cliente`,
       icon: Battery,
-      gradient: "from-blue-500 to-indigo-500",
+      iconColor: "text-blue-600",
       bgLight: "bg-blue-50",
+      accentColor: "bg-blue-500",
     },
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
-      {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-amber-200/60 sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+      {/* Header - mismo estilo que el resto de la app */}
+      <header className="bg-white/90 backdrop-blur border-b border-orange-100 sticky top-0 z-50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 sm:h-16">
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="flex items-center gap-2 text-amber-700 hover:text-amber-900 transition-colors group"
+                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors group"
               >
                 <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
                 <span className="text-sm font-medium hidden sm:inline">Inicio</span>
               </Link>
-              <div className="h-5 w-px bg-amber-300/50" />
-              <div>
-                <h1 className="text-base sm:text-lg font-bold text-gray-900 tracking-tight">
-                  Resultados de la Empresa
-                </h1>
-                <p className="text-[11px] sm:text-xs text-amber-700/70 hidden sm:block">
-                  Panel de indicadores principales
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="px-3 py-1.5 rounded-full bg-amber-100 border border-amber-200">
-                <span className="text-xs font-semibold text-amber-800">
-                  {formatNumber(data.cantidad_clientes, 0)} clientes
-                </span>
+              <div className="h-5 w-px bg-gray-200" />
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-lg bg-amber-50">
+                  <Trophy className="h-5 w-5 text-amber-600" />
+                </div>
+                <div>
+                  <h1 className="text-base sm:text-lg font-bold text-gray-900">
+                    Resultados
+                  </h1>
+                  <p className="text-[11px] text-gray-500 hidden sm:block">
+                    Indicadores principales de la empresa
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -270,19 +285,19 @@ export default function ResultadosView() {
               key={card.title}
               className="relative overflow-hidden rounded-2xl bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
             >
-              {/* Gradient accent top */}
-              <div className={`h-1.5 bg-gradient-to-r ${card.gradient}`} />
+              {/* Accent top bar */}
+              <div className={`h-1.5 ${card.accentColor}`} />
               <div className="p-5 sm:p-6">
-                <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3 mb-4">
                   <div className={`p-2.5 rounded-xl ${card.bgLight}`}>
-                    <card.icon className={`h-5 w-5 bg-gradient-to-r ${card.gradient} bg-clip-text`} style={{ color: 'inherit' }} />
+                    <card.icon className={`h-5 w-5 ${card.iconColor}`} />
                   </div>
+                  <p className="text-sm font-semibold text-gray-700">{card.title}</p>
                 </div>
-                <p className="text-sm font-medium text-gray-500 mb-1">{card.title}</p>
-                <p className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">
+                <p className="text-3xl sm:text-4xl font-extrabold text-gray-900 tracking-tight">
                   {card.value}
                 </p>
-                <p className="text-xs text-gray-400 mt-2">{card.subtitle}</p>
+                <p className="text-xs font-medium text-gray-500 mt-2">{card.subtitle}</p>
               </div>
             </div>
           ))}
@@ -301,9 +316,9 @@ export default function ResultadosView() {
               {/* Legend */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400">Menos</span>
-                <div className="flex h-3 rounded-full overflow-hidden">
+                <div className="flex h-3 rounded-full overflow-hidden border border-gray-200">
                   {["#fef9c3", "#fde68a", "#fbbf24", "#f59e0b", "#d97706"].map((color) => (
-                    <div key={color} className="w-5 h-3" style={{ backgroundColor: color }} />
+                    <div key={color} className="w-6 h-3" style={{ backgroundColor: color }} />
                   ))}
                 </div>
                 <span className="text-xs text-gray-400">Más clientes</span>
@@ -327,7 +342,7 @@ export default function ResultadosView() {
                   opacity={0.3}
                 />
                 <GeoJSON
-                  key="cuba-municipios"
+                  key={`cuba-resultados-${municipioMap.size}`}
                   data={geoJsonData}
                   style={getFeatureStyle}
                   onEachFeature={onEachFeature}
