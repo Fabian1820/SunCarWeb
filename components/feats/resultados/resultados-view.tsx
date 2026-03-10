@@ -10,7 +10,8 @@ import { ResultadosService } from "@/lib/api-services"
 import type { DashboardEmpresaPrincipal, MunicipioInstalado } from "@/lib/types/feats/resultados/resultados-types"
 import "leaflet/dist/leaflet.css"
 
-function normalizeText(value: string): string {
+function normalizeText(value: string | undefined | null): string {
+  if (!value) return ""
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -81,7 +82,8 @@ export default function ResultadosView() {
     if (!data?.municipios_instalados) return new Map<string, MunicipioInstalado>()
     const map = new Map<string, MunicipioInstalado>()
     for (const m of data.municipios_instalados) {
-      map.set(normalizeText(m.municipio), m)
+      const key = normalizeText(m.municipio)
+      if (key) map.set(key, m)
     }
     return map
   }, [data])
