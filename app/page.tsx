@@ -31,7 +31,8 @@ import {
     MessageSquare,
     ShoppingBag,
     BarChart3,
-    Map
+    Map,
+    Trophy
 } from "lucide-react"
 import { useLayoutEffect, useRef, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
@@ -168,6 +169,14 @@ export default function Dashboard() {
             title: 'Radar Energético',
             description: 'Mapa táctico por municipio con calor de potencia instalada.',
             color: 'cyan-600',
+        },
+        {
+            id: 'resultados',
+            href: '/resultados',
+            icon: Trophy,
+            title: 'Resultados',
+            description: 'Indicadores principales y presencia nacional.',
+            color: 'amber-600',
         },
         {
             id: 'facturas',
