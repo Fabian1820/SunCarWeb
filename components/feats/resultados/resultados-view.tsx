@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState, useCallback } from "react"
 import type { Feature, GeoJsonObject } from "geojson"
 import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet"
 import { GeoJSON, MapContainer, TileLayer } from "react-leaflet"
-import { Users, Sun, Cpu, Battery, ArrowLeft, Loader2, Trophy } from "lucide-react"
-import Link from "next/link"
+import { Users, Sun, Cpu, Battery, Loader2 } from "lucide-react"
 import { ResultadosService } from "@/lib/api-services"
 import type { DashboardEmpresaPrincipal, MunicipioInstalado } from "@/lib/types/feats/resultados/resultados-types"
+import { ModuleHeader } from "@/components/shared/organism/module-header"
 import "leaflet/dist/leaflet.css"
 
 function normalizeText(value: string | undefined | null): string {
@@ -103,31 +103,32 @@ export default function ResultadosView() {
     const muni = municipioMap.get(key)
 
     if (!muni || !muni.cantidad_clientes) {
+      // Municipios sin instalaciones: gris suave pero visible
       return {
-        color: "#d4d4d8",
-        weight: 0.5,
-        fillColor: "#f4f4f5",
-        fillOpacity: 0.4,
+        color: "#a1a1aa",
+        weight: 0.6,
+        fillColor: "#e4e4e7",
+        fillOpacity: 0.7,
       }
     }
 
-    // Gradient from light yellow to warm amber/gold
+    // Gradiente amarillo cálido según cantidad de clientes
     const ratio = Math.min(muni.cantidad_clientes / maxClientes, 1)
     const fillColor = ratio < 0.15
-      ? "#fef9c3"
+      ? "#fef08a" // yellow-200
       : ratio < 0.3
-      ? "#fde68a"
+      ? "#fde047" // yellow-300
       : ratio < 0.5
-      ? "#fbbf24"
+      ? "#facc15" // yellow-400
       : ratio < 0.75
-      ? "#f59e0b"
-      : "#d97706"
+      ? "#f59e0b" // amber-500
+      : "#d97706" // amber-600
 
     return {
       color: "#92400e",
-      weight: 1.2,
+      weight: 1.5,
       fillColor,
-      fillOpacity: 0.85,
+      fillOpacity: 0.9,
     }
   }, [municipioMap, maxClientes])
 
@@ -153,7 +154,7 @@ export default function ResultadosView() {
           event.target.setStyle({
             weight: 3,
             color: "#78350f",
-            fillOpacity: 0.95,
+            fillOpacity: 1,
           })
           event.target.bringToFront()
           const e = event.originalEvent as MouseEvent
@@ -246,38 +247,13 @@ export default function ResultadosView() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header - mismo estilo que el resto de la app */}
-      <header className="bg-white/90 backdrop-blur border-b border-orange-100 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14 sm:h-16">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors group"
-              >
-                <ArrowLeft className="h-4 w-4 group-hover:-translate-x-0.5 transition-transform" />
-                <span className="text-sm font-medium hidden sm:inline">Inicio</span>
-              </Link>
-              <div className="h-5 w-px bg-gray-200" />
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-amber-50">
-                  <Trophy className="h-5 w-5 text-amber-600" />
-                </div>
-                <div>
-                  <h1 className="text-base sm:text-lg font-bold text-gray-900">
-                    Resultados
-                  </h1>
-                  <p className="text-[11px] text-gray-500 hidden sm:block">
-                    Indicadores principales de la empresa
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Header con logo - mismo estilo que el resto de la app */}
+      <ModuleHeader
+        title="Resultados"
+        subtitle="Indicadores principales de la empresa"
+      />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Dashboard Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 mb-8">
           {dashboardCards.map((card) => (
@@ -285,7 +261,6 @@ export default function ResultadosView() {
               key={card.title}
               className="relative overflow-hidden rounded-2xl bg-white shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
             >
-              {/* Accent top bar */}
               <div className={`h-1.5 ${card.accentColor}`} />
               <div className="p-5 sm:p-6">
                 <div className="flex items-center gap-3 mb-4">
@@ -317,7 +292,7 @@ export default function ResultadosView() {
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400">Menos</span>
                 <div className="flex h-3 rounded-full overflow-hidden border border-gray-200">
-                  {["#fef9c3", "#fde68a", "#fbbf24", "#f59e0b", "#d97706"].map((color) => (
+                  {["#fef08a", "#fde047", "#facc15", "#f59e0b", "#d97706"].map((color) => (
                     <div key={color} className="w-6 h-3" style={{ backgroundColor: color }} />
                   ))}
                 </div>
@@ -333,13 +308,13 @@ export default function ResultadosView() {
                 zoom={7}
                 minZoom={6}
                 maxZoom={10}
-                style={{ height: "100%", width: "100%", background: "#fafaf9" }}
+                style={{ height: "100%", width: "100%", background: "#f5f5f4" }}
                 zoomControl={true}
                 attributionControl={false}
               >
                 <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-                  opacity={0.3}
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  opacity={0.5}
                 />
                 <GeoJSON
                   key={`cuba-resultados-${municipioMap.size}`}
