@@ -35,6 +35,12 @@ export function useFichasCosto(): UseFichasCostoReturn {
       setLoadingAction(true)
       setError(null)
       const ficha = await FichaCostoService.crearFicha(data)
+      // Validar que la respuesta sea una ficha válida
+      if (!ficha || typeof (ficha as any).precio_venta_calculado !== 'number') {
+        const errMsg = (ficha as any)?.detail || (ficha as any)?.message || 'Error al crear ficha de costo'
+        setError(errMsg)
+        return null
+      }
       setFichaActiva(ficha)
       return ficha
     } catch (err) {
@@ -51,7 +57,11 @@ export function useFichasCosto(): UseFichasCostoReturn {
       setLoading(true)
       setError(null)
       const ficha = await FichaCostoService.obtenerFichaActiva(materialId)
-      setFichaActiva(ficha)
+      // Validar que sea una ficha real (el apiRequest puede devolver { detail: "..." } para 404)
+      const esValida = ficha &&
+        typeof (ficha as any).costo_unitario === 'number' &&
+        typeof (ficha as any).precio_venta_calculado === 'number'
+      setFichaActiva(esValida ? ficha : null)
     } catch (err) {
       // 404 es normal si no hay ficha activa
       setFichaActiva(null)
@@ -79,6 +89,12 @@ export function useFichasCosto(): UseFichasCostoReturn {
       setLoadingAction(true)
       setError(null)
       const result = await FichaCostoService.compararPrecio(materialId)
+      // Validar que sea una comparación real
+      if (!result || typeof (result as any).precio_calculado_ficha !== 'number') {
+        const errMsg = (result as any)?.detail || (result as any)?.message || 'Error al comparar precio'
+        setError(errMsg)
+        return null
+      }
       setComparacion(result)
       return result
     } catch (err) {

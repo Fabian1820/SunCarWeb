@@ -81,5 +81,11 @@ export interface MaterialCatalogoWeb {
   precio?: number
   categoria?: string
   potenciaKW?: number
+  foto?: string
+  imagen?: string
+  imagen_url?: string
+  foto_url?: string
+  fotos?: string[]
+  unidad?: string
   [key: string]: any
 }
