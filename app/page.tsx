@@ -296,7 +296,7 @@ export default function Dashboard() {
     ),
   ];
 
-  const availableModuleMap = new Map(
+  const availableModuleMap = new globalThis.Map(
     availableModules.map((module) => [module.id, module]),
   );
 
