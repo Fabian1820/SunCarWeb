@@ -5,54 +5,95 @@ import {
   CalendarDays,
   Copy,
   FileText,
+  ImagePlus,
+  Package,
   Pencil,
   Plus,
-  Printer,
   Save,
-  Search,
   Trash2,
+  User,
 } from "lucide-react";
+import Image from "next/image";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
-import { Textarea } from "@/components/shared/molecule/textarea";
+import { Badge } from "@/components/shared/atom/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
+import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
+import { useBrigadasTrabajadores } from "@/hooks/use-brigadas-trabajadores";
+import {
+  useOfertasConfeccion,
+  type OfertaConfeccion,
+} from "@/hooks/use-ofertas-confeccion";
+import { useMaterials } from "@/hooks/use-materials";
+import { useMarcas } from "@/hooks/use-marcas";
+import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import type { Cliente, Trabajador } from "@/lib/api-types";
+import type { Brigada } from "@/lib/types/feats/brigade/brigade-types";
+import type { Material } from "@/lib/material-types";
 
 type MaterialRow = {
   id: string;
+  materialCodigo: string;
   nombre: string;
+  categoria: string;
+  potenciaKw: number | null;
+  marca: string;
+  foto: string;
   unidad: string;
-  entregado: string;
-  gastado: string;
+  cantidadOferta: string;
+  originalCantidadOferta: string;
+  origen: "oferta" | "manual";
+  editado: boolean;
 };
 
 type WorkOrder = {
   id: string;
   codigo: string;
   fecha: string;
+  clienteId: string;
+  clienteNumero: string;
   celular: string;
   cliente: string;
   direccion: string;
-  otorgadoA: string;
-  aEjecutar: string;
-  pgd: string;
-  esquemaGeneral: string;
-  comunicacion: string;
+  ci: string;
+  provincia: string;
+  otorgadoA: string; // CI trabajador
+  aEjecutar: string; // ID brigada
+  pgdFotos: string[];
+  esquemaGeneralFotos: string[];
+  comunicacionFotos: string[];
   materiales: MaterialRow[];
+  ofertaIdConfirmada: string;
+  ofertaNumero: string;
   createdAt: string;
   updatedAt: string;
 };
 
 const STORAGE_KEY = "operaciones_ordenes_trabajo_v1";
-const EMPTY_TABLE_ROWS = 10;
 
 const nowIso = () => new Date().toISOString();
 
 const createId = () => {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
     return crypto.randomUUID();
   }
   return `ot-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -70,52 +111,196 @@ const buildDefaultCode = () => {
   return `OT-${yy}${mm}${dd}-${hh}${min}`;
 };
 
-const createMaterialRow = (): MaterialRow => ({
-  id: createId(),
-  nombre: "",
-  unidad: "",
-  entregado: "",
-  gastado: "",
-});
+const normalizeClienteNumero = (value: string | null | undefined) =>
+  (value ?? "")
+    .toString()
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const normalizeMaterialCode = (value: string | number | null | undefined) =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase();
+
+const parseQuantity = (value: string | number | null | undefined) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const sanitizeQuantityInput = (value: string) => {
+  const clean = value.trim();
+  if (!clean) return "0";
+  const parsed = Number(clean);
+  if (!Number.isFinite(parsed) || parsed < 0) return "0";
+  return String(parsed);
+};
+
+const readPhotoArray = (raw: unknown): string[] => {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => String(item || "").trim())
+      .filter(
+        (item) => item.startsWith("data:image/") || item.startsWith("http"),
+      );
+  }
+
+  if (typeof raw === "string") {
+    const value = raw.trim();
+    if (value.startsWith("data:image/") || value.startsWith("http")) {
+      return [value];
+    }
+  }
+
+  return [];
+};
+
+const createMaterialRowFromMaterial = (
+  material: Material,
+  marcaNombre: string,
+  cantidad: number,
+  origen: "oferta" | "manual",
+): MaterialRow => {
+  const cantidadTexto = String(Number.isFinite(cantidad) ? cantidad : 0);
+  return {
+    id: createId(),
+    materialCodigo: normalizeMaterialCode(material.codigo),
+    nombre:
+      material.nombre || material.descripcion || `Material ${material.codigo}`,
+    categoria: material.categoria || "-",
+    potenciaKw: material.potenciaKW ?? null,
+    marca: marcaNombre || "-",
+    foto: material.foto || "",
+    unidad: material.um || "u",
+    cantidadOferta: cantidadTexto,
+    originalCantidadOferta: origen === "oferta" ? cantidadTexto : "0",
+    origen,
+    editado: origen === "manual",
+  };
+};
+
+const createMaterialRowFromOfertaItem = (
+  item: NonNullable<OfertaConfeccion["items"]>[number],
+  material: Material | undefined,
+  marcaNombre: string,
+): MaterialRow => {
+  const cantidadOferta = String(Number(item.cantidad || 0));
+  return {
+    id: createId(),
+    materialCodigo: normalizeMaterialCode(item.material_codigo),
+    nombre:
+      item.descripcion ||
+      material?.nombre ||
+      material?.descripcion ||
+      `Material ${item.material_codigo || ""}`,
+    categoria: item.categoria || material?.categoria || "-",
+    potenciaKw: material?.potenciaKW ?? null,
+    marca: marcaNombre || "-",
+    foto: material?.foto || "",
+    unidad: material?.um || "u",
+    cantidadOferta,
+    originalCantidadOferta: cantidadOferta,
+    origen: "oferta",
+    editado: false,
+  };
+};
 
 const normalizeMaterial = (raw: unknown): MaterialRow | null => {
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
+
+  const cantidadLegacy =
+    record.cantidadOferta ??
+    record.cantidad_oferta ??
+    record.entregado ??
+    record.gastado ??
+    0;
+  const cantidadTexto = sanitizeQuantityInput(String(cantidadLegacy));
+
+  const origenRaw = String(record.origen || "").toLowerCase();
+  const origen: "oferta" | "manual" =
+    origenRaw === "oferta" ? "oferta" : "manual";
+
+  const originalRaw =
+    record.originalCantidadOferta ??
+    record.original_cantidad_oferta ??
+    cantidadTexto;
+  const originalTexto = sanitizeQuantityInput(String(originalRaw));
+
+  const editadoRaw = record.editado;
+  const editadoCalculated =
+    parseQuantity(cantidadTexto) !== parseQuantity(originalTexto);
+
   return {
     id: String(record.id || createId()),
-    nombre: String(record.nombre || ""),
-    unidad: String(record.unidad || ""),
-    entregado: String(record.entregado || ""),
-    gastado: String(record.gastado || ""),
+    materialCodigo: normalizeMaterialCode(
+      String(
+        record.materialCodigo ?? record.material_codigo ?? record.codigo ?? "",
+      ),
+    ),
+    nombre: String(record.nombre ?? record.descripcion ?? ""),
+    categoria: String(record.categoria ?? "-"),
+    potenciaKw: Number.isFinite(Number(record.potenciaKw ?? record.potenciaKW))
+      ? Number(record.potenciaKw ?? record.potenciaKW)
+      : null,
+    marca: String(record.marca ?? "-"),
+    foto: String(record.foto ?? ""),
+    unidad: String(record.unidad ?? record.um ?? "u"),
+    cantidadOferta: cantidadTexto,
+    originalCantidadOferta: originalTexto,
+    origen,
+    editado:
+      typeof editadoRaw === "boolean"
+        ? editadoRaw
+        : origen === "manual" || editadoCalculated,
   };
 };
 
 const cloneOrder = (order: WorkOrder): WorkOrder => ({
   ...order,
+  pgdFotos: [...order.pgdFotos],
+  esquemaGeneralFotos: [...order.esquemaGeneralFotos],
+  comunicacionFotos: [...order.comunicacionFotos],
   materiales: order.materiales.map((item) => ({ ...item })),
 });
 
 const normalizeOrder = (raw: unknown): WorkOrder | null => {
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
-  const materialesRaw = Array.isArray(record.materiales) ? record.materiales : [];
+  const materialesRaw = Array.isArray(record.materiales)
+    ? record.materiales
+    : [];
   const materiales = materialesRaw
     .map(normalizeMaterial)
     .filter((item): item is MaterialRow => item !== null);
 
+  const pgdFotos = readPhotoArray(record.pgdFotos ?? record.pgd);
+  const esquemaFotos = readPhotoArray(
+    record.esquemaGeneralFotos ?? record.esquemaGeneral,
+  );
+  const comunicacionFotos = readPhotoArray(
+    record.comunicacionFotos ?? record.comunicacion,
+  );
+
   return {
     id: String(record.id || createId()),
-    codigo: String(record.codigo || ""),
+    codigo: String(record.codigo || buildDefaultCode()),
     fecha: String(record.fecha || new Date().toISOString().slice(0, 10)),
+    clienteId: String(record.clienteId || ""),
+    clienteNumero: String(record.clienteNumero || ""),
     celular: String(record.celular || ""),
     cliente: String(record.cliente || ""),
     direccion: String(record.direccion || ""),
+    ci: String(record.ci || ""),
+    provincia: String(record.provincia || ""),
     otorgadoA: String(record.otorgadoA || ""),
     aEjecutar: String(record.aEjecutar || ""),
-    pgd: String(record.pgd || ""),
-    esquemaGeneral: String(record.esquemaGeneral || ""),
-    comunicacion: String(record.comunicacion || ""),
-    materiales: materiales.length > 0 ? materiales : [createMaterialRow()],
+    pgdFotos,
+    esquemaGeneralFotos: esquemaFotos,
+    comunicacionFotos,
+    materiales,
+    ofertaIdConfirmada: String(record.ofertaIdConfirmada || ""),
+    ofertaNumero: String(record.ofertaNumero || ""),
     createdAt: String(record.createdAt || nowIso()),
     updatedAt: String(record.updatedAt || nowIso()),
   };
@@ -127,15 +312,21 @@ const createEmptyOrder = (): WorkOrder => {
     id: createId(),
     codigo: buildDefaultCode(),
     fecha: new Date().toISOString().slice(0, 10),
+    clienteId: "",
+    clienteNumero: "",
     celular: "",
     cliente: "",
     direccion: "",
+    ci: "",
+    provincia: "",
     otorgadoA: "",
     aEjecutar: "",
-    pgd: "",
-    esquemaGeneral: "",
-    comunicacion: "",
-    materiales: [createMaterialRow(), createMaterialRow(), createMaterialRow()],
+    pgdFotos: [],
+    esquemaGeneralFotos: [],
+    comunicacionFotos: [],
+    materiales: [],
+    ofertaIdConfirmada: "",
+    ofertaNumero: "",
     createdAt: now,
     updatedAt: now,
   };
@@ -156,123 +347,95 @@ const readOrdersFromStorage = (): WorkOrder[] => {
   }
 };
 
-function WorkOrderTemplate({ order }: { order: WorkOrder }) {
-  const materialRows = useMemo(() => {
-    if (order.materiales.length >= EMPTY_TABLE_ROWS) return order.materiales;
-    const missing = EMPTY_TABLE_ROWS - order.materiales.length;
-    const emptyRows = Array.from({ length: missing }, () => ({
-      id: createId(),
-      nombre: "",
-      unidad: "",
-      entregado: "",
-      gastado: "",
-    }));
-    return [...order.materiales, ...emptyRows];
-  }, [order.materiales]);
+const fileToDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen."));
+    reader.readAsDataURL(file);
+  });
 
-  return (
-    <div className="bg-white border-2 border-black text-black w-full">
-      <div className="grid grid-cols-12 border-b-2 border-black">
-        <div className="col-span-2 border-r-2 border-black min-h-24" />
-        <div className="col-span-7 border-r-2 border-black flex items-center justify-center px-4 py-3">
-          <div className="text-center leading-tight">
-            <p className="text-lg sm:text-2xl font-bold">SUNCAR INSTALADORA</p>
-            <p className="text-lg sm:text-2xl font-bold">ORDEN DE TRABAJO</p>
-          </div>
-        </div>
-        <div className="col-span-3 text-xs sm:text-sm">
-          <div className="grid grid-cols-[42%_58%] border-b border-black">
-            <div className="font-bold border-r border-black p-1 sm:p-2">Fecha:</div>
-            <div className="p-1 sm:p-2">{order.fecha || "-"}</div>
-          </div>
-          <div className="grid grid-cols-[42%_58%] border-b border-black">
-            <div className="font-bold border-r border-black p-1 sm:p-2">Código:</div>
-            <div className="p-1 sm:p-2">{order.codigo || "-"}</div>
-          </div>
-          <div className="grid grid-cols-[42%_58%]">
-            <div className="font-bold border-r border-black p-1 sm:p-2">Celular:</div>
-            <div className="p-1 sm:p-2">{order.celular || "-"}</div>
-          </div>
-        </div>
-      </div>
+const getBrigadaId = (brigada: Brigada) =>
+  String(brigada.id || brigada._id || brigada.lider?.CI || "").trim();
 
-      <div className="grid grid-cols-[150px_1fr] border-b border-black text-xs sm:text-sm">
-        <div className="font-bold border-r border-black p-1 sm:p-2">Cliente:</div>
-        <div className="p-1 sm:p-2">{order.cliente || "-"}</div>
-      </div>
-      <div className="grid grid-cols-[150px_1fr] border-b border-black text-xs sm:text-sm">
-        <div className="font-bold border-r border-black p-1 sm:p-2">Dirección:</div>
-        <div className="p-1 sm:p-2">{order.direccion || "-"}</div>
-      </div>
+const getBrigadaLabel = (brigada: Brigada) => {
+  const liderNombre = brigada.lider?.nombre || "Sin líder";
+  const integrantes = Array.isArray(brigada.integrantes)
+    ? brigada.integrantes.length
+    : 0;
+  return `${liderNombre} (${integrantes} integrante${integrantes === 1 ? "" : "s"})`;
+};
 
-      <div className="border-b border-black text-center font-bold text-sm sm:text-2xl py-1 sm:py-2">
-        Trabajo
-      </div>
-      <div className="grid grid-cols-[150px_1fr] border-b border-black text-xs sm:text-sm">
-        <div className="font-bold border-r border-black p-1 sm:p-2">Otorgado a:</div>
-        <div className="p-1 sm:p-2">{order.otorgadoA || "-"}</div>
-      </div>
-      <div className="grid grid-cols-[150px_1fr] border-b border-black min-h-[100px] text-xs sm:text-sm">
-        <div className="font-bold border-r border-black p-1 sm:p-2 flex items-center">A ejecutar:</div>
-        <div className="p-1 sm:p-2 whitespace-pre-wrap">{order.aEjecutar || "-"}</div>
-      </div>
-
-      <div className="grid grid-cols-3 border-b border-black">
-        <div className="border-r border-black">
-          <div className="text-center font-bold border-b border-black p-1 sm:p-2 text-sm sm:text-xl">PGD</div>
-          <div className="min-h-[120px] p-1 sm:p-2 whitespace-pre-wrap text-xs sm:text-sm">{order.pgd || " "}</div>
-        </div>
-        <div className="border-r border-black">
-          <div className="text-center font-bold border-b border-black p-1 sm:p-2 text-sm sm:text-xl">
-            Esquema General
-          </div>
-          <div className="min-h-[120px] p-1 sm:p-2 whitespace-pre-wrap text-xs sm:text-sm">
-            {order.esquemaGeneral || " "}
-          </div>
-        </div>
-        <div>
-          <div className="text-center font-bold border-b border-black p-1 sm:p-2 text-sm sm:text-xl">
-            Comunicación
-          </div>
-          <div className="min-h-[120px] p-1 sm:p-2 whitespace-pre-wrap text-xs sm:text-sm">
-            {order.comunicacion || " "}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-b border-black text-center font-bold text-sm sm:text-2xl py-1 sm:py-2">
-        Equipos y Materiales
-      </div>
-      <table className="w-full border-collapse table-fixed text-xs sm:text-sm">
-        <thead>
-          <tr>
-            <th className="border-r border-black border-b p-1 sm:p-2 w-[65%]">Nombre</th>
-            <th className="border-r border-black border-b p-1 sm:p-2 w-[8%]">U/M</th>
-            <th className="border-r border-black border-b p-1 sm:p-2 w-[13%]">Entregado</th>
-            <th className="border-b border-black p-1 sm:p-2 w-[14%]">Gastado</th>
-          </tr>
-        </thead>
-        <tbody>
-          {materialRows.map((row, index) => (
-            <tr key={`${row.id}-${index}`}>
-              <td className="border-r border-black border-b p-1 sm:p-2 min-h-7">{row.nombre || " "}</td>
-              <td className="border-r border-black border-b p-1 sm:p-2 text-center">{row.unidad || " "}</td>
-              <td className="border-r border-black border-b p-1 sm:p-2 text-center">{row.entregado || " "}</td>
-              <td className="border-b border-black p-1 sm:p-2 text-center">{row.gastado || " "}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+const getTrabajadorId = (trabajador: Trabajador) =>
+  String(trabajador.CI || trabajador.id || "").trim();
 
 export function OrdenesTrabajoOperacionesModule() {
   const { toast } = useToast();
   const [ready, setReady] = useState(false);
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [draft, setDraft] = useState<WorkOrder>(createEmptyOrder);
+  const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [clientesLoading, setClientesLoading] = useState(false);
+  const [loadingOfertaCliente, setLoadingOfertaCliente] = useState(false);
+  const [ofertaStatus, setOfertaStatus] = useState<string>("");
+  const [newMaterialCode, setNewMaterialCode] = useState("");
+  const [newMaterialCantidad, setNewMaterialCantidad] = useState("1");
+
+  const {
+    trabajadores,
+    brigadas,
+    loading: loadingAsignaciones,
+  } = useBrigadasTrabajadores();
+  const { obtenerOfertaPorCliente } = useOfertasConfeccion();
+  const { materials } = useMaterials();
+  const { marcasSimplificadas } = useMarcas();
+
+  const materialsByCode = useMemo(() => {
+    const map = new Map<string, Material>();
+    materials.forEach((material) => {
+      map.set(normalizeMaterialCode(material.codigo), material);
+    });
+    return map;
+  }, [materials]);
+
+  const marcasById = useMemo(() => {
+    const map = new Map<string, string>();
+    marcasSimplificadas.forEach((marca) => {
+      if (marca.id) {
+        map.set(marca.id, marca.nombre);
+      }
+    });
+    return map;
+  }, [marcasSimplificadas]);
+
+  const trabajadoresById = useMemo(() => {
+    const map = new Map<string, Trabajador>();
+    trabajadores.forEach((trabajador) => {
+      const id = getTrabajadorId(trabajador);
+      if (id) map.set(id, trabajador);
+    });
+    return map;
+  }, [trabajadores]);
+
+  const brigadasById = useMemo(() => {
+    const map = new Map<string, Brigada>();
+    brigadas.forEach((brigada) => {
+      const id = getBrigadaId(brigada);
+      if (id) map.set(id, brigada);
+    });
+    return map;
+  }, [brigadas]);
+
+  const selectedCliente = useMemo(
+    () =>
+      clientes.find(
+        (cliente) =>
+          cliente.id === draft.clienteId || cliente.numero === draft.clienteId,
+      ) || null,
+    [clientes, draft.clienteId],
+  );
 
   useEffect(() => {
     const storedOrders = readOrdersFromStorage();
@@ -285,22 +448,73 @@ export function OrdenesTrabajoOperacionesModule() {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
   }, [orders, ready]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadClientes = async () => {
+      setClientesLoading(true);
+      try {
+        const response = await ClienteService.getClientes({});
+        if (!cancelled) {
+          setClientes(response.clients || []);
+        }
+      } catch {
+        if (!cancelled) {
+          setClientes([]);
+          toast({
+            title: "Error cargando clientes",
+            description: "No se pudieron cargar los clientes para el selector.",
+            variant: "destructive",
+          });
+        }
+      } finally {
+        if (!cancelled) {
+          setClientesLoading(false);
+        }
+      }
+    };
+
+    loadClientes();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [toast]);
+
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return orders;
     return orders.filter((order) => {
-      const searchable = [order.codigo, order.cliente, order.direccion, order.otorgadoA, order.celular]
+      const trabajador = workersLabel(order.otorgadoA, trabajadoresById);
+      const brigada = brigadaLabel(order.aEjecutar, brigadasById);
+      const searchable = [
+        order.codigo,
+        order.cliente,
+        order.clienteNumero,
+        order.direccion,
+        trabajador,
+        brigada,
+      ]
         .join(" ")
         .toLowerCase();
       return searchable.includes(q);
     });
-  }, [orders, searchTerm]);
+  }, [orders, searchTerm, trabajadoresById, brigadasById]);
 
-  const isEditing = useMemo(() => {
-    return orders.some((order) => order.id === draft.id);
-  }, [orders, draft.id]);
+  const isEditing = useMemo(
+    () => orders.some((order) => order.id === draft.id),
+    [orders, draft.id],
+  );
 
-  const updateDraft = <K extends keyof WorkOrder>(field: K, value: WorkOrder[K]) => {
+  const editedMaterialsCount = useMemo(
+    () => draft.materiales.filter((material) => material.editado).length,
+    [draft.materiales],
+  );
+
+  const updateDraft = <K extends keyof WorkOrder>(
+    field: K,
+    value: WorkOrder[K],
+  ) => {
     setDraft((prev) => ({
       ...prev,
       [field]: value,
@@ -308,30 +522,388 @@ export function OrdenesTrabajoOperacionesModule() {
     }));
   };
 
-  const updateMaterial = (materialId: string, field: keyof Omit<MaterialRow, "id">, value: string) => {
+  const mapOfferItemsToRows = (
+    oferta: OfertaConfeccion,
+    materialMap: Map<string, Material>,
+    marcasMap: Map<string, string>,
+  ) => {
+    const items = Array.isArray(oferta.items) ? oferta.items : [];
+    return items.map((item) => {
+      const codigo = normalizeMaterialCode(item.material_codigo);
+      const material = materialMap.get(codigo);
+      const marcaNombre = material?.marca_id
+        ? (marcasMap.get(material.marca_id) ?? material.marca_id)
+        : "-";
+      return createMaterialRowFromOfertaItem(item, material, marcaNombre);
+    });
+  };
+
+  const findConfirmedOffer = (
+    ofertas: OfertaConfeccion[],
+    clienteNumero: string,
+  ) => {
+    const numeroNormalizado = normalizeClienteNumero(clienteNumero);
+
+    const candidatas = ofertas.filter((oferta) => {
+      const numeroOferta = normalizeClienteNumero(oferta.cliente_numero || "");
+      const estado = String(oferta.estado || "").toLowerCase();
+      const coincideCliente =
+        numeroOferta === numeroNormalizado || !numeroOferta;
+      const esConfirmada = estado.includes("confirmada");
+      return coincideCliente && esConfirmada;
+    });
+
+    if (candidatas.length === 0) return null;
+
+    const sorted = [...candidatas].sort((a, b) => {
+      const aDate =
+        Date.parse(a.fecha_actualizacion || a.fecha_creacion || "") || 0;
+      const bDate =
+        Date.parse(b.fecha_actualizacion || b.fecha_creacion || "") || 0;
+      return bDate - aDate;
+    });
+
+    return sorted[0] || null;
+  };
+
+  const loadOfferForClient = async (cliente: Cliente) => {
+    const numeroCliente = String(cliente.numero || "").trim();
+    const numeroNormalizado = normalizeClienteNumero(numeroCliente);
+
+    if (!numeroNormalizado) {
+      setOfertaStatus("Selecciona un cliente válido con código.");
+      updateDraft("materiales", []);
+      updateDraft("ofertaIdConfirmada", "");
+      updateDraft("ofertaNumero", "");
+      return;
+    }
+
+    setLoadingOfertaCliente(true);
+    setOfertaStatus("Buscando oferta confirmada por cliente...");
+
+    try {
+      const result = await obtenerOfertaPorCliente(numeroCliente);
+      const ofertas = Array.isArray(result.ofertas) ? result.ofertas : [];
+      const ofertaConfirmada = findConfirmedOffer(ofertas, numeroCliente);
+
+      setDraft((prev) => {
+        if (normalizeClienteNumero(prev.clienteNumero) !== numeroNormalizado) {
+          return prev;
+        }
+
+        if (!ofertaConfirmada) {
+          return {
+            ...prev,
+            ofertaIdConfirmada: "",
+            ofertaNumero: "",
+            materiales: [],
+            updatedAt: nowIso(),
+          };
+        }
+
+        const materiales = mapOfferItemsToRows(
+          ofertaConfirmada,
+          materialsByCode,
+          marcasById,
+        );
+
+        return {
+          ...prev,
+          ofertaIdConfirmada: String(ofertaConfirmada.id || ""),
+          ofertaNumero: String(ofertaConfirmada.numero_oferta || ""),
+          materiales,
+          updatedAt: nowIso(),
+        };
+      });
+
+      if (!ofertaConfirmada) {
+        setOfertaStatus("El cliente no tiene oferta confirmada por cliente.");
+      } else {
+        const materialesCount = Array.isArray(ofertaConfirmada.items)
+          ? ofertaConfirmada.items.length
+          : 0;
+        const numeroOferta = ofertaConfirmada.numero_oferta
+          ? ` #${ofertaConfirmada.numero_oferta}`
+          : "";
+        setOfertaStatus(
+          `Oferta confirmada${numeroOferta} cargada (${materialesCount} materiales).`,
+        );
+      }
+    } catch {
+      setOfertaStatus(
+        "No se pudieron cargar los materiales de la oferta confirmada.",
+      );
+      toast({
+        title: "Error cargando oferta",
+        description: "No se pudo consultar la oferta confirmada del cliente.",
+        variant: "destructive",
+      });
+      setDraft((prev) => {
+        if (normalizeClienteNumero(prev.clienteNumero) !== numeroNormalizado)
+          return prev;
+        return {
+          ...prev,
+          ofertaIdConfirmada: "",
+          ofertaNumero: "",
+          materiales: [],
+          updatedAt: nowIso(),
+        };
+      });
+    } finally {
+      setLoadingOfertaCliente(false);
+    }
+  };
+
+  const handleClienteChange = (clienteId: string) => {
+    const cliente =
+      clientes.find(
+        (item) => item.id === clienteId || item.numero === clienteId,
+      ) || null;
+
+    if (!cliente) {
+      setOfertaStatus("");
+      setDraft((prev) => ({
+        ...prev,
+        clienteId: "",
+        clienteNumero: "",
+        cliente: "",
+        celular: "",
+        direccion: "",
+        ci: "",
+        provincia: "",
+        ofertaIdConfirmada: "",
+        ofertaNumero: "",
+        materiales: [],
+        updatedAt: nowIso(),
+      }));
+      return;
+    }
+
+    setDraft((prev) => ({
+      ...prev,
+      clienteId,
+      clienteNumero: cliente.numero || "",
+      cliente: cliente.nombre || "",
+      celular: cliente.telefono || "",
+      direccion: cliente.direccion || "",
+      ci: cliente.carnet_identidad || "",
+      provincia: cliente.provincia_montaje || "",
+      ofertaIdConfirmada: "",
+      ofertaNumero: "",
+      materiales: [],
+      updatedAt: nowIso(),
+    }));
+
+    void loadOfferForClient(cliente);
+  };
+
+  const updateMaterialCantidad = (materialId: string, value: string) => {
     setDraft((prev) => ({
       ...prev,
       updatedAt: nowIso(),
-      materiales: prev.materiales.map((item) =>
-        item.id === materialId
-          ? {
+      materiales: prev.materiales.map((item) => {
+        if (item.id !== materialId) return item;
+        const cantidadOferta = sanitizeQuantityInput(value);
+        const changed =
+          parseQuantity(cantidadOferta) !==
+          parseQuantity(item.originalCantidadOferta);
+        return {
+          ...item,
+          cantidadOferta,
+          editado: item.origen === "manual" || changed,
+        };
+      }),
+    }));
+  };
+
+  const restoreOfferMaterial = (materialId: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      updatedAt: nowIso(),
+      materiales: prev.materiales.map((item) => {
+        if (item.id !== materialId || item.origen !== "oferta") return item;
+        return {
+          ...item,
+          cantidadOferta: item.originalCantidadOferta,
+          editado: false,
+        };
+      }),
+    }));
+  };
+
+  const addManualMaterial = () => {
+    const code = normalizeMaterialCode(newMaterialCode);
+    if (!code) {
+      toast({
+        title: "Material requerido",
+        description: "Selecciona un material para agregar.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const material = materialsByCode.get(code);
+    if (!material) {
+      toast({
+        title: "Material no encontrado",
+        description: "No se encontró el material seleccionado en catálogo.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const cantidad = Number(newMaterialCantidad);
+    if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      toast({
+        title: "Cantidad inválida",
+        description: "La cantidad debe ser mayor que 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const marcaNombre = material.marca_id
+      ? (marcasById.get(material.marca_id) ?? material.marca_id)
+      : "-";
+
+    setDraft((prev) => {
+      const existing = prev.materiales.find(
+        (item) => normalizeMaterialCode(item.materialCodigo) === code,
+      );
+
+      if (existing) {
+        return {
+          ...prev,
+          updatedAt: nowIso(),
+          materiales: prev.materiales.map((item) => {
+            if (item.id !== existing.id) return item;
+            const nuevaCantidad = parseQuantity(item.cantidadOferta) + cantidad;
+            const cantidadOferta = String(nuevaCantidad);
+            const changed =
+              parseQuantity(cantidadOferta) !==
+              parseQuantity(item.originalCantidadOferta);
+            return {
               ...item,
-              [field]: value,
-            }
-          : item,
-      ),
+              cantidadOferta,
+              editado: item.origen === "manual" || changed,
+            };
+          }),
+        };
+      }
+
+      return {
+        ...prev,
+        updatedAt: nowIso(),
+        materiales: [
+          ...prev.materiales,
+          createMaterialRowFromMaterial(
+            material,
+            marcaNombre,
+            cantidad,
+            "manual",
+          ),
+        ],
+      };
+    });
+
+    setNewMaterialCode("");
+    setNewMaterialCantidad("1");
+  };
+
+  const removeManualMaterial = (materialId: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      updatedAt: nowIso(),
+      materiales: prev.materiales.filter((item) => item.id !== materialId),
+    }));
+  };
+
+  const addPhotos = async (
+    field: "pgdFotos" | "esquemaGeneralFotos" | "comunicacionFotos",
+    files: FileList | null,
+  ) => {
+    if (!files || files.length === 0) return;
+
+    const images = Array.from(files).filter((file) =>
+      file.type.startsWith("image/"),
+    );
+    if (images.length === 0) {
+      toast({
+        title: "Solo imágenes",
+        description: "Debes seleccionar archivos de imagen.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const encoded = await Promise.all(
+        images.map((file) => fileToDataUrl(file)),
+      );
+      setDraft((prev) => ({
+        ...prev,
+        [field]: [...prev[field], ...encoded],
+        updatedAt: nowIso(),
+      }));
+    } catch {
+      toast({
+        title: "Error al procesar fotos",
+        description: "No se pudo leer una o varias imágenes seleccionadas.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removePhoto = (
+    field: "pgdFotos" | "esquemaGeneralFotos" | "comunicacionFotos",
+    index: number,
+  ) => {
+    setDraft((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((_, idx) => idx !== index),
+      updatedAt: nowIso(),
     }));
   };
 
   const startNewOrder = () => {
     setDraft(createEmptyOrder());
+    setOfertaStatus("");
+    setNewMaterialCode("");
+    setNewMaterialCantidad("1");
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setDraft(createEmptyOrder());
+    setOfertaStatus("");
+    setNewMaterialCode("");
+    setNewMaterialCantidad("1");
   };
 
   const handleSave = () => {
-    if (!draft.cliente.trim()) {
+    if (!draft.clienteId || !draft.cliente.trim()) {
       toast({
         title: "Falta el cliente",
-        description: "Debes indicar al menos el nombre del cliente para guardar la orden.",
+        description: "Debes seleccionar un cliente para guardar la orden.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!draft.otorgadoA) {
+      toast({
+        title: "Falta trabajador",
+        description: "Selecciona el trabajador en el campo Otorgado a.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!draft.aEjecutar) {
+      toast({
+        title: "Falta brigada",
+        description: "Selecciona la brigada en el campo A ejecutar por.",
         variant: "destructive",
       });
       return;
@@ -339,9 +911,18 @@ export function OrdenesTrabajoOperacionesModule() {
 
     const now = nowIso();
     const normalizedCode = draft.codigo.trim() || buildDefaultCode();
+
+    const cleanedMateriales = draft.materiales
+      .filter((item) => parseQuantity(item.cantidadOferta) > 0)
+      .map((item) => ({
+        ...item,
+        cantidadOferta: sanitizeQuantityInput(item.cantidadOferta),
+      }));
+
     const orderToSave: WorkOrder = {
       ...draft,
       codigo: normalizedCode,
+      materiales: cleanedMateriales,
       createdAt: isEditing ? draft.createdAt : now,
       updatedAt: now,
     };
@@ -356,7 +937,12 @@ export function OrdenesTrabajoOperacionesModule() {
       return [cloneOrder(orderToSave), ...prev];
     });
 
-    setDraft(orderToSave);
+    setShowForm(false);
+    setDraft(createEmptyOrder());
+    setOfertaStatus("");
+    setNewMaterialCode("");
+    setNewMaterialCantidad("1");
+
     toast({
       title: isEditing ? "Orden actualizada" : "Orden creada",
       description: `La orden ${normalizedCode} se guardó correctamente.`,
@@ -365,14 +951,19 @@ export function OrdenesTrabajoOperacionesModule() {
 
   const handleDelete = (order: WorkOrder) => {
     if (typeof window !== "undefined") {
-      const accepted = window.confirm(`¿Eliminar la orden ${order.codigo || order.id}?`);
+      const accepted = window.confirm(
+        `¿Eliminar la orden ${order.codigo || order.id}?`,
+      );
       if (!accepted) return;
     }
 
     setOrders((prev) => prev.filter((item) => item.id !== order.id));
     if (draft.id === order.id) {
       setDraft(createEmptyOrder());
+      setOfertaStatus("");
+      setShowForm(false);
     }
+
     toast({
       title: "Orden eliminada",
       description: "La orden de trabajo fue eliminada.",
@@ -381,11 +972,20 @@ export function OrdenesTrabajoOperacionesModule() {
 
   const loadOrder = (order: WorkOrder) => {
     setDraft(cloneOrder(order));
+    setShowForm(true);
+    setOfertaStatus(
+      order.ofertaNumero
+        ? `Orden cargada con oferta #${order.ofertaNumero}.`
+        : order.ofertaIdConfirmada
+          ? "Orden cargada con oferta confirmada vinculada."
+          : "Orden cargada.",
+    );
   };
 
   const duplicateOrder = (order: WorkOrder) => {
     const now = nowIso();
     const baseCode = order.codigo.trim() || buildDefaultCode();
+
     const duplicated: WorkOrder = {
       ...cloneOrder(order),
       id: createId(),
@@ -398,45 +998,35 @@ export function OrdenesTrabajoOperacionesModule() {
         id: createId(),
       })),
     };
+
     setDraft(duplicated);
+    setShowForm(true);
+    setOfertaStatus(
+      "Copia cargada en formulario. Guarda para crear nueva orden.",
+    );
+
     toast({
       title: "Orden duplicada",
-      description: "Se creó una copia en el formulario para guardarla como nueva orden.",
+      description:
+        "Se creó una copia en el formulario para guardarla como nueva orden.",
     });
-  };
-
-  const addMaterialRow = () => {
-    setDraft((prev) => ({
-      ...prev,
-      updatedAt: nowIso(),
-      materiales: [...prev.materiales, createMaterialRow()],
-    }));
-  };
-
-  const removeMaterialRow = (materialId: string) => {
-    setDraft((prev) => {
-      if (prev.materiales.length === 1) return prev;
-      return {
-        ...prev,
-        updatedAt: nowIso(),
-        materiales: prev.materiales.filter((item) => item.id !== materialId),
-      };
-    });
-  };
-
-  const printOrder = () => {
-    if (typeof window === "undefined") return;
-    window.print();
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 print:bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
         title="Órdenes de Trabajo"
-        subtitle="Nuevo módulo de operaciones para crear y gestionar órdenes de trabajo"
-        badge={{ text: "Operaciones", className: "bg-orange-100 text-orange-800" }}
+        subtitle={
+          showForm
+            ? "Formulario de operaciones vinculado a cliente, oferta confirmada y materiales"
+            : "Listado de órdenes creadas"
+        }
+        badge={{
+          text: "Operaciones",
+          className: "bg-orange-100 text-orange-800",
+        }}
         backButton={{ href: "/instalaciones", label: "Volver a Operaciones" }}
-        className="bg-white shadow-sm border-b border-orange-100 print:hidden"
+        className="bg-white shadow-sm border-b border-orange-100"
         actions={
           <>
             <Button
@@ -448,335 +1038,638 @@ export function OrdenesTrabajoOperacionesModule() {
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Nueva</span>
             </Button>
-            <Button
-              variant="outline"
-              className="border-blue-300 text-blue-800 hover:bg-blue-50"
-              onClick={printOrder}
-              title="Imprimir"
-            >
-              <Printer className="h-4 w-4" />
-              <span className="hidden sm:inline">Imprimir</span>
-            </Button>
-            <Button
-              className="bg-orange-600 hover:bg-orange-700 text-white"
-              onClick={handleSave}
-              title="Guardar orden"
-            >
-              <Save className="h-4 w-4" />
-              <span className="hidden sm:inline">{isEditing ? "Actualizar" : "Guardar"}</span>
-            </Button>
+            {showForm ? (
+              <>
+                <Button variant="outline" onClick={closeForm} title="Cancelar">
+                  Cancelar
+                </Button>
+                <Button
+                  className="bg-orange-600 hover:bg-orange-700 text-white"
+                  onClick={handleSave}
+                  title="Guardar orden"
+                >
+                  <Save className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {isEditing ? "Actualizar" : "Guardar"}
+                  </span>
+                </Button>
+              </>
+            ) : null}
           </>
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 print:max-w-none print:px-0 print:py-0">
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 print:hidden">
-          <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <FileText className="h-5 w-5 text-orange-600" />
-                Datos de la orden
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label htmlFor="fecha">Fecha</Label>
-                  <Input
-                    id="fecha"
-                    type="date"
-                    value={draft.fecha}
-                    onChange={(event) => updateDraft("fecha", event.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="codigo">Código</Label>
-                  <Input
-                    id="codigo"
-                    value={draft.codigo}
-                    onChange={(event) => updateDraft("codigo", event.target.value)}
-                    placeholder="OT-20260306-1030"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="celular">Celular</Label>
-                  <Input
-                    id="celular"
-                    value={draft.celular}
-                    onChange={(event) => updateDraft("celular", event.target.value)}
-                    placeholder="+53 5XXXXXXX"
-                  />
-                </div>
-              </div>
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+        {showForm ? (
+          <div className="grid grid-cols-1 gap-6">
+            <Card className="border-0 shadow-md border-l-4 border-l-orange-600">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-orange-600" />
+                  Formulario de orden
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-3 rounded-md border border-slate-200 bg-white p-3">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-slate-500" />
+                    <p className="text-sm font-semibold text-slate-900">
+                      Cliente
+                    </p>
+                  </div>
 
-              <div>
-                <Label htmlFor="cliente">Cliente</Label>
-                <Input
-                  id="cliente"
-                  value={draft.cliente}
-                  onChange={(event) => updateDraft("cliente", event.target.value)}
-                  placeholder="Nombre del cliente"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="direccion">Dirección</Label>
-                <Input
-                  id="direccion"
-                  value={draft.direccion}
-                  onChange={(event) => updateDraft("direccion", event.target.value)}
-                  placeholder="Dirección completa"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="otorgado">Otorgado a</Label>
-                <Input
-                  id="otorgado"
-                  value={draft.otorgadoA}
-                  onChange={(event) => updateDraft("otorgadoA", event.target.value)}
-                  placeholder="Brigada o técnico responsable"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="ejecutar">A ejecutar</Label>
-                <Textarea
-                  id="ejecutar"
-                  value={draft.aEjecutar}
-                  onChange={(event) => updateDraft("aEjecutar", event.target.value)}
-                  placeholder="Describe el trabajo a ejecutar"
-                  className="min-h-24"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <Label htmlFor="pgd">PGD</Label>
-                  <Textarea
-                    id="pgd"
-                    value={draft.pgd}
-                    onChange={(event) => updateDraft("pgd", event.target.value)}
-                    className="min-h-24"
+                  <ClienteSearchSelector
+                    label="Buscar cliente"
+                    clients={clientes}
+                    value={draft.clienteId}
+                    onChange={handleClienteChange}
+                    loading={clientesLoading}
                   />
-                </div>
-                <div>
-                  <Label htmlFor="esquema">Esquema General</Label>
-                  <Textarea
-                    id="esquema"
-                    value={draft.esquemaGeneral}
-                    onChange={(event) => updateDraft("esquemaGeneral", event.target.value)}
-                    className="min-h-24"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="comunicacion">Comunicación</Label>
-                  <Textarea
-                    id="comunicacion"
-                    value={draft.comunicacion}
-                    onChange={(event) => updateDraft("comunicacion", event.target.value)}
-                    className="min-h-24"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-semibold text-sm sm:text-base">Equipos y Materiales</h3>
-                  <Button variant="outline" size="sm" onClick={addMaterialRow}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Agregar fila
+                  {selectedCliente && (
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3">
+                      <div className="flex items-center justify-between gap-2 pb-2 border-b border-emerald-200">
+                        <p className="text-sm font-semibold text-emerald-900">
+                          Datos del cliente
+                        </p>
+                        {(selectedCliente.numero || selectedCliente.id) && (
+                          <Badge className="bg-emerald-600 text-white hover:bg-emerald-600 text-xs">
+                            #{selectedCliente.numero || selectedCliente.id}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 pt-2 text-sm text-emerald-900">
+                        <p>
+                          <span className="font-semibold">Nombre:</span>{" "}
+                          {selectedCliente.nombre || "--"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">CI:</span>{" "}
+                          {selectedCliente.carnet_identidad || "--"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Teléfono:</span>{" "}
+                          {selectedCliente.telefono || "--"}
+                        </p>
+                        <p>
+                          <span className="font-semibold">Provincia:</span>{" "}
+                          {selectedCliente.provincia_montaje || "--"}
+                        </p>
+                        <p className="sm:col-span-2">
+                          <span className="font-semibold">Dirección:</span>{" "}
+                          {selectedCliente.direccion || "--"}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {draft.clienteId && (
+                    <div
+                      className={`text-xs rounded-md px-3 py-2 border ${
+                        loadingOfertaCliente
+                          ? "bg-blue-50 border-blue-200 text-blue-700"
+                          : ofertaStatus.includes("no") ||
+                              ofertaStatus.includes("No")
+                            ? "bg-amber-50 border-amber-200 text-amber-700"
+                            : "bg-slate-50 border-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {loadingOfertaCliente
+                        ? "Cargando oferta confirmada..."
+                        : ofertaStatus || " "}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div>
+                    <Label htmlFor="fecha">Fecha</Label>
+                    <Input
+                      id="fecha"
+                      type="date"
+                      value={draft.fecha}
+                      onChange={(event) =>
+                        updateDraft("fecha", event.target.value)
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="codigo">Código</Label>
+                    <Input
+                      id="codigo"
+                      value={draft.codigo}
+                      onChange={(event) =>
+                        updateDraft("codigo", event.target.value)
+                      }
+                      placeholder="OT-20260306-1030"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>Otorgado a (trabajador)</Label>
+                    <Select
+                      value={draft.otorgadoA}
+                      onValueChange={(value) => updateDraft("otorgadoA", value)}
+                      disabled={loadingAsignaciones}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleccionar trabajador" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {trabajadores.map((trabajador) => {
+                          const id = getTrabajadorId(trabajador);
+                          if (!id) return null;
+                          return (
+                            <SelectItem key={id} value={id}>
+                              {trabajador.nombre || "Sin nombre"}
+                              {trabajador.CI ? ` · CI ${trabajador.CI}` : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <Label>A ejecutar por (brigada)</Label>
+                  <Select
+                    value={draft.aEjecutar}
+                    onValueChange={(value) => updateDraft("aEjecutar", value)}
+                    disabled={loadingAsignaciones}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar brigada" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {brigadas.map((brigada) => {
+                        const id = getBrigadaId(brigada);
+                        if (!id) return null;
+                        return (
+                          <SelectItem key={id} value={id}>
+                            {getBrigadaLabel(brigada)}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold text-sm sm:text-base flex items-center gap-2">
+                      <Package className="h-4 w-4 text-slate-600" />
+                      Materiales de la oferta confirmada
+                    </h3>
+                    <div className="flex items-center gap-2 text-xs text-slate-600">
+                      {editedMaterialsCount > 0 ? (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                          {editedMaterialsCount} editado
+                          {editedMaterialsCount === 1 ? "" : "s"}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                          Sin cambios
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border border-slate-200 p-3 bg-slate-50">
+                    <p className="text-xs font-medium text-slate-700 mb-2">
+                      Agregar material adicional
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_auto] gap-2">
+                      <div>
+                        <Input
+                          list="materials-catalog"
+                          value={newMaterialCode}
+                          onChange={(event) =>
+                            setNewMaterialCode(event.target.value)
+                          }
+                          placeholder="Código o nombre del material"
+                        />
+                        <datalist id="materials-catalog">
+                          {materials.map((material) => {
+                            const code = normalizeMaterialCode(material.codigo);
+                            const nombre =
+                              material.nombre ||
+                              material.descripcion ||
+                              "Sin nombre";
+                            return (
+                              <option key={material.id} value={code}>
+                                {`${code} - ${nombre}`}
+                              </option>
+                            );
+                          })}
+                        </datalist>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={newMaterialCantidad}
+                        onChange={(event) =>
+                          setNewMaterialCantidad(event.target.value)
+                        }
+                        placeholder="Cantidad"
+                      />
+                      <Button
+                        type="button"
+                        onClick={addManualMaterial}
+                        className="bg-slate-800 hover:bg-slate-900"
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Agregar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {draft.materiales.length === 0 ? (
+                    <div className="text-sm text-gray-500 border rounded-md p-4 bg-white">
+                      No hay materiales cargados. Selecciona un cliente con
+                      oferta confirmada por cliente.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border rounded-md bg-white">
+                      <table className="w-full min-w-[1100px] table-fixed">
+                        <thead className="bg-gray-50">
+                          <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
+                            <th className="p-2 w-[84px]">Foto</th>
+                            <th className="p-2">Nombre</th>
+                            <th className="p-2 w-[150px]">Código</th>
+                            <th className="p-2 w-[160px]">Categoría</th>
+                            <th className="p-2 w-[110px]">Potencia</th>
+                            <th className="p-2 w-[140px]">Marca</th>
+                            <th className="p-2 w-[150px]">Cantidad oferta</th>
+                            <th className="p-2 w-[130px]">Estado</th>
+                            <th className="p-2 w-[130px]">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {draft.materiales.map((row) => {
+                            const isManual = row.origen === "manual";
+                            return (
+                              <tr
+                                key={row.id}
+                                className={`border-t align-top ${row.editado ? "bg-amber-50" : "hover:bg-gray-50"}`}
+                              >
+                                <td className="p-2">
+                                  {row.foto ? (
+                                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-50 border border-gray-200">
+                                      <Image
+                                        src={row.foto}
+                                        alt={row.nombre}
+                                        fill
+                                        unoptimized
+                                        className="object-contain p-1"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center border border-amber-200">
+                                      <Package className="h-5 w-5 text-amber-700" />
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  <div className="text-sm font-medium text-gray-900 truncate">
+                                    {row.nombre}
+                                  </div>
+                                </td>
+                                <td className="p-2">
+                                  <div className="text-sm font-semibold text-gray-900">
+                                    {row.materialCodigo || "-"}
+                                  </div>
+                                </td>
+                                <td className="p-2">
+                                  <span className="text-sm text-gray-700">
+                                    {row.categoria || "-"}
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  <span className="text-sm text-gray-700">
+                                    {row.potenciaKw !== null
+                                      ? `${row.potenciaKw} KW`
+                                      : "-"}
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  <span className="text-sm text-gray-700">
+                                    {row.marca || "-"}
+                                  </span>
+                                </td>
+                                <td className="p-2">
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={row.cantidadOferta}
+                                    onChange={(event) =>
+                                      updateMaterialCantidad(
+                                        row.id,
+                                        event.target.value,
+                                      )
+                                    }
+                                    className={`h-9 text-right ${row.editado ? "border-amber-400 bg-amber-50" : ""}`}
+                                  />
+                                </td>
+                                <td className="p-2">
+                                  {isManual ? (
+                                    <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                      Agregado
+                                    </Badge>
+                                  ) : row.editado ? (
+                                    <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                                      Editado
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                                      Original
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="p-2">
+                                  <div className="flex items-center gap-1">
+                                    {!isManual && row.editado ? (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          restoreOfferMaterial(row.id)
+                                        }
+                                        title="Restaurar"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5 mr-1" />
+                                        Restaurar
+                                      </Button>
+                                    ) : null}
+                                    {isManual ? (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() =>
+                                          removeManualMaterial(row.id)
+                                        }
+                                        className="text-red-700 border-red-300 hover:bg-red-50"
+                                        title="Eliminar material"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                  {editedMaterialsCount > 0 ? (
+                    <p className="text-xs text-amber-700 font-medium">
+                      ✓ Se detectaron materiales editados manualmente (cantidad
+                      cambiada o material agregado).
+                    </p>
+                  ) : null}
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm sm:text-base flex items-center gap-2">
+                    <ImagePlus className="h-4 w-4 text-slate-600" />
+                    Evidencias fotográficas
+                  </h3>
+
+                  {[
+                    { key: "pgdFotos", label: "PGD", photos: draft.pgdFotos },
+                    {
+                      key: "esquemaGeneralFotos",
+                      label: "Esquema",
+                      photos: draft.esquemaGeneralFotos,
+                    },
+                    {
+                      key: "comunicacionFotos",
+                      label: "Comunicación",
+                      photos: draft.comunicacionFotos,
+                    },
+                  ].map((field) => (
+                    <div
+                      key={field.key}
+                      className="rounded-md border border-slate-200 p-3 bg-white space-y-3"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-sm font-semibold">
+                          {field.label}
+                        </Label>
+                        <Badge className="bg-slate-100 text-slate-700 border-slate-200">
+                          {field.photos.length} foto
+                          {field.photos.length === 1 ? "" : "s"}
+                        </Badge>
+                      </div>
+                      <div>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(event) => {
+                            void addPhotos(
+                              field.key as
+                                | "pgdFotos"
+                                | "esquemaGeneralFotos"
+                                | "comunicacionFotos",
+                              event.target.files,
+                            );
+                            event.target.value = "";
+                          }}
+                        />
+                      </div>
+
+                      {field.photos.length > 0 ? (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                          {field.photos.map((photo, index) => (
+                            <div
+                              key={`${field.key}-${index}`}
+                              className="relative group"
+                            >
+                              <Image
+                                src={photo}
+                                alt={`${field.label} ${index + 1}`}
+                                width={320}
+                                height={160}
+                                unoptimized
+                                className="h-24 w-full object-cover rounded-md border border-slate-200"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="icon"
+                                className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() =>
+                                  removePhoto(
+                                    field.key as
+                                      | "pgdFotos"
+                                      | "esquemaGeneralFotos"
+                                      | "comunicacionFotos",
+                                    index,
+                                  )
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          Aún no hay fotos cargadas.
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <Button
+                    onClick={handleSave}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    {isEditing ? "Actualizar orden" : "Guardar orden"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => duplicateOrder(draft)}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    Duplicar
+                  </Button>
+                  <Button variant="outline" onClick={startNewOrder}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Limpiar y nueva
                   </Button>
                 </div>
+              </CardContent>
+            </Card>
+          </div>
+        ) : null}
+
+        {!showForm ? (
+          <Card className="border-0 shadow-md border-l-4 border-l-purple-600">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <CalendarDays className="h-5 w-5 text-purple-600" />
+                Órdenes guardadas
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Buscar por fecha, cliente, brigada u otorgado por"
+              />
+              {!ready ? (
+                <div className="text-sm text-gray-500">Cargando órdenes...</div>
+              ) : filteredOrders.length === 0 ? (
+                <div className="text-sm text-gray-500">
+                  {orders.length === 0
+                    ? "Todavía no hay órdenes guardadas."
+                    : "No hay resultados para el filtro aplicado."}
+                </div>
+              ) : (
                 <div className="overflow-x-auto border rounded-md">
-                  <table className="w-full min-w-[640px]">
+                  <table className="w-full min-w-[760px]">
                     <thead className="bg-gray-50">
                       <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
-                        <th className="p-2">Nombre</th>
-                        <th className="p-2">U/M</th>
-                        <th className="p-2">Entregado</th>
-                        <th className="p-2">Gastado</th>
-                        <th className="p-2 w-16" />
+                        <th className="p-2">Fecha</th>
+                        <th className="p-2">Cliente</th>
+                        <th className="p-2">Brigada asignada</th>
+                        <th className="p-2">Otorgado por</th>
+                        <th className="p-2 w-48">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {draft.materiales.map((row) => (
-                        <tr key={row.id} className="border-t align-top">
-                          <td className="p-2">
-                            <Input
-                              value={row.nombre}
-                              onChange={(event) => updateMaterial(row.id, "nombre", event.target.value)}
-                              placeholder="Material o equipo"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              value={row.unidad}
-                              onChange={(event) => updateMaterial(row.id, "unidad", event.target.value)}
-                              placeholder="U/M"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              value={row.entregado}
-                              onChange={(event) => updateMaterial(row.id, "entregado", event.target.value)}
-                              placeholder="Cant."
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Input
-                              value={row.gastado}
-                              onChange={(event) => updateMaterial(row.id, "gastado", event.target.value)}
-                              placeholder="Cant."
-                            />
-                          </td>
-                          <td className="p-2">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeMaterialRow(row.id)}
-                              disabled={draft.materiales.length === 1}
-                              title="Eliminar fila"
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredOrders.map((order) => {
+                        const rowSelected = draft.id === order.id;
+                        const trabajador = workersLabel(
+                          order.otorgadoA,
+                          trabajadoresById,
+                        );
+                        const brigada = brigadaLabel(
+                          order.aEjecutar,
+                          brigadasById,
+                        );
+
+                        return (
+                          <tr
+                            key={order.id}
+                            className={`border-t ${rowSelected ? "bg-orange-50" : "hover:bg-gray-50"}`}
+                          >
+                            <td className="p-2">{order.fecha || "-"}</td>
+                            <td className="p-2">{order.cliente || "-"}</td>
+                            <td className="p-2">{brigada}</td>
+                            <td className="p-2">{trabajador}</td>
+                            <td className="p-2">
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => loadOrder(order)}
+                                  title="Editar"
+                                >
+                                  <Pencil className="h-4 w-4 mr-1" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => duplicateOrder(order)}
+                                  title="Duplicar"
+                                >
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  Duplicar
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDelete(order)}
+                                  className="text-red-700 border-red-300 hover:bg-red-50"
+                                  title="Eliminar"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Eliminar
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Button onClick={handleSave} className="bg-orange-600 hover:bg-orange-700 text-white">
-                  <Save className="h-4 w-4 mr-2" />
-                  {isEditing ? "Actualizar orden" : "Guardar orden"}
-                </Button>
-                <Button variant="outline" onClick={() => duplicateOrder(draft)}>
-                  <Copy className="h-4 w-4 mr-2" />
-                  Duplicar
-                </Button>
-                <Button variant="outline" onClick={startNewOrder}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Limpiar y nueva
-                </Button>
-                <Button variant="outline" onClick={printOrder}>
-                  <Printer className="h-4 w-4 mr-2" />
-                  Imprimir
-                </Button>
-              </div>
+              )}
             </CardContent>
           </Card>
-
-          <Card className="border-0 shadow-md border-l-4 border-l-blue-600">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CalendarDays className="h-5 w-5 text-blue-600" />
-                Vista de la orden
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <WorkOrderTemplate order={draft} />
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card className="mt-6 border-0 shadow-md border-l-4 border-l-purple-600 print:hidden">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Search className="h-5 w-5 text-purple-600" />
-              Órdenes guardadas
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder="Buscar por código, cliente, dirección o responsable"
-            />
-            {!ready ? (
-              <div className="text-sm text-gray-500">Cargando órdenes...</div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="text-sm text-gray-500">
-                {orders.length === 0
-                  ? "Todavía no hay órdenes guardadas."
-                  : "No hay resultados para el filtro aplicado."}
-              </div>
-            ) : (
-              <div className="overflow-x-auto border rounded-md">
-                <table className="w-full min-w-[760px]">
-                  <thead className="bg-gray-50">
-                    <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
-                      <th className="p-2">Código</th>
-                      <th className="p-2">Fecha</th>
-                      <th className="p-2">Cliente</th>
-                      <th className="p-2">Celular</th>
-                      <th className="p-2">Otorgado a</th>
-                      <th className="p-2 w-48">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.map((order) => {
-                      const rowSelected = draft.id === order.id;
-                      return (
-                        <tr
-                          key={order.id}
-                          className={`border-t ${rowSelected ? "bg-orange-50" : "hover:bg-gray-50"}`}
-                        >
-                          <td className="p-2 font-semibold">{order.codigo || "-"}</td>
-                          <td className="p-2">{order.fecha || "-"}</td>
-                          <td className="p-2">{order.cliente || "-"}</td>
-                          <td className="p-2">{order.celular || "-"}</td>
-                          <td className="p-2">{order.otorgadoA || "-"}</td>
-                          <td className="p-2">
-                            <div className="flex items-center gap-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => loadOrder(order)}
-                                title="Editar"
-                              >
-                                <Pencil className="h-4 w-4 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => duplicateOrder(order)}
-                                title="Duplicar"
-                              >
-                                <Copy className="h-4 w-4 mr-1" />
-                                Duplicar
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(order)}
-                                className="text-red-700 border-red-300 hover:bg-red-50"
-                                title="Eliminar"
-                              >
-                                <Trash2 className="h-4 w-4 mr-1" />
-                                Eliminar
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="hidden print:block print:p-6">
-          <WorkOrderTemplate order={draft} />
-        </div>
+        ) : null}
       </main>
       <Toaster />
     </div>
   );
 }
+
+const workersLabel = (
+  workerId: string,
+  workersById: Map<string, Trabajador>,
+) => {
+  const worker = workersById.get(workerId);
+  if (!worker) return "-";
+  return worker.CI ? `${worker.nombre} (${worker.CI})` : worker.nombre;
+};
+
+const brigadaLabel = (
+  brigadaId: string,
+  brigadasById: Map<string, Brigada>,
+) => {
+  const brigada = brigadasById.get(brigadaId);
+  if (!brigada) return "-";
+  return getBrigadaLabel(brigada);
+};
