@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Copy,
+  Download,
+  Eye,
   FileText,
   ImagePlus,
   Package,
@@ -34,6 +36,12 @@ import {
 } from "@/components/shared/atom/select";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
 import { useBrigadasTrabajadores } from "@/hooks/use-brigadas-trabajadores";
 import {
@@ -46,6 +54,8 @@ import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import type { Cliente, Trabajador } from "@/lib/api-types";
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types";
 import type { Material } from "@/lib/material-types";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 type MaterialRow = {
   id: string;
@@ -355,6 +365,37 @@ const fileToDataUrl = (file: File): Promise<string> =>
     reader.readAsDataURL(file);
   });
 
+const fileNameSafe = (value: string) =>
+  (value || "orden_trabajo")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9-_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+
+const formatDateLabel = (value: string) => {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("es-ES");
+};
+
+const loadImageAsDataUrl = async (src: string): Promise<string> => {
+  if (!src) return "";
+  if (src.startsWith("data:image/")) return src;
+
+  const response = await fetch(src);
+  const blob = await response.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("No se pudo leer la imagen"));
+    reader.readAsDataURL(blob);
+  });
+};
+
 const getBrigadaId = (brigada: Brigada) =>
   String(brigada.id || brigada._id || brigada.lider?.CI || "").trim();
 
@@ -374,8 +415,10 @@ export function OrdenesTrabajoOperacionesModule() {
   const [ready, setReady] = useState(false);
   const [orders, setOrders] = useState<WorkOrder[]>([]);
   const [draft, setDraft] = useState<WorkOrder>(createEmptyOrder);
+  const [previewOrder, setPreviewOrder] = useState<WorkOrder | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [exportingOrderId, setExportingOrderId] = useState<string | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clientesLoading, setClientesLoading] = useState(false);
   const [loadingOfertaCliente, setLoadingOfertaCliente] = useState(false);
@@ -1012,6 +1055,235 @@ export function OrdenesTrabajoOperacionesModule() {
     });
   };
 
+  const exportOrderToPdf = async (order: WorkOrder) => {
+    if (typeof window === "undefined") return;
+
+    setExportingOrderId(order.id);
+    try {
+      const trabajador = workersLabel(order.otorgadoA, trabajadoresById);
+      const brigada = brigadaLabel(order.aEjecutar, brigadasById);
+
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const generatedAt = new Date().toLocaleString("es-ES", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      const logoCandidates = [
+        `${window.location.origin}/logo%20Suncar.png`,
+        `${window.location.origin}/logo Suncar.png`,
+      ];
+
+      for (const logoUrl of logoCandidates) {
+        try {
+          const logoBase64 = await loadImageAsDataUrl(logoUrl);
+          if (logoBase64) {
+            doc.addImage(
+              logoBase64,
+              "PNG",
+              pageWidth - margin - 24,
+              10,
+              24,
+              16,
+            );
+            break;
+          }
+        } catch {
+          // Ignorar y probar siguiente ruta
+        }
+      }
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.text("SUNCAR INSTALADORA", margin, 14);
+      doc.setFontSize(11);
+      doc.text("ORDEN DE TRABAJO", margin, 20);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Código OT: ${order.codigo || "-"}`, margin, 26);
+      doc.text(`Fecha: ${formatDateLabel(order.fecha)}`, margin + 52, 26);
+      doc.line(margin, 30, pageWidth - margin, 30);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Datos del cliente", margin, 36);
+
+      autoTable(doc, {
+        startY: 38,
+        theme: "grid",
+        styles: {
+          font: "helvetica",
+          fontSize: 9,
+          textColor: [0, 0, 0],
+          lineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontStyle: "bold",
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 34 },
+          1: { cellWidth: pageWidth - margin * 2 - 34 },
+        },
+        body: [
+          ["Nombre", order.cliente || "-"],
+          ["Código", order.clienteNumero || "-"],
+          ["Teléfono", order.celular || "-"],
+          ["Dirección", order.direccion || "-"],
+        ],
+        margin: { left: margin, right: margin },
+      });
+
+      const lastInfoY = (
+        doc as unknown as { lastAutoTable?: { finalY?: number } }
+      ).lastAutoTable?.finalY;
+      const startOrderDataY = (lastInfoY ?? 58) + 6;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Datos de la orden", margin, startOrderDataY);
+
+      autoTable(doc, {
+        startY: startOrderDataY + 2,
+        theme: "grid",
+        styles: {
+          font: "helvetica",
+          fontSize: 9,
+          textColor: [0, 0, 0],
+          lineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          cellPadding: 2,
+        },
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontStyle: "bold",
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 34 },
+          1: { cellWidth: pageWidth - margin * 2 - 34 },
+        },
+        body: [
+          ["Otorgado por", trabajador || "-"],
+          ["Brigada asignada", brigada || "-"],
+          [
+            "Oferta vinculada",
+            order.ofertaNumero || order.ofertaIdConfirmada || "-",
+          ],
+        ],
+        margin: { left: margin, right: margin },
+      });
+
+      const lastOrderDataY = (
+        doc as unknown as { lastAutoTable?: { finalY?: number } }
+      ).lastAutoTable?.finalY;
+      const startMaterialsY = (lastOrderDataY ?? startOrderDataY + 20) + 8;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Materiales", margin, startMaterialsY - 2);
+
+      const materialesRows =
+        order.materiales.length > 0
+          ? order.materiales.map((item) => [
+              item.materialCodigo || "-",
+              item.nombre || "-",
+              item.cantidadOferta || "0",
+              item.originalCantidadOferta || "0",
+              item.origen || "oferta",
+              item.editado ? "Sí" : "No",
+            ])
+          : [["-", "Sin materiales", "-", "-", "-", "-"]];
+
+      autoTable(doc, {
+        startY: startMaterialsY,
+        head: [
+          [
+            "Código",
+            "Nombre",
+            "Cantidad orden",
+            "Cantidad original",
+            "Origen",
+            "Editado",
+          ],
+        ],
+        body: materialesRows,
+        theme: "grid",
+        styles: {
+          font: "helvetica",
+          fontSize: 8.5,
+          textColor: [0, 0, 0],
+          cellPadding: 2,
+          lineColor: [0, 0, 0],
+          lineWidth: 0.2,
+          overflow: "linebreak",
+        },
+        headStyles: {
+          fillColor: [255, 255, 255],
+          textColor: [0, 0, 0],
+          fontStyle: "bold",
+          halign: "center",
+        },
+        columnStyles: {
+          0: { cellWidth: 24 },
+          1: { cellWidth: 74 },
+          2: { cellWidth: 26, halign: "right" },
+          3: { cellWidth: 28, halign: "right" },
+          4: { cellWidth: 20, halign: "center" },
+          5: { cellWidth: 20, halign: "center" },
+        },
+        margin: { left: margin, right: margin },
+      });
+
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i += 1) {
+        doc.setPage(i);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(`Generado: ${generatedAt}`, margin, pageHeight - 10);
+        doc.text(
+          `Página ${i} de ${totalPages}`,
+          pageWidth - margin,
+          pageHeight - 10,
+          {
+            align: "right",
+          },
+        );
+      }
+
+      const filename = `orden_trabajo_${fileNameSafe(order.codigo || order.id)}`;
+      doc.save(`${filename}.pdf`);
+
+      toast({
+        title: "PDF exportado",
+        description: `La orden ${order.codigo || order.id} se exportó correctamente.`,
+      });
+    } catch {
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo generar el PDF de la orden.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingOrderId(null);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
@@ -1162,6 +1434,10 @@ export function OrdenesTrabajoOperacionesModule() {
                         updateDraft("codigo", event.target.value)
                       }
                       placeholder="OT-20260306-1030"
+                      readOnly={isEditing}
+                      className={
+                        isEditing ? "bg-slate-100 cursor-not-allowed" : ""
+                      }
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -1584,7 +1860,7 @@ export function OrdenesTrabajoOperacionesModule() {
                         <th className="p-2">Cliente</th>
                         <th className="p-2">Brigada asignada</th>
                         <th className="p-2">Otorgado por</th>
-                        <th className="p-2 w-48">Acciones</th>
+                        <th className="p-2 w-[220px]">Acciones</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1612,31 +1888,50 @@ export function OrdenesTrabajoOperacionesModule() {
                               <div className="flex items-center gap-2">
                                 <Button
                                   variant="outline"
-                                  size="sm"
+                                  size="icon"
+                                  onClick={() => setPreviewOrder(order)}
+                                  title="Ver orden"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                  <span className="sr-only">Ver orden</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
+                                  onClick={() => void exportOrderToPdf(order)}
+                                  title="Exportar PDF"
+                                  disabled={exportingOrderId === order.id}
+                                >
+                                  <Download className="h-4 w-4" />
+                                  <span className="sr-only">Exportar PDF</span>
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="icon"
                                   onClick={() => loadOrder(order)}
                                   title="Editar"
                                 >
-                                  <Pencil className="h-4 w-4 mr-1" />
-                                  Editar
+                                  <Pencil className="h-4 w-4" />
+                                  <span className="sr-only">Editar</span>
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  size="sm"
+                                  size="icon"
                                   onClick={() => duplicateOrder(order)}
                                   title="Duplicar"
                                 >
-                                  <Copy className="h-4 w-4 mr-1" />
-                                  Duplicar
+                                  <Copy className="h-4 w-4" />
+                                  <span className="sr-only">Duplicar</span>
                                 </Button>
                                 <Button
                                   variant="outline"
-                                  size="sm"
+                                  size="icon"
                                   onClick={() => handleDelete(order)}
                                   className="text-red-700 border-red-300 hover:bg-red-50"
                                   title="Eliminar"
                                 >
-                                  <Trash2 className="h-4 w-4 mr-1" />
-                                  Eliminar
+                                  <Trash2 className="h-4 w-4" />
+                                  <span className="sr-only">Eliminar</span>
                                 </Button>
                               </div>
                             </td>
@@ -1651,6 +1946,182 @@ export function OrdenesTrabajoOperacionesModule() {
           </Card>
         ) : null}
       </main>
+
+      <Dialog
+        open={previewOrder !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewOrder(null);
+        }}
+      >
+        <DialogContent className="max-w-6xl w-[95vw] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Ver orden de trabajo{" "}
+              {previewOrder?.codigo ? `- ${previewOrder.codigo}` : ""}
+            </DialogTitle>
+          </DialogHeader>
+
+          {previewOrder ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Fecha</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {previewOrder.fecha || "-"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Cliente</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {previewOrder.cliente || "-"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Brigada asignada</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {brigadaLabel(previewOrder.aEjecutar, brigadasById)}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs text-slate-500">Otorgado por</p>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {workersLabel(previewOrder.otorgadoA, trabajadoresById)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-slate-200 p-3 bg-white">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Materiales ({previewOrder.materiales.length})
+                  </p>
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                    {
+                      previewOrder.materiales.filter(
+                        (material) => material.editado,
+                      ).length
+                    }{" "}
+                    editados
+                  </Badge>
+                </div>
+                <div className="overflow-x-auto border rounded-md">
+                  <table className="w-full min-w-[980px]">
+                    <thead className="bg-gray-50">
+                      <tr className="text-left text-xs uppercase tracking-wide text-gray-600">
+                        <th className="p-2">Foto</th>
+                        <th className="p-2">Nombre</th>
+                        <th className="p-2">Código</th>
+                        <th className="p-2">Categoría</th>
+                        <th className="p-2">Potencia</th>
+                        <th className="p-2">Marca</th>
+                        <th className="p-2">Cantidad</th>
+                        <th className="p-2">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previewOrder.materiales.length > 0 ? (
+                        previewOrder.materiales.map((material) => (
+                          <tr key={material.id} className="border-t">
+                            <td className="p-2">
+                              {material.foto ? (
+                                <div className="relative w-10 h-10 rounded-md overflow-hidden border border-slate-200">
+                                  <Image
+                                    src={material.foto}
+                                    alt={material.nombre}
+                                    fill
+                                    unoptimized
+                                    className="object-contain p-1"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 rounded-md bg-slate-100 flex items-center justify-center border border-slate-200">
+                                  <Package className="h-4 w-4 text-slate-500" />
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-2 text-sm">
+                              {material.nombre || "-"}
+                            </td>
+                            <td className="p-2 text-sm font-semibold">
+                              {material.materialCodigo || "-"}
+                            </td>
+                            <td className="p-2 text-sm">
+                              {material.categoria || "-"}
+                            </td>
+                            <td className="p-2 text-sm">
+                              {material.potenciaKw !== null
+                                ? `${material.potenciaKw} KW`
+                                : "-"}
+                            </td>
+                            <td className="p-2 text-sm">
+                              {material.marca || "-"}
+                            </td>
+                            <td className="p-2 text-sm font-semibold text-right">
+                              {material.cantidadOferta || "0"}
+                            </td>
+                            <td className="p-2">
+                              {material.origen === "manual" ? (
+                                <Badge className="bg-blue-100 text-blue-800 border-blue-200">
+                                  Agregado
+                                </Badge>
+                              ) : material.editado ? (
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                                  Editado
+                                </Badge>
+                              ) : (
+                                <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">
+                                  Original
+                                </Badge>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={8}
+                            className="p-4 text-sm text-slate-500"
+                          >
+                            Esta orden no tiene materiales.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-slate-900">PGD</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {previewOrder.pgdFotos.length} foto
+                    {previewOrder.pgdFotos.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Esquema
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {previewOrder.esquemaGeneralFotos.length} foto
+                    {previewOrder.esquemaGeneralFotos.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-white p-3">
+                  <p className="text-sm font-semibold text-slate-900">
+                    Comunicación
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {previewOrder.comunicacionFotos.length} foto
+                    {previewOrder.comunicacionFotos.length === 1 ? "" : "s"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
       <Toaster />
     </div>
   );
