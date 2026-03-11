@@ -8,13 +8,12 @@ import type {
 } from '../../../types/feats/fichas-costo/ficha-costo-types'
 
 export class FichaCostoService {
-  // Buscar materiales del catálogo web
+  // Buscar materiales
   static async buscarMateriales(query: string, page = 1, limit = 50): Promise<MaterialCatalogoWeb[]> {
     const response = await apiRequest<any>(
-      `/productos/catalogo-web?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
+      `/productos/materiales?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
     )
-    // El endpoint puede devolver { data: [...] } o un array directo
-    return response.data || response.items || response.productos || response || []
+    return response.data || response.items || response.materiales || response || []
   }
 
   // Crear nueva ficha de costo
