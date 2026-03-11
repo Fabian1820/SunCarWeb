@@ -66,6 +66,7 @@ export default function AlmacenDetallePage() {
   const { toast } = useToast();
 
   const [almacen, setAlmacen] = useState<Almacen | null>(null);
+  const [almacenesList, setAlmacenesList] = useState<Almacen[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
   const [materiales, setMateriales] = useState<Material[]>([]);
@@ -103,6 +104,7 @@ export default function AlmacenDetallePage() {
       const almacenEncontrado =
         almacenesData.find((item) => item.id === almacenId) || null;
       setAlmacen(almacenEncontrado);
+      setAlmacenesList(almacenesData);
       setMateriales(materialesData);
       setCatalogos(catalogosData);
       setMarcas(marcasData);
@@ -610,7 +612,11 @@ export default function AlmacenDetallePage() {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <MovimientosTable movimientos={filteredMovimientos} />
+                  <MovimientosTable
+                    movimientos={filteredMovimientos}
+                    materials={materiales}
+                    almacenes={almacenesList}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
