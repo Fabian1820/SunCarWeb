@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Copy,
@@ -51,6 +51,7 @@ import {
 import { useMaterials } from "@/hooks/use-materials";
 import { useMarcas } from "@/hooks/use-marcas";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import { apiRequest } from "@/lib/api-config";
 import type { Cliente, Trabajador } from "@/lib/api-types";
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types";
 import type { Material } from "@/lib/material-types";
@@ -94,8 +95,6 @@ type WorkOrder = {
   createdAt: string;
   updatedAt: string;
 };
-
-const STORAGE_KEY = "operaciones_ordenes_trabajo_v1";
 
 const nowIso = () => new Date().toISOString();
 
@@ -274,48 +273,6 @@ const cloneOrder = (order: WorkOrder): WorkOrder => ({
   materiales: order.materiales.map((item) => ({ ...item })),
 });
 
-const normalizeOrder = (raw: unknown): WorkOrder | null => {
-  if (!raw || typeof raw !== "object") return null;
-  const record = raw as Record<string, unknown>;
-  const materialesRaw = Array.isArray(record.materiales)
-    ? record.materiales
-    : [];
-  const materiales = materialesRaw
-    .map(normalizeMaterial)
-    .filter((item): item is MaterialRow => item !== null);
-
-  const pgdFotos = readPhotoArray(record.pgdFotos ?? record.pgd);
-  const esquemaFotos = readPhotoArray(
-    record.esquemaGeneralFotos ?? record.esquemaGeneral,
-  );
-  const comunicacionFotos = readPhotoArray(
-    record.comunicacionFotos ?? record.comunicacion,
-  );
-
-  return {
-    id: String(record.id || createId()),
-    codigo: String(record.codigo || buildDefaultCode()),
-    fecha: String(record.fecha || new Date().toISOString().slice(0, 10)),
-    clienteId: String(record.clienteId || ""),
-    clienteNumero: String(record.clienteNumero || ""),
-    celular: String(record.celular || ""),
-    cliente: String(record.cliente || ""),
-    direccion: String(record.direccion || ""),
-    ci: String(record.ci || ""),
-    provincia: String(record.provincia || ""),
-    otorgadoA: String(record.otorgadoA || ""),
-    aEjecutar: String(record.aEjecutar || ""),
-    pgdFotos,
-    esquemaGeneralFotos: esquemaFotos,
-    comunicacionFotos,
-    materiales,
-    ofertaIdConfirmada: String(record.ofertaIdConfirmada || ""),
-    ofertaNumero: String(record.ofertaNumero || ""),
-    createdAt: String(record.createdAt || nowIso()),
-    updatedAt: String(record.updatedAt || nowIso()),
-  };
-};
-
 const createEmptyOrder = (): WorkOrder => {
   const now = nowIso();
   return {
@@ -340,21 +297,6 @@ const createEmptyOrder = (): WorkOrder => {
     createdAt: now,
     updatedAt: now,
   };
-};
-
-const readOrdersFromStorage = (): WorkOrder[] => {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .map(normalizeOrder)
-      .filter((order): order is WorkOrder => order !== null);
-  } catch {
-    return [];
-  }
 };
 
 const fileToDataUrl = (file: File): Promise<string> =>
@@ -410,6 +352,176 @@ const getBrigadaLabel = (brigada: Brigada) => {
 const getTrabajadorId = (trabajador: Trabajador) =>
   String(trabajador.CI || trabajador.id || "").trim();
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+const unwrapResponseData = (value: unknown): unknown => {
+  if (!isRecord(value)) return value;
+  if ("data" in value && value.data !== undefined && value.data !== null) {
+    return value.data;
+  }
+  return value;
+};
+
+const extractOrdersArrayFromResponse = (
+  response: unknown,
+): Record<string, unknown>[] => {
+  const unwrapped = unwrapResponseData(response);
+
+  if (Array.isArray(unwrapped)) {
+    return unwrapped.filter(isRecord);
+  }
+
+  if (!isRecord(unwrapped)) return [];
+
+  const candidates = [unwrapped.ordenes, unwrapped.items, unwrapped.results];
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) {
+      return candidate.filter(isRecord);
+    }
+  }
+
+  if ("id" in unwrapped || "_id" in unwrapped) {
+    return [unwrapped];
+  }
+
+  return [];
+};
+
+const extractApiErrorMessage = (
+  response: unknown,
+  fallback: string,
+): string => {
+  if (!isRecord(response)) return fallback;
+  const candidates = [
+    response.message,
+    response.detail,
+    response.error_message,
+    response.error,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) return candidate;
+  }
+  return fallback;
+};
+
+const ensureApiSuccess = (response: unknown, fallbackMessage: string) => {
+  if (!isRecord(response)) return;
+  if (response.success === false || response.error === true) {
+    throw new Error(extractApiErrorMessage(response, fallbackMessage));
+  }
+};
+
+const mapApiMaterialToRow = (
+  raw: unknown,
+  materialsByCode: Map<string, Material>,
+  marcasById: Map<string, string>,
+): MaterialRow | null => {
+  if (!isRecord(raw)) return null;
+
+  const codigo = normalizeMaterialCode(
+    String(raw.material_codigo ?? raw.materialCodigo ?? raw.codigo ?? ""),
+  );
+  const materialCatalogo = codigo ? materialsByCode.get(codigo) : undefined;
+  const marcaCatalogo = materialCatalogo?.marca_id
+    ? (marcasById.get(materialCatalogo.marca_id) ?? materialCatalogo.marca_id)
+    : "-";
+
+  const base = {
+    ...raw,
+    materialCodigo: codigo,
+    nombre: String(
+      raw.nombre ??
+        raw.material_nombre ??
+        raw.descripcion ??
+        materialCatalogo?.nombre ??
+        materialCatalogo?.descripcion ??
+        "",
+    ),
+    categoria: String(
+      raw.categoria ??
+        raw.material_categoria ??
+        materialCatalogo?.categoria ??
+        "-",
+    ),
+    potenciaKw:
+      raw.potencia_kw ?? raw.potenciaKw ?? materialCatalogo?.potenciaKW ?? null,
+    marca: String(raw.marca ?? raw.material_marca ?? marcaCatalogo ?? "-"),
+    foto: String(raw.foto ?? raw.material_foto ?? materialCatalogo?.foto ?? ""),
+    unidad: String(raw.um ?? raw.unidad ?? materialCatalogo?.um ?? "u"),
+    cantidadOferta: String(raw.cantidad_orden ?? raw.cantidadOferta ?? 0),
+    originalCantidadOferta: String(
+      raw.cantidad_original_oferta ?? raw.originalCantidadOferta ?? 0,
+    ),
+    origen: String(raw.origen ?? "oferta"),
+    editado: Boolean(raw.editado),
+  };
+
+  return normalizeMaterial(base);
+};
+
+const mapApiOrderToWorkOrder = (
+  raw: unknown,
+  materialsByCode: Map<string, Material>,
+  marcasById: Map<string, string>,
+): WorkOrder | null => {
+  if (!isRecord(raw)) return null;
+
+  const clienteObj = isRecord(raw.cliente) ? raw.cliente : null;
+  const materialesRaw = Array.isArray(raw.materiales) ? raw.materiales : [];
+  const materiales = materialesRaw
+    .map((item) => mapApiMaterialToRow(item, materialsByCode, marcasById))
+    .filter((item): item is MaterialRow => item !== null);
+
+  return {
+    id: String(raw.id ?? raw._id ?? createId()),
+    codigo: String(raw.codigo ?? buildDefaultCode()),
+    fecha: String(raw.fecha ?? new Date().toISOString().slice(0, 10)),
+    clienteId: String(
+      raw.cliente_id ??
+        raw.clienteId ??
+        clienteObj?.id ??
+        raw.cliente_numero ??
+        "",
+    ),
+    clienteNumero: String(
+      raw.cliente_numero ?? raw.clienteNumero ?? clienteObj?.numero ?? "",
+    ),
+    celular: String(
+      raw.cliente_telefono ?? raw.celular ?? clienteObj?.telefono ?? "",
+    ),
+    cliente: String(
+      raw.cliente_nombre ?? raw.clienteNombre ?? clienteObj?.nombre ?? "",
+    ),
+    direccion: String(
+      raw.cliente_direccion ?? raw.direccion ?? clienteObj?.direccion ?? "",
+    ),
+    ci: String(raw.cliente_ci ?? raw.ci ?? clienteObj?.carnet_identidad ?? ""),
+    provincia: String(
+      raw.cliente_provincia ??
+        raw.provincia ??
+        clienteObj?.provincia_montaje ??
+        "",
+    ),
+    otorgadoA: String(raw.otorgado_a_ci ?? raw.otorgadoA ?? ""),
+    aEjecutar: String(raw.brigada_id ?? raw.aEjecutar ?? ""),
+    pgdFotos: readPhotoArray(raw.pgd_fotos ?? raw.pgdFotos ?? raw.pgd),
+    esquemaGeneralFotos: readPhotoArray(
+      raw.esquema_fotos ?? raw.esquemaGeneralFotos ?? raw.esquemaGeneral,
+    ),
+    comunicacionFotos: readPhotoArray(
+      raw.comunicacion_fotos ?? raw.comunicacionFotos ?? raw.comunicacion,
+    ),
+    materiales,
+    ofertaIdConfirmada: String(
+      raw.oferta_id_confirmada ?? raw.ofertaIdConfirmada ?? "",
+    ),
+    ofertaNumero: String(raw.oferta_numero ?? raw.ofertaNumero ?? ""),
+    createdAt: String(raw.created_at ?? raw.createdAt ?? nowIso()),
+    updatedAt: String(raw.updated_at ?? raw.updatedAt ?? nowIso()),
+  };
+};
+
 export function OrdenesTrabajoOperacionesModule() {
   const { toast } = useToast();
   const [ready, setReady] = useState(false);
@@ -419,6 +531,7 @@ export function OrdenesTrabajoOperacionesModule() {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [exportingOrderId, setExportingOrderId] = useState<string | null>(null);
+  const [savingOrder, setSavingOrder] = useState(false);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clientesLoading, setClientesLoading] = useState(false);
   const [loadingOfertaCliente, setLoadingOfertaCliente] = useState(false);
@@ -480,16 +593,44 @@ export function OrdenesTrabajoOperacionesModule() {
     [clientes, draft.clienteId],
   );
 
-  useEffect(() => {
-    const storedOrders = readOrdersFromStorage();
-    setOrders(storedOrders);
-    setReady(true);
-  }, []);
+  const fetchOrders = useCallback(async () => {
+    try {
+      const response = await apiRequest<unknown>(
+        "/operaciones/ordenes-trabajo",
+        {
+          method: "GET",
+        },
+      );
+
+      ensureApiSuccess(
+        response,
+        "No se pudieron cargar las órdenes de trabajo.",
+      );
+      const records = extractOrdersArrayFromResponse(response);
+      const normalized = records
+        .map((record) =>
+          mapApiOrderToWorkOrder(record, materialsByCode, marcasById),
+        )
+        .filter((order): order is WorkOrder => order !== null);
+      setOrders(normalized);
+    } catch (error) {
+      setOrders([]);
+      toast({
+        title: "Error cargando órdenes",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron cargar las órdenes de trabajo.",
+        variant: "destructive",
+      });
+    } finally {
+      setReady(true);
+    }
+  }, [marcasById, materialsByCode, toast]);
 
   useEffect(() => {
-    if (!ready || typeof window === "undefined") return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
-  }, [orders, ready]);
+    void fetchOrders();
+  }, [fetchOrders]);
 
   useEffect(() => {
     let cancelled = false;
@@ -924,7 +1065,7 @@ export function OrdenesTrabajoOperacionesModule() {
     setNewMaterialCantidad("1");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!draft.clienteId || !draft.cliente.trim()) {
       toast({
         title: "Falta el cliente",
@@ -938,6 +1079,15 @@ export function OrdenesTrabajoOperacionesModule() {
       toast({
         title: "Falta trabajador",
         description: "Selecciona el trabajador en el campo Otorgado a.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!draft.clienteNumero.trim()) {
+      toast({
+        title: "Código de cliente requerido",
+        description: "El cliente debe tener un código para crear la orden.",
         variant: "destructive",
       });
       return;
@@ -962,37 +1112,78 @@ export function OrdenesTrabajoOperacionesModule() {
         cantidadOferta: sanitizeQuantityInput(item.cantidadOferta),
       }));
 
-    const orderToSave: WorkOrder = {
-      ...draft,
+    const payload = {
       codigo: normalizedCode,
-      materiales: cleanedMateriales,
-      createdAt: isEditing ? draft.createdAt : now,
-      updatedAt: now,
+      fecha: draft.fecha,
+      cliente_id: draft.clienteId || undefined,
+      cliente_numero: draft.clienteNumero,
+      cliente_nombre: draft.cliente || undefined,
+      cliente_telefono: draft.celular || undefined,
+      cliente_direccion: draft.direccion || undefined,
+      cliente_ci: draft.ci || undefined,
+      cliente_provincia: draft.provincia || undefined,
+      otorgado_a_ci: draft.otorgadoA,
+      brigada_id: draft.aEjecutar,
+      oferta_id_confirmada: draft.ofertaIdConfirmada || undefined,
+      oferta_numero: draft.ofertaNumero || undefined,
+      materiales: cleanedMateriales.map((item) => ({
+        material_codigo: item.materialCodigo,
+        cantidad_orden: parseQuantity(item.cantidadOferta),
+        cantidad_original_oferta: parseQuantity(item.originalCantidadOferta),
+        origen: item.origen,
+        editado: item.editado,
+      })),
+      pgd_fotos: draft.pgdFotos,
+      esquema_fotos: draft.esquemaGeneralFotos,
+      comunicacion_fotos: draft.comunicacionFotos,
+      updated_at: now,
     };
 
-    setOrders((prev) => {
-      const index = prev.findIndex((item) => item.id === orderToSave.id);
-      if (index >= 0) {
-        const clone = [...prev];
-        clone[index] = cloneOrder(orderToSave);
-        return clone;
-      }
-      return [cloneOrder(orderToSave), ...prev];
-    });
+    const endpoint = isEditing
+      ? `/operaciones/ordenes-trabajo/${encodeURIComponent(draft.id)}`
+      : "/operaciones/ordenes-trabajo";
+    const method = isEditing ? "PUT" : "POST";
 
-    setShowForm(false);
-    setDraft(createEmptyOrder());
-    setOfertaStatus("");
-    setNewMaterialCode("");
-    setNewMaterialCantidad("1");
+    setSavingOrder(true);
+    try {
+      const response = await apiRequest<unknown>(endpoint, {
+        method,
+        body: JSON.stringify(payload),
+      });
+      ensureApiSuccess(
+        response,
+        isEditing
+          ? "No se pudo actualizar la orden de trabajo."
+          : "No se pudo crear la orden de trabajo.",
+      );
 
-    toast({
-      title: isEditing ? "Orden actualizada" : "Orden creada",
-      description: `La orden ${normalizedCode} se guardó correctamente.`,
-    });
+      await fetchOrders();
+
+      setShowForm(false);
+      setDraft(createEmptyOrder());
+      setOfertaStatus("");
+      setNewMaterialCode("");
+      setNewMaterialCantidad("1");
+
+      toast({
+        title: isEditing ? "Orden actualizada" : "Orden creada",
+        description: `La orden ${normalizedCode} se guardó correctamente.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error guardando orden",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar la orden de trabajo.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingOrder(false);
+    }
   };
 
-  const handleDelete = (order: WorkOrder) => {
+  const handleDelete = async (order: WorkOrder) => {
     if (typeof window !== "undefined") {
       const accepted = window.confirm(
         `¿Eliminar la orden ${order.codigo || order.id}?`,
@@ -1000,17 +1191,37 @@ export function OrdenesTrabajoOperacionesModule() {
       if (!accepted) return;
     }
 
-    setOrders((prev) => prev.filter((item) => item.id !== order.id));
-    if (draft.id === order.id) {
-      setDraft(createEmptyOrder());
-      setOfertaStatus("");
-      setShowForm(false);
-    }
+    try {
+      const response = await apiRequest<unknown>(
+        `/operaciones/ordenes-trabajo/${encodeURIComponent(order.id)}`,
+        {
+          method: "DELETE",
+        },
+      );
+      ensureApiSuccess(response, "No se pudo eliminar la orden de trabajo.");
 
-    toast({
-      title: "Orden eliminada",
-      description: "La orden de trabajo fue eliminada.",
-    });
+      if (draft.id === order.id) {
+        setDraft(createEmptyOrder());
+        setOfertaStatus("");
+        setShowForm(false);
+      }
+
+      await fetchOrders();
+
+      toast({
+        title: "Orden eliminada",
+        description: "La orden de trabajo fue eliminada.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error eliminando orden",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo eliminar la orden de trabajo.",
+        variant: "destructive",
+      });
+    }
   };
 
   const loadOrder = (order: WorkOrder) => {
@@ -1319,10 +1530,15 @@ export function OrdenesTrabajoOperacionesModule() {
                   className="bg-orange-600 hover:bg-orange-700 text-white"
                   onClick={handleSave}
                   title="Guardar orden"
+                  disabled={savingOrder}
                 >
                   <Save className="h-4 w-4" />
                   <span className="hidden sm:inline">
-                    {isEditing ? "Actualizar" : "Guardar"}
+                    {savingOrder
+                      ? "Guardando..."
+                      : isEditing
+                        ? "Actualizar"
+                        : "Guardar"}
                   </span>
                 </Button>
               </>
@@ -1808,9 +2024,14 @@ export function OrdenesTrabajoOperacionesModule() {
                   <Button
                     onClick={handleSave}
                     className="bg-orange-600 hover:bg-orange-700 text-white"
+                    disabled={savingOrder}
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {isEditing ? "Actualizar orden" : "Guardar orden"}
+                    {savingOrder
+                      ? "Guardando..."
+                      : isEditing
+                        ? "Actualizar orden"
+                        : "Guardar orden"}
                   </Button>
                   <Button
                     variant="outline"
