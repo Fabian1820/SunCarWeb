@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   MapPin,
   CalendarCheck,
+  ClipboardList,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -55,6 +56,14 @@ export default function InstalacionesPage() {
       color: "purple",
       href: "/instalaciones/planificacion-diaria-trabajos",
     },
+    {
+      id: "ordenes-trabajo",
+      title: "Órdenes de Trabajo",
+      description: "Crear y gestionar órdenes de trabajo operativas",
+      icon: ClipboardList,
+      color: "indigo",
+      href: "/instalaciones/ordenes-trabajo",
+    },
   ];
 
   const getColorClasses = (color: string) => {
@@ -88,6 +97,12 @@ export default function InstalacionesPage() {
         border: "border-purple-200",
         icon: "text-purple-600",
         hover: "hover:bg-purple-100",
+      },
+      indigo: {
+        bg: "bg-indigo-50",
+        border: "border-indigo-200",
+        icon: "text-indigo-600",
+        hover: "hover:bg-indigo-100",
       },
     };
     return colors[color as keyof typeof colors] || colors.blue;
