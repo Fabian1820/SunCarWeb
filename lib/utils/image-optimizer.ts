@@ -4,7 +4,6 @@
  * Inspirado en el script PowerShell de optimización agresiva
  */
 
-import heic2any from 'heic2any';
 
 export interface ImageOptimizationOptions {
   maxWidth?: number;
@@ -182,6 +181,7 @@ async function cargarImagen(file: File): Promise<ImageBitmap> {
  */
 async function convertirHEICaJPG(file: File): Promise<Blob> {
   try {
+    const heic2any = (await import('heic2any')).default;
     const resultado = await heic2any({
       blob: file,
       toType: 'image/jpeg',

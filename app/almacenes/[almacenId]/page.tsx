@@ -16,6 +16,7 @@ import {
   RefreshCw,
   PackageMinus,
   PackagePlus,
+  Search,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -65,6 +66,7 @@ export default function AlmacenDetallePage() {
   const { toast } = useToast();
 
   const [almacen, setAlmacen] = useState<Almacen | null>(null);
+  const [almacenesList, setAlmacenesList] = useState<Almacen[]>([]);
   const [stock, setStock] = useState<StockItem[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
   const [materiales, setMateriales] = useState<Material[]>([]);
@@ -84,6 +86,7 @@ export default function AlmacenDetallePage() {
   const [stockCategoriaFilter, setStockCategoriaFilter] = useState("all");
   const [stockMarcaFilter, setStockMarcaFilter] = useState("all");
   const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all");
+  const [historialSearch, setHistorialSearch] = useState("");
 
   const loadDetalle = async () => {
     setLoading(true);
@@ -101,6 +104,7 @@ export default function AlmacenDetallePage() {
       const almacenEncontrado =
         almacenesData.find((item) => item.id === almacenId) || null;
       setAlmacen(almacenEncontrado);
+      setAlmacenesList(almacenesData);
       setMateriales(materialesData);
       setCatalogos(catalogosData);
       setMarcas(marcasData);
@@ -284,6 +288,16 @@ export default function AlmacenDetallePage() {
     stockMarcaFilter,
     stockPotenciaFilter,
   ]);
+
+  const filteredMovimientos = useMemo(() => {
+    const search = historialSearch.trim().toLowerCase();
+    if (!search) return movimientos;
+    return movimientos.filter((mov) => {
+      const codigo = String(mov.material_codigo || "").toLowerCase();
+      const nombre = String(mov.material_descripcion || "").toLowerCase();
+      return codigo.includes(search) || nombre.includes(search);
+    });
+  }, [movimientos, historialSearch]);
 
   const handleRegistrarSalidaLote = async (payload: {
     items: Array<{ material_codigo: string; cantidad: number }>;
@@ -559,11 +573,30 @@ export default function AlmacenDetallePage() {
             <TabsContent value="historial" className="space-y-6">
               <Card>
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <div className="flex-1">
                     <CardTitle>Historial de movimientos</CardTitle>
                     <CardDescription>
                       Entradas y salidas registradas.
                     </CardDescription>
+                    <div className="mt-3 max-w-sm">
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                        Buscar por código o nombre
+                      </Label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                        <Input
+                          value={historialSearch}
+                          onChange={(e) => setHistorialSearch(e.target.value)}
+                          placeholder="Ej: MAT-001 o descripción..."
+                          className="pl-9"
+                        />
+                      </div>
+                      {historialSearch && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {filteredMovimientos.length} de {movimientos.length} movimientos
+                        </p>
+                      )}
+                    </div>
                   </div>
                   <Button
                     variant="outline"
@@ -579,7 +612,11 @@ export default function AlmacenDetallePage() {
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <MovimientosTable movimientos={movimientos} />
+                  <MovimientosTable
+                    movimientos={filteredMovimientos}
+                    materials={materiales}
+                    almacenes={almacenesList}
+                  />
                 </CardContent>
               </Card>
             </TabsContent>

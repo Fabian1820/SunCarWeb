@@ -842,6 +842,7 @@ export function ConfeccionOfertasView() {
       return [
         { value: 'en_revision', label: 'En Revisión' },
         { value: 'aprobada_para_enviar', label: 'Aprobada para Enviar' },
+        { value: 'agotada', label: 'Agotada' },
       ]
     } else {
       return [

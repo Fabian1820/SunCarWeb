@@ -123,6 +123,10 @@ export function OfertasConfeccionadasView() {
         label: "Cancelada",
         className: "bg-slate-200 text-slate-700",
       },
+      agotada: {
+        label: "Agotada",
+        className: "bg-gray-100 text-gray-800",
+      },
     };
     return badges[estado as keyof typeof badges] || badges.en_revision;
   };
@@ -2206,6 +2210,7 @@ export function OfertasConfeccionadasView() {
                   <SelectItem value="reservada">Reservada</SelectItem>
                   <SelectItem value="rechazada">Rechazada</SelectItem>
                   <SelectItem value="cancelada">Cancelada</SelectItem>
+                  <SelectItem value="agotada">Agotada</SelectItem>
                 </SelectContent>
               </Select>
 
