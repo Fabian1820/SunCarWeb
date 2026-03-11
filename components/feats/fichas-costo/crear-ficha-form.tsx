@@ -5,7 +5,7 @@ import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/molecule/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
 import { Plus, Trash2, Loader2, DollarSign, Truck, Ship, Percent } from "lucide-react"
 import type { FichaCostoCreateData, ModoDistribucion, OtroCosto } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
 

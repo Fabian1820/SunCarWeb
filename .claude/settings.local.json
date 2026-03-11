@@ -17,7 +17,8 @@
       "Bash(npx tsc --noEmit --pretty)",
       "Bash(node -e \"try { const { Trophy } = require\\(''lucide-react''\\); console.log\\(''Trophy exists:'', !!Trophy\\) } catch\\(e\\) { console.log\\(''Error:'', e.message\\) }\")",
       "Bash(node -e \"const { Trophy } = require\\(''lucide-react''\\); console.log\\(''Trophy exists:'', !!Trophy\\)\")",
-      "Bash(node -e \"const m = require\\(''lucide-react''\\); console.log\\(''Trophy:'', typeof m.Trophy\\)\")"
+      "Bash(node -e \"const m = require\\(''lucide-react''\\); console.log\\(''Trophy:'', typeof m.Trophy\\)\")",
+      "Bash(ls \"D:/SunCar/SunCarWeb/lib/export-service\"*)"
     ],
     "deny": [],
     "ask": []
