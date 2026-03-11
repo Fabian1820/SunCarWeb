@@ -25,3 +25,4 @@ export { EstadisticasService } from './services/feats/estadisticas/estadisticas-
 export { InventarioService } from './services/feats/inventario/inventario-service'
 export { AveriaService } from './services/feats/averias/averia-service'
 export { ResultadosService } from './services/feats/resultados/resultados-service'
+export { FichaCostoService } from './services/feats/fichas-costo/ficha-costo-service'

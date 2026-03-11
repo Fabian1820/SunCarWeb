@@ -1,0 +1,127 @@
+import { useState, useCallback } from 'react'
+import { FichaCostoService } from '@/lib/api-services'
+import type {
+  FichaCosto,
+  FichaCostoCreateData,
+  ComparacionPrecio,
+  AplicarPrecioResponse,
+} from '@/lib/types/feats/fichas-costo/ficha-costo-types'
+
+interface UseFichasCostoReturn {
+  fichaActiva: FichaCosto | null
+  historial: FichaCosto[]
+  comparacion: ComparacionPrecio | null
+  loading: boolean
+  loadingAction: boolean
+  error: string | null
+  crearFicha: (data: FichaCostoCreateData) => Promise<FichaCosto | null>
+  cargarFichaActiva: (materialId: string) => Promise<void>
+  cargarHistorial: (materialId: string) => Promise<void>
+  compararPrecio: (materialId: string) => Promise<ComparacionPrecio | null>
+  aplicarPrecio: (materialId: string) => Promise<AplicarPrecioResponse | null>
+  limpiarEstado: () => void
+}
+
+export function useFichasCosto(): UseFichasCostoReturn {
+  const [fichaActiva, setFichaActiva] = useState<FichaCosto | null>(null)
+  const [historial, setHistorial] = useState<FichaCosto[]>([])
+  const [comparacion, setComparacion] = useState<ComparacionPrecio | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [loadingAction, setLoadingAction] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const crearFicha = useCallback(async (data: FichaCostoCreateData): Promise<FichaCosto | null> => {
+    try {
+      setLoadingAction(true)
+      setError(null)
+      const ficha = await FichaCostoService.crearFicha(data)
+      setFichaActiva(ficha)
+      return ficha
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear ficha de costo'
+      setError(msg)
+      return null
+    } finally {
+      setLoadingAction(false)
+    }
+  }, [])
+
+  const cargarFichaActiva = useCallback(async (materialId: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const ficha = await FichaCostoService.obtenerFichaActiva(materialId)
+      setFichaActiva(ficha)
+    } catch (err) {
+      // 404 es normal si no hay ficha activa
+      setFichaActiva(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const cargarHistorial = useCallback(async (materialId: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await FichaCostoService.obtenerHistorial(materialId)
+      setHistorial(Array.isArray(data) ? data : [])
+    } catch (err) {
+      setHistorial([])
+      setError(err instanceof Error ? err.message : 'Error al cargar historial')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const compararPrecio = useCallback(async (materialId: string): Promise<ComparacionPrecio | null> => {
+    try {
+      setLoadingAction(true)
+      setError(null)
+      const result = await FichaCostoService.compararPrecio(materialId)
+      setComparacion(result)
+      return result
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al comparar precio')
+      return null
+    } finally {
+      setLoadingAction(false)
+    }
+  }, [])
+
+  const aplicarPrecio = useCallback(async (materialId: string): Promise<AplicarPrecioResponse | null> => {
+    try {
+      setLoadingAction(true)
+      setError(null)
+      const result = await FichaCostoService.aplicarPrecio(materialId)
+      return result
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al aplicar precio')
+      return null
+    } finally {
+      setLoadingAction(false)
+    }
+  }, [])
+
+  const limpiarEstado = useCallback(() => {
+    setFichaActiva(null)
+    setHistorial([])
+    setComparacion(null)
+    setError(null)
+  }, [])
+
+  return {
+    fichaActiva,
+    historial,
+    comparacion,
+    loading,
+    loadingAction,
+    error,
+    crearFicha,
+    cargarFichaActiva,
+    cargarHistorial,
+    compararPrecio,
+    aplicarPrecio,
+    limpiarEstado,
+  }
+}

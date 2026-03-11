@@ -32,7 +32,8 @@ import {
     ShoppingBag,
     BarChart3,
     Map,
-    Trophy
+    Trophy,
+    FileSpreadsheet
 } from "lucide-react"
 import { useLayoutEffect, useRef, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
@@ -273,6 +274,14 @@ export default function Dashboard() {
             title: 'WhatsApp Business',
             description: 'Gestión de conversaciones y atención al cliente.',
             color: 'green-600',
+        },
+        {
+            id: 'fichas-costo',
+            href: '/fichas-costo',
+            icon: FileSpreadsheet,
+            title: 'Fichas de Costo',
+            description: 'Gestión de fichas de costo de materiales.',
+            color: 'teal-600',
         },
     ]
 
