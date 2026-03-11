@@ -352,6 +352,8 @@ const getBrigadaLabel = (brigada: Brigada) => {
 const getTrabajadorId = (trabajador: Trabajador) =>
   String(trabajador.CI || trabajador.id || "").trim();
 
+const WORK_ORDER_ENDPOINT_LIST = "/operaciones/ordenes-trabajo/";
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value);
 
@@ -411,6 +413,9 @@ const ensureApiSuccess = (response: unknown, fallbackMessage: string) => {
     throw new Error(extractApiErrorMessage(response, fallbackMessage));
   }
 };
+
+const buildWorkOrderDetailEndpoint = (orderId: string) =>
+  `/operaciones/ordenes-trabajo/${encodeURIComponent(orderId)}`;
 
 const mapApiMaterialToRow = (
   raw: unknown,
@@ -593,14 +598,32 @@ export function OrdenesTrabajoOperacionesModule() {
     [clientes, draft.clienteId],
   );
 
+  const requestWorkOrderApi = useCallback(
+    async (
+      method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+      options?: {
+        orderId?: string;
+        body?: unknown;
+      },
+    ) => {
+      const endpoint = options?.orderId
+        ? buildWorkOrderDetailEndpoint(options.orderId)
+        : WORK_ORDER_ENDPOINT_LIST;
+
+      return apiRequest<unknown>(endpoint, {
+        method,
+        body:
+          options?.body !== undefined
+            ? JSON.stringify(options.body)
+            : undefined,
+      });
+    },
+    [],
+  );
+
   const fetchOrders = useCallback(async () => {
     try {
-      const response = await apiRequest<unknown>(
-        "/operaciones/ordenes-trabajo",
-        {
-          method: "GET",
-        },
-      );
+      const response = await requestWorkOrderApi("GET");
 
       ensureApiSuccess(
         response,
@@ -626,7 +649,7 @@ export function OrdenesTrabajoOperacionesModule() {
     } finally {
       setReady(true);
     }
-  }, [marcasById, materialsByCode, toast]);
+  }, [marcasById, materialsByCode, requestWorkOrderApi, toast]);
 
   useEffect(() => {
     void fetchOrders();
@@ -1139,16 +1162,13 @@ export function OrdenesTrabajoOperacionesModule() {
       updated_at: now,
     };
 
-    const endpoint = isEditing
-      ? `/operaciones/ordenes-trabajo/${encodeURIComponent(draft.id)}`
-      : "/operaciones/ordenes-trabajo";
     const method = isEditing ? "PUT" : "POST";
 
     setSavingOrder(true);
     try {
-      const response = await apiRequest<unknown>(endpoint, {
-        method,
-        body: JSON.stringify(payload),
+      const response = await requestWorkOrderApi(method, {
+        orderId: isEditing ? draft.id : undefined,
+        body: payload,
       });
       ensureApiSuccess(
         response,
@@ -1192,12 +1212,9 @@ export function OrdenesTrabajoOperacionesModule() {
     }
 
     try {
-      const response = await apiRequest<unknown>(
-        `/operaciones/ordenes-trabajo/${encodeURIComponent(order.id)}`,
-        {
-          method: "DELETE",
-        },
-      );
+      const response = await requestWorkOrderApi("DELETE", {
+        orderId: order.id,
+      });
       ensureApiSuccess(response, "No se pudo eliminar la orden de trabajo.");
 
       if (draft.id === order.id) {

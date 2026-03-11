@@ -1,14 +1,46 @@
 // Configuración de la API
 // Función para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
-  const backendUrlEnv =
+  const backendUrlEnvRaw =
     process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
-  // Solo forzar https en producción (cuando no es localhost)
-  const isLocalhost =
-    backendUrlEnv.includes("localhost") || backendUrlEnv.includes("127.0.0.1");
-  const backendUrl = isLocalhost
-    ? backendUrlEnv.replace(/\/+$/, "")
-    : backendUrlEnv.replace(/^http:\/\//i, "https://").replace(/\/+$/, "");
+  const backendUrlEnv = backendUrlEnvRaw.trim();
+
+  let normalized = backendUrlEnv;
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`;
+  }
+
+  let backendUrl = normalized.replace(/\/+$/, "");
+  try {
+    const parsed = new URL(normalized);
+    const isLocalhost =
+      parsed.hostname.includes("localhost") || parsed.hostname === "127.0.0.1";
+
+    // En producción siempre usar HTTPS para evitar redirects que rompen preflight (CORS)
+    if (!isLocalhost && parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+    }
+
+    // Si la app corre en https y el backend quedó en http, elevar a https igualmente.
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      parsed.protocol === "http:" &&
+      !isLocalhost
+    ) {
+      parsed.protocol = "https:";
+    }
+
+    backendUrl = parsed.toString().replace(/\/+$/, "");
+  } catch {
+    // Fallback conservador
+    const isLocalhost =
+      backendUrlEnv.includes("localhost") ||
+      backendUrlEnv.includes("127.0.0.1");
+    backendUrl = isLocalhost
+      ? backendUrlEnv.replace(/\/+$/, "")
+      : backendUrlEnv.replace(/^http:\/\//i, "https://").replace(/\/+$/, "");
+  }
   const apiUrl = backendUrl.endsWith("/api") ? backendUrl : `${backendUrl}/api`;
 
   console.log("✅ Using direct backend URL:", apiUrl);
@@ -159,7 +191,7 @@ export async function apiRequest<T>(
     });
 
     // Intentar parsear la respuesta priorizando JSON, con fallback seguro para cuerpo vacío/no-JSON.
-    let data: any;
+    let data: unknown;
     if (responseType === "blob") {
       const blob = await response.blob();
       console.log("📄 API Response blob size:", blob.size);
@@ -219,7 +251,7 @@ export async function apiRequest<T>(
           };
           if (!response.ok) {
             throw new Error(
-              data.detail || `HTTP error! status: ${response.status}`,
+              rawText.slice(0, 500) || `HTTP error! status: ${response.status}`,
             );
           }
         }
@@ -227,9 +259,20 @@ export async function apiRequest<T>(
       console.log("📦 Response data:", data);
     }
 
+    const dataRecord =
+      data && typeof data === "object"
+        ? (data as Record<string, unknown>)
+        : null;
+    const dataDetail =
+      typeof dataRecord?.detail === "string" ? dataRecord.detail : "";
+    const dataMessage =
+      typeof dataRecord?.message === "string" ? dataRecord.message : "";
+    const dataSuccess = dataRecord?.success;
+    const dataError = dataRecord?.error;
+
     // Detectar token expirado o inválido (401) ANTES de cualquier otro manejo
     if (!response.ok && response.status === 401) {
-      const errorMessage = data.detail || data.message || "";
+      const errorMessage = dataDetail || dataMessage || "";
 
       if (
         errorMessage.toLowerCase().includes("token") &&
@@ -256,7 +299,11 @@ export async function apiRequest<T>(
 
     // Si la respuesta tiene estructura de error del backend
     // Devolverla tal cual para que el servicio la maneje
-    if (data.success === false || (data.detail && !response.ok) || data.error) {
+    if (
+      dataSuccess === false ||
+      (Boolean(dataDetail) && !response.ok) ||
+      Boolean(dataError)
+    ) {
       console.log("📦 Returning error response to service for handling");
       return data as T;
     }
@@ -277,13 +324,13 @@ export async function apiRequest<T>(
           error: {
             code: "BAD_REQUEST",
             title: "Error de Validación",
-            message: data.detail || data.message || "Error en la solicitud",
+            message: dataDetail || dataMessage || "Error en la solicitud",
           },
         } as T;
       }
 
       throw new Error(
-        data.detail || data.message || `HTTP error! status: ${response.status}`,
+        dataDetail || dataMessage || `HTTP error! status: ${response.status}`,
       );
     }
 
