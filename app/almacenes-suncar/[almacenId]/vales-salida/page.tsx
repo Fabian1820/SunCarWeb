@@ -1,37 +1,42 @@
-"use client"
+"use client";
 
-import { useMemo, useState } from "react"
-import { useParams } from "next/navigation"
-import { Button } from "@/components/shared/atom/button"
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { Button } from "@/components/shared/atom/button";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/shared/molecule/card"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Toaster } from "@/components/shared/molecule/toaster"
-import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { PageLoader } from "@/components/shared/atom/page-loader"
+} from "@/components/shared/molecule/card";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
+import { Toaster } from "@/components/shared/molecule/toaster";
+import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { PageLoader } from "@/components/shared/atom/page-loader";
 import {
   Search,
   FileOutput,
   Plus,
-} from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { useValesSalida } from "@/hooks/use-vales-salida"
-import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table"
-import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-vale-salida-dialog"
-import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog"
-import type { ValeSalida } from "@/lib/api-types"
+  Copy,
+  Check,
+  Loader2,
+  ClipboardList,
+} from "lucide-react";
+import { SolicitudMaterialService } from "@/lib/api-services";
+import { useToast } from "@/hooks/use-toast";
+import { useValesSalida } from "@/hooks/use-vales-salida";
+import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
+import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-vale-salida-dialog";
+import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
+import type { SolicitudMaterial, ValeSalida } from "@/lib/api-types";
 
 export default function ValesSalidaPage() {
-  const params = useParams()
-  const almacenId = params.almacenId as string
-  const { toast } = useToast()
+  const params = useParams();
+  const almacenId = params.almacenId as string;
+  const { toast } = useToast();
 
   const {
     vales,
@@ -41,71 +46,153 @@ export default function ValesSalidaPage() {
     setSearchTerm,
     loadVales,
     deleteVale,
-  } = useValesSalida()
+  } = useValesSalida();
 
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [selectedVale, setSelectedVale] = useState<ValeSalida | null>(null)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [selectedVale, setSelectedVale] = useState<ValeSalida | null>(null);
 
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [valeToDelete, setValeToDelete] = useState<ValeSalida | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [valeToDelete, setValeToDelete] = useState<ValeSalida | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState<
+    SolicitudMaterial[]
+  >([]);
+  const [loadingPendientes, setLoadingPendientes] = useState(false);
+  const [copiedSolicitudId, setCopiedSolicitudId] = useState<string | null>(
+    null,
+  );
+
+  const loadSolicitudesPendientes = useCallback(async () => {
+    setLoadingPendientes(true);
+    try {
+      const data = await SolicitudMaterialService.getSolicitudes({
+        almacen_id: almacenId,
+        estado: "nueva",
+      });
+      setSolicitudesPendientes(data);
+    } catch (error) {
+      setSolicitudesPendientes([]);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las solicitudes pendientes",
+        variant: "destructive",
+      });
+      console.error("Error loading pending solicitudes:", error);
+    } finally {
+      setLoadingPendientes(false);
+    }
+  }, [almacenId, toast]);
+
+  useEffect(() => {
+    loadSolicitudesPendientes();
+  }, [loadSolicitudesPendientes]);
 
   const valesAlmacen = useMemo(() => {
     return filteredVales.filter((vale) => {
-      const solicitud = vale.solicitud_material || vale.solicitud
-      const solicitudAlmacenId = solicitud?.almacen?.id
-      if (!solicitudAlmacenId) return true
-      return solicitudAlmacenId === almacenId
-    })
-  }, [filteredVales, almacenId])
+      const solicitud = vale.solicitud_material || vale.solicitud;
+      const solicitudAlmacenId = solicitud?.almacen?.id;
+      if (!solicitudAlmacenId) return true;
+      return solicitudAlmacenId === almacenId;
+    });
+  }, [filteredVales, almacenId]);
 
   if (loading && vales.length === 0) {
-    return <PageLoader moduleName="Vales de Salida" text="Cargando vales..." />
+    return <PageLoader moduleName="Vales de Salida" text="Cargando vales..." />;
   }
 
   const handleCreateSuccess = () => {
-    loadVales()
-  }
+    loadVales();
+    loadSolicitudesPendientes();
+  };
 
   const handleDeleteVale = (vale: ValeSalida) => {
-    setValeToDelete(vale)
-    setIsDeleteDialogOpen(true)
-  }
+    setValeToDelete(vale);
+    setIsDeleteDialogOpen(true);
+  };
 
   const confirmDelete = async () => {
-    if (!valeToDelete) return
+    if (!valeToDelete) return;
 
-    setDeleteLoading(true)
+    setDeleteLoading(true);
     try {
-      const success = await deleteVale(valeToDelete.id)
-      if (!success) throw new Error("No se pudo eliminar el vale")
+      const success = await deleteVale(valeToDelete.id);
+      if (!success) throw new Error("No se pudo eliminar el vale");
       toast({
         title: "Exito",
         description: "Vale de salida eliminado correctamente",
-      })
-      setValeToDelete(null)
-      setIsDeleteDialogOpen(false)
+      });
+      loadSolicitudesPendientes();
+      setValeToDelete(null);
+      setIsDeleteDialogOpen(false);
     } catch (error) {
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "No se pudo eliminar el vale",
+          error instanceof Error
+            ? error.message
+            : "No se pudo eliminar el vale",
         variant: "destructive",
-      })
+      });
     } finally {
-      setDeleteLoading(false)
+      setDeleteLoading(false);
     }
-  }
+  };
+
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return "—";
+    try {
+      return new Date(dateStr).toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    } catch {
+      return "—";
+    }
+  };
+
+  const getSolicitudCode = (solicitud: SolicitudMaterial) =>
+    solicitud.codigo || solicitud.id.slice(-6).toUpperCase();
+
+  const handleCopyCodigo = async (solicitud: SolicitudMaterial) => {
+    const codigo = getSolicitudCode(solicitud);
+    try {
+      await navigator.clipboard.writeText(codigo);
+      setCopiedSolicitudId(solicitud.id);
+      toast({
+        title: "Copiado",
+        description: `Codigo ${codigo} copiado al portapapeles`,
+      });
+      setTimeout(() => {
+        setCopiedSolicitudId((current) =>
+          current === solicitud.id ? null : current,
+        );
+      }, 1800);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el codigo al portapapeles",
+        variant: "destructive",
+      });
+      console.error("Error copying solicitud code:", error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
         title="Vales de Salida"
         subtitle="Gestiona los vales de salida de materiales"
-        badge={{ text: "Almacenes", className: "bg-orange-100 text-orange-800" }}
+        badge={{
+          text: "Almacenes",
+          className: "bg-orange-100 text-orange-800",
+        }}
         className="bg-white shadow-sm border-b border-orange-100"
-        backButton={{ href: `/almacenes-suncar/${almacenId}`, label: "Volver al Almacen" }}
+        backButton={{
+          href: `/almacenes-suncar/${almacenId}`,
+          label: "Volver al Almacen",
+        }}
         actions={
           <Button
             size="icon"
@@ -122,11 +209,108 @@ export default function ValesSalidaPage() {
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-amber-500">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-amber-600" />
+              Solicitudes Pendientes (Nuevas)
+            </CardTitle>
+            <CardDescription>
+              Copia el codigo y pegalo en el buscador del dialogo para crear el
+              vale.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loadingPendientes ? (
+              <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando solicitudes pendientes...
+              </div>
+            ) : solicitudesPendientes.length === 0 ? (
+              <div className="text-sm text-gray-500 py-2">
+                No hay solicitudes nuevas pendientes para este almacen.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                        Codigo
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                        Cliente
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                        Materiales
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                        Fecha
+                      </th>
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                        Accion
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {solicitudesPendientes.map((solicitud) => {
+                      const copied = copiedSolicitudId === solicitud.id;
+                      return (
+                        <tr
+                          key={solicitud.id}
+                          className="border-b border-gray-100"
+                        >
+                          <td className="py-2 px-2 font-mono font-medium text-amber-700">
+                            {getSolicitudCode(solicitud)}
+                          </td>
+                          <td className="py-2 px-2 text-gray-700">
+                            {solicitud.cliente?.nombre || "Sin cliente"}
+                          </td>
+                          <td className="py-2 px-2 text-gray-700">
+                            {solicitud.materiales?.length || 0}
+                          </td>
+                          <td className="py-2 px-2 text-gray-700">
+                            {formatDate(solicitud.fecha_creacion)}
+                          </td>
+                          <td className="py-2 px-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                              onClick={() => handleCopyCodigo(solicitud)}
+                              title="Copiar codigo"
+                            >
+                              {copied ? (
+                                <>
+                                  <Check className="h-4 w-4 mr-1" />
+                                  Copiado
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="h-4 w-4 mr-1" />
+                                  Copiar codigo
+                                </>
+                              )}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label
+                  htmlFor="search"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
                   Buscar
                 </Label>
                 <div className="relative">
@@ -151,15 +335,16 @@ export default function ValesSalidaPage() {
               Vales de Salida
             </CardTitle>
             <CardDescription>
-              Mostrando {valesAlmacen.length} vale{valesAlmacen.length !== 1 ? "s" : ""}
+              Mostrando {valesAlmacen.length} vale
+              {valesAlmacen.length !== 1 ? "s" : ""}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <ValesSalidaTable
               vales={valesAlmacen}
               onView={(vale) => {
-                setSelectedVale(vale)
-                setIsDetailDialogOpen(true)
+                setSelectedVale(vale);
+                setIsDetailDialogOpen(true);
               }}
               onDelete={handleDeleteVale}
               loading={loading}
@@ -192,5 +377,5 @@ export default function ValesSalidaPage() {
 
       <Toaster />
     </div>
-  )
+  );
 }
