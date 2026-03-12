@@ -10,7 +10,7 @@ function getApiBaseUrl(): string {
     normalized = `https://${normalized}`;
   }
 
-  let backendUrl = normalized.replace(/\/+$/, "");
+  let backendOrigin = normalized.replace(/\/+$/, "");
   try {
     const parsed = new URL(normalized);
     const isLocalhost =
@@ -31,20 +31,36 @@ function getApiBaseUrl(): string {
       parsed.protocol = "https:";
     }
 
-    backendUrl = parsed.toString().replace(/\/+$/, "");
+    const suppliedPath = parsed.pathname.replace(/\/+$/, "");
+    if (
+      suppliedPath &&
+      suppliedPath !== "/" &&
+      suppliedPath !== "/api" &&
+      typeof console !== "undefined"
+    ) {
+      console.warn(
+        `⚠️ NEXT_PUBLIC_BACKEND_URL incluye path '${suppliedPath}'. Se ignorará y se usará solo el origen.`,
+      );
+    }
+
+    // Siempre construir la base con el origen para evitar duplicar /api o paths extra.
+    backendOrigin = parsed.origin;
   } catch {
     // Fallback conservador
     const isLocalhost =
       backendUrlEnv.includes("localhost") ||
       backendUrlEnv.includes("127.0.0.1");
-    backendUrl = isLocalhost
-      ? backendUrlEnv.replace(/\/+$/, "")
-      : backendUrlEnv.replace(/^http:\/\//i, "https://").replace(/\/+$/, "");
+
+    const protocol = isLocalhost ? "http" : "https";
+    const hostOnly = backendUrlEnv
+      .replace(/^https?:\/\//i, "")
+      .replace(/\/.*$/, "");
+    backendOrigin = `${protocol}://${hostOnly}`;
   }
-  const apiUrl = backendUrl.endsWith("/api") ? backendUrl : `${backendUrl}/api`;
+  const apiUrl = `${backendOrigin.replace(/\/+$/, "")}/api`;
 
   console.log("✅ Using direct backend URL:", apiUrl);
-  console.log("🔧 Backend base URL:", backendUrl);
+  console.log("🔧 Backend origin URL:", backendOrigin);
 
   return apiUrl;
 }
@@ -330,7 +346,9 @@ export async function apiRequest<T>(
       }
 
       throw new Error(
-        dataDetail || dataMessage || `HTTP error! status: ${response.status}`,
+        `${
+          dataDetail || dataMessage || `HTTP error! status: ${response.status}`
+        } [${method} ${url}]`,
       );
     }
 
