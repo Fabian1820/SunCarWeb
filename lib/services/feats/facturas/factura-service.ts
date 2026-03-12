@@ -81,9 +81,9 @@ export class FacturaService {
     async listarFacturas(filters?: FacturaFilters, skip: number = 0, limit: number = 100): Promise<Factura[]> {
         const params = new URLSearchParams();
 
-        if (filters?.mes) params.append('mes', filters.mes.toString());
-        if (filters?.anio) params.append('anio', filters.anio.toString());
-        if (filters?.fecha_especifica) params.append('fecha_especifica', filters.fecha_especifica);
+        if (filters?.mes_vale) params.append('mes_vale', filters.mes_vale.toString());
+        if (filters?.anio_vale) params.append('anio_vale', filters.anio_vale.toString());
+        if (filters?.fecha_vale) params.append('fecha_vale', filters.fecha_vale);
         if (filters?.nombre_cliente) params.append('nombre_cliente', filters.nombre_cliente);
         if (filters?.estado) params.append('estado', filters.estado);
         params.append('skip', skip.toString());
@@ -223,9 +223,9 @@ export class FacturaService {
     async obtenerStats(filters?: FacturaFilters): Promise<FacturaStats> {
         const params = new URLSearchParams();
 
-        if (filters?.mes) params.append('mes', filters.mes.toString());
-        if (filters?.anio) params.append('anio', filters.anio.toString());
-        if (filters?.fecha_especifica) params.append('fecha_especifica', filters.fecha_especifica);
+        if (filters?.mes_vale) params.append('mes_vale', filters.mes_vale.toString());
+        if (filters?.anio_vale) params.append('anio_vale', filters.anio_vale.toString());
+        if (filters?.fecha_vale) params.append('fecha_vale', filters.fecha_vale);
         if (filters?.nombre_cliente) params.append('nombre_cliente', filters.nombre_cliente);
         if (filters?.estado) params.append('estado', filters.estado);
 

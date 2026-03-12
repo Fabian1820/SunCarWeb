@@ -53,9 +53,9 @@ export interface FacturaStats {
 }
 
 export interface FacturaFilters {
-    mes?: number;
-    anio?: number;
-    fecha_especifica?: string;
+    mes_vale?: number;
+    anio_vale?: number;
+    fecha_vale?: string;
     nombre_cliente?: string;
     estado?: EstadoFactura;
 }

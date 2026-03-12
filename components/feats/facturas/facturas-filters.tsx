@@ -32,7 +32,7 @@ export function FacturasFilters({
 }: FacturasFiltersProps) {
   const [localFilters, setLocalFilters] = useState<FacturaFilters>(filters);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
-    filters.fecha_especifica ? new Date(filters.fecha_especifica) : undefined,
+    filters.fecha_vale ? new Date(filters.fecha_vale) : undefined,
   );
 
   const currentYear = new Date().getFullYear();
@@ -63,11 +63,11 @@ export function FacturasFilters({
 
     // Si hay fecha específica, remover mes y año
     if (selectedDate) {
-      filtersToApply.fecha_especifica = format(selectedDate, "yyyy-MM-dd");
-      delete filtersToApply.mes;
-      delete filtersToApply.anio;
+      filtersToApply.fecha_vale = format(selectedDate, "yyyy-MM-dd");
+      delete filtersToApply.mes_vale;
+      delete filtersToApply.anio_vale;
     } else {
-      delete filtersToApply.fecha_especifica;
+      delete filtersToApply.fecha_vale;
     }
 
     onApplyFilters(filtersToApply);
@@ -88,11 +88,11 @@ export function FacturasFilters({
           <div className="w-full sm:w-auto min-w-[140px] space-y-1">
             <Label>Mes</Label>
             <Select
-              value={localFilters.mes?.toString()}
+              value={localFilters.mes_vale?.toString()}
               onValueChange={(value) =>
                 setLocalFilters({
                   ...localFilters,
-                  mes: value ? parseInt(value) : undefined,
+                  mes_vale: value ? parseInt(value) : undefined,
                 })
               }
               disabled={!!selectedDate}
@@ -114,11 +114,11 @@ export function FacturasFilters({
           <div className="w-full sm:w-auto min-w-[120px] space-y-1">
             <Label>Año</Label>
             <Select
-              value={localFilters.anio?.toString()}
+              value={localFilters.anio_vale?.toString()}
               onValueChange={(value) =>
                 setLocalFilters({
                   ...localFilters,
-                  anio: value ? parseInt(value) : undefined,
+                  anio_vale: value ? parseInt(value) : undefined,
                 })
               }
               disabled={!!selectedDate}
@@ -150,19 +150,19 @@ export function FacturasFilters({
                     setSelectedDate(date);
                     setLocalFilters({
                       ...localFilters,
-                      fecha_especifica: value,
-                      mes: undefined,
-                      anio: undefined,
+                      fecha_vale: value,
+                      mes_vale: undefined,
+                      anio_vale: undefined,
                     });
                   } else {
                     setSelectedDate(undefined);
                     setLocalFilters({
                       ...localFilters,
-                      fecha_especifica: undefined,
+                      fecha_vale: undefined,
                     });
                   }
                 }}
-                disabled={!!(localFilters.mes || localFilters.anio)}
+                disabled={!!(localFilters.mes_vale || localFilters.anio_vale)}
               />
               <CalendarIcon className="h-4 w-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
