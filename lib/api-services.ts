@@ -28,3 +28,5 @@ export { ResultadosService } from "./services/feats/resultados/resultados-servic
 export { FichaCostoService } from "./services/feats/fichas-costo/ficha-costo-service";
 export { SolicitudMaterialService } from "./services/feats/solicitudes-materiales/solicitud-material-service";
 export { ValeSalidaService } from "./services/feats/vales-salida/vale-salida-service";
+export { ClienteVentaService } from "./services/feats/clientes-ventas/cliente-venta-service";
+export { SolicitudVentaService } from "./services/feats/solicitudes-ventas/solicitud-venta-service";

@@ -117,3 +117,24 @@ export type {
   ValeClienteInfo,
   ValeMaterialInfo,
 } from "./types/feats/vales-salida/vale-salida-types";
+
+export type {
+  ClienteVenta,
+  ClienteVentaCreateData,
+  ClienteVentaUpdateData,
+  ClienteVentaListResponse,
+} from "./types/feats/clientes-ventas/cliente-venta-types";
+
+export type {
+  SolicitudVenta,
+  SolicitudVentaCreateData,
+  SolicitudVentaUpdateData,
+  SolicitudVentaMaterialItem,
+  SolicitudVentaMaterialItemDetalle,
+  SolicitudVentaListParams,
+  SolicitudVentaListResponse,
+  SolicitudVentaAlmacenInfo,
+  SolicitudVentaTrabajadorInfo,
+  MaterialVentaInfo,
+  MaterialVentaWeb,
+} from "./types/feats/solicitudes-ventas/solicitud-venta-types";
