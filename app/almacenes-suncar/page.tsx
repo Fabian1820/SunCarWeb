@@ -83,7 +83,7 @@ export default function AlmacenesSuncarPage() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {almacenesDisponibles.map((almacen) => (
-                  <Link key={almacen.id} href={`/almacenes/${almacen.id}`}>
+                  <Link key={almacen.id} href={`/almacenes-suncar/${almacen.id}`}>
                     <Card className="border-0 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer hover:-translate-y-2 bg-white/90 backdrop-blur-sm">
                       <CardContent className="p-6 text-center flex flex-col justify-center">
                         <Package className="h-10 w-10 text-blue-600 mx-auto mb-3" />
