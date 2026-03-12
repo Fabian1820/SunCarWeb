@@ -339,7 +339,10 @@ const loadImageAsDataUrl = async (src: string): Promise<string> => {
 };
 
 const getBrigadaId = (brigada: Brigada) =>
-  String(brigada.id || brigada._id || brigada.lider?.CI || "").trim();
+  String(brigada.id || brigada._id || "").trim();
+
+const getBrigadaLeaderCi = (brigada: Brigada) =>
+  String(brigada.lider_ci || brigada.lider?.CI || "").trim();
 
 const getBrigadaLabel = (brigada: Brigada) => {
   const liderNombre = brigada.lider?.nombre || "Sin líder";
@@ -351,6 +354,27 @@ const getBrigadaLabel = (brigada: Brigada) => {
 
 const getTrabajadorId = (trabajador: Trabajador) =>
   String(trabajador.CI || trabajador.id || "").trim();
+
+const resolveBrigadaPayloadId = (
+  selectedValue: string,
+  brigadas: Brigada[],
+): string => {
+  const normalized = String(selectedValue || "").trim();
+  if (!normalized) return "";
+
+  const exactId = brigadas.find(
+    (brigada) => getBrigadaId(brigada) === normalized,
+  );
+  if (exactId) return normalized;
+
+  // Compatibilidad: si por datos antiguos viene CI del líder, intentar mapearlo a id real.
+  const byLeaderCi = brigadas.find(
+    (brigada) => getBrigadaLeaderCi(brigada) === normalized,
+  );
+  if (!byLeaderCi) return normalized;
+
+  return getBrigadaId(byLeaderCi) || normalized;
+};
 
 const WORK_ORDER_ENDPOINT_LIST = "/operaciones/ordenes-trabajo/";
 
@@ -1158,6 +1182,23 @@ export function OrdenesTrabajoOperacionesModule() {
         cantidadOferta: sanitizeQuantityInput(item.cantidadOferta),
       }));
 
+    const resolvedBrigadaId = resolveBrigadaPayloadId(
+      draft.aEjecutar,
+      brigadas,
+    );
+    const brigadaExiste = brigadas.some(
+      (brigada) => getBrigadaId(brigada) === resolvedBrigadaId,
+    );
+    if (!resolvedBrigadaId || !brigadaExiste) {
+      toast({
+        title: "Brigada inválida",
+        description:
+          "La brigada seleccionada no tiene un ID válido. Selecciona otra brigada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const payload = {
       codigo: normalizedCode,
       fecha: draft.fecha,
@@ -1169,7 +1210,7 @@ export function OrdenesTrabajoOperacionesModule() {
       cliente_ci: draft.ci || undefined,
       cliente_provincia: draft.provincia || undefined,
       otorgado_a_ci: draft.otorgadoA,
-      brigada_id: draft.aEjecutar,
+      brigada_id: resolvedBrigadaId,
       oferta_id_confirmada: draft.ofertaIdConfirmada || undefined,
       oferta_numero: draft.ofertaNumero || undefined,
       materiales: cleanedMateriales.map((item) => ({
