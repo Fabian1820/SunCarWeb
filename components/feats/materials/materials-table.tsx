@@ -109,12 +109,6 @@ export function MaterialsTable({
             <th className="text-left py-3 px-2 font-semibold text-gray-900">
               Nombre
             </th>
-            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[170px]">
-              UbicaciÃ³n
-            </th>
-            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[220px]">
-              Comentario
-            </th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
               Marca
             </th>
@@ -185,16 +179,6 @@ export function MaterialsTable({
                 ) : (
                   <span className="text-sm text-gray-400">-</span>
                 )}
-              </td>
-              <td className="py-3 px-2">
-                <span className="text-sm text-gray-700 truncate block">
-                  {material.ubicacion_en_almacen?.trim() || "Sin ubicaciÃ³n"}
-                </span>
-              </td>
-              <td className="py-3 px-2">
-                <span className="text-sm text-gray-700 truncate block">
-                  {material.comentario?.trim() || "Sin comentario"}
-                </span>
               </td>
               <td className="py-3 px-2">
                 {material.marca_id ? (

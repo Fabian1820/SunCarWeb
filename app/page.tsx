@@ -25,6 +25,7 @@ import {
   Map,
   Trophy,
   FileSpreadsheet,
+  PackageSearch,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -124,6 +125,14 @@ export default function Dashboard() {
       title: "Operaciones",
       description: "Instalaciones en proceso, nuevas y averías.",
       iconClass: "text-purple-600",
+    },
+    {
+      id: "solicitudes-materiales",
+      href: "/instalaciones/solicitudes-materiales",
+      icon: PackageSearch,
+      title: "Solicitudes de Materiales",
+      description: "Crear y gestionar solicitudes de materiales.",
+      iconClass: "text-teal-600",
     },
     {
       id: "brigadas",
@@ -249,7 +258,7 @@ export default function Dashboard() {
       id: "operaciones",
       title: "Operaciones",
       subtitle: "Brigadas, trabajadores, reportes y operaciones.",
-      moduleIds: ["brigadas", "trabajadores", "reportes", "instalaciones"],
+      moduleIds: ["brigadas", "trabajadores", "reportes", "instalaciones", "solicitudes-materiales"],
     },
     {
       id: "economia",

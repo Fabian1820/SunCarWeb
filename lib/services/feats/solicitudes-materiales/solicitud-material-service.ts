@@ -5,8 +5,6 @@ import type {
   SolicitudMaterial,
   SolicitudMaterialCreateData,
   SolicitudMaterialUpdateData,
-  SolicitudMaterialListResponse,
-  MaterialesSugeridosResponse,
   MaterialSugerido,
 } from "../../../api-types"
 
@@ -41,10 +39,12 @@ export class SolicitudMaterialService {
       ? `${BASE_ENDPOINT}/?${search.toString()}`
       : `${BASE_ENDPOINT}/`
 
-    const response = await apiRequest<SolicitudMaterialListResponse | SolicitudMaterial[]>(endpoint)
+    const raw = await apiRequest<any>(endpoint)
 
-    if (Array.isArray(response)) return response
-    return response.solicitudes || response.data || []
+    // Backend may wrap: { success, message, data: [...] } or direct array
+    const payload = raw?.data ?? raw
+    if (Array.isArray(payload)) return payload
+    return payload?.solicitudes || payload?.data || []
   }
 
   /**
@@ -52,8 +52,9 @@ export class SolicitudMaterialService {
    * GET /api/operaciones/solicitudes-materiales/{solicitud_id}
    */
   static async getSolicitudById(id: string): Promise<SolicitudMaterial | null> {
-    const response = await apiRequest<SolicitudMaterial>(buildDetailEndpoint(id))
-    return response || null
+    const raw = await apiRequest<any>(buildDetailEndpoint(id))
+    const payload = raw?.data ?? raw
+    return payload || null
   }
 
   /**
@@ -104,16 +105,19 @@ export class SolicitudMaterialService {
   static async getMaterialesSugeridos(
     clienteId: string,
   ): Promise<{ materiales: MaterialSugerido[]; materiales_sin_vinculo: string[] }> {
-    const response = await apiRequest<MaterialesSugeridosResponse | MaterialSugerido[]>(
+    const raw = await apiRequest<any>(
       `${BASE_ENDPOINT}/materiales-sugeridos/${encodeURIComponent(clienteId)}`,
     )
 
-    if (Array.isArray(response)) {
-      return { materiales: response, materiales_sin_vinculo: [] }
+    // Backend may wrap response: { success, message, data: { materiales, ... } }
+    const payload = raw?.data ?? raw
+
+    if (Array.isArray(payload)) {
+      return { materiales: payload, materiales_sin_vinculo: [] }
     }
     return {
-      materiales: response.materiales || [],
-      materiales_sin_vinculo: response.materiales_sin_vinculo || [],
+      materiales: payload?.materiales || [],
+      materiales_sin_vinculo: payload?.materiales_sin_vinculo || [],
     }
   }
 }
