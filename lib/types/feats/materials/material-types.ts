@@ -5,6 +5,8 @@ export interface BackendMaterial {
   descripcion: string;
   um: string;
   precio?: number;
+  ubicacion_en_almacen?: string | null;
+  comentario?: string | null;
   nombre?: string;
   marca_id?: string;
   foto?: string;
@@ -30,6 +32,8 @@ export interface MaterialItem {
   descripcion: string;
   um: string;
   precio?: number;
+  ubicacion_en_almacen?: string | null;
+  comentario?: string | null;
   nombre?: string;
   marca_id?: string;
   foto?: string;
@@ -52,6 +56,8 @@ export interface Material {
   descripcion: string;
   um: string;
   precio?: number;
+  ubicacion_en_almacen?: string | null;
+  comentario?: string | null;
   foto?: string;
   nombre?: string;
   marca_id?: string;
@@ -68,6 +74,8 @@ export interface MaterialFormData {
   descripcion: string;
   um: string;
   precio?: number;
+  ubicacion_en_almacen?: string | null;
+  comentario?: string | null;
   nombre?: string;
   marca_id?: string;
   foto?: File | null;
@@ -90,6 +98,8 @@ export interface CreateMaterialRequest {
   descripcion: string;
   um: string;
   precio?: number;
+  ubicacion_en_almacen?: string | null;
+  comentario?: string | null;
   nombre?: string;
   marca_id?: string;
   foto?: string;
@@ -121,6 +131,8 @@ export function transformBackendToFrontend(
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        ubicacion_en_almacen: material.ubicacion_en_almacen ?? null,
+        comentario: material.comentario ?? null,
         foto: material.foto,
         nombre: material.nombre,
         marca_id: material.marca_id,
@@ -152,6 +164,8 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        ubicacion_en_almacen: material.ubicacion_en_almacen ?? null,
+        comentario: material.comentario ?? null,
         foto: material.foto,
         nombre: material.nombre,
         marca_id: material.marca_id,

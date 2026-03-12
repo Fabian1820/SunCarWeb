@@ -19,6 +19,8 @@ interface UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       foto?: string;
       marca_id?: string;
@@ -37,6 +39,8 @@ interface UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       foto?: string;
       marca_id?: string;
@@ -59,6 +63,8 @@ interface UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       foto?: string;
       marca_id?: string;
@@ -169,6 +175,8 @@ export function useMaterials(): UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       foto?: string;
       marca_id?: string;
@@ -207,6 +215,8 @@ export function useMaterials(): UseMaterialsReturn {
           descripcion: material.descripcion,
           um: material.um,
           precio: material.precio,
+          ubicacion_en_almacen: material.ubicacion_en_almacen ?? null,
+          comentario: material.comentario ?? null,
           categoria: categoria || "",
           nombre: material.nombre,
           foto: material.foto,
@@ -263,6 +273,8 @@ export function useMaterials(): UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       foto?: string;
       marca_id?: string;
@@ -316,6 +328,8 @@ export function useMaterials(): UseMaterialsReturn {
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        ubicacion_en_almacen: material.ubicacion_en_almacen ?? null,
+        comentario: material.comentario ?? null,
         categoria,
         nombre: material.nombre,
         foto: material.foto,
@@ -338,6 +352,8 @@ export function useMaterials(): UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       foto?: string;
       marca_id?: string;
@@ -393,6 +409,14 @@ export function useMaterials(): UseMaterialsReturn {
               descripcion: payload.descripcion,
               um: payload.um,
               precio: payload.precio ?? m.precio,
+              ubicacion_en_almacen:
+                payload.ubicacion_en_almacen !== undefined
+                  ? payload.ubicacion_en_almacen
+                  : m.ubicacion_en_almacen,
+              comentario:
+                payload.comentario !== undefined
+                  ? payload.comentario
+                  : m.comentario,
               nombre: payload.nombre ?? m.nombre,
               foto: payload.foto ?? m.foto,
               marca_id: payload.marca_id ?? m.marca_id,

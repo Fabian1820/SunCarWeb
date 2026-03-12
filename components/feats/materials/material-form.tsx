@@ -70,6 +70,8 @@ export function MaterialForm({
     descripcion: initialData?.descripcion || "",
     um: initialData?.um || "",
     precio: initialData?.precio ?? undefined,
+    ubicacion_en_almacen: initialData?.ubicacion_en_almacen ?? null,
+    comentario: initialData?.comentario ?? null,
     nombre: initialData?.nombre || "",
     marca_id: initialData?.marca_id || undefined,
     foto: null,
@@ -130,6 +132,8 @@ export function MaterialForm({
       descripcion: initialData.descripcion || "",
       um: initialData.um || "",
       precio: initialData.precio ?? undefined,
+      ubicacion_en_almacen: initialData.ubicacion_en_almacen ?? null,
+      comentario: initialData.comentario ?? null,
       nombre: initialData.nombre || "",
       marca_id: initialData.marca_id || undefined,
       foto: null,
@@ -297,6 +301,8 @@ export function MaterialForm({
           descripcion: formData.descripcion,
           um: formData.um,
           precio: formData.precio,
+          ubicacion_en_almacen: formData.ubicacion_en_almacen?.trim() || null,
+          comentario: formData.comentario?.trim() || null,
           nombre: formData.nombre,
           foto: finalFotoUrl || undefined,
           ...(requiereMarcaYPotencia && {
@@ -326,6 +332,8 @@ export function MaterialForm({
             descripcion: "",
             um: "",
             precio: undefined,
+            ubicacion_en_almacen: null,
+            comentario: null,
             nombre: "",
             marca_id: undefined,
             foto: null,
@@ -456,6 +464,51 @@ export function MaterialForm({
               rows={3}
               disabled={isSubmitting || uploadingFoto}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label
+                htmlFor="material-ubicacion"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
+                Ubicacion en almacen
+              </Label>
+              <Input
+                id="material-ubicacion"
+                value={formData.ubicacion_en_almacen ?? ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    ubicacion_en_almacen: e.target.value,
+                  })
+                }
+                placeholder="Ej: Pasillo A / Estante 3"
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
+
+            <div>
+              <Label
+                htmlFor="material-comentario"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
+                Comentario
+              </Label>
+              <Textarea
+                id="material-comentario"
+                value={formData.comentario ?? ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    comentario: e.target.value,
+                  })
+                }
+                placeholder="Observaciones internas del material"
+                rows={2}
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
           </div>
 
           {/* Categoría */}

@@ -125,6 +125,8 @@ export class MaterialService {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       marca_id?: string;
       foto?: string;
@@ -235,6 +237,8 @@ export class MaterialService {
       descripcion: string;
       um: string;
       precio?: number;
+      ubicacion_en_almacen?: string | null;
+      comentario?: string | null;
       nombre?: string;
       marca_id?: string;
       foto?: string;

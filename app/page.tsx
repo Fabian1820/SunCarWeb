@@ -291,9 +291,7 @@ export default function Dashboard() {
     ...allModules.filter((module) =>
       hasPermission(module.permission ?? module.id),
     ),
-    ...superAdminModules.filter((module) =>
-      hasPermission(module.permission ?? module.id),
-    ),
+    ...superAdminModules,
   ];
 
   const availableModuleMap = new globalThis.Map(

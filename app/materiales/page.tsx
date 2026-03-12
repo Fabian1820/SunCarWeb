@@ -117,6 +117,8 @@ export default function MaterialesPage() {
     const habilitar_venta_web = (material as any).habilitar_venta_web;
     const precio_por_cantidad = (material as any).precio_por_cantidad;
     const especificaciones = (material as any).especificaciones;
+    const ubicacion_en_almacen = (material as any).ubicacion_en_almacen;
+    const comentario = (material as any).comentario;
 
     const materialData = {
       codigo: String(codigo),
@@ -127,6 +129,8 @@ export default function MaterialesPage() {
       ...(foto && { foto }),
       ...(marca_id && { marca_id }),
       ...(potenciaKW && { potenciaKW }),
+      ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
+      comentario: comentario?.trim() || null,
       habilitar_venta_web: habilitar_venta_web ?? false,
       precio_por_cantidad: precio_por_cantidad || null,
       especificaciones: especificaciones || null,
@@ -193,6 +197,8 @@ export default function MaterialesPage() {
     const habilitar_venta_web = (updatedMaterial as any).habilitar_venta_web;
     const precio_por_cantidad = (updatedMaterial as any).precio_por_cantidad;
     const especificaciones = (updatedMaterial as any).especificaciones;
+    const ubicacion_en_almacen = (updatedMaterial as any).ubicacion_en_almacen;
+    const comentario = (updatedMaterial as any).comentario;
 
     const materialCodigo = String(editingMaterial?.codigo || codigo);
     const categoriaOriginal = editingMaterial?.categoria;
@@ -240,6 +246,8 @@ export default function MaterialesPage() {
             foto: foto || undefined,
             marca_id: marca_id || undefined,
             potenciaKW: potenciaKW || undefined,
+            ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
+            comentario: comentario?.trim() || null,
             habilitar_venta_web,
             precio_por_cantidad,
             especificaciones,
@@ -277,6 +285,8 @@ export default function MaterialesPage() {
             foto,
             marca_id,
             potenciaKW,
+            ubicacion_en_almacen: ubicacion_en_almacen?.trim() || null,
+            comentario: comentario?.trim() || null,
             habilitar_venta_web,
             precio_por_cantidad,
             especificaciones,
