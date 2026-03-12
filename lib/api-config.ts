@@ -1,8 +1,9 @@
 // Configuración de la API
 // Función para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
+  const PROD_BACKEND_FALLBACK = "https://api.suncarsrl.com";
   const backendUrlEnvRaw =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
+    process.env.NEXT_PUBLIC_BACKEND_URL || PROD_BACKEND_FALLBACK;
   const backendUrlEnv = backendUrlEnvRaw.trim();
 
   let normalized = backendUrlEnv;
@@ -43,8 +44,20 @@ function getApiBaseUrl(): string {
       );
     }
 
-    // Siempre construir la base con el origen para evitar duplicar /api o paths extra.
-    backendOrigin = parsed.origin;
+    const isSuncarNonApiHost =
+      !isLocalhost &&
+      parsed.hostname.includes("suncarsrl.com") &&
+      !parsed.hostname.startsWith("api.");
+
+    if (isSuncarNonApiHost) {
+      console.warn(
+        `⚠️ Host backend '${parsed.hostname}' no es API. Se usará '${PROD_BACKEND_FALLBACK}'.`,
+      );
+      backendOrigin = PROD_BACKEND_FALLBACK;
+    } else {
+      // Siempre construir la base con el origen para evitar duplicar /api o paths extra.
+      backendOrigin = parsed.origin;
+    }
   } catch {
     // Fallback conservador
     const isLocalhost =
@@ -55,7 +68,13 @@ function getApiBaseUrl(): string {
     const hostOnly = backendUrlEnv
       .replace(/^https?:\/\//i, "")
       .replace(/\/.*$/, "");
-    backendOrigin = `${protocol}://${hostOnly}`;
+
+    const fallbackGuess = `${protocol}://${hostOnly}`;
+    const isSuncarNonApiHost =
+      !isLocalhost &&
+      hostOnly.includes("suncarsrl.com") &&
+      !hostOnly.startsWith("api.");
+    backendOrigin = isSuncarNonApiHost ? PROD_BACKEND_FALLBACK : fallbackGuess;
   }
   const apiUrl = `${backendOrigin.replace(/\/+$/, "")}/api`;
 
@@ -321,6 +340,14 @@ export async function apiRequest<T>(
       Boolean(dataError)
     ) {
       console.log("📦 Returning error response to service for handling");
+      if (dataRecord) {
+        return {
+          ...dataRecord,
+          _httpStatus: response.status,
+          _requestUrl: url,
+          _requestMethod: method,
+        } as T;
+      }
       return data as T;
     }
 

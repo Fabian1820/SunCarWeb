@@ -409,6 +409,29 @@ const extractApiErrorMessage = (
 
 const ensureApiSuccess = (response: unknown, fallbackMessage: string) => {
   if (!isRecord(response)) return;
+  const httpStatus =
+    typeof response._httpStatus === "number" ? response._httpStatus : null;
+  if (httpStatus !== null && httpStatus >= 400) {
+    const method =
+      typeof response._requestMethod === "string"
+        ? response._requestMethod
+        : "REQUEST";
+    const url =
+      typeof response._requestUrl === "string" ? response._requestUrl : "";
+    const reason = extractApiErrorMessage(response, fallbackMessage);
+    throw new Error(
+      `${reason} [HTTP ${httpStatus}${url ? ` - ${method} ${url}` : ""}]`,
+    );
+  }
+
+  if (
+    typeof response.detail === "string" &&
+    response.success !== true &&
+    response.error !== true
+  ) {
+    throw new Error(response.detail);
+  }
+
   if (response.success === false || response.error === true) {
     throw new Error(extractApiErrorMessage(response, fallbackMessage));
   }
