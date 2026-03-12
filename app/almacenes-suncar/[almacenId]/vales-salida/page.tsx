@@ -55,6 +55,9 @@ export default function ValesSalidaPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [valeToDelete, setValeToDelete] = useState<ValeSalida | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [prefillSolicitudCode, setPrefillSolicitudCode] = useState<
+    string | null
+  >(null);
   const [solicitudesPendientes, setSolicitudesPendientes] = useState<
     SolicitudMaterial[]
   >([]);
@@ -104,6 +107,12 @@ export default function ValesSalidaPage() {
   const handleCreateSuccess = () => {
     loadVales();
     loadSolicitudesPendientes();
+    setPrefillSolicitudCode(null);
+  };
+
+  const handleCreateDialogOpenChange = (open: boolean) => {
+    setIsCreateDialogOpen(open);
+    if (!open) setPrefillSolicitudCode(null);
   };
 
   const handleDeleteVale = (vale: ValeSalida) => {
@@ -177,6 +186,12 @@ export default function ValesSalidaPage() {
       });
       console.error("Error copying solicitud code:", error);
     }
+  };
+
+  const handleCreateFromSolicitud = (solicitud: SolicitudMaterial) => {
+    const codigo = getSolicitudCode(solicitud);
+    setPrefillSolicitudCode(codigo);
+    setIsCreateDialogOpen(true);
   };
 
   return (
@@ -273,25 +288,38 @@ export default function ValesSalidaPage() {
                             {formatDate(solicitud.fecha_creacion)}
                           </td>
                           <td className="py-2 px-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                              onClick={() => handleCopyCodigo(solicitud)}
-                              title="Copiar codigo"
-                            >
-                              {copied ? (
-                                <>
-                                  <Check className="h-4 w-4 mr-1" />
-                                  Copiado
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="h-4 w-4 mr-1" />
-                                  Copiar codigo
-                                </>
-                              )}
-                            </Button>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                                onClick={() => handleCopyCodigo(solicitud)}
+                                title="Copiar codigo"
+                              >
+                                {copied ? (
+                                  <>
+                                    <Check className="h-4 w-4 mr-1" />
+                                    Copiado
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-4 w-4 mr-1" />
+                                    Copiar codigo
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="bg-amber-600 hover:bg-amber-700 text-white"
+                                onClick={() =>
+                                  handleCreateFromSolicitud(solicitud)
+                                }
+                                title="Crear vale desde esta solicitud"
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Crear vale
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -355,8 +383,9 @@ export default function ValesSalidaPage() {
 
       <CreateValeSalidaDialog
         open={isCreateDialogOpen}
-        onOpenChange={setIsCreateDialogOpen}
+        onOpenChange={handleCreateDialogOpenChange}
         onSuccess={handleCreateSuccess}
+        prefillSolicitudCode={prefillSolicitudCode}
       />
 
       <ValeSalidaDetailDialog

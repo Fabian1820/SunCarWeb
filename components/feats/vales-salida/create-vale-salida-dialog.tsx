@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -52,42 +52,34 @@ interface CreateValeSalidaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  prefillSolicitudCode?: string | null;
 }
 
 export function CreateValeSalidaDialog({
   open,
   onOpenChange,
   onSuccess,
+  prefillSolicitudCode,
 }: CreateValeSalidaDialogProps) {
   const { toast } = useToast();
-  // Solicitud search
+
   const [solicitudSearch, setSolicitudSearch] = useState("");
-  const [solicitudResults, setSolicitudResults] = useState<SolicitudMaterial[]>(
-    [],
-  );
-  const [selectedSolicitud, setSelectedSolicitud] =
-    useState<SolicitudMaterial | null>(null);
+  const [solicitudResults, setSolicitudResults] = useState<SolicitudMaterial[]>([]);
+  const [selectedSolicitud, setSelectedSolicitud] = useState<SolicitudMaterial | null>(null);
   const [solicitudLoading, setSolicitudLoading] = useState(false);
   const [showSolicitudDropdown, setShowSolicitudDropdown] = useState(false);
+  const [autoSelectSolicitudCode, setAutoSelectSolicitudCode] = useState<string | null>(null);
 
-  // Materials
   const [materiales, setMateriales] = useState<MaterialRow[]>([]);
   const [loadingMateriales, setLoadingMateriales] = useState(false);
 
-  // Material search for manual add
   const [materialSearch, setMaterialSearch] = useState("");
-  const [materialResults, setMaterialResults] = useState<MaterialCatalogItem[]>(
-    [],
-  );
+  const [materialResults, setMaterialResults] = useState<MaterialCatalogItem[]>([]);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
 
-  // All materials (catalog)
   const [allMaterials, setAllMaterials] = useState<MaterialCatalogItem[]>([]);
-
-  // Submit
   const [submitting, setSubmitting] = useState(false);
 
-  // Load materials catalog when dialog opens
   useEffect(() => {
     if (!open) return;
 
@@ -99,10 +91,10 @@ export function CreateValeSalidaDialog({
         console.error("Error loading materials catalog:", error);
       }
     };
+
     loadCatalog();
   }, [open]);
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
       setSolicitudSearch("");
@@ -111,37 +103,17 @@ export function CreateValeSalidaDialog({
       setMateriales([]);
       setMaterialSearch("");
       setMaterialResults([]);
+      setAutoSelectSolicitudCode(null);
     }
   }, [open]);
 
-  // Debounced solicitud search (estado=nueva)
   useEffect(() => {
-    if (!solicitudSearch.trim() || selectedSolicitud) {
-      setSolicitudResults([]);
-      setShowSolicitudDropdown(false);
-      return;
-    }
+    if (!open || !prefillSolicitudCode?.trim()) return;
+    setSelectedSolicitud(null);
+    setSolicitudSearch(prefillSolicitudCode.trim());
+    setAutoSelectSolicitudCode(prefillSolicitudCode.trim());
+  }, [open, prefillSolicitudCode]);
 
-    const handler = setTimeout(async () => {
-      setSolicitudLoading(true);
-      try {
-        const data = await SolicitudMaterialService.getSolicitudes({
-          estado: "nueva",
-          codigo: solicitudSearch,
-        });
-        setSolicitudResults(data);
-        setShowSolicitudDropdown(true);
-      } catch {
-        setSolicitudResults([]);
-      } finally {
-        setSolicitudLoading(false);
-      }
-    }, 350);
-
-    return () => clearTimeout(handler);
-  }, [solicitudSearch, selectedSolicitud]);
-
-  // Load materials from selected solicitud
   const loadMaterialesFromSolicitud = useCallback(
     (solicitud: SolicitudMaterial) => {
       setLoadingMateriales(true);
@@ -152,6 +124,7 @@ export function CreateValeSalidaDialog({
             ? allMaterials.find((m) => (m.id || m._id) === s.material_id)
             : null;
           const src = mat || catalogMat;
+
           return {
             material_id: s.material_id || "",
             codigo: src?.codigo || s.material_codigo || s.codigo || "",
@@ -172,6 +145,7 @@ export function CreateValeSalidaDialog({
             foto: src?.foto,
           };
         });
+
         setMateriales(rows);
       } finally {
         setLoadingMateriales(false);
@@ -180,27 +154,78 @@ export function CreateValeSalidaDialog({
     [allMaterials],
   );
 
-  const handleSelectSolicitud = async (solicitud: SolicitudMaterial) => {
-    setShowSolicitudDropdown(false);
-    setSolicitudLoading(true);
-    try {
-      const detail =
-        (await SolicitudMaterialService.getSolicitudById(solicitud.id)) ||
-        solicitud;
-      setSelectedSolicitud(detail);
-      setSolicitudSearch(detail.codigo || detail.id.slice(-6).toUpperCase());
-      loadMaterialesFromSolicitud(detail);
-    } catch (error) {
-      console.error("Error loading solicitud detail:", error);
-      toast({
-        title: "Error",
-        description: "No se pudo cargar el detalle de la solicitud",
-        variant: "destructive",
-      });
-    } finally {
-      setSolicitudLoading(false);
+  const handleSelectSolicitud = useCallback(
+    async (solicitud: SolicitudMaterial) => {
+      setShowSolicitudDropdown(false);
+      setSolicitudLoading(true);
+      try {
+        const detail =
+          (await SolicitudMaterialService.getSolicitudById(solicitud.id)) || solicitud;
+        setSelectedSolicitud(detail);
+        setSolicitudSearch(detail.codigo || detail.id.slice(-6).toUpperCase());
+        loadMaterialesFromSolicitud(detail);
+      } catch (error) {
+        console.error("Error loading solicitud detail:", error);
+        toast({
+          title: "Error",
+          description: "No se pudo cargar el detalle de la solicitud",
+          variant: "destructive",
+        });
+      } finally {
+        setSolicitudLoading(false);
+      }
+    },
+    [loadMaterialesFromSolicitud, toast],
+  );
+
+  useEffect(() => {
+    if (!solicitudSearch.trim() || selectedSolicitud) {
+      setSolicitudResults([]);
+      setShowSolicitudDropdown(false);
+      return;
     }
-  };
+
+    const handler = setTimeout(async () => {
+      setSolicitudLoading(true);
+      try {
+        const data = await SolicitudMaterialService.getSolicitudes({
+          estado: "nueva",
+          codigo: solicitudSearch,
+        });
+
+        if (autoSelectSolicitudCode) {
+          const normalized = autoSelectSolicitudCode.toLowerCase();
+          const exact = data.find(
+            (s) =>
+              (s.codigo || s.id.slice(-6).toUpperCase()).toLowerCase() === normalized,
+          );
+          const candidate = exact || data[0];
+
+          if (candidate) {
+            setAutoSelectSolicitudCode(null);
+            await handleSelectSolicitud(candidate);
+            return;
+          }
+
+          setAutoSelectSolicitudCode(null);
+        }
+
+        setSolicitudResults(data);
+        setShowSolicitudDropdown(true);
+      } catch {
+        setSolicitudResults([]);
+      } finally {
+        setSolicitudLoading(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(handler);
+  }, [
+    autoSelectSolicitudCode,
+    handleSelectSolicitud,
+    selectedSolicitud,
+    solicitudSearch,
+  ]);
 
   const handleClearSolicitud = () => {
     setSelectedSolicitud(null);
@@ -208,7 +233,6 @@ export function CreateValeSalidaDialog({
     setMateriales([]);
   };
 
-  // Material search for adding manually
   useEffect(() => {
     if (!materialSearch.trim()) {
       setMaterialResults([]);
@@ -233,7 +257,7 @@ export function CreateValeSalidaDialog({
     }, 200);
 
     return () => clearTimeout(handler);
-  }, [materialSearch, allMaterials, materiales]);
+  }, [allMaterials, materialSearch, materiales]);
 
   const handleAddMaterial = (material: MaterialCatalogItem) => {
     const id = material.id || material._id || "";
@@ -261,7 +285,7 @@ export function CreateValeSalidaDialog({
 
   const handleCantidadChange = (index: number, value: string) => {
     const num = parseFloat(value);
-    if (isNaN(num) || num < 0) return;
+    if (Number.isNaN(num) || num < 0) return;
     setMateriales((prev) =>
       prev.map((m, i) => (i === index ? { ...m, cantidad: num } : m)),
     );
@@ -269,9 +293,8 @@ export function CreateValeSalidaDialog({
 
   const handleSubmit = async () => {
     if (!selectedSolicitud) return;
-    const validMaterials = materiales.filter(
-      (m) => m.material_id && m.cantidad > 0,
-    );
+
+    const validMaterials = materiales.filter((m) => m.material_id && m.cantidad > 0);
     if (validMaterials.length === 0) return;
 
     setSubmitting(true);
@@ -296,9 +319,7 @@ export function CreateValeSalidaDialog({
       toast({
         title: "Error",
         description:
-          error instanceof Error
-            ? error.message
-            : "Error al crear el vale de salida",
+          error instanceof Error ? error.message : "Error al crear el vale de salida",
         variant: "destructive",
       });
     } finally {
@@ -306,9 +327,7 @@ export function CreateValeSalidaDialog({
     }
   };
 
-  const validCount = materiales.filter(
-    (m) => m.material_id && m.cantidad > 0,
-  ).length;
+  const validCount = materiales.filter((m) => m.material_id && m.cantidad > 0).length;
   const canSubmit = selectedSolicitud && validCount > 0 && !submitting;
 
   return (
@@ -322,7 +341,6 @@ export function CreateValeSalidaDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* 1. Solicitud Search */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
               Solicitud de Materiales <span className="text-red-500">*</span>
@@ -335,12 +353,11 @@ export function CreateValeSalidaDialog({
                 <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-orange-50 border-orange-200">
                   <div className="flex-1">
                     <span className="text-sm font-medium text-orange-800">
-                      {selectedSolicitud.codigo ||
-                        selectedSolicitud.id.slice(-6).toUpperCase()}
+                      {selectedSolicitud.codigo || selectedSolicitud.id.slice(-6).toUpperCase()}
                     </span>
                     {selectedSolicitud.cliente?.nombre && (
                       <span className="ml-2 text-orange-600 text-sm">
-                        — {selectedSolicitud.cliente.nombre}
+                        - {selectedSolicitud.cliente.nombre}
                       </span>
                     )}
                     {selectedSolicitud.almacen?.nombre && (
@@ -360,7 +377,7 @@ export function CreateValeSalidaDialog({
                 <>
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
-                    placeholder="Buscar solicitud por código..."
+                    placeholder="Buscar solicitud por codigo..."
                     value={solicitudSearch}
                     onChange={(e) => setSolicitudSearch(e.target.value)}
                     className="pl-10"
@@ -370,6 +387,7 @@ export function CreateValeSalidaDialog({
                   )}
                 </>
               )}
+
               {showSolicitudDropdown && solicitudResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {solicitudResults.map((s) => (
@@ -392,12 +410,13 @@ export function CreateValeSalidaDialog({
                       </div>
                       <div className="flex gap-2 text-xs text-gray-500 mt-0.5">
                         {s.cliente?.nombre && <span>{s.cliente.nombre}</span>}
-                        {s.almacen?.nombre && <span>• {s.almacen.nombre}</span>}
+                        {s.almacen?.nombre && <span>- {s.almacen.nombre}</span>}
                       </div>
                     </button>
                   ))}
                 </div>
               )}
+
               {showSolicitudDropdown &&
                 solicitudResults.length === 0 &&
                 !solicitudLoading &&
@@ -409,7 +428,6 @@ export function CreateValeSalidaDialog({
             </div>
           </div>
 
-          {/* 2. Materials list */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Materiales</Label>
 
@@ -420,21 +438,14 @@ export function CreateValeSalidaDialog({
               </div>
             )}
 
-            {/* Material rows */}
             {materiales.length > 0 && (
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left py-2 px-3 font-medium text-gray-700">
-                        Material
-                      </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">
-                        UM
-                      </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-28">
-                        Cantidad
-                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700">Material</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">UM</th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-28">Cantidad</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
@@ -449,8 +460,7 @@ export function CreateValeSalidaDialog({
                                 alt={mat.nombre || mat.descripcion}
                                 className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
+                                  (e.target as HTMLImageElement).style.display = "none";
                                 }}
                               />
                             ) : (
@@ -462,11 +472,7 @@ export function CreateValeSalidaDialog({
                               <p className="font-medium text-gray-900 leading-tight">
                                 {mat.nombre || mat.descripcion || mat.codigo}
                               </p>
-                              {mat.codigo && (
-                                <p className="text-xs text-gray-400">
-                                  {mat.codigo}
-                                </p>
-                              )}
+                              {mat.codigo && <p className="text-xs text-gray-400">{mat.codigo}</p>}
                             </div>
                           </div>
                         </td>
@@ -477,9 +483,7 @@ export function CreateValeSalidaDialog({
                             min="0"
                             step="1"
                             value={mat.cantidad}
-                            onChange={(e) =>
-                              handleCantidadChange(idx, e.target.value)
-                            }
+                            onChange={(e) => handleCantidadChange(idx, e.target.value)}
                             className="h-8 w-24"
                           />
                         </td>
@@ -498,7 +502,6 @@ export function CreateValeSalidaDialog({
               </div>
             )}
 
-            {/* Add material search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -521,8 +524,7 @@ export function CreateValeSalidaDialog({
                           alt={m.nombre || m.descripcion}
                           className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
+                            (e.target as HTMLImageElement).style.display = "none";
                           }}
                         />
                       ) : (
@@ -531,12 +533,8 @@ export function CreateValeSalidaDialog({
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
-                          {m.nombre || m.descripcion}
-                        </p>
-                        {m.codigo && (
-                          <p className="text-xs text-gray-400">{m.codigo}</p>
-                        )}
+                        <p className="font-medium truncate">{m.nombre || m.descripcion}</p>
+                        {m.codigo && <p className="text-xs text-gray-400">{m.codigo}</p>}
                       </div>
                       <Plus className="h-4 w-4 text-green-600 flex-shrink-0" />
                     </button>
@@ -554,13 +552,8 @@ export function CreateValeSalidaDialog({
             )}
           </div>
 
-          {/* Submit */}
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={submitting}
-            >
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancelar
             </Button>
             <Button
