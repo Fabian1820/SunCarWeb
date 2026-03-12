@@ -42,9 +42,11 @@ import type {
 interface MaterialRow {
   material_id: string
   codigo: string
+  nombre: string
   descripcion: string
   um: string
   cantidad: number
+  foto?: string
   sinVinculo?: boolean
 }
 
@@ -159,9 +161,11 @@ export function CreateSolicitudMaterialDialog({
       const rows: MaterialRow[] = sugeridos.map((s: MaterialSugerido) => ({
         material_id: s.material_id || "",
         codigo: s.codigo || "",
-        descripcion: s.descripcion || s.codigo || "",
+        nombre: s.nombre || s.descripcion || s.codigo || "",
+        descripcion: s.descripcion || s.nombre || s.codigo || "",
         um: s.um || "U",
         cantidad: s.cantidad || 0,
+        foto: s.foto,
         sinVinculo: !s.material_id,
       }))
 
@@ -228,9 +232,11 @@ export function CreateSolicitudMaterialDialog({
       {
         material_id: id,
         codigo: material.codigo?.toString() || "",
-        descripcion: material.descripcion || "",
+        nombre: material.nombre || material.descripcion || "",
+        descripcion: material.descripcion || material.nombre || "",
         um: material.um || "U",
         cantidad: 1,
+        foto: material.foto,
       },
     ])
     setMaterialSearch("")
@@ -409,25 +415,35 @@ export function CreateSolicitudMaterialDialog({
                         }`}
                       >
                         <td className="py-2 px-3">
-                          <div>
-                            <span
-                              className={`${mat.sinVinculo ? "text-red-700" : "text-gray-900"}`}
-                            >
-                              {mat.descripcion || mat.codigo}
-                            </span>
-                            {mat.codigo && (
-                              <span className="ml-1 text-xs text-gray-400">
-                                ({mat.codigo})
-                              </span>
+                          <div className="flex items-center gap-2">
+                            {mat.foto ? (
+                              <img
+                                src={mat.foto}
+                                alt={mat.nombre || mat.descripcion}
+                                className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                <Package className="h-4 w-4 text-gray-400" />
+                              </div>
                             )}
-                            {mat.sinVinculo && (
-                              <Badge
-                                variant="outline"
-                                className="ml-2 text-xs bg-red-100 text-red-700 border-red-300"
-                              >
-                                Sin vínculo
-                              </Badge>
-                            )}
+                            <div>
+                              <p className={`font-medium leading-tight ${mat.sinVinculo ? "text-red-700" : "text-gray-900"}`}>
+                                {mat.nombre || mat.descripcion || mat.codigo}
+                              </p>
+                              {mat.codigo && (
+                                <p className="text-xs text-gray-400">{mat.codigo}</p>
+                              )}
+                              {mat.sinVinculo && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-red-100 text-red-700 border-red-300"
+                                >
+                                  Sin vínculo
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="py-2 px-3 text-gray-500">{mat.um}</td>
@@ -475,18 +491,28 @@ export function CreateSolicitudMaterialDialog({
                   {materialResults.map((m: any) => (
                     <button
                       key={m.id || m._id}
-                      className="w-full text-left px-4 py-2 hover:bg-purple-50 text-sm flex items-center justify-between"
+                      className="w-full text-left px-3 py-2 hover:bg-purple-50 text-sm flex items-center gap-2"
                       onClick={() => handleAddMaterial(m)}
                     >
-                      <div>
-                        <span className="font-medium">{m.descripcion}</span>
+                      {m.foto ? (
+                        <img
+                          src={m.foto}
+                          alt={m.nombre || m.descripcion}
+                          className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                        />
+                      ) : (
+                        <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                          <Package className="h-3 w-3 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{m.nombre || m.descripcion}</p>
                         {m.codigo && (
-                          <span className="ml-2 text-gray-400">
-                            ({m.codigo})
-                          </span>
+                          <p className="text-xs text-gray-400">{m.codigo}</p>
                         )}
                       </div>
-                      <Plus className="h-4 w-4 text-green-600" />
+                      <Plus className="h-4 w-4 text-green-600 flex-shrink-0" />
                     </button>
                   ))}
                 </div>

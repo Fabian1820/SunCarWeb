@@ -42,8 +42,11 @@ export interface MaterialSugerido {
   material_id: string
   codigo?: string
   descripcion?: string
+  nombre?: string
   um?: string
   cantidad: number
+  foto?: string
+  precio?: number
 }
 
 export interface MaterialesSugeridosResponse {

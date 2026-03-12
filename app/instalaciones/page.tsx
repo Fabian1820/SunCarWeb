@@ -9,7 +9,6 @@ import {
   MapPin,
   CalendarCheck,
   ClipboardList,
-  PackageSearch,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -65,14 +64,6 @@ export default function InstalacionesPage() {
       color: "indigo",
       href: "/instalaciones/ordenes-trabajo",
     },
-    {
-      id: "solicitudes-materiales",
-      title: "Solicitudes de Materiales",
-      description: "Crear y gestionar solicitudes de materiales",
-      icon: PackageSearch,
-      color: "teal",
-      href: "/instalaciones/solicitudes-materiales",
-    },
   ];
 
   const getColorClasses = (color: string) => {
@@ -112,12 +103,6 @@ export default function InstalacionesPage() {
         border: "border-indigo-200",
         icon: "text-indigo-600",
         hover: "hover:bg-indigo-100",
-      },
-      teal: {
-        bg: "bg-teal-50",
-        border: "border-teal-200",
-        icon: "text-teal-600",
-        hover: "hover:bg-teal-100",
       },
     };
     return colors[color as keyof typeof colors] || colors.blue;
