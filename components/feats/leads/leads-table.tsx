@@ -905,6 +905,59 @@ export function LeadsTable({
     resetConversionState();
   };
 
+  const handleGenerarCodigoEquipoPropio = async () => {
+    if (!leadToConvert?.id) {
+      setConversionErrors({
+        general: "El lead no tiene ID válido para generar código.",
+      });
+      return;
+    }
+
+    setConversionLoading(true);
+    setConversionErrors({});
+
+    try {
+      // Generar código con prefijo P para equipo propio
+      const codigoGenerado = await onGenerarCodigo(leadToConvert.id, true);
+
+      if (codigoGenerado.length !== 10 || !/^P\d{9}$/.test(codigoGenerado)) {
+        throw new Error("El código generado tiene un formato incorrecto");
+      }
+
+      setConversionData((prev) => ({
+        ...prev,
+        numero: codigoGenerado,
+        equipo_propio: true,
+      }));
+      setConversionErrors({});
+    } catch (error) {
+      console.error("Error generando código para equipo propio:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Error al generar el código";
+
+      if (
+        errorMessage.includes("provincia_montaje") ||
+        errorMessage.includes("provincia")
+      ) {
+        setConversionErrors({
+          general:
+            "El lead no tiene provincia de montaje asignada. Por favor, edita el lead y asigna una provincia antes de convertirlo a cliente.",
+        });
+      } else if (errorMessage.includes("municipio")) {
+        setConversionErrors({
+          general:
+            "El lead no tiene municipio asignado. Por favor, edita el lead y asigna un municipio antes de convertirlo a cliente.",
+        });
+      } else {
+        setConversionErrors({
+          general: errorMessage,
+        });
+      }
+    } finally {
+      setConversionLoading(false);
+    }
+  };
+
   const handleComprobanteDialogOpenChange = (open: boolean) => {
     setIsComprobanteDialogOpen(open);
     if (!open) {
@@ -3487,18 +3540,29 @@ export function LeadsTable({
                       conversionErrors.general.includes(
                         "inversor seleccionado",
                       )) && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 border-red-300 hover:bg-red-100 text-red-700"
-                        onClick={() => {
-                          closeConvertDialog();
-                          openAsignarOfertaDialog(leadToConvert);
-                        }}
-                      >
-                        Crear Oferta Confeccionada
-                      </Button>
+                      <div className="mt-2 flex flex-col gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-red-300 hover:bg-red-100 text-red-700"
+                          onClick={handleGenerarCodigoEquipoPropio}
+                        >
+                          Es equipo propio (generar código P)
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-red-300 hover:bg-red-100 text-red-700"
+                          onClick={() => {
+                            closeConvertDialog();
+                            openAsignarOfertaDialog(leadToConvert);
+                          }}
+                        >
+                          Crear Oferta Confeccionada
+                        </Button>
+                      </div>
                     )}
                     {(conversionErrors.general.includes("provincia") ||
                       conversionErrors.general.includes("municipio")) && (
@@ -3537,64 +3601,7 @@ export function LeadsTable({
                           type="button"
                           variant="outline"
                           className="w-full border-amber-300 hover:bg-amber-100"
-                          onClick={async () => {
-                            setConversionLoading(true);
-                            setConversionErrors({});
-                            try {
-                              // Generar código con prefijo P para equipo propio
-                              const codigoGenerado = await onGenerarCodigo(
-                                leadToConvert.id || "",
-                                true,
-                              );
-
-                              if (
-                                codigoGenerado.length !== 10 ||
-                                !/^P\d{9}$/.test(codigoGenerado)
-                              ) {
-                                throw new Error(
-                                  "El código generado tiene un formato incorrecto",
-                                );
-                              }
-
-                              setConversionData((prev) => ({
-                                ...prev,
-                                numero: codigoGenerado,
-                                equipo_propio: true,
-                              }));
-                              setConversionErrors({});
-                            } catch (error) {
-                              console.error(
-                                "Error generando código para equipo propio:",
-                                error,
-                              );
-                              const errorMessage =
-                                error instanceof Error
-                                  ? error.message
-                                  : "Error al generar el código";
-
-                              // Detectar errores específicos
-                              if (
-                                errorMessage.includes("provincia_montaje") ||
-                                errorMessage.includes("provincia")
-                              ) {
-                                setConversionErrors({
-                                  general:
-                                    "El lead no tiene provincia de montaje asignada. Por favor, edita el lead y asigna una provincia antes de convertirlo a cliente.",
-                                });
-                              } else if (errorMessage.includes("municipio")) {
-                                setConversionErrors({
-                                  general:
-                                    "El lead no tiene municipio asignado. Por favor, edita el lead y asigna un municipio antes de convertirlo a cliente.",
-                                });
-                              } else {
-                                setConversionErrors({
-                                  general: errorMessage,
-                                });
-                              }
-                            } finally {
-                              setConversionLoading(false);
-                            }
-                          }}
+                          onClick={handleGenerarCodigoEquipoPropio}
                         >
                           Sí, es equipo propio del cliente
                         </Button>
