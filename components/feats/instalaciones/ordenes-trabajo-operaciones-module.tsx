@@ -85,7 +85,9 @@ type WorkOrder = {
   ci: string;
   provincia: string;
   otorgadoA: string; // CI trabajador
+  otorgadoPorNombre: string;
   aEjecutar: string; // ID brigada
+  brigadaAsignadaNombre: string;
   pgdFotos: string[];
   esquemaGeneralFotos: string[];
   comunicacionFotos: string[];
@@ -287,7 +289,9 @@ const createEmptyOrder = (): WorkOrder => {
     ci: "",
     provincia: "",
     otorgadoA: "",
+    otorgadoPorNombre: "",
     aEjecutar: "",
+    brigadaAsignadaNombre: "",
     pgdFotos: [],
     esquemaGeneralFotos: [],
     comunicacionFotos: [],
@@ -553,10 +557,18 @@ const mapApiOrderToWorkOrder = (
       raw.cliente_numero ?? raw.clienteNumero ?? clienteObj?.numero ?? "",
     ),
     celular: String(
-      raw.cliente_telefono ?? raw.celular ?? clienteObj?.telefono ?? "",
+      raw.cliente_telefono ??
+        raw.telefono ??
+        raw.celular ??
+        clienteObj?.telefono ??
+        "",
     ),
     cliente: String(
-      raw.cliente_nombre ?? raw.clienteNombre ?? clienteObj?.nombre ?? "",
+      raw.cliente_nombre ??
+        raw.clienteNombre ??
+        (typeof raw.cliente === "string" ? raw.cliente : "") ??
+        clienteObj?.nombre ??
+        "",
     ),
     direccion: String(
       raw.cliente_direccion ?? raw.direccion ?? clienteObj?.direccion ?? "",
@@ -569,7 +581,13 @@ const mapApiOrderToWorkOrder = (
         "",
     ),
     otorgadoA: String(raw.otorgado_a_ci ?? raw.otorgadoA ?? ""),
-    aEjecutar: String(raw.brigada_id ?? raw.aEjecutar ?? ""),
+    otorgadoPorNombre: String(raw.otorgado_por ?? raw.otorgadoPor ?? ""),
+    aEjecutar: String(
+      raw.brigada_id ?? raw.brigada_lider_ci ?? raw.aEjecutar ?? "",
+    ),
+    brigadaAsignadaNombre: String(
+      raw.brigada_asignada ?? raw.brigadaAsignada ?? "",
+    ),
     pgdFotos: readPhotoArray(raw.pgd_fotos ?? raw.pgdFotos ?? raw.pgd),
     esquemaGeneralFotos: readPhotoArray(
       raw.esquema_fotos ?? raw.esquemaGeneralFotos ?? raw.esquemaGeneral,
@@ -752,8 +770,16 @@ export function OrdenesTrabajoOperacionesModule() {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return orders;
     return orders.filter((order) => {
-      const trabajador = workersLabel(order.otorgadoA, trabajadoresById);
-      const brigada = brigadaLabel(order.aEjecutar, brigadasById);
+      const trabajador = workersLabel(
+        order.otorgadoA,
+        trabajadoresById,
+        order.otorgadoPorNombre,
+      );
+      const brigada = brigadaLabel(
+        order.aEjecutar,
+        brigadasById,
+        order.brigadaAsignadaNombre,
+      );
       const searchable = [
         order.codigo,
         order.cliente,
@@ -1391,8 +1417,16 @@ export function OrdenesTrabajoOperacionesModule() {
 
     setExportingOrderId(order.id);
     try {
-      const trabajador = workersLabel(order.otorgadoA, trabajadoresById);
-      const brigada = brigadaLabel(order.aEjecutar, brigadasById);
+      const trabajador = workersLabel(
+        order.otorgadoA,
+        trabajadoresById,
+        order.otorgadoPorNombre,
+      );
+      const brigada = brigadaLabel(
+        order.aEjecutar,
+        brigadasById,
+        order.brigadaAsignadaNombre,
+      );
 
       const doc = new jsPDF({
         orientation: "portrait",
@@ -2210,10 +2244,12 @@ export function OrdenesTrabajoOperacionesModule() {
                         const trabajador = workersLabel(
                           order.otorgadoA,
                           trabajadoresById,
+                          order.otorgadoPorNombre,
                         );
                         const brigada = brigadaLabel(
                           order.aEjecutar,
                           brigadasById,
+                          order.brigadaAsignadaNombre,
                         );
 
                         return (
@@ -2320,13 +2356,21 @@ export function OrdenesTrabajoOperacionesModule() {
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs text-slate-500">Brigada asignada</p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {brigadaLabel(previewOrder.aEjecutar, brigadasById)}
+                    {brigadaLabel(
+                      previewOrder.aEjecutar,
+                      brigadasById,
+                      previewOrder.brigadaAsignadaNombre,
+                    )}
                   </p>
                 </div>
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                   <p className="text-xs text-slate-500">Otorgado por</p>
                   <p className="text-sm font-semibold text-slate-900">
-                    {workersLabel(previewOrder.otorgadoA, trabajadoresById)}
+                    {workersLabel(
+                      previewOrder.otorgadoA,
+                      trabajadoresById,
+                      previewOrder.otorgadoPorNombre,
+                    )}
                   </p>
                 </div>
               </div>
@@ -2471,17 +2515,31 @@ export function OrdenesTrabajoOperacionesModule() {
 const workersLabel = (
   workerId: string,
   workersById: Map<string, Trabajador>,
+  fallbackLabel?: string,
 ) => {
-  const worker = workersById.get(workerId);
-  if (!worker) return "-";
+  const normalizedWorkerId = String(workerId || "").trim();
+  const worker = normalizedWorkerId
+    ? workersById.get(normalizedWorkerId)
+    : undefined;
+  if (!worker) {
+    const label = String(fallbackLabel || normalizedWorkerId || "").trim();
+    return label || "-";
+  }
   return worker.CI ? `${worker.nombre} (${worker.CI})` : worker.nombre;
 };
 
 const brigadaLabel = (
   brigadaId: string,
   brigadasById: Map<string, Brigada>,
+  fallbackLabel?: string,
 ) => {
-  const brigada = brigadasById.get(brigadaId);
-  if (!brigada) return "-";
+  const normalizedBrigadaId = String(brigadaId || "").trim();
+  const brigada = normalizedBrigadaId
+    ? brigadasById.get(normalizedBrigadaId)
+    : undefined;
+  if (!brigada) {
+    const label = String(fallbackLabel || normalizedBrigadaId || "").trim();
+    return label || "-";
+  }
   return getBrigadaLabel(brigada);
 };
