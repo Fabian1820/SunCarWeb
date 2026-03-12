@@ -339,9 +339,6 @@ const loadImageAsDataUrl = async (src: string): Promise<string> => {
 };
 
 const getBrigadaId = (brigada: Brigada) =>
-  String(brigada.id || brigada._id || "").trim();
-
-const getBrigadaLeaderCi = (brigada: Brigada) =>
   String(brigada.lider_ci || brigada.lider?.CI || "").trim();
 
 const getBrigadaLabel = (brigada: Brigada) => {
@@ -362,18 +359,12 @@ const resolveBrigadaPayloadId = (
   const normalized = String(selectedValue || "").trim();
   if (!normalized) return "";
 
-  const exactId = brigadas.find(
+  const exactCi = brigadas.find(
     (brigada) => getBrigadaId(brigada) === normalized,
   );
-  if (exactId) return normalized;
+  if (exactCi) return normalized;
 
-  // Compatibilidad: si por datos antiguos viene CI del líder, intentar mapearlo a id real.
-  const byLeaderCi = brigadas.find(
-    (brigada) => getBrigadaLeaderCi(brigada) === normalized,
-  );
-  if (!byLeaderCi) return normalized;
-
-  return getBrigadaId(byLeaderCi) || normalized;
+  return normalized;
 };
 
 const WORK_ORDER_ENDPOINT_LIST = "/operaciones/ordenes-trabajo/";
@@ -419,6 +410,28 @@ const extractApiErrorMessage = (
   fallback: string,
 ): string => {
   if (!isRecord(response)) return fallback;
+
+  const detail = response.detail;
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (!isRecord(item)) return "";
+        const locRaw = Array.isArray(item.loc)
+          ? item.loc
+              .map((segment) => String(segment))
+              .filter(Boolean)
+              .join(".")
+          : "";
+        const msgRaw = typeof item.msg === "string" ? item.msg : "";
+        if (!locRaw && !msgRaw) return "";
+        return locRaw ? `${locRaw}: ${msgRaw || "dato inválido"}` : msgRaw;
+      })
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join(" | ");
+  }
+
+  if (typeof detail === "string" && detail.trim()) return detail;
+
   const candidates = [
     response.message,
     response.detail,
@@ -820,6 +833,11 @@ export function OrdenesTrabajoOperacionesModule() {
     return sorted[0] || null;
   };
 
+  const getOfferIdentifier = (oferta: OfertaConfeccion | null) => {
+    if (!oferta) return "";
+    return String(oferta.id || oferta.numero_oferta || "").trim();
+  };
+
   const loadOfferForClient = async (cliente: Cliente) => {
     const numeroCliente = String(cliente.numero || "").trim();
     const numeroNormalizado = normalizeClienteNumero(numeroCliente);
@@ -861,9 +879,10 @@ export function OrdenesTrabajoOperacionesModule() {
           marcasById,
         );
 
+        const ofertaIdConfirmada = getOfferIdentifier(ofertaConfirmada);
         return {
           ...prev,
-          ofertaIdConfirmada: String(ofertaConfirmada.id || ""),
+          ofertaIdConfirmada,
           ofertaNumero: String(ofertaConfirmada.numero_oferta || ""),
           materiales,
           updatedAt: nowIso(),
@@ -1182,6 +1201,27 @@ export function OrdenesTrabajoOperacionesModule() {
         cantidadOferta: sanitizeQuantityInput(item.cantidadOferta),
       }));
 
+    const resolvedOfertaId = String(draft.ofertaIdConfirmada || "").trim();
+    if (!resolvedOfertaId) {
+      toast({
+        title: "Falta oferta confirmada",
+        description:
+          "Debes seleccionar un cliente con oferta confirmada para crear la orden.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (cleanedMateriales.length === 0) {
+      toast({
+        title: "Faltan materiales",
+        description:
+          "La orden debe tener materiales de la oferta o materiales manuales.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const resolvedBrigadaId = resolveBrigadaPayloadId(
       draft.aEjecutar,
       brigadas,
@@ -1192,8 +1232,7 @@ export function OrdenesTrabajoOperacionesModule() {
     if (!resolvedBrigadaId || !brigadaExiste) {
       toast({
         title: "Brigada inválida",
-        description:
-          "La brigada seleccionada no tiene un ID válido. Selecciona otra brigada.",
+        description: "Selecciona una brigada válida del listado de brigadas.",
         variant: "destructive",
       });
       return;
@@ -1211,7 +1250,7 @@ export function OrdenesTrabajoOperacionesModule() {
       cliente_provincia: draft.provincia || undefined,
       otorgado_a_ci: draft.otorgadoA,
       brigada_id: resolvedBrigadaId,
-      oferta_id_confirmada: draft.ofertaIdConfirmada || undefined,
+      oferta_id_confirmada: resolvedOfertaId,
       oferta_numero: draft.ofertaNumero || undefined,
       materiales: cleanedMateriales.map((item) => ({
         material_codigo: item.materialCodigo,
