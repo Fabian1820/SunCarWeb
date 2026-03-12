@@ -26,3 +26,4 @@ export { InventarioService } from './services/feats/inventario/inventario-servic
 export { AveriaService } from './services/feats/averias/averia-service'
 export { ResultadosService } from './services/feats/resultados/resultados-service'
 export { FichaCostoService } from './services/feats/fichas-costo/ficha-costo-service'
+export { SolicitudMaterialService } from './services/feats/solicitudes-materiales/solicitud-material-service'

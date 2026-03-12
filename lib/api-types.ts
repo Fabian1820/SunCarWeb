@@ -93,3 +93,14 @@ export type {
   EquipoDetalle,
   ClienteConEquipo,
 } from "./types/feats/reportes-comercial/reportes-comercial-types";
+
+export type {
+  SolicitudMaterial,
+  SolicitudMaterialCreateData,
+  SolicitudMaterialUpdateData,
+  SolicitudMaterialItem,
+  SolicitudMaterialItemDetalle,
+  SolicitudMaterialListResponse,
+  MaterialSugerido,
+  MaterialesSugeridosResponse,
+} from "./types/feats/solicitudes-materiales/solicitud-material-types";
