@@ -1,4 +1,4 @@
-export type InventarioMovimientoTipo = "entrada" | "salida" | "transferencia" | "ajuste" | "venta"
+export type InventarioMovimientoTipo = "entrada" | "salida" | "transferencia" | "ajuste" | "eliminacion" | "venta"
 
 export interface Almacen {
   id?: string
@@ -21,7 +21,7 @@ export interface Tienda {
   codigo?: string
   direccion?: string
   telefono?: string
-  almacenes: AlmacenInfo[]  // Múltiples almacenes
+  almacenes: AlmacenInfo[]
   activo?: boolean
   // Campos legacy para compatibilidad (deprecated)
   almacen_id?: string
@@ -32,8 +32,11 @@ export interface StockItem {
   id?: string
   almacen_id: string
   almacen_nombre?: string
+  almacen?: Record<string, unknown>
+  material_id?: string
   material_codigo: string
   material_descripcion?: string
+  material?: Record<string, unknown>
   categoria?: string
   um?: string
   cantidad: number
@@ -43,8 +46,10 @@ export interface StockItem {
 export interface MovimientoInventario {
   id?: string
   tipo: InventarioMovimientoTipo
+  material_id?: string
   material_codigo: string
   material_descripcion?: string
+  material?: Record<string, unknown>
   cantidad: number
   um?: string
   almacen_origen_id?: string
@@ -75,7 +80,7 @@ export interface TiendaCreateData {
   codigo?: string
   direccion?: string
   telefono?: string
-  almacenes: AlmacenInfo[]  // Múltiples almacenes
+  almacenes: AlmacenInfo[]
   activo?: boolean
 }
 
@@ -83,7 +88,8 @@ export type TiendaUpdateData = Partial<TiendaCreateData>
 
 export interface MovimientoCreateData {
   tipo: InventarioMovimientoTipo
-  material_codigo: string
+  material_id?: string
+  material_codigo?: string
   cantidad: number
   almacen_origen_id?: string
   almacen_destino_id?: string
@@ -95,7 +101,7 @@ export interface MovimientoCreateData {
 export interface VentaItem {
   material_codigo: string
   cantidad: number
-  almacen_id: string  // Almacén del cual se descuenta
+  almacen_id: string
 }
 
 export interface VentaCreateData {

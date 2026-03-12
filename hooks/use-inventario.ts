@@ -25,7 +25,13 @@ interface UseInventarioReturn {
   error: string | null
   refetchAll: () => Promise<void>
   refetchStock: (almacenId?: string) => Promise<void>
-  refetchMovimientos: (params?: { tipo?: string; almacen_id?: string; tienda_id?: string }) => Promise<void>
+  refetchMovimientos: (params?: {
+    tipo?: string
+    almacen_id?: string
+    tienda_id?: string
+    material_id?: string
+    material_codigo?: string
+  }) => Promise<void>
   createAlmacen: (data: AlmacenCreateData) => Promise<void>
   updateAlmacen: (id: string, data: AlmacenUpdateData) => Promise<void>
   deleteAlmacen: (id: string) => Promise<void>
@@ -61,7 +67,13 @@ export function useInventario(): UseInventarioReturn {
     }
   }, [])
 
-  const refetchMovimientos = useCallback(async (params?: { tipo?: string; almacen_id?: string; tienda_id?: string }) => {
+  const refetchMovimientos = useCallback(async (params?: {
+    tipo?: string
+    almacen_id?: string
+    tienda_id?: string
+    material_id?: string
+    material_codigo?: string
+  }) => {
     setLoadingMovimientos(true)
     setError(null)
     try {
