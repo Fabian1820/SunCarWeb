@@ -152,22 +152,30 @@ export function CreateSolicitudMaterialDialog({
   }, [clienteSearch, selectedCliente])
 
   // Load suggested materials when client is selected
-  const loadSugeridos = useCallback(async (clienteId: string) => {
+  const loadSugeridos = useCallback(async (clienteId: string, catalog: any[]) => {
     setLoadingSugeridos(true)
     try {
       const { materiales: sugeridos, materiales_sin_vinculo } =
         await SolicitudMaterialService.getMaterialesSugeridos(clienteId)
 
-      const rows: MaterialRow[] = sugeridos.map((s: MaterialSugerido) => ({
-        material_id: s.material_id || "",
-        codigo: s.codigo || "",
-        nombre: s.nombre || s.descripcion || s.codigo || "",
-        descripcion: s.descripcion || s.nombre || s.codigo || "",
-        um: s.um || "U",
-        cantidad: s.cantidad || 0,
-        foto: s.foto,
-        sinVinculo: !s.material_id,
-      }))
+      const rows: MaterialRow[] = sugeridos.map((s: MaterialSugerido) => {
+        // Priority: nested s.material (backend fix) → catalog lookup → flat fields
+        const mat = s.material
+        const catalogMat = !mat
+          ? catalog.find((m: any) => (m.id || m._id) === s.material_id)
+          : null
+        const src = mat || catalogMat
+        return {
+          material_id: s.material_id || "",
+          codigo: src?.codigo || s.material_codigo || s.codigo || "",
+          nombre: src?.nombre || src?.descripcion || s.material_descripcion || s.nombre || s.descripcion || "",
+          descripcion: src?.descripcion || src?.nombre || s.material_descripcion || s.descripcion || "",
+          um: src?.um || s.um || "U",
+          cantidad: s.cantidad || 0,
+          foto: src?.foto,
+          sinVinculo: !s.material_id,
+        }
+      })
 
       setMateriales(rows)
       setMaterialesSinVinculo(materiales_sin_vinculo || [])
@@ -184,7 +192,7 @@ export function CreateSolicitudMaterialDialog({
     setClienteSearch(cliente.nombre || cliente.numero || "")
     setShowClienteDropdown(false)
     if (cliente.id || cliente._id) {
-      loadSugeridos(cliente.id || cliente._id)
+      loadSugeridos(cliente.id || cliente._id, allMaterials)
     }
   }
 

@@ -38,13 +38,30 @@ export interface SolicitudMaterialUpdateData {
   materiales?: SolicitudMaterialItem[]
 }
 
+export interface MaterialSugeridoInfo {
+  codigo?: string
+  nombre?: string
+  descripcion?: string
+  um?: string
+  foto?: string
+  precio?: number
+  marca_id?: string
+  potenciaKW?: number
+  categoria?: string
+}
+
 export interface MaterialSugerido {
   material_id: string
+  material_codigo?: string
+  material_descripcion?: string
+  um?: string
+  cantidad: number
+  // Nested full catalog object — populated by backend since fix
+  material?: MaterialSugeridoInfo
+  // Legacy flat fields (fallback)
   codigo?: string
   descripcion?: string
   nombre?: string
-  um?: string
-  cantidad: number
   foto?: string
   precio?: number
 }
