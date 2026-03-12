@@ -104,3 +104,16 @@ export type {
   MaterialSugerido,
   MaterialesSugeridosResponse,
 } from "./types/feats/solicitudes-materiales/solicitud-material-types";
+
+export type {
+  ValeSalida,
+  ValeSalidaCreateData,
+  ValeSalidaListResponse,
+  ValeSalidaMaterialItem,
+  ValeSalidaMaterialItemDetalle,
+  ValeSolicitudInfo,
+  ValeTrabajadorInfo,
+  ValeAlmacenInfo,
+  ValeClienteInfo,
+  ValeMaterialInfo,
+} from "./types/feats/vales-salida/vale-salida-types";

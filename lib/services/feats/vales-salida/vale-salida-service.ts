@@ -1,0 +1,112 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import { apiRequest } from "../../../api-config";
+import type { ValeSalida, ValeSalidaCreateData } from "../../../api-types";
+
+const BASE_ENDPOINT = "/operaciones/vales-salida";
+const buildDetailEndpoint = (id: string) =>
+  `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+
+const extractApiError = (response: any): string | null => {
+  if (!response) return null;
+  if (response.success === false) {
+    return (
+      response?.error?.message ||
+      response?.message ||
+      response?.detail ||
+      "La operacion no pudo completarse"
+    );
+  }
+  if (response?.error?.message && !response?.id) {
+    return response.error.message;
+  }
+  return null;
+};
+
+export class ValeSalidaService {
+  /**
+   * List vales de salida with optional filters
+   * GET /api/operaciones/vales-salida/
+   */
+  static async getVales(
+    params: {
+      solicitud_material_id?: string;
+      // Legacy fallback
+      solicitud_id?: string;
+      trabajador_id?: string;
+      codigo?: string;
+      skip?: number;
+      limit?: number;
+    } = {},
+  ): Promise<ValeSalida[]> {
+    const search = new URLSearchParams();
+    const solicitudId = params.solicitud_material_id || params.solicitud_id;
+    if (solicitudId) search.append("solicitud_material_id", solicitudId);
+    if (params.trabajador_id)
+      search.append("trabajador_id", params.trabajador_id);
+    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+
+    const endpoint = search.toString()
+      ? `${BASE_ENDPOINT}/?${search.toString()}`
+      : `${BASE_ENDPOINT}/`;
+
+    const raw = await apiRequest<any>(endpoint);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = raw?.data ?? raw;
+    if (Array.isArray(payload)) return payload;
+    return payload?.vales || payload?.data || [];
+  }
+
+  /**
+   * Get a single vale by ID
+   * GET /api/operaciones/vales-salida/{vale_id}
+   */
+  static async getValeById(id: string): Promise<ValeSalida | null> {
+    const raw = await apiRequest<any>(buildDetailEndpoint(id));
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const payload = raw?.data ?? raw;
+    return payload || null;
+  }
+
+  /**
+   * Create a new vale de salida
+   * POST /api/operaciones/vales-salida/
+   * trabajador_id is taken from the session token
+   */
+  static async createVale(data: ValeSalidaCreateData): Promise<ValeSalida> {
+    const payload = {
+      solicitud_material_id:
+        data.solicitud_material_id || (data as any).solicitud_id,
+      materiales: data.materiales,
+    };
+
+    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return (raw?.data ?? raw) as ValeSalida;
+  }
+
+  /**
+   * Delete a vale de salida
+   * DELETE /api/operaciones/vales-salida/{vale_id}
+   */
+  static async deleteVale(
+    id: string,
+  ): Promise<{ success?: boolean; message?: string }> {
+    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
+      method: "DELETE",
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const payload = raw?.data ?? raw;
+    return payload as { success?: boolean; message?: string };
+  }
+}

@@ -30,14 +30,11 @@ export function SolicitudesMaterialesTable({
     }
   }
 
-  const getClienteName = (s: SolicitudMaterial) =>
-    s.cliente?.nombre || null
+  const getClienteName = (s: SolicitudMaterial) => s.cliente?.nombre || null
 
-  const getAlmacenName = (s: SolicitudMaterial) =>
-    s.almacen?.nombre || "—"
+  const getAlmacenName = (s: SolicitudMaterial) => s.almacen?.nombre || "—"
 
-  const getTrabajadorName = (s: SolicitudMaterial) =>
-    s.trabajador?.nombre || "—"
+  const getTrabajadorName = (s: SolicitudMaterial) => s.trabajador?.nombre || "—"
 
   if (solicitudes.length === 0) {
     return (
@@ -58,9 +55,10 @@ export function SolicitudesMaterialesTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Código</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacén</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
@@ -70,11 +68,24 @@ export function SolicitudesMaterialesTable({
         <tbody>
           {solicitudes.map((solicitud) => {
             const clienteName = getClienteName(solicitud)
+            const isUsada = solicitud.estado?.toLowerCase() === "usada"
             return (
               <tr key={solicitud.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-4 px-4">
                   <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-mono">
                     {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
+                  </Badge>
+                </td>
+                <td className="py-4 px-4">
+                  <Badge
+                    variant="outline"
+                    className={
+                      isUsada
+                        ? "bg-orange-50 text-orange-700 border-orange-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    }
+                  >
+                    {isUsada ? "Usada" : "Nueva"}
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
@@ -128,7 +139,8 @@ export function SolicitudesMaterialesTable({
                         size="sm"
                         onClick={() => onDelete(solicitud)}
                         className="border-red-300 text-red-700 hover:bg-red-50"
-                        title="Eliminar solicitud"
+                        title={isUsada ? "No se puede eliminar una solicitud usada" : "Eliminar solicitud"}
+                        disabled={isUsada}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
