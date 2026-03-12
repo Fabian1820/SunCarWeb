@@ -6,21 +6,50 @@ export interface SolicitudMaterialItem {
 export interface SolicitudMaterialItemDetalle {
   material_id: string
   cantidad: number
+  material_codigo?: string
+  material_descripcion?: string
+  um?: string
+  // Legacy flat fields
   codigo?: string
   descripcion?: string
-  um?: string
+  // Nested full catalog object
+  material?: MaterialSugeridoInfo
+}
+
+export interface SolicitudClienteInfo {
+  id: string
+  numero?: string
+  nombre?: string
+  telefono?: string
+  direccion?: string
+}
+
+export interface SolicitudAlmacenInfo {
+  id: string
+  nombre: string
+  codigo?: string
+  direccion?: string
+  responsable?: string
+}
+
+export interface SolicitudTrabajadorInfo {
+  id: string
+  ci?: string
+  nombre?: string
+  cargo?: string
 }
 
 export interface SolicitudMaterial {
   id: string
   codigo?: string
+  // Legacy flat IDs (kept for compatibility)
   cliente_id?: string | null
-  cliente_nombre?: string
-  cliente_numero?: string
   almacen_id: string
-  almacen_nombre?: string
   trabajador_id?: string
-  trabajador_nombre?: string
+  // Nested relation objects (populated since backend fix)
+  cliente?: SolicitudClienteInfo | null
+  almacen?: SolicitudAlmacenInfo
+  trabajador?: SolicitudTrabajadorInfo
   materiales: SolicitudMaterialItemDetalle[]
   fecha_creacion?: string
   fecha_actualizacion?: string

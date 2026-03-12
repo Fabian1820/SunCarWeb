@@ -2,18 +2,8 @@
 
 import { Badge } from "@/components/shared/atom/badge"
 import { Button } from "@/components/shared/atom/button"
-import {
-  Package,
-  Trash2,
-  Eye,
-  Calendar,
-  User,
-  Warehouse,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react"
+import { Package, Trash2, Eye, Calendar, User, Warehouse } from "lucide-react"
 import type { SolicitudMaterial } from "@/lib/api-types"
-import { useState } from "react"
 
 interface SolicitudesMaterialesTableProps {
   solicitudes: SolicitudMaterial[]
@@ -27,12 +17,6 @@ export function SolicitudesMaterialesTable({
   onDelete,
   onView,
 }: SolicitudesMaterialesTableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id)
-  }
-
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "—"
     try {
@@ -45,6 +29,15 @@ export function SolicitudesMaterialesTable({
       return "—"
     }
   }
+
+  const getClienteName = (s: SolicitudMaterial) =>
+    s.cliente?.nombre || null
+
+  const getAlmacenName = (s: SolicitudMaterial) =>
+    s.almacen?.nombre || "—"
+
+  const getTrabajadorName = (s: SolicitudMaterial) =>
+    s.trabajador?.nombre || "—"
 
   if (solicitudes.length === 0) {
     return (
@@ -65,114 +58,54 @@ export function SolicitudesMaterialesTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Código
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Cliente
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Almacén
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Creador
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Materiales
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Fecha
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Acciones
-            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Código</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacén</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {solicitudes.map((solicitud) => {
-            const isExpanded = expandedId === solicitud.id
+            const clienteName = getClienteName(solicitud)
             return (
-              <tr
-                key={solicitud.id}
-                className="border-b border-gray-100 hover:bg-gray-50"
-              >
+              <tr key={solicitud.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className="bg-purple-50 text-purple-700 border-purple-200 font-mono"
-                  >
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-mono">
                     {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
-                  {solicitud.cliente_nombre ? (
-                    <div>
-                      <p className="font-semibold text-gray-900">
-                        {solicitud.cliente_nombre}
-                      </p>
-                      {solicitud.cliente_numero && (
-                        <p className="text-xs text-gray-500">
-                          N° {solicitud.cliente_numero}
-                        </p>
-                      )}
-                    </div>
+                  {clienteName ? (
+                    <p className="font-medium text-gray-900">{clienteName}</p>
                   ) : (
-                    <span className="text-gray-400 italic">Sin cliente</span>
+                    <span className="text-gray-400 italic text-sm">Sin cliente</span>
                   )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
-                    <Warehouse className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">
-                      {solicitud.almacen_nombre || "—"}
-                    </span>
+                    <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">{getAlmacenName(solicitud)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">
-                      {solicitud.trabajador_nombre || "—"}
-                    </span>
+                    <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">{getTrabajadorName(solicitud)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <button
-                    onClick={() => toggleExpand(solicitud.id)}
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    <Package className="h-4 w-4" />
-                    <span>{solicitud.materiales?.length || 0} items</span>
-                    {isExpanded ? (
-                      <ChevronUp className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    )}
-                  </button>
-                  {isExpanded && solicitud.materiales?.length > 0 && (
-                    <div className="mt-2 bg-gray-50 rounded-lg p-3 space-y-1 max-h-40 overflow-y-auto">
-                      {solicitud.materiales.map((mat, idx) => (
-                        <div
-                          key={idx}
-                          className="flex justify-between text-xs text-gray-600"
-                        >
-                          <span className="truncate max-w-[200px]">
-                            {mat.descripcion || mat.codigo || mat.material_id}
-                          </span>
-                          <span className="font-medium text-gray-800 ml-2 whitespace-nowrap">
-                            x{mat.cantidad} {mat.um || ""}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    <Package className="h-3 w-3 mr-1" />
+                    {solicitud.materiales?.length || 0} items
+                  </Badge>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    <span className="text-sm text-gray-700">
-                      {formatDate(solicitud.fecha_creacion)}
-                    </span>
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">{formatDate(solicitud.fecha_creacion)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -185,7 +118,8 @@ export function SolicitudesMaterialesTable({
                         className="border-blue-300 text-blue-700 hover:bg-blue-50"
                         title="Ver detalle"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
                     )}
                     {onDelete && (

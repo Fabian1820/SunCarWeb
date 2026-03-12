@@ -47,10 +47,11 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     return solicitudes.filter((s) => {
       return (
         s.codigo?.toLowerCase().includes(term) ||
-        s.cliente_nombre?.toLowerCase().includes(term) ||
-        s.cliente_numero?.toLowerCase().includes(term) ||
-        s.almacen_nombre?.toLowerCase().includes(term) ||
-        s.trabajador_nombre?.toLowerCase().includes(term)
+        s.cliente?.nombre?.toLowerCase().includes(term) ||
+        s.cliente?.numero?.toLowerCase().includes(term) ||
+        s.almacen?.nombre?.toLowerCase().includes(term) ||
+        s.trabajador?.nombre?.toLowerCase().includes(term) ||
+        s.trabajador?.ci?.toLowerCase().includes(term)
       )
     })
   }, [solicitudes, searchTerm])

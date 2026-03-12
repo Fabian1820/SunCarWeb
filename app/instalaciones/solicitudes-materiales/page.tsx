@@ -14,6 +14,7 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { useSolicitudesMateriales } from "@/hooks/use-solicitudes-materiales"
 import { SolicitudesMaterialesTable } from "@/components/feats/solicitudes-materiales/solicitudes-materiales-table"
 import { CreateSolicitudMaterialDialog } from "@/components/feats/solicitudes-materiales/create-solicitud-material-dialog"
+import { SolicitudMaterialDetailDialog } from "@/components/feats/solicitudes-materiales/solicitud-material-detail-dialog"
 import type { SolicitudMaterial } from "@/lib/api-types"
 
 export default function SolicitudesMaterialesPage() {
@@ -31,6 +32,9 @@ export default function SolicitudesMaterialesPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [solicitudToDelete, setSolicitudToDelete] = useState<SolicitudMaterial | null>(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
+  const [solicitudDetalle, setSolicitudDetalle] = useState<SolicitudMaterial | null>(null)
 
   if (loading && filteredSolicitudes.length === 0) {
     return <PageLoader moduleName="Solicitudes de Materiales" text="Cargando solicitudes..." />
@@ -132,6 +136,7 @@ export default function SolicitudesMaterialesPage() {
           <CardContent>
             <SolicitudesMaterialesTable
               solicitudes={filteredSolicitudes}
+              onView={(s) => { setSolicitudDetalle(s); setIsDetailDialogOpen(true) }}
               onDelete={handleDeleteSolicitud}
               loading={loading}
             />
@@ -144,6 +149,13 @@ export default function SolicitudesMaterialesPage() {
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onSuccess={handleCreateSuccess}
+      />
+
+      {/* Detail Dialog */}
+      <SolicitudMaterialDetailDialog
+        open={isDetailDialogOpen}
+        onOpenChange={setIsDetailDialogOpen}
+        solicitud={solicitudDetalle}
       />
 
       {/* Delete Confirmation */}
