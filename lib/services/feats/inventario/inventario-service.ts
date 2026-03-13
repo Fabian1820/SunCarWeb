@@ -334,22 +334,46 @@ export class InventarioService {
   private static normalizeMovimientoLoteResumen(
     raw: any,
   ): MovimientoLoteResponse {
-    const payload = extractItem<any>(raw) || {};
+    const root =
+      raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    const payload = extractItem<any>(root) || {};
 
-    const porMaterialRaw = Array.isArray(payload?.por_material)
-      ? payload.por_material
-      : Array.isArray(payload?.resumen_por_material)
-        ? payload.resumen_por_material
-        : Array.isArray(payload?.items)
-          ? payload.items
+    const resumenPayload =
+      payload?.resumen && typeof payload.resumen === "object"
+        ? payload.resumen
+        : payload?.summary && typeof payload.summary === "object"
+          ? payload.summary
+          : root?.resumen && typeof root.resumen === "object"
+            ? root.resumen
+            : root?.summary && typeof root.summary === "object"
+              ? root.summary
+              : payload;
+
+    const movimientosRaw = Array.isArray(payload?.movimientos)
+      ? payload.movimientos
+      : Array.isArray((resumenPayload as any)?.movimientos)
+        ? (resumenPayload as any).movimientos
+        : Array.isArray(root?.movimientos)
+          ? root.movimientos
           : [];
 
-    const porMaterial: MovimientoLoteResumenPorMaterial[] = porMaterialRaw
+    const porMaterialRaw = Array.isArray((resumenPayload as any)?.por_material)
+      ? (resumenPayload as any).por_material
+      : Array.isArray((resumenPayload as any)?.resumen_por_material)
+        ? (resumenPayload as any).resumen_por_material
+        : Array.isArray((resumenPayload as any)?.items)
+          ? (resumenPayload as any).items
+          : Array.isArray((resumenPayload as any)?.materiales)
+            ? (resumenPayload as any).materiales
+            : [];
+
+    const porMaterialBase: MovimientoLoteResumenPorMaterial[] = porMaterialRaw
       .map((item: any) => {
         const materialCodigo =
           asString(item?.material_codigo) ||
           asString(item?.codigo) ||
-          asString(item?.material_id);
+          asString(item?.material_id) ||
+          asString(item?.material?.codigo);
         if (!materialCodigo) return null;
         return {
           material_codigo: materialCodigo,
@@ -362,10 +386,38 @@ export class InventarioService {
         ): item is MovimientoLoteResumenPorMaterial => item !== null,
       );
 
+    const porMaterial =
+      porMaterialBase.length > 0
+        ? porMaterialBase
+        : (() => {
+            const map = new Map<string, number>();
+            for (const mov of movimientosRaw) {
+              const materialCodigo =
+                asString((mov as any)?.material_codigo) ||
+                asString((mov as any)?.codigo) ||
+                asString((mov as any)?.material_id) ||
+                asString((mov as any)?.material?.codigo);
+              if (!materialCodigo) continue;
+              const qty = asNumber((mov as any)?.cantidad) ?? 0;
+              map.set(materialCodigo, (map.get(materialCodigo) || 0) + qty);
+            }
+            return Array.from(map.entries()).map(
+              ([material_codigo, cantidad]) => ({
+                material_codigo,
+                cantidad,
+              }),
+            );
+          })();
+
     const totalMaterialesDistintos =
-      asNumber(payload?.total_materiales_distintos) ?? porMaterial.length;
+      asNumber((resumenPayload as any)?.total_materiales_distintos) ??
+      asNumber((resumenPayload as any)?.total_materiales) ??
+      asNumber((resumenPayload as any)?.materiales_distintos) ??
+      porMaterial.length;
     const totalCantidad =
-      asNumber(payload?.total_cantidad) ??
+      asNumber((resumenPayload as any)?.total_cantidad) ??
+      asNumber((resumenPayload as any)?.cantidad_total) ??
+      asNumber((resumenPayload as any)?.total) ??
       porMaterial.reduce((acc, item) => acc + (item.cantidad || 0), 0);
 
     return {

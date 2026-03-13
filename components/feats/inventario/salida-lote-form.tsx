@@ -17,6 +17,7 @@ import {
   Barcode,
   Hand,
   Loader2,
+  Package,
   Plus,
   Trash2,
 } from "lucide-react";
@@ -49,6 +50,7 @@ interface SalidaLoteFormProps {
 interface SalidaLoteItem {
   material_codigo: string;
   material_descripcion: string;
+  material_foto?: string;
   um?: string;
   cantidad: string;
   origen_captura: "scanner" | "manual";
@@ -58,6 +60,10 @@ interface SalidaLoteItem {
 }
 
 const normalizarCodigo = (codigo: string) => codigo.trim().toLowerCase();
+const normalizarTexto = (value?: string | null) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 
 export function SalidaLoteForm({
   tipo,
@@ -137,15 +143,26 @@ export function SalidaLoteForm({
     const term = normalizarCodigo(codigoInput);
     if (!term) return [];
 
-    if (sugerenciasRemotas.length > 0) {
-      return sugerenciasRemotas.slice(0, 8);
-    }
+    const locales = materialesOrdenados.filter((material) => {
+      const codigo = normalizarCodigo(String(material.codigo));
+      const nombre = normalizarTexto(material.nombre);
+      const descripcion = normalizarTexto(material.descripcion);
+      return (
+        codigo.includes(term) ||
+        nombre.includes(term) ||
+        descripcion.includes(term)
+      );
+    });
 
-    return materialesOrdenados
-      .filter((material) =>
-        normalizarCodigo(String(material.codigo)).includes(term),
-      )
-      .slice(0, 8);
+    const merged = [...sugerenciasRemotas, ...locales];
+    const uniques = new Map<string, Material>();
+    for (const material of merged) {
+      const codigo = normalizarCodigo(String(material.codigo));
+      if (!codigo || uniques.has(codigo)) continue;
+      uniques.set(codigo, material);
+      if (uniques.size >= 8) break;
+    }
+    return Array.from(uniques.values());
   }, [codigoInput, materialesOrdenados, modo, sugerenciasRemotas]);
 
   const resumen = useMemo(() => {
@@ -177,16 +194,30 @@ export function SalidaLoteForm({
   const resolverMaterialPorCodigo = async (
     codigo: string,
   ): Promise<Material | null> => {
-    const codigoNormalizado = normalizarCodigo(codigo);
-    if (!codigoNormalizado) return null;
+    const term = normalizarCodigo(codigo);
+    if (!term) return null;
 
-    const local = materialesPorCodigo.get(codigoNormalizado);
-    if (local) return local;
+    const localByCode = materialesPorCodigo.get(term);
+    if (localByCode) return localByCode;
+
+    const localByName = materialesOrdenados.find((item) => {
+      const nombre = normalizarTexto(item.nombre);
+      const descripcion = normalizarTexto(item.descripcion);
+      const codigoMaterial = normalizarCodigo(String(item.codigo));
+      return (
+        nombre === term ||
+        descripcion === term ||
+        codigoMaterial.includes(term) ||
+        nombre.includes(term) ||
+        descripcion.includes(term)
+      );
+    });
+    if (localByName) return localByName;
 
     try {
       const response = await MaterialService.searchMaterialsByCode(codigo, 10);
       const exact = response.find(
-        (item) => normalizarCodigo(String(item.codigo)) === codigoNormalizado,
+        (item) => normalizarCodigo(String(item.codigo)) === term,
       );
       return exact || response[0] || null;
     } catch {
@@ -251,6 +282,7 @@ export function SalidaLoteForm({
       {
         material_codigo: codigoMaterial,
         material_descripcion: material.descripcion || "Sin descripcion",
+        material_foto: material.foto,
         um: material.um,
         cantidad: "1",
         origen_captura: modo,
@@ -286,12 +318,15 @@ export function SalidaLoteForm({
   };
 
   const actualizarCantidad = (codigo: string, cantidad: string) => {
+    const clean = cantidad.replace(/[^\d]/g, "");
+    const normalized =
+      clean === "" ? "" : String(Math.max(1, Number.parseInt(clean, 10)));
     setItems((prev) =>
       prev.map((item) =>
         item.material_codigo === codigo
           ? {
               ...item,
-              cantidad,
+              cantidad: normalized,
             }
           : item,
       ),
@@ -325,7 +360,11 @@ export function SalidaLoteForm({
 
     for (const item of items) {
       const cantidad = Number(item.cantidad);
-      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+      if (
+        !Number.isFinite(cantidad) ||
+        cantidad <= 0 ||
+        !Number.isInteger(cantidad)
+      ) {
         setError(`Cantidad invalida para ${item.material_codigo}`);
         return false;
       }
@@ -445,7 +484,7 @@ export function SalidaLoteForm({
                 placeholder={
                   modo === "scanner"
                     ? "Escanea el codigo y presiona Enter"
-                    : "Escribe el codigo y selecciona el material"
+                    : "Escribe codigo o nombre y selecciona el material"
                 }
                 autoComplete="off"
               />
@@ -460,11 +499,13 @@ export function SalidaLoteForm({
             <p className="text-xs text-gray-600 mt-2">
               {modo === "scanner"
                 ? "Escanea y presiona Enter. Si escaneas el mismo material mas de una vez, la cantidad se incrementa automaticamente."
-                : "Escribe el codigo y presiona Enter, o seleccionalo de la lista para agregarlo al lote."}
+                : "Escribe codigo o nombre y presiona Enter, o seleccionalo de la lista para agregarlo al lote."}
             </p>
 
             {modo === "manual" && isSearching ? (
-              <p className="text-xs text-gray-500 mt-2">Buscando materiales...</p>
+              <p className="text-xs text-gray-500 mt-2">
+                Buscando materiales...
+              </p>
             ) : null}
 
             {modo === "manual" && sugerencias.length > 0 ? (
@@ -543,7 +584,29 @@ export function SalidaLoteForm({
                       {item.material_codigo}
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-700">
-                      {item.material_descripcion}
+                      <div className="flex items-center gap-2">
+                        {item.material_foto ? (
+                          <div className="w-10 h-10 rounded-md overflow-hidden border border-gray-200 bg-white shrink-0">
+                            <img
+                              src={item.material_foto}
+                              alt={
+                                item.material_descripcion ||
+                                item.material_codigo
+                              }
+                              className="w-full h-full object-contain p-0.5"
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-amber-100 border border-amber-200 shrink-0 flex items-center justify-center">
+                            <Package className="h-4 w-4 text-amber-700" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate">
+                            {item.material_descripcion}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-700">
                       {item.um || "-"}
@@ -584,8 +647,8 @@ export function SalidaLoteForm({
                           cantidadRefs.current[item.material_codigo] = element;
                         }}
                         type="number"
-                        min="0"
-                        step="0.01"
+                        min="1"
+                        step="1"
                         value={item.cantidad}
                         onChange={(event) =>
                           actualizarCantidad(

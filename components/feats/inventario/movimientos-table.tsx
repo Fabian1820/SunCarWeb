@@ -185,7 +185,6 @@ export function MovimientosTable({ movimientos, materials = [], almacenes = [] }
               <div>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Movimiento</h3>
                 <div className="bg-gray-50 rounded-lg px-4 py-1">
-                  <DetalleRow label="ID" value={selected.id} />
                   <DetalleRow label="Tipo">
                     <Badge variant="outline" className={tipoClassNames[selected.tipo] || "bg-gray-50 text-gray-700 border-gray-200"}>
                       {selected.tipo}
