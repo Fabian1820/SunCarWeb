@@ -11,6 +11,75 @@ import type {
 } from "../../../material-types";
 
 export class MaterialService {
+  private static normalizeSearchMaterial(raw: any): Material | null {
+    const codigo = String(
+      raw?.codigo ?? raw?.material_codigo ?? raw?.material?.codigo ?? "",
+    ).trim();
+    if (!codigo) return null;
+
+    const descripcion = String(
+      raw?.descripcion ??
+        raw?.material_descripcion ??
+        raw?.nombre ??
+        raw?.material?.descripcion ??
+        raw?.material?.nombre ??
+        "",
+    ).trim();
+
+    const categoria = String(
+      raw?.categoria ??
+        raw?.producto_categoria ??
+        raw?.producto?.categoria ??
+        raw?.catalogo?.categoria ??
+        "Sin categoria",
+    ).trim();
+
+    const id = String(
+      raw?.id ??
+        raw?._id ??
+        raw?.material_id ??
+        raw?.material?.id ??
+        raw?.material?._id ??
+        `${categoria || "material"}_${codigo}`,
+    );
+
+    return {
+      id,
+      codigo,
+      categoria: categoria || "Sin categoria",
+      descripcion: descripcion || "Sin descripcion",
+      um: String(raw?.um ?? raw?.material?.um ?? ""),
+      precio:
+        typeof raw?.precio === "number"
+          ? raw.precio
+          : typeof raw?.material?.precio === "number"
+            ? raw.material.precio
+            : undefined,
+      nombre: typeof raw?.nombre === "string" ? raw.nombre : undefined,
+      marca_id: typeof raw?.marca_id === "string" ? raw.marca_id : undefined,
+      foto: typeof raw?.foto === "string" ? raw.foto : undefined,
+      potenciaKW:
+        typeof raw?.potenciaKW === "number" ? raw.potenciaKW : undefined,
+      habilitar_venta_web:
+        typeof raw?.habilitar_venta_web === "boolean"
+          ? raw.habilitar_venta_web
+          : undefined,
+      precio_por_cantidad:
+        raw?.precio_por_cantidad && typeof raw.precio_por_cantidad === "object"
+          ? raw.precio_por_cantidad
+          : undefined,
+      especificaciones:
+        raw?.especificaciones && typeof raw.especificaciones === "object"
+          ? raw.especificaciones
+          : undefined,
+      ubicacion_en_almacen:
+        typeof raw?.ubicacion_en_almacen === "string"
+          ? raw.ubicacion_en_almacen
+          : null,
+      comentario: typeof raw?.comentario === "string" ? raw.comentario : null,
+    };
+  }
+
   private static async resolveProductIdByCategory(
     categoria: string,
   ): Promise<string | null> {
@@ -54,6 +123,31 @@ export class MaterialService {
         codigo: String(m.codigo),
       })),
     );
+  }
+
+  static async searchMaterialsByCode(
+    query: string,
+    limit = 10,
+  ): Promise<Material[]> {
+    const term = query.trim();
+    if (!term) return [];
+
+    const response = await apiRequest<any>(
+      `/productos/materiales?q=${encodeURIComponent(term)}&limit=${limit}`,
+    );
+
+    const payload = response?.data ?? response;
+    const rows = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.materiales)
+          ? payload.materiales
+          : [];
+
+    return rows
+      .map((item: any) => this.normalizeSearchMaterial(item))
+      .filter((item: Material | null): item is Material => item !== null);
   }
 
   static async getCategories(): Promise<

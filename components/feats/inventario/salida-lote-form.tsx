@@ -1,10 +1,17 @@
 "use client";
 
 import type React from "react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import {
   AlertCircle,
   Barcode,
@@ -15,11 +22,17 @@ import {
 } from "lucide-react";
 import type { Almacen, StockItem } from "@/lib/inventario-types";
 import type { Material } from "@/lib/material-types";
+import { MaterialService } from "@/lib/api-services";
 
 type ModoRegistro = "scanner" | "manual";
 
 interface SalidaLotePayload {
-  items: Array<{ material_codigo: string; cantidad: number }>;
+  items: Array<{
+    material_codigo: string;
+    cantidad: number;
+    origen_captura: "scanner" | "manual";
+    estado: string;
+  }>;
   motivo?: string;
   referencia?: string;
 }
@@ -38,6 +51,8 @@ interface SalidaLoteItem {
   material_descripcion: string;
   um?: string;
   cantidad: string;
+  origen_captura: "scanner" | "manual";
+  estado: string;
   yaEnStock?: boolean;
   stockAnterior?: number;
 }
@@ -56,13 +71,25 @@ export function SalidaLoteForm({
   const [codigoInput, setCodigoInput] = useState("");
   const [items, setItems] = useState<SalidaLoteItem[]>([]);
   const [motivo, setMotivo] = useState(
-    tipo === "entrada" ? "Entrada de almacén" : "Salida de almacén",
+    tipo === "entrada" ? "Entrada de almacen" : "Salida de almacen",
   );
   const [referencia, setReferencia] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [sugerenciasRemotas, setSugerenciasRemotas] = useState<Material[]>([]);
   const codigoRef = useRef<HTMLInputElement | null>(null);
   const cantidadRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const materialesPorCodigo = useMemo(() => {
+    const map = new Map<string, Material>();
+    for (const material of materiales) {
+      const codigo = normalizarCodigo(String(material.codigo));
+      if (!codigo) continue;
+      map.set(codigo, material);
+    }
+    return map;
+  }, [materiales]);
 
   const materialesOrdenados = useMemo(() => {
     return [...materiales].sort((a, b) =>
@@ -70,24 +97,64 @@ export function SalidaLoteForm({
     );
   }, [materiales]);
 
+  useEffect(() => {
+    let active = true;
+
+    const loadSuggestions = async () => {
+      if (modo !== "manual") {
+        setSugerenciasRemotas([]);
+        return;
+      }
+
+      const term = codigoInput.trim();
+      if (!term) {
+        setSugerenciasRemotas([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const result = await MaterialService.searchMaterialsByCode(term, 8);
+        if (!active) return;
+        setSugerenciasRemotas(Array.isArray(result) ? result : []);
+      } catch {
+        if (!active) return;
+        setSugerenciasRemotas([]);
+      } finally {
+        if (active) setIsSearching(false);
+      }
+    };
+
+    void loadSuggestions();
+
+    return () => {
+      active = false;
+    };
+  }, [codigoInput, modo]);
+
   const sugerencias = useMemo(() => {
     if (modo !== "manual") return [];
     const term = normalizarCodigo(codigoInput);
     if (!term) return [];
+
+    if (sugerenciasRemotas.length > 0) {
+      return sugerenciasRemotas.slice(0, 8);
+    }
+
     return materialesOrdenados
       .filter((material) =>
         normalizarCodigo(String(material.codigo)).includes(term),
       )
       .slice(0, 8);
-  }, [codigoInput, materialesOrdenados, modo]);
+  }, [codigoInput, materialesOrdenados, modo, sugerenciasRemotas]);
 
   const resumen = useMemo(() => {
-    const materiales = items.length;
+    const materialesDistintos = items.length;
     const cantidadTotal = items.reduce((acc, item) => {
       const cantidad = Number(item.cantidad);
       return acc + (Number.isFinite(cantidad) ? cantidad : 0);
     }, 0);
-    return { materiales, cantidadTotal };
+    return { materialesDistintos, cantidadTotal };
   }, [items]);
 
   const stockPorCodigo = useMemo(() => {
@@ -107,18 +174,36 @@ export function SalidaLoteForm({
     codigoRef.current.select();
   };
 
-  const agregarMaterialPorCodigo = (codigo: string) => {
+  const resolverMaterialPorCodigo = async (
+    codigo: string,
+  ): Promise<Material | null> => {
+    const codigoNormalizado = normalizarCodigo(codigo);
+    if (!codigoNormalizado) return null;
+
+    const local = materialesPorCodigo.get(codigoNormalizado);
+    if (local) return local;
+
+    try {
+      const response = await MaterialService.searchMaterialsByCode(codigo, 10);
+      const exact = response.find(
+        (item) => normalizarCodigo(String(item.codigo)) === codigoNormalizado,
+      );
+      return exact || response[0] || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const agregarMaterialPorCodigo = async (codigo: string) => {
     const codigoNormalizado = normalizarCodigo(codigo);
     if (!codigoNormalizado) {
-      setError("Introduce un código de material");
+      setError("Introduce un codigo de material");
       return;
     }
 
-    const material = materiales.find(
-      (item) => normalizarCodigo(String(item.codigo)) === codigoNormalizado,
-    );
+    const material = await resolverMaterialPorCodigo(codigo);
     if (!material) {
-      setError(`No existe el material con código ${codigo}`);
+      setError(`No existe el material con codigo ${codigo}`);
       return;
     }
 
@@ -128,6 +213,7 @@ export function SalidaLoteForm({
         normalizarCodigo(item.material_codigo) ===
         normalizarCodigo(codigoMaterial),
     );
+
     if (existente) {
       if (modo === "scanner") {
         setItems((prev) =>
@@ -140,6 +226,7 @@ export function SalidaLoteForm({
             return {
               ...item,
               cantidad: String(siguienteCantidad),
+              origen_captura: "scanner",
             };
           }),
         );
@@ -163,9 +250,11 @@ export function SalidaLoteForm({
       ...prev,
       {
         material_codigo: codigoMaterial,
-        material_descripcion: material.descripcion || "Sin descripción",
+        material_descripcion: material.descripcion || "Sin descripcion",
         um: material.um,
         cantidad: "1",
+        origen_captura: modo,
+        estado: "nuevo",
         yaEnStock:
           tipo === "entrada"
             ? stockPorCodigo.has(normalizarCodigo(codigoMaterial))
@@ -193,7 +282,7 @@ export function SalidaLoteForm({
   ) => {
     if (event.key !== "Enter") return;
     event.preventDefault();
-    agregarMaterialPorCodigo(codigoInput);
+    void agregarMaterialPorCodigo(codigoInput);
   };
 
   const actualizarCantidad = (codigo: string, cantidad: string) => {
@@ -203,6 +292,19 @@ export function SalidaLoteForm({
           ? {
               ...item,
               cantidad,
+            }
+          : item,
+      ),
+    );
+  };
+
+  const actualizarEstado = (codigo: string, estado: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.material_codigo === codigo
+          ? {
+              ...item,
+              estado,
             }
           : item,
       ),
@@ -224,7 +326,7 @@ export function SalidaLoteForm({
     for (const item of items) {
       const cantidad = Number(item.cantidad);
       if (!Number.isFinite(cantidad) || cantidad <= 0) {
-        setError(`Cantidad inválida para ${item.material_codigo}`);
+        setError(`Cantidad invalida para ${item.material_codigo}`);
         return false;
       }
     }
@@ -243,6 +345,8 @@ export function SalidaLoteForm({
         items: items.map((item) => ({
           material_codigo: item.material_codigo,
           cantidad: Number(item.cantidad),
+          origen_captura: item.origen_captura,
+          estado: item.estado || "nuevo",
         })),
         motivo: motivo.trim() || undefined,
         referencia: referencia.trim() || undefined,
@@ -276,7 +380,7 @@ export function SalidaLoteForm({
               Forma de registro de {tipo === "entrada" ? "entrada" : "salida"}
             </Label>
             <p className="text-xs text-gray-600 mt-1">
-              Selecciona cómo vas a capturar los materiales para la{" "}
+              Selecciona como vas a capturar los materiales para la{" "}
               {tipo === "entrada" ? "entrada" : "salida"}.
             </p>
           </div>
@@ -292,10 +396,10 @@ export function SalidaLoteForm({
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                 <Barcode className="h-4 w-4" />
-                Escáner
+                Escaner
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Cada escaneo agrega el material. Si repites código, suma
+                Cada escaneo agrega el material. Si repites codigo, suma
                 cantidad.
               </p>
             </button>
@@ -310,10 +414,10 @@ export function SalidaLoteForm({
             >
               <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                 <Hand className="h-4 w-4" />
-                Manual por código
+                Manual por codigo
               </div>
               <p className="text-xs text-gray-600 mt-1">
-                Escribe o busca el código del material y agrega los ítems al
+                Escribe o busca el codigo del material y agrega los items al
                 lote de {tipo === "entrada" ? "entrada" : "salida"}.
               </p>
             </button>
@@ -327,8 +431,8 @@ export function SalidaLoteForm({
               className="text-sm font-medium text-gray-700 mb-2 block"
             >
               {modo === "scanner"
-                ? "Escanear código de material *"
-                : "Código de material *"}
+                ? "Escanear codigo de material *"
+                : "Codigo de material *"}
             </Label>
             <div className="flex gap-2">
               <Input
@@ -340,17 +444,28 @@ export function SalidaLoteForm({
                 onKeyDown={handleKeyDownCodigo}
                 placeholder={
                   modo === "scanner"
-                    ? "Escanea el código y presiona Enter"
-                    : "Escribe el código y selecciona el material"
+                    ? "Escanea el codigo y presiona Enter"
+                    : "Escribe el codigo y selecciona el material"
                 }
                 autoComplete="off"
               />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void agregarMaterialPorCodigo(codigoInput)}
+              >
+                Agregar
+              </Button>
             </div>
             <p className="text-xs text-gray-600 mt-2">
               {modo === "scanner"
-                ? "Escanea y presiona Enter. Si escaneas el mismo material más de una vez, la cantidad se incrementa automáticamente."
-                : "Escribe el código y presiona Enter, o selecciónalo de la lista para agregarlo al lote."}
+                ? "Escanea y presiona Enter. Si escaneas el mismo material mas de una vez, la cantidad se incrementa automaticamente."
+                : "Escribe el codigo y presiona Enter, o seleccionalo de la lista para agregarlo al lote."}
             </p>
+
+            {modo === "manual" && isSearching ? (
+              <p className="text-xs text-gray-500 mt-2">Buscando materiales...</p>
+            ) : null}
 
             {modo === "manual" && sugerencias.length > 0 ? (
               <div className="mt-2 rounded-md border bg-white">
@@ -360,7 +475,7 @@ export function SalidaLoteForm({
                     key={material.id}
                     className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b last:border-b-0"
                     onClick={() => {
-                      agregarMaterialPorCodigo(String(material.codigo));
+                      void agregarMaterialPorCodigo(String(material.codigo));
                       enfocarCodigo();
                     }}
                   >
@@ -381,13 +496,19 @@ export function SalidaLoteForm({
             <thead>
               <tr className="border-b bg-gray-50">
                 <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
-                  Código
+                  Codigo
                 </th>
                 <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
                   Material
                 </th>
                 <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
                   Unidad
+                </th>
+                <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
+                  Origen captura
+                </th>
+                <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
+                  Estado
                 </th>
                 <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
                   Cantidad
@@ -406,7 +527,7 @@ export function SalidaLoteForm({
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={tipo === "entrada" ? 6 : 5}
+                    colSpan={tipo === "entrada" ? 8 : 7}
                     className="py-6 text-center text-sm text-gray-500"
                   >
                     No hay materiales agregados.
@@ -426,6 +547,36 @@ export function SalidaLoteForm({
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-700">
                       {item.um || "-"}
+                    </td>
+                    <td className="py-2 px-3 text-sm">
+                      {item.origen_captura === "scanner" ? (
+                        <span className="inline-flex rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 text-xs">
+                          scanner
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 text-xs">
+                          manual
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2 px-3 text-sm min-w-[140px]">
+                      <Select
+                        value={item.estado}
+                        onValueChange={(value) =>
+                          actualizarEstado(item.material_codigo, value)
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Estado" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="nuevo">Nuevo</SelectItem>
+                          <SelectItem value="usado">Usado</SelectItem>
+                          <SelectItem value="reacondicionado">
+                            Reacondicionado
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-700 w-[140px]">
                       <Input
@@ -452,7 +603,7 @@ export function SalidaLoteForm({
                           </span>
                         ) : (
                           <span className="inline-flex rounded-full bg-blue-50 text-blue-700 border border-blue-200 px-2 py-1 text-xs">
-                            Nuevo en este almacén
+                            Nuevo en este almacen
                           </span>
                         )}
                       </td>
@@ -478,8 +629,8 @@ export function SalidaLoteForm({
         <div className="rounded-md border bg-white p-3">
           <p className="text-xs font-medium text-gray-500">Resumen del lote</p>
           <p className="text-sm text-gray-900 mt-2">
-            Materiales:{" "}
-            <span className="font-semibold">{resumen.materiales}</span>
+            Materiales distintos:{" "}
+            <span className="font-semibold">{resumen.materialesDistintos}</span>
           </p>
           <p className="text-sm text-gray-900 mt-1">
             Cantidad total:{" "}
@@ -501,7 +652,7 @@ export function SalidaLoteForm({
               onChange={(event) => setMotivo(event.target.value)}
               placeholder={
                 tipo === "entrada"
-                  ? "Recepción, ajuste, compra, etc."
+                  ? "Recepcion, ajuste, compra, etc."
                   : "Consumo interno, salida por obra, etc."
               }
             />
@@ -517,7 +668,7 @@ export function SalidaLoteForm({
               id="salida-lote-referencia"
               value={referencia}
               onChange={(event) => setReferencia(event.target.value)}
-              placeholder="Requisición o documento"
+              placeholder="Requisicion o documento"
             />
           </div>
         </div>

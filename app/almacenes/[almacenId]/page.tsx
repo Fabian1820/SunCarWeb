@@ -38,6 +38,7 @@ import {
 import type {
   Almacen,
   MovimientoInventario,
+  MovimientoLoteResponse,
   StockItem,
 } from "@/lib/inventario-types";
 import type { Material, BackendCatalogoProductos } from "@/lib/material-types";
@@ -87,6 +88,11 @@ export default function AlmacenDetallePage() {
   const [stockMarcaFilter, setStockMarcaFilter] = useState("all");
   const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all");
   const [historialSearch, setHistorialSearch] = useState("");
+  const [ultimoResumenLote, setUltimoResumenLote] =
+    useState<MovimientoLoteResponse | null>(null);
+  const [ultimoTipoLote, setUltimoTipoLote] = useState<
+    "entrada" | "salida" | null
+  >(null);
 
   const loadDetalle = async () => {
     setLoading(true);
@@ -179,6 +185,8 @@ export default function AlmacenDetallePage() {
   };
 
   useEffect(() => {
+    setUltimoResumenLote(null);
+    setUltimoTipoLote(null);
     loadDetalle();
   }, [almacenId]);
 
@@ -300,53 +308,61 @@ export default function AlmacenDetallePage() {
   }, [movimientos, historialSearch]);
 
   const handleRegistrarSalidaLote = async (payload: {
-    items: Array<{ material_codigo: string; cantidad: number }>;
+    items: Array<{
+      material_codigo: string;
+      cantidad: number;
+      origen_captura: "scanner" | "manual";
+      estado: string;
+    }>;
     motivo?: string;
     referencia?: string;
   }) => {
     if (!almacen.id) return;
 
-    for (const item of payload.items) {
-      await InventarioService.createMovimiento({
-        tipo: "salida",
-        material_codigo: item.material_codigo,
-        cantidad: item.cantidad,
-        almacen_origen_id: almacen.id,
-        motivo: payload.motivo,
-        referencia: payload.referencia,
-      });
-    }
+    const resumen = await InventarioService.createMovimientoLote({
+      tipo: "salida",
+      almacen_id: almacen.id,
+      motivo: payload.motivo,
+      referencia: payload.referencia,
+      items: payload.items,
+    });
 
     toast({
       title: "Salida registrada",
-      description: `Se registraron ${payload.items.length} materiales en la salida.`,
+      description: `${resumen.total_materiales_distintos} materiales distintos / ${resumen.total_cantidad} total`,
     });
+    setUltimoResumenLote(resumen);
+    setUltimoTipoLote("salida");
     setIsSalidaDialogOpen(false);
     await Promise.all([refreshStock(), refreshMovimientos()]);
   };
 
   const handleRegistrarEntradaLote = async (payload: {
-    items: Array<{ material_codigo: string; cantidad: number }>;
+    items: Array<{
+      material_codigo: string;
+      cantidad: number;
+      origen_captura: "scanner" | "manual";
+      estado: string;
+    }>;
     motivo?: string;
     referencia?: string;
   }) => {
     if (!almacen.id) return;
 
-    for (const item of payload.items) {
-      await InventarioService.createMovimiento({
-        tipo: "entrada",
-        material_codigo: item.material_codigo,
-        cantidad: item.cantidad,
-        almacen_origen_id: almacen.id,
-        motivo: payload.motivo,
-        referencia: payload.referencia,
-      });
-    }
+    const resumen = await InventarioService.createMovimientoLote({
+      tipo: "entrada",
+      almacen_id: almacen.id,
+      motivo: payload.motivo,
+      referencia: payload.referencia,
+      items: payload.items,
+    });
 
     toast({
       title: "Entrada registrada",
-      description: `Se registraron ${payload.items.length} materiales en la entrada.`,
+      description: `${resumen.total_materiales_distintos} materiales distintos / ${resumen.total_cantidad} total`,
     });
+    setUltimoResumenLote(resumen);
+    setUltimoTipoLote("entrada");
     setIsEntradaDialogOpen(false);
     await Promise.all([refreshStock(), refreshMovimientos()]);
   };
@@ -459,6 +475,71 @@ export default function AlmacenDetallePage() {
                   </Button>
                 </CardContent>
               </Card>
+
+              {ultimoResumenLote ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>
+                      Ultimo resumen de{" "}
+                      {ultimoTipoLote === "entrada" ? "entrada" : "salida"}
+                    </CardTitle>
+                    <CardDescription>
+                      Respuesta devuelta por backend para el lote procesado.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-gray-700">
+                      Materiales distintos:{" "}
+                      <span className="font-semibold">
+                        {ultimoResumenLote.total_materiales_distintos}
+                      </span>
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Cantidad total:{" "}
+                      <span className="font-semibold">
+                        {ultimoResumenLote.total_cantidad}
+                      </span>
+                    </p>
+                    <div className="rounded-md border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="text-left px-3 py-2 font-medium text-gray-700">
+                              Material
+                            </th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-700">
+                              Cantidad
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {ultimoResumenLote.por_material.map((item) => (
+                            <tr
+                              key={item.material_codigo}
+                              className="border-t text-gray-700"
+                            >
+                              <td className="px-3 py-2">
+                                {item.material_codigo}
+                              </td>
+                              <td className="px-3 py-2">{item.cantidad}</td>
+                            </tr>
+                          ))}
+                          {ultimoResumenLote.por_material.length === 0 ? (
+                            <tr className="border-t">
+                              <td
+                                colSpan={2}
+                                className="px-3 py-3 text-gray-500 text-center"
+                              >
+                                Sin desglose por material en la respuesta.
+                              </td>
+                            </tr>
+                          ) : null}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : null}
             </TabsContent>
 
             <TabsContent value="stock" className="space-y-6">

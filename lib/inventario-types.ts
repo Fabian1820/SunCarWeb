@@ -10,6 +10,10 @@ export type {
   TiendaCreateData,
   TiendaUpdateData,
   MovimientoCreateData,
+  MovimientoLoteItemData,
+  MovimientoLoteCreateData,
+  MovimientoLoteResumenPorMaterial,
+  MovimientoLoteResponse,
   VentaItem,
   VentaCreateData,
-} from './types/feats/inventario/inventario-types'
+} from "./types/feats/inventario/inventario-types";

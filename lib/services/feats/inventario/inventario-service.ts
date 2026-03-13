@@ -14,6 +14,9 @@ import type {
   StockItem,
   MovimientoInventario,
   MovimientoCreateData,
+  MovimientoLoteCreateData,
+  MovimientoLoteResponse,
+  MovimientoLoteResumenPorMaterial,
   VentaCreateData,
 } from "../../../inventario-types";
 
@@ -328,6 +331,50 @@ export class InventarioService {
     );
   }
 
+  private static normalizeMovimientoLoteResumen(
+    raw: any,
+  ): MovimientoLoteResponse {
+    const payload = extractItem<any>(raw) || {};
+
+    const porMaterialRaw = Array.isArray(payload?.por_material)
+      ? payload.por_material
+      : Array.isArray(payload?.resumen_por_material)
+        ? payload.resumen_por_material
+        : Array.isArray(payload?.items)
+          ? payload.items
+          : [];
+
+    const porMaterial: MovimientoLoteResumenPorMaterial[] = porMaterialRaw
+      .map((item: any) => {
+        const materialCodigo =
+          asString(item?.material_codigo) ||
+          asString(item?.codigo) ||
+          asString(item?.material_id);
+        if (!materialCodigo) return null;
+        return {
+          material_codigo: materialCodigo,
+          cantidad: asNumber(item?.cantidad) ?? 0,
+        };
+      })
+      .filter(
+        (
+          item: MovimientoLoteResumenPorMaterial | null,
+        ): item is MovimientoLoteResumenPorMaterial => item !== null,
+      );
+
+    const totalMaterialesDistintos =
+      asNumber(payload?.total_materiales_distintos) ?? porMaterial.length;
+    const totalCantidad =
+      asNumber(payload?.total_cantidad) ??
+      porMaterial.reduce((acc, item) => acc + (item.cantidad || 0), 0);
+
+    return {
+      total_materiales_distintos: totalMaterialesDistintos,
+      total_cantidad: totalCantidad,
+      por_material: porMaterial,
+    };
+  }
+
   private static async resolveVentaAlmacenId(
     data: MovimientoCreateData,
   ): Promise<string> {
@@ -424,9 +471,20 @@ export class InventarioService {
 
   static async getStock(params?: {
     almacen_id?: string;
+    q?: string;
+    material_id?: string;
+    material_codigo?: string;
+    sort_by?: string;
+    sort_dir?: "asc" | "desc";
   }): Promise<StockItem[]> {
     const search = new URLSearchParams();
     if (params?.almacen_id) search.set("almacen_id", params.almacen_id);
+    if (params?.q) search.set("q", params.q);
+    if (params?.material_id) search.set("material_id", params.material_id);
+    if (params?.material_codigo)
+      search.set("material_codigo", params.material_codigo);
+    if (params?.sort_by) search.set("sort_by", params.sort_by);
+    if (params?.sort_dir) search.set("sort_dir", params.sort_dir);
     const suffix = search.toString() ? `?${search.toString()}` : "";
     const response = await apiRequest<any>(`/inventario/stock${suffix}`);
     return this.normalizeStockResponse(response);
@@ -511,6 +569,70 @@ export class InventarioService {
       body: JSON.stringify(payload),
     });
     return this.normalizeMovimiento(extractItem<any>(response));
+  }
+
+  static async createMovimientoLote(
+    data: MovimientoLoteCreateData,
+  ): Promise<MovimientoLoteResponse> {
+    const tipo = data.tipo;
+    if (tipo !== "entrada" && tipo !== "salida") {
+      throw new Error("El lote solo permite tipo entrada o salida");
+    }
+
+    const almacenId = asString(data.almacen_id);
+    if (!almacenId) {
+      throw new Error("almacen_id es requerido para registrar un lote");
+    }
+
+    if (!Array.isArray(data.items) || data.items.length === 0) {
+      throw new Error("Debes enviar al menos un item en el lote");
+    }
+
+    const items = data.items.map((item) => {
+      const materialCodigo = asString(item.material_codigo);
+      const cantidad = Number(item.cantidad);
+
+      if (!materialCodigo) {
+        throw new Error("Cada item del lote requiere material_codigo");
+      }
+      if (!Number.isFinite(cantidad) || cantidad <= 0) {
+        throw new Error(
+          `Cantidad invalida para el material ${materialCodigo}. Debe ser mayor que cero.`,
+        );
+      }
+
+      const mapped: Record<string, unknown> = {
+        material_codigo: materialCodigo,
+        cantidad,
+      };
+
+      const origenCaptura = asString(item.origen_captura);
+      if (origenCaptura) mapped.origen_captura = origenCaptura;
+
+      const estado = asString(item.estado);
+      if (estado) mapped.estado = estado;
+
+      return mapped;
+    });
+
+    const payload: Record<string, unknown> = {
+      tipo,
+      almacen_id: almacenId,
+      items,
+    };
+
+    const motivo = asString(data.motivo);
+    if (motivo) payload.motivo = motivo;
+
+    const referencia = asString(data.referencia);
+    if (referencia) payload.referencia = referencia;
+
+    const response = await apiRequest<any>("/inventario/movimientos/lote", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+
+    return this.normalizeMovimientoLoteResumen(response);
   }
 
   static async createVenta(data: VentaCreateData): Promise<any> {
