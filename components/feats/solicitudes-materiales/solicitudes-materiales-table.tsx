@@ -1,40 +1,51 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/shared/atom/badge"
-import { Button } from "@/components/shared/atom/button"
-import { Package, Trash2, Eye, Calendar, User, Warehouse } from "lucide-react"
-import type { SolicitudMaterial } from "@/lib/api-types"
+import { Badge } from "@/components/shared/atom/badge";
+import { Button } from "@/components/shared/atom/button";
+import {
+  Package,
+  Trash2,
+  Eye,
+  Calendar,
+  User,
+  Warehouse,
+  Pencil,
+} from "lucide-react";
+import type { SolicitudMaterial } from "@/lib/api-types";
 
 interface SolicitudesMaterialesTableProps {
-  solicitudes: SolicitudMaterial[]
-  onDelete?: (solicitud: SolicitudMaterial) => void
-  onView?: (solicitud: SolicitudMaterial) => void
-  loading?: boolean
+  solicitudes: SolicitudMaterial[];
+  onDelete?: (solicitud: SolicitudMaterial) => void;
+  onEdit?: (solicitud: SolicitudMaterial) => void;
+  onView?: (solicitud: SolicitudMaterial) => void;
+  loading?: boolean;
 }
 
 export function SolicitudesMaterialesTable({
   solicitudes,
   onDelete,
+  onEdit,
   onView,
 }: SolicitudesMaterialesTableProps) {
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "—"
+    if (!dateStr) return "—";
     try {
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
         month: "2-digit",
         year: "numeric",
-      })
+      });
     } catch {
-      return "—"
+      return "—";
     }
-  }
+  };
 
-  const getClienteName = (s: SolicitudMaterial) => s.cliente?.nombre || null
+  const getClienteName = (s: SolicitudMaterial) => s.cliente?.nombre || null;
 
-  const getAlmacenName = (s: SolicitudMaterial) => s.almacen?.nombre || "—"
+  const getAlmacenName = (s: SolicitudMaterial) => s.almacen?.nombre || "—";
 
-  const getTrabajadorName = (s: SolicitudMaterial) => s.trabajador?.nombre || "—"
+  const getTrabajadorName = (s: SolicitudMaterial) =>
+    s.trabajador?.nombre || "—";
 
   if (solicitudes.length === 0) {
     return (
@@ -47,7 +58,7 @@ export function SolicitudesMaterialesTable({
           No se encontraron solicitudes que coincidan con los filtros aplicados.
         </p>
       </div>
-    )
+    );
   }
 
   return (
@@ -55,24 +66,46 @@ export function SolicitudesMaterialesTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Codigo
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Estado
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Cliente
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Almacen
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Creador
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Materiales
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Fecha
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody>
           {solicitudes.map((solicitud) => {
-            const clienteName = getClienteName(solicitud)
-            const isUsada = solicitud.estado?.toLowerCase() === "usada"
+            const clienteName = getClienteName(solicitud);
+            const isUsada = solicitud.estado?.toLowerCase() === "usada";
             return (
-              <tr key={solicitud.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr
+                key={solicitud.id}
+                className="border-b border-gray-100 hover:bg-gray-50"
+              >
                 <td className="py-4 px-4">
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 font-mono">
+                  <Badge
+                    variant="outline"
+                    className="bg-purple-50 text-purple-700 border-purple-200 font-mono"
+                  >
                     {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
                   </Badge>
                 </td>
@@ -92,23 +125,32 @@ export function SolicitudesMaterialesTable({
                   {clienteName ? (
                     <p className="font-medium text-gray-900">{clienteName}</p>
                   ) : (
-                    <span className="text-gray-400 italic text-sm">Sin cliente</span>
+                    <span className="text-gray-400 italic text-sm">
+                      Sin cliente
+                    </span>
                   )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{getAlmacenName(solicitud)}</span>
+                    <span className="text-sm text-gray-700">
+                      {getAlmacenName(solicitud)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{getTrabajadorName(solicitud)}</span>
+                    <span className="text-sm text-gray-700">
+                      {getTrabajadorName(solicitud)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <Badge
+                    variant="outline"
+                    className="bg-blue-50 text-blue-700 border-blue-200"
+                  >
                     <Package className="h-3 w-3 mr-1" />
                     {solicitud.materiales?.length || 0} items
                   </Badge>
@@ -116,7 +158,9 @@ export function SolicitudesMaterialesTable({
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{formatDate(solicitud.fecha_creacion)}</span>
+                    <span className="text-sm text-gray-700">
+                      {formatDate(solicitud.fecha_creacion)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -133,13 +177,33 @@ export function SolicitudesMaterialesTable({
                         <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
                     )}
+                    {onEdit && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(solicitud)}
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                        title={
+                          isUsada
+                            ? "No se puede editar una solicitud usada"
+                            : "Editar solicitud"
+                        }
+                        disabled={isUsada}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                     {onDelete && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onDelete(solicitud)}
                         className="border-red-300 text-red-700 hover:bg-red-50"
-                        title={isUsada ? "No se puede eliminar una solicitud usada" : "Eliminar solicitud"}
+                        title={
+                          isUsada
+                            ? "No se puede eliminar una solicitud usada"
+                            : "Eliminar solicitud"
+                        }
                         disabled={isUsada}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -148,10 +212,10 @@ export function SolicitudesMaterialesTable({
                   </div>
                 </td>
               </tr>
-            )
+            );
           })}
         </tbody>
       </table>
     </div>
-  )
+  );
 }

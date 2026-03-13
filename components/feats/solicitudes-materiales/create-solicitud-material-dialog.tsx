@@ -1,22 +1,22 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/shared/molecule/dialog"
-import { Button } from "@/components/shared/atom/button"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
+} from "@/components/shared/molecule/dialog";
+import { Button } from "@/components/shared/atom/button";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shared/atom/select"
+} from "@/components/shared/atom/select";
 import {
   Search,
   Plus,
@@ -25,215 +25,305 @@ import {
   Package,
   AlertTriangle,
   X,
-} from "lucide-react"
-import { Badge } from "@/components/shared/atom/badge"
+} from "lucide-react";
+import { Badge } from "@/components/shared/atom/badge";
 import {
   ClienteService,
   InventarioService,
   MaterialService,
   SolicitudMaterialService,
-} from "@/lib/api-services"
-import type { Almacen } from "@/lib/api-types"
+} from "@/lib/api-services";
+import type { Almacen } from "@/lib/api-types";
 import type {
+  SolicitudMaterial,
   SolicitudMaterialCreateData,
+  SolicitudMaterialUpdateData,
   MaterialSugerido,
-} from "@/lib/types/feats/solicitudes-materiales/solicitud-material-types"
+} from "@/lib/types/feats/solicitudes-materiales/solicitud-material-types";
 
 interface MaterialRow {
-  material_id: string
-  codigo: string
-  nombre: string
-  descripcion: string
-  um: string
-  cantidad: number
-  foto?: string
-  sinVinculo?: boolean
+  material_id: string;
+  codigo: string;
+  nombre: string;
+  descripcion: string;
+  um: string;
+  cantidad: number;
+  foto?: string;
+  sinVinculo?: boolean;
+}
+
+interface LookupCliente {
+  id?: string;
+  _id?: string;
+  nombre?: string;
+  numero?: string;
+}
+
+interface CatalogMaterial {
+  id?: string;
+  _id?: string;
+  codigo?: string | number;
+  nombre?: string;
+  descripcion?: string;
+  um?: string;
+  foto?: string;
 }
 
 interface CreateSolicitudMaterialDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSuccess: () => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+  solicitud?: SolicitudMaterial | null;
 }
 
 export function CreateSolicitudMaterialDialog({
   open,
   onOpenChange,
   onSuccess,
+  solicitud,
 }: CreateSolicitudMaterialDialogProps) {
-  // Client search
-  const [clienteSearch, setClienteSearch] = useState("")
-  const [clienteResults, setClienteResults] = useState<any[]>([])
-  const [selectedCliente, setSelectedCliente] = useState<any | null>(null)
-  const [clienteLoading, setClienteLoading] = useState(false)
-  const [showClienteDropdown, setShowClienteDropdown] = useState(false)
+  const [clienteSearch, setClienteSearch] = useState("");
+  const [clienteResults, setClienteResults] = useState<LookupCliente[]>([]);
+  const [selectedCliente, setSelectedCliente] = useState<LookupCliente | null>(
+    null,
+  );
+  const [clienteLoading, setClienteLoading] = useState(false);
+  const [showClienteDropdown, setShowClienteDropdown] = useState(false);
 
-  // Materials
-  const [materiales, setMateriales] = useState<MaterialRow[]>([])
-  const [materialesSinVinculo, setMaterialesSinVinculo] = useState<string[]>([])
-  const [loadingSugeridos, setLoadingSugeridos] = useState(false)
+  const [materiales, setMateriales] = useState<MaterialRow[]>([]);
+  const [materialesSinVinculo, setMaterialesSinVinculo] = useState<string[]>(
+    [],
+  );
+  const [loadingSugeridos, setLoadingSugeridos] = useState(false);
 
-  // Material search for manual add
-  const [materialSearch, setMaterialSearch] = useState("")
-  const [materialResults, setMaterialResults] = useState<any[]>([])
-  const [materialSearchLoading, setMaterialSearchLoading] = useState(false)
-  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false)
+  const [materialSearch, setMaterialSearch] = useState("");
+  const [materialResults, setMaterialResults] = useState<CatalogMaterial[]>([]);
+  const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
+  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
 
-  // All materials (catalog)
-  const [allMaterials, setAllMaterials] = useState<any[]>([])
+  const [allMaterials, setAllMaterials] = useState<CatalogMaterial[]>([]);
 
-  // Almacenes
-  const [almacenes, setAlmacenes] = useState<Almacen[]>([])
-  const [selectedAlmacenId, setSelectedAlmacenId] = useState("")
-  const [almacenesLoading, setAlmacenesLoading] = useState(false)
+  const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+  const [selectedAlmacenId, setSelectedAlmacenId] = useState("");
+  const [almacenesLoading, setAlmacenesLoading] = useState(false);
 
-  // Submit
-  const [submitting, setSubmitting] = useState(false)
+  const [submitting, setSubmitting] = useState(false);
+  const isEditMode = useMemo(() => Boolean(solicitud?.id), [solicitud?.id]);
 
-  // Load almacenes and materials catalog when dialog opens
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
 
     const loadData = async () => {
-      setAlmacenesLoading(true)
+      setAlmacenesLoading(true);
       try {
         const [almacenesData, materialsData] = await Promise.all([
           InventarioService.getAlmacenes(),
           MaterialService.getAllMaterials(),
-        ])
-        setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
-        setAllMaterials(Array.isArray(materialsData) ? materialsData : [])
+        ]);
+        setAlmacenes(Array.isArray(almacenesData) ? almacenesData : []);
+        setAllMaterials(Array.isArray(materialsData) ? materialsData : []);
       } catch (error) {
-        console.error("Error loading dialog data:", error)
+        console.error("Error loading dialog data:", error);
       } finally {
-        setAlmacenesLoading(false)
+        setAlmacenesLoading(false);
       }
-    }
+    };
 
-    loadData()
-  }, [open])
+    void loadData();
+  }, [open]);
 
-  // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
-      setClienteSearch("")
-      setClienteResults([])
-      setSelectedCliente(null)
-      setMateriales([])
-      setMaterialesSinVinculo([])
-      setSelectedAlmacenId("")
-      setMaterialSearch("")
-      setMaterialResults([])
+      setClienteSearch("");
+      setClienteResults([]);
+      setSelectedCliente(null);
+      setMateriales([]);
+      setMaterialesSinVinculo([]);
+      setSelectedAlmacenId("");
+      setMaterialSearch("");
+      setMaterialResults([]);
+      setShowClienteDropdown(false);
+      setShowMaterialDropdown(false);
+      return;
     }
-  }, [open])
 
-  // Debounced client search
+    if (!solicitud) {
+      setClienteSearch("");
+      setClienteResults([]);
+      setSelectedCliente(null);
+      setMateriales([]);
+      setMaterialesSinVinculo([]);
+      setSelectedAlmacenId("");
+      setMaterialSearch("");
+      setMaterialResults([]);
+      setShowClienteDropdown(false);
+      setShowMaterialDropdown(false);
+      return;
+    }
+
+    const cliente = solicitud.cliente
+      ? {
+          id: solicitud.cliente.id,
+          nombre: solicitud.cliente.nombre,
+          numero: solicitud.cliente.numero,
+        }
+      : null;
+
+    const rows: MaterialRow[] = (solicitud.materiales || []).map((item) => {
+      const materialInfo = item.material;
+      return {
+        material_id: item.material_id || "",
+        codigo:
+          materialInfo?.codigo || item.material_codigo || item.codigo || "",
+        nombre:
+          materialInfo?.nombre ||
+          materialInfo?.descripcion ||
+          item.material_descripcion ||
+          item.descripcion ||
+          "",
+        descripcion:
+          materialInfo?.descripcion ||
+          materialInfo?.nombre ||
+          item.material_descripcion ||
+          item.descripcion ||
+          "",
+        um: materialInfo?.um || item.um || "U",
+        cantidad: Math.max(0, Math.trunc(item.cantidad || 0)),
+        foto: materialInfo?.foto,
+        sinVinculo: !item.material_id,
+      };
+    });
+
+    setSelectedCliente(cliente);
+    setClienteSearch(cliente?.nombre || cliente?.numero || "");
+    setMateriales(rows);
+    setMaterialesSinVinculo([]);
+    setSelectedAlmacenId(solicitud.almacen_id || solicitud.almacen?.id || "");
+    setMaterialSearch("");
+    setMaterialResults([]);
+    setShowClienteDropdown(false);
+    setShowMaterialDropdown(false);
+  }, [open, solicitud]);
+
   useEffect(() => {
     if (!clienteSearch.trim() || selectedCliente) {
-      setClienteResults([])
-      setShowClienteDropdown(false)
-      return
+      setClienteResults([]);
+      setShowClienteDropdown(false);
+      return;
     }
 
     const handler = setTimeout(async () => {
-      setClienteLoading(true)
+      setClienteLoading(true);
       try {
-        const data = await ClienteService.getClientes({ nombre: clienteSearch })
-        setClienteResults(data.clients || [])
-        setShowClienteDropdown(true)
+        const data = await ClienteService.getClientes({
+          nombre: clienteSearch,
+        });
+        setClienteResults(data.clients || []);
+        setShowClienteDropdown(true);
       } catch {
-        setClienteResults([])
+        setClienteResults([]);
       } finally {
-        setClienteLoading(false)
+        setClienteLoading(false);
       }
-    }, 350)
+    }, 350);
 
-    return () => clearTimeout(handler)
-  }, [clienteSearch, selectedCliente])
+    return () => clearTimeout(handler);
+  }, [clienteSearch, selectedCliente]);
 
-  // Load suggested materials when client is selected
-  const loadSugeridos = useCallback(async (clienteId: string, catalog: any[]) => {
-    setLoadingSugeridos(true)
-    try {
-      const { materiales: sugeridos, materiales_sin_vinculo } =
-        await SolicitudMaterialService.getMaterialesSugeridos(clienteId)
+  const loadSugeridos = useCallback(
+    async (clienteId: string, catalog: CatalogMaterial[]) => {
+      setLoadingSugeridos(true);
+      try {
+        const { materiales: sugeridos, materiales_sin_vinculo } =
+          await SolicitudMaterialService.getMaterialesSugeridos(clienteId);
 
-      const rows: MaterialRow[] = sugeridos.map((s: MaterialSugerido) => {
-        // Priority: nested s.material (backend fix) → catalog lookup → flat fields
-        const mat = s.material
-        const catalogMat = !mat
-          ? catalog.find((m: any) => (m.id || m._id) === s.material_id)
-          : null
-        const src = mat || catalogMat
-        return {
-          material_id: s.material_id || "",
-          codigo: src?.codigo || s.material_codigo || s.codigo || "",
-          nombre: src?.nombre || src?.descripcion || s.material_descripcion || s.nombre || s.descripcion || "",
-          descripcion: src?.descripcion || src?.nombre || s.material_descripcion || s.descripcion || "",
-          um: src?.um || s.um || "U",
-          cantidad: s.cantidad || 0,
-          foto: src?.foto,
-          sinVinculo: !s.material_id,
-        }
-      })
+        const rows: MaterialRow[] = sugeridos.map((s: MaterialSugerido) => {
+          const mat = s.material;
+          const catalogMat = !mat
+            ? catalog.find((m) => (m.id || m._id) === s.material_id)
+            : null;
+          const src = mat || catalogMat;
+          return {
+            material_id: s.material_id || "",
+            codigo: src?.codigo || s.material_codigo || s.codigo || "",
+            nombre:
+              src?.nombre ||
+              src?.descripcion ||
+              s.material_descripcion ||
+              s.nombre ||
+              s.descripcion ||
+              "",
+            descripcion:
+              src?.descripcion ||
+              src?.nombre ||
+              s.material_descripcion ||
+              s.descripcion ||
+              "",
+            um: src?.um || s.um || "U",
+            cantidad: Math.max(0, Math.trunc(s.cantidad || 0)),
+            foto: src?.foto,
+            sinVinculo: !s.material_id,
+          };
+        });
 
-      setMateriales(rows)
-      setMaterialesSinVinculo(materiales_sin_vinculo || [])
-    } catch (error) {
-      console.error("Error loading suggested materials:", error)
-      setMateriales([])
-    } finally {
-      setLoadingSugeridos(false)
-    }
-  }, [])
+        setMateriales(rows);
+        setMaterialesSinVinculo(materiales_sin_vinculo || []);
+      } catch (error) {
+        console.error("Error loading suggested materials:", error);
+        setMateriales([]);
+      } finally {
+        setLoadingSugeridos(false);
+      }
+    },
+    [],
+  );
 
-  const handleSelectCliente = (cliente: any) => {
-    setSelectedCliente(cliente)
-    setClienteSearch(cliente.nombre || cliente.numero || "")
-    setShowClienteDropdown(false)
+  const handleSelectCliente = (cliente: LookupCliente) => {
+    setSelectedCliente(cliente);
+    setClienteSearch(cliente.nombre || cliente.numero || "");
+    setShowClienteDropdown(false);
     if (cliente.id || cliente._id) {
-      loadSugeridos(cliente.id || cliente._id, allMaterials)
+      void loadSugeridos(cliente.id || cliente._id, allMaterials);
     }
-  }
+  };
 
   const handleClearCliente = () => {
-    setSelectedCliente(null)
-    setClienteSearch("")
-    setMateriales([])
-    setMaterialesSinVinculo([])
-  }
+    setSelectedCliente(null);
+    setClienteSearch("");
+    setShowClienteDropdown(false);
+  };
 
-  // Material search for adding manually
   useEffect(() => {
     if (!materialSearch.trim()) {
-      setMaterialResults([])
-      setShowMaterialDropdown(false)
-      return
+      setMaterialResults([]);
+      setShowMaterialDropdown(false);
+      return;
     }
 
     const handler = setTimeout(() => {
-      setMaterialSearchLoading(true)
-      const term = materialSearch.toLowerCase()
+      setMaterialSearchLoading(true);
+      const term = materialSearch.toLowerCase();
       const filtered = allMaterials
         .filter(
           (m) =>
             (m.descripcion?.toLowerCase().includes(term) ||
+              m.nombre?.toLowerCase().includes(term) ||
               m.codigo?.toString().toLowerCase().includes(term)) &&
-            !materiales.some((row) => row.material_id === (m.id || m._id))
+            !materiales.some((row) => row.material_id === (m.id || m._id)),
         )
-        .slice(0, 15)
+        .slice(0, 15);
 
-      setMaterialResults(filtered)
-      setShowMaterialDropdown(filtered.length > 0)
-      setMaterialSearchLoading(false)
-    }, 200)
+      setMaterialResults(filtered);
+      setShowMaterialDropdown(filtered.length > 0);
+      setMaterialSearchLoading(false);
+    }, 200);
 
-    return () => clearTimeout(handler)
-  }, [materialSearch, allMaterials, materiales])
+    return () => clearTimeout(handler);
+  }, [materialSearch, allMaterials, materiales]);
 
-  const handleAddMaterial = (material: any) => {
-    const id = material.id || material._id || ""
-    if (materiales.some((m) => m.material_id === id)) return
+  const handleAddMaterial = (material: CatalogMaterial) => {
+    const id = material.id || material._id || "";
+    if (materiales.some((m) => m.material_id === id)) return;
 
     setMateriales((prev) => [
       ...prev,
@@ -246,60 +336,92 @@ export function CreateSolicitudMaterialDialog({
         cantidad: 1,
         foto: material.foto,
       },
-    ])
-    setMaterialSearch("")
-    setShowMaterialDropdown(false)
-  }
+    ]);
+    setMaterialSearch("");
+    setShowMaterialDropdown(false);
+  };
 
   const handleRemoveMaterial = (index: number) => {
-    setMateriales((prev) => prev.filter((_, i) => i !== index))
-  }
+    setMateriales((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const handleCantidadChange = (index: number, value: string) => {
-    const num = parseFloat(value)
-    if (isNaN(num) || num < 0) return
+    const num = Number.parseInt(value, 10);
+    if (Number.isNaN(num) || num < 0) return;
     setMateriales((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, cantidad: num } : m))
-    )
-  }
+      prev.map((m, i) => (i === index ? { ...m, cantidad: num } : m)),
+    );
+  };
 
   const handleSubmit = async () => {
-    if (!selectedAlmacenId) return
+    if (!selectedAlmacenId) return;
+
     const validMaterials = materiales.filter(
-      (m) => m.material_id && !m.sinVinculo
-    )
-    if (validMaterials.length === 0) return
+      (m) => m.material_id && !m.sinVinculo,
+    );
+    if (validMaterials.length === 0) return;
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
-      const payload: SolicitudMaterialCreateData = {
-        almacen_id: selectedAlmacenId,
-        materiales: validMaterials.map((m) => ({
-          material_id: m.material_id,
-          cantidad: m.cantidad,
-        })),
-      }
-      if (selectedCliente) {
-        payload.cliente_id = selectedCliente.id || selectedCliente._id
+      const normalizedMateriales = validMaterials.map((m) => ({
+        material_id: m.material_id,
+        cantidad: Math.max(0, Math.trunc(m.cantidad)),
+      }));
+      const clienteId = selectedCliente
+        ? selectedCliente.id || selectedCliente._id
+        : null;
+
+      if (isEditMode && solicitud?.id) {
+        const payload: SolicitudMaterialUpdateData = {
+          almacen_id: selectedAlmacenId,
+          materiales: normalizedMateriales,
+          cliente_id: clienteId,
+        };
+        await SolicitudMaterialService.updateSolicitud(solicitud.id, payload);
+      } else {
+        const payload: SolicitudMaterialCreateData = {
+          almacen_id: selectedAlmacenId,
+          materiales: normalizedMateriales,
+        };
+        if (clienteId) {
+          payload.cliente_id = clienteId;
+        }
+        await SolicitudMaterialService.createSolicitud(payload);
       }
 
-      await SolicitudMaterialService.createSolicitud(payload)
-      onSuccess()
-      onOpenChange(false)
-    } catch (error: any) {
-      console.error("Error creating solicitud:", error)
-      alert(error.message || "Error al crear la solicitud")
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : isEditMode
+            ? "Error al actualizar la solicitud"
+            : "Error al crear la solicitud";
+      console.error(
+        isEditMode ? "Error updating solicitud:" : "Error creating solicitud:",
+        error,
+      );
+      alert(message);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
-  const hasSinVinculo = materiales.some((m) => m.sinVinculo)
+  const hasSinVinculo = materiales.some((m) => m.sinVinculo);
   const validCount = materiales.filter(
-    (m) => m.material_id && !m.sinVinculo
-  ).length
+    (m) => m.material_id && !m.sinVinculo,
+  ).length;
   const canSubmit =
-    selectedAlmacenId && validCount > 0 && !submitting && !hasSinVinculo
+    selectedAlmacenId && validCount > 0 && !submitting && !hasSinVinculo;
+
+  const dialogTitle = isEditMode
+    ? "Editar Solicitud de Materiales"
+    : "Nueva Solicitud de Materiales";
+  const submitText = isEditMode
+    ? `Guardar cambios (${validCount} materiales)`
+    : `Crear Solicitud (${validCount} materiales)`;
+  const submittingText = isEditMode ? "Guardando..." : "Creando...";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -307,12 +429,11 @@ export function CreateSolicitudMaterialDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-purple-600" />
-            Nueva Solicitud de Materiales
+            {dialogTitle}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
-          {/* 1. Client Search */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
               Cliente{" "}
@@ -325,7 +446,7 @@ export function CreateSolicitudMaterialDialog({
                     {selectedCliente.nombre || selectedCliente.numero}
                     {selectedCliente.numero && (
                       <span className="ml-2 text-purple-500 font-normal">
-                        N° {selectedCliente.numero}
+                        N {selectedCliente.numero}
                       </span>
                     )}
                   </span>
@@ -352,7 +473,7 @@ export function CreateSolicitudMaterialDialog({
               )}
               {showClienteDropdown && clienteResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {clienteResults.map((c: any) => (
+                  {clienteResults.map((c) => (
                     <button
                       key={c.id || c._id}
                       className="w-full text-left px-4 py-2 hover:bg-purple-50 text-sm"
@@ -360,9 +481,7 @@ export function CreateSolicitudMaterialDialog({
                     >
                       <span className="font-medium">{c.nombre}</span>
                       {c.numero && (
-                        <span className="ml-2 text-gray-500">
-                          N° {c.numero}
-                        </span>
+                        <span className="ml-2 text-gray-500">N {c.numero}</span>
                       )}
                     </button>
                   ))}
@@ -371,7 +490,6 @@ export function CreateSolicitudMaterialDialog({
             </div>
           </div>
 
-          {/* 2. Materials list */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Materiales</Label>
 
@@ -386,17 +504,16 @@ export function CreateSolicitudMaterialDialog({
               <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-sm">
                 <div className="flex items-center gap-1.5 text-amber-700 font-medium mb-1">
                   <AlertTriangle className="h-4 w-4" />
-                  Materiales sin vínculo
+                  Materiales sin vinculo
                 </div>
                 <p className="text-amber-600 text-xs">
-                  Los siguientes códigos no tienen un material válido asociado.
+                  Los siguientes codigos no tienen un material valido asociado.
                   Deben seleccionarse manualmente:{" "}
                   {materialesSinVinculo.join(", ")}
                 </p>
               </div>
             )}
 
-            {/* Material rows */}
             {materiales.length > 0 && (
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
@@ -418,9 +535,7 @@ export function CreateSolicitudMaterialDialog({
                     {materiales.map((mat, idx) => (
                       <tr
                         key={idx}
-                        className={`border-b last:border-b-0 ${
-                          mat.sinVinculo ? "bg-red-50" : ""
-                        }`}
+                        className={`border-b last:border-b-0 ${mat.sinVinculo ? "bg-red-50" : ""}`}
                       >
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
@@ -429,7 +544,10 @@ export function CreateSolicitudMaterialDialog({
                                 src={mat.foto}
                                 alt={mat.nombre || mat.descripcion}
                                 className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display =
+                                    "none";
+                                }}
                               />
                             ) : (
                               <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
@@ -437,18 +555,22 @@ export function CreateSolicitudMaterialDialog({
                               </div>
                             )}
                             <div>
-                              <p className={`font-medium leading-tight ${mat.sinVinculo ? "text-red-700" : "text-gray-900"}`}>
+                              <p
+                                className={`font-medium leading-tight ${mat.sinVinculo ? "text-red-700" : "text-gray-900"}`}
+                              >
                                 {mat.nombre || mat.descripcion || mat.codigo}
                               </p>
                               {mat.codigo && (
-                                <p className="text-xs text-gray-400">{mat.codigo}</p>
+                                <p className="text-xs text-gray-400">
+                                  {mat.codigo}
+                                </p>
                               )}
                               {mat.sinVinculo && (
                                 <Badge
                                   variant="outline"
                                   className="text-xs bg-red-100 text-red-700 border-red-300"
                                 >
-                                  Sin vínculo
+                                  Sin vinculo
                                 </Badge>
                               )}
                             </div>
@@ -482,7 +604,6 @@ export function CreateSolicitudMaterialDialog({
               </div>
             )}
 
-            {/* Add material search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
@@ -496,7 +617,7 @@ export function CreateSolicitudMaterialDialog({
               )}
               {showMaterialDropdown && materialResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {materialResults.map((m: any) => (
+                  {materialResults.map((m) => (
                     <button
                       key={m.id || m._id}
                       className="w-full text-left px-3 py-2 hover:bg-purple-50 text-sm flex items-center gap-2"
@@ -507,7 +628,10 @@ export function CreateSolicitudMaterialDialog({
                           src={m.foto}
                           alt={m.nombre || m.descripcion}
                           className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display =
+                              "none";
+                          }}
                         />
                       ) : (
                         <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
@@ -515,7 +639,9 @@ export function CreateSolicitudMaterialDialog({
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{m.nombre || m.descripcion}</p>
+                        <p className="font-medium truncate">
+                          {m.nombre || m.descripcion}
+                        </p>
                         {m.codigo && (
                           <p className="text-xs text-gray-400">{m.codigo}</p>
                         )}
@@ -536,10 +662,9 @@ export function CreateSolicitudMaterialDialog({
             )}
           </div>
 
-          {/* 3. Warehouse */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">
-              Almacén <span className="text-red-500">*</span>
+              Almacen <span className="text-red-500">*</span>
             </Label>
             {almacenesLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -552,7 +677,7 @@ export function CreateSolicitudMaterialDialog({
                 onValueChange={setSelectedAlmacenId}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un almacén" />
+                  <SelectValue placeholder="Seleccione un almacen" />
                 </SelectTrigger>
                 <SelectContent>
                   {almacenes.map((a) => (
@@ -566,7 +691,6 @@ export function CreateSolicitudMaterialDialog({
             )}
           </div>
 
-          {/* Submit */}
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"
@@ -583,12 +707,12 @@ export function CreateSolicitudMaterialDialog({
               {submitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creando...
+                  {submittingText}
                 </>
               ) : (
                 <>
                   <Plus className="h-4 w-4 mr-2" />
-                  Crear Solicitud ({validCount} materiales)
+                  {submitText}
                 </>
               )}
             </Button>
@@ -596,5 +720,5 @@ export function CreateSolicitudMaterialDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -56,14 +56,30 @@ export function SolicitudesVentasTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente venta</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Codigo
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Estado
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Cliente venta
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Almacen
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Creador
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Materiales
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Fecha
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -152,7 +168,12 @@ export function SolicitudesVentasTable({
                         size="sm"
                         onClick={() => onEdit(solicitud)}
                         className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                        title="Editar solicitud"
+                        title={
+                          isUsada
+                            ? "No se puede editar una solicitud usada"
+                            : "Editar solicitud"
+                        }
+                        disabled={isUsada}
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>

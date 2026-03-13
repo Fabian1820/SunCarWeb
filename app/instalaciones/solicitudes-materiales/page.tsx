@@ -1,24 +1,30 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/shared/atom/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { Search, Package, Plus } from "lucide-react"
-import { PageLoader } from "@/components/shared/atom/page-loader"
-import { useToast } from "@/hooks/use-toast"
-import { Toaster } from "@/components/shared/molecule/toaster"
-import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { ModuleHeader } from "@/components/shared/organism/module-header"
-import { useSolicitudesMateriales } from "@/hooks/use-solicitudes-materiales"
-import { SolicitudesMaterialesTable } from "@/components/feats/solicitudes-materiales/solicitudes-materiales-table"
-import { CreateSolicitudMaterialDialog } from "@/components/feats/solicitudes-materiales/create-solicitud-material-dialog"
-import { SolicitudMaterialDetailDialog } from "@/components/feats/solicitudes-materiales/solicitud-material-detail-dialog"
-import type { SolicitudMaterial } from "@/lib/api-types"
+import { useState } from "react";
+import { Button } from "@/components/shared/atom/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/shared/molecule/card";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import { Search, Package, Plus } from "lucide-react";
+import { PageLoader } from "@/components/shared/atom/page-loader";
+import { useToast } from "@/hooks/use-toast";
+import { Toaster } from "@/components/shared/molecule/toaster";
+import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
+import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { useSolicitudesMateriales } from "@/hooks/use-solicitudes-materiales";
+import { SolicitudesMaterialesTable } from "@/components/feats/solicitudes-materiales/solicitudes-materiales-table";
+import { CreateSolicitudMaterialDialog } from "@/components/feats/solicitudes-materiales/create-solicitud-material-dialog";
+import { SolicitudMaterialDetailDialog } from "@/components/feats/solicitudes-materiales/solicitud-material-detail-dialog";
+import type { SolicitudMaterial } from "@/lib/api-types";
 
 export default function SolicitudesMaterialesPage() {
-  const { toast } = useToast()
+  const { toast } = useToast();
   const {
     filteredSolicitudes,
     loading,
@@ -26,62 +32,90 @@ export default function SolicitudesMaterialesPage() {
     setSearchTerm,
     loadSolicitudes,
     deleteSolicitud,
-  } = useSolicitudesMateriales()
+  } = useSolicitudesMateriales();
 
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [solicitudToDelete, setSolicitudToDelete] = useState<SolicitudMaterial | null>(null)
-  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
-  const [solicitudDetalle, setSolicitudDetalle] = useState<SolicitudMaterial | null>(null)
+  const [solicitudToDelete, setSolicitudToDelete] =
+    useState<SolicitudMaterial | null>(null);
+  const [solicitudToEdit, setSolicitudToEdit] =
+    useState<SolicitudMaterial | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [solicitudDetalle, setSolicitudDetalle] =
+    useState<SolicitudMaterial | null>(null);
 
   if (loading && filteredSolicitudes.length === 0) {
-    return <PageLoader moduleName="Solicitudes de Materiales" text="Cargando solicitudes..." />
+    return (
+      <PageLoader
+        moduleName="Solicitudes de Materiales"
+        text="Cargando solicitudes..."
+      />
+    );
   }
 
   const handleCreateSuccess = () => {
     toast({
-      title: "Éxito",
+      title: "Exito",
       description: "Solicitud de materiales creada correctamente",
-    })
-    loadSolicitudes()
-  }
+    });
+    void loadSolicitudes();
+  };
+
+  const handleEditSuccess = () => {
+    toast({
+      title: "Exito",
+      description: "Solicitud de materiales actualizada correctamente",
+    });
+    void loadSolicitudes();
+    setSolicitudToEdit(null);
+    setIsEditDialogOpen(false);
+  };
 
   const handleDeleteSolicitud = (solicitud: SolicitudMaterial) => {
-    setSolicitudToDelete(solicitud)
-    setIsDeleteDialogOpen(true)
-  }
+    setSolicitudToDelete(solicitud);
+    setIsDeleteDialogOpen(true);
+  };
 
   const confirmDelete = async () => {
-    if (!solicitudToDelete) return
-    setDeleteLoading(true)
+    if (!solicitudToDelete) return;
+    setDeleteLoading(true);
     try {
-      const success = await deleteSolicitud(solicitudToDelete.id)
-      if (!success) throw new Error("Error al eliminar la solicitud")
+      const success = await deleteSolicitud(solicitudToDelete.id);
+      if (!success) throw new Error("Error al eliminar la solicitud");
       toast({
-        title: "Éxito",
+        title: "Exito",
         description: "Solicitud eliminada correctamente",
-      })
-      setIsDeleteDialogOpen(false)
-      setSolicitudToDelete(null)
-    } catch (error: any) {
+      });
+      setIsDeleteDialogOpen(false);
+      setSolicitudToDelete(null);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar la solicitud";
       toast({
         title: "Error",
-        description: error.message || "No se pudo eliminar la solicitud",
+        description: message,
         variant: "destructive",
-      })
+      });
     } finally {
-      setDeleteLoading(false)
+      setDeleteLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
         title="Solicitudes de Materiales"
         subtitle="Gestiona las solicitudes de materiales para operaciones"
-        badge={{ text: "Operaciones", className: "bg-purple-100 text-purple-800" }}
+        badge={{
+          text: "Operaciones",
+          className: "bg-purple-100 text-purple-800",
+        }}
         className="bg-white shadow-sm border-b border-orange-100"
         actions={
           <Button
@@ -99,19 +133,21 @@ export default function SolicitudesMaterialesPage() {
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        {/* Filtros */}
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-purple-600">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 gap-4">
               <div>
-                <Label htmlFor="search" className="text-sm font-medium text-gray-700 mb-2 block">
+                <Label
+                  htmlFor="search"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
                   Buscar
                 </Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="search"
-                    placeholder="Buscar por código, cliente, almacén, creador..."
+                    placeholder="Buscar por codigo, cliente, almacen, creador..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -122,7 +158,6 @@ export default function SolicitudesMaterialesPage() {
           </CardContent>
         </Card>
 
-        {/* Tabla */}
         <Card className="border-0 shadow-md border-l-4 border-l-purple-600">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -130,13 +165,21 @@ export default function SolicitudesMaterialesPage() {
               Solicitudes de Materiales
             </CardTitle>
             <CardDescription>
-              Mostrando {filteredSolicitudes.length} solicitud{filteredSolicitudes.length !== 1 ? "es" : ""}
+              Mostrando {filteredSolicitudes.length} solicitud
+              {filteredSolicitudes.length !== 1 ? "es" : ""}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <SolicitudesMaterialesTable
               solicitudes={filteredSolicitudes}
-              onView={(s) => { setSolicitudDetalle(s); setIsDetailDialogOpen(true) }}
+              onView={(s) => {
+                setSolicitudDetalle(s);
+                setIsDetailDialogOpen(true);
+              }}
+              onEdit={(s) => {
+                setSolicitudToEdit(s);
+                setIsEditDialogOpen(true);
+              }}
               onDelete={handleDeleteSolicitud}
               loading={loading}
             />
@@ -144,26 +187,33 @@ export default function SolicitudesMaterialesPage() {
         </Card>
       </main>
 
-      {/* Create Dialog */}
       <CreateSolicitudMaterialDialog
         open={isCreateDialogOpen}
         onOpenChange={setIsCreateDialogOpen}
         onSuccess={handleCreateSuccess}
       />
 
-      {/* Detail Dialog */}
+      <CreateSolicitudMaterialDialog
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setSolicitudToEdit(null);
+        }}
+        onSuccess={handleEditSuccess}
+        solicitud={solicitudToEdit}
+      />
+
       <SolicitudMaterialDetailDialog
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         solicitud={solicitudDetalle}
       />
 
-      {/* Delete Confirmation */}
       <ConfirmDeleteDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
         title="Eliminar Solicitud"
-        message="¿Estás seguro de que quieres eliminar esta solicitud de materiales? Esta acción no se puede deshacer."
+        message="Estas seguro de que quieres eliminar esta solicitud de materiales? Esta accion no se puede deshacer."
         onConfirm={confirmDelete}
         confirmText="Eliminar Solicitud"
         isLoading={deleteLoading}
@@ -171,5 +221,5 @@ export default function SolicitudesMaterialesPage() {
 
       <Toaster />
     </div>
-  )
+  );
 }

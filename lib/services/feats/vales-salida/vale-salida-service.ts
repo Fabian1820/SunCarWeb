@@ -3,6 +3,7 @@
 import { apiRequest } from "../../../api-config";
 import type {
   ValeSalida,
+  ValeSalidaAnularData,
   ValeSalidaCreateData,
   ValeSolicitudPendiente,
 } from "../../../api-types";
@@ -10,6 +11,7 @@ import type {
 const BASE_ENDPOINT = "/operaciones/vales-salida";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+const buildAnularEndpoint = (id: string) => `${buildDetailEndpoint(id)}/anular`;
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -41,6 +43,7 @@ export class ValeSalidaService {
       solicitud_id?: string;
       trabajador_id?: string;
       codigo?: string;
+      estado?: "usado" | "anulado" | string;
       skip?: number;
       limit?: number;
     } = {},
@@ -60,6 +63,7 @@ export class ValeSalidaService {
     if (params.trabajador_id)
       search.append("trabajador_id", params.trabajador_id);
     if (params.codigo) search.append("codigo", params.codigo);
+    if (params.estado) search.append("estado", params.estado);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
 
@@ -163,14 +167,16 @@ export class ValeSalidaService {
   }
 
   /**
-   * Delete a vale de salida
-   * DELETE /api/operaciones/vales-salida/{vale_id}
+   * Anular un vale de salida
+   * PATCH /api/operaciones/vales-salida/{vale_id}/anular
    */
-  static async deleteVale(
+  static async anularVale(
     id: string,
+    data: ValeSalidaAnularData,
   ): Promise<{ success?: boolean; message?: string }> {
-    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
-      method: "DELETE",
+    const raw = await apiRequest<any>(buildAnularEndpoint(id), {
+      method: "PATCH",
+      body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);

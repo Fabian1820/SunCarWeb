@@ -15,6 +15,7 @@ import {
   Briefcase,
   FileOutput,
   FileText,
+  Undo2,
 } from "lucide-react";
 import type { ValeSalida } from "@/lib/api-types";
 
@@ -35,6 +36,11 @@ const getTipoStyles = (tipo: "material" | "venta") =>
     ? "bg-indigo-50 text-indigo-700 border-indigo-200"
     : "bg-amber-50 text-amber-700 border-amber-200";
 
+const getEstadoStyles = (estado?: string) =>
+  estado === "anulado"
+    ? "bg-red-50 text-red-700 border-red-200"
+    : "bg-emerald-50 text-emerald-700 border-emerald-200";
+
 export function ValeSalidaDetailDialog({
   open,
   onOpenChange,
@@ -42,7 +48,8 @@ export function ValeSalidaDetailDialog({
 }: ValeSalidaDetailDialogProps) {
   if (!vale) return null;
 
-  const solicitud = vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
+  const solicitud =
+    vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
   const solicitudTipo = getSolicitudTipo(vale);
   const tipoStyles = getTipoStyles(solicitudTipo);
 
@@ -101,6 +108,9 @@ export function ValeSalidaDetailDialog({
             <Badge variant="outline" className={tipoStyles}>
               {solicitudTipo === "venta" ? "Venta" : "Material"}
             </Badge>
+            <Badge variant="outline" className={getEstadoStyles(vale.estado)}>
+              {vale.estado === "anulado" ? "Anulado" : "Usado"}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -134,11 +144,14 @@ export function ValeSalidaDetailDialog({
                   </div>
                   {solicitudCliente ? (
                     <p className="text-gray-600">
-                      Cliente: <span className="font-medium">{solicitudCliente}</span>
+                      Cliente:{" "}
+                      <span className="font-medium">{solicitudCliente}</span>
                     </p>
                   ) : null}
                   {solicitud.almacen?.nombre ? (
-                    <p className="text-gray-500">Almacen: {solicitud.almacen.nombre}</p>
+                    <p className="text-gray-500">
+                      Almacen: {solicitud.almacen.nombre}
+                    </p>
                   ) : null}
                   {solicitud.estado ? (
                     <Badge variant="outline" className="text-xs mt-1">
@@ -158,7 +171,9 @@ export function ValeSalidaDetailDialog({
               </h3>
               {vale.trabajador ? (
                 <div className="space-y-1 text-sm">
-                  <p className="font-medium text-gray-900">{vale.trabajador.nombre || "-"}</p>
+                  <p className="font-medium text-gray-900">
+                    {vale.trabajador.nombre || "-"}
+                  </p>
                   {vale.trabajador.ci ? (
                     <div className="flex items-center gap-1 text-gray-500">
                       <Hash className="h-3 w-3" />
@@ -185,6 +200,28 @@ export function ValeSalidaDetailDialog({
             </div>
           </div>
 
+          {vale.estado === "anulado" ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1.5">
+                <Undo2 className="h-4 w-4" />
+                Anulacion
+              </h3>
+              <div className="space-y-2 text-sm">
+                <p className="text-red-800">
+                  Motivo:{" "}
+                  <span className="font-medium">
+                    {vale.motivo_anulacion || "No especificado"}
+                  </span>
+                </p>
+                {vale.movimientos_ids?.length ? (
+                  <p className="text-red-700">
+                    Movimientos generados: {vale.movimientos_ids.length}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
               <Package className="h-4 w-4 text-gray-500" />
@@ -200,8 +237,12 @@ export function ValeSalidaDetailDialog({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="text-left py-2 px-3 font-medium text-gray-700">Material</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">UM</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700">
+                      Material
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">
+                      UM
+                    </th>
                     <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                       Cantidad
                     </th>
@@ -213,7 +254,10 @@ export function ValeSalidaDetailDialog({
                     const nombre = getMaterialName(mat);
                     const codigo = getMaterialCodigo(mat);
                     return (
-                      <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50">
+                      <tr
+                        key={idx}
+                        className="border-b last:border-b-0 hover:bg-gray-50"
+                      >
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
                             {foto ? (
@@ -233,8 +277,14 @@ export function ValeSalidaDetailDialog({
                               </div>
                             )}
                             <div>
-                              <p className="font-medium text-gray-900 leading-tight">{nombre}</p>
-                              {codigo ? <p className="text-xs text-gray-400">{codigo}</p> : null}
+                              <p className="font-medium text-gray-900 leading-tight">
+                                {nombre}
+                              </p>
+                              {codigo ? (
+                                <p className="text-xs text-gray-400">
+                                  {codigo}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </td>

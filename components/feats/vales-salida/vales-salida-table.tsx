@@ -2,12 +2,12 @@
 
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
-import { FileOutput, Trash2, Eye, Calendar, User, Package } from "lucide-react";
+import { FileOutput, Eye, Calendar, User, Package, Ban } from "lucide-react";
 import type { ValeSalida } from "@/lib/api-types";
 
 interface ValesSalidaTableProps {
   vales: ValeSalida[];
-  onDelete?: (vale: ValeSalida) => void;
+  onAnular?: (vale: ValeSalida) => void;
   onView?: (vale: ValeSalida) => void;
   loading?: boolean;
 }
@@ -23,7 +23,16 @@ const getTipoStyles = (tipo: "material" | "venta") =>
     ? "bg-indigo-50 text-indigo-700 border-indigo-200"
     : "bg-amber-50 text-amber-700 border-amber-200";
 
-export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTableProps) {
+const getEstadoStyles = (estado?: string) =>
+  estado === "anulado"
+    ? "bg-red-50 text-red-700 border-red-200"
+    : "bg-emerald-50 text-emerald-700 border-emerald-200";
+
+export function ValesSalidaTable({
+  vales,
+  onAnular,
+  onView,
+}: ValesSalidaTableProps) {
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
     try {
@@ -76,14 +85,33 @@ export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTablePr
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Solicitud</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Codigo
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Estado
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Tipo
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Solicitud
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Cliente
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Creador
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Materiales
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Fecha
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -91,14 +119,26 @@ export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTablePr
             const clienteName = getClienteName(vale);
             const solicitudTipo = getSolicitudTipo(vale);
             const tipoStyles = getTipoStyles(solicitudTipo);
+            const isAnulado = vale.estado === "anulado";
             return (
-              <tr key={vale.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr
+                key={vale.id}
+                className="border-b border-gray-100 hover:bg-gray-50"
+              >
                 <td className="py-4 px-4">
                   <Badge
                     variant="outline"
                     className="bg-orange-50 text-orange-700 border-orange-200 font-mono"
                   >
                     {vale.codigo || vale.id.slice(-6).toUpperCase()}
+                  </Badge>
+                </td>
+                <td className="py-4 px-4">
+                  <Badge
+                    variant="outline"
+                    className={getEstadoStyles(vale.estado)}
+                  >
+                    {isAnulado ? "Anulado" : "Usado"}
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
@@ -118,13 +158,17 @@ export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTablePr
                   {clienteName ? (
                     <p className="font-medium text-gray-900">{clienteName}</p>
                   ) : (
-                    <span className="text-gray-400 italic text-sm">Sin cliente</span>
+                    <span className="text-gray-400 italic text-sm">
+                      Sin cliente
+                    </span>
                   )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{getTrabajadorName(vale)}</span>
+                    <span className="text-sm text-gray-700">
+                      {getTrabajadorName(vale)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -133,13 +177,16 @@ export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTablePr
                     className="bg-blue-50 text-blue-700 border-blue-200"
                   >
                     <Package className="h-3 w-3 mr-1" />
-                    {vale.total_materiales ?? vale.materiales?.length ?? 0} items
+                    {vale.total_materiales ?? vale.materiales?.length ?? 0}{" "}
+                    items
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{formatDate(vale.fecha_creacion)}</span>
+                    <span className="text-sm text-gray-700">
+                      {formatDate(vale.fecha_creacion)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -156,15 +203,18 @@ export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTablePr
                         <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
                     ) : null}
-                    {onDelete ? (
+                    {onAnular ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onDelete(vale)}
+                        onClick={() => onAnular(vale)}
                         className="border-red-300 text-red-700 hover:bg-red-50"
-                        title="Eliminar vale"
+                        title={
+                          isAnulado ? "El vale ya esta anulado" : "Anular vale"
+                        }
+                        disabled={isAnulado}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Ban className="h-4 w-4" />
                       </Button>
                     ) : null}
                   </div>

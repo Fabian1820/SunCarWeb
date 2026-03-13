@@ -9,9 +9,11 @@ interface UseValesSalidaReturn {
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  estadoFilter: "todos" | "usado" | "anulado";
+  setEstadoFilter: (estado: "todos" | "usado" | "anulado") => void;
   loadVales: () => Promise<void>;
   createVale: (data: ValeSalidaCreateData) => Promise<ValeSalida>;
-  deleteVale: (id: string) => Promise<boolean>;
+  anularVale: (id: string, motivoAnulacion: string) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -20,12 +22,17 @@ export function useValesSalida(): UseValesSalidaReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [estadoFilter, setEstadoFilter] = useState<
+    "todos" | "usado" | "anulado"
+  >("todos");
 
   const loadVales = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await ValeSalidaService.getVales();
+      const data = await ValeSalidaService.getVales(
+        estadoFilter === "todos" ? {} : { estado: estadoFilter },
+      );
       setVales(data);
     } catch (err) {
       setError(
@@ -37,7 +44,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [estadoFilter]);
 
   const filteredVales = useMemo(() => {
     if (!searchTerm.trim()) return vales;
@@ -54,6 +61,7 @@ export function useValesSalida(): UseValesSalidaReturn {
         v.solicitud_venta_id?.slice(-6).toUpperCase();
       return (
         v.codigo?.toLowerCase().includes(term) ||
+        v.estado?.toLowerCase().includes(term) ||
         solicitudCodigo?.toLowerCase().includes(term) ||
         clienteNombre?.toLowerCase().includes(term) ||
         v.trabajador?.nombre?.toLowerCase().includes(term) ||
@@ -84,17 +92,19 @@ export function useValesSalida(): UseValesSalidaReturn {
     [loadVales],
   );
 
-  const deleteVale = useCallback(
-    async (id: string): Promise<boolean> => {
+  const anularVale = useCallback(
+    async (id: string, motivoAnulacion: string): Promise<boolean> => {
       setLoading(true);
       setError(null);
       try {
-        await ValeSalidaService.deleteVale(id);
+        await ValeSalidaService.anularVale(id, {
+          motivo_anulacion: motivoAnulacion,
+        });
         await loadVales();
         return true;
       } catch (err) {
         const msg =
-          err instanceof Error ? err.message : "Error al eliminar el vale";
+          err instanceof Error ? err.message : "Error al anular el vale";
         setError(msg);
         throw new Error(msg);
       } finally {
@@ -117,9 +127,11 @@ export function useValesSalida(): UseValesSalidaReturn {
     error,
     searchTerm,
     setSearchTerm,
+    estadoFilter,
+    setEstadoFilter,
     loadVales,
     createVale,
-    deleteVale,
+    anularVale,
     clearError,
   };
 }

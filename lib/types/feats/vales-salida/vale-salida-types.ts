@@ -64,6 +64,9 @@ export interface ValeSolicitudInfo {
 export interface ValeSalida {
   id: string;
   codigo?: string;
+  estado?: "usado" | "anulado" | string;
+  motivo_anulacion?: string | null;
+  movimientos_ids?: string[];
   solicitud_tipo?: ValeSolicitudTipo | string;
   solicitud_material_id?: string;
   solicitud_venta_id?: string;
@@ -86,6 +89,10 @@ export interface ValeSalidaCreateData {
   solicitud_material_id?: string;
   solicitud_venta_id?: string;
   materiales: ValeSalidaMaterialItem[];
+}
+
+export interface ValeSalidaAnularData {
+  motivo_anulacion: string;
 }
 
 export interface ValeSolicitudPendiente {

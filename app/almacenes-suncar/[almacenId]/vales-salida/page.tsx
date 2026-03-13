@@ -12,7 +12,13 @@ import {
 } from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
-import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
@@ -23,6 +29,7 @@ import { useValesSalida } from "@/hooks/use-vales-salida";
 import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
 import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-vale-salida-dialog";
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
+import { AnularValeDialog } from "@/components/feats/vales-salida/anular-vale-dialog";
 import type { ValeSalida, ValeSolicitudPendiente } from "@/lib/api-types";
 
 const getTipoStyles = (tipo?: string) =>
@@ -51,17 +58,19 @@ export default function ValesSalidaPage() {
     loading,
     searchTerm,
     setSearchTerm,
+    estadoFilter,
+    setEstadoFilter,
     loadVales,
-    deleteVale,
+    anularVale,
   } = useValesSalida();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [selectedVale, setSelectedVale] = useState<ValeSalida | null>(null);
 
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [valeToDelete, setValeToDelete] = useState<ValeSalida | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isAnularDialogOpen, setIsAnularDialogOpen] = useState(false);
+  const [valeToAnular, setValeToAnular] = useState<ValeSalida | null>(null);
+  const [anularLoading, setAnularLoading] = useState(false);
 
   const [prefillSolicitudId, setPrefillSolicitudId] = useState<string | null>(
     null,
@@ -123,36 +132,35 @@ export default function ValesSalidaPage() {
     if (!open) setPrefillSolicitudId(null);
   };
 
-  const handleDeleteVale = (vale: ValeSalida) => {
-    setValeToDelete(vale);
-    setIsDeleteDialogOpen(true);
+  const handleAnularVale = (vale: ValeSalida) => {
+    setValeToAnular(vale);
+    setIsAnularDialogOpen(true);
   };
 
-  const confirmDelete = async () => {
-    if (!valeToDelete) return;
+  const confirmAnular = async (motivo: string) => {
+    if (!valeToAnular) return;
 
-    setDeleteLoading(true);
+    setAnularLoading(true);
     try {
-      const success = await deleteVale(valeToDelete.id);
-      if (!success) throw new Error("No se pudo eliminar el vale");
+      const success = await anularVale(valeToAnular.id, motivo);
+      if (!success) throw new Error("No se pudo anular el vale");
       toast({
         title: "Exito",
-        description: "Vale de salida eliminado correctamente",
+        description:
+          "Vale anulado. El stock se repuso y la solicitud regreso a nueva.",
       });
       void loadSolicitudesPendientes();
-      setValeToDelete(null);
-      setIsDeleteDialogOpen(false);
+      setValeToAnular(null);
+      setIsAnularDialogOpen(false);
     } catch (error) {
       toast({
         title: "Error",
         description:
-          error instanceof Error
-            ? error.message
-            : "No se pudo eliminar el vale",
+          error instanceof Error ? error.message : "No se pudo anular el vale",
         variant: "destructive",
       });
     } finally {
-      setDeleteLoading(false);
+      setAnularLoading(false);
     }
   };
 
@@ -302,7 +310,7 @@ export default function ValesSalidaPage() {
 
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <Label
                   htmlFor="search"
@@ -320,6 +328,26 @@ export default function ValesSalidaPage() {
                     className="pl-10"
                   />
                 </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Estado
+                </Label>
+                <Select
+                  value={estadoFilter}
+                  onValueChange={(value) =>
+                    setEstadoFilter(value as "todos" | "usado" | "anulado")
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="usado">Usados</SelectItem>
+                    <SelectItem value="anulado">Anulados</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardContent>
@@ -343,7 +371,7 @@ export default function ValesSalidaPage() {
                 setSelectedVale(vale);
                 setIsDetailDialogOpen(true);
               }}
-              onDelete={handleDeleteVale}
+              onAnular={handleAnularVale}
               loading={loading}
             />
           </CardContent>
@@ -364,14 +392,15 @@ export default function ValesSalidaPage() {
         vale={selectedVale}
       />
 
-      <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar Vale"
-        message="Estas seguro de que quieres eliminar este vale de salida? Esta accion no se puede deshacer."
-        onConfirm={confirmDelete}
-        confirmText="Eliminar Vale"
-        isLoading={deleteLoading}
+      <AnularValeDialog
+        open={isAnularDialogOpen}
+        onOpenChange={(open) => {
+          setIsAnularDialogOpen(open);
+          if (!open) setValeToAnular(null);
+        }}
+        vale={valeToAnular}
+        onConfirm={confirmAnular}
+        isLoading={anularLoading}
       />
 
       <Toaster />
