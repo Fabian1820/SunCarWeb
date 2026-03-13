@@ -21,6 +21,7 @@ interface UseSolicitudesMaterialesReturn {
     id: string,
     data: SolicitudMaterialUpdateData,
   ) => Promise<boolean>;
+  reabrirSolicitud: (id: string) => Promise<boolean>;
   deleteSolicitud: (id: string) => Promise<boolean>;
   clearError: () => void;
 }
@@ -125,6 +126,26 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     [loadSolicitudes],
   );
 
+  const reabrirSolicitud = useCallback(
+    async (id: string): Promise<boolean> => {
+      setLoading(true);
+      setError(null);
+      try {
+        await SolicitudMaterialService.reabrirSolicitud(id);
+        await loadSolicitudes();
+        return true;
+      } catch (err) {
+        const msg =
+          err instanceof Error ? err.message : "Error al reabrir la solicitud";
+        setError(msg);
+        throw new Error(msg);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadSolicitudes],
+  );
+
   const clearError = useCallback(() => setError(null), []);
 
   useEffect(() => {
@@ -141,6 +162,7 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,
+    reabrirSolicitud,
     deleteSolicitud,
     clearError,
   };

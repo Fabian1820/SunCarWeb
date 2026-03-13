@@ -25,6 +25,7 @@ interface UseSolicitudesVentasReturn {
     data: SolicitudVentaUpdateData,
     usePut?: boolean,
   ) => Promise<SolicitudVenta>;
+  reabrirSolicitud: (id: string) => Promise<SolicitudVenta>;
   deleteSolicitud: (id: string) => Promise<boolean>;
   clearError: () => void;
 }
@@ -179,6 +180,28 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     [loadSolicitudes],
   );
 
+  const reabrirSolicitud = useCallback(
+    async (id: string): Promise<SolicitudVenta> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await SolicitudVentaService.reabrirSolicitud(id);
+        await loadSolicitudes();
+        return response;
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : "Error al reabrir solicitud de venta";
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadSolicitudes],
+  );
+
   const clearError = useCallback(() => setError(null), []);
 
   useEffect(() => {
@@ -198,6 +221,7 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,
+    reabrirSolicitud,
     deleteSolicitud,
     clearError,
   };

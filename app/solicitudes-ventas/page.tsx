@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import { Plus, Search, ShoppingCart } from "lucide-react";
@@ -13,7 +13,6 @@ import {
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Toaster } from "@/components/shared/molecule/toaster";
-import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
@@ -36,17 +35,14 @@ export default function SolicitudesVentasPage() {
     setSearchTerm,
     createSolicitud,
     updateSolicitud,
-    deleteSolicitud,
+    reabrirSolicitud,
   } = useSolicitudesVentas();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   const [selectedSolicitud, setSelectedSolicitud] =
-    useState<SolicitudVenta | null>(null);
-  const [solicitudToDelete, setSolicitudToDelete] =
     useState<SolicitudVenta | null>(null);
 
   if (loading && filteredSolicitudes.length === 0) {
@@ -97,13 +93,24 @@ export default function SolicitudesVentasPage() {
 
   const handleEdit = async (data: SolicitudVentaUpdateData) => {
     if (!selectedSolicitud) return;
+    const solicitudEditada = selectedSolicitud;
 
     try {
-      await updateSolicitud(selectedSolicitud.id, data);
-      toast({
-        title: "Exito",
-        description: "Solicitud de venta actualizada correctamente",
-      });
+      await updateSolicitud(solicitudEditada.id, data);
+
+      if (solicitudEditada.estado?.toLowerCase() === "anulada") {
+        await reabrirSolicitud(solicitudEditada.id);
+        toast({
+          title: "Exito",
+          description: "Solicitud reabierta y actualizada correctamente",
+        });
+      } else {
+        toast({
+          title: "Exito",
+          description: "Solicitud de venta actualizada correctamente",
+        });
+      }
+
       setSelectedSolicitud(null);
     } catch (error) {
       toast({
@@ -115,33 +122,6 @@ export default function SolicitudesVentasPage() {
         variant: "destructive",
       });
       throw error;
-    }
-  };
-
-  const handleAskDelete = (solicitud: SolicitudVenta) => {
-    setSolicitudToDelete(solicitud);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!solicitudToDelete) return;
-
-    try {
-      await deleteSolicitud(solicitudToDelete.id);
-      toast({
-        title: "Exito",
-        description: "Solicitud de venta eliminada correctamente",
-      });
-      setSolicitudToDelete(null);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "No se pudo eliminar la solicitud",
-        variant: "destructive",
-      });
     }
   };
 
@@ -213,7 +193,6 @@ export default function SolicitudesVentasPage() {
                 setSelectedSolicitud(solicitud);
                 setIsEditDialogOpen(true);
               }}
-              onDelete={handleAskDelete}
             />
           </CardContent>
         </Card>
@@ -242,19 +221,6 @@ export default function SolicitudesVentasPage() {
           if (!open) setSelectedSolicitud(null);
         }}
         solicitud={selectedSolicitud}
-      />
-
-      <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar solicitud de venta"
-        message={`Estas seguro de eliminar la solicitud ${
-          solicitudToDelete?.codigo ||
-          solicitudToDelete?.id.slice(-6).toUpperCase() ||
-          ""
-        }?`}
-        onConfirm={handleConfirmDelete}
-        confirmText="Eliminar"
       />
 
       <Toaster />

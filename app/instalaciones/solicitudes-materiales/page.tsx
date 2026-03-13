@@ -15,7 +15,6 @@ import { Search, Package, Plus } from "lucide-react";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
-import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { useSolicitudesMateriales } from "@/hooks/use-solicitudes-materiales";
 import { SolicitudesMaterialesTable } from "@/components/feats/solicitudes-materiales/solicitudes-materiales-table";
@@ -31,18 +30,14 @@ export default function SolicitudesMaterialesPage() {
     searchTerm,
     setSearchTerm,
     loadSolicitudes,
-    deleteSolicitud,
+    reabrirSolicitud,
   } = useSolicitudesMateriales();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const [solicitudToDelete, setSolicitudToDelete] =
-    useState<SolicitudMaterial | null>(null);
   const [solicitudToEdit, setSolicitudToEdit] =
     useState<SolicitudMaterial | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [solicitudDetalle, setSolicitudDetalle] =
@@ -65,45 +60,36 @@ export default function SolicitudesMaterialesPage() {
     void loadSolicitudes();
   };
 
-  const handleEditSuccess = () => {
-    toast({
-      title: "Exito",
-      description: "Solicitud de materiales actualizada correctamente",
-    });
-    void loadSolicitudes();
-    setSolicitudToEdit(null);
-    setIsEditDialogOpen(false);
-  };
-
-  const handleDeleteSolicitud = (solicitud: SolicitudMaterial) => {
-    setSolicitudToDelete(solicitud);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!solicitudToDelete) return;
-    setDeleteLoading(true);
+  const handleEditSuccess = async () => {
+    const editedSolicitud = solicitudToEdit;
     try {
-      const success = await deleteSolicitud(solicitudToDelete.id);
-      if (!success) throw new Error("Error al eliminar la solicitud");
-      toast({
-        title: "Exito",
-        description: "Solicitud eliminada correctamente",
-      });
-      setIsDeleteDialogOpen(false);
-      setSolicitudToDelete(null);
+      if (editedSolicitud?.estado?.toLowerCase() === "anulada") {
+        await reabrirSolicitud(editedSolicitud.id);
+        toast({
+          title: "Exito",
+          description: "Solicitud reabierta y actualizada correctamente",
+        });
+      } else {
+        toast({
+          title: "Exito",
+          description: "Solicitud de materiales actualizada correctamente",
+        });
+      }
+
+      await loadSolicitudes();
+      setSolicitudToEdit(null);
+      setIsEditDialogOpen(false);
     } catch (error: unknown) {
       const message =
         error instanceof Error
           ? error.message
-          : "No se pudo eliminar la solicitud";
+          : "No se pudo reabrir la solicitud";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
       });
-    } finally {
-      setDeleteLoading(false);
+      throw error;
     }
   };
 
@@ -180,7 +166,6 @@ export default function SolicitudesMaterialesPage() {
                 setSolicitudToEdit(s);
                 setIsEditDialogOpen(true);
               }}
-              onDelete={handleDeleteSolicitud}
               loading={loading}
             />
           </CardContent>
@@ -207,16 +192,6 @@ export default function SolicitudesMaterialesPage() {
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         solicitud={solicitudDetalle}
-      />
-
-      <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar Solicitud"
-        message="Estas seguro de que quieres eliminar esta solicitud de materiales? Esta accion no se puede deshacer."
-        onConfirm={confirmDelete}
-        confirmText="Eliminar Solicitud"
-        isLoading={deleteLoading}
       />
 
       <Toaster />

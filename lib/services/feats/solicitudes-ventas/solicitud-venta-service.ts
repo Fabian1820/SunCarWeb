@@ -13,6 +13,8 @@ import type {
 const BASE_ENDPOINT = "/operaciones/solicitudes-ventas";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+const buildReabrirEndpoint = (id: string) =>
+  `${buildDetailEndpoint(id)}/reabrir`;
 
 const asString = (value: unknown): string | undefined => {
   if (value == null) return undefined;
@@ -337,6 +339,15 @@ export class SolicitudVentaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
+    return (raw?.data ?? raw) as SolicitudVenta;
+  }
+
+  static async reabrirSolicitud(id: string): Promise<SolicitudVenta> {
+    const raw = await apiRequest<any>(buildReabrirEndpoint(id), {
+      method: "PATCH",
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
     return (raw?.data ?? raw) as SolicitudVenta;
   }
 

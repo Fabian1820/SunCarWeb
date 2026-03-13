@@ -72,7 +72,7 @@ interface CatalogMaterial {
 interface CreateSolicitudMaterialDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   solicitud?: SolicitudMaterial | null;
 }
 
@@ -389,7 +389,7 @@ export function CreateSolicitudMaterialDialog({
         await SolicitudMaterialService.createSolicitud(payload);
       }
 
-      onSuccess();
+      await onSuccess();
       onOpenChange(false);
     } catch (error: unknown) {
       const message =

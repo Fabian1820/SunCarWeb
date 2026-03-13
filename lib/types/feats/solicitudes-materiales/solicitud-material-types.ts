@@ -42,7 +42,7 @@ export interface SolicitudTrabajadorInfo {
 export interface SolicitudMaterial {
   id: string;
   codigo?: string;
-  estado?: "nueva" | "usada" | string;
+  estado?: "nueva" | "usada" | "anulada" | string;
   // Legacy flat IDs (kept for compatibility)
   cliente_id?: string | null;
   almacen_id: string;

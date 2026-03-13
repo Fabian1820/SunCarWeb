@@ -11,6 +11,8 @@ import type {
 const BASE_ENDPOINT = "/operaciones/solicitudes-materiales";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+const buildReabrirEndpoint = (id: string) =>
+  `${buildDetailEndpoint(id)}/reabrir`;
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -39,7 +41,7 @@ export class SolicitudMaterialService {
       almacen_id?: string;
       trabajador_id?: string;
       codigo?: string;
-      estado?: "nueva" | "usada" | string;
+      estado?: "nueva" | "usada" | "anulada" | string;
       skip?: number;
       limit?: number;
     } = {},
@@ -115,6 +117,19 @@ export class SolicitudMaterialService {
   }
 
   /**
+   * Reopen a solicitud
+   * PATCH /api/operaciones/solicitudes-materiales/{solicitud_id}/reabrir
+   */
+  static async reabrirSolicitud(id: string): Promise<SolicitudMaterial> {
+    const raw = await apiRequest<any>(buildReabrirEndpoint(id), {
+      method: "PATCH",
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    return (raw?.data ?? raw) as SolicitudMaterial;
+  }
+
+  /**
    * Delete a solicitud
    * DELETE /api/operaciones/solicitudes-materiales/{solicitud_id}
    */
@@ -134,9 +149,7 @@ export class SolicitudMaterialService {
    * Get suggested materials for a client
    * GET /api/operaciones/solicitudes-materiales/materiales-sugeridos/{cliente_id}
    */
-  static async getMaterialesSugeridos(
-    clienteId: string,
-  ): Promise<{
+  static async getMaterialesSugeridos(clienteId: string): Promise<{
     materiales: MaterialSugerido[];
     materiales_sin_vinculo: string[];
   }> {

@@ -50,7 +50,7 @@ export interface SolicitudVentaTrabajadorInfo {
 export interface SolicitudVenta {
   id: string;
   codigo?: string;
-  estado?: "nueva" | "usada" | string;
+  estado?: "nueva" | "usada" | "anulada" | string;
   cliente_venta_id?: string;
   cliente_venta?: ClienteVenta | null;
   almacen_id: string;
@@ -84,7 +84,7 @@ export interface SolicitudVentaListParams {
   almacen_id?: string;
   trabajador_id?: string;
   codigo?: string;
-  estado?: "nueva" | "usada" | string;
+  estado?: "nueva" | "usada" | "anulada" | string;
 }
 
 export interface SolicitudVentaListResponse {

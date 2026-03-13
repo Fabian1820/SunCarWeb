@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/shared/molecule/dialog"
-import { Badge } from "@/components/shared/atom/badge"
+} from "@/components/shared/molecule/dialog";
+import { Badge } from "@/components/shared/atom/badge";
 import {
   Package,
   Warehouse,
@@ -16,13 +16,13 @@ import {
   MapPin,
   Hash,
   Briefcase,
-} from "lucide-react"
-import type { SolicitudMaterial } from "@/lib/api-types"
+} from "lucide-react";
+import type { SolicitudMaterial } from "@/lib/api-types";
 
 interface SolicitudMaterialDetailDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  solicitud: SolicitudMaterial | null
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  solicitud: SolicitudMaterial | null;
 }
 
 export function SolicitudMaterialDetailDialog({
@@ -30,10 +30,13 @@ export function SolicitudMaterialDetailDialog({
   onOpenChange,
   solicitud,
 }: SolicitudMaterialDetailDialogProps) {
-  if (!solicitud) return null
+  if (!solicitud) return null;
+  const estado = solicitud.estado?.toLowerCase();
+  const isUsada = estado === "usada";
+  const isAnulada = estado === "anulada";
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "—"
+    if (!dateStr) return "—";
     try {
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
@@ -41,11 +44,11 @@ export function SolicitudMaterialDetailDialog({
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      })
+      });
     } catch {
-      return "—"
+      return "—";
     }
-  }
+  };
 
   const getMaterialName = (mat: SolicitudMaterial["materiales"][number]) =>
     mat.material?.nombre ||
@@ -54,13 +57,13 @@ export function SolicitudMaterialDetailDialog({
     mat.descripcion ||
     mat.material_codigo ||
     mat.codigo ||
-    mat.material_id
+    mat.material_id;
 
   const getMaterialCodigo = (mat: SolicitudMaterial["materiales"][number]) =>
-    mat.material?.codigo || mat.material_codigo || mat.codigo || ""
+    mat.material?.codigo || mat.material_codigo || mat.codigo || "";
 
   const getMaterialFoto = (mat: SolicitudMaterial["materiales"][number]) =>
-    mat.material?.foto
+    mat.material?.foto;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -69,8 +72,23 @@ export function SolicitudMaterialDetailDialog({
           <DialogTitle className="flex items-center gap-2">
             <Package className="h-5 w-5 text-purple-600" />
             Detalle de Solicitud
-            <Badge variant="outline" className="ml-2 bg-purple-50 text-purple-700 border-purple-200 font-mono text-xs">
+            <Badge
+              variant="outline"
+              className="ml-2 bg-purple-50 text-purple-700 border-purple-200 font-mono text-xs"
+            >
               {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={
+                isUsada
+                  ? "bg-orange-50 text-orange-700 border-orange-200"
+                  : isAnulada
+                    ? "bg-red-50 text-red-700 border-red-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }
+            >
+              {isUsada ? "Usada" : isAnulada ? "Anulada" : "Nueva"}
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -85,7 +103,9 @@ export function SolicitudMaterialDetailDialog({
             {solicitud.fecha_actualizacion && (
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-4 w-4" />
-                <span>Actualizado: {formatDate(solicitud.fecha_actualizacion)}</span>
+                <span>
+                  Actualizado: {formatDate(solicitud.fecha_actualizacion)}
+                </span>
               </div>
             )}
           </div>
@@ -100,29 +120,39 @@ export function SolicitudMaterialDetailDialog({
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div>
                   <span className="text-gray-500">Nombre:</span>
-                  <span className="ml-2 font-medium text-gray-900">{solicitud.cliente.nombre || "—"}</span>
+                  <span className="ml-2 font-medium text-gray-900">
+                    {solicitud.cliente.nombre || "—"}
+                  </span>
                 </div>
                 {solicitud.cliente.numero && (
                   <div>
                     <span className="text-gray-500">N° Cliente:</span>
-                    <span className="ml-2 font-medium text-gray-900">{solicitud.cliente.numero}</span>
+                    <span className="ml-2 font-medium text-gray-900">
+                      {solicitud.cliente.numero}
+                    </span>
                   </div>
                 )}
                 {solicitud.cliente.telefono && (
                   <div className="flex items-center gap-1">
                     <Phone className="h-3 w-3 text-gray-400" />
-                    <span className="text-gray-700">{solicitud.cliente.telefono}</span>
+                    <span className="text-gray-700">
+                      {solicitud.cliente.telefono}
+                    </span>
                   </div>
                 )}
                 {solicitud.cliente.direccion && (
                   <div className="flex items-center gap-1 col-span-2">
                     <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                    <span className="text-gray-700">{solicitud.cliente.direccion}</span>
+                    <span className="text-gray-700">
+                      {solicitud.cliente.direccion}
+                    </span>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-gray-400 italic">Sin cliente asignado</p>
+              <p className="text-sm text-gray-400 italic">
+                Sin cliente asignado
+              </p>
             )}
           </div>
 
@@ -135,7 +165,9 @@ export function SolicitudMaterialDetailDialog({
               </h3>
               {solicitud.almacen ? (
                 <div className="space-y-1 text-sm">
-                  <p className="font-medium text-gray-900">{solicitud.almacen.nombre}</p>
+                  <p className="font-medium text-gray-900">
+                    {solicitud.almacen.nombre}
+                  </p>
                   {solicitud.almacen.codigo && (
                     <div className="flex items-center gap-1 text-gray-500">
                       <Hash className="h-3 w-3" />
@@ -143,7 +175,9 @@ export function SolicitudMaterialDetailDialog({
                     </div>
                   )}
                   {solicitud.almacen.responsable && (
-                    <p className="text-gray-500">Resp.: {solicitud.almacen.responsable}</p>
+                    <p className="text-gray-500">
+                      Resp.: {solicitud.almacen.responsable}
+                    </p>
                   )}
                   {solicitud.almacen.direccion && (
                     <div className="flex items-center gap-1 text-gray-500">
@@ -164,7 +198,9 @@ export function SolicitudMaterialDetailDialog({
               </h3>
               {solicitud.trabajador ? (
                 <div className="space-y-1 text-sm">
-                  <p className="font-medium text-gray-900">{solicitud.trabajador.nombre || "—"}</p>
+                  <p className="font-medium text-gray-900">
+                    {solicitud.trabajador.nombre || "—"}
+                  </p>
                   {solicitud.trabajador.ci && (
                     <div className="flex items-center gap-1 text-gray-500">
                       <Hash className="h-3 w-3" />
@@ -189,7 +225,10 @@ export function SolicitudMaterialDetailDialog({
             <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
               <Package className="h-4 w-4 text-gray-500" />
               Materiales
-              <Badge variant="outline" className="ml-1 bg-blue-50 text-blue-700 border-blue-200 text-xs">
+              <Badge
+                variant="outline"
+                className="ml-1 bg-blue-50 text-blue-700 border-blue-200 text-xs"
+              >
                 {solicitud.materiales?.length || 0} items
               </Badge>
             </h3>
@@ -197,18 +236,27 @@ export function SolicitudMaterialDetailDialog({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="text-left py-2 px-3 font-medium text-gray-700">Material</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">UM</th>
-                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">Cantidad</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700">
+                      Material
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">
+                      UM
+                    </th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
+                      Cantidad
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(solicitud.materiales || []).map((mat, idx) => {
-                    const foto = getMaterialFoto(mat)
-                    const nombre = getMaterialName(mat)
-                    const codigo = getMaterialCodigo(mat)
+                    const foto = getMaterialFoto(mat);
+                    const nombre = getMaterialName(mat);
+                    const codigo = getMaterialCodigo(mat);
                     return (
-                      <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50">
+                      <tr
+                        key={idx}
+                        className="border-b last:border-b-0 hover:bg-gray-50"
+                      >
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2">
                             {foto ? (
@@ -216,7 +264,10 @@ export function SolicitudMaterialDetailDialog({
                                 src={foto}
                                 alt={nombre}
                                 className="h-9 w-9 rounded object-cover border border-gray-200 flex-shrink-0"
-                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display =
+                                    "none";
+                                }}
                               />
                             ) : (
                               <div className="h-9 w-9 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
@@ -224,17 +275,25 @@ export function SolicitudMaterialDetailDialog({
                               </div>
                             )}
                             <div>
-                              <p className="font-medium text-gray-900 leading-tight">{nombre}</p>
+                              <p className="font-medium text-gray-900 leading-tight">
+                                {nombre}
+                              </p>
                               {codigo && (
-                                <p className="text-xs text-gray-400">{codigo}</p>
+                                <p className="text-xs text-gray-400">
+                                  {codigo}
+                                </p>
                               )}
                             </div>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-gray-500">{mat.um || mat.material?.um || "U"}</td>
-                        <td className="py-2.5 px-3 text-right font-semibold text-gray-900">{mat.cantidad}</td>
+                        <td className="py-2.5 px-3 text-gray-500">
+                          {mat.um || mat.material?.um || "U"}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-gray-900">
+                          {mat.cantidad}
+                        </td>
                       </tr>
-                    )
+                    );
                   })}
                 </tbody>
               </table>
@@ -243,5 +302,5 @@ export function SolicitudMaterialDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

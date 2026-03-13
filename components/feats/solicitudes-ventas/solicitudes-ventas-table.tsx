@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
@@ -7,7 +7,7 @@ import {
   ClipboardList,
   Eye,
   Pencil,
-  Trash2,
+  RotateCcw,
   User,
   Warehouse,
 } from "lucide-react";
@@ -17,14 +17,12 @@ interface SolicitudesVentasTableProps {
   solicitudes: SolicitudVenta[];
   onView?: (solicitud: SolicitudVenta) => void;
   onEdit?: (solicitud: SolicitudVenta) => void;
-  onDelete?: (solicitud: SolicitudVenta) => void;
 }
 
 export function SolicitudesVentasTable({
   solicitudes,
   onView,
   onEdit,
-  onDelete,
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -56,35 +54,22 @@ export function SolicitudesVentasTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Codigo
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Estado
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Cliente venta
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Almacen
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Creador
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Materiales
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Fecha
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Acciones
-            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente venta</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {solicitudes.map((solicitud) => {
-            const isUsada = solicitud.estado?.toLowerCase() === "usada";
+            const estado = solicitud.estado?.toLowerCase();
+            const isUsada = estado === "usada";
+            const isAnulada = estado === "anulada";
+
             return (
               <tr
                 key={solicitud.id}
@@ -104,10 +89,12 @@ export function SolicitudesVentasTable({
                     className={
                       isUsada
                         ? "bg-orange-50 text-orange-700 border-orange-200"
-                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : isAnulada
+                          ? "bg-red-50 text-red-700 border-red-200"
+                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
                     }
                   >
-                    {isUsada ? "Usada" : "Nueva"}
+                    {isUsada ? "Usada" : isAnulada ? "Anulada" : "Nueva"}
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
@@ -167,27 +154,28 @@ export function SolicitudesVentasTable({
                         variant="outline"
                         size="sm"
                         onClick={() => onEdit(solicitud)}
-                        className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                        className={
+                          isAnulada
+                            ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                            : "border-amber-300 text-amber-700 hover:bg-amber-50"
+                        }
                         title={
                           isUsada
                             ? "No se puede editar una solicitud usada"
-                            : "Editar solicitud"
+                            : isAnulada
+                              ? "Reabrir solicitud anulada"
+                              : "Editar solicitud"
                         }
                         disabled={isUsada}
                       >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-                    {onDelete && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onDelete(solicitud)}
-                        className="border-red-300 text-red-700 hover:bg-red-50"
-                        title="Eliminar solicitud"
-                        disabled={isUsada}
-                      >
-                        <Trash2 className="h-4 w-4" />
+                        {isAnulada ? (
+                          <RotateCcw className="h-4 w-4 sm:mr-1" />
+                        ) : (
+                          <Pencil className="h-4 w-4 sm:mr-1" />
+                        )}
+                        <span className="hidden sm:inline text-xs">
+                          {isAnulada ? "Reabrir" : "Editar"}
+                        </span>
                       </Button>
                     )}
                   </div>

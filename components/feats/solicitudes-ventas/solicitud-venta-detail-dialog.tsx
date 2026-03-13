@@ -36,7 +36,9 @@ export function SolicitudVentaDetailDialog({
     });
   };
 
-  const isUsada = solicitud.estado?.toLowerCase() === "usada";
+  const estado = solicitud.estado?.toLowerCase();
+  const isUsada = estado === "usada";
+  const isAnulada = estado === "anulada";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -57,7 +59,9 @@ export function SolicitudVentaDetailDialog({
         <div className="space-y-5 py-1">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-              <h3 className="text-sm font-semibold text-gray-700">Cliente venta</h3>
+              <h3 className="text-sm font-semibold text-gray-700">
+                Cliente venta
+              </h3>
               <p className="text-sm font-medium text-gray-900">
                 {solicitud.cliente_venta?.nombre || "-"}
               </p>
@@ -76,7 +80,9 @@ export function SolicitudVentaDetailDialog({
             </div>
 
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-              <h3 className="text-sm font-semibold text-gray-700">Meta datos</h3>
+              <h3 className="text-sm font-semibold text-gray-700">
+                Meta datos
+              </h3>
               <p className="text-sm text-gray-600 flex items-center gap-1.5">
                 <Warehouse className="h-4 w-4 text-gray-400" />
                 Almacen: {solicitud.almacen?.nombre || "-"}
@@ -92,10 +98,12 @@ export function SolicitudVentaDetailDialog({
                   className={
                     isUsada
                       ? "bg-orange-50 text-orange-700 border-orange-200"
-                      : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : isAnulada
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200"
                   }
                 >
-                  {isUsada ? "Usada" : "Nueva"}
+                  {isUsada ? "Usada" : isAnulada ? "Anulada" : "Nueva"}
                 </Badge>
               </p>
               <p className="text-sm text-gray-600">
@@ -122,15 +130,26 @@ export function SolicitudVentaDetailDialog({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="text-left py-2 px-3 font-medium text-gray-700">Material</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-24">Codigo</th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">UM</th>
-                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">Cantidad</th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700">
+                      Material
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-24">
+                      Codigo
+                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">
+                      UM
+                    </th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
+                      Cantidad
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(solicitud.materiales || []).map((material, index) => (
-                    <tr key={index} className="border-b last:border-b-0 hover:bg-gray-50">
+                    <tr
+                      key={index}
+                      className="border-b last:border-b-0 hover:bg-gray-50"
+                    >
                       <td className="py-2 px-3 text-gray-900 font-medium">
                         {material.material?.nombre ||
                           material.material?.descripcion ||
