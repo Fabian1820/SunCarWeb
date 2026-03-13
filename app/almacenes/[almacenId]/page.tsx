@@ -418,8 +418,8 @@ export default function AlmacenDetallePage() {
           }}
           className="bg-white shadow-sm border-b border-orange-100"
           backButton={{
-            href: "/almacenes-suncar",
-            label: "Volver a Almacenes",
+            href: `/almacenes-suncar/${almacenId}`,
+            label: "Volver al Almacen",
           }}
         />
 
@@ -593,7 +593,8 @@ export default function AlmacenDetallePage() {
                       </div>
                       {historialSearch && (
                         <p className="text-xs text-gray-500 mt-1">
-                          {filteredMovimientos.length} de {movimientos.length} movimientos
+                          {filteredMovimientos.length} de {movimientos.length}{" "}
+                          movimientos
                         </p>
                       )}
                     </div>

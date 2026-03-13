@@ -196,19 +196,6 @@ export default function ValesSalidaPage() {
           href: `/almacenes-suncar/${almacenId}`,
           label: "Volver al Almacen",
         }}
-        actions={
-          <Button
-            size="icon"
-            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
-            onClick={() => setIsCreateDialogOpen(true)}
-            aria-label="Nuevo vale"
-            title="Nuevo vale"
-          >
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Nuevo Vale</span>
-            <span className="sr-only">Nuevo vale</span>
-          </Button>
-        }
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">

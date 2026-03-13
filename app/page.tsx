@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { Card, CardContent } from "@/components/shared/molecule/card";
@@ -23,7 +23,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   BarChart3,
-  Map,
   Trophy,
   FileSpreadsheet,
   PackageSearch,
@@ -55,12 +54,12 @@ export default function Dashboard() {
   const headerRef = useRef<HTMLElement | null>(null);
   const [headerHeight, setHeaderHeight] = useState<number>(120);
 
-  // Cargar módulos permitidos cada vez que se monta el dashboard
+  // Cargar mÃ³dulos permitidos cada vez que se monta el dashboard
   useEffect(() => {
     loadModulosPermitidos();
   }, [user]);
 
-  // Definir todos los módulos con sus configuraciones
+  // Definir todos los mÃ³dulos con sus configuraciones
   type DashboardModule = {
     id: string;
     permission?: string;
@@ -92,7 +91,7 @@ export default function Dashboard() {
       href: "/clientes",
       icon: User,
       title: "Gestionar Clientes",
-      description: "Administrar información y reportes de clientes.",
+      description: "Administrar informaciÃ³n y reportes de clientes.",
       iconClass: "text-orange-600",
     },
     {
@@ -116,7 +115,7 @@ export default function Dashboard() {
       href: "/ofertas-gestion",
       icon: Zap,
       title: "Gestionar Ofertas",
-      description: "Confección de ofertas y herramientas de ventas.",
+      description: "ConfecciÃ³n de ofertas y herramientas de ventas.",
       iconClass: "text-amber-600",
     },
     {
@@ -124,7 +123,7 @@ export default function Dashboard() {
       href: "/reportes-comercial",
       icon: BarChart3,
       title: "Reportes Comercial",
-      description: "Reportes y análisis del área comercial.",
+      description: "Reportes y anÃ¡lisis del Ã¡rea comercial.",
       iconClass: "text-indigo-600",
     },
     {
@@ -140,7 +139,7 @@ export default function Dashboard() {
       href: "/instalaciones",
       icon: Wrench,
       title: "Operaciones",
-      description: "Instalaciones en proceso, nuevas y averías.",
+      description: "Instalaciones en proceso, nuevas y averÃ­as.",
       iconClass: "text-purple-600",
     },
     {
@@ -180,15 +179,15 @@ export default function Dashboard() {
       href: "/materiales",
       icon: Package,
       title: "Gestionar Materiales",
-      description: "Administrar catálogo de materiales.",
+      description: "Administrar catÃ¡logo de materiales.",
       iconClass: "text-emerald-600",
     },
     {
       id: "facturas",
       href: "/facturas",
       icon: Receipt,
-      title: "Facturación",
-      description: "Gestión de facturas y vales de venta.",
+      title: "FacturaciÃ³n",
+      description: "GestiÃ³n de facturas y vales de venta.",
       iconClass: "text-sky-600",
     },
     {
@@ -196,7 +195,7 @@ export default function Dashboard() {
       href: "/almacenes-suncar",
       icon: Package,
       title: "Almacenes Suncar",
-      description: "Gestión de almacenes y control de inventario.",
+      description: "GestiÃ³n de almacenes y control de inventario.",
       iconClass: "text-blue-600",
     },
     {
@@ -212,7 +211,7 @@ export default function Dashboard() {
       href: "/tiendas-suncarventas",
       icon: ShoppingBag,
       title: "Tiendas Suncar",
-      description: "Gestión de tiendas y puntos de venta.",
+      description: "GestiÃ³n de tiendas y puntos de venta.",
       iconClass: "text-orange-600",
     },
     {
@@ -220,7 +219,7 @@ export default function Dashboard() {
       href: "/recursos-humanos",
       icon: Briefcase,
       title: "Recursos Humanos",
-      description: "Gestión de nómina y estímulos mensuales.",
+      description: "GestiÃ³n de nÃ³mina y estÃ­mulos mensuales.",
       iconClass: "text-purple-600",
     },
     {
@@ -228,7 +227,7 @@ export default function Dashboard() {
       href: "/fichas-costo",
       icon: FileSpreadsheet,
       title: "Fichas de Costo",
-      description: "Gestión de fichas de costo de materiales.",
+      description: "GestiÃ³n de fichas de costo de materiales.",
       iconClass: "text-teal-600",
     },
     {
@@ -236,26 +235,26 @@ export default function Dashboard() {
       href: "/blog",
       icon: BookOpen,
       title: "Blog",
-      description: "Gestión de artículos y noticias.",
+      description: "GestiÃ³n de artÃ­culos y noticias.",
       iconClass: "text-purple-600",
     },
     {
       id: "galeriaweb",
       href: "/galeriaweb",
       icon: Image,
-      title: "Galería Web",
-      description: "Gestión de imágenes para el sitio web.",
+      title: "GalerÃ­a Web",
+      description: "GestiÃ³n de imÃ¡genes para el sitio web.",
       iconClass: "text-pink-600",
     },
     // Comentados temporalmente por no uso u obsolescencia visual:
-    // { id: "articulos-tienda", href: "/articulos-tienda", icon: ShoppingBag, title: "Artículos Tienda", description: "Administrar catálogo de artículos de tienda.", iconClass: "text-blue-600" },
-    // { id: "estadisticas", href: "/estadisticas", icon: BarChart3, title: "Estadísticas", description: "Análisis de crecimiento mensual y métricas clave.", iconClass: "text-purple-600" },
-    // { id: "radar-energetico", permission: "estadisticas", href: "/radar-energetico", icon: Map, title: "Radar Energético", description: "Mapa táctico por municipio con calor de potencia instalada.", iconClass: "text-cyan-600" },
-    // { id: "ofertas", href: "/ofertas", icon: Tag, title: "Ofertas", description: "Gestión de ofertas y promociones.", iconClass: "text-orange-600" },
+    // { id: "articulos-tienda", href: "/articulos-tienda", icon: ShoppingBag, title: "ArtÃ­culos Tienda", description: "Administrar catÃ¡logo de artÃ­culos de tienda.", iconClass: "text-blue-600" },
+    // { id: "estadisticas", href: "/estadisticas", icon: BarChart3, title: "EstadÃ­sticas", description: "AnÃ¡lisis de crecimiento mensual y mÃ©tricas clave.", iconClass: "text-purple-600" },
+    // { id: "radar-energetico", permission: "estadisticas", href: "/radar-energetico", icon: Map, title: "Radar EnergÃ©tico", description: "Mapa tÃ¡ctico por municipio con calor de potencia instalada.", iconClass: "text-cyan-600" },
+    // { id: "ofertas", href: "/ofertas", icon: Tag, title: "Ofertas", description: "GestiÃ³n de ofertas y promociones.", iconClass: "text-orange-600" },
     // { id: "ofertas-personalizadas", href: "/ofertas-personalizadas", icon: Sparkles, title: "Ofertas Personalizadas", description: "Crear ofertas personalizadas para clientes.", iconClass: "text-amber-600" },
-    // { id: "ordenes-trabajo", href: "/ordenes-trabajo", icon: ClipboardList, title: "Órdenes de Trabajo", description: "Crear y gestionar órdenes para brigadas.", iconClass: "text-purple-600" },
-    // { id: "trabajos-pendientes", href: "/trabajos-pendientes", icon: FileText, title: "Trabajos Pendientes", description: "Gestión de trabajos pendientes y seguimiento.", iconClass: "text-indigo-600" },
-    // { id: "whatsapp", href: "/whatsapp", icon: MessageSquare, title: "WhatsApp Business", description: "Gestión de conversaciones y atención al cliente.", iconClass: "text-green-600" },
+    // { id: "ordenes-trabajo", href: "/ordenes-trabajo", icon: ClipboardList, title: "Ã“rdenes de Trabajo", description: "Crear y gestionar Ã³rdenes para brigadas.", iconClass: "text-purple-600" },
+    // { id: "trabajos-pendientes", href: "/trabajos-pendientes", icon: FileText, title: "Trabajos Pendientes", description: "GestiÃ³n de trabajos pendientes y seguimiento.", iconClass: "text-indigo-600" },
+    // { id: "whatsapp", href: "/whatsapp", icon: MessageSquare, title: "WhatsApp Business", description: "GestiÃ³n de conversaciones y atenciÃ³n al cliente.", iconClass: "text-green-600" },
   ];
 
   const moduleGroups: ModuleGroup[] = [
@@ -287,9 +286,9 @@ export default function Dashboard() {
     },
     {
       id: "economia",
-      title: "Economía",
+      title: "EconomÃ­a",
       subtitle:
-        "Materiales, facturación, almacenes, inventario, tiendas, RH y costos.",
+        "Materiales, facturaciÃ³n, almacenes, inventario, tiendas, RH y costos.",
       moduleIds: [
         "materiales",
         "facturas",
@@ -303,7 +302,7 @@ export default function Dashboard() {
     {
       id: "web",
       title: "Web",
-      subtitle: "Blog, galería y gestión de permisos.",
+      subtitle: "Blog, galerÃ­a y gestiÃ³n de permisos.",
       moduleIds: ["blog", "galeriaweb", "permisos"],
     },
   ];
@@ -314,8 +313,8 @@ export default function Dashboard() {
           id: "permisos",
           href: "/permisos",
           icon: Shield,
-          title: "Gestión de Permisos",
-          description: "Administrar módulos y permisos de trabajadores.",
+          title: "GestiÃ³n de Permisos",
+          description: "Administrar mÃ³dulos y permisos de trabajadores.",
           iconClass: "text-red-600",
         },
       ]
@@ -342,12 +341,12 @@ export default function Dashboard() {
     .filter((group) => group.modules.length > 0);
 
   useEffect(() => {
-    // Obtener los reportes más recientes del backend
+    // Obtener los reportes mÃ¡s recientes del backend
     const fetchRecentReports = async () => {
       setLoading(true);
       try {
         const data = await ReporteService.getReportes();
-        // Ordenar por fecha descendente y tomar los 3 más recientes
+        // Ordenar por fecha descendente y tomar los 3 mÃ¡s recientes
         const sorted = Array.isArray(data)
           ? [...data].sort(
               (a, b) =>
@@ -438,11 +437,11 @@ export default function Dashboard() {
                     SUNCAR
                   </span>
                   <span className="hidden sm:inline">
-                    Administración de SUNCAR
+                    AdministraciÃ³n de SUNCAR
                   </span>
                 </h1>
                 <p className="hidden sm:block text-sm text-gray-600">
-                  Sistema de Gestión de Empresarial.
+                  Sistema de GestiÃ³n de Empresarial.
                 </p>
               </div>
             </div>
@@ -454,7 +453,7 @@ export default function Dashboard() {
                                     className="flex items-center space-x-2 bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 transition-all duration-200 relative group"
                                 >
                                     <MessageCircle className="h-4 w-4 text-orange-600"/>
-                                    <span className="text-gray-700 group-hover:text-orange-700">Atención al Cliente</span>
+                                    <span className="text-gray-700 group-hover:text-orange-700">AtenciÃ³n al Cliente</span>
                                     <div className="absolute -top-1 -right-1">
                                         <div className="h-2 w-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
                                     </div>
@@ -472,28 +471,17 @@ export default function Dashboard() {
                   <span className="sr-only">Calculadora</span>
                 </Button>
               </Link>
-              <Link href="/radar-energetico" className="flex">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label="Abrir radar energético"
-                  className="flex items-center justify-center bg-white hover:bg-cyan-50 border-cyan-200 hover:border-cyan-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
-                >
-                  <Map className="h-4 w-4 text-cyan-600 sm:mr-2" />
-                  <span className="hidden sm:inline">Radar</span>
-                  <span className="sr-only">Radar Energético</span>
-                </Button>
-              </Link>
+              {/* Radar comentado temporalmente en el topbar principal */}
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsContactosDialogOpen(true)}
-                aria-label="Ver información de contacto"
+                aria-label="Ver informaciÃ³n de contacto"
                 className="flex items-center justify-center bg-white hover:bg-gray-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
               >
                 <Info className="h-4 w-4 text-blue-600 sm:mr-2" />
-                <span className="hidden sm:inline">Información</span>
-                <span className="sr-only">Información</span>
+                <span className="hidden sm:inline">InformaciÃ³n</span>
+                <span className="sr-only">InformaciÃ³n</span>
               </Button>
               <UserMenu />
             </div>
@@ -510,7 +498,7 @@ export default function Dashboard() {
           <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-center sm:text-left">
               <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                Módulos del Sistema
+                MÃ³dulos del Sistema
               </h2>
               {user && (
                 <p className="text-sm text-gray-600 mt-2">
@@ -598,7 +586,7 @@ export default function Dashboard() {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-2">
               <Info className="h-5 w-5 text-blue-600" />
-              <span>Información de Contacto</span>
+              <span>InformaciÃ³n de Contacto</span>
             </DialogTitle>
           </DialogHeader>
           <ContactosDashboard />

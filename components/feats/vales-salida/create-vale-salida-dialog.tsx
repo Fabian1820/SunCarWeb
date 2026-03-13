@@ -20,7 +20,11 @@ import {
   X,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
-import { MaterialService, ValeSalidaService } from "@/lib/api-services";
+import {
+  MaterialService,
+  SolicitudVentaService,
+  ValeSalidaService,
+} from "@/lib/api-services";
 import type {
   ValeSalidaCreateData,
   ValeSolicitudPendiente,
@@ -98,7 +102,13 @@ export function CreateValeSalidaDialog({
   );
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
 
-  const [allMaterials, setAllMaterials] = useState<MaterialCatalogItem[]>([]);
+  const [materialCatalogMaterial, setMaterialCatalogMaterial] = useState<
+    MaterialCatalogItem[]
+  >([]);
+  const [materialCatalogVenta, setMaterialCatalogVenta] = useState<
+    MaterialCatalogItem[]
+  >([]);
+  const [loadingMaterialCatalog, setLoadingMaterialCatalog] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const filteredSolicitudes = useMemo(() => {
@@ -126,18 +136,15 @@ export function CreateValeSalidaDialog({
     const loadData = async () => {
       setSolicitudLoading(true);
       try {
-        const [solicitudesData, materialsData] = await Promise.all([
-          ValeSalidaService.getSolicitudesPorAlmacen(almacenId, {
+        const solicitudesData =
+          await ValeSalidaService.getSolicitudesPorAlmacen(almacenId, {
             estado: "nueva",
             incluir_con_vale: false,
             skip: 0,
             limit: 500,
-          }),
-          MaterialService.getAllMaterials(),
-        ]);
+          });
 
         setSolicitudes(Array.isArray(solicitudesData) ? solicitudesData : []);
-        setAllMaterials(Array.isArray(materialsData) ? materialsData : []);
       } catch (error) {
         console.error("Error loading data for vale dialog:", error);
         toast({
@@ -180,31 +187,102 @@ export function CreateValeSalidaDialog({
   useEffect(() => {
     if (!selectedSolicitud) return;
 
-    const rows: MaterialRow[] = (selectedSolicitud.materiales || []).map((item) => {
-      const mat = item.material;
-      return {
-        material_id: item.material_id || "",
-        codigo: mat?.codigo || item.material_codigo || item.codigo || "",
-        nombre:
-          mat?.nombre ||
-          mat?.descripcion ||
-          item.material_descripcion ||
-          item.descripcion ||
-          item.material_id,
-        descripcion:
-          mat?.descripcion ||
-          mat?.nombre ||
-          item.material_descripcion ||
-          item.descripcion ||
-          "",
-        um: mat?.um || item.um || "U",
-        cantidad: item.cantidad || 0,
-        foto: mat?.foto,
-      };
-    });
+    const rows: MaterialRow[] = (selectedSolicitud.materiales || []).map(
+      (item) => {
+        const mat = item.material;
+        return {
+          material_id: item.material_id || "",
+          codigo: mat?.codigo || item.material_codigo || item.codigo || "",
+          nombre:
+            mat?.nombre ||
+            mat?.descripcion ||
+            item.material_descripcion ||
+            item.descripcion ||
+            item.material_id,
+          descripcion:
+            mat?.descripcion ||
+            mat?.nombre ||
+            item.material_descripcion ||
+            item.descripcion ||
+            "",
+          um: mat?.um || item.um || "U",
+          cantidad: item.cantidad || 0,
+          foto: mat?.foto,
+        };
+      },
+    );
 
     setMateriales(rows);
   }, [selectedSolicitud]);
+
+  useEffect(() => {
+    if (!open || !selectedSolicitud) return;
+
+    const isVenta = selectedSolicitud.tipo_solicitud === "venta";
+    const hasCatalogLoaded = isVenta
+      ? materialCatalogVenta.length > 0
+      : materialCatalogMaterial.length > 0;
+    if (hasCatalogLoaded) return;
+
+    const loadCatalogBySolicitudTipo = async () => {
+      setLoadingMaterialCatalog(true);
+      try {
+        if (isVenta) {
+          const ventaCatalog =
+            await SolicitudVentaService.getMaterialesVendiblesWeb();
+          const normalized = (
+            Array.isArray(ventaCatalog) ? ventaCatalog : []
+          ).map((material) => ({
+            id: material.id,
+            codigo: material.codigo,
+            nombre: material.nombre,
+            descripcion: material.descripcion,
+            um: material.um,
+            foto: material.foto,
+          }));
+          setMaterialCatalogVenta(normalized);
+          return;
+        }
+
+        const materialCatalog = await MaterialService.getAllMaterials();
+        setMaterialCatalogMaterial(
+          Array.isArray(materialCatalog) ? materialCatalog : [],
+        );
+      } catch (error) {
+        console.error(
+          "Error loading materials catalog by solicitud tipo:",
+          error,
+        );
+        toast({
+          title: "Error",
+          description:
+            "No se pudo cargar el catalogo de materiales para este tipo de solicitud",
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingMaterialCatalog(false);
+      }
+    };
+
+    void loadCatalogBySolicitudTipo();
+  }, [
+    open,
+    selectedSolicitud,
+    materialCatalogVenta.length,
+    materialCatalogMaterial.length,
+    toast,
+  ]);
+
+  const activeMaterialCatalog = useMemo(() => {
+    if (selectedSolicitud?.tipo_solicitud === "venta") {
+      return materialCatalogVenta;
+    }
+    return materialCatalogMaterial;
+  }, [
+    selectedSolicitud?.tipo_solicitud,
+    materialCatalogVenta,
+    materialCatalogMaterial,
+  ]);
 
   useEffect(() => {
     if (!materialSearch.trim()) {
@@ -215,7 +293,7 @@ export function CreateValeSalidaDialog({
 
     const handler = setTimeout(() => {
       const term = materialSearch.toLowerCase();
-      const filtered = allMaterials
+      const filtered = activeMaterialCatalog
         .filter(
           (material) =>
             (material.descripcion?.toLowerCase().includes(term) ||
@@ -232,7 +310,7 @@ export function CreateValeSalidaDialog({
     }, 200);
 
     return () => clearTimeout(handler);
-  }, [allMaterials, materialSearch, materiales]);
+  }, [activeMaterialCatalog, materialSearch, materiales]);
 
   const handleSelectSolicitud = (solicitud: ValeSolicitudPendiente) => {
     setSelectedSolicitud(solicitud);
@@ -423,10 +501,7 @@ export function CreateValeSalidaDialog({
                             {getSolicitudCode(solicitud)}
                           </span>
                           <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className={styles.badge}
-                            >
+                            <Badge variant="outline" className={styles.badge}>
                               {solicitud.tipo_solicitud === "venta"
                                 ? "Venta"
                                 : "Material"}
@@ -463,6 +538,16 @@ export function CreateValeSalidaDialog({
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">Materiales</Label>
+
+            {selectedSolicitud ? (
+              <p className="text-xs text-gray-500">
+                Catalogo activo:{" "}
+                {selectedSolicitud.tipo_solicitud === "venta"
+                  ? "materiales vendibles web"
+                  : "materiales de inventario"}
+                {loadingMaterialCatalog ? " (cargando...)" : ""}
+              </p>
+            ) : null}
 
             {materiales.length > 0 ? (
               <div className="border rounded-md overflow-hidden">
@@ -516,7 +601,9 @@ export function CreateValeSalidaDialog({
                             </div>
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-gray-500">{material.um}</td>
+                        <td className="py-2 px-3 text-gray-500">
+                          {material.um}
+                        </td>
                         <td className="py-2 px-3">
                           <Input
                             type="number"

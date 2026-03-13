@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState } from "react"
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,45 +8,59 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/shared/molecule/dialog"
-import { Button } from "@/components/shared/atom/button"
-import { Input } from "@/components/shared/molecule/input"
-import { Label } from "@/components/shared/atom/label"
-import { PermisosService } from "@/lib/api-services"
-import { Loader2, Eye, EyeOff, KeyRound } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+} from "@/components/shared/molecule/dialog";
+import { Button } from "@/components/shared/atom/button";
+import { Input } from "@/components/shared/molecule/input";
+import { Label } from "@/components/shared/atom/label";
+import { PermisosService } from "@/lib/api-services";
+import { Loader2, Eye, EyeOff, KeyRound } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ChangePasswordDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
 export function ChangePasswordDialog({
   open,
   onOpenChange,
 }: ChangePasswordDialogProps) {
-  const [currentPassword, setCurrentPassword] = useState("")
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
-  const [showNewPassword, setShowNewPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const { toast } = useToast()
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
   const resetState = () => {
-    setCurrentPassword("")
-    setNewPassword("")
-    setConfirmPassword("")
-    setShowCurrentPassword(false)
-    setShowNewPassword(false)
-    setShowConfirmPassword(false)
-  }
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+  };
 
   const handleClose = () => {
-    resetState()
-    onOpenChange(false)
-  }
+    resetState();
+    onOpenChange(false);
+  };
+
+  const handleDialogOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      resetState();
+    }
+    onOpenChange(nextOpen);
+  };
+
+  useEffect(() => {
+    if (!open && typeof document !== "undefined") {
+      // Workaround: evita que el body quede bloqueado por estilos residuales de Radix.
+      document.body.style.pointerEvents = "";
+    }
+  }, [open]);
 
   const handleSave = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
@@ -54,8 +68,8 @@ export function ChangePasswordDialog({
         title: "Error",
         description: "Complete todos los campos",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (newPassword.length < 6) {
@@ -63,8 +77,8 @@ export function ChangePasswordDialog({
         title: "Error",
         description: "La nueva contraseña debe tener al menos 6 caracteres",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (newPassword !== confirmPassword) {
@@ -72,8 +86,8 @@ export function ChangePasswordDialog({
         title: "Error",
         description: "Las nuevas contraseñas no coinciden",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
     if (currentPassword === newPassword) {
@@ -81,34 +95,34 @@ export function ChangePasswordDialog({
         title: "Error",
         description: "La nueva contraseña debe ser diferente a la actual",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
 
-    setIsSaving(true)
+    setIsSaving(true);
     try {
       const result = await PermisosService.changeOwnAdminPassword(
         currentPassword,
-        newPassword
-      )
+        newPassword,
+      );
 
       if (result.success) {
         toast({
           title: "Contrasena actualizada",
           description: "Su contrasena fue cambiada correctamente",
-        })
-        handleClose()
-        return
+        });
+        handleClose();
+        return;
       }
 
       toast({
         title: "Error",
         description: result.message || "No se pudo cambiar la contrasena",
         variant: "destructive",
-      })
+      });
     } catch (error) {
       const errorMessage =
-        error instanceof Error ? error.message : "Error inesperado"
+        error instanceof Error ? error.message : "Error inesperado";
 
       toast({
         title: "Error",
@@ -116,14 +130,14 @@ export function ChangePasswordDialog({
           ? "El endpoint de cambio de contrasena aun no esta disponible en backend"
           : "No se pudo cambiar la contrasena",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -242,5 +256,5 @@ export function ChangePasswordDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
