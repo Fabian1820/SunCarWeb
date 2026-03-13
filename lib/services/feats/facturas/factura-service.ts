@@ -78,7 +78,7 @@ export class FacturaService {
     /**
      * Lista facturas con filtros opcionales
      */
-    async listarFacturas(filters?: FacturaFilters, skip: number = 0, limit: number = 100): Promise<Factura[]> {
+    async listarFacturas(filters?: FacturaFilters, skip: number = 0, limit: number = 500): Promise<Factura[]> {
         const params = new URLSearchParams();
 
         if (filters?.mes_vale) params.append('mes_vale', filters.mes_vale.toString());

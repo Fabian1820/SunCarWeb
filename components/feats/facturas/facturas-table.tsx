@@ -11,7 +11,7 @@ import {
 } from "@/components/shared/molecule/table"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { Edit, Trash2, Eye } from "lucide-react"
+import { Edit, Trash2, Eye, ArrowUpDown } from "lucide-react"
 import { EstadoBadge } from "./estado-badge"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -42,7 +42,10 @@ export function FacturasTable({
     const [clienteDialogOpen, setClienteDialogOpen] = useState(false)
     const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
     const [loadingCliente, setLoadingCliente] = useState(false)
+    const [reversed, setReversed] = useState(false)
     const { token } = useAuth()
+
+    const facturasMostradas = reversed ? [...facturas].reverse() : facturas
 
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -99,6 +102,17 @@ export function FacturasTable({
         <>
             <Card>
                 <CardContent className="pt-6">
+                    <div className="flex justify-end mb-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setReversed(!reversed)}
+                            className="gap-2 text-gray-600"
+                        >
+                            <ArrowUpDown className="h-4 w-4" />
+                            {reversed ? "Más antiguas primero" : "Más recientes primero"}
+                        </Button>
+                    </div>
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
@@ -112,7 +126,7 @@ export function FacturasTable({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {facturas.map((factura) => (
+                                {facturasMostradas.map((factura) => (
                                     <TableRow key={factura.id} className="hover:bg-gray-50">
                                         <TableCell className="font-medium">{factura.numero_factura}</TableCell>
                                         <TableCell>
