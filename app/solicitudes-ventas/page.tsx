@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
-import { Plus, Search, ShoppingCart, Filter } from "lucide-react";
+import { Plus, Search, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -12,13 +12,6 @@ import {
 } from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/shared/atom/select";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
@@ -44,12 +37,7 @@ export default function SolicitudesVentasPage() {
     createSolicitud,
     updateSolicitud,
     deleteSolicitud,
-    loadSolicitudes,
   } = useSolicitudesVentas();
-
-  const [codigoFilter, setCodigoFilter] = useState("");
-  const [clienteNumeroFilter, setClienteNumeroFilter] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState("all");
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -70,46 +58,12 @@ export default function SolicitudesVentasPage() {
     );
   }
 
-  const handleApplyFilters = async () => {
-    try {
-      await loadSolicitudes({
-        skip: 0,
-        limit: 500,
-        codigo: codigoFilter.trim() || undefined,
-        cliente_venta_numero: clienteNumeroFilter.trim() || undefined,
-        estado: estadoFilter !== "all" ? estadoFilter : undefined,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error
-            ? error.message
-            : "No se pudieron aplicar los filtros",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleResetFilters = async () => {
-    setCodigoFilter("");
-    setClienteNumeroFilter("");
-    setEstadoFilter("all");
-    await loadSolicitudes({
-      skip: 0,
-      limit: 500,
-      codigo: undefined,
-      cliente_venta_numero: undefined,
-      estado: undefined,
-    });
-  };
-
   const handleCreate = async (
     data: SolicitudVentaCreateData | SolicitudVentaUpdateData,
   ) => {
-    const clienteNombre = data.cliente_venta?.nombre?.trim();
-    if (!clienteNombre) {
-      throw new Error("El nombre del cliente venta es obligatorio");
+    const clienteVentaId = data.cliente_venta_id?.trim();
+    if (!clienteVentaId) {
+      throw new Error("Debe seleccionar un cliente venta");
     }
     if (!data.almacen_id?.trim()) {
       throw new Error("Debe seleccionar un almacen");
@@ -120,12 +74,7 @@ export default function SolicitudesVentasPage() {
 
     try {
       await createSolicitud({
-        cliente_venta: {
-          nombre: clienteNombre,
-          direccion: data.cliente_venta?.direccion,
-          telefono: data.cliente_venta?.telefono,
-          ci: data.cliente_venta?.ci,
-        },
+        cliente_venta_id: clienteVentaId,
         almacen_id: data.almacen_id,
         materiales: data.materiales,
       });
@@ -219,68 +168,6 @@ export default function SolicitudesVentasPage() {
       />
 
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
-        <Card className="border-0 shadow-md mb-6 border-l-4 border-l-indigo-600">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label
-                  htmlFor="solicitud-venta-filter-codigo"
-                  className="mb-2 block"
-                >
-                  Codigo
-                </Label>
-                <Input
-                  id="solicitud-venta-filter-codigo"
-                  placeholder="SV-..."
-                  value={codigoFilter}
-                  onChange={(event) => setCodigoFilter(event.target.value)}
-                />
-              </div>
-              <div>
-                <Label
-                  htmlFor="solicitud-venta-filter-cliente-numero"
-                  className="mb-2 block"
-                >
-                  Numero cliente venta
-                </Label>
-                <Input
-                  id="solicitud-venta-filter-cliente-numero"
-                  placeholder="CV-..."
-                  value={clienteNumeroFilter}
-                  onChange={(event) =>
-                    setClienteNumeroFilter(event.target.value)
-                  }
-                />
-              </div>
-              <div>
-                <Label className="mb-2 block">Estado</Label>
-                <Select value={estadoFilter} onValueChange={setEstadoFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="nueva">Nueva</SelectItem>
-                    <SelectItem value="usada">Usada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="mt-4 flex items-center gap-2">
-              <Button
-                onClick={handleApplyFilters}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Aplicar filtros
-              </Button>
-              <Button variant="outline" onClick={handleResetFilters}>
-                Limpiar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-indigo-600">
           <CardContent className="pt-6">
             <div>

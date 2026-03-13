@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/shared/molecule/dialog"
-import { Badge } from "@/components/shared/atom/badge"
+} from "@/components/shared/molecule/dialog";
+import { Badge } from "@/components/shared/atom/badge";
 import {
   Package,
   User,
@@ -15,26 +15,39 @@ import {
   Briefcase,
   FileOutput,
   FileText,
-} from "lucide-react"
-import type { ValeSalida } from "@/lib/api-types"
+} from "lucide-react";
+import type { ValeSalida } from "@/lib/api-types";
 
 interface ValeSalidaDetailDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  vale: ValeSalida | null
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  vale: ValeSalida | null;
 }
+
+const getSolicitudTipo = (vale: ValeSalida): "material" | "venta" => {
+  if (vale.solicitud_tipo === "venta") return "venta";
+  if (vale.solicitud_venta_id || vale.solicitud_venta) return "venta";
+  return "material";
+};
+
+const getTipoStyles = (tipo: "material" | "venta") =>
+  tipo === "venta"
+    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+    : "bg-amber-50 text-amber-700 border-amber-200";
 
 export function ValeSalidaDetailDialog({
   open,
   onOpenChange,
   vale,
 }: ValeSalidaDetailDialogProps) {
-  if (!vale) return null
+  if (!vale) return null;
 
-  const solicitud = vale.solicitud_material || vale.solicitud
+  const solicitud = vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
+  const solicitudTipo = getSolicitudTipo(vale);
+  const tipoStyles = getTipoStyles(solicitudTipo);
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "—"
+    if (!dateStr) return "-";
     try {
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
@@ -42,11 +55,11 @@ export function ValeSalidaDetailDialog({
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-      })
+      });
     } catch {
-      return "—"
+      return "-";
     }
-  }
+  };
 
   const getMaterialName = (mat: ValeSalida["materiales"][number]) =>
     mat.material?.nombre ||
@@ -55,13 +68,22 @@ export function ValeSalidaDetailDialog({
     mat.descripcion ||
     mat.material_codigo ||
     mat.codigo ||
-    mat.material_id
+    mat.material_id;
 
   const getMaterialCodigo = (mat: ValeSalida["materiales"][number]) =>
-    mat.material?.codigo || mat.material_codigo || mat.codigo || ""
+    mat.material?.codigo || mat.material_codigo || mat.codigo || "";
 
   const getMaterialFoto = (mat: ValeSalida["materiales"][number]) =>
-    mat.material?.foto
+    mat.material?.foto;
+
+  const solicitudCodigo =
+    solicitud?.codigo ||
+    vale.solicitud_material_id?.slice(-6).toUpperCase() ||
+    vale.solicitud_venta_id?.slice(-6).toUpperCase() ||
+    vale.solicitud_id?.slice(-6).toUpperCase();
+
+  const solicitudCliente =
+    solicitud?.cliente_venta?.nombre || solicitud?.cliente?.nombre;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -76,6 +98,9 @@ export function ValeSalidaDetailDialog({
             >
               {vale.codigo || vale.id.slice(-6).toUpperCase()}
             </Badge>
+            <Badge variant="outline" className={tipoStyles}>
+              {solicitudTipo === "venta" ? "Venta" : "Material"}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -85,12 +110,12 @@ export function ValeSalidaDetailDialog({
               <Calendar className="h-4 w-4" />
               <span>Creado: {formatDate(vale.fecha_creacion)}</span>
             </div>
-            {vale.fecha_actualizacion && (
+            {vale.fecha_actualizacion ? (
               <div className="flex items-center gap-1.5">
                 <Calendar className="h-4 w-4" />
                 <span>Actualizado: {formatDate(vale.fecha_actualizacion)}</span>
               </div>
-            )}
+            ) : null}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -104,25 +129,25 @@ export function ValeSalidaDetailDialog({
                   <div className="flex items-center gap-1">
                     <Hash className="h-3 w-3 text-gray-400" />
                     <span className="font-medium text-gray-900 font-mono">
-                      {solicitud.codigo || solicitud.id?.slice(-6).toUpperCase()}
+                      {solicitudCodigo}
                     </span>
                   </div>
-                  {solicitud.cliente?.nombre && (
+                  {solicitudCliente ? (
                     <p className="text-gray-600">
-                      Cliente: <span className="font-medium">{solicitud.cliente.nombre}</span>
+                      Cliente: <span className="font-medium">{solicitudCliente}</span>
                     </p>
-                  )}
-                  {solicitud.almacen?.nombre && (
+                  ) : null}
+                  {solicitud.almacen?.nombre ? (
                     <p className="text-gray-500">Almacen: {solicitud.almacen.nombre}</p>
-                  )}
-                  {solicitud.estado && (
+                  ) : null}
+                  {solicitud.estado ? (
                     <Badge variant="outline" className="text-xs mt-1">
                       {solicitud.estado}
                     </Badge>
-                  )}
+                  ) : null}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">—</p>
+                <p className="text-sm text-gray-400">-</p>
               )}
             </div>
 
@@ -133,19 +158,19 @@ export function ValeSalidaDetailDialog({
               </h3>
               {vale.trabajador ? (
                 <div className="space-y-1 text-sm">
-                  <p className="font-medium text-gray-900">{vale.trabajador.nombre || "—"}</p>
-                  {vale.trabajador.ci && (
+                  <p className="font-medium text-gray-900">{vale.trabajador.nombre || "-"}</p>
+                  {vale.trabajador.ci ? (
                     <div className="flex items-center gap-1 text-gray-500">
                       <Hash className="h-3 w-3" />
                       <span>CI: {vale.trabajador.ci}</span>
                     </div>
-                  )}
-                  {vale.trabajador.cargo && (
+                  ) : null}
+                  {vale.trabajador.cargo ? (
                     <div className="flex items-center gap-1 text-gray-500">
                       <Briefcase className="h-3 w-3" />
                       <span>{vale.trabajador.cargo}</span>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               ) : vale.creado_por_ci ? (
                 <div className="space-y-1 text-sm">
@@ -155,7 +180,7 @@ export function ValeSalidaDetailDialog({
                   </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">—</p>
+                <p className="text-sm text-gray-400">-</p>
               )}
             </div>
           </div>
@@ -177,14 +202,16 @@ export function ValeSalidaDetailDialog({
                   <tr className="bg-gray-50 border-b">
                     <th className="text-left py-2 px-3 font-medium text-gray-700">Material</th>
                     <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">UM</th>
-                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">Cantidad</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
+                      Cantidad
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {(vale.materiales || []).map((mat, idx) => {
-                    const foto = getMaterialFoto(mat)
-                    const nombre = getMaterialName(mat)
-                    const codigo = getMaterialCodigo(mat)
+                    const foto = getMaterialFoto(mat);
+                    const nombre = getMaterialName(mat);
+                    const codigo = getMaterialCodigo(mat);
                     return (
                       <tr key={idx} className="border-b last:border-b-0 hover:bg-gray-50">
                         <td className="py-2.5 px-3">
@@ -194,8 +221,10 @@ export function ValeSalidaDetailDialog({
                                 src={foto}
                                 alt={nombre}
                                 className="h-9 w-9 rounded object-cover border border-gray-200 flex-shrink-0"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = "none"
+                                onError={(event) => {
+                                  (
+                                    event.target as HTMLImageElement
+                                  ).style.display = "none";
                                 }}
                               />
                             ) : (
@@ -205,14 +234,18 @@ export function ValeSalidaDetailDialog({
                             )}
                             <div>
                               <p className="font-medium text-gray-900 leading-tight">{nombre}</p>
-                              {codigo && <p className="text-xs text-gray-400">{codigo}</p>}
+                              {codigo ? <p className="text-xs text-gray-400">{codigo}</p> : null}
                             </div>
                           </div>
                         </td>
-                        <td className="py-2.5 px-3 text-gray-500">{mat.um || mat.material?.um || "U"}</td>
-                        <td className="py-2.5 px-3 text-right font-semibold text-gray-900">{mat.cantidad}</td>
+                        <td className="py-2.5 px-3 text-gray-500">
+                          {mat.um || mat.material?.um || "U"}
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-semibold text-gray-900">
+                          {mat.cantidad}
+                        </td>
                       </tr>
-                    )
+                    );
                   })}
                 </tbody>
               </table>
@@ -221,5 +254,5 @@ export function ValeSalidaDetailDialog({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

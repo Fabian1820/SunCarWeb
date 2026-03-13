@@ -12,13 +12,20 @@ interface ValesSalidaTableProps {
   loading?: boolean;
 }
 
-export function ValesSalidaTable({
-  vales,
-  onDelete,
-  onView,
-}: ValesSalidaTableProps) {
+const getSolicitudTipo = (vale: ValeSalida): "material" | "venta" => {
+  if (vale.solicitud_tipo === "venta") return "venta";
+  if (vale.solicitud_venta_id || vale.solicitud_venta) return "venta";
+  return "material";
+};
+
+const getTipoStyles = (tipo: "material" | "venta") =>
+  tipo === "venta"
+    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+    : "bg-amber-50 text-amber-700 border-amber-200";
+
+export function ValesSalidaTable({ vales, onDelete, onView }: ValesSalidaTableProps) {
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "—";
+    if (!dateStr) return "-";
     try {
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
@@ -26,24 +33,29 @@ export function ValesSalidaTable({
         year: "numeric",
       });
     } catch {
-      return "—";
+      return "-";
     }
   };
 
-  const getSolicitudCode = (v: ValeSalida) =>
-    v.solicitud_material?.codigo ||
-    v.solicitud?.codigo ||
-    v.solicitud_material_id?.slice(-6).toUpperCase() ||
-    v.solicitud_id?.slice(-6).toUpperCase() ||
-    "—";
+  const getSolicitudCode = (vale: ValeSalida) =>
+    vale.solicitud_material?.codigo ||
+    vale.solicitud_venta?.codigo ||
+    vale.solicitud?.codigo ||
+    vale.solicitud_material_id?.slice(-6).toUpperCase() ||
+    vale.solicitud_venta_id?.slice(-6).toUpperCase() ||
+    vale.solicitud_id?.slice(-6).toUpperCase() ||
+    "-";
 
-  const getClienteName = (v: ValeSalida) =>
-    v.solicitud_material?.cliente?.nombre ||
-    v.solicitud?.cliente?.nombre ||
+  const getClienteName = (vale: ValeSalida) =>
+    vale.solicitud_venta?.cliente_venta?.nombre ||
+    vale.solicitud_venta?.cliente?.nombre ||
+    vale.solicitud_material?.cliente?.nombre ||
+    vale.solicitud?.cliente_venta?.nombre ||
+    vale.solicitud?.cliente?.nombre ||
     null;
 
-  const getTrabajadorName = (v: ValeSalida) =>
-    v.trabajador?.nombre || v.creado_por_ci || "—";
+  const getTrabajadorName = (vale: ValeSalida) =>
+    vale.trabajador?.nombre || vale.creado_por_ci || "-";
 
   if (vales.length === 0) {
     return (
@@ -64,37 +76,23 @@ export function ValesSalidaTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Código
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Solicitud
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Cliente
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Creador
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Materiales
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Fecha
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Acciones
-            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Tipo</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Solicitud</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {vales.map((vale) => {
             const clienteName = getClienteName(vale);
+            const solicitudTipo = getSolicitudTipo(vale);
+            const tipoStyles = getTipoStyles(solicitudTipo);
             return (
-              <tr
-                key={vale.id}
-                className="border-b border-gray-100 hover:bg-gray-50"
-              >
+              <tr key={vale.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="py-4 px-4">
                   <Badge
                     variant="outline"
@@ -104,9 +102,14 @@ export function ValesSalidaTable({
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
+                  <Badge variant="outline" className={tipoStyles}>
+                    {solicitudTipo === "venta" ? "Venta" : "Material"}
+                  </Badge>
+                </td>
+                <td className="py-4 px-4">
                   <Badge
                     variant="outline"
-                    className="bg-purple-50 text-purple-700 border-purple-200 font-mono text-xs"
+                    className={`${tipoStyles} font-mono text-xs`}
                   >
                     {getSolicitudCode(vale)}
                   </Badge>
@@ -115,17 +118,13 @@ export function ValesSalidaTable({
                   {clienteName ? (
                     <p className="font-medium text-gray-900">{clienteName}</p>
                   ) : (
-                    <span className="text-gray-400 italic text-sm">
-                      Sin cliente
-                    </span>
+                    <span className="text-gray-400 italic text-sm">Sin cliente</span>
                   )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {getTrabajadorName(vale)}
-                    </span>
+                    <span className="text-sm text-gray-700">{getTrabajadorName(vale)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -134,21 +133,18 @@ export function ValesSalidaTable({
                     className="bg-blue-50 text-blue-700 border-blue-200"
                   >
                     <Package className="h-3 w-3 mr-1" />
-                    {vale.total_materiales ?? vale.materiales?.length ?? 0}{" "}
-                    items
+                    {vale.total_materiales ?? vale.materiales?.length ?? 0} items
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {formatDate(vale.fecha_creacion)}
-                    </span>
+                    <span className="text-sm text-gray-700">{formatDate(vale.fecha_creacion)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center space-x-2">
-                    {onView && (
+                    {onView ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -159,8 +155,8 @@ export function ValesSalidaTable({
                         <Eye className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
-                    )}
-                    {onDelete && (
+                    ) : null}
+                    {onDelete ? (
                       <Button
                         variant="outline"
                         size="sm"
@@ -170,7 +166,7 @@ export function ValesSalidaTable({
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 </td>
               </tr>

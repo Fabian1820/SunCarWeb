@@ -66,6 +66,30 @@ export class ClienteVentaService {
     return (raw?.data ?? raw) as ClienteVenta;
   }
 
+  static async buscarClientesPorNombre(
+    nombre: string,
+    limit = 20,
+  ): Promise<ClienteVenta[]> {
+    const search = new URLSearchParams();
+    if (nombre.trim()) search.append("nombre", nombre.trim());
+    if (limit > 0) search.append("limit", String(limit));
+
+    try {
+      const raw = await apiRequest<any>(
+        `${BASE_ENDPOINT}/buscar?${search.toString()}`,
+      );
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+
+      const payload = raw?.data ?? raw;
+      if (Array.isArray(payload)) return payload;
+      return payload?.clientes || payload?.data || [];
+    } catch {
+      // Fallback de compatibilidad por si la ruta /buscar no existe en un entorno.
+      return this.getClientes({ nombre: nombre.trim(), limit });
+    }
+  }
+
   static async createCliente(
     data: ClienteVentaCreateData,
   ): Promise<ClienteVenta> {

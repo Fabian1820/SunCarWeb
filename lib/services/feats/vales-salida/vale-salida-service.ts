@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { apiRequest } from "../../../api-config";
-import type { ValeSalida, ValeSalidaCreateData } from "../../../api-types";
+import type {
+  ValeSalida,
+  ValeSalidaCreateData,
+  ValeSolicitudPendiente,
+} from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/vales-salida";
 const buildDetailEndpoint = (id: string) =>
@@ -30,7 +34,9 @@ export class ValeSalidaService {
    */
   static async getVales(
     params: {
+      solicitud_tipo?: "material" | "venta";
       solicitud_material_id?: string;
+      solicitud_venta_id?: string;
       // Legacy fallback
       solicitud_id?: string;
       trabajador_id?: string;
@@ -40,8 +46,17 @@ export class ValeSalidaService {
     } = {},
   ): Promise<ValeSalida[]> {
     const search = new URLSearchParams();
-    const solicitudId = params.solicitud_material_id || params.solicitud_id;
-    if (solicitudId) search.append("solicitud_material_id", solicitudId);
+    if (params.solicitud_tipo) {
+      search.append("solicitud_tipo", params.solicitud_tipo);
+    }
+    const solicitudMaterialId =
+      params.solicitud_material_id || params.solicitud_id;
+    if (solicitudMaterialId) {
+      search.append("solicitud_material_id", solicitudMaterialId);
+    }
+    if (params.solicitud_venta_id) {
+      search.append("solicitud_venta_id", params.solicitud_venta_id);
+    }
     if (params.trabajador_id)
       search.append("trabajador_id", params.trabajador_id);
     if (params.codigo) search.append("codigo", params.codigo);
@@ -79,9 +94,21 @@ export class ValeSalidaService {
    * trabajador_id is taken from the session token
    */
   static async createVale(data: ValeSalidaCreateData): Promise<ValeSalida> {
+    const solicitudMaterialId = data.solicitud_material_id;
+    const solicitudVentaId = data.solicitud_venta_id;
+
+    if (
+      (solicitudMaterialId && solicitudVentaId) ||
+      (!solicitudMaterialId && !solicitudVentaId)
+    ) {
+      throw new Error(
+        "Debe enviar solo uno: solicitud_material_id o solicitud_venta_id",
+      );
+    }
+
     const payload = {
-      solicitud_material_id:
-        data.solicitud_material_id || (data as any).solicitud_id,
+      solicitud_material_id: solicitudMaterialId,
+      solicitud_venta_id: solicitudVentaId,
       materiales: data.materiales,
     };
 
@@ -92,6 +119,47 @@ export class ValeSalidaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return (raw?.data ?? raw) as ValeSalida;
+  }
+
+  static async getSolicitudesPorAlmacen(
+    almacenId: string,
+    params: {
+      skip?: number;
+      limit?: number;
+      estado?: "nueva" | "usada" | string;
+      incluir_con_vale?: boolean;
+    } = {},
+  ): Promise<ValeSolicitudPendiente[]> {
+    const search = new URLSearchParams();
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+    if (params.estado) search.append("estado", params.estado);
+    if (params.incluir_con_vale != null) {
+      search.append("incluir_con_vale", String(params.incluir_con_vale));
+    }
+
+    const query = search.toString() ? `?${search.toString()}` : "";
+    const encodedAlmacenId = encodeURIComponent(almacenId);
+    const primaryEndpoint = `${BASE_ENDPOINT}/solicitudes-por-almacen/${encodedAlmacenId}${query}`;
+    const aliasEndpoint = `${BASE_ENDPOINT}/solicitudes-materiales-por-almacen/${encodedAlmacenId}${query}`;
+
+    try {
+      const raw = await apiRequest<any>(primaryEndpoint);
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+
+      const payload = raw?.data ?? raw;
+      if (Array.isArray(payload)) return payload;
+      return payload?.solicitudes || payload?.data || [];
+    } catch {
+      const raw = await apiRequest<any>(aliasEndpoint);
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+
+      const payload = raw?.data ?? raw;
+      if (Array.isArray(payload)) return payload;
+      return payload?.solicitudes || payload?.data || [];
+    }
   }
 
   /**

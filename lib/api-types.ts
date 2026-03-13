@@ -109,6 +109,8 @@ export type {
   ValeSalida,
   ValeSalidaCreateData,
   ValeSalidaListResponse,
+  ValeSolicitudPendiente,
+  ValeSolicitudTipo,
   ValeSalidaMaterialItem,
   ValeSalidaMaterialItemDetalle,
   ValeSolicitudInfo,

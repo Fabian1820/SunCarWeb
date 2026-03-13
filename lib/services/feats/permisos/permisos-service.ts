@@ -108,4 +108,23 @@ export const PermisosService = {
 
     return response
   },
+
+  /**
+   * Cambia la contraseña administrativa del usuario autenticado.
+   * Requiere token JWT válido en Authorization.
+   */
+  async changeOwnAdminPassword(
+    currentAdminPass: string,
+    newAdminPass: string
+  ): Promise<{ success: boolean; message: string }> {
+    const response = await apiRequest<{
+      success: boolean
+      message: string
+    }>('/auth/change-admin-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentAdminPass, newAdminPass }),
+    })
+
+    return response
+  },
 }

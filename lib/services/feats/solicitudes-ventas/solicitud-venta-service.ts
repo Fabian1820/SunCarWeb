@@ -195,6 +195,9 @@ export class SolicitudVentaService {
     const search = new URLSearchParams();
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
+    if (params.cliente_venta_id) {
+      search.append("cliente_venta_id", params.cliente_venta_id);
+    }
     if (params.cliente_venta_numero) {
       search.append("cliente_venta_numero", params.cliente_venta_numero);
     }
@@ -228,13 +231,29 @@ export class SolicitudVentaService {
   static async createSolicitud(
     data: SolicitudVentaCreateData,
   ): Promise<SolicitudVenta> {
+    const clienteVentaId = asString(data.cliente_venta_id);
+    const clienteVentaPayload = data.cliente_venta
+      ? {
+          ...data.cliente_venta,
+          nombre: data.cliente_venta.nombre.trim(),
+        }
+      : undefined;
+
+    if (clienteVentaId && clienteVentaPayload) {
+      throw new Error(
+        "No se puede enviar cliente_venta_id y cliente_venta al mismo tiempo",
+      );
+    }
+
+    if (clienteVentaPayload && !clienteVentaPayload.nombre) {
+      throw new Error("El nombre del cliente venta es obligatorio");
+    }
+
     const payload: SolicitudVentaCreateData = {
-      ...data,
-      cliente_venta: {
-        ...data.cliente_venta,
-        nombre: data.cliente_venta.nombre.trim(),
-      },
+      almacen_id: data.almacen_id,
       materiales: normalizeMaterialesPayload(data.materiales),
+      cliente_venta_id: clienteVentaId,
+      cliente_venta: clienteVentaPayload,
     };
 
     const raw = await apiRequest<any>(`${BASE_ENDPOINT}/`, {
@@ -251,14 +270,24 @@ export class SolicitudVentaService {
     id: string,
     data: SolicitudVentaUpdateData,
   ): Promise<SolicitudVenta> {
+    const clienteVentaId = asString(data.cliente_venta_id);
+    const clienteVentaPayload = data.cliente_venta
+      ? {
+          ...data.cliente_venta,
+          nombre: data.cliente_venta.nombre?.trim(),
+        }
+      : undefined;
+
+    if (clienteVentaId && clienteVentaPayload) {
+      throw new Error(
+        "No se puede enviar cliente_venta_id y cliente_venta al mismo tiempo",
+      );
+    }
+
     const payload: SolicitudVentaUpdateData = {
       ...data,
-      cliente_venta: data.cliente_venta
-        ? {
-            ...data.cliente_venta,
-            nombre: data.cliente_venta.nombre?.trim(),
-          }
-        : undefined,
+      cliente_venta_id: clienteVentaId,
+      cliente_venta: clienteVentaPayload,
       materiales: data.materiales
         ? normalizeMaterialesPayload(data.materiales)
         : undefined,
@@ -278,14 +307,24 @@ export class SolicitudVentaService {
     id: string,
     data: SolicitudVentaUpdateData,
   ): Promise<SolicitudVenta> {
+    const clienteVentaId = asString(data.cliente_venta_id);
+    const clienteVentaPayload = data.cliente_venta
+      ? {
+          ...data.cliente_venta,
+          nombre: data.cliente_venta.nombre?.trim(),
+        }
+      : undefined;
+
+    if (clienteVentaId && clienteVentaPayload) {
+      throw new Error(
+        "No se puede enviar cliente_venta_id y cliente_venta al mismo tiempo",
+      );
+    }
+
     const payload: SolicitudVentaUpdateData = {
       ...data,
-      cliente_venta: data.cliente_venta
-        ? {
-            ...data.cliente_venta,
-            nombre: data.cliente_venta.nombre?.trim(),
-          }
-        : undefined,
+      cliente_venta_id: clienteVentaId,
+      cliente_venta: clienteVentaPayload,
       materiales: data.materiales
         ? normalizeMaterialesPayload(data.materiales)
         : undefined,

@@ -1,4 +1,8 @@
-﻿import type { ClienteVenta, ClienteVentaCreateData, ClienteVentaUpdateData } from "../clientes-ventas/cliente-venta-types";
+﻿import type {
+  ClienteVenta,
+  ClienteVentaCreateData,
+  ClienteVentaUpdateData,
+} from "../clientes-ventas/cliente-venta-types";
 
 export interface SolicitudVentaMaterialItem {
   material_id: string;
@@ -59,12 +63,14 @@ export interface SolicitudVenta {
 }
 
 export interface SolicitudVentaCreateData {
-  cliente_venta: ClienteVentaCreateData;
+  cliente_venta_id?: string;
+  cliente_venta?: ClienteVentaCreateData;
   almacen_id: string;
   materiales: SolicitudVentaMaterialItem[];
 }
 
 export interface SolicitudVentaUpdateData {
+  cliente_venta_id?: string;
   cliente_venta?: ClienteVentaUpdateData;
   almacen_id?: string;
   materiales?: SolicitudVentaMaterialItem[];
@@ -73,6 +79,7 @@ export interface SolicitudVentaUpdateData {
 export interface SolicitudVentaListParams {
   skip?: number;
   limit?: number;
+  cliente_venta_id?: string;
   cliente_venta_numero?: string;
   almacen_id?: string;
   trabajador_id?: string;

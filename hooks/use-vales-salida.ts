@@ -44,11 +44,18 @@ export function useValesSalida(): UseValesSalidaReturn {
 
     const term = searchTerm.toLowerCase();
     return vales.filter((v) => {
-      const solicitud = v.solicitud_material || v.solicitud;
+      const solicitud =
+        v.solicitud_material || v.solicitud_venta || v.solicitud;
+      const clienteNombre =
+        solicitud?.cliente?.nombre || solicitud?.cliente_venta?.nombre;
+      const solicitudCodigo =
+        solicitud?.codigo ||
+        v.solicitud_material_id?.slice(-6).toUpperCase() ||
+        v.solicitud_venta_id?.slice(-6).toUpperCase();
       return (
         v.codigo?.toLowerCase().includes(term) ||
-        solicitud?.codigo?.toLowerCase().includes(term) ||
-        solicitud?.cliente?.nombre?.toLowerCase().includes(term) ||
+        solicitudCodigo?.toLowerCase().includes(term) ||
+        clienteNombre?.toLowerCase().includes(term) ||
         v.trabajador?.nombre?.toLowerCase().includes(term) ||
         v.trabajador?.ci?.toLowerCase().includes(term)
       );

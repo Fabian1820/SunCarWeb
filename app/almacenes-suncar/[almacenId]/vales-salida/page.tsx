@@ -16,22 +16,29 @@ import { ConfirmDeleteDialog } from "@/components/shared/molecule/dialog";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
-import {
-  Search,
-  FileOutput,
-  Plus,
-  Copy,
-  Check,
-  Loader2,
-  ClipboardList,
-} from "lucide-react";
-import { SolicitudMaterialService } from "@/lib/api-services";
+import { Search, FileOutput, Plus, Loader2, ClipboardList } from "lucide-react";
+import { ValeSalidaService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
 import { useValesSalida } from "@/hooks/use-vales-salida";
 import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
 import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-vale-salida-dialog";
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
-import type { SolicitudMaterial, ValeSalida } from "@/lib/api-types";
+import type { ValeSalida, ValeSolicitudPendiente } from "@/lib/api-types";
+
+const getTipoStyles = (tipo?: string) =>
+  tipo === "venta"
+    ? {
+        badge: "bg-indigo-50 text-indigo-700 border-indigo-200",
+        row: "hover:bg-indigo-50/30",
+        button: "bg-indigo-600 hover:bg-indigo-700 text-white",
+        text: "text-indigo-700",
+      }
+    : {
+        badge: "bg-amber-50 text-amber-700 border-amber-200",
+        row: "hover:bg-amber-50/30",
+        button: "bg-amber-600 hover:bg-amber-700 text-white",
+        text: "text-amber-700",
+      };
 
 export default function ValesSalidaPage() {
   const params = useParams();
@@ -55,23 +62,23 @@ export default function ValesSalidaPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [valeToDelete, setValeToDelete] = useState<ValeSalida | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-  const [prefillSolicitudCode, setPrefillSolicitudCode] = useState<
-    string | null
-  >(null);
-  const [solicitudesPendientes, setSolicitudesPendientes] = useState<
-    SolicitudMaterial[]
-  >([]);
-  const [loadingPendientes, setLoadingPendientes] = useState(false);
-  const [copiedSolicitudId, setCopiedSolicitudId] = useState<string | null>(
+
+  const [prefillSolicitudId, setPrefillSolicitudId] = useState<string | null>(
     null,
   );
+  const [solicitudesPendientes, setSolicitudesPendientes] = useState<
+    ValeSolicitudPendiente[]
+  >([]);
+  const [loadingPendientes, setLoadingPendientes] = useState(false);
 
   const loadSolicitudesPendientes = useCallback(async () => {
     setLoadingPendientes(true);
     try {
-      const data = await SolicitudMaterialService.getSolicitudes({
-        almacen_id: almacenId,
+      const data = await ValeSalidaService.getSolicitudesPorAlmacen(almacenId, {
         estado: "nueva",
+        incluir_con_vale: false,
+        skip: 0,
+        limit: 500,
       });
       setSolicitudesPendientes(data);
     } catch (error) {
@@ -88,12 +95,13 @@ export default function ValesSalidaPage() {
   }, [almacenId, toast]);
 
   useEffect(() => {
-    loadSolicitudesPendientes();
+    void loadSolicitudesPendientes();
   }, [loadSolicitudesPendientes]);
 
   const valesAlmacen = useMemo(() => {
     return filteredVales.filter((vale) => {
-      const solicitud = vale.solicitud_material || vale.solicitud;
+      const solicitud =
+        vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
       const solicitudAlmacenId = solicitud?.almacen?.id;
       if (!solicitudAlmacenId) return true;
       return solicitudAlmacenId === almacenId;
@@ -105,14 +113,14 @@ export default function ValesSalidaPage() {
   }
 
   const handleCreateSuccess = () => {
-    loadVales();
-    loadSolicitudesPendientes();
-    setPrefillSolicitudCode(null);
+    void loadVales();
+    void loadSolicitudesPendientes();
+    setPrefillSolicitudId(null);
   };
 
   const handleCreateDialogOpenChange = (open: boolean) => {
     setIsCreateDialogOpen(open);
-    if (!open) setPrefillSolicitudCode(null);
+    if (!open) setPrefillSolicitudId(null);
   };
 
   const handleDeleteVale = (vale: ValeSalida) => {
@@ -131,7 +139,7 @@ export default function ValesSalidaPage() {
         title: "Exito",
         description: "Vale de salida eliminado correctamente",
       });
-      loadSolicitudesPendientes();
+      void loadSolicitudesPendientes();
       setValeToDelete(null);
       setIsDeleteDialogOpen(false);
     } catch (error) {
@@ -149,7 +157,7 @@ export default function ValesSalidaPage() {
   };
 
   const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "—";
+    if (!dateStr) return "-";
     try {
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
@@ -157,40 +165,20 @@ export default function ValesSalidaPage() {
         year: "numeric",
       });
     } catch {
-      return "—";
+      return "-";
     }
   };
 
-  const getSolicitudCode = (solicitud: SolicitudMaterial) =>
-    solicitud.codigo || solicitud.id.slice(-6).toUpperCase();
+  const getSolicitudCode = (solicitud: ValeSolicitudPendiente) =>
+    solicitud.codigo || solicitud.solicitud_id.slice(-6).toUpperCase();
 
-  const handleCopyCodigo = async (solicitud: SolicitudMaterial) => {
-    const codigo = getSolicitudCode(solicitud);
-    try {
-      await navigator.clipboard.writeText(codigo);
-      setCopiedSolicitudId(solicitud.id);
-      toast({
-        title: "Copiado",
-        description: `Codigo ${codigo} copiado al portapapeles`,
-      });
-      setTimeout(() => {
-        setCopiedSolicitudId((current) =>
-          current === solicitud.id ? null : current,
-        );
-      }, 1800);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo copiar el codigo al portapapeles",
-        variant: "destructive",
-      });
-      console.error("Error copying solicitud code:", error);
-    }
-  };
+  const getSolicitudCliente = (solicitud: ValeSolicitudPendiente) =>
+    solicitud.cliente_venta?.nombre ||
+    solicitud.cliente?.nombre ||
+    "Sin cliente";
 
-  const handleCreateFromSolicitud = (solicitud: SolicitudMaterial) => {
-    const codigo = getSolicitudCode(solicitud);
-    setPrefillSolicitudCode(codigo);
+  const handleCreateFromSolicitud = (solicitud: ValeSolicitudPendiente) => {
+    setPrefillSolicitudId(solicitud.solicitud_id);
     setIsCreateDialogOpen(true);
   };
 
@@ -198,7 +186,7 @@ export default function ValesSalidaPage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
         title="Vales de Salida"
-        subtitle="Gestiona los vales de salida de materiales"
+        subtitle="Gestiona los vales de salida desde solicitudes de materiales y ventas"
         badge={{
           text: "Almacenes",
           className: "bg-orange-100 text-orange-800",
@@ -228,11 +216,11 @@ export default function ValesSalidaPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5 text-amber-600" />
-              Solicitudes Pendientes (Nuevas)
+              Solicitudes pendientes para vale
             </CardTitle>
             <CardDescription>
-              Copia el codigo y pegalo en el buscador del dialogo para crear el
-              vale.
+              Incluye solicitudes de materiales y solicitudes de ventas en
+              estado nueva.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -250,6 +238,9 @@ export default function ValesSalidaPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200">
+                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                        Tipo
+                      </th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-900">
                         Codigo
                       </th>
@@ -269,17 +260,28 @@ export default function ValesSalidaPage() {
                   </thead>
                   <tbody>
                     {solicitudesPendientes.map((solicitud) => {
-                      const copied = copiedSolicitudId === solicitud.id;
+                      const styles = getTipoStyles(solicitud.tipo_solicitud);
                       return (
                         <tr
-                          key={solicitud.id}
-                          className="border-b border-gray-100"
+                          key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
+                          className={`border-b border-gray-100 ${styles.row}`}
                         >
-                          <td className="py-2 px-2 font-mono font-medium text-amber-700">
+                          <td className="py-2 px-2">
+                            <span
+                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${styles.badge}`}
+                            >
+                              {solicitud.tipo_solicitud === "venta"
+                                ? "Venta"
+                                : "Material"}
+                            </span>
+                          </td>
+                          <td
+                            className={`py-2 px-2 font-mono font-medium ${styles.text}`}
+                          >
                             {getSolicitudCode(solicitud)}
                           </td>
                           <td className="py-2 px-2 text-gray-700">
-                            {solicitud.cliente?.nombre || "Sin cliente"}
+                            {getSolicitudCliente(solicitud)}
                           </td>
                           <td className="py-2 px-2 text-gray-700">
                             {solicitud.materiales?.length || 0}
@@ -288,38 +290,18 @@ export default function ValesSalidaPage() {
                             {formatDate(solicitud.fecha_creacion)}
                           </td>
                           <td className="py-2 px-2">
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                                onClick={() => handleCopyCodigo(solicitud)}
-                                title="Copiar codigo"
-                              >
-                                {copied ? (
-                                  <>
-                                    <Check className="h-4 w-4 mr-1" />
-                                    Copiado
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="h-4 w-4 mr-1" />
-                                    Copiar codigo
-                                  </>
-                                )}
-                              </Button>
-                              <Button
-                                size="sm"
-                                className="bg-amber-600 hover:bg-amber-700 text-white"
-                                onClick={() =>
-                                  handleCreateFromSolicitud(solicitud)
-                                }
-                                title="Crear vale desde esta solicitud"
-                              >
-                                <Plus className="h-4 w-4 mr-1" />
-                                Crear vale
-                              </Button>
-                            </div>
+                            <Button
+                              size="sm"
+                              className={styles.button}
+                              onClick={() =>
+                                handleCreateFromSolicitud(solicitud)
+                              }
+                              title="Crear vale desde esta solicitud"
+                              disabled={solicitud.puede_generar_vale === false}
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Crear vale
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -385,7 +367,8 @@ export default function ValesSalidaPage() {
         open={isCreateDialogOpen}
         onOpenChange={handleCreateDialogOpenChange}
         onSuccess={handleCreateSuccess}
-        prefillSolicitudCode={prefillSolicitudCode}
+        almacenId={almacenId}
+        prefillSolicitudId={prefillSolicitudId}
       />
 
       <ValeSalidaDetailDialog

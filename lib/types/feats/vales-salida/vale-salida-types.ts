@@ -3,6 +3,8 @@ export interface ValeSalidaMaterialItem {
   cantidad: number;
 }
 
+export type ValeSolicitudTipo = "material" | "venta";
+
 export interface ValeSalidaMaterialItemDetalle {
   material_id: string;
   cantidad: number;
@@ -53,6 +55,7 @@ export interface ValeSolicitudInfo {
   id: string;
   codigo?: string;
   cliente?: ValeClienteInfo | null;
+  cliente_venta?: ValeClienteInfo | null;
   almacen?: ValeAlmacenInfo;
   trabajador?: ValeTrabajadorInfo;
   estado?: string;
@@ -61,11 +64,14 @@ export interface ValeSolicitudInfo {
 export interface ValeSalida {
   id: string;
   codigo?: string;
-  solicitud_material_id: string;
+  solicitud_tipo?: ValeSolicitudTipo | string;
+  solicitud_material_id?: string;
+  solicitud_venta_id?: string;
   // Legacy fallback kept for compatibility with old responses
   solicitud_id?: string;
   trabajador_id?: string;
   solicitud_material?: ValeSolicitudInfo | null;
+  solicitud_venta?: ValeSolicitudInfo | null;
   // Legacy fallback kept for compatibility with old responses
   solicitud?: ValeSolicitudInfo | null;
   trabajador?: ValeTrabajadorInfo;
@@ -77,8 +83,25 @@ export interface ValeSalida {
 }
 
 export interface ValeSalidaCreateData {
-  solicitud_material_id: string;
+  solicitud_material_id?: string;
+  solicitud_venta_id?: string;
   materiales: ValeSalidaMaterialItem[];
+}
+
+export interface ValeSolicitudPendiente {
+  tipo_solicitud: ValeSolicitudTipo | string;
+  solicitud_id: string;
+  codigo?: string;
+  estado?: "nueva" | "usada" | string;
+  cliente?: ValeClienteInfo | null;
+  cliente_venta?: ValeClienteInfo | null;
+  almacen?: ValeAlmacenInfo;
+  trabajador?: ValeTrabajadorInfo;
+  materiales: ValeSalidaMaterialItemDetalle[];
+  vale_id?: string | null;
+  puede_generar_vale?: boolean;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string;
 }
 
 export interface ValeSalidaListResponse {
