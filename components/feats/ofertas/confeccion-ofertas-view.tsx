@@ -79,6 +79,12 @@ interface SeccionPersonalizada {
 
 const SECCION_AMPLIACION_ID = "AMPLIACION_SISTEMA";
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
+const CODIGOS_BATERIA_DESCUENTO_20 = new Set([
+  "FLS48100SMG01",
+  "FLS48100SCG01",
+]);
+const DESCUENTO_INVERSOR_BATERIA = 0.15;
+const DESCUENTO_BATERIA_EXCEPCION = 0.2;
 
 interface CostoExtra {
   id: string;
@@ -3719,11 +3725,23 @@ export function ConfeccionOfertasView({
       activeStep.id === SECCION_AMPLIACION_ID ||
       esSeccionPersonalizadaDeMateriales;
 
-    // Aplicar 15% solo cuando la categoría del material sea inversores o baterías
+    const codigoNormalizado = codigo.trim().toUpperCase();
+    const esMaterialConDescuento20 =
+      CODIGOS_BATERIA_DESCUENTO_20.has(codigoNormalizado);
+    const porcentajeDescuento = esMaterialConDescuento20
+      ? DESCUENTO_BATERIA_EXCEPCION
+      : DESCUENTO_INVERSOR_BATERIA;
+    const aplicaDescuentoCategoria =
+      esCategoriaInversorOBateria || esMaterialConDescuento20;
+
+    // Aplicar descuento solo cuando la categoría del material sea inversores o baterías
     // en las secciones estándar, ampliación y secciones personalizadas de materiales.
+    // Regla especial: FLS48100SMG01 y FLS48100SCG01 usan 20% en lugar de 15%.
     const precioBase =
-      esSeccionConDescuentoEspecial && esCategoriaInversorOBateria
-        ? Number(((material.precio || 0) * 0.85).toFixed(2))
+      esSeccionConDescuentoEspecial && aplicaDescuentoCategoria
+        ? Number(
+            ((material.precio || 0) * (1 - porcentajeDescuento)).toFixed(2),
+          )
         : material.precio || 0;
 
     setItems((prev) => {
