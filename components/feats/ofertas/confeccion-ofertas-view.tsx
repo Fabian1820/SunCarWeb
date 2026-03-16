@@ -45,6 +45,10 @@ import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { LeadService } from "@/lib/services/feats/leads/lead-service";
 import type { Material } from "@/lib/material-types";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
+import {
+  buildTerminosCondicionesHtml,
+  type TerminosCondicionesPayload,
+} from "@/lib/utils/terminos-condiciones-export";
 
 interface OfertaItem {
   id: string;
@@ -920,17 +924,19 @@ export function ConfeccionOfertasView({
         const { apiRequest } = await import("@/lib/api-config");
         const result = await apiRequest<{
           success: boolean;
-          data?: {
-            id: string;
-            texto: string;
-            activo: boolean;
-          };
+          data?: TerminosCondicionesPayload;
         }>("/terminos-condiciones/activo", {
           method: "GET",
         });
 
         if (result.success && result.data) {
-          setTerminosCondiciones(result.data.texto);
+          const terminosFormateados = buildTerminosCondicionesHtml(result.data);
+          setTerminosCondiciones(
+            terminosFormateados ||
+              (typeof result.data.texto === "string"
+                ? result.data.texto
+                : null),
+          );
         }
       } catch (error) {
         console.error("Error cargando términos y condiciones:", error);
