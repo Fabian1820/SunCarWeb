@@ -1,34 +1,16 @@
-// Tipos para el módulo de Fichas de Costo
+// Tipos para el módulo de Fichas de Costo (modelo simplificado)
 
-export type ModoDistribucion = 'unidad' | 'lote' | 'contenedor'
-
-export interface CostoDetalle {
-  modo: ModoDistribucion
-  precio_total: number
-  cantidad_base: number
-}
-
-export interface OtroCosto {
-  tipo_costo: string
-  detalle: CostoDetalle
-}
-
-// Payload para crear ficha
+// Payload para crear ficha: solo material + porcentaje a subir
 export interface FichaCostoCreateData {
   material_id: string
-  costo_unitario: number
-  costo_transportacion: CostoDetalle
-  costo_envio: CostoDetalle
-  otros_costos: OtroCosto[]
-  porcentaje_ganancia: number
+  porcentaje: number
 }
 
 // Auditoría
 export interface AuditoriaEntry {
-  accion: string
-  usuario?: string
+  tipo: string
+  nombre: string
   fecha: string
-  detalle?: string
 }
 
 // Ficha completa devuelta por backend
@@ -36,19 +18,22 @@ export interface FichaCosto {
   _id?: string
   id?: string
   material_id: string
+  material_codigo_snapshot?: string
+  material_descripcion_snapshot?: string
   version: number
   estado: string
   vigente_desde: string
   vigente_hasta?: string | null
-  costo_unitario: number
-  costo_transportacion: CostoDetalle
-  costo_envio: CostoDetalle
-  otros_costos: OtroCosto[]
-  porcentaje_ganancia: number
-  costo_real_unitario: number
-  ganancia_unitaria: number
+  // Precio del material en el momento de crear la ficha
+  precio_base: number
+  // Porcentaje sumado al precio base
+  porcentaje: number
+  // precio_base * (1 + porcentaje / 100)
+  precio_calculado: number
+  // precio_venta_calculado de la ficha anterior (null si era la primera)
+  precio_anterior_ficha?: number | null
+  // MAX(precio_calculado, precio_anterior_ficha) — precio final de venta
   precio_venta_calculado: number
-  costo_unitario_calculado?: number
   auditoria: AuditoriaEntry[]
   fecha_creacion?: string
   fecha_actualizacion?: string
@@ -73,9 +58,11 @@ export interface AplicarPrecioResponse {
 export interface FichaResumen {
   id: string
   version: number
+  precio_base: number
+  porcentaje: number
+  precio_calculado: number
+  precio_anterior_ficha?: number | null
   precio_venta_calculado: number
-  costo_real_unitario: number
-  porcentaje_ganancia: number
   vigente_desde: string
 }
 

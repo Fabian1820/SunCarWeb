@@ -500,6 +500,7 @@ function FichasCostoPageContent() {
             <CrearFichaForm
               materialId={getMaterialId(materialSeleccionado)}
               materialNombre={getMaterialName(materialSeleccionado)}
+              materialPrecio={materialSeleccionado.precio}
               onSubmit={handleCrearFicha}
               onCancel={() => setIsCrearOpen(false)}
               loading={loadingAction}
