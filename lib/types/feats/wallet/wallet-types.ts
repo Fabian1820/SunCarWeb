@@ -1,4 +1,9 @@
-export type WalletTransactionType = "ingreso" | "gasto";
+export type WalletTransactionType =
+  | "ingreso"
+  | "gasto"
+  | "transferencia"
+  | "transferencia_entrada"
+  | "transferencia_salida";
 
 export interface Wallet {
   id: string;
@@ -27,6 +32,12 @@ export interface WalletTransaction {
   created_by_nombre: string;
   referencia_externa?: string | null;
   es_manual?: boolean;
+  categoria?: "manual" | "transferencia";
+  transferencia_id?: string | null;
+  transferencia_direccion?: "entrada" | "salida";
+  contraparte_wallet_id?: string | null;
+  contraparte_user_ci?: string | null;
+  contraparte_user_nombre?: string | null;
 }
 
 export interface WalletTransactionCreateData {

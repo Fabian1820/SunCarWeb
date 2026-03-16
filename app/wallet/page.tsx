@@ -82,22 +82,45 @@ const formatDateTime = (value: string): string => {
   });
 };
 
-const TransactionTypeBadge = ({ tipo }: { tipo: WalletTransactionType }) => (
-  <Badge
-    className={
-      tipo === "ingreso"
-        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-        : "bg-red-100 text-red-700 border-red-200"
-    }
-  >
-    {tipo === "ingreso" ? (
-      <ArrowUpCircle className="h-3 w-3 mr-1" />
-    ) : (
-      <ArrowDownCircle className="h-3 w-3 mr-1" />
-    )}
-    {tipo}
-  </Badge>
-);
+const isTransferTransaction = (transaction: WalletTransaction): boolean => {
+  return (
+    transaction.categoria === "transferencia" ||
+    Boolean(transaction.transferencia_id) ||
+    transaction.tipo === "transferencia" ||
+    transaction.tipo === "transferencia_entrada" ||
+    transaction.tipo === "transferencia_salida"
+  );
+};
+
+const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction }) => {
+  if (isTransferTransaction(transaction)) {
+    return (
+      <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">
+        <SendHorizontal className="h-3 w-3 mr-1" />
+        transferencia
+      </Badge>
+    );
+  }
+
+  const tipo = transaction.tipo;
+  const ingreso = tipo === "ingreso";
+  return (
+    <Badge
+      className={
+        ingreso
+          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+          : "bg-red-100 text-red-700 border-red-200"
+      }
+    >
+      {ingreso ? (
+        <ArrowUpCircle className="h-3 w-3 mr-1" />
+      ) : (
+        <ArrowDownCircle className="h-3 w-3 mr-1" />
+      )}
+      {tipo}
+    </Badge>
+  );
+};
 
 type TransactionsResponsiveListProps = {
   transactions: WalletTransaction[];
@@ -134,7 +157,7 @@ function TransactionsResponsiveList({
                 <p className="text-xs text-gray-500">
                   {formatDateTime(transaction.created_at)}
                 </p>
-                <TransactionTypeBadge tipo={transaction.tipo} />
+                <TransactionTypeBadge transaction={transaction} />
               </div>
               <p className="text-base font-semibold text-gray-900">
                 {formatMoney(transaction.monto, currency)}
@@ -196,7 +219,7 @@ function TransactionsResponsiveList({
                   </TableCell>
                 ) : null}
                 <TableCell>
-                  <TransactionTypeBadge tipo={transaction.tipo} />
+                  <TransactionTypeBadge transaction={transaction} />
                 </TableCell>
                 <TableCell className="font-medium">
                   {formatMoney(transaction.monto, currency)}
@@ -273,7 +296,6 @@ function WalletPageContent() {
   const [isWalletsDialogOpen, setIsWalletsDialogOpen] = useState(false);
   const [isWalletDetailDialogOpen, setIsWalletDetailDialogOpen] = useState(false);
 
-  const [transferFromWalletId, setTransferFromWalletId] = useState("");
   const [transferToWalletId, setTransferToWalletId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferReason, setTransferReason] = useState("");
@@ -297,8 +319,8 @@ function WalletPageContent() {
   }, [walletSearch, wallets]);
 
   const transferTargets = useMemo(
-    () => wallets.filter((item) => item.id !== transferFromWalletId),
-    [wallets, transferFromWalletId],
+    () => wallets.filter((item) => item.id !== wallet?.id),
+    [wallets, wallet?.id],
   );
 
   useEffect(() => {
@@ -311,20 +333,14 @@ function WalletPageContent() {
   }, [loadTransactions, currentFilters]);
 
   useEffect(() => {
-    if (wallet?.id && !transferFromWalletId) {
-      setTransferFromWalletId(wallet.id);
-    }
-  }, [wallet?.id, transferFromWalletId]);
-
-  useEffect(() => {
     if (
       transferToWalletId &&
-      transferFromWalletId &&
-      transferToWalletId === transferFromWalletId
+      wallet?.id &&
+      transferToWalletId === wallet.id
     ) {
       setTransferToWalletId("");
     }
-  }, [transferFromWalletId, transferToWalletId]);
+  }, [wallet?.id, transferToWalletId]);
 
   const getWalletCurrency = (walletData?: WalletType | null) =>
     walletData?.moneda || wallet?.moneda || "USD";
@@ -414,17 +430,18 @@ function WalletPageContent() {
   const handleTransfer = async () => {
     const parsedAmount = Number(transferAmount.replace(",", "."));
     const trimmedReason = transferReason.trim();
+    const sourceWalletId = wallet?.id;
 
-    if (!transferFromWalletId || !transferToWalletId) {
+    if (!sourceWalletId || !transferToWalletId) {
       toast({
         title: "Transferencia incompleta",
-        description: "Selecciona billetera origen y destino.",
+        description: "Debes tener tu billetera iniciada y seleccionar destino.",
         variant: "destructive",
       });
       return;
     }
 
-    if (transferFromWalletId === transferToWalletId) {
+    if (sourceWalletId === transferToWalletId) {
       toast({
         title: "Transferencia inválida",
         description: "El origen y destino deben ser diferentes.",
@@ -454,7 +471,7 @@ function WalletPageContent() {
     try {
       await createTransfer(
         {
-          wallet_origen_id: transferFromWalletId,
+          wallet_origen_id: sourceWalletId,
           wallet_destino_id: transferToWalletId,
           monto: parsedAmount,
           motivo: trimmedReason,
@@ -684,21 +701,14 @@ function WalletPageContent() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label htmlFor="transfer-from">Desde</Label>
-                <Select
-                  value={transferFromWalletId}
-                  onValueChange={setTransferFromWalletId}
+                <div
+                  id="transfer-from"
+                  className="h-10 rounded-md border border-input bg-gray-50 px-3 text-sm flex items-center"
                 >
-                  <SelectTrigger id="transfer-from">
-                    <SelectValue placeholder="Seleccione origen" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {wallets.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.user_nombre} ({item.user_ci})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {wallet
+                    ? `${wallet.user_nombre} (${wallet.user_ci})`
+                    : "Inicia tu billetera primero"}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -745,7 +755,7 @@ function WalletPageContent() {
 
             <Button
               onClick={handleTransfer}
-              disabled={transferring || loadingWallets || wallets.length < 2}
+              disabled={transferring || loadingWallets || wallets.length < 2 || !wallet}
             >
               {transferring ? "Transfiriendo..." : "Transferir"}
             </Button>
