@@ -57,6 +57,18 @@ export class FichaCostoService {
     return response.data || response || []
   }
 
+  // Crear fichas de costo para múltiples materiales con el mismo porcentaje
+  static async crearFichasBulk(
+    material_ids: string[],
+    porcentaje: number
+  ): Promise<{ total: number; creadas: number; errores_count: number; fichas: any[]; errores: any[] }> {
+    const response = await apiRequest<any>('/fichas-costo-materiales/bulk', {
+      method: 'POST',
+      body: JSON.stringify({ material_ids, porcentaje }),
+    })
+    return response.data || response
+  }
+
   // Aplicar precio calculado al material
   static async aplicarPrecio(materialId: string): Promise<AplicarPrecioResponse> {
     const response = await apiRequest<AplicarPrecioResponse>(

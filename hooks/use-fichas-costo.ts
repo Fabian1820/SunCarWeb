@@ -8,6 +8,14 @@ import type {
   MaterialFichaResumen,
 } from '@/lib/types/feats/fichas-costo/ficha-costo-types'
 
+interface BulkResult {
+  total: number
+  creadas: number
+  errores_count: number
+  fichas: any[]
+  errores: any[]
+}
+
 interface UseFichasCostoReturn {
   fichaActiva: FichaCosto | null
   historial: FichaCosto[]
@@ -16,8 +24,10 @@ interface UseFichasCostoReturn {
   loading: boolean
   loadingAction: boolean
   loadingResumen: boolean
+  loadingBulk: boolean
   error: string | null
   crearFicha: (data: FichaCostoCreateData) => Promise<FichaCosto | null>
+  crearBulk: (materialIds: string[], porcentaje: number) => Promise<BulkResult | null>
   cargarFichaActiva: (materialId: string) => Promise<void>
   cargarHistorial: (materialId: string) => Promise<void>
   compararPrecio: (materialId: string) => Promise<ComparacionPrecio | null>
@@ -34,6 +44,7 @@ export function useFichasCosto(): UseFichasCostoReturn {
   const [loading, setLoading] = useState(false)
   const [loadingAction, setLoadingAction] = useState(false)
   const [loadingResumen, setLoadingResumen] = useState(false)
+  const [loadingBulk, setLoadingBulk] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadResumen = useCallback(async () => {
@@ -66,6 +77,21 @@ export function useFichasCosto(): UseFichasCostoReturn {
       return null
     } finally {
       setLoadingAction(false)
+    }
+  }, [])
+
+  const crearBulk = useCallback(async (materialIds: string[], porcentaje: number): Promise<BulkResult | null> => {
+    try {
+      setLoadingBulk(true)
+      setError(null)
+      const result = await FichaCostoService.crearFichasBulk(materialIds, porcentaje)
+      return result
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al crear fichas en masa'
+      setError(msg)
+      return null
+    } finally {
+      setLoadingBulk(false)
     }
   }, [])
 
@@ -148,8 +174,10 @@ export function useFichasCosto(): UseFichasCostoReturn {
     loading,
     loadingAction,
     loadingResumen,
+    loadingBulk,
     error,
     crearFicha,
+    crearBulk,
     cargarFichaActiva,
     cargarHistorial,
     compararPrecio,
