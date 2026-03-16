@@ -622,6 +622,7 @@ export function FacturasSection() {
         factura={selectedFactura}
         onSave={handleSave}
         onGetNumeroSugerido={obtenerNumeroSugerido}
+        materials={materials}
       />
 
       {/* Dialog de Confirmación de Eliminación */}
