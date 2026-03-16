@@ -70,6 +70,7 @@ export default function MaterialesPage() {
   const { toast, dismiss } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [priceFilter, setPriceFilter] = useState<"all" | "zero">("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
@@ -396,7 +397,13 @@ export default function MaterialesPage() {
       material.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategoryFilter =
       selectedCategory === "all" || material.categoria === selectedCategory;
-    return matchesSearch && matchesCategoryFilter;
+    const materialPrice = Number(material.precio ?? 0);
+    const matchesPriceFilter =
+      priceFilter === "all" ||
+      (priceFilter === "zero" &&
+        Number.isFinite(materialPrice) &&
+        materialPrice === 0);
+    return matchesSearch && matchesCategoryFilter && matchesPriceFilter;
   });
 
   const filteredCategories = catalogs.filter((category) => {
@@ -794,31 +801,60 @@ export default function MaterialesPage() {
                     </div>
                   </div>
                   {viewMode === "materials" && (
-                    <div className="lg:w-48">
-                      <Label
-                        htmlFor="category-filter"
-                        className="text-sm font-medium text-gray-700 mb-2 block"
-                      >
-                        Filtrar por Categoría
-                      </Label>
-                      <Select
-                        value={selectedCategory}
-                        onValueChange={setSelectedCategory}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Todas las categorías" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">
-                            Todas las categorías
-                          </SelectItem>
-                          {categories.map((category, idx) => (
-                            <SelectItem key={category || idx} value={category}>
-                              {category}
+                    <div className="flex flex-col sm:flex-row gap-4 lg:w-auto">
+                      <div className="lg:w-48">
+                        <Label
+                          htmlFor="category-filter"
+                          className="text-sm font-medium text-gray-700 mb-2 block"
+                        >
+                          Filtrar por Categoría
+                        </Label>
+                        <Select
+                          value={selectedCategory}
+                          onValueChange={setSelectedCategory}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas las categorías" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Todas las categorías
                             </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                            {categories.map((category, idx) => (
+                              <SelectItem
+                                key={category || idx}
+                                value={category}
+                              >
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="lg:w-48">
+                        <Label
+                          htmlFor="price-filter"
+                          className="text-sm font-medium text-gray-700 mb-2 block"
+                        >
+                          Filtrar por Precio
+                        </Label>
+                        <Select
+                          value={priceFilter}
+                          onValueChange={(value: "all" | "zero") =>
+                            setPriceFilter(value)
+                          }
+                        >
+                          <SelectTrigger id="price-filter">
+                            <SelectValue placeholder="Todos los precios" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">
+                              Todos los precios
+                            </SelectItem>
+                            <SelectItem value="zero">Solo precio 0</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   )}
                 </div>
