@@ -27,6 +27,56 @@ function formatNumberWithComma(value: number, decimals: number = 2): string {
   return value.toFixed(decimals).replace(".", ",");
 }
 
+function parseNumericValue(value: unknown): number {
+  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+  if (value === null || value === undefined) return 0;
+
+  const raw = String(value).trim();
+  if (!raw) return 0;
+
+  const isNegative = raw.startsWith("-");
+  const normalized = raw.replace(",", ".").replace(/[^0-9.]/g, "");
+  const parsed = Number.parseFloat(normalized);
+  if (!Number.isFinite(parsed)) return 0;
+
+  return isNegative ? -parsed : parsed;
+}
+
+function roundCurrency(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function normalizeText(value: unknown): string {
+  return (value || "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isTotalCostosExtrasLabel(value: unknown): boolean {
+  const text = normalizeText(value);
+  if (!text) return false;
+  return text.includes("total") && text.includes("costos extras");
+}
+
+function isTotalMaterialesLabel(value: unknown): boolean {
+  const text = normalizeText(value);
+  if (!text) return false;
+  return text.includes("total") && text.includes("material");
+}
+
+function isInstalacionMontajeLabel(value: unknown): boolean {
+  const text = normalizeText(value);
+  if (!text) return false;
+  const tieneInstalacion = text.includes("instalacion");
+  const tieneMontajeOPuesta =
+    text.includes("montaje") || text.includes("puesta en marcha");
+  return tieneInstalacion && tieneMontajeOPuesta;
+}
+
 function limpiarTextoSinPaneles(value?: string): string {
   return (value || "")
     .replace(
@@ -129,7 +179,8 @@ async function imageToBase64(url: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
+      reader.onerror = () =>
+        reject(new Error("No se pudo convertir la imagen a Base64"));
       reader.readAsDataURL(blob);
     });
   } catch (error) {
@@ -303,6 +354,31 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     : "Total";
   const formatearMonto = (value: number) =>
     `${formatNumberWithComma(value)} ${simboloMoneda}`;
+  const tipoNoMaterial = new Set([
+    "subtotal",
+    "servicio",
+    "transportación",
+    "transportacion",
+    "contribucion",
+    "descuento",
+    "total",
+    "info",
+    "datos",
+    "monto",
+    "tasa",
+    "conversión",
+    "conversion",
+    "nota",
+  ]);
+  const esFilaMaterialPresupuesto = (row: any): boolean => {
+    if (!row) return false;
+    if ((row.seccion || "").toString().toUpperCase() === "PAGO") return false;
+    const tipo = (row.tipo || "").toString().trim().toLowerCase();
+    if (!tipo) return Boolean(row.material_codigo || row.descripcion);
+    return !tipoNoMaterial.has(tipo);
+  };
+  const esFilaCostoExtra = (row: any): boolean =>
+    (row?.tipo || "").toString().trim().toLowerCase() === "costo extra";
 
   // ========== ENCABEZADO ==========
   // Generar descripción del sistema basado en componentes principales
@@ -492,14 +568,14 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       return;
     }
 
-    // Filtrar filas que no son materiales (servicios, totales, etc)
-    if (row.tipo === "Material" || !row.tipo) {
-      const seccion = row.seccion || "Sin categoría";
-      if (!datosPorSeccion.has(seccion)) {
-        datosPorSeccion.set(seccion, []);
-      }
-      datosPorSeccion.get(seccion)?.push(row);
+    // Filtrar filas que no son parte del presupuesto de materiales
+    if (!esFilaMaterialPresupuesto(row)) return;
+
+    const seccion = row.seccion || "Sin categoría";
+    if (!datosPorSeccion.has(seccion)) {
+      datosPorSeccion.set(seccion, []);
     }
+    datosPorSeccion.get(seccion)?.push(row);
   });
 
   // Filtrar secciones vacías
@@ -524,13 +600,13 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     const subtotalSeccion = rows.reduce((sum, row) => {
       if (conPreciosCliente) {
         // Para exportación con precios cliente, usar el campo "total" directamente
-        const total = parseFloat(row.total) || 0;
+        const total = parseNumericValue(row.total);
         return sum + total;
       } else {
         // Para exportación completa, calcular precio * cantidad + margen
-        const precio = parseFloat(row.precio_unitario) || 0;
-        const cantidad = parseFloat(row.cantidad) || 0;
-        const margen = parseFloat(row.margen) || 0;
+        const precio = parseNumericValue(row.precio_unitario);
+        const cantidad = parseNumericValue(row.cantidad);
+        const margen = parseNumericValue(row.margen);
         return sum + precio * cantidad + margen;
       }
     }, 0);
@@ -580,7 +656,10 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
                 (resolve, reject) => {
                   const image = new Image();
                   image.onload = () => resolve(image);
-                  image.onerror = reject;
+                  image.onerror = () =>
+                    reject(
+                      new Error("No se pudo cargar la imagen del material"),
+                    );
                   image.src = fotoBase64;
                 },
               );
@@ -730,7 +809,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         doc.text(cantidad.toString(), 161, camposYPosition, { align: "right" });
 
         // TOTAL (con margen incluido)
-        const total = parseFloat(row.total) || 0;
+        const total = parseNumericValue(row.total);
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
@@ -776,9 +855,15 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   }
 
   // ========== SECCIONES PERSONALIZADAS DE TIPO COSTO ==========
-  let totalCostosExtras = 0;
+  let totalCostosExtras = roundCurrency(
+    data
+      .filter(esFilaCostoExtra)
+      .reduce((sum, row) => sum + parseNumericValue(row.total), 0),
+  );
+  const hayCostosExtrasEnData = data.some(esFilaCostoExtra);
 
   if (
+    !hayCostosExtrasEnData &&
     options.seccionesPersonalizadas &&
     options.seccionesPersonalizadas.length > 0
   ) {
@@ -872,7 +957,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
           // TOTAL BASE
           const totalBase = precioUnit * costo.cantidad;
-          totalCostosExtras += totalBase;
+          totalCostosExtras = roundCurrency(totalCostosExtras + totalBase);
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
@@ -913,7 +998,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
           // TOTAL
           const precioUnit = parseFloat(costo.precio_unitario.toString()) || 0;
           const total = precioUnit * costo.cantidad;
-          totalCostosExtras += total;
+          totalCostosExtras = roundCurrency(totalCostosExtras + total);
           doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
@@ -948,12 +1033,36 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
   // ========== TOTALES Y SERVICIOS ==========
   // Buscar servicios, transportación, contribución, descuentos y totales en los datos
   const subtotales = data.filter((row) => row.tipo === "Subtotal");
+  const subtotalesCostosExtras = subtotales.filter((row) =>
+    isTotalCostosExtrasLabel(row.descripcion),
+  );
+  const subtotalesVisibles = subtotales.filter(
+    (row) =>
+      !isTotalCostosExtrasLabel(row.descripcion) &&
+      !isTotalMaterialesLabel(row.descripcion),
+  );
   const servicios = data.filter((row) => row.tipo === "Servicio");
+  const serviciosInstalacionMontaje = servicios.filter((row) =>
+    isInstalacionMontajeLabel(row.descripcion),
+  );
+  const serviciosVisibles = servicios.filter(
+    (row) => !isInstalacionMontajeLabel(row.descripcion),
+  );
   const transportacion = data.filter((row) => row.tipo === "Transportación");
   const contribuciones = data.filter((row) => row.tipo === "Contribucion");
   const descuentos = data.filter((row) => row.tipo === "Descuento");
   const totales = data.filter((row) => row.tipo === "TOTAL");
   const datosPago = data.filter((row) => row.seccion === "PAGO");
+  const totalCostosExtrasDesdeSubtotales = roundCurrency(
+    subtotalesCostosExtras.reduce(
+      (sum, row) => sum + parseNumericValue(row.total),
+      0,
+    ),
+  );
+  const totalCostosExtrasMostrar =
+    totalCostosExtrasDesdeSubtotales > 0
+      ? totalCostosExtrasDesdeSubtotales
+      : totalCostosExtras;
 
   console.log(
     "🔍 DEBUG PDF - Descuentos encontrados:",
@@ -979,47 +1088,35 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     // Subtotales (como Total de materiales) - NO MOSTRAR en exportación sin precios
     if (!sinPrecios) {
-      subtotales.forEach((subtotal) => {
+      subtotalesVisibles.forEach((subtotal) => {
         doc.setFontSize(10);
-        doc.setFont("helvetica", "normal"); // Cambiado de 'bold' a 'normal'
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
         doc.text(subtotal.descripcion, 12, yPosition);
         doc.text(
-          formatearMonto(parseFloat(subtotal.total || 0)),
+          formatearMonto(parseNumericValue(subtotal.total)),
           pageWidth - 12,
           yPosition,
           { align: "right" },
         );
-        yPosition += 5; // Reducido de 8 a 5
+        yPosition += 5;
       });
-    }
-
-    // AGREGAR TOTAL DE COSTOS EXTRAS (si hay costos extras y no es sin precios)
-    if (totalCostosExtras > 0 && !sinPrecios) {
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal"); // Cambiado de 'bold' a 'normal'
-      doc.setTextColor(0, 0, 0);
-      doc.text("Total costos extras", 12, yPosition);
-      doc.text(formatearMonto(totalCostosExtras), pageWidth - 12, yPosition, {
-        align: "right",
-      });
-      yPosition += 5; // Reducido de 8 a 5
     }
 
     // Servicios (Costo de instalación) - NO MOSTRAR en exportación sin precios
     if (!sinPrecios) {
-      servicios.forEach((servicio) => {
+      serviciosVisibles.forEach((servicio) => {
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
         doc.text(servicio.descripcion, 12, yPosition);
         doc.text(
-          formatearMonto(parseFloat(servicio.total || 0)),
+          formatearMonto(parseNumericValue(servicio.total)),
           pageWidth - 12,
           yPosition,
           { align: "right" },
         );
-        yPosition += 5; // Reducido de 6 a 5
+        yPosition += 5;
       });
     }
 
@@ -1032,7 +1129,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
       // Mostrar precio siempre (incluso en sin precios)
       doc.text(
-        formatearMonto(parseFloat(trans.total || 0)),
+        formatearMonto(parseNumericValue(trans.total)),
         pageWidth - 12,
         yPosition,
         { align: "right" },
@@ -1047,7 +1144,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       doc.setTextColor(0, 0, 0);
       doc.text(contrib.descripcion, 12, yPosition);
       doc.text(
-        formatearMonto(parseFloat(contrib.total || 0)),
+        formatearMonto(parseNumericValue(contrib.total)),
         pageWidth - 12,
         yPosition,
         { align: "right" },
@@ -1065,23 +1162,127 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       yPosition += 5; // Unificado a 5 para todos
     });
 
+    const costoInstalacionMontaje = serviciosInstalacionMontaje.reduce(
+      (sum, servicio) => sum + parseNumericValue(servicio.total),
+      0,
+    );
+    const etiquetaInstalacionMontaje =
+      serviciosInstalacionMontaje.length > 0
+        ? (serviciosInstalacionMontaje[0].descripcion || "")
+            .toString()
+            .trim() || "Costos de la instalación y montaje"
+        : "Costos de la instalación y montaje";
+    const costoMateriales = data.reduce((sum, row) => {
+      if (!esFilaMaterialPresupuesto(row)) return sum;
+      const tipo = (row?.tipo || "").toString().trim().toLowerCase();
+      if (tipo === "costo extra") return sum;
+
+      if (conPreciosCliente) {
+        return sum + parseNumericValue(row.total);
+      }
+
+      const precio = parseNumericValue(row.precio_unitario);
+      const cantidad = parseNumericValue(row.cantidad);
+      const margen = parseNumericValue(row.margen);
+      const totalCalculado = precio * cantidad + margen;
+      if (totalCalculado > 0) return sum + totalCalculado;
+
+      return sum + parseNumericValue(row.total);
+    }, 0);
+
     // Total final - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN (incluyendo sin precios)
     if (totales.length > 0) {
-      yPosition += 2; // Reducido espacio antes del total
-      doc.setFillColor(189, 215, 176);
-      doc.rect(10, yPosition, pageWidth - 20, 10, "F");
+      const resumenResaltado = !sinPrecios
+        ? [
+            ...(costoInstalacionMontaje > 0
+              ? [
+                  {
+                    label: etiquetaInstalacionMontaje,
+                    value: costoInstalacionMontaje,
+                  },
+                ]
+              : []),
+            ...(costoMateriales > 0
+              ? [{ label: "Total de materiales", value: costoMateriales }]
+              : []),
+            ...(totalCostosExtrasMostrar > 0
+              ? [
+                  {
+                    label: "Total de costos extras",
+                    value: totalCostosExtrasMostrar,
+                  },
+                ]
+              : []),
+          ]
+        : [];
 
-      doc.setFontSize(13);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 0, 0);
-      doc.text("Precio Final", 12, yPosition + 7);
-      doc.text(
-        formatearMonto(parseFloat(totales[0].total || 0)),
-        pageWidth - 12,
-        yPosition + 7,
-        { align: "right" },
-      );
-      yPosition += 12;
+      yPosition += 2;
+
+      if (resumenResaltado.length > 0) {
+        const lineHeight = 6;
+        const finalRowHeight = 8;
+        const paddingTop = 3;
+        const paddingBottom = 3;
+        const bloqueAltura =
+          paddingTop +
+          resumenResaltado.length * lineHeight +
+          1 +
+          finalRowHeight +
+          paddingBottom;
+
+        if (yPosition + bloqueAltura > doc.internal.pageSize.getHeight() - 30) {
+          doc.addPage();
+          yPosition = 15;
+        }
+
+        doc.setFillColor(189, 215, 176);
+        doc.rect(10, yPosition, pageWidth - 20, bloqueAltura, "F");
+
+        let lineY = yPosition + paddingTop + 4;
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        resumenResaltado.forEach((item) => {
+          doc.text(item.label, 12, lineY);
+          doc.text(formatearMonto(item.value), pageWidth - 12, lineY, {
+            align: "right",
+          });
+          lineY += lineHeight;
+        });
+
+        const separadorY = lineY - 2;
+        doc.setDrawColor(120, 150, 110);
+        doc.setLineWidth(0.3);
+        doc.line(12, separadorY, pageWidth - 12, separadorY);
+
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Precio Final", 12, separadorY + 6);
+        doc.text(
+          formatearMonto(parseNumericValue(totales[0].total)),
+          pageWidth - 12,
+          separadorY + 6,
+          { align: "right" },
+        );
+
+        yPosition += bloqueAltura + 2;
+      } else {
+        doc.setFillColor(189, 215, 176);
+        doc.rect(10, yPosition, pageWidth - 20, 10, "F");
+
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("Precio Final", 12, yPosition + 7);
+        doc.text(
+          formatearMonto(parseNumericValue(totales[0].total)),
+          pageWidth - 12,
+          yPosition + 7,
+          { align: "right" },
+        );
+        yPosition += 12;
+      }
     }
   }
 
@@ -1168,8 +1369,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     }
   }
 
-  // ========== SECCIÓN DE PAGO - MOSTRAR EN TODOS LOS TIPOS DE EXPORTACIÓN ==========
-  if (datosPago.length > 0) {
+  // ========== SECCIÓN DE PAGO - SOLO SI HAY TRANSFERENCIA ==========
+  const tienePagoTransferencia = datosPago.some(
+    (pago) =>
+      (pago.tipo || "").toString() === "Info" &&
+      (pago.descripcion || "")
+        .toString()
+        .toLowerCase()
+        .includes("transferencia"),
+  );
+  if (datosPago.length > 0 && tienePagoTransferencia) {
     // Reducir espacio antes de la sección (de 10 a 5)
     yPosition += 5;
 
@@ -1201,7 +1410,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     yPosition += 10;
 
     // Procesar datos de pago
-    let tienePagoTransferencia = false;
     let datosCuentaTexto = "";
     let tieneContribucion = false;
     let montoContribucion = "";
@@ -1212,9 +1420,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
     // Recopilar información
     datosPago.forEach((pago) => {
-      if (pago.tipo === "Info" && pago.descripcion.includes("transferencia")) {
-        tienePagoTransferencia = true;
-      }
       if (pago.tipo === "Datos") {
         // Limpiar caracteres de control EXCEPTO saltos de línea (\n = \u000A) y tabulaciones (\t = \u0009)
         datosCuentaTexto = (pago.total || "").replace(
@@ -1255,7 +1460,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text("Pago por transferencia", margenIzq, yPosition);
+      doc.text("• Pago por transferencia", margenIzq, yPosition);
       yPosition += 6;
 
       if (datosCuentaTexto) {
@@ -1327,8 +1532,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       });
       yPosition += 6;
 
-      // Tasa de cambio
-      if (tasaCambio) {
+      // Tasa de cambio (oculta en exportaciones de cliente con precios)
+      if (tasaCambio && !conPreciosCliente) {
         doc.setFont("helvetica", "italic");
         doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
@@ -1340,7 +1545,7 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       // Total en moneda convertida
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text("Total", margenIzq, yPosition);
+      doc.text("• Total", margenIzq, yPosition);
 
       doc.text(precioConvertido, pageWidth - margenDer, yPosition, {
         align: "right",
@@ -1393,170 +1598,123 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
       textoPlano.split("\n").slice(0, 10),
     );
 
-    // Dividir en líneas
-    const lineas = textoPlano.split("\n").filter((l) => l.trim());
+    const lineas = textoPlano.split("\n");
 
-    // Configuración de texto normal
-    doc.setFontSize(10); // Aumentado de 9 a 10 para coincidir con el resto del documento
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(50, 50, 50);
+    // Configuración de términos: interlineado corto, títulos en negrita y párrafos justificados
+    const interlineado = 4.2;
+    const bloques: Array<{
+      text: string;
+      bold: boolean;
+      blank?: boolean;
+      list?: boolean;
+    }> = [];
+    let parrafoActual = "";
 
-    lineas.forEach((linea, index) => {
-      const lineaTrim = linea.trim();
-      if (!lineaTrim) return;
+    const cerrarParrafo = () => {
+      if (!parrafoActual) return;
+      bloques.push({ text: parrafoActual, bold: false });
+      parrafoActual = "";
+    };
 
-      // Verificar espacio en la página (dejar margen para pie de página)
-      if (yPosition > doc.internal.pageSize.getHeight() - 25) {
-        doc.addPage();
-        yPosition = 20;
+    lineas.forEach((lineaRaw) => {
+      const lineaSinMarcadores = lineaRaw.replace(/\[B\]|\[\/B\]/g, "").trim();
+
+      if (!lineaSinMarcadores) {
+        cerrarParrafo();
+        bloques.push({ text: "", bold: false, blank: true });
+        return;
       }
 
-      // Detectar si la línea contiene texto en negrita
-      const tieneNegrita =
-        lineaTrim.includes("[B]") && lineaTrim.includes("[/B]");
+      const tieneMarcadorNegrita = /\[B\].*?\[\/B\]/.test(lineaRaw);
+      const subLineas = lineaSinMarcadores
+        .replace(/\s+•\s+/g, "\n• ")
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean);
 
-      // Limpiar marcadores de negrita para análisis
-      const lineaLimpia = lineaTrim.replace(/\[B\]|\[\/B\]/g, "");
+      subLineas.forEach((subLinea) => {
+        const esTituloMayusculas =
+          subLinea.length <= 90 &&
+          subLinea === subLinea.toUpperCase() &&
+          /[A-ZÁÉÍÓÚÑ]/.test(subLinea);
+        const esSubtitulo =
+          subLinea.endsWith(":") &&
+          subLinea.length <= 55 &&
+          subLinea.split(/\s+/).length <= 7;
+        const esLineaLista =
+          /^[•\-]\s+/.test(subLinea) || /^\d+[\.\)]\s+/.test(subLinea);
+        const esNegrita =
+          tieneMarcadorNegrita || esTituloMayusculas || esSubtitulo;
 
-      // Detectar tipo de contenido
-      const esTituloPrincipal =
-        lineaLimpia.length < 60 &&
-        lineaLimpia === lineaLimpia.toUpperCase() &&
-        !lineaLimpia.startsWith("•");
-      const esSubtitulo =
-        lineaLimpia.endsWith(":") &&
-        lineaLimpia.length < 40 &&
-        !lineaLimpia.startsWith("•") &&
-        lineaLimpia.split(" ").length <= 5;
-      const esLista =
-        lineaLimpia.startsWith("•") || /^\d+[\.\)]/.test(lineaLimpia);
-
-      if (esTituloPrincipal) {
-        // TÍTULO PRINCIPAL (mayúsculas)
-        if (index > 0) {
-          yPosition += 5;
+        if (esLineaLista) {
+          cerrarParrafo();
+          bloques.push({ text: subLinea, bold: false, list: true });
+          return;
         }
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(12); // Aumentado de 11 a 12
-        doc.setTextColor(0, 0, 0);
-
-        const tituloLines = doc.splitTextToSize(lineaLimpia, anchoTexto);
-        tituloLines.forEach((line: string) => {
-          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
-            doc.addPage();
-            yPosition = 20;
-          }
-          doc.text(line, margenIzq, yPosition);
-          yPosition += 6; // Aumentado de 5.5 a 6
-        });
-
-        yPosition += 2;
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10); // Aumentado de 9 a 10
-        doc.setTextColor(50, 50, 50);
-      } else if (esSubtitulo || tieneNegrita) {
-        // SUBTÍTULO o TEXTO EN NEGRITA
-        if (index > 0 && esSubtitulo) {
-          yPosition += 3;
+        if (esNegrita) {
+          cerrarParrafo();
+          bloques.push({ text: subLinea, bold: true });
+          return;
         }
 
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(11); // Aumentado de 10 a 11 (igual que "A la atención de")
-        doc.setTextColor(0, 0, 0);
+        parrafoActual = parrafoActual
+          ? `${parrafoActual} ${subLinea}`
+          : subLinea;
+      });
+    });
+    cerrarParrafo();
 
-        const subtituloLines = doc.splitTextToSize(lineaLimpia, anchoTexto);
-        subtituloLines.forEach((line: string) => {
-          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
-            doc.addPage();
-            yPosition = 20;
-          }
-          doc.text(line, margenIzq, yPosition);
-          yPosition += 5.5; // Aumentado de 5 a 5.5
-        });
-
-        yPosition += 1;
-
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10); // Aumentado de 9 a 10
-        doc.setTextColor(50, 50, 50);
-      } else if (esLista) {
-        // ITEM DE LISTA con indentación
-        const indentacion = 20;
-        const anchoLista = anchoTexto - (indentacion - margenIzq);
-
-        // Separar el bullet/número del texto
-        let textoLista = lineaLimpia;
-        if (lineaLimpia.startsWith("•")) {
-          textoLista = lineaLimpia.substring(1).trim();
-        }
-
-        const lines = doc.splitTextToSize(textoLista, anchoLista);
-
-        lines.forEach((line: string, i: number) => {
-          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
-            doc.addPage();
-            yPosition = 20;
-          }
-
-          if (i === 0) {
-            // Primera línea con bullet
-            doc.text("•", margenIzq + 2, yPosition);
-            doc.text(line, indentacion, yPosition, {
-              align: "left",
-              maxWidth: anchoLista,
-            });
-          } else {
-            // Líneas siguientes indentadas
-            doc.text(line, indentacion, yPosition, {
-              align: "left",
-              maxWidth: anchoLista,
-            });
-          }
-          yPosition += 5; // Aumentado de 4.5 a 5
-        });
-
-        yPosition += 1;
-      } else {
-        // TEXTO NORMAL - JUSTIFICADO
-        const lines = doc.splitTextToSize(lineaLimpia, anchoTexto);
-
-        lines.forEach((line: string, i: number) => {
-          if (yPosition > doc.internal.pageSize.getHeight() - 25) {
-            doc.addPage();
-            yPosition = 20;
-          }
-
-          // Justificar todas las líneas excepto la última de cada párrafo
-          if (i < lines.length - 1) {
-            // Línea justificada
-            const palabras = line.split(" ");
-            if (palabras.length > 1) {
-              const anchoLinea = doc.getTextWidth(line);
-              const espacioExtra =
-                (anchoTexto - anchoLinea) / (palabras.length - 1);
-
-              let xPos = margenIzq;
-              palabras.forEach((palabra, idx) => {
-                doc.text(palabra, xPos, yPosition);
-                if (idx < palabras.length - 1) {
-                  xPos += doc.getTextWidth(palabra + " ") + espacioExtra;
-                }
-              });
-            } else {
-              doc.text(line, margenIzq, yPosition);
-            }
-          } else {
-            // Última línea alineada a la izquierda
-            doc.text(line, margenIzq, yPosition);
-          }
-
-          yPosition += 5; // Aumentado de 4.5 a 5
-        });
-
-        yPosition += 3; // Aumentado de 2.5 a 3
+    bloques.forEach((bloque) => {
+      if (bloque.blank) {
+        yPosition += interlineado;
+        return;
       }
+
+      doc.setFontSize(bloque.bold ? 10 : 9.5);
+      doc.setFont("helvetica", bloque.bold ? "bold" : "normal");
+      doc.setTextColor(50, 50, 50);
+
+      const lineasAjustadas = doc.splitTextToSize(bloque.text, anchoTexto);
+      lineasAjustadas.forEach((lineaAjustada: string, index: number) => {
+        if (yPosition > doc.internal.pageSize.getHeight() - 25) {
+          doc.addPage();
+          yPosition = 20;
+          doc.setFontSize(bloque.bold ? 10 : 9.5);
+          doc.setFont("helvetica", bloque.bold ? "bold" : "normal");
+          doc.setTextColor(50, 50, 50);
+        }
+
+        const esUltimaLinea = index === lineasAjustadas.length - 1;
+        if (!bloque.bold && !bloque.list && !esUltimaLinea) {
+          const palabras = lineaAjustada.trim().split(/\s+/).filter(Boolean);
+          if (palabras.length > 1) {
+            const anchoSinEspacios = palabras.reduce(
+              (sum: number, palabra: string) => sum + doc.getTextWidth(palabra),
+              0,
+            );
+            const espacio =
+              (anchoTexto - anchoSinEspacios) / (palabras.length - 1);
+            let xPos = margenIzq;
+
+            palabras.forEach((palabra: string, palabraIndex: number) => {
+              doc.text(palabra, xPos, yPosition);
+              if (palabraIndex < palabras.length - 1) {
+                xPos += doc.getTextWidth(palabra) + espacio;
+              }
+            });
+          } else {
+            doc.text(lineaAjustada, margenIzq, yPosition, {
+              maxWidth: anchoTexto,
+            });
+          }
+        } else {
+          doc.text(lineaAjustada, margenIzq, yPosition, {
+            maxWidth: anchoTexto,
+          });
+        }
+        yPosition += interlineado;
+      });
     });
   }
 

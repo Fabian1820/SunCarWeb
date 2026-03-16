@@ -11,6 +11,10 @@ export interface TerminosCondicionesPayload {
   garantía?: string | null;
   validez_presupuesto?: string | null;
   validezPresupuesto?: string | null;
+  servicio_atencion_cliente?: string | null;
+  servicioAtencionCliente?: string | null;
+  sobre_nosotros?: string | null;
+  sobreNosotros?: string | null;
   secciones?: {
     titulo?: string | null;
     formas_pago?: string | null;
@@ -20,6 +24,10 @@ export interface TerminosCondicionesPayload {
     formasPago?: string | null;
     reservaEquipos?: string | null;
     validezPresupuesto?: string | null;
+    servicio_atencion_cliente?: string | null;
+    servicioAtencionCliente?: string | null;
+    sobre_nosotros?: string | null;
+    sobreNosotros?: string | null;
   } | null;
 }
 
@@ -64,13 +72,13 @@ const limpiarContenidoSeccion = (
 
   // Caso combinado: "2. Formas de pago: ..."
   const regexCombinado = new RegExp(
-    `^\\s*[2-5]\\s*[\\.\\)\\-:]?\\s*${etiquetaRegex}\\s*:?\\s*`,
+    `^\\s*[2-9]\\s*[\\.\\)\\-:]?\\s*${etiquetaRegex}\\s*:?\\s*`,
     "i",
   );
   limpio = limpio.replace(regexCombinado, "");
 
-  // Quitar prefijo numerado al inicio (2., 3., 4., 5.)
-  limpio = limpio.replace(/^\s*[2-5]\s*[\.\)\-:]?\s*/, "");
+  // Quitar prefijo numerado al inicio (2., 3., 4., ...)
+  limpio = limpio.replace(/^\s*[2-9]\s*[\.\)\-:]?\s*/, "");
 
   // Quitar encabezado repetido de la sección
   const regexEtiqueta = new RegExp(`^\\s*${etiquetaRegex}\\s*:?\\s*`, "i");
@@ -185,6 +193,14 @@ export function buildTerminosCondicionesHtml(
     "validez_presupuesto",
     "validezPresupuesto",
   ]);
+  const servicioAtencionCliente = resolverCampo(payload, [
+    "servicio_atencion_cliente",
+    "servicioAtencionCliente",
+  ]);
+  const sobreNosotros = resolverCampo(payload, [
+    "sobre_nosotros",
+    "sobreNosotros",
+  ]);
 
   const tieneEstructura =
     "titulo" in payload ||
@@ -196,6 +212,10 @@ export function buildTerminosCondicionesHtml(
     "garantía" in payload ||
     "validez_presupuesto" in payload ||
     "validezPresupuesto" in payload ||
+    "servicio_atencion_cliente" in payload ||
+    "servicioAtencionCliente" in payload ||
+    "sobre_nosotros" in payload ||
+    "sobreNosotros" in payload ||
     !!payload.secciones;
 
   const secciones = [
@@ -222,6 +242,17 @@ export function buildTerminosCondicionesHtml(
         validezPresupuesto,
         "validez\\s+del?\\s+presupuesto",
       ),
+    },
+    {
+      label: "SERVICIO DE ATENCIÓN AL CLIENTE",
+      value: limpiarContenidoSeccion(
+        servicioAtencionCliente,
+        "servicio\\s+de\\s+atenci[oó]n\\s+al\\s+cliente",
+      ),
+    },
+    {
+      label: "SOBRE NOSOTROS",
+      value: limpiarContenidoSeccion(sobreNosotros, "sobre\\s+nosotros"),
     },
   ].filter((section) => section.value);
 
