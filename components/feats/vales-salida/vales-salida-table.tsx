@@ -12,6 +12,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import type { ValeSalida } from "@/lib/api-types";
+import { formatFechaRecogida } from "@/lib/utils/fecha-recogida";
 
 interface ValesSalidaTableProps {
   vales: ValeSalida[];
@@ -91,35 +92,54 @@ export function ValesSalidaTable({
     vale.trabajador?.nombre || vale.creado_por_ci || "-";
 
   const getRecibidoInfo = (vale: ValeSalida) => {
-    const solicitud =
-      vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
+    const solicitudes = [
+      vale.solicitud_material,
+      vale.solicitud_venta,
+      vale.solicitud,
+    ].filter(Boolean);
+    const firstNonEmpty = (...values: Array<string | null | undefined>) =>
+      values.find(
+        (value) => typeof value === "string" && value.trim().length > 0,
+      ) || null;
+
+    const solicitudRecords = solicitudes as Array<
+      Record<string, unknown> & {
+        recogio_por?: string | null;
+        recogido_por?: string | null;
+        recibido_por?: string | null;
+        responsable_recogida?: string | null;
+        fecha_recogida?: string | null;
+        fechaRecogida?: string | null;
+      }
+    >;
+
     const recibidoPor =
       vale.recogio_por ||
       vale.recogido_por ||
       vale.recibido_por ||
-      solicitud?.recogio_por ||
-      solicitud?.recogido_por ||
-      solicitud?.recibido_por ||
-      solicitud?.responsable_recogida ||
+      firstNonEmpty(
+        ...solicitudRecords.map((solicitud) => solicitud.recogio_por),
+        ...solicitudRecords.map((solicitud) => solicitud.recogido_por),
+        ...solicitudRecords.map((solicitud) => solicitud.recibido_por),
+        ...solicitudRecords.map((solicitud) => solicitud.responsable_recogida),
+      ) ||
       "-";
 
-    const solicitudRecord = solicitud as unknown as Record<string, unknown>;
-    const valeRecord = vale as unknown as Record<string, unknown>;
     const fechaRecogidaRaw =
-      solicitud?.fecha_recogida ||
-      (typeof solicitudRecord?.fechaRecogida === "string"
-        ? solicitudRecord.fechaRecogida
-        : undefined) ||
-      (typeof valeRecord?.fecha_recogida === "string"
-        ? valeRecord.fecha_recogida
-        : undefined) ||
-      (typeof valeRecord?.fechaRecogida === "string"
-        ? valeRecord.fechaRecogida
-        : undefined);
+      firstNonEmpty(
+        ...solicitudRecords.map((solicitud) => solicitud.fecha_recogida),
+        ...solicitudRecords
+          .map((solicitud) =>
+            typeof solicitud.fechaRecogida === "string"
+              ? solicitud.fechaRecogida
+              : null,
+          )
+          .filter(Boolean),
+      ) || null;
 
     return {
       recibidoPor,
-      fechaRecogida: formatDate(fechaRecogidaRaw),
+      fechaRecogida: formatFechaRecogida(fechaRecogidaRaw),
     };
   };
 
@@ -231,6 +251,12 @@ export function ValesSalidaTable({
                       {getTrabajadorName(vale)}
                     </span>
                   </div>
+                  <div className="flex items-center gap-1.5 mt-1.5">
+                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">
+                      {formatDate(vale.fecha_creacion)}
+                    </span>
+                  </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
@@ -242,7 +268,7 @@ export function ValesSalidaTable({
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-700">
-                      {recibidoInfo.fechaRecogida}
+                      Fecha-recogida: {recibidoInfo.fechaRecogida}
                     </span>
                   </div>
                 </td>
