@@ -152,6 +152,8 @@ export async function apiRequest<T>(
 
     const config: RequestInit = {
       ...restOptions,
+      mode: "cors",
+      credentials: "omit",
       headers: {
         ...baseHeaders,
         ...(requestHeaders || {}),
@@ -381,6 +383,15 @@ export async function apiRequest<T>(
 
     return data;
   } catch (error) {
+    if (
+      error instanceof TypeError &&
+      /failed to fetch|load failed/i.test(error.message)
+    ) {
+      throw new Error(
+        `No se pudo conectar con el backend (${url}). Revisa CORS, SSL y disponibilidad del endpoint.`,
+      );
+    }
+
     console.error("💥 API Request Error:", error);
     console.error("💥 API Request Error Details:", {
       message: error instanceof Error ? error.message : "Unknown error",
