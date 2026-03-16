@@ -1,6 +1,8 @@
 import { useCallback, useState } from "react";
 import { WalletService } from "@/lib/services/feats/wallet/wallet-service";
 import type {
+  WalletCurrency,
+  WalletCurrencyCreateData,
   Wallet,
   WalletTransferCreateData,
   WalletTransferResult,
@@ -26,14 +28,17 @@ export function useWallet() {
   >([]);
   const [totalSelectedWalletTransactions, setTotalSelectedWalletTransactions] =
     useState(0);
+  const [currencies, setCurrencies] = useState<WalletCurrency[]>([]);
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [loadingWallets, setLoadingWallets] = useState(false);
   const [loadingSelectedWalletDetail, setLoadingSelectedWalletDetail] =
     useState(false);
+  const [loadingCurrencies, setLoadingCurrencies] = useState(false);
   const [creatingWallet, setCreatingWallet] = useState(false);
   const [creatingTransaction, setCreatingTransaction] = useState(false);
   const [transferring, setTransferring] = useState(false);
+  const [creatingCurrency, setCreatingCurrency] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadWallet = useCallback(async () => {
@@ -215,6 +220,44 @@ export function useWallet() {
     [loadTransactions, loadWallet, loadWalletDetail, loadWallets],
   );
 
+  const loadCurrencies = useCallback(async () => {
+    setLoadingCurrencies(true);
+    setError(null);
+
+    try {
+      const result = await WalletService.getCurrencies();
+      setCurrencies(result);
+      return result;
+    } catch (err: unknown) {
+      console.error("[useWallet] Error loading currencies:", err);
+      setError(getErrorMessage(err, "Error al cargar monedas"));
+      return [];
+    } finally {
+      setLoadingCurrencies(false);
+    }
+  }, []);
+
+  const createCurrency = useCallback(
+    async (data: WalletCurrencyCreateData): Promise<WalletCurrency> => {
+      setCreatingCurrency(true);
+      setError(null);
+
+      try {
+        const result = await WalletService.createCurrency(data);
+        await Promise.all([loadCurrencies(), loadWallet(), loadWallets()]);
+        return result;
+      } catch (err: unknown) {
+        console.error("[useWallet] Error creating currency:", err);
+        const message = getErrorMessage(err, "Error al crear moneda");
+        setError(message);
+        throw new Error(message);
+      } finally {
+        setCreatingCurrency(false);
+      }
+    },
+    [loadCurrencies, loadWallet, loadWallets],
+  );
+
   return {
     wallet,
     transactions,
@@ -223,13 +266,16 @@ export function useWallet() {
     selectedWallet,
     selectedWalletTransactions,
     totalSelectedWalletTransactions,
+    currencies,
     loadingWallet,
     loadingTransactions,
     loadingWallets,
     loadingSelectedWalletDetail,
+    loadingCurrencies,
     creatingWallet,
     creatingTransaction,
     transferring,
+    creatingCurrency,
     error,
     loadWallet,
     initializeWallet,
@@ -238,5 +284,7 @@ export function useWallet() {
     loadWallets,
     loadWalletDetail,
     createTransfer,
+    loadCurrencies,
+    createCurrency,
   };
 }

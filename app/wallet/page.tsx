@@ -42,6 +42,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Eye,
+  Plus,
   RefreshCcw,
   Search,
   SendHorizontal,
@@ -51,6 +52,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import type {
+  WalletCurrency,
   Wallet as WalletType,
   WalletTransaction,
   WalletTransactionType,
@@ -92,6 +94,25 @@ const isTransferTransaction = (transaction: WalletTransaction): boolean => {
   );
 };
 
+const getWalletBalanceForCurrency = (
+  wallet: WalletType | null | undefined,
+  currency: WalletCurrency | null,
+): number => {
+  if (!wallet) return 0;
+
+  if (currency && Array.isArray(wallet.balances)) {
+    const match = wallet.balances.find(
+      (item) =>
+        item.currency_id === currency.id ||
+        item.currency_code.toUpperCase() === currency.codigo.toUpperCase(),
+    );
+    if (match) return Number(match.amount || 0);
+    return 0;
+  }
+
+  return Number(wallet.saldo_actual || 0);
+};
+
 const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction }) => {
   if (isTransferTransaction(transaction)) {
     return (
@@ -126,7 +147,7 @@ type TransactionsResponsiveListProps = {
   transactions: WalletTransaction[];
   loading: boolean;
   emptyMessage: string;
-  currency: string;
+  fallbackCurrency: string;
   showWalletOwner?: boolean;
 };
 
@@ -134,7 +155,7 @@ function TransactionsResponsiveList({
   transactions,
   loading,
   emptyMessage,
-  currency,
+  fallbackCurrency,
   showWalletOwner = true,
 }: TransactionsResponsiveListProps) {
   if (loading) {
@@ -153,6 +174,11 @@ function TransactionsResponsiveList({
         {transactions.map((transaction) => (
           <Card key={transaction.id} className="border border-gray-200 shadow-sm">
             <CardContent className="p-3 space-y-2">
+              {/** El monto y saldos se muestran en la moneda de cada transacción */}
+              {(() => {
+                const rowCurrency = transaction.currency_code || fallbackCurrency;
+                return (
+                  <>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-xs text-gray-500">
                   {formatDateTime(transaction.created_at)}
@@ -160,7 +186,7 @@ function TransactionsResponsiveList({
                 <TransactionTypeBadge transaction={transaction} />
               </div>
               <p className="text-base font-semibold text-gray-900">
-                {formatMoney(transaction.monto, currency)}
+                {formatMoney(transaction.monto, rowCurrency)}
               </p>
               {showWalletOwner ? (
                 <p className="text-xs text-gray-600">
@@ -175,16 +201,19 @@ function TransactionsResponsiveList({
                 <p>
                   Antes:{" "}
                   <span className="font-medium text-gray-800">
-                    {formatMoney(transaction.saldo_anterior, currency)}
+                    {formatMoney(transaction.saldo_anterior, rowCurrency)}
                   </span>
                 </p>
                 <p>
                   Después:{" "}
                   <span className="font-medium text-gray-800">
-                    {formatMoney(transaction.saldo_posterior, currency)}
+                    {formatMoney(transaction.saldo_posterior, rowCurrency)}
                   </span>
                 </p>
               </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         ))}
@@ -207,6 +236,10 @@ function TransactionsResponsiveList({
           <TableBody>
             {transactions.map((transaction) => (
               <TableRow key={transaction.id}>
+                {(() => {
+                  const rowCurrency = transaction.currency_code || fallbackCurrency;
+                  return (
+                    <>
                 <TableCell className="text-xs lg:text-sm">
                   {formatDateTime(transaction.created_at)}
                 </TableCell>
@@ -222,7 +255,7 @@ function TransactionsResponsiveList({
                   <TransactionTypeBadge transaction={transaction} />
                 </TableCell>
                 <TableCell className="font-medium">
-                  {formatMoney(transaction.monto, currency)}
+                  {formatMoney(transaction.monto, rowCurrency)}
                 </TableCell>
                 <TableCell className="max-w-xs">
                   <p className="truncate" title={transaction.motivo}>
@@ -236,11 +269,14 @@ function TransactionsResponsiveList({
                   </p>
                 </TableCell>
                 <TableCell className="text-xs lg:text-sm">
-                  {formatMoney(transaction.saldo_anterior, currency)}
+                  {formatMoney(transaction.saldo_anterior, rowCurrency)}
                 </TableCell>
                 <TableCell className="text-xs lg:text-sm">
-                  {formatMoney(transaction.saldo_posterior, currency)}
+                  {formatMoney(transaction.saldo_posterior, rowCurrency)}
                 </TableCell>
+                    </>
+                  );
+                })()}
               </TableRow>
             ))}
           </TableBody>
@@ -268,13 +304,16 @@ function WalletPageContent() {
     selectedWalletTransactions,
     totalTransactions,
     totalSelectedWalletTransactions,
+    currencies,
     loadingWallet,
     loadingWallets,
     loadingTransactions,
     loadingSelectedWalletDetail,
+    loadingCurrencies,
     creatingWallet,
     creatingTransaction,
     transferring,
+    creatingCurrency,
     error,
     loadWallet,
     initializeWallet,
@@ -283,6 +322,8 @@ function WalletPageContent() {
     loadWallets,
     loadWalletDetail,
     createTransfer,
+    loadCurrencies,
+    createCurrency,
   } = useWallet();
 
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
@@ -295,6 +336,15 @@ function WalletPageContent() {
   const [walletSearch, setWalletSearch] = useState("");
   const [isWalletsDialogOpen, setIsWalletsDialogOpen] = useState(false);
   const [isWalletDetailDialogOpen, setIsWalletDetailDialogOpen] = useState(false);
+
+  const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
+  const [transactionCurrencyId, setTransactionCurrencyId] = useState("");
+  const [transferCurrencyId, setTransferCurrencyId] = useState("");
+  const [newCurrencyCode, setNewCurrencyCode] = useState("");
+  const [newCurrencyName, setNewCurrencyName] = useState("");
+  const [newCurrencyType, setNewCurrencyType] = useState<
+    "efectivo" | "transferencia" | "digital" | "otro"
+  >("efectivo");
 
   const [transferToWalletId, setTransferToWalletId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
@@ -323,10 +373,31 @@ function WalletPageContent() {
     [wallets, wallet?.id],
   );
 
+  const selectedCurrency = useMemo(
+    () => currencies.find((item) => item.id === selectedCurrencyId) ?? null,
+    [currencies, selectedCurrencyId],
+  );
+
+  const selectedCurrencyCode = selectedCurrency?.codigo || "USD";
+
   useEffect(() => {
     void loadWallet();
     void loadWallets({ limit: 500 });
-  }, [loadWallet, loadWallets]);
+    void loadCurrencies();
+  }, [loadWallet, loadWallets, loadCurrencies]);
+
+  useEffect(() => {
+    if (currencies.length === 0) return;
+
+    const defaultCurrency =
+      currencies.find(
+        (item) => item.codigo.toUpperCase() === "USD" && item.tipo === "efectivo",
+      ) || currencies[0];
+
+    if (!selectedCurrencyId) setSelectedCurrencyId(defaultCurrency.id);
+    if (!transactionCurrencyId) setTransactionCurrencyId(defaultCurrency.id);
+    if (!transferCurrencyId) setTransferCurrencyId(defaultCurrency.id);
+  }, [currencies, selectedCurrencyId, transactionCurrencyId, transferCurrencyId]);
 
   useEffect(() => {
     void loadTransactions(currentFilters);
@@ -342,8 +413,8 @@ function WalletPageContent() {
     }
   }, [wallet?.id, transferToWalletId]);
 
-  const getWalletCurrency = (walletData?: WalletType | null) =>
-    walletData?.moneda || wallet?.moneda || "USD";
+  const getWalletViewBalance = (walletData?: WalletType | null) =>
+    getWalletBalanceForCurrency(walletData, selectedCurrency);
 
   const handleInitializeWallet = async () => {
     try {
@@ -394,10 +465,20 @@ function WalletPageContent() {
       return;
     }
 
+    if (!transactionCurrencyId) {
+      toast({
+        title: "Moneda requerida",
+        description: "Selecciona la moneda del movimiento.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await createTransaction(
         {
           tipo,
+          currency_id: transactionCurrencyId,
           monto: parsedAmount,
           motivo: trimmedReason,
         },
@@ -422,6 +503,56 @@ function WalletPageContent() {
           err instanceof Error
             ? err.message
             : "No se pudo registrar la transacción",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateCurrency = async () => {
+    const code = newCurrencyCode.trim().toUpperCase();
+    const name = newCurrencyName.trim();
+
+    if (!code || code.length < 3) {
+      toast({
+        title: "Código inválido",
+        description: "Usa un código de moneda de al menos 3 caracteres.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!name) {
+      toast({
+        title: "Nombre requerido",
+        description: "Escribe el nombre de la moneda.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const created = await createCurrency({
+        codigo: code,
+        nombre: name,
+        tipo: newCurrencyType,
+      });
+
+      setSelectedCurrencyId(created.id);
+      setTransactionCurrencyId(created.id);
+      setTransferCurrencyId(created.id);
+      setNewCurrencyCode("");
+      setNewCurrencyName("");
+      setNewCurrencyType("efectivo");
+
+      toast({
+        title: "Moneda creada",
+        description: `${created.codigo} ya está disponible para movimientos.`,
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "No se pudo crear la moneda",
         variant: "destructive",
       });
     }
@@ -468,11 +599,21 @@ function WalletPageContent() {
       return;
     }
 
+    if (!transferCurrencyId) {
+      toast({
+        title: "Moneda requerida",
+        description: "Selecciona la moneda de la transferencia.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await createTransfer(
         {
           wallet_origen_id: sourceWalletId,
           wallet_destino_id: transferToWalletId,
+          currency_id: transferCurrencyId,
           monto: parsedAmount,
           motivo: trimmedReason,
         },
@@ -578,6 +719,99 @@ function WalletPageContent() {
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-1">
             <CardHeader>
+              <CardTitle>Moneda de Visualización</CardTitle>
+              <CardDescription>
+                Selecciona la moneda para ver saldos por usuario.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Label htmlFor="view-currency">Moneda</Label>
+              <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
+                <SelectTrigger id="view-currency">
+                  <SelectValue
+                    placeholder={
+                      loadingCurrencies
+                        ? "Cargando monedas..."
+                        : "Seleccione moneda"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((currency) => (
+                    <SelectItem key={currency.id} value={currency.id}>
+                      {currency.codigo} - {currency.nombre} ({currency.tipo})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Agregar Nueva Moneda</CardTitle>
+              <CardDescription>
+                Las monedas se guardan de forma persistente para todo el módulo.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="currency-code">Código</Label>
+                  <Input
+                    id="currency-code"
+                    value={newCurrencyCode}
+                    onChange={(event) =>
+                      setNewCurrencyCode(event.target.value.toUpperCase())
+                    }
+                    placeholder="USD, CUP..."
+                    maxLength={10}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency-name">Nombre</Label>
+                  <Input
+                    id="currency-name"
+                    value={newCurrencyName}
+                    onChange={(event) => setNewCurrencyName(event.target.value)}
+                    placeholder="Dólar, Peso cubano..."
+                    maxLength={50}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="currency-type">Tipo</Label>
+                  <Select
+                    value={newCurrencyType}
+                    onValueChange={(value) =>
+                      setNewCurrencyType(
+                        value as "efectivo" | "transferencia" | "digital" | "otro",
+                      )
+                    }
+                  >
+                    <SelectTrigger id="currency-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="efectivo">efectivo</SelectItem>
+                      <SelectItem value="transferencia">transferencia</SelectItem>
+                      <SelectItem value="digital">digital</SelectItem>
+                      <SelectItem value="otro">otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Button onClick={handleCreateCurrency} disabled={creatingCurrency}>
+                <Plus className="h-4 w-4" />
+                {creatingCurrency ? "Guardando..." : "Agregar moneda"}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
+          <Card className="lg:col-span-1">
+            <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Wallet className="h-5 w-5 text-amber-600" />
                 Mi Billetera
@@ -592,7 +826,7 @@ function WalletPageContent() {
                   <div>
                     <p className="text-xs text-gray-500">Saldo actual</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {formatMoney(wallet.saldo_actual, getWalletCurrency(wallet))}
+                      {formatMoney(getWalletViewBalance(wallet), selectedCurrencyCode)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -636,7 +870,7 @@ function WalletPageContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="wallet-tipo">Tipo</Label>
                   <Select
@@ -649,6 +883,24 @@ function WalletPageContent() {
                     <SelectContent>
                       <SelectItem value="ingreso">Ingreso</SelectItem>
                       <SelectItem value="gasto">Gasto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="wallet-currency">Moneda</Label>
+                  <Select
+                    value={transactionCurrencyId}
+                    onValueChange={setTransactionCurrencyId}
+                  >
+                    <SelectTrigger id="wallet-currency">
+                      <SelectValue placeholder="Moneda" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((currency) => (
+                        <SelectItem key={currency.id} value={currency.id}>
+                          {currency.codigo} ({currency.tipo})
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -679,7 +931,12 @@ function WalletPageContent() {
 
               <Button
                 onClick={handleCreateTransaction}
-                disabled={creatingTransaction || creatingWallet || !wallet}
+                disabled={
+                  creatingTransaction ||
+                  creatingWallet ||
+                  !wallet ||
+                  !transactionCurrencyId
+                }
               >
                 {creatingTransaction ? "Registrando..." : "Registrar transacción"}
               </Button>
@@ -728,8 +985,26 @@ function WalletPageContent() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-              <div className="sm:col-span-1 space-y-2">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="transfer-currency">Moneda</Label>
+                <Select
+                  value={transferCurrencyId}
+                  onValueChange={setTransferCurrencyId}
+                >
+                  <SelectTrigger id="transfer-currency">
+                    <SelectValue placeholder="Moneda" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currencies.map((currency) => (
+                      <SelectItem key={currency.id} value={currency.id}>
+                        {currency.codigo} ({currency.tipo})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="transfer-amount">Monto</Label>
                 <Input
                   id="transfer-amount"
@@ -755,7 +1030,13 @@ function WalletPageContent() {
 
             <Button
               onClick={handleTransfer}
-              disabled={transferring || loadingWallets || wallets.length < 2 || !wallet}
+              disabled={
+                transferring ||
+                loadingWallets ||
+                wallets.length < 2 ||
+                !wallet ||
+                !transferCurrencyId
+              }
             >
               {transferring ? "Transfiriendo..." : "Transferir"}
             </Button>
@@ -797,7 +1078,7 @@ function WalletPageContent() {
               transactions={transactions}
               loading={loadingTransactions}
               emptyMessage="No hay transacciones registradas."
-              currency={getWalletCurrency()}
+              fallbackCurrency={selectedCurrencyCode}
               showWalletOwner
             />
           </CardContent>
@@ -836,7 +1117,7 @@ function WalletPageContent() {
                         <p className="font-semibold text-gray-900">{item.user_nombre}</p>
                         <p className="text-xs text-gray-500">CI: {item.user_ci}</p>
                         <p className="text-sm text-gray-700 mt-1">
-                          Saldo: {formatMoney(item.saldo_actual, getWalletCurrency(item))}
+                          Saldo: {formatMoney(getWalletViewBalance(item), selectedCurrencyCode)}
                         </p>
                       </div>
                       <Button
@@ -876,8 +1157,8 @@ function WalletPageContent() {
                   </p>
                   <p className="text-xl font-bold text-gray-900 mt-2">
                     {formatMoney(
-                      selectedWallet.saldo_actual,
-                      getWalletCurrency(selectedWallet),
+                      getWalletViewBalance(selectedWallet),
+                      selectedCurrencyCode,
                     )}
                   </p>
                 </CardContent>
@@ -892,7 +1173,7 @@ function WalletPageContent() {
                 transactions={selectedWalletTransactions}
                 loading={loadingSelectedWalletDetail}
                 emptyMessage="Esta billetera no tiene transacciones."
-                currency={getWalletCurrency(selectedWallet)}
+                fallbackCurrency={selectedCurrencyCode}
                 showWalletOwner={false}
               />
             </div>

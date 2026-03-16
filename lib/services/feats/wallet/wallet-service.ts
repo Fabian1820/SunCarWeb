@@ -1,5 +1,8 @@
 import { apiRequest } from "../../../api-config";
 import type {
+  WalletBalance,
+  WalletCurrency,
+  WalletCurrencyCreateData,
   Wallet,
   WalletTransaction,
   WalletTransactionCreateData,
@@ -37,6 +40,108 @@ const pickData = <T>(response: T | WrappedResponse<T>): T => {
   }
   return response as T;
 };
+
+const toNumber = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+};
+
+const normalizeCurrencyCode = (value: unknown): string => {
+  if (typeof value === "string" && value.trim()) return value.trim().toUpperCase();
+  return "USD";
+};
+
+const normalizeBalance = (value: unknown): WalletBalance | null => {
+  if (!isRecord(value)) return null;
+
+  const currencyIdRaw =
+    typeof value.currency_id === "string"
+      ? value.currency_id
+      : typeof value.moneda_id === "string"
+        ? value.moneda_id
+        : "";
+
+  const currencyCodeRaw =
+    typeof value.currency_code === "string"
+      ? value.currency_code
+      : typeof value.codigo === "string"
+        ? value.codigo
+        : typeof value.moneda === "string"
+          ? value.moneda
+          : "USD";
+
+  const currencyNameRaw =
+    typeof value.currency_name === "string"
+      ? value.currency_name
+      : typeof value.nombre === "string"
+        ? value.nombre
+        : currencyCodeRaw;
+
+  const amountRaw =
+    value.amount ??
+    value.saldo ??
+    value.balance ??
+    value.saldo_actual ??
+    0;
+
+  return {
+    currency_id: currencyIdRaw || normalizeCurrencyCode(currencyCodeRaw),
+    currency_code: normalizeCurrencyCode(currencyCodeRaw),
+    currency_name:
+      typeof currencyNameRaw === "string" && currencyNameRaw.trim()
+        ? currencyNameRaw.trim()
+        : normalizeCurrencyCode(currencyCodeRaw),
+    amount: toNumber(amountRaw),
+  };
+};
+
+const normalizeWallet = (wallet: Wallet): Wallet => {
+  const record = wallet as unknown;
+  if (!isRecord(record)) return wallet;
+
+  const candidateBalances = Array.isArray(record.balances)
+    ? record.balances
+    : Array.isArray(record.saldos_por_moneda)
+      ? record.saldos_por_moneda
+      : [];
+
+  const balances = candidateBalances
+    .map((item) => normalizeBalance(item))
+    .filter((item): item is WalletBalance => Boolean(item));
+
+  if (balances.length > 0) {
+    return {
+      ...wallet,
+      balances,
+    };
+  }
+
+  const fallbackCode = normalizeCurrencyCode(wallet.moneda);
+  return {
+    ...wallet,
+    balances: [
+      {
+        currency_id: wallet.default_currency_id || fallbackCode,
+        currency_code: fallbackCode,
+        currency_name: fallbackCode,
+        amount: toNumber(wallet.saldo_actual),
+      },
+    ],
+  };
+};
+
+const normalizeCurrency = (value: WalletCurrency): WalletCurrency => ({
+  ...value,
+  codigo: normalizeCurrencyCode(value.codigo),
+  nombre: typeof value.nombre === "string" && value.nombre.trim()
+    ? value.nombre.trim()
+    : normalizeCurrencyCode(value.codigo),
+  tipo: value.tipo || "efectivo",
+});
 
 const isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
   if (!isRecord(value)) return false;
@@ -103,7 +208,7 @@ export class WalletService {
         throw new Error(getApiErrorMessage(response, "Error al consultar la billetera"));
       }
 
-      return pickData<Wallet>(response);
+      return normalizeWallet(pickData<Wallet>(response));
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message.toLowerCase() : "";
@@ -134,7 +239,7 @@ export class WalletService {
       );
     }
 
-    return pickData<Wallet>(response);
+    return normalizeWallet(pickData<Wallet>(response));
   }
 
   static async createTransaction(
@@ -195,9 +300,11 @@ export class WalletService {
       );
     }
 
-    if (Array.isArray(response)) return response;
+    if (Array.isArray(response)) return response.map((item) => normalizeWallet(item));
 
-    return Array.isArray(response.data) ? response.data : [];
+    return Array.isArray(response.data)
+      ? response.data.map((item) => normalizeWallet(item))
+      : [];
   }
 
   static async getWalletById(walletId: string): Promise<Wallet> {
@@ -211,7 +318,7 @@ export class WalletService {
       );
     }
 
-    return pickData<Wallet>(response);
+    return normalizeWallet(pickData<Wallet>(response));
   }
 
   static async getWalletTransactions(
@@ -252,6 +359,45 @@ export class WalletService {
     }
 
     return pickData<WalletTransferResult>(response);
+  }
+
+  static async getCurrencies(): Promise<WalletCurrency[]> {
+    const response = await apiRequest<
+      WalletCurrency[] | WrappedResponse<WalletCurrency[]> | ApiErrorResponse
+    >("/wallet/monedas");
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudieron cargar las monedas"),
+      );
+    }
+
+    if (Array.isArray(response)) {
+      return response.map((item) => normalizeCurrency(item));
+    }
+
+    return Array.isArray(response.data)
+      ? response.data.map((item) => normalizeCurrency(item))
+      : [];
+  }
+
+  static async createCurrency(
+    data: WalletCurrencyCreateData,
+  ): Promise<WalletCurrency> {
+    const response = await apiRequest<
+      WalletCurrency | WrappedResponse<WalletCurrency> | ApiErrorResponse
+    >("/wallet/monedas", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo crear la moneda"),
+      );
+    }
+
+    return normalizeCurrency(pickData<WalletCurrency>(response));
   }
 
   private static parseTransactionsResponse(
