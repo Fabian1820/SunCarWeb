@@ -17,6 +17,14 @@ type WrappedResponse<T> = {
   limit?: number;
 };
 
+type ApiErrorResponse = {
+  success?: boolean;
+  message?: string;
+  detail?: string;
+  error?: unknown;
+  _httpStatus?: number;
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null;
 
@@ -27,12 +35,71 @@ const pickData = <T>(response: T | WrappedResponse<T>): T => {
   return response as T;
 };
 
+const isApiErrorResponse = (value: unknown): value is ApiErrorResponse => {
+  if (!isRecord(value)) return false;
+
+  const status =
+    typeof value._httpStatus === "number" ? value._httpStatus : undefined;
+  const success =
+    typeof value.success === "boolean" ? value.success : undefined;
+  const hasErrorField = "error" in value;
+  const hasDetail = typeof value.detail === "string";
+
+  return status !== undefined || success === false || hasErrorField || hasDetail;
+};
+
+const getApiErrorMessage = (
+  errorResponse: ApiErrorResponse,
+  fallback: string,
+): string => {
+  const detail =
+    typeof errorResponse.detail === "string" ? errorResponse.detail : "";
+  const message =
+    typeof errorResponse.message === "string" ? errorResponse.message : "";
+  const status = errorResponse._httpStatus;
+
+  if (status === 403) {
+    return (
+      detail ||
+      message ||
+      "No tienes permiso para acceder al módulo wallet en el backend."
+    );
+  }
+
+  if (status === 404) {
+    return detail || message || "Recurso no encontrado.";
+  }
+
+  return detail || message || fallback;
+};
+
 export class WalletService {
   static async getMyWallet(): Promise<Wallet | null> {
     try {
-      const response = await apiRequest<Wallet | WrappedResponse<Wallet>>(
+      const response = await apiRequest<
+        Wallet | WrappedResponse<Wallet> | ApiErrorResponse
+      >(
         "/wallet/me",
       );
+
+      if (isApiErrorResponse(response)) {
+        const status = response._httpStatus;
+        const message = getApiErrorMessage(
+          response,
+          "Error al consultar la billetera",
+        ).toLowerCase();
+
+        if (
+          status === 404 ||
+          message.includes("no existe") ||
+          message.includes("not found")
+        ) {
+          return null;
+        }
+
+        throw new Error(getApiErrorMessage(response, "Error al consultar la billetera"));
+      }
+
       return pickData<Wallet>(response);
     } catch (error) {
       const errorMessage =
@@ -49,12 +116,20 @@ export class WalletService {
   }
 
   static async initializeMyWallet(): Promise<Wallet> {
-    const response = await apiRequest<Wallet | WrappedResponse<Wallet>>(
+    const response = await apiRequest<
+      Wallet | WrappedResponse<Wallet> | ApiErrorResponse
+    >(
       "/wallet/me/inicializar",
       {
         method: "POST",
       },
     );
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo iniciar la billetera"),
+      );
+    }
 
     return pickData<Wallet>(response);
   }
@@ -63,11 +138,17 @@ export class WalletService {
     data: WalletTransactionCreateData,
   ): Promise<WalletTransaction> {
     const response = await apiRequest<
-      WalletTransaction | WrappedResponse<WalletTransaction>
+      WalletTransaction | WrappedResponse<WalletTransaction> | ApiErrorResponse
     >("/wallet/transacciones", {
       method: "POST",
       body: JSON.stringify(data),
     });
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo registrar la transacción"),
+      );
+    }
 
     return pickData<WalletTransaction>(response);
   }
@@ -86,8 +167,16 @@ export class WalletService {
 
     const endpoint = `/wallet/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<
-      WalletTransaction[] | WrappedResponse<WalletTransaction[]>
+      | WalletTransaction[]
+      | WrappedResponse<WalletTransaction[]>
+      | ApiErrorResponse
     >(endpoint);
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudieron cargar las transacciones"),
+      );
+    }
 
     if (Array.isArray(response)) {
       return {
