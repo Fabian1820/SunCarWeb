@@ -45,86 +45,28 @@ const isInversor = (text: string) => normalizeText(text).includes("inversor");
 const isBateria = (text: string) => normalizeText(text).includes("bateria");
 const isPanel = (text: string) => normalizeText(text).includes("panel");
 
-const getEstadoNormalizado = (cliente: ClienteConEquipo) =>
-  normalizeText(cliente.estado || "");
-
-const isClienteEnServicio = (cliente: ClienteConEquipo) => {
-  const estado = getEstadoNormalizado(cliente);
-  return (
-    estado.includes("instalacion completada") ||
-    estado.includes("instalacion terminada") ||
-    estado.includes("instalada") ||
-    estado.includes("instalado") ||
-    estado.includes("finalizada") ||
-    estado.includes("finalizado") ||
-    estado.includes("operativo") ||
-    estado.includes("funcionando") ||
-    estado.includes("servicio") ||
-    estado.includes("completada")
-  );
-};
-
-const isClienteEntregado = (cliente: ClienteConEquipo) => {
-  const estado = getEstadoNormalizado(cliente);
-  return (
-    isClienteEnServicio(cliente) ||
-    estado.includes("instalacion en proceso") ||
-    estado.includes("en instalacion") ||
-    estado.includes("en proceso") ||
-    estado.includes("proceso") ||
-    estado.includes("entregado")
-  );
-};
-
-const isClientePendiente = (cliente: ClienteConEquipo) => {
-  const estado = getEstadoNormalizado(cliente);
-  if (!isClienteEnServicio(cliente)) return true;
-
-  return (
-    estado.includes("pendiente") ||
-    estado.includes("sin entregar") ||
-    estado.includes("por entregar") ||
-    estado.includes("por instalar") ||
-    estado.includes("no iniciado")
-  );
-};
-
 const getCantidadPorEstado = (
   cliente: ClienteConEquipo,
   estado: EstadoCliente,
 ) => {
-  const cantidadDirecta =
+  const cantidad =
     estado === "entregados"
       ? cliente.unidades_entregadas
       : estado === "servicio"
         ? cliente.unidades_en_servicio
         : cliente.unidades_pendientes;
-
-  if (cantidadDirecta > 0) return cantidadDirecta;
-
-  if (estado === "entregados" && isClienteEntregado(cliente)) {
-    return cliente.cantidad_equipos;
-  }
-  if (estado === "servicio" && isClienteEnServicio(cliente)) {
-    return cliente.cantidad_equipos;
-  }
-  if (estado === "pendientes" && isClientePendiente(cliente)) {
-    return cliente.cantidad_equipos;
-  }
-
-  return 0;
+  return Math.max(cantidad, 0);
 };
 
 const getClientesPorEstado = (equipo: EquipoDetalle) => ({
   entregados: (equipo.clientes || []).filter(
-    (cliente) => cliente.unidades_entregadas > 0 || isClienteEntregado(cliente),
+    (cliente) => cliente.unidades_entregadas > 0,
   ),
   servicio: (equipo.clientes || []).filter(
-    (cliente) =>
-      cliente.unidades_en_servicio > 0 || isClienteEnServicio(cliente),
+    (cliente) => cliente.unidades_en_servicio > 0,
   ),
   pendientes: (equipo.clientes || []).filter(
-    (cliente) => cliente.unidades_pendientes > 0 || isClientePendiente(cliente),
+    (cliente) => cliente.unidades_pendientes > 0,
   ),
 });
 
@@ -159,7 +101,9 @@ function ClienteRow({
         </span>
       </div>
       {cliente.direccion && (
-        <p className="mt-1 truncate text-xs text-slate-500">{cliente.direccion}</p>
+        <p className="mt-1 truncate text-xs text-slate-500">
+          {cliente.direccion}
+        </p>
       )}
     </div>
   );
@@ -360,11 +304,7 @@ export function EstadoEquiposStats({
     : [];
 
   const equiposEntregadosSinServicio = equipoSeleccionado
-    ? Math.max(
-        equipoSeleccionado.unidades_entregadas -
-          equipoSeleccionado.unidades_en_servicio,
-        0,
-      )
+    ? equipoSeleccionado.unidades_entregadas
     : 0;
   const equiposServicio = equipoSeleccionado?.unidades_en_servicio || 0;
   const equiposPendientes = equipoSeleccionado?.unidades_sin_entregar || 0;
@@ -374,11 +314,7 @@ export function EstadoEquiposStats({
     return {
       equipos: items.length,
       vendidos: items.reduce((acc, it) => acc + it.unidades_vendidas, 0),
-      entregados: items.reduce(
-        (acc, it) =>
-          acc + Math.max(it.unidades_entregadas - it.unidades_en_servicio, 0),
-        0,
-      ),
+      entregados: items.reduce((acc, it) => acc + it.unidades_entregadas, 0),
       servicio: items.reduce((acc, it) => acc + it.unidades_en_servicio, 0),
       pendientes: items.reduce((acc, it) => acc + it.unidades_sin_entregar, 0),
     };
@@ -572,14 +508,7 @@ export function EstadoEquiposStats({
                         className={`mt-1.5 grid grid-cols-4 gap-1 text-xs ${active ? "text-white/80" : "text-slate-600"}`}
                       >
                         <span>Vendidos: {equipo.unidades_vendidas}</span>
-                        <span>
-                          Entregados:{" "}
-                          {Math.max(
-                            equipo.unidades_entregadas -
-                              equipo.unidades_en_servicio,
-                            0,
-                          )}
-                        </span>
+                        <span>Entregados: {equipo.unidades_entregadas}</span>
                         <span>En servicio: {equipo.unidades_en_servicio}</span>
                         <span>Pendientes: {equipo.unidades_sin_entregar}</span>
                       </div>
