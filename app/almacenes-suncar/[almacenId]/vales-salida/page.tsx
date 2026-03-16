@@ -22,8 +22,16 @@ import {
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
-import { Search, FileOutput, Plus, Loader2, ClipboardList } from "lucide-react";
+import {
+  Search,
+  FileOutput,
+  Plus,
+  Loader2,
+  ClipboardList,
+  ChevronDown,
+} from "lucide-react";
 import { ValeSalidaService } from "@/lib/api-services";
+import { ExportValeSalidaService } from "@/lib/services/feats/vales-salida/export-vale-salida-service";
 import { useToast } from "@/hooks/use-toast";
 import { useValesSalida } from "@/hooks/use-vales-salida";
 import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
@@ -83,6 +91,8 @@ export default function ValesSalidaPage() {
     ValeSolicitudPendiente[]
   >([]);
   const [loadingPendientes, setLoadingPendientes] = useState(false);
+  const [showSolicitudesPendientes, setShowSolicitudesPendientes] =
+    useState(true);
 
   const loadSolicitudesPendientes = useCallback(async () => {
     setLoadingPendientes(true);
@@ -196,6 +206,42 @@ export default function ValesSalidaPage() {
     setIsCreateDialogOpen(true);
   };
 
+  const handleExportValePDF = async (vale: ValeSalida) => {
+    try {
+      const valeDetalle = await ValeSalidaService.getValeById(vale.id);
+      await ExportValeSalidaService.exportarPDF(valeDetalle || vale);
+      toast({
+        title: "PDF generado",
+        description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato PDF.`,
+      });
+    } catch (error) {
+      console.error("Error exportando vale a PDF:", error);
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo generar el PDF del vale.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportValeExcel = async (vale: ValeSalida) => {
+    try {
+      const valeDetalle = await ValeSalidaService.getValeById(vale.id);
+      await ExportValeSalidaService.exportarExcel(valeDetalle || vale);
+      toast({
+        title: "Excel generado",
+        description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato Excel.`,
+      });
+    } catch (error) {
+      console.error("Error exportando vale a Excel:", error);
+      toast({
+        title: "Error al exportar",
+        description: "No se pudo generar el Excel del vale.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
@@ -208,130 +254,154 @@ export default function ValesSalidaPage() {
         className="bg-white shadow-sm border-b border-orange-100"
         backButton={{
           href: `/almacenes-suncar/${almacenId}`,
-          label: "Volver al Almacen",
+          label: "Volver al almacén",
         }}
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header max-w-[98vw] 2xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-amber-500">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-amber-600" />
-              Solicitudes pendientes para vale
-            </CardTitle>
-            <CardDescription>
-              Incluye solicitudes de materiales y solicitudes de ventas en
-              estado nueva.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-amber-600" />
+                  Solicitudes pendientes para vale
+                </CardTitle>
+                <CardDescription>
+                  Incluye solicitudes de materiales y solicitudes de ventas en
+                  estado nueva.
+                </CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setShowSolicitudesPendientes((prevState) => !prevState)
+                }
+                className="shrink-0"
+              >
+                {showSolicitudesPendientes ? "Ocultar" : "Mostrar"}
+                <ChevronDown
+                  className={`ml-2 h-4 w-4 transition-transform ${showSolicitudesPendientes ? "rotate-180" : ""}`}
+                />
+              </Button>
+            </div>
           </CardHeader>
-          <CardContent>
-            {loadingPendientes ? (
-              <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando solicitudes pendientes...
-              </div>
-            ) : solicitudesPendientes.length === 0 ? (
-              <div className="text-sm text-gray-500 py-2">
-                No hay solicitudes nuevas pendientes para este almacen.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Tipo
-                      </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Codigo
-                      </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Cliente
-                      </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Materiales
-                      </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Recogida
-                      </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Accion
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {solicitudesPendientes.map((solicitud) => {
-                      const styles = getTipoStyles(solicitud.tipo_solicitud);
-                      const recogidaBadge = getFechaRecogidaBadge(
-                        solicitud.fecha_recogida,
-                      );
-                      return (
-                        <tr
-                          key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
-                          className={`border-b border-gray-100 ${styles.row}`}
-                        >
-                          <td className="py-2 px-2">
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${styles.badge}`}
-                            >
-                              {solicitud.tipo_solicitud === "venta"
-                                ? "Venta"
-                                : "Material"}
-                            </span>
-                          </td>
-                          <td
-                            className={`py-2 px-2 font-mono font-medium ${styles.text}`}
+          {showSolicitudesPendientes ? (
+            <CardContent>
+              {loadingPendientes ? (
+                <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cargando solicitudes pendientes...
+                </div>
+              ) : solicitudesPendientes.length === 0 ? (
+                <div className="text-sm text-gray-500 py-2">
+                  No hay solicitudes nuevas pendientes para este almacén.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                          Tipo
+                        </th>
+                        <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                          Código
+                        </th>
+                        <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                          Cliente
+                        </th>
+                        <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                          Materiales
+                        </th>
+                        <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                          Recogida
+                        </th>
+                        <th className="text-left py-2 px-2 font-semibold text-gray-900">
+                          Acción
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {solicitudesPendientes.map((solicitud) => {
+                        const styles = getTipoStyles(solicitud.tipo_solicitud);
+                        const recogidaBadge = getFechaRecogidaBadge(
+                          solicitud.fecha_recogida,
+                        );
+                        return (
+                          <tr
+                            key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
+                            className={`border-b border-gray-100 ${styles.row}`}
                           >
-                            {getSolicitudCode(solicitud)}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            {getSolicitudCliente(solicitud)}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            {solicitud.materiales?.length || 0}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            <div className="flex flex-col gap-1">
-                              <div className="flex items-center gap-2">
-                                <span>
-                                  {formatFechaRecogida(
-                                    solicitud.fecha_recogida,
-                                  )}
-                                </span>
-                                <span
-                                  className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getRecogidaBadgeClass(recogidaBadge.kind)}`}
-                                >
-                                  {recogidaBadge.label}
+                            <td className="py-2 px-2">
+                              <span
+                                className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${styles.badge}`}
+                              >
+                                {solicitud.tipo_solicitud === "venta"
+                                  ? "Venta"
+                                  : "Material"}
+                              </span>
+                            </td>
+                            <td
+                              className={`py-2 px-2 font-mono font-medium ${styles.text}`}
+                            >
+                              {getSolicitudCode(solicitud)}
+                            </td>
+                            <td className="py-2 px-2 text-gray-700">
+                              {getSolicitudCliente(solicitud)}
+                            </td>
+                            <td className="py-2 px-2 text-gray-700">
+                              {solicitud.materiales?.length || 0}
+                            </td>
+                            <td className="py-2 px-2 text-gray-700">
+                              <div className="flex flex-col gap-1">
+                                <div className="flex items-center gap-2">
+                                  <span>
+                                    {formatFechaRecogida(
+                                      solicitud.fecha_recogida,
+                                    )}
+                                  </span>
+                                  <span
+                                    className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getRecogidaBadgeClass(recogidaBadge.kind)}`}
+                                  >
+                                    {recogidaBadge.label}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                  {solicitud.responsable_recogida ||
+                                    solicitud.recogio_por ||
+                                    solicitud.recogido_por ||
+                                    solicitud.recibido_por ||
+                                    "Sin responsable"}
                                 </span>
                               </div>
-                              <span className="text-xs text-gray-500">
-                                {solicitud.responsable_recogida ||
-                                  "Sin responsable"}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="py-2 px-2">
-                            <Button
-                              size="sm"
-                              className={styles.button}
-                              onClick={() =>
-                                handleCreateFromSolicitud(solicitud)
-                              }
-                              title="Crear vale desde esta solicitud"
-                              disabled={solicitud.puede_generar_vale === false}
-                            >
-                              <Plus className="h-4 w-4 mr-1" />
-                              Crear vale
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
+                            </td>
+                            <td className="py-2 px-2">
+                              <Button
+                                size="sm"
+                                className={styles.button}
+                                onClick={() =>
+                                  handleCreateFromSolicitud(solicitud)
+                                }
+                                title="Crear vale desde esta solicitud"
+                                disabled={
+                                  solicitud.puede_generar_vale === false
+                                }
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Crear vale
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          ) : null}
         </Card>
 
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
@@ -348,7 +418,7 @@ export default function ValesSalidaPage() {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="search"
-                    placeholder="Buscar por codigo, solicitud, cliente o creador..."
+                    placeholder="Buscar por código, solicitud, cliente o creador..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10"
@@ -398,6 +468,12 @@ export default function ValesSalidaPage() {
                 setIsDetailDialogOpen(true);
               }}
               onAnular={handleAnularVale}
+              onExportPdf={(vale) => {
+                void handleExportValePDF(vale);
+              }}
+              onExportExcel={(vale) => {
+                void handleExportValeExcel(vale);
+              }}
               loading={loading}
             />
           </CardContent>

@@ -59,6 +59,9 @@ export interface ValeSolicitudInfo {
   almacen?: ValeAlmacenInfo;
   trabajador?: ValeTrabajadorInfo;
   responsable_recogida?: string | null;
+  recogio_por?: string | null;
+  recogido_por?: string | null;
+  recibido_por?: string | null;
   fecha_recogida?: string | null;
   estado?: string;
 }
@@ -67,6 +70,9 @@ export interface ValeSalida {
   id: string;
   codigo?: string;
   estado?: "usado" | "anulado" | string;
+  recogio_por?: string | null;
+  recogido_por?: string | null;
+  recibido_por?: string | null;
   motivo_anulacion?: string | null;
   movimientos_ids?: string[];
   solicitud_tipo?: ValeSolicitudTipo | string;
@@ -80,7 +86,6 @@ export interface ValeSalida {
   // Legacy fallback kept for compatibility with old responses
   solicitud?: ValeSolicitudInfo | null;
   trabajador?: ValeTrabajadorInfo;
-  recogido_por?: string | null;
   materiales: ValeSalidaMaterialItemDetalle[];
   total_materiales?: number;
   creado_por_ci?: string;
@@ -108,6 +113,9 @@ export interface ValeSolicitudPendiente {
   almacen?: ValeAlmacenInfo;
   trabajador?: ValeTrabajadorInfo;
   responsable_recogida?: string | null;
+  recogio_por?: string | null;
+  recogido_por?: string | null;
+  recibido_por?: string | null;
   fecha_recogida?: string | null;
   materiales: ValeSalidaMaterialItemDetalle[];
   vale_id?: string | null;

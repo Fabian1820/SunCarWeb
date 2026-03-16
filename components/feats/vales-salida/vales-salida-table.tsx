@@ -2,13 +2,23 @@
 
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
-import { FileOutput, Eye, Calendar, User, Package, Ban } from "lucide-react";
+import {
+  FileOutput,
+  Eye,
+  Calendar,
+  User,
+  Ban,
+  FileText,
+  FileSpreadsheet,
+} from "lucide-react";
 import type { ValeSalida } from "@/lib/api-types";
 
 interface ValesSalidaTableProps {
   vales: ValeSalida[];
   onAnular?: (vale: ValeSalida) => void;
   onView?: (vale: ValeSalida) => void;
+  onExportPdf?: (vale: ValeSalida) => void;
+  onExportExcel?: (vale: ValeSalida) => void;
   loading?: boolean;
 }
 
@@ -18,20 +28,25 @@ const getSolicitudTipo = (vale: ValeSalida): "material" | "venta" => {
   return "material";
 };
 
-const getTipoStyles = (tipo: "material" | "venta") =>
-  tipo === "venta"
-    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
-    : "bg-amber-50 text-amber-700 border-amber-200";
+const getEstadoLabel = (estado?: string) =>
+  estado === "anulado" ? "Anulado" : "Usado";
 
 const getEstadoStyles = (estado?: string) =>
   estado === "anulado"
     ? "bg-red-50 text-red-700 border-red-200"
     : "bg-emerald-50 text-emerald-700 border-emerald-200";
 
+const getTipoStyles = (tipo: "material" | "venta") =>
+  tipo === "venta"
+    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+    : "bg-amber-50 text-amber-700 border-amber-200";
+
 export function ValesSalidaTable({
   vales,
   onAnular,
   onView,
+  onExportPdf,
+  onExportExcel,
 }: ValesSalidaTableProps) {
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return "-";
@@ -55,22 +70,58 @@ export function ValesSalidaTable({
     vale.solicitud_id?.slice(-6).toUpperCase() ||
     "-";
 
-  const getClienteName = (vale: ValeSalida) =>
-    vale.solicitud_venta?.cliente_venta?.nombre ||
-    vale.solicitud_venta?.cliente?.nombre ||
-    vale.solicitud_material?.cliente?.nombre ||
-    vale.solicitud?.cliente_venta?.nombre ||
-    vale.solicitud?.cliente?.nombre ||
-    null;
+  const getClienteInfo = (vale: ValeSalida) => {
+    const cliente =
+      vale.solicitud_venta?.cliente_venta ||
+      vale.solicitud_venta?.cliente ||
+      vale.solicitud_material?.cliente_venta ||
+      vale.solicitud_material?.cliente ||
+      vale.solicitud?.cliente_venta ||
+      vale.solicitud?.cliente ||
+      null;
+
+    return {
+      nombre: cliente?.nombre || "Sin cliente",
+      direccion: cliente?.direccion || "-",
+      telefono: cliente?.telefono || "-",
+    };
+  };
 
   const getTrabajadorName = (vale: ValeSalida) =>
     vale.trabajador?.nombre || vale.creado_por_ci || "-";
 
-  const getRecogidoPor = (vale: ValeSalida) =>
-    vale.recogido_por ||
-    vale.solicitud_material?.responsable_recogida ||
-    vale.solicitud?.responsable_recogida ||
-    null;
+  const getRecibidoInfo = (vale: ValeSalida) => {
+    const solicitud =
+      vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
+    const recibidoPor =
+      vale.recogio_por ||
+      vale.recogido_por ||
+      vale.recibido_por ||
+      solicitud?.recogio_por ||
+      solicitud?.recogido_por ||
+      solicitud?.recibido_por ||
+      solicitud?.responsable_recogida ||
+      "-";
+
+    const solicitudRecord = solicitud as unknown as Record<string, unknown>;
+    const valeRecord = vale as unknown as Record<string, unknown>;
+    const fechaRecogidaRaw =
+      solicitud?.fecha_recogida ||
+      (typeof solicitudRecord?.fechaRecogida === "string"
+        ? solicitudRecord.fechaRecogida
+        : undefined) ||
+      (typeof valeRecord?.fecha_recogida === "string"
+        ? valeRecord.fecha_recogida
+        : undefined) ||
+      (typeof valeRecord?.fechaRecogida === "string"
+        ? valeRecord.fechaRecogida
+        : undefined);
+
+    return {
+      recibidoPor,
+      fechaRecogida: formatDate(fechaRecogidaRaw),
+    };
+  };
 
   if (vales.length === 0) {
     return (
@@ -92,16 +143,16 @@ export function ValesSalidaTable({
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Codigo
+              Código vale
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Código solicitud
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
               Estado
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Tipo
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Solicitud
+              Tipo / Materiales
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
               Cliente
@@ -110,13 +161,7 @@ export function ValesSalidaTable({
               Creador
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Recogido por
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Materiales
-            </th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Fecha
+              Recibió / Fecha recogida
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
               Acciones
@@ -125,53 +170,59 @@ export function ValesSalidaTable({
         </thead>
         <tbody>
           {vales.map((vale) => {
-            const clienteName = getClienteName(vale);
+            const cliente = getClienteInfo(vale);
             const solicitudTipo = getSolicitudTipo(vale);
-            const tipoStyles = getTipoStyles(solicitudTipo);
             const isAnulado = vale.estado === "anulado";
-            const recogidoPor = getRecogidoPor(vale);
+            const cantidadMateriales =
+              vale.total_materiales ?? vale.materiales?.length ?? 0;
+            const tipoStyles = getTipoStyles(solicitudTipo);
+            const recibidoInfo = getRecibidoInfo(vale);
             return (
               <tr
                 key={vale.id}
                 className="border-b border-gray-100 hover:bg-gray-50"
               >
                 <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className="bg-orange-50 text-orange-700 border-orange-200 font-mono"
-                  >
+                  <p className="font-mono font-medium text-gray-900">
                     {vale.codigo || vale.id.slice(-6).toUpperCase()}
-                  </Badge>
+                  </p>
+                </td>
+                <td className="py-4 px-4">
+                  <p className="font-mono text-sm text-gray-900">
+                    {getSolicitudCode(vale)}
+                  </p>
                 </td>
                 <td className="py-4 px-4">
                   <Badge
                     variant="outline"
                     className={getEstadoStyles(vale.estado)}
                   >
-                    {isAnulado ? "Anulado" : "Usado"}
+                    {getEstadoLabel(vale.estado)}
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge variant="outline" className={tipoStyles}>
-                    {solicitudTipo === "venta" ? "Venta" : "Material"}
-                  </Badge>
+                  <div className="space-y-1">
+                    <Badge variant="outline" className={tipoStyles}>
+                      Tipo: {solicitudTipo === "venta" ? "Venta" : "Material"}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className="bg-gray-50 text-gray-700 border-gray-200"
+                    >
+                      Materiales: {cantidadMateriales}
+                    </Badge>
+                  </div>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className={`${tipoStyles} font-mono text-xs`}
-                  >
-                    {getSolicitudCode(vale)}
-                  </Badge>
-                </td>
-                <td className="py-4 px-4">
-                  {clienteName ? (
-                    <p className="font-medium text-gray-900">{clienteName}</p>
-                  ) : (
-                    <span className="text-gray-400 italic text-sm">
-                      Sin cliente
-                    </span>
-                  )}
+                  <div className="space-y-1.5">
+                    <p className="font-medium text-gray-900">
+                      {cliente.nombre}
+                    </p>
+                    <p className="text-sm text-gray-500">{cliente.direccion}</p>
+                    <p className="text-sm text-gray-500">
+                      Tel: {cliente.telefono}
+                    </p>
+                  </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
@@ -182,34 +233,21 @@ export function ValesSalidaTable({
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  {recogidoPor ? (
-                    <span className="text-sm text-gray-700">{recogidoPor}</span>
-                  ) : (
-                    <span className="text-xs text-gray-400 italic">
-                      Sin responsable
-                    </span>
-                  )}
-                </td>
-                <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className="bg-blue-50 text-blue-700 border-blue-200"
-                  >
-                    <Package className="h-3 w-3 mr-1" />
-                    {vale.total_materiales ?? vale.materiales?.length ?? 0}{" "}
-                    items
-                  </Badge>
-                </td>
-                <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
+                    <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                    <span className="text-sm text-gray-700">
+                      {recibidoInfo.recibidoPor}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1.5">
                     <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-700">
-                      {formatDate(vale.fecha_creacion)}
+                      {recibidoInfo.fechaRecogida}
                     </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap">
                     {onView ? (
                       <Button
                         variant="outline"
@@ -220,6 +258,30 @@ export function ValesSalidaTable({
                       >
                         <Eye className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline text-xs">Ver</span>
+                      </Button>
+                    ) : null}
+                    {onExportPdf ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onExportPdf(vale)}
+                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
+                        title="Exportar vale a PDF"
+                      >
+                        <FileText className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">PDF</span>
+                      </Button>
+                    ) : null}
+                    {onExportExcel ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onExportExcel(vale)}
+                        className="border-green-300 text-green-700 hover:bg-green-50"
+                        title="Exportar vale a Excel"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">Excel</span>
                       </Button>
                     ) : null}
                     {onAnular ? (
