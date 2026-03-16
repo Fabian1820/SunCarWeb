@@ -10,7 +10,6 @@ import { Badge } from "@/components/shared/atom/badge";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/shared/molecule/card";
@@ -41,13 +40,17 @@ import { PageLoader } from "@/components/shared/atom/page-loader";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  Coins,
   Eye,
   Plus,
   RefreshCcw,
   Search,
   SendHorizontal,
+  TrendingDown,
+  TrendingUp,
   Users,
   Wallet,
+  X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
@@ -116,9 +119,9 @@ const getWalletBalanceForCurrency = (
 const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction }) => {
   if (isTransferTransaction(transaction)) {
     return (
-      <Badge className="bg-indigo-100 text-indigo-800 border-indigo-200">
+      <Badge className="bg-violet-100 text-violet-700 border-violet-200 text-[11px]">
         <SendHorizontal className="h-3 w-3 mr-1" />
-        transferencia
+        Transferencia
       </Badge>
     );
   }
@@ -129,8 +132,8 @@ const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction 
     <Badge
       className={
         ingreso
-          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-          : "bg-red-100 text-red-700 border-red-200"
+          ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-[11px]"
+          : "bg-rose-100 text-rose-700 border-rose-200 text-[11px]"
       }
     >
       {ingreso ? (
@@ -138,7 +141,7 @@ const TransactionTypeBadge = ({ transaction }: { transaction: WalletTransaction 
       ) : (
         <ArrowDownCircle className="h-3 w-3 mr-1" />
       )}
-      {tipo}
+      {ingreso ? "Ingreso" : "Gasto"}
     </Badge>
   );
 };
@@ -160,125 +163,139 @@ function TransactionsResponsiveList({
 }: TransactionsResponsiveListProps) {
   if (loading) {
     return (
-      <div className="py-8 text-center text-sm text-gray-500">Cargando transacciones...</div>
+      <div className="py-10 text-center">
+        <div className="inline-flex items-center gap-2 text-sm text-slate-400">
+          <RefreshCcw className="h-4 w-4 animate-spin" />
+          Cargando transacciones...
+        </div>
+      </div>
     );
   }
 
   if (transactions.length === 0) {
-    return <div className="py-8 text-center text-sm text-gray-500">{emptyMessage}</div>;
+    return (
+      <div className="py-10 text-center">
+        <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+        <p className="text-sm text-slate-400">{emptyMessage}</p>
+      </div>
+    );
   }
 
   return (
     <>
-      <div className="space-y-3 md:hidden">
-        {transactions.map((transaction) => (
-          <Card key={transaction.id} className="border border-gray-200 shadow-sm">
-            <CardContent className="p-3 space-y-2">
-              {/** El monto y saldos se muestran en la moneda de cada transacción */}
-              {(() => {
-                const rowCurrency = transaction.currency_code || fallbackCurrency;
-                return (
-                  <>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-gray-500">
-                  {formatDateTime(transaction.created_at)}
-                </p>
-                <TransactionTypeBadge transaction={transaction} />
+      {/* Mobile cards */}
+      <div className="space-y-2 md:hidden">
+        {transactions.map((transaction) => {
+          const rowCurrency = transaction.currency_code || fallbackCurrency;
+          const isTransfer = isTransferTransaction(transaction);
+          const isIngreso = transaction.tipo === "ingreso";
+          const amountColor = isTransfer
+            ? "text-violet-600"
+            : isIngreso
+            ? "text-emerald-600"
+            : "text-rose-600";
+          const borderColor = isTransfer
+            ? "border-l-violet-400"
+            : isIngreso
+            ? "border-l-emerald-400"
+            : "border-l-rose-400";
+
+          return (
+            <div
+              key={transaction.id}
+              className={`bg-white rounded-xl border border-slate-100 border-l-4 ${borderColor} p-3 shadow-sm`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <TransactionTypeBadge transaction={transaction} />
+                    <span className="text-[11px] text-slate-400">
+                      {formatDateTime(transaction.created_at)}
+                    </span>
+                  </div>
+                  <p className={`text-base font-bold ${amountColor}`}>
+                    {isIngreso && !isTransfer ? "+" : isTransfer ? "" : "-"}
+                    {formatMoney(transaction.monto, rowCurrency)}
+                  </p>
+                  {showWalletOwner && (
+                    <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      {transaction.wallet_user_nombre} · {transaction.wallet_user_ci}
+                    </p>
+                  )}
+                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{transaction.motivo}</p>
+                </div>
               </div>
-              <p className="text-base font-semibold text-gray-900">
-                {formatMoney(transaction.monto, rowCurrency)}
-              </p>
-              {showWalletOwner ? (
-                <p className="text-xs text-gray-600">
-                  Billetera: {transaction.wallet_user_nombre} ({transaction.wallet_user_ci})
-                </p>
-              ) : null}
-              <p className="text-sm text-gray-700">{transaction.motivo}</p>
-              <p className="text-xs text-gray-600">
-                Registrado por: {transaction.created_by_nombre} ({transaction.created_by_ci})
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                <p>
-                  Antes:{" "}
-                  <span className="font-medium text-gray-800">
-                    {formatMoney(transaction.saldo_anterior, rowCurrency)}
-                  </span>
-                </p>
-                <p>
-                  Después:{" "}
-                  <span className="font-medium text-gray-800">
-                    {formatMoney(transaction.saldo_posterior, rowCurrency)}
-                  </span>
-                </p>
+              <div className="mt-2 pt-2 border-t border-slate-50 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
+                <span>Antes: <span className="text-slate-600 font-medium">{formatMoney(transaction.saldo_anterior, rowCurrency)}</span></span>
+                <span>Después: <span className="text-slate-600 font-medium">{formatMoney(transaction.saldo_posterior, rowCurrency)}</span></span>
               </div>
-                  </>
-                );
-              })()}
-            </CardContent>
-          </Card>
-        ))}
+            </div>
+          );
+        })}
       </div>
 
-      <div className="hidden md:block rounded-lg border bg-white">
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-xl border border-slate-100 overflow-hidden bg-white">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead>Fecha</TableHead>
-              {showWalletOwner ? <TableHead>Billetera</TableHead> : null}
-              <TableHead>Tipo</TableHead>
-              <TableHead>Monto</TableHead>
-              <TableHead>Motivo</TableHead>
-              <TableHead>Registrado por</TableHead>
-              <TableHead>Saldo Anterior</TableHead>
-              <TableHead>Saldo Posterior</TableHead>
+            <TableRow className="bg-slate-50 hover:bg-slate-50">
+              <TableHead className="text-xs font-semibold text-slate-500">Fecha</TableHead>
+              {showWalletOwner ? <TableHead className="text-xs font-semibold text-slate-500">Usuario</TableHead> : null}
+              <TableHead className="text-xs font-semibold text-slate-500">Tipo</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500">Monto</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500">Motivo</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500">Registrado por</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500">Antes</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500">Después</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {transactions.map((transaction) => (
-              <TableRow key={transaction.id}>
-                {(() => {
-                  const rowCurrency = transaction.currency_code || fallbackCurrency;
-                  return (
-                    <>
-                <TableCell className="text-xs lg:text-sm">
-                  {formatDateTime(transaction.created_at)}
-                </TableCell>
-                {showWalletOwner ? (
-                  <TableCell className="text-xs lg:text-sm">
-                    {transaction.wallet_user_nombre}
-                    <p className="text-[11px] text-gray-500">
-                      {transaction.wallet_user_ci}
+            {transactions.map((transaction) => {
+              const rowCurrency = transaction.currency_code || fallbackCurrency;
+              const isTransfer = isTransferTransaction(transaction);
+              const isIngreso = transaction.tipo === "ingreso";
+              const amountColor = isTransfer
+                ? "text-violet-600"
+                : isIngreso
+                ? "text-emerald-600"
+                : "text-rose-600";
+
+              return (
+                <TableRow key={transaction.id} className="hover:bg-slate-50/50">
+                  <TableCell className="text-xs text-slate-500">
+                    {formatDateTime(transaction.created_at)}
+                  </TableCell>
+                  {showWalletOwner ? (
+                    <TableCell>
+                      <p className="text-sm font-medium text-slate-800">{transaction.wallet_user_nombre}</p>
+                      <p className="text-[11px] text-slate-400">{transaction.wallet_user_ci}</p>
+                    </TableCell>
+                  ) : null}
+                  <TableCell>
+                    <TransactionTypeBadge transaction={transaction} />
+                  </TableCell>
+                  <TableCell className={`font-bold ${amountColor}`}>
+                    {isIngreso && !isTransfer ? "+" : isTransfer ? "" : "-"}
+                    {formatMoney(transaction.monto, rowCurrency)}
+                  </TableCell>
+                  <TableCell className="max-w-[180px]">
+                    <p className="truncate text-sm text-slate-600" title={transaction.motivo}>
+                      {transaction.motivo}
                     </p>
                   </TableCell>
-                ) : null}
-                <TableCell>
-                  <TransactionTypeBadge transaction={transaction} />
-                </TableCell>
-                <TableCell className="font-medium">
-                  {formatMoney(transaction.monto, rowCurrency)}
-                </TableCell>
-                <TableCell className="max-w-xs">
-                  <p className="truncate" title={transaction.motivo}>
-                    {transaction.motivo}
-                  </p>
-                </TableCell>
-                <TableCell className="text-xs lg:text-sm">
-                  {transaction.created_by_nombre}
-                  <p className="text-[11px] text-gray-500">
-                    {transaction.created_by_ci}
-                  </p>
-                </TableCell>
-                <TableCell className="text-xs lg:text-sm">
-                  {formatMoney(transaction.saldo_anterior, rowCurrency)}
-                </TableCell>
-                <TableCell className="text-xs lg:text-sm">
-                  {formatMoney(transaction.saldo_posterior, rowCurrency)}
-                </TableCell>
-                    </>
-                  );
-                })()}
-              </TableRow>
-            ))}
+                  <TableCell>
+                    <p className="text-sm text-slate-700">{transaction.created_by_nombre}</p>
+                    <p className="text-[11px] text-slate-400">{transaction.created_by_ci}</p>
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-500">
+                    {formatMoney(transaction.saldo_anterior, rowCurrency)}
+                  </TableCell>
+                  <TableCell className="text-xs text-slate-500">
+                    {formatMoney(transaction.saldo_posterior, rowCurrency)}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -293,6 +310,8 @@ export default function WalletPage() {
     </RouteGuard>
   );
 }
+
+type ActiveAction = "ingreso" | "gasto" | "transferencia" | null;
 
 function WalletPageContent() {
   const { toast } = useToast();
@@ -326,16 +345,16 @@ function WalletPageContent() {
     createCurrency,
   } = useWallet();
 
+  const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
   const [monto, setMonto] = useState("");
   const [motivo, setMotivo] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>(
-    "todos",
-  );
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
 
   const [walletSearch, setWalletSearch] = useState("");
   const [isWalletsDialogOpen, setIsWalletsDialogOpen] = useState(false);
   const [isWalletDetailDialogOpen, setIsWalletDetailDialogOpen] = useState(false);
+  const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
 
   const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
   const [transactionCurrencyId, setTransactionCurrencyId] = useState("");
@@ -404,11 +423,7 @@ function WalletPageContent() {
   }, [loadTransactions, currentFilters]);
 
   useEffect(() => {
-    if (
-      transferToWalletId &&
-      wallet?.id &&
-      transferToWalletId === wallet.id
-    ) {
+    if (transferToWalletId && wallet?.id && transferToWalletId === wallet.id) {
       setTransferToWalletId("");
     }
   }, [wallet?.id, transferToWalletId]);
@@ -427,8 +442,7 @@ function WalletPageContent() {
     } catch (err: unknown) {
       toast({
         title: "Error",
-        description:
-          err instanceof Error ? err.message : "No se pudo iniciar la billetera",
+        description: err instanceof Error ? err.message : "No se pudo iniciar la billetera",
         variant: "destructive",
       });
     }
@@ -439,72 +453,34 @@ function WalletPageContent() {
     const trimmedReason = motivo.trim();
 
     if (!wallet) {
-      toast({
-        title: "Billetera no iniciada",
-        description: "Primero debes iniciar tu billetera.",
-        variant: "destructive",
-      });
+      toast({ title: "Billetera no iniciada", description: "Primero debes iniciar tu billetera.", variant: "destructive" });
       return;
     }
-
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast({
-        title: "Monto inválido",
-        description: "El monto debe ser mayor que 0.",
-        variant: "destructive",
-      });
+      toast({ title: "Monto inválido", description: "El monto debe ser mayor que 0.", variant: "destructive" });
       return;
     }
-
     if (trimmedReason.length < 5) {
-      toast({
-        title: "Motivo requerido",
-        description: "Escribe un motivo con al menos 5 caracteres.",
-        variant: "destructive",
-      });
+      toast({ title: "Motivo requerido", description: "Escribe un motivo con al menos 5 caracteres.", variant: "destructive" });
       return;
     }
-
     if (!transactionCurrencyId) {
-      toast({
-        title: "Moneda requerida",
-        description: "Selecciona la moneda del movimiento.",
-        variant: "destructive",
-      });
+      toast({ title: "Moneda requerida", description: "Selecciona la moneda del movimiento.", variant: "destructive" });
       return;
     }
 
     try {
-      await createTransaction(
-        {
-          tipo,
-          currency_id: transactionCurrencyId,
-          monto: parsedAmount,
-          motivo: trimmedReason,
-        },
-        currentFilters,
-      );
-
+      await createTransaction({ tipo, currency_id: transactionCurrencyId, monto: parsedAmount, motivo: trimmedReason }, currentFilters);
       setMonto("");
       setMotivo("");
       await loadWallets({ limit: 500 });
-
       toast({
-        title: "Transacción registrada",
-        description:
-          tipo === "ingreso"
-            ? "Ingreso creado correctamente."
-            : "Gasto creado correctamente.",
+        title: tipo === "ingreso" ? "Ingreso registrado" : "Gasto registrado",
+        description: `${formatMoney(parsedAmount, selectedCurrencyCode)} registrado correctamente.`,
       });
+      setActiveAction(null);
     } catch (err: unknown) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "No se pudo registrar la transacción",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo registrar la transacción", variant: "destructive" });
     }
   };
 
@@ -513,48 +489,25 @@ function WalletPageContent() {
     const name = newCurrencyName.trim();
 
     if (!code || code.length < 3) {
-      toast({
-        title: "Código inválido",
-        description: "Usa un código de moneda de al menos 3 caracteres.",
-        variant: "destructive",
-      });
+      toast({ title: "Código inválido", description: "Usa un código de moneda de al menos 3 caracteres.", variant: "destructive" });
       return;
     }
-
     if (!name) {
-      toast({
-        title: "Nombre requerido",
-        description: "Escribe el nombre de la moneda.",
-        variant: "destructive",
-      });
+      toast({ title: "Nombre requerido", description: "Escribe el nombre de la moneda.", variant: "destructive" });
       return;
     }
 
     try {
-      const created = await createCurrency({
-        codigo: code,
-        nombre: name,
-        tipo: newCurrencyType,
-      });
-
+      const created = await createCurrency({ codigo: code, nombre: name, tipo: newCurrencyType });
       setSelectedCurrencyId(created.id);
       setTransactionCurrencyId(created.id);
       setTransferCurrencyId(created.id);
       setNewCurrencyCode("");
       setNewCurrencyName("");
       setNewCurrencyType("efectivo");
-
-      toast({
-        title: "Moneda creada",
-        description: `${created.codigo} ya está disponible para movimientos.`,
-      });
+      toast({ title: "Moneda creada", description: `${created.codigo} ya está disponible para movimientos.` });
     } catch (err: unknown) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "No se pudo crear la moneda",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo crear la moneda", variant: "destructive" });
     }
   };
 
@@ -564,80 +517,37 @@ function WalletPageContent() {
     const sourceWalletId = wallet?.id;
 
     if (!sourceWalletId || !transferToWalletId) {
-      toast({
-        title: "Transferencia incompleta",
-        description: "Debes tener tu billetera iniciada y seleccionar destino.",
-        variant: "destructive",
-      });
+      toast({ title: "Transferencia incompleta", description: "Debes tener tu billetera iniciada y seleccionar destino.", variant: "destructive" });
       return;
     }
-
     if (sourceWalletId === transferToWalletId) {
-      toast({
-        title: "Transferencia inválida",
-        description: "El origen y destino deben ser diferentes.",
-        variant: "destructive",
-      });
+      toast({ title: "Transferencia inválida", description: "El origen y destino deben ser diferentes.", variant: "destructive" });
       return;
     }
-
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast({
-        title: "Monto inválido",
-        description: "El monto de transferencia debe ser mayor que 0.",
-        variant: "destructive",
-      });
+      toast({ title: "Monto inválido", description: "El monto de transferencia debe ser mayor que 0.", variant: "destructive" });
       return;
     }
-
     if (trimmedReason.length < 5) {
-      toast({
-        title: "Motivo requerido",
-        description: "Escribe un motivo con al menos 5 caracteres.",
-        variant: "destructive",
-      });
+      toast({ title: "Motivo requerido", description: "Escribe un motivo con al menos 5 caracteres.", variant: "destructive" });
       return;
     }
-
     if (!transferCurrencyId) {
-      toast({
-        title: "Moneda requerida",
-        description: "Selecciona la moneda de la transferencia.",
-        variant: "destructive",
-      });
+      toast({ title: "Moneda requerida", description: "Selecciona la moneda de la transferencia.", variant: "destructive" });
       return;
     }
 
     try {
       await createTransfer(
-        {
-          wallet_origen_id: sourceWalletId,
-          wallet_destino_id: transferToWalletId,
-          currency_id: transferCurrencyId,
-          monto: parsedAmount,
-          motivo: trimmedReason,
-        },
-        {
-          globalFilters: currentFilters,
-          selectedWalletId: selectedWallet?.id ?? null,
-          selectedWalletFilters: { limit: 200 },
-        },
+        { wallet_origen_id: sourceWalletId, wallet_destino_id: transferToWalletId, currency_id: transferCurrencyId, monto: parsedAmount, motivo: trimmedReason },
+        { globalFilters: currentFilters, selectedWalletId: selectedWallet?.id ?? null, selectedWalletFilters: { limit: 200 } },
       );
-
       setTransferAmount("");
       setTransferReason("");
-
-      toast({
-        title: "Transferencia registrada",
-        description: "La transferencia entre usuarios se registró correctamente.",
-      });
+      toast({ title: "Transferencia registrada", description: "La transferencia se registró correctamente." });
+      setActiveAction(null);
     } catch (err: unknown) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error ? err.message : "No se pudo registrar la transferencia",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo registrar la transferencia", variant: "destructive" });
     }
   };
 
@@ -646,14 +556,7 @@ function WalletPageContent() {
       await loadWalletDetail(walletId, { limit: 200 });
       setIsWalletDetailDialogOpen(true);
     } catch (err: unknown) {
-      toast({
-        title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "No se pudo cargar el detalle de la billetera",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo cargar el detalle de la billetera", variant: "destructive" });
     }
   };
 
@@ -663,236 +566,213 @@ function WalletPageContent() {
       loadTransactions(currentFilters),
       loadWallets({ limit: 500 }),
     ];
-
     if (selectedWallet?.id) {
       refreshTasks.push(loadWalletDetail(selectedWallet.id, { limit: 200 }));
     }
-
     await Promise.all(refreshTasks);
+  };
+
+  const handleActionToggle = (action: ActiveAction) => {
+    if (activeAction === action) {
+      setActiveAction(null);
+    } else {
+      setActiveAction(action);
+      if (action === "ingreso") setTipo("ingreso");
+      if (action === "gasto") setTipo("gasto");
+    }
   };
 
   if (loadingWallet && !wallet) {
     return <PageLoader moduleName="Billetera" text="Cargando billetera..." />;
   }
 
+  const walletBalance = getWalletViewBalance(wallet);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-slate-50">
       <Toaster />
 
       <ModuleHeader
         title="Billetera"
-        subtitle="Control manual de saldos, movimientos y transferencias entre usuarios."
+        subtitle="Control de saldos y movimientos"
         actions={
           <>
             <Button
               variant="outline"
-              onClick={() => setIsWalletsDialogOpen(true)}
-              aria-label="Ver billeteras"
-              title="Ver billeteras"
+              onClick={() => setIsCurrencyModalOpen(true)}
+              className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
+              title="Gestionar monedas"
             >
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Billeteras</span>
+              <Coins className="h-4 w-4 text-amber-500" />
+              <span className="hidden sm:inline text-sm">Monedas</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsWalletsDialogOpen(true)}
+              className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
+              title="Ver billeteras del equipo"
+            >
+              <Users className="h-4 w-4 text-slate-500" />
+              <span className="hidden sm:inline text-sm">Equipo</span>
             </Button>
             <Button
               variant="outline"
               onClick={handleRefresh}
               disabled={loadingTransactions || creatingTransaction || transferring}
-              aria-label="Actualizar billeteras y transacciones"
+              className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
               title="Actualizar"
             >
-              <RefreshCcw className="h-4 w-4" />
-              <span className="hidden sm:inline">Actualizar</span>
+              <RefreshCcw className={`h-4 w-4 text-slate-500 ${loadingTransactions ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline text-sm">Actualizar</span>
             </Button>
           </>
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-4 sm:space-y-6">
+      <main className="content-with-fixed-header max-w-2xl mx-auto px-4 py-4 sm:py-6 space-y-4">
         {error && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="py-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </CardContent>
-          </Card>
+          <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
+            <p className="text-sm text-rose-700">{error}</p>
+          </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle>Moneda de Visualización</CardTitle>
-              <CardDescription>
-                Selecciona la moneda para ver saldos por usuario.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Label htmlFor="view-currency">Moneda</Label>
-              <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
-                <SelectTrigger id="view-currency">
-                  <SelectValue
-                    placeholder={
-                      loadingCurrencies
-                        ? "Cargando monedas..."
-                        : "Seleccione moneda"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {currencies.map((currency) => (
-                    <SelectItem key={currency.id} value={currency.id}>
-                      {currency.codigo} - {currency.nombre} ({currency.tipo})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+        {/* Balance Hero Card */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800 p-5 text-white shadow-lg">
+          {/* Decorative circles */}
+          <div className="absolute -top-8 -right-8 h-36 w-36 rounded-full bg-white/5" />
+          <div className="absolute -bottom-10 -left-4 h-28 w-28 rounded-full bg-white/5" />
 
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Agregar Nueva Moneda</CardTitle>
-              <CardDescription>
-                Las monedas se guardan de forma persistente para todo el módulo.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="currency-code">Código</Label>
-                  <Input
-                    id="currency-code"
-                    value={newCurrencyCode}
-                    onChange={(event) =>
-                      setNewCurrencyCode(event.target.value.toUpperCase())
-                    }
-                    placeholder="USD, CUP..."
-                    maxLength={10}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="currency-name">Nombre</Label>
-                  <Input
-                    id="currency-name"
-                    value={newCurrencyName}
-                    onChange={(event) => setNewCurrencyName(event.target.value)}
-                    placeholder="Dólar, Peso cubano..."
-                    maxLength={50}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="currency-type">Tipo</Label>
-                  <Select
-                    value={newCurrencyType}
-                    onValueChange={(value) =>
-                      setNewCurrencyType(
-                        value as "efectivo" | "transferencia" | "digital" | "otro",
-                      )
-                    }
-                  >
-                    <SelectTrigger id="currency-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="efectivo">efectivo</SelectItem>
-                      <SelectItem value="transferencia">transferencia</SelectItem>
-                      <SelectItem value="digital">digital</SelectItem>
-                      <SelectItem value="otro">otro</SelectItem>
-                    </SelectContent>
-                  </Select>
+          <div className="relative">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wider mb-0.5">Mi Billetera</p>
+                {wallet && (
+                  <p className="text-sm text-slate-300">{wallet.user_nombre}</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {wallet && (
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                    wallet.estado === "activa"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                      : "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+                  }`}>
+                    {wallet.estado}
+                  </span>
+                )}
+                <div className="bg-white/10 rounded-full p-1.5">
+                  <Wallet className="h-4 w-4 text-white/70" />
                 </div>
               </div>
+            </div>
 
-              <Button onClick={handleCreateCurrency} disabled={creatingCurrency}>
-                <Plus className="h-4 w-4" />
-                {creatingCurrency ? "Guardando..." : "Agregar moneda"}
-              </Button>
-            </CardContent>
-          </Card>
+            {wallet ? (
+              <>
+                <p className="text-3xl sm:text-4xl font-bold tracking-tight mb-1">
+                  {formatMoney(walletBalance, selectedCurrencyCode)}
+                </p>
+                <p className="text-xs text-slate-400">Saldo disponible</p>
+
+                {/* Currency selector inside card */}
+                {currencies.length > 0 && (
+                  <div className="mt-4 flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Ver en:</span>
+                    <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
+                      <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[120px] focus:ring-0">
+                        <SelectValue placeholder="Moneda" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {currencies.map((currency) => (
+                          <SelectItem key={currency.id} value={currency.id}>
+                            {currency.codigo} · {currency.nombre}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mt-2">
+                <p className="text-sm text-slate-400 mb-3">No tienes billetera creada aún.</p>
+                <Button
+                  onClick={handleInitializeWallet}
+                  disabled={creatingWallet}
+                  className="bg-white text-slate-900 hover:bg-slate-100 h-9 text-sm font-medium"
+                >
+                  {creatingWallet ? "Iniciando..." : "Iniciar billetera"}
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
-          <Card className="lg:col-span-1">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Wallet className="h-5 w-5 text-amber-600" />
-                Mi Billetera
-              </CardTitle>
-              <CardDescription>
-                Tu saldo actual y estado de billetera.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {wallet ? (
-                <>
-                  <div>
-                    <p className="text-xs text-gray-500">Saldo actual</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {formatMoney(getWalletViewBalance(wallet), selectedCurrencyCode)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Estado:</span>
-                    <Badge
-                      className={
-                        wallet.estado === "activa"
-                          ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                          : "bg-gray-200 text-gray-700 border-gray-300"
-                      }
-                    >
-                      {wallet.estado}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Usuario: {wallet.user_nombre} ({wallet.user_ci})
-                  </p>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600">
-                    Aún no tienes billetera creada.
-                  </p>
-                  <Button
-                    onClick={handleInitializeWallet}
-                    disabled={creatingWallet}
-                    className="w-full"
-                  >
-                    {creatingWallet ? "Iniciando..." : "Iniciar billetera"}
-                  </Button>
-                </>
-              )}
-            </CardContent>
-          </Card>
+        {/* Quick Action Buttons */}
+        {wallet && (
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => handleActionToggle("ingreso")}
+              className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                activeAction === "ingreso"
+                  ? "bg-emerald-500 border-emerald-500 text-white shadow-md shadow-emerald-200"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+              }`}
+            >
+              <div className={`rounded-full p-2 ${activeAction === "ingreso" ? "bg-white/20" : "bg-emerald-100"}`}>
+                <TrendingUp className={`h-4 w-4 ${activeAction === "ingreso" ? "text-white" : "text-emerald-600"}`} />
+              </div>
+              <span className="text-xs font-medium">Ingreso</span>
+            </button>
 
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Registrar Transacción Manual</CardTitle>
-              <CardDescription>
-                Ingreso o gasto con motivo obligatorio y trazabilidad completa.
-              </CardDescription>
+            <button
+              onClick={() => handleActionToggle("gasto")}
+              className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                activeAction === "gasto"
+                  ? "bg-rose-500 border-rose-500 text-white shadow-md shadow-rose-200"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-rose-300 hover:bg-rose-50"
+              }`}
+            >
+              <div className={`rounded-full p-2 ${activeAction === "gasto" ? "bg-white/20" : "bg-rose-100"}`}>
+                <TrendingDown className={`h-4 w-4 ${activeAction === "gasto" ? "text-white" : "text-rose-600"}`} />
+              </div>
+              <span className="text-xs font-medium">Gasto</span>
+            </button>
+
+            <button
+              onClick={() => handleActionToggle("transferencia")}
+              className={`flex flex-col items-center gap-1.5 rounded-xl p-3 border transition-all ${
+                activeAction === "transferencia"
+                  ? "bg-violet-500 border-violet-500 text-white shadow-md shadow-violet-200"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-violet-300 hover:bg-violet-50"
+              }`}
+            >
+              <div className={`rounded-full p-2 ${activeAction === "transferencia" ? "bg-white/20" : "bg-violet-100"}`}>
+                <SendHorizontal className={`h-4 w-4 ${activeAction === "transferencia" ? "text-white" : "text-violet-600"}`} />
+              </div>
+              <span className="text-xs font-medium">Enviar</span>
+            </button>
+          </div>
+        )}
+
+        {/* Action Forms */}
+        {(activeAction === "ingreso" || activeAction === "gasto") && (
+          <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className={`pb-3 pt-4 px-4 ${activeAction === "ingreso" ? "bg-emerald-50" : "bg-rose-50"}`}>
+              <div className="flex items-center justify-between">
+                <CardTitle className={`text-sm font-semibold ${activeAction === "ingreso" ? "text-emerald-800" : "text-rose-800"}`}>
+                  {activeAction === "ingreso" ? "Registrar Ingreso" : "Registrar Gasto"}
+                </CardTitle>
+                <button onClick={() => setActiveAction(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="wallet-tipo">Tipo</Label>
-                  <Select
-                    value={tipo}
-                    onValueChange={(value) => setTipo(value as WalletTransactionType)}
-                  >
-                    <SelectTrigger id="wallet-tipo">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ingreso">Ingreso</SelectItem>
-                      <SelectItem value="gasto">Gasto</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="wallet-currency">Moneda</Label>
-                  <Select
-                    value={transactionCurrencyId}
-                    onValueChange={setTransactionCurrencyId}
-                  >
-                    <SelectTrigger id="wallet-currency">
+            <CardContent className="p-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600">Moneda</Label>
+                  <Select value={transactionCurrencyId} onValueChange={setTransactionCurrencyId}>
+                    <SelectTrigger className="h-9 text-sm">
                       <SelectValue placeholder="Moneda" />
                     </SelectTrigger>
                     <SelectContent>
@@ -904,75 +784,65 @@ function WalletPageContent() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="sm:col-span-2 space-y-2">
-                  <Label htmlFor="wallet-monto">Monto</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600">Monto</Label>
                   <Input
-                    id="wallet-monto"
                     type="number"
                     min="0"
                     step="0.01"
                     placeholder="0.00"
                     value={monto}
-                    onChange={(event) => setMonto(event.target.value)}
+                    onChange={(e) => setMonto(e.target.value)}
+                    className="h-9 text-sm"
                   />
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="wallet-motivo">Motivo</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Motivo</Label>
                 <Textarea
-                  id="wallet-motivo"
                   value={motivo}
-                  onChange={(event) => setMotivo(event.target.value)}
-                  placeholder="Explica por qué se hizo esta transacción..."
-                  className="min-h-[100px]"
+                  onChange={(e) => setMotivo(e.target.value)}
+                  placeholder="Describe el motivo de esta transacción..."
+                  className="text-sm min-h-[80px] resize-none"
                 />
               </div>
-
               <Button
                 onClick={handleCreateTransaction}
-                disabled={
-                  creatingTransaction ||
-                  creatingWallet ||
-                  !wallet ||
-                  !transactionCurrencyId
-                }
+                disabled={creatingTransaction || !transactionCurrencyId}
+                className={`w-full h-10 font-medium ${
+                  activeAction === "ingreso"
+                    ? "bg-emerald-600 hover:bg-emerald-700"
+                    : "bg-rose-600 hover:bg-rose-700"
+                }`}
               >
-                {creatingTransaction ? "Registrando..." : "Registrar transacción"}
+                {creatingTransaction ? "Registrando..." : activeAction === "ingreso" ? "Registrar ingreso" : "Registrar gasto"}
               </Button>
             </CardContent>
           </Card>
-        </div>
+        )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <SendHorizontal className="h-5 w-5 text-indigo-600" />
-              Transferir Entre Usuarios
-            </CardTitle>
-            <CardDescription>
-              Transferencia entre billeteras internas con registro automático.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="transfer-from">Desde</Label>
-                <div
-                  id="transfer-from"
-                  className="h-10 rounded-md border border-input bg-gray-50 px-3 text-sm flex items-center"
-                >
-                  {wallet
-                    ? `${wallet.user_nombre} (${wallet.user_ci})`
-                    : "Inicia tu billetera primero"}
+        {activeAction === "transferencia" && (
+          <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="pb-3 pt-4 px-4 bg-violet-50">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold text-violet-800">Transferir a usuario</CardTitle>
+                <button onClick={() => setActiveAction(null)} className="text-slate-400 hover:text-slate-600">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Desde</Label>
+                <div className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm flex items-center text-slate-600">
+                  {wallet ? `${wallet.user_nombre} (${wallet.user_ci})` : "Inicia tu billetera primero"}
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="transfer-to">Hacia</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Hacia</Label>
                 <Select value={transferToWalletId} onValueChange={setTransferToWalletId}>
-                  <SelectTrigger id="transfer-to">
-                    <SelectValue placeholder="Seleccione destino" />
+                  <SelectTrigger className="h-9 text-sm">
+                    <SelectValue placeholder="Selecciona destinatario" />
                   </SelectTrigger>
                   <SelectContent>
                     {transferTargets.map((item) => (
@@ -983,97 +853,85 @@ function WalletPageContent() {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 sm:gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="transfer-currency">Moneda</Label>
-                <Select
-                  value={transferCurrencyId}
-                  onValueChange={setTransferCurrencyId}
-                >
-                  <SelectTrigger id="transfer-currency">
-                    <SelectValue placeholder="Moneda" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {currencies.map((currency) => (
-                      <SelectItem key={currency.id} value={currency.id}>
-                        {currency.codigo} ({currency.tipo})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600">Moneda</Label>
+                  <Select value={transferCurrencyId} onValueChange={setTransferCurrencyId}>
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Moneda" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {currencies.map((currency) => (
+                        <SelectItem key={currency.id} value={currency.id}>
+                          {currency.codigo} ({currency.tipo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-slate-600">Monto</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={transferAmount}
+                    onChange={(e) => setTransferAmount(e.target.value)}
+                    className="h-9 text-sm"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="transfer-amount">Monto</Label>
-                <Input
-                  id="transfer-amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={transferAmount}
-                  onChange={(event) => setTransferAmount(event.target.value)}
-                />
-              </div>
-              <div className="sm:col-span-2 space-y-2">
-                <Label htmlFor="transfer-reason">Motivo</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">Motivo</Label>
                 <Textarea
-                  id="transfer-reason"
                   value={transferReason}
-                  onChange={(event) => setTransferReason(event.target.value)}
+                  onChange={(e) => setTransferReason(e.target.value)}
                   placeholder="Motivo de la transferencia..."
-                  className="min-h-[88px]"
+                  className="text-sm min-h-[80px] resize-none"
                 />
               </div>
-            </div>
-
-            <Button
-              onClick={handleTransfer}
-              disabled={
-                transferring ||
-                loadingWallets ||
-                wallets.length < 2 ||
-                !wallet ||
-                !transferCurrencyId
-              }
-            >
-              {transferring ? "Transfiriendo..." : "Transferir"}
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-col gap-3">
-            <div>
-              <CardTitle>Transacciones Globales</CardTitle>
-              <CardDescription>
-                Historial global visible para todos los usuarios con acceso.
-              </CardDescription>
-            </div>
-            <div className="w-full sm:w-56">
-              <Select
-                value={filtroTipo}
-                onValueChange={(value) =>
-                  setFiltroTipo(value as "todos" | WalletTransactionType)
-                }
+              <Button
+                onClick={handleTransfer}
+                disabled={transferring || loadingWallets || wallets.length < 2 || !wallet || !transferCurrencyId}
+                className="w-full h-10 bg-violet-600 hover:bg-violet-700 font-medium"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todos">Todos</SelectItem>
-                  <SelectItem value="ingreso">Solo ingresos</SelectItem>
-                  <SelectItem value="gasto">Solo gastos</SelectItem>
-                </SelectContent>
-              </Select>
+                {transferring ? "Transfiriendo..." : "Confirmar transferencia"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Transactions */}
+        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+          <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-sm font-semibold text-slate-800">Historial de Transacciones</CardTitle>
+                <p className="text-xs text-slate-400 mt-0.5">{totalTransactions} registros</p>
+              </div>
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {(["todos", "ingreso", "gasto"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFiltroTipo(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                    filtroTipo === f
+                      ? f === "ingreso"
+                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                        : f === "gasto"
+                        ? "bg-rose-100 text-rose-700 border-rose-200"
+                        : "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
+                </button>
+              ))}
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-xs text-gray-500">
-              Total registros visibles: {totalTransactions}
-            </p>
-
+          <CardContent className="px-4 pb-4">
             <TransactionsResponsiveList
               transactions={transactions}
               loading={loadingTransactions}
@@ -1085,50 +943,164 @@ function WalletPageContent() {
         </Card>
       </main>
 
-      <Dialog open={isWalletsDialogOpen} onOpenChange={setIsWalletsDialogOpen}>
-        <DialogContent className="max-w-3xl">
+      {/* Currency Management Modal */}
+      <Dialog open={isCurrencyModalOpen} onOpenChange={setIsCurrencyModalOpen}>
+        <DialogContent className="max-w-md mx-4 rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Billeteras del Equipo</DialogTitle>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Coins className="h-5 w-5 text-amber-500" />
+              Gestión de Monedas
+            </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* Currency selector */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Moneda de visualización</Label>
+              <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder={loadingCurrencies ? "Cargando..." : "Selecciona moneda"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {currencies.map((currency) => (
+                    <SelectItem key={currency.id} value={currency.id}>
+                      {currency.codigo} · {currency.nombre} ({currency.tipo})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Existing currencies list */}
+            {currencies.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Monedas disponibles</Label>
+                <div className="space-y-1.5 max-h-[160px] overflow-y-auto">
+                  {currencies.map((currency) => (
+                    <div
+                      key={currency.id}
+                      className={`flex items-center justify-between px-3 py-2 rounded-lg border text-sm ${
+                        selectedCurrencyId === currency.id
+                          ? "border-amber-300 bg-amber-50"
+                          : "border-slate-100 bg-slate-50"
+                      }`}
+                    >
+                      <span className="font-semibold text-slate-800">{currency.codigo}</span>
+                      <span className="text-slate-500 text-xs">{currency.nombre}</span>
+                      <span className="text-[11px] text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded-full">{currency.tipo}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add new currency */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Agregar nueva moneda</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-600">Código</Label>
+                  <Input
+                    value={newCurrencyCode}
+                    onChange={(e) => setNewCurrencyCode(e.target.value.toUpperCase())}
+                    placeholder="USD, CUP..."
+                    maxLength={10}
+                    className="h-9 text-sm"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-slate-600">Tipo</Label>
+                  <Select
+                    value={newCurrencyType}
+                    onValueChange={(v) => setNewCurrencyType(v as typeof newCurrencyType)}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                      <SelectItem value="transferencia">Transferencia</SelectItem>
+                      <SelectItem value="digital">Digital</SelectItem>
+                      <SelectItem value="otro">Otro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-slate-600">Nombre completo</Label>
+                <Input
+                  value={newCurrencyName}
+                  onChange={(e) => setNewCurrencyName(e.target.value)}
+                  placeholder="Dólar americano, Peso cubano..."
+                  maxLength={50}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <Button
+                onClick={handleCreateCurrency}
+                disabled={creatingCurrency}
+                className="w-full h-9 bg-amber-500 hover:bg-amber-600 text-white font-medium text-sm"
+              >
+                <Plus className="h-4 w-4 mr-1.5" />
+                {creatingCurrency ? "Guardando..." : "Agregar moneda"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Team Wallets Dialog */}
+      <Dialog open={isWalletsDialogOpen} onOpenChange={setIsWalletsDialogOpen}>
+        <DialogContent className="max-w-lg mx-4 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Users className="h-5 w-5 text-slate-500" />
+              Billeteras del Equipo
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
               <Input
                 value={walletSearch}
-                onChange={(event) => setWalletSearch(event.target.value)}
+                onChange={(e) => setWalletSearch(e.target.value)}
                 placeholder="Buscar por nombre o CI..."
-                className="pl-9"
+                className="pl-9 h-9 text-sm"
               />
             </div>
 
-            <div className="max-h-[55vh] overflow-auto space-y-3 pr-1">
+            <div className="max-h-[55vh] overflow-auto space-y-2 pr-0.5">
               {loadingWallets ? (
-                <p className="text-sm text-gray-500 py-4 text-center">Cargando billeteras...</p>
+                <div className="py-8 text-center text-sm text-slate-400">
+                  <RefreshCcw className="h-4 w-4 animate-spin mx-auto mb-2" />
+                  Cargando billeteras...
+                </div>
               ) : filteredWallets.length === 0 ? (
-                <p className="text-sm text-gray-500 py-4 text-center">
-                  No se encontraron billeteras.
-                </p>
+                <div className="py-8 text-center text-sm text-slate-400">No se encontraron billeteras.</div>
               ) : (
                 filteredWallets.map((item) => (
-                  <Card key={item.id} className="border border-gray-200">
-                    <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">{item.user_nombre}</p>
-                        <p className="text-xs text-gray-500">CI: {item.user_ci}</p>
-                        <p className="text-sm text-gray-700 mt-1">
-                          Saldo: {formatMoney(getWalletViewBalance(item), selectedCurrencyCode)}
-                        </p>
-                      </div>
-                      <Button
-                        variant="outline"
-                        onClick={() => void handleOpenWalletDetail(item.id)}
-                      >
-                        <Eye className="h-4 w-4" />
-                        Ver detalle
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between bg-white border border-slate-100 rounded-xl p-3 hover:border-slate-200 transition-colors"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-sm text-slate-800 truncate">{item.user_nombre}</p>
+                      <p className="text-xs text-slate-400">CI: {item.user_ci}</p>
+                      <p className="text-sm font-medium text-slate-700 mt-0.5">
+                        {formatMoney(getWalletViewBalance(item), selectedCurrencyCode)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleOpenWalletDetail(item.id)}
+                      className="ml-3 shrink-0 h-8 text-xs"
+                    >
+                      <Eye className="h-3.5 w-3.5 mr-1" />
+                      Detalle
+                    </Button>
+                  </div>
                 ))
               )}
             </div>
@@ -1136,38 +1108,28 @@ function WalletPageContent() {
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isWalletDetailDialogOpen}
-        onOpenChange={setIsWalletDetailDialogOpen}
-      >
-        <DialogContent className="max-w-4xl">
+      {/* Wallet Detail Dialog */}
+      <Dialog open={isWalletDetailDialogOpen} onOpenChange={setIsWalletDetailDialogOpen}>
+        <DialogContent className="max-w-2xl mx-4 rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Detalle de Billetera</DialogTitle>
+            <DialogTitle className="text-base">Detalle de Billetera</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
-            {selectedWallet ? (
-              <Card className="border border-gray-200">
-                <CardContent className="p-4">
-                  <p className="text-sm text-gray-600">
-                    Usuario:{" "}
-                    <span className="font-medium text-gray-900">
-                      {selectedWallet.user_nombre} ({selectedWallet.user_ci})
-                    </span>
-                  </p>
-                  <p className="text-xl font-bold text-gray-900 mt-2">
-                    {formatMoney(
-                      getWalletViewBalance(selectedWallet),
-                      selectedCurrencyCode,
-                    )}
-                  </p>
-                </CardContent>
-              </Card>
-            ) : null}
+            {selectedWallet && (
+              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-4 text-white">
+                <p className="text-xs text-slate-400">Usuario</p>
+                <p className="font-semibold">{selectedWallet.user_nombre}</p>
+                <p className="text-xs text-slate-500">{selectedWallet.user_ci}</p>
+                <p className="text-2xl font-bold mt-2">
+                  {formatMoney(getWalletViewBalance(selectedWallet), selectedCurrencyCode)}
+                </p>
+              </div>
+            )}
 
             <div>
-              <p className="text-xs text-gray-500 mb-2">
-                Total transacciones de esta billetera: {totalSelectedWalletTransactions}
+              <p className="text-xs text-slate-400 mb-2">
+                {totalSelectedWalletTransactions} transacciones
               </p>
               <TransactionsResponsiveList
                 transactions={selectedWalletTransactions}
