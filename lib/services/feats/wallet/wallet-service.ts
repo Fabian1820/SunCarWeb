@@ -3,6 +3,9 @@ import type {
   Wallet,
   WalletTransaction,
   WalletTransactionCreateData,
+  WalletTransferCreateData,
+  WalletTransferResult,
+  WalletsFilters,
   WalletTransactionsFilters,
   WalletTransactionsResult,
 } from "../../../types/feats/wallet/wallet-types";
@@ -167,11 +170,97 @@ export class WalletService {
 
     const endpoint = `/wallet/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await apiRequest<
-      | WalletTransaction[]
-      | WrappedResponse<WalletTransaction[]>
-      | ApiErrorResponse
+      WalletTransaction[] | WrappedResponse<WalletTransaction[]> | ApiErrorResponse
     >(endpoint);
 
+    return this.parseTransactionsResponse(response, filters);
+  }
+
+  static async getAllWallets(filters: WalletsFilters = {}): Promise<Wallet[]> {
+    const search = new URLSearchParams();
+    if (filters.q) search.append("q", filters.q);
+    if (typeof filters.skip === "number")
+      search.append("skip", String(filters.skip));
+    if (typeof filters.limit === "number")
+      search.append("limit", String(filters.limit));
+
+    const endpoint = `/wallet/wallets${search.toString() ? `?${search.toString()}` : ""}`;
+    const response = await apiRequest<Wallet[] | WrappedResponse<Wallet[]> | ApiErrorResponse>(
+      endpoint,
+    );
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudieron cargar las billeteras"),
+      );
+    }
+
+    if (Array.isArray(response)) return response;
+
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  static async getWalletById(walletId: string): Promise<Wallet> {
+    const response = await apiRequest<
+      Wallet | WrappedResponse<Wallet> | ApiErrorResponse
+    >(`/wallet/wallets/${walletId}`);
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo cargar la billetera seleccionada"),
+      );
+    }
+
+    return pickData<Wallet>(response);
+  }
+
+  static async getWalletTransactions(
+    walletId: string,
+    filters: WalletTransactionsFilters = {},
+  ): Promise<WalletTransactionsResult> {
+    const search = new URLSearchParams();
+    if (filters.tipo) search.append("tipo", filters.tipo);
+    if (typeof filters.skip === "number")
+      search.append("skip", String(filters.skip));
+    if (typeof filters.limit === "number")
+      search.append("limit", String(filters.limit));
+    if (filters.fecha_desde) search.append("fecha_desde", filters.fecha_desde);
+    if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
+
+    const endpoint = `/wallet/wallets/${walletId}/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
+    const response = await apiRequest<
+      WalletTransaction[] | WrappedResponse<WalletTransaction[]> | ApiErrorResponse
+    >(endpoint);
+
+    return this.parseTransactionsResponse(response, filters);
+  }
+
+  static async createTransfer(
+    data: WalletTransferCreateData,
+  ): Promise<WalletTransferResult> {
+    const response = await apiRequest<
+      WalletTransferResult | WrappedResponse<WalletTransferResult> | ApiErrorResponse
+    >("/wallet/transferencias", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo registrar la transferencia"),
+      );
+    }
+
+    return pickData<WalletTransferResult>(response);
+  }
+
+  private static parseTransactionsResponse(
+    response:
+      | WalletTransaction[]
+      | WrappedResponse<WalletTransaction[]>
+      | ApiErrorResponse,
+    filters: WalletTransactionsFilters,
+  ): WalletTransactionsResult {
     if (isApiErrorResponse(response)) {
       throw new Error(
         getApiErrorMessage(response, "No se pudieron cargar las transacciones"),

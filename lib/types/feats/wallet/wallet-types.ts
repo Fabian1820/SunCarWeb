@@ -50,3 +50,30 @@ export interface WalletTransactionsResult {
   skip: number;
   limit: number;
 }
+
+export interface WalletsFilters {
+  q?: string;
+  skip?: number;
+  limit?: number;
+}
+
+export interface WalletTransferCreateData {
+  wallet_origen_id: string;
+  wallet_destino_id: string;
+  monto: number;
+  motivo: string;
+  referencia_externa?: string;
+}
+
+export interface WalletTransferResult {
+  id: string;
+  wallet_origen_id: string;
+  wallet_destino_id: string;
+  monto: number;
+  motivo: string;
+  created_at: string;
+  created_by_ci: string;
+  created_by_nombre: string;
+  transaccion_origen_id?: string;
+  transaccion_destino_id?: string;
+}
