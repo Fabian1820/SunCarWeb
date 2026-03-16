@@ -5,6 +5,7 @@ import type {
   ComparacionPrecio,
   AplicarPrecioResponse,
   MaterialCatalogoWeb,
+  MaterialFichaResumen,
 } from '../../../types/feats/fichas-costo/ficha-costo-types'
 
 export class FichaCostoService {
@@ -47,6 +48,13 @@ export class FichaCostoService {
       `/fichas-costo-materiales/material/${materialId}/comparar-precio`
     )
     return response
+  }
+
+  // Listado global: todos los materiales con su ficha activa resumida
+  // Endpoint asumido: GET /fichas-costo-materiales/resumen
+  static async getResumen(): Promise<MaterialFichaResumen[]> {
+    const response = await apiRequest<any>('/fichas-costo-materiales/resumen')
+    return response.data || response || []
   }
 
   // Aplicar precio calculado al material

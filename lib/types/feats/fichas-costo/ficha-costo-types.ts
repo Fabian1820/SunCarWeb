@@ -69,6 +69,30 @@ export interface AplicarPrecioResponse {
   precio_nuevo: number
 }
 
+// Resumen de ficha en el listado global
+export interface FichaResumen {
+  id: string
+  version: number
+  precio_venta_calculado: number
+  costo_real_unitario: number
+  porcentaje_ganancia: number
+  vigente_desde: string
+}
+
+// Fila del listado global: material + su ficha activa (o null)
+export interface MaterialFichaResumen {
+  material_id: string
+  codigo?: number
+  nombre?: string
+  descripcion?: string
+  categoria?: string
+  marca?: string
+  precio?: number
+  foto?: string
+  potenciaKW?: number
+  ficha_activa: FichaResumen | null
+}
+
 // Material del catálogo web (para selector)
 export interface MaterialCatalogoWeb {
   _id?: string

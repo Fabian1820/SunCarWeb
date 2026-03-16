@@ -5,20 +5,24 @@ import type {
   FichaCostoCreateData,
   ComparacionPrecio,
   AplicarPrecioResponse,
+  MaterialFichaResumen,
 } from '@/lib/types/feats/fichas-costo/ficha-costo-types'
 
 interface UseFichasCostoReturn {
   fichaActiva: FichaCosto | null
   historial: FichaCosto[]
   comparacion: ComparacionPrecio | null
+  resumen: MaterialFichaResumen[]
   loading: boolean
   loadingAction: boolean
+  loadingResumen: boolean
   error: string | null
   crearFicha: (data: FichaCostoCreateData) => Promise<FichaCosto | null>
   cargarFichaActiva: (materialId: string) => Promise<void>
   cargarHistorial: (materialId: string) => Promise<void>
   compararPrecio: (materialId: string) => Promise<ComparacionPrecio | null>
   aplicarPrecio: (materialId: string) => Promise<AplicarPrecioResponse | null>
+  loadResumen: () => Promise<void>
   limpiarEstado: () => void
 }
 
@@ -26,16 +30,29 @@ export function useFichasCosto(): UseFichasCostoReturn {
   const [fichaActiva, setFichaActiva] = useState<FichaCosto | null>(null)
   const [historial, setHistorial] = useState<FichaCosto[]>([])
   const [comparacion, setComparacion] = useState<ComparacionPrecio | null>(null)
+  const [resumen, setResumen] = useState<MaterialFichaResumen[]>([])
   const [loading, setLoading] = useState(false)
   const [loadingAction, setLoadingAction] = useState(false)
+  const [loadingResumen, setLoadingResumen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const loadResumen = useCallback(async () => {
+    setLoadingResumen(true)
+    try {
+      const data = await FichaCostoService.getResumen()
+      setResumen(Array.isArray(data) ? data : [])
+    } catch {
+      setResumen([])
+    } finally {
+      setLoadingResumen(false)
+    }
+  }, [])
 
   const crearFicha = useCallback(async (data: FichaCostoCreateData): Promise<FichaCosto | null> => {
     try {
       setLoadingAction(true)
       setError(null)
       const ficha = await FichaCostoService.crearFicha(data)
-      // Validar que la respuesta sea una ficha válida
       if (!ficha || typeof (ficha as any).precio_venta_calculado !== 'number') {
         const errMsg = (ficha as any)?.detail || (ficha as any)?.message || 'Error al crear ficha de costo'
         setError(errMsg)
@@ -57,13 +74,11 @@ export function useFichasCosto(): UseFichasCostoReturn {
       setLoading(true)
       setError(null)
       const ficha = await FichaCostoService.obtenerFichaActiva(materialId)
-      // Validar que sea una ficha real (el apiRequest puede devolver { detail: "..." } para 404)
       const esValida = ficha &&
         typeof (ficha as any).costo_unitario === 'number' &&
         typeof (ficha as any).precio_venta_calculado === 'number'
       setFichaActiva(esValida ? ficha : null)
-    } catch (err) {
-      // 404 es normal si no hay ficha activa
+    } catch {
       setFichaActiva(null)
     } finally {
       setLoading(false)
@@ -89,7 +104,6 @@ export function useFichasCosto(): UseFichasCostoReturn {
       setLoadingAction(true)
       setError(null)
       const result = await FichaCostoService.compararPrecio(materialId)
-      // Validar que sea una comparación real
       if (!result || typeof (result as any).precio_calculado_ficha !== 'number') {
         const errMsg = (result as any)?.detail || (result as any)?.message || 'Error al comparar precio'
         setError(errMsg)
@@ -130,14 +144,17 @@ export function useFichasCosto(): UseFichasCostoReturn {
     fichaActiva,
     historial,
     comparacion,
+    resumen,
     loading,
     loadingAction,
+    loadingResumen,
     error,
     crearFicha,
     cargarFichaActiva,
     cargarHistorial,
     compararPrecio,
     aplicarPrecio,
+    loadResumen,
     limpiarEstado,
   }
 }
