@@ -51,6 +51,8 @@ export interface SolicitudMaterial {
   cliente?: SolicitudClienteInfo | null;
   almacen?: SolicitudAlmacenInfo;
   trabajador?: SolicitudTrabajadorInfo;
+  responsable_recogida?: string | null;
+  fecha_recogida?: string | null;
   materiales: SolicitudMaterialItemDetalle[];
   fecha_creacion?: string;
   fecha_actualizacion?: string;
@@ -59,12 +61,16 @@ export interface SolicitudMaterial {
 export interface SolicitudMaterialCreateData {
   cliente_id?: string | null;
   almacen_id: string;
+  responsable_recogida?: string | null;
+  fecha_recogida?: string | null;
   materiales: SolicitudMaterialItem[];
 }
 
 export interface SolicitudMaterialUpdateData {
   cliente_id?: string | null;
   almacen_id?: string;
+  responsable_recogida?: string | null;
+  fecha_recogida?: string | null;
   materiales?: SolicitudMaterialItem[];
 }
 

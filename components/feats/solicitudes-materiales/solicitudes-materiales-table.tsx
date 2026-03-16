@@ -12,6 +12,10 @@ import {
   RotateCcw,
 } from "lucide-react";
 import type { SolicitudMaterial } from "@/lib/api-types";
+import {
+  formatFechaRecogida,
+  getFechaRecogidaBadge,
+} from "@/lib/utils/fecha-recogida";
 
 interface SolicitudesMaterialesTableProps {
   solicitudes: SolicitudMaterial[];
@@ -25,22 +29,23 @@ export function SolicitudesMaterialesTable({
   onEdit,
   onView,
 }: SolicitudesMaterialesTableProps) {
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    try {
-      return new Date(dateStr).toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return "-";
-    }
-  };
-
   const getClienteName = (s: SolicitudMaterial) => s.cliente?.nombre || null;
   const getAlmacenName = (s: SolicitudMaterial) => s.almacen?.nombre || "-";
-  const getTrabajadorName = (s: SolicitudMaterial) => s.trabajador?.nombre || "-";
+  const getTrabajadorName = (s: SolicitudMaterial) =>
+    s.trabajador?.nombre || "-";
+  const getRecogidaBadgeClass = (solicitud: SolicitudMaterial) => {
+    const badge = getFechaRecogidaBadge(solicitud.fecha_recogida);
+    if (badge.kind === "today" || badge.kind === "unknown") {
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    }
+    if (badge.kind === "tomorrow") {
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    }
+    if (badge.kind === "future") {
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    }
+    return "bg-red-50 text-red-700 border-red-200";
+  };
 
   if (solicitudes.length === 0) {
     return (
@@ -61,14 +66,30 @@ export function SolicitudesMaterialesTable({
       <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Codigo
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Estado
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Cliente
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Almacen
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Creador
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Materiales
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Recogida
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -79,7 +100,10 @@ export function SolicitudesMaterialesTable({
             const isAnulada = estado === "anulada";
 
             return (
-              <tr key={solicitud.id} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr
+                key={solicitud.id}
+                className="border-b border-gray-100 hover:bg-gray-50"
+              >
                 <td className="py-4 px-4">
                   <Badge
                     variant="outline"
@@ -106,23 +130,32 @@ export function SolicitudesMaterialesTable({
                   {clienteName ? (
                     <p className="font-medium text-gray-900">{clienteName}</p>
                   ) : (
-                    <span className="text-gray-400 italic text-sm">Sin cliente</span>
+                    <span className="text-gray-400 italic text-sm">
+                      Sin cliente
+                    </span>
                   )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{getAlmacenName(solicitud)}</span>
+                    <span className="text-sm text-gray-700">
+                      {getAlmacenName(solicitud)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{getTrabajadorName(solicitud)}</span>
+                    <span className="text-sm text-gray-700">
+                      {getTrabajadorName(solicitud)}
+                    </span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  <Badge
+                    variant="outline"
+                    className="bg-blue-50 text-blue-700 border-blue-200"
+                  >
                     <Package className="h-3 w-3 mr-1" />
                     {solicitud.materiales?.length || 0} items
                   </Badge>
@@ -130,7 +163,25 @@ export function SolicitudesMaterialesTable({
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">{formatDate(solicitud.fecha_creacion)}</span>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-sm text-gray-700">
+                        {formatFechaRecogida(solicitud.fecha_recogida)}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] ${getRecogidaBadgeClass(solicitud)}`}
+                        >
+                          {
+                            getFechaRecogidaBadge(solicitud.fecha_recogida)
+                              .label
+                          }
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          {solicitud.responsable_recogida || "Sin responsable"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </td>
                 <td className="py-4 px-4">

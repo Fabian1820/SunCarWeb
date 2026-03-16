@@ -58,6 +58,8 @@ export interface ValeSolicitudInfo {
   cliente_venta?: ValeClienteInfo | null;
   almacen?: ValeAlmacenInfo;
   trabajador?: ValeTrabajadorInfo;
+  responsable_recogida?: string | null;
+  fecha_recogida?: string | null;
   estado?: string;
 }
 
@@ -78,6 +80,7 @@ export interface ValeSalida {
   // Legacy fallback kept for compatibility with old responses
   solicitud?: ValeSolicitudInfo | null;
   trabajador?: ValeTrabajadorInfo;
+  recogido_por?: string | null;
   materiales: ValeSalidaMaterialItemDetalle[];
   total_materiales?: number;
   creado_por_ci?: string;
@@ -104,6 +107,8 @@ export interface ValeSolicitudPendiente {
   cliente_venta?: ValeClienteInfo | null;
   almacen?: ValeAlmacenInfo;
   trabajador?: ValeTrabajadorInfo;
+  responsable_recogida?: string | null;
+  fecha_recogida?: string | null;
   materiales: ValeSalidaMaterialItemDetalle[];
   vale_id?: string | null;
   puede_generar_vale?: boolean;

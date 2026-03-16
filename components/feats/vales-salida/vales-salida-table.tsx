@@ -66,6 +66,12 @@ export function ValesSalidaTable({
   const getTrabajadorName = (vale: ValeSalida) =>
     vale.trabajador?.nombre || vale.creado_por_ci || "-";
 
+  const getRecogidoPor = (vale: ValeSalida) =>
+    vale.recogido_por ||
+    vale.solicitud_material?.responsable_recogida ||
+    vale.solicitud?.responsable_recogida ||
+    null;
+
   if (vales.length === 0) {
     return (
       <div className="text-center py-12">
@@ -104,6 +110,9 @@ export function ValesSalidaTable({
               Creador
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
+              Recogido por
+            </th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">
               Materiales
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
@@ -120,6 +129,7 @@ export function ValesSalidaTable({
             const solicitudTipo = getSolicitudTipo(vale);
             const tipoStyles = getTipoStyles(solicitudTipo);
             const isAnulado = vale.estado === "anulado";
+            const recogidoPor = getRecogidoPor(vale);
             return (
               <tr
                 key={vale.id}
@@ -170,6 +180,15 @@ export function ValesSalidaTable({
                       {getTrabajadorName(vale)}
                     </span>
                   </div>
+                </td>
+                <td className="py-4 px-4">
+                  {recogidoPor ? (
+                    <span className="text-sm text-gray-700">{recogidoPor}</span>
+                  ) : (
+                    <span className="text-xs text-gray-400 italic">
+                      Sin responsable
+                    </span>
+                  )}
                 </td>
                 <td className="py-4 px-4">
                   <Badge

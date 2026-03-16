@@ -59,7 +59,9 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
         s.cliente?.numero?.toLowerCase().includes(term) ||
         s.almacen?.nombre?.toLowerCase().includes(term) ||
         s.trabajador?.nombre?.toLowerCase().includes(term) ||
-        s.trabajador?.ci?.toLowerCase().includes(term)
+        s.trabajador?.ci?.toLowerCase().includes(term) ||
+        s.responsable_recogida?.toLowerCase().includes(term) ||
+        s.fecha_recogida?.toLowerCase().includes(term)
       );
     });
   }, [solicitudes, searchTerm]);

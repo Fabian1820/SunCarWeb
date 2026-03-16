@@ -31,6 +31,10 @@ import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-v
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
 import { AnularValeDialog } from "@/components/feats/vales-salida/anular-vale-dialog";
 import type { ValeSalida, ValeSolicitudPendiente } from "@/lib/api-types";
+import {
+  formatFechaRecogida,
+  getFechaRecogidaBadge,
+} from "@/lib/utils/fecha-recogida";
 
 const getTipoStyles = (tipo?: string) =>
   tipo === "venta"
@@ -164,19 +168,6 @@ export default function ValesSalidaPage() {
     }
   };
 
-  const formatDate = (dateStr?: string) => {
-    if (!dateStr) return "-";
-    try {
-      return new Date(dateStr).toLocaleDateString("es-ES", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      });
-    } catch {
-      return "-";
-    }
-  };
-
   const getSolicitudCode = (solicitud: ValeSolicitudPendiente) =>
     solicitud.codigo || solicitud.solicitud_id.slice(-6).toUpperCase();
 
@@ -184,6 +175,21 @@ export default function ValesSalidaPage() {
     solicitud.cliente_venta?.nombre ||
     solicitud.cliente?.nombre ||
     "Sin cliente";
+
+  const getRecogidaBadgeClass = (
+    kind: ReturnType<typeof getFechaRecogidaBadge>["kind"],
+  ) => {
+    if (kind === "today" || kind === "unknown") {
+      return "bg-emerald-50 text-emerald-700 border-emerald-200";
+    }
+    if (kind === "tomorrow") {
+      return "bg-blue-50 text-blue-700 border-blue-200";
+    }
+    if (kind === "future") {
+      return "bg-amber-50 text-amber-700 border-amber-200";
+    }
+    return "bg-red-50 text-red-700 border-red-200";
+  };
 
   const handleCreateFromSolicitud = (solicitud: ValeSolicitudPendiente) => {
     setPrefillSolicitudId(solicitud.solicitud_id);
@@ -246,7 +252,7 @@ export default function ValesSalidaPage() {
                         Materiales
                       </th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-900">
-                        Fecha
+                        Recogida
                       </th>
                       <th className="text-left py-2 px-2 font-semibold text-gray-900">
                         Accion
@@ -256,6 +262,9 @@ export default function ValesSalidaPage() {
                   <tbody>
                     {solicitudesPendientes.map((solicitud) => {
                       const styles = getTipoStyles(solicitud.tipo_solicitud);
+                      const recogidaBadge = getFechaRecogidaBadge(
+                        solicitud.fecha_recogida,
+                      );
                       return (
                         <tr
                           key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
@@ -282,7 +291,24 @@ export default function ValesSalidaPage() {
                             {solicitud.materiales?.length || 0}
                           </td>
                           <td className="py-2 px-2 text-gray-700">
-                            {formatDate(solicitud.fecha_creacion)}
+                            <div className="flex flex-col gap-1">
+                              <div className="flex items-center gap-2">
+                                <span>
+                                  {formatFechaRecogida(
+                                    solicitud.fecha_recogida,
+                                  )}
+                                </span>
+                                <span
+                                  className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-semibold ${getRecogidaBadgeClass(recogidaBadge.kind)}`}
+                                >
+                                  {recogidaBadge.label}
+                                </span>
+                              </div>
+                              <span className="text-xs text-gray-500">
+                                {solicitud.responsable_recogida ||
+                                  "Sin responsable"}
+                              </span>
+                            </div>
                           </td>
                           <td className="py-2 px-2">
                             <Button

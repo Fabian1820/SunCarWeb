@@ -30,6 +30,10 @@ import type {
   ValeSolicitudPendiente,
 } from "@/lib/api-types";
 import { useToast } from "@/hooks/use-toast";
+import {
+  formatFechaRecogida,
+  getFechaRecogidaBadge,
+} from "@/lib/utils/fecha-recogida";
 
 interface MaterialRow {
   material_id: string;
@@ -78,6 +82,21 @@ const getSolicitudCode = (solicitud: ValeSolicitudPendiente) =>
 const getSolicitudCliente = (solicitud: ValeSolicitudPendiente) =>
   solicitud.cliente_venta?.nombre || solicitud.cliente?.nombre || "Sin cliente";
 
+const getRecogidaBadgeClass = (
+  kind: ReturnType<typeof getFechaRecogidaBadge>["kind"],
+) => {
+  if (kind === "today" || kind === "unknown") {
+    return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  }
+  if (kind === "tomorrow") {
+    return "bg-blue-50 text-blue-700 border-blue-200";
+  }
+  if (kind === "future") {
+    return "bg-amber-50 text-amber-700 border-amber-200";
+  }
+  return "bg-red-50 text-red-700 border-red-200";
+};
+
 export function CreateValeSalidaDialog({
   open,
   onOpenChange,
@@ -122,6 +141,8 @@ export function CreateValeSalidaDialog({
           getSolicitudCliente(solicitud),
           solicitud.tipo_solicitud,
           solicitud.almacen?.nombre,
+          solicitud.responsable_recogida,
+          solicitud.fecha_recogida,
         ]
           .join(" ")
           .toLowerCase();
@@ -410,6 +431,9 @@ export function CreateValeSalidaDialog({
   ).length;
   const canSubmit = selectedSolicitud && validCount > 0 && !submitting;
   const selectedTipoStyles = getTipoStyles(selectedSolicitud?.tipo_solicitud);
+  const selectedRecogidaBadge = selectedSolicitud
+    ? getFechaRecogidaBadge(selectedSolicitud.fecha_recogida)
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -456,6 +480,25 @@ export function CreateValeSalidaDialog({
                         ({selectedSolicitud.almacen.nombre})
                       </span>
                     ) : null}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs opacity-90">
+                      <span>
+                        Recogida:{" "}
+                        {formatFechaRecogida(selectedSolicitud.fecha_recogida)}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={getRecogidaBadgeClass(
+                          selectedRecogidaBadge?.kind || "unknown",
+                        )}
+                      >
+                        {selectedRecogidaBadge?.label || "Hoy"}
+                      </Badge>
+                      <span>
+                        Responsable:{" "}
+                        {selectedSolicitud.responsable_recogida ||
+                          "Sin responsable"}
+                      </span>
+                    </div>
                   </div>
                   <button
                     onClick={handleClearSolicitud}
@@ -490,6 +533,9 @@ export function CreateValeSalidaDialog({
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
                   {filteredSolicitudes.map((solicitud) => {
                     const styles = getTipoStyles(solicitud.tipo_solicitud);
+                    const recogidaBadge = getFechaRecogidaBadge(
+                      solicitud.fecha_recogida,
+                    );
                     return (
                       <button
                         key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
@@ -517,6 +563,21 @@ export function CreateValeSalidaDialog({
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5 truncate">
                           {getSolicitudCliente(solicitud)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
+                          <span>
+                            {formatFechaRecogida(solicitud.fecha_recogida)}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={`text-[11px] ${getRecogidaBadgeClass(recogidaBadge.kind)}`}
+                          >
+                            {recogidaBadge.label}
+                          </Badge>
+                          <span className="truncate">
+                            {solicitud.responsable_recogida ||
+                              "Sin responsable"}
+                          </span>
                         </div>
                       </button>
                     );

@@ -32,6 +32,7 @@ import {
   InventarioService,
   MaterialService,
   SolicitudMaterialService,
+  TrabajadorService,
 } from "@/lib/api-services";
 import type { Almacen } from "@/lib/api-types";
 import type {
@@ -68,6 +69,19 @@ interface CatalogMaterial {
   um?: string;
   foto?: string;
 }
+
+interface TrabajadorConBrigadista {
+  nombre?: string;
+  is_brigadista?: boolean;
+}
+
+const RESPONSABLE_NONE_VALUE = "__sin_responsable__";
+
+const normalizeDateInput = (dateStr?: string | null): string => {
+  if (!dateStr) return "";
+  const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] || "";
+};
 
 interface CreateSolicitudMaterialDialogProps {
   open: boolean;
@@ -106,6 +120,10 @@ export function CreateSolicitudMaterialDialog({
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [selectedAlmacenId, setSelectedAlmacenId] = useState("");
   const [almacenesLoading, setAlmacenesLoading] = useState(false);
+  const [brigadistas, setBrigadistas] = useState<string[]>([]);
+  const [brigadistasLoading, setBrigadistasLoading] = useState(false);
+  const [responsableRecogida, setResponsableRecogida] = useState("");
+  const [fechaRecogida, setFechaRecogida] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
   const isEditMode = useMemo(() => Boolean(solicitud?.id), [solicitud?.id]);
@@ -115,17 +133,40 @@ export function CreateSolicitudMaterialDialog({
 
     const loadData = async () => {
       setAlmacenesLoading(true);
+      setBrigadistasLoading(true);
       try {
-        const [almacenesData, materialsData] = await Promise.all([
-          InventarioService.getAlmacenes(),
-          MaterialService.getAllMaterials(),
-        ]);
+        const [almacenesData, materialsData, trabajadoresData] =
+          await Promise.all([
+            InventarioService.getAlmacenes(),
+            MaterialService.getAllMaterials(),
+            TrabajadorService.getAllTrabajadores(),
+          ]);
         setAlmacenes(Array.isArray(almacenesData) ? almacenesData : []);
         setAllMaterials(Array.isArray(materialsData) ? materialsData : []);
+        const brigadistaNames = Array.from(
+          new Set(
+            (Array.isArray(trabajadoresData) ? trabajadoresData : [])
+              .filter(
+                (trabajador) =>
+                  (trabajador as TrabajadorConBrigadista).is_brigadista ===
+                  true,
+              )
+              .map((trabajador) =>
+                (trabajador as TrabajadorConBrigadista).nombre?.trim(),
+              )
+              .filter((nombre): nombre is string => Boolean(nombre)),
+          ),
+        ).sort((a, b) =>
+          a.localeCompare(b, "es", {
+            sensitivity: "base",
+          }),
+        );
+        setBrigadistas(brigadistaNames);
       } catch (error) {
         console.error("Error loading dialog data:", error);
       } finally {
         setAlmacenesLoading(false);
+        setBrigadistasLoading(false);
       }
     };
 
@@ -140,6 +181,8 @@ export function CreateSolicitudMaterialDialog({
       setMateriales([]);
       setMaterialesSinVinculo([]);
       setSelectedAlmacenId("");
+      setResponsableRecogida("");
+      setFechaRecogida("");
       setMaterialSearch("");
       setMaterialResults([]);
       setShowClienteDropdown(false);
@@ -154,6 +197,8 @@ export function CreateSolicitudMaterialDialog({
       setMateriales([]);
       setMaterialesSinVinculo([]);
       setSelectedAlmacenId("");
+      setResponsableRecogida("");
+      setFechaRecogida("");
       setMaterialSearch("");
       setMaterialResults([]);
       setShowClienteDropdown(false);
@@ -199,6 +244,8 @@ export function CreateSolicitudMaterialDialog({
     setMateriales(rows);
     setMaterialesSinVinculo([]);
     setSelectedAlmacenId(solicitud.almacen_id || solicitud.almacen?.id || "");
+    setResponsableRecogida(solicitud.responsable_recogida || "");
+    setFechaRecogida(normalizeDateInput(solicitud.fecha_recogida));
     setMaterialSearch("");
     setMaterialResults([]);
     setShowClienteDropdown(false);
@@ -370,12 +417,16 @@ export function CreateSolicitudMaterialDialog({
       const clienteId = selectedCliente
         ? selectedCliente.id || selectedCliente._id
         : null;
+      const normalizedResponsable = responsableRecogida.trim();
+      const normalizedFechaRecogida = fechaRecogida.trim();
 
       if (isEditMode && solicitud?.id) {
         const payload: SolicitudMaterialUpdateData = {
           almacen_id: selectedAlmacenId,
           materiales: normalizedMateriales,
           cliente_id: clienteId,
+          responsable_recogida: normalizedResponsable || null,
+          fecha_recogida: normalizedFechaRecogida || null,
         };
         await SolicitudMaterialService.updateSolicitud(solicitud.id, payload);
       } else {
@@ -385,6 +436,12 @@ export function CreateSolicitudMaterialDialog({
         };
         if (clienteId) {
           payload.cliente_id = clienteId;
+        }
+        if (normalizedResponsable) {
+          payload.responsable_recogida = normalizedResponsable;
+        }
+        if (normalizedFechaRecogida) {
+          payload.fecha_recogida = normalizedFechaRecogida;
         }
         await SolicitudMaterialService.createSolicitud(payload);
       }
@@ -412,6 +469,12 @@ export function CreateSolicitudMaterialDialog({
   const validCount = materiales.filter(
     (m) => m.material_id && !m.sinVinculo,
   ).length;
+  const responsableOptions = useMemo(() => {
+    if (!responsableRecogida || brigadistas.includes(responsableRecogida)) {
+      return brigadistas;
+    }
+    return [responsableRecogida, ...brigadistas];
+  }, [brigadistas, responsableRecogida]);
   const canSubmit =
     selectedAlmacenId && validCount > 0 && !submitting && !hasSinVinculo;
 
@@ -689,6 +752,64 @@ export function CreateSolicitudMaterialDialog({
                 </SelectContent>
               </Select>
             )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Responsable de Recogida{" "}
+                <span className="text-gray-400 font-normal">(opcional)</span>
+              </Label>
+              {brigadistasLoading ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cargando brigadistas...
+                </div>
+              ) : (
+                <Select
+                  value={responsableRecogida || RESPONSABLE_NONE_VALUE}
+                  onValueChange={(value) =>
+                    setResponsableRecogida(
+                      value === RESPONSABLE_NONE_VALUE ? "" : value,
+                    )
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona responsable" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={RESPONSABLE_NONE_VALUE}>
+                      Sin responsable
+                    </SelectItem>
+                    {responsableOptions.map((nombre) => (
+                      <SelectItem key={nombre} value={nombre}>
+                        {nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {!brigadistasLoading && brigadistas.length === 0 ? (
+                <p className="text-xs text-gray-500">
+                  No hay trabajadores brigadistas disponibles.
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Fecha de Recogida{" "}
+                <span className="text-gray-400 font-normal">(opcional)</span>
+              </Label>
+              <Input
+                type="date"
+                value={fechaRecogida}
+                onChange={(event) => setFechaRecogida(event.target.value)}
+              />
+              <p className="text-xs text-gray-500">
+                Si no se define al crear, backend usa la fecha de hoy.
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-4 border-t">

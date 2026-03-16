@@ -18,6 +18,10 @@ import {
   Briefcase,
 } from "lucide-react";
 import type { SolicitudMaterial } from "@/lib/api-types";
+import {
+  formatFechaRecogida,
+  getFechaRecogidaBadge,
+} from "@/lib/utils/fecha-recogida";
 
 interface SolicitudMaterialDetailDialogProps {
   open: boolean;
@@ -65,6 +69,16 @@ export function SolicitudMaterialDetailDialog({
   const getMaterialFoto = (mat: SolicitudMaterial["materiales"][number]) =>
     mat.material?.foto;
 
+  const recogidaBadge = getFechaRecogidaBadge(solicitud.fecha_recogida);
+  const recogidaBadgeClass =
+    recogidaBadge.kind === "today" || recogidaBadge.kind === "unknown"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : recogidaBadge.kind === "tomorrow"
+        ? "bg-blue-50 text-blue-700 border-blue-200"
+        : recogidaBadge.kind === "future"
+          ? "bg-amber-50 text-amber-700 border-amber-200"
+          : "bg-red-50 text-red-700 border-red-200";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -108,6 +122,33 @@ export function SolicitudMaterialDetailDialog({
                 </span>
               </div>
             )}
+          </div>
+
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+              <Calendar className="h-4 w-4 text-gray-500" />
+              Recogida
+            </h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500">Fecha:</span>
+                <span className="font-medium text-gray-900">
+                  {formatFechaRecogida(solicitud.fecha_recogida)}
+                </span>
+                <Badge
+                  variant="outline"
+                  className={`text-xs ${recogidaBadgeClass}`}
+                >
+                  {recogidaBadge.label}
+                </Badge>
+              </div>
+              <div>
+                <span className="text-gray-500">Responsable:</span>
+                <span className="ml-2 font-medium text-gray-900">
+                  {solicitud.responsable_recogida || "Sin responsable"}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Cliente */}

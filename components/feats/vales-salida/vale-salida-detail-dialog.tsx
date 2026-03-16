@@ -18,6 +18,10 @@ import {
   Undo2,
 } from "lucide-react";
 import type { ValeSalida } from "@/lib/api-types";
+import {
+  formatFechaRecogida,
+  getFechaRecogidaBadge,
+} from "@/lib/utils/fecha-recogida";
 
 interface ValeSalidaDetailDialogProps {
   open: boolean;
@@ -91,6 +95,17 @@ export function ValeSalidaDetailDialog({
 
   const solicitudCliente =
     solicitud?.cliente_venta?.nombre || solicitud?.cliente?.nombre;
+  const recogidaResponsable =
+    vale.recogido_por || solicitud?.responsable_recogida || null;
+  const recogidaBadge = getFechaRecogidaBadge(solicitud?.fecha_recogida);
+  const recogidaBadgeClass =
+    recogidaBadge.kind === "today" || recogidaBadge.kind === "unknown"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+      : recogidaBadge.kind === "tomorrow"
+        ? "bg-blue-50 text-blue-700 border-blue-200"
+        : recogidaBadge.kind === "future"
+          ? "bg-amber-50 text-amber-700 border-amber-200"
+          : "bg-red-50 text-red-700 border-red-200";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,6 +173,25 @@ export function ValeSalidaDetailDialog({
                       {solicitud.estado}
                     </Badge>
                   ) : null}
+                  <div className="pt-1 border-t border-gray-200 mt-2">
+                    <p className="text-gray-600">
+                      Recogida:{" "}
+                      <span className="font-medium text-gray-900">
+                        {formatFechaRecogida(solicitud.fecha_recogida)}
+                      </span>
+                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={`text-[11px] ${recogidaBadgeClass}`}
+                      >
+                        {recogidaBadge.label}
+                      </Badge>
+                      <span className="text-xs text-gray-600">
+                        {recogidaResponsable || "Sin responsable"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-gray-400">-</p>

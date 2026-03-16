@@ -59,13 +59,17 @@ export function useValesSalida(): UseValesSalidaReturn {
         solicitud?.codigo ||
         v.solicitud_material_id?.slice(-6).toUpperCase() ||
         v.solicitud_venta_id?.slice(-6).toUpperCase();
+      const responsableRecogida =
+        v.recogido_por || solicitud?.responsable_recogida;
       return (
         v.codigo?.toLowerCase().includes(term) ||
         v.estado?.toLowerCase().includes(term) ||
         solicitudCodigo?.toLowerCase().includes(term) ||
         clienteNombre?.toLowerCase().includes(term) ||
         v.trabajador?.nombre?.toLowerCase().includes(term) ||
-        v.trabajador?.ci?.toLowerCase().includes(term)
+        v.trabajador?.ci?.toLowerCase().includes(term) ||
+        responsableRecogida?.toLowerCase().includes(term) ||
+        solicitud?.fecha_recogida?.toLowerCase().includes(term)
       );
     });
   }, [vales, searchTerm]);
