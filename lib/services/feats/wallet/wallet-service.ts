@@ -201,9 +201,32 @@ const isNotFoundErrorResponse = (errorResponse: ApiErrorResponse): boolean => {
 };
 
 export class WalletService {
+  private static async requestWalletEndpoint<T>(
+    endpoint: string,
+    options?: RequestInit,
+  ): Promise<T> {
+    try {
+      return await apiRequest<T>(endpoint, options);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message.toLowerCase() : "";
+      const isNetworkLikeError =
+        message.includes("failed to fetch") ||
+        message.includes("load failed") ||
+        message.includes("no se pudo conectar con el backend");
+
+      // Fallback defensivo para edge cases de routing/proxy con slash final.
+      if (isNetworkLikeError && !endpoint.endsWith("/")) {
+        return apiRequest<T>(`${endpoint}/`, options);
+      }
+
+      throw error;
+    }
+  }
+
   static async getMyWallet(): Promise<Wallet | null> {
     try {
-      const response = await apiRequest<
+      const response = await this.requestWalletEndpoint<
         Wallet | WrappedResponse<Wallet> | ApiErrorResponse
       >(
         "/wallet/me",
@@ -243,7 +266,7 @@ export class WalletService {
   }
 
   static async initializeMyWallet(): Promise<Wallet> {
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       Wallet | WrappedResponse<Wallet> | ApiErrorResponse
     >(
       "/wallet/me/inicializar",
@@ -264,7 +287,7 @@ export class WalletService {
   static async createTransaction(
     data: WalletTransactionCreateData,
   ): Promise<WalletTransaction> {
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       WalletTransaction | WrappedResponse<WalletTransaction> | ApiErrorResponse
     >("/wallet/transacciones", {
       method: "POST",
@@ -293,7 +316,7 @@ export class WalletService {
     if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
 
     const endpoint = `/wallet/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       WalletTransaction[] | WrappedResponse<WalletTransaction[]> | ApiErrorResponse
     >(endpoint);
 
@@ -309,7 +332,7 @@ export class WalletService {
       search.append("limit", String(filters.limit));
 
     const endpoint = `/wallet/wallets${search.toString() ? `?${search.toString()}` : ""}`;
-    const response = await apiRequest<Wallet[] | WrappedResponse<Wallet[]> | ApiErrorResponse>(
+    const response = await this.requestWalletEndpoint<Wallet[] | WrappedResponse<Wallet[]> | ApiErrorResponse>(
       endpoint,
     );
 
@@ -330,7 +353,7 @@ export class WalletService {
   }
 
   static async getWalletById(walletId: string): Promise<Wallet> {
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       Wallet | WrappedResponse<Wallet> | ApiErrorResponse
     >(`/wallet/wallets/${walletId}`);
 
@@ -357,7 +380,7 @@ export class WalletService {
     if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
 
     const endpoint = `/wallet/wallets/${walletId}/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       WalletTransaction[] | WrappedResponse<WalletTransaction[]> | ApiErrorResponse
     >(endpoint);
 
@@ -367,7 +390,7 @@ export class WalletService {
   static async createTransfer(
     data: WalletTransferCreateData,
   ): Promise<WalletTransferResult> {
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       WalletTransferResult | WrappedResponse<WalletTransferResult> | ApiErrorResponse
     >("/wallet/transferencias", {
       method: "POST",
@@ -384,7 +407,7 @@ export class WalletService {
   }
 
   static async getCurrencies(): Promise<WalletCurrency[]> {
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       WalletCurrency[] | WrappedResponse<WalletCurrency[]> | ApiErrorResponse
     >("/wallet/monedas");
 
@@ -409,7 +432,7 @@ export class WalletService {
   static async createCurrency(
     data: WalletCurrencyCreateData,
   ): Promise<WalletCurrency> {
-    const response = await apiRequest<
+    const response = await this.requestWalletEndpoint<
       WalletCurrency | WrappedResponse<WalletCurrency> | ApiErrorResponse
     >("/wallet/monedas", {
       method: "POST",
