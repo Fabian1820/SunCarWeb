@@ -15,6 +15,8 @@ export interface TerminosCondicionesPayload {
   servicioAtencionCliente?: string | null;
   sobre_nosotros?: string | null;
   sobreNosotros?: string | null;
+  consideraciones_generales?: string | null;
+  consideracionesGenerales?: string | null;
   secciones?: {
     titulo?: string | null;
     formas_pago?: string | null;
@@ -28,6 +30,8 @@ export interface TerminosCondicionesPayload {
     servicioAtencionCliente?: string | null;
     sobre_nosotros?: string | null;
     sobreNosotros?: string | null;
+    consideraciones_generales?: string | null;
+    consideracionesGenerales?: string | null;
   } | null;
 }
 
@@ -201,6 +205,10 @@ export function buildTerminosCondicionesHtml(
     "sobre_nosotros",
     "sobreNosotros",
   ]);
+  const consideracionesGenerales = resolverCampo(payload, [
+    "consideraciones_generales",
+    "consideracionesGenerales",
+  ]);
 
   const tieneEstructura =
     "titulo" in payload ||
@@ -216,6 +224,8 @@ export function buildTerminosCondicionesHtml(
     "servicioAtencionCliente" in payload ||
     "sobre_nosotros" in payload ||
     "sobreNosotros" in payload ||
+    "consideraciones_generales" in payload ||
+    "consideracionesGenerales" in payload ||
     !!payload.secciones;
 
   const secciones = [
@@ -253,6 +263,13 @@ export function buildTerminosCondicionesHtml(
     {
       label: "SOBRE NOSOTROS",
       value: limpiarContenidoSeccion(sobreNosotros, "sobre\\s+nosotros"),
+    },
+    {
+      label: "CONSIDERACIONES GENERALES",
+      value: limpiarContenidoSeccion(
+        consideracionesGenerales,
+        "consideraciones?\\s+generales?",
+      ),
     },
   ].filter((section) => section.value);
 

@@ -77,6 +77,75 @@ function isInstalacionMontajeLabel(value: unknown): boolean {
   return tieneInstalacion && tieneMontajeOPuesta;
 }
 
+function normalizeSectionTitle(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isUppercaseHeadingLine(value: string): boolean {
+  const text = value.trim();
+  if (!text || text.length > 120) return false;
+
+  const letters = text.replace(/[^A-Za-zÁÉÍÓÚÜÑ]/g, "");
+  if (letters.length < 3) return false;
+
+  return text === text.toUpperCase();
+}
+
+function moveConsideracionesGeneralesToEnd(text: string): string {
+  const rawLines = text.split("\n");
+  if (rawLines.length === 0) return text;
+
+  const blocks: Array<{ heading: string | null; lines: string[] }> = [];
+
+  rawLines.forEach((line) => {
+    const trimmed = line.trim();
+    const isHeading = isUppercaseHeadingLine(trimmed);
+
+    if (isHeading) {
+      blocks.push({ heading: trimmed, lines: [line] });
+      return;
+    }
+
+    if (blocks.length === 0) {
+      blocks.push({ heading: null, lines: [line] });
+      return;
+    }
+
+    blocks[blocks.length - 1].lines.push(line);
+  });
+
+  const consideracionesBlocks = blocks.filter((block) =>
+    block.heading
+      ? normalizeSectionTitle(block.heading).includes(
+          "consideraciones generales",
+        )
+      : false,
+  );
+
+  if (consideracionesBlocks.length === 0) return text;
+
+  const nonConsideracionesBlocks = blocks.filter(
+    (block) =>
+      !(
+        block.heading &&
+        normalizeSectionTitle(block.heading).includes(
+          "consideraciones generales",
+        )
+      ),
+  );
+
+  return [...nonConsideracionesBlocks, ...consideracionesBlocks]
+    .map((block) => block.lines.join("\n"))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function limpiarTextoSinPaneles(value?: string): string {
   return (value || "")
     .replace(
@@ -1590,7 +1659,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     yPosition += 10;
 
     // Convertir HTML a texto plano
-    const textoPlano = htmlToPlainText(options.terminosCondiciones);
+    const textoPlanoOriginal = htmlToPlainText(options.terminosCondiciones);
+    const textoPlano = moveConsideracionesGeneralesToEnd(textoPlanoOriginal);
 
     // Debug: ver las primeras líneas
     console.log(
@@ -1605,7 +1675,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     const bloques: Array<{
       text: string;
       bold: boolean;
-      blank?: boolean;
       list?: boolean;
     }> = [];
     let parrafoActual = "";
@@ -1621,7 +1690,6 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
 
       if (!lineaSinMarcadores) {
         cerrarParrafo();
-        bloques.push({ text: "", bold: false, blank: true });
         return;
       }
 
@@ -1665,10 +1733,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     });
     cerrarParrafo();
 
-    bloques.forEach((bloque) => {
-      if (bloque.blank) {
-        yPosition += interlineado;
-        return;
+    const espacioUniformeEntreBloques = 3.2;
+    let bloqueAnterior: { text: string; bold: boolean; list?: boolean } | null =
+      null;
+
+    bloques.forEach((bloque, bloqueIndex) => {
+      const sonVinetasConsecutivas = Boolean(
+        bloqueAnterior?.list && bloque.list,
+      );
+      if (bloqueIndex > 0 && !sonVinetasConsecutivas) {
+        yPosition += espacioUniformeEntreBloques;
       }
 
       doc.setFontSize(bloque.bold ? 10 : 9.5);
@@ -1715,6 +1789,8 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
         }
         yPosition += interlineado;
       });
+
+      bloqueAnterior = bloque;
     });
   }
 
