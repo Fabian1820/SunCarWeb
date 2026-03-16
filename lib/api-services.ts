@@ -30,3 +30,4 @@ export { SolicitudMaterialService } from "./services/feats/solicitudes-materiale
 export { ValeSalidaService } from "./services/feats/vales-salida/vale-salida-service";
 export { ClienteVentaService } from "./services/feats/clientes-ventas/cliente-venta-service";
 export { SolicitudVentaService } from "./services/feats/solicitudes-ventas/solicitud-venta-service";
+export { WalletService } from "./services/feats/wallet/wallet-service";

@@ -26,6 +26,7 @@ import {
   Trophy,
   FileSpreadsheet,
   PackageSearch,
+  Wallet,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -191,6 +192,14 @@ export default function Dashboard() {
       iconClass: "text-sky-600",
     },
     {
+      id: "wallet",
+      href: "/wallet",
+      icon: Wallet,
+      title: "Billetera",
+      description: "Ingresos y gastos manuales con trazabilidad global.",
+      iconClass: "text-amber-700",
+    },
+    {
       id: "almacenes-suncar",
       href: "/almacenes-suncar",
       icon: Package,
@@ -292,6 +301,7 @@ export default function Dashboard() {
       moduleIds: [
         "materiales",
         "facturas",
+        "wallet",
         "almacenes-suncar",
         "inventario",
         "tiendas-suncarventas",
@@ -600,4 +610,3 @@ export default function Dashboard() {
     </div>
   );
 }
-
