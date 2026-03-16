@@ -181,6 +181,25 @@ const getApiErrorMessage = (
   return detail || message || fallback;
 };
 
+const isNotFoundErrorResponse = (errorResponse: ApiErrorResponse): boolean => {
+  const status = errorResponse._httpStatus;
+  if (status === 404) return true;
+
+  const detail = typeof errorResponse.detail === "string"
+    ? errorResponse.detail.toLowerCase()
+    : "";
+  const message = typeof errorResponse.message === "string"
+    ? errorResponse.message.toLowerCase()
+    : "";
+
+  const text = `${detail} ${message}`;
+  return (
+    text.includes("not found") ||
+    text.includes("no existe") ||
+    text.includes("no hay")
+  );
+};
+
 export class WalletService {
   static async getMyWallet(): Promise<Wallet | null> {
     try {
@@ -295,6 +314,9 @@ export class WalletService {
     );
 
     if (isApiErrorResponse(response)) {
+      if (isNotFoundErrorResponse(response)) {
+        return [];
+      }
       throw new Error(
         getApiErrorMessage(response, "No se pudieron cargar las billeteras"),
       );
@@ -367,6 +389,9 @@ export class WalletService {
     >("/wallet/monedas");
 
     if (isApiErrorResponse(response)) {
+      if (isNotFoundErrorResponse(response)) {
+        return [];
+      }
       throw new Error(
         getApiErrorMessage(response, "No se pudieron cargar las monedas"),
       );
@@ -408,6 +433,14 @@ export class WalletService {
     filters: WalletTransactionsFilters,
   ): WalletTransactionsResult {
     if (isApiErrorResponse(response)) {
+      if (isNotFoundErrorResponse(response)) {
+        return {
+          items: [],
+          total: 0,
+          skip: filters.skip ?? 0,
+          limit: filters.limit ?? 0,
+        };
+      }
       throw new Error(
         getApiErrorMessage(response, "No se pudieron cargar las transacciones"),
       );
