@@ -28,6 +28,7 @@ interface UseMaterialsReturn {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
   ) => void;
   createCategory: (categoria: string) => Promise<string>;
@@ -48,6 +49,7 @@ interface UseMaterialsReturn {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
     categoria?: string,
   ) => Promise<boolean>;
@@ -72,6 +74,7 @@ interface UseMaterialsReturn {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
     categoria?: string,
   ) => Promise<boolean>;
@@ -184,6 +187,7 @@ export function useMaterials(): UseMaterialsReturn {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
     categoria?: string,
   ) => {
@@ -225,6 +229,7 @@ export function useMaterials(): UseMaterialsReturn {
           habilitar_venta_web: material.habilitar_venta_web,
           precio_por_cantidad: material.precio_por_cantidad,
           especificaciones: material.especificaciones,
+          ficha_tecnica_url: material.ficha_tecnica_url,
           producto_id: productoId,
         } as Material;
         console.log("[useMaterials] New material to add:", newMaterial);
@@ -282,6 +287,7 @@ export function useMaterials(): UseMaterialsReturn {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
   ) => {
     setRawCategories((prev) => {
@@ -338,6 +344,7 @@ export function useMaterials(): UseMaterialsReturn {
         habilitar_venta_web: material.habilitar_venta_web,
         precio_por_cantidad: material.precio_por_cantidad,
         especificaciones: material.especificaciones,
+        ficha_tecnica_url: material.ficha_tecnica_url,
         producto_id: productoId,
       } as Material;
       return [newMaterial, ...prev];
@@ -361,6 +368,7 @@ export function useMaterials(): UseMaterialsReturn {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
     categoria?: string,
   ) => {
@@ -431,6 +439,10 @@ export function useMaterials(): UseMaterialsReturn {
                 payload.especificaciones !== undefined
                   ? payload.especificaciones
                   : m.especificaciones,
+              ficha_tecnica_url:
+                payload.ficha_tecnica_url !== undefined
+                  ? payload.ficha_tecnica_url
+                  : m.ficha_tecnica_url,
             };
             console.log("[useMaterials] Updated material:", updatedMaterial);
             return updatedMaterial;
