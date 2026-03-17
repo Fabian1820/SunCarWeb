@@ -33,6 +33,7 @@ interface SalidaLotePayload {
     cantidad: number;
     origen_captura: "scanner" | "manual";
     estado: string;
+    ubicacion_en_almacen?: string;
   }>;
   motivo?: string;
   referencia?: string;
@@ -55,6 +56,7 @@ interface SalidaLoteItem {
   cantidad: string;
   origen_captura: "scanner" | "manual";
   estado: string;
+  ubicacion_en_almacen?: string | null;
   yaEnStock?: boolean;
   stockAnterior?: number;
 }
@@ -185,6 +187,17 @@ export function SalidaLoteForm({
     return map;
   }, [stockActual, tipo]);
 
+  const ubicacionPorCodigo = useMemo(() => {
+    const map = new Map<string, string | null>();
+    if (tipo !== "entrada") return map;
+    for (const item of stockActual || []) {
+      const key = normalizarCodigo(String(item.material_codigo || ""));
+      if (!key) continue;
+      map.set(key, item.ubicacion_en_almacen ?? null);
+    }
+    return map;
+  }, [stockActual, tipo]);
+
   const enfocarCodigo = () => {
     if (!codigoRef.current) return;
     codigoRef.current.focus();
@@ -287,6 +300,10 @@ export function SalidaLoteForm({
         cantidad: "1",
         origen_captura: modo,
         estado: "nuevo",
+        ubicacion_en_almacen:
+          tipo === "entrada"
+            ? (ubicacionPorCodigo.get(normalizarCodigo(codigoMaterial)) ?? null)
+            : null,
         yaEnStock:
           tipo === "entrada"
             ? stockPorCodigo.has(normalizarCodigo(codigoMaterial))
@@ -346,6 +363,19 @@ export function SalidaLoteForm({
     );
   };
 
+  const actualizarUbicacion = (codigo: string, ubicacion: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.material_codigo === codigo
+          ? {
+              ...item,
+              ubicacion_en_almacen: ubicacion.trim() || null,
+            }
+          : item,
+      ),
+    );
+  };
+
   const eliminarItem = (codigo: string) => {
     setItems((prev) => prev.filter((item) => item.material_codigo !== codigo));
   };
@@ -386,6 +416,9 @@ export function SalidaLoteForm({
           cantidad: Number(item.cantidad),
           origen_captura: item.origen_captura,
           estado: item.estado || "nuevo",
+          ...(tipo === "entrada" && item.ubicacion_en_almacen
+            ? { ubicacion_en_almacen: item.ubicacion_en_almacen }
+            : {}),
         })),
         motivo: motivo.trim() || undefined,
         referencia: referencia.trim() || undefined,
@@ -551,6 +584,11 @@ export function SalidaLoteForm({
                 <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
                   Estado
                 </th>
+                {tipo === "entrada" ? (
+                  <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
+                    Ubicación en almacén
+                  </th>
+                ) : null}
                 <th className="text-left py-2 px-3 text-sm font-semibold text-gray-900">
                   Cantidad
                 </th>
@@ -568,7 +606,7 @@ export function SalidaLoteForm({
               {items.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={tipo === "entrada" ? 8 : 7}
+                    colSpan={tipo === "entrada" ? 9 : 7}
                     className="py-6 text-center text-sm text-gray-500"
                   >
                     No hay materiales agregados.
@@ -641,6 +679,24 @@ export function SalidaLoteForm({
                         </SelectContent>
                       </Select>
                     </td>
+                    {tipo === "entrada" ? (
+                      <td className="py-2 px-3 text-sm min-w-[180px]">
+                        <Input
+                          value={item.ubicacion_en_almacen ?? ""}
+                          onChange={(event) =>
+                            actualizarUbicacion(
+                              item.material_codigo,
+                              event.target.value,
+                            )
+                          }
+                          placeholder={
+                            item.ubicacion_en_almacen === null
+                              ? "Sin ubicación"
+                              : "Ej: Pasillo 3, Estante B"
+                          }
+                        />
+                      </td>
+                    ) : null}
                     <td className="py-2 px-3 text-sm text-gray-700 w-[140px]">
                       <Input
                         ref={(element) => {

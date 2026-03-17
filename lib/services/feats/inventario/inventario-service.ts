@@ -217,6 +217,7 @@ export class InventarioService {
       categoria: asString(row?.categoria) || asString(materialObj?.categoria),
       um: asString(row?.um) || asString(materialObj?.um),
       cantidad: asNumber(row?.cantidad) ?? 0,
+      ubicacion_en_almacen: asString(row?.ubicacion_en_almacen) ?? null,
       actualizado_en:
         asString(row?.actualizado_en) || asString(row?.updated_at),
     };
@@ -586,6 +587,9 @@ export class InventarioService {
     const referencia = asString(data.referencia);
     if (referencia) payload.referencia = referencia;
 
+    const ubicacion = asString(data.ubicacion_en_almacen);
+    if (ubicacion) payload.ubicacion_en_almacen = ubicacion;
+
     if (tipo === "transferencia") {
       const origenId = asString(data.almacen_origen_id);
       const destinoId = asString(data.almacen_destino_id);
@@ -664,6 +668,9 @@ export class InventarioService {
       const estado = asString(item.estado);
       if (estado) mapped.estado = estado;
 
+      const ubicacion = asString(item.ubicacion_en_almacen);
+      if (ubicacion) mapped.ubicacion_en_almacen = ubicacion;
+
       return mapped;
     });
 
@@ -693,5 +700,16 @@ export class InventarioService {
       body: JSON.stringify(data),
     });
     return response;
+  }
+
+  static async updateStockUbicacion(data: {
+    almacen_id: string;
+    material_id: string;
+    ubicacion_en_almacen: string | null;
+  }): Promise<void> {
+    await apiRequest<any>("/inventario/stock/ubicacion", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
   }
 }

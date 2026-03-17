@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/shared/atom/button";
-import { Package, Pencil } from "lucide-react";
+import { Package, MapPin, Loader2 } from "lucide-react";
 import type { StockItem } from "@/lib/inventario-types";
 import type { Material } from "@/lib/material-types";
 import {
@@ -10,6 +11,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/shared/molecule/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
+import { Label } from "@/components/shared/atom/label";
+import { Input } from "@/components/shared/molecule/input";
 
 interface MarcaItem {
   id: string;
@@ -19,6 +29,7 @@ interface MarcaItem {
 interface StockTableProps {
   stock: StockItem[];
   onEditStock?: (item: StockItem) => void;
+  onUpdateUbicacion?: (item: StockItem, ubicacion: string | null) => Promise<void>;
   detailed?: boolean;
   materials?: Material[];
   marcas?: MarcaItem[];
@@ -30,11 +41,47 @@ const normalizarCodigo = (codigo: string) => codigo.trim().toLowerCase();
 export function StockTable({
   stock,
   onEditStock,
+  onUpdateUbicacion,
   detailed = false,
   materials = [],
   marcas = [],
   almacenNombreFallback,
 }: StockTableProps) {
+  const [isUbicacionDialogOpen, setIsUbicacionDialogOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
+  const [ubicacionInput, setUbicacionInput] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleOpenUbicacionDialog = (item: StockItem) => {
+    setSelectedItem(item);
+    setUbicacionInput(item.ubicacion_en_almacen ?? "");
+    setError(null);
+    setIsUbicacionDialogOpen(true);
+  };
+
+  const handleCloseUbicacionDialog = () => {
+    setIsUbicacionDialogOpen(false);
+    setSelectedItem(null);
+    setUbicacionInput("");
+    setError(null);
+  };
+
+  const handleUpdateUbicacion = async () => {
+    if (!selectedItem || !onUpdateUbicacion) return;
+
+    setIsUpdating(true);
+    setError(null);
+    try {
+      await onUpdateUbicacion(selectedItem, ubicacionInput.trim() || null);
+      handleCloseUbicacionDialog();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al actualizar ubicación");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   if (stock.length === 0) {
     return (
       <div className="text-center py-12">
@@ -87,7 +134,7 @@ export function StockTable({
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[150px]">
                 Cantidad en stock
               </th>
-              {onEditStock ? (
+              {(onEditStock || onUpdateUbicacion) ? (
                 <th className="text-right py-3 px-2 font-semibold text-gray-900 w-[130px]">
                   Acciones
                 </th>
@@ -170,17 +217,29 @@ export function StockTable({
                       {item.um ? ` ${item.um}` : ""}
                     </span>
                   </td>
-                  {onEditStock ? (
+                  {(onEditStock || onUpdateUbicacion) ? (
                     <td className="py-3 px-2 text-right">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onEditStock(item)}
-                      >
-                        <Pencil className="h-4 w-4 mr-2" />
-                        Editar
-                      </Button>
+                      {onUpdateUbicacion ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenUbicacionDialog(item)}
+                          title="Editar ubicación"
+                        >
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Ubicación
+                        </Button>
+                      ) : onEditStock ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => onEditStock(item)}
+                        >
+                          Editar stock
+                        </Button>
+                      ) : null}
                     </td>
                   ) : null}
                 </tr>
@@ -189,6 +248,72 @@ export function StockTable({
           </tbody>
         </table>
       </div>
+
+      <Dialog open={isUbicacionDialogOpen} onOpenChange={handleCloseUbicacionDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar ubicación en almacén</DialogTitle>
+            <DialogDescription>
+              {selectedItem
+                ? `Material: ${selectedItem.material_codigo} - ${selectedItem.material_descripcion || "Sin descripción"}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="ubicacion-input" className="text-sm font-medium text-gray-700 mb-2 block">
+                Ubicación actual
+              </Label>
+              <div className="text-sm text-gray-600 mb-3 p-2 bg-gray-50 rounded border">
+                {selectedItem?.ubicacion_en_almacen || "Sin ubicación"}
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="ubicacion-input" className="text-sm font-medium text-gray-700 mb-2 block">
+                Nueva ubicación
+              </Label>
+              <Input
+                id="ubicacion-input"
+                value={ubicacionInput}
+                onChange={(e) => setUbicacionInput(e.target.value)}
+                placeholder="Ej: Pasillo 3, Estante B"
+                disabled={isUpdating}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Deja el campo vacío para quitar la ubicación
+              </p>
+            </div>
+
+            {error ? (
+              <div className="text-sm text-red-600">
+                {error}
+              </div>
+            ) : null}
+
+            <div className="flex justify-end gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCloseUbicacionDialog}
+                disabled={isUpdating}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleUpdateUbicacion}
+                disabled={isUpdating}
+              >
+                {isUpdating ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
       </TooltipProvider>
     );
   }
@@ -266,5 +391,71 @@ export function StockTable({
         </tbody>
       </table>
     </div>
+
+    <Dialog open={isUbicacionDialogOpen} onOpenChange={handleCloseUbicacionDialog}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar ubicación en almacén</DialogTitle>
+          <DialogDescription>
+            {selectedItem
+              ? `Material: ${selectedItem.material_codigo} - ${selectedItem.material_descripcion || "Sin descripción"}`
+              : ""}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="ubicacion-input-simple" className="text-sm font-medium text-gray-700 mb-2 block">
+              Ubicación actual
+            </Label>
+            <div className="text-sm text-gray-600 mb-3 p-2 bg-gray-50 rounded border">
+              {selectedItem?.ubicacion_en_almacen || "Sin ubicación"}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="ubicacion-input-simple" className="text-sm font-medium text-gray-700 mb-2 block">
+              Nueva ubicación
+            </Label>
+            <Input
+              id="ubicacion-input-simple"
+              value={ubicacionInput}
+              onChange={(e) => setUbicacionInput(e.target.value)}
+              placeholder="Ej: Pasillo 3, Estante B"
+              disabled={isUpdating}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Deja el campo vacío para quitar la ubicación
+            </p>
+          </div>
+
+          {error ? (
+            <div className="text-sm text-red-600">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCloseUbicacionDialog}
+              disabled={isUpdating}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleUpdateUbicacion}
+              disabled={isUpdating}
+            >
+              {isUpdating ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

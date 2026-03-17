@@ -392,6 +392,32 @@ export default function AlmacenDetallePage() {
     await Promise.all([refreshStock(), refreshMovimientos()]);
   };
 
+  const handleUpdateUbicacion = async (
+    item: StockItem,
+    ubicacion: string | null,
+  ) => {
+    if (!almacen.id || !item.material_id) {
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la ubicación. Falta información del material.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    await InventarioService.updateStockUbicacion({
+      almacen_id: almacen.id,
+      material_id: item.material_id,
+      ubicacion_en_almacen: ubicacion,
+    });
+
+    toast({
+      title: "Ubicación actualizada",
+      description: `La ubicación de ${item.material_codigo} fue actualizada.`,
+    });
+    await refreshStock();
+  };
+
   if (loading) {
     return <PageLoader moduleName="Almacén" text="Cargando detalles..." />;
   }
@@ -642,10 +668,7 @@ export default function AlmacenDetallePage() {
                     materials={materiales}
                     marcas={marcas}
                     almacenNombreFallback={almacen.nombre}
-                    onEditStock={(item) => {
-                      setStockToEdit(item);
-                      setIsEditarStockDialogOpen(true);
-                    }}
+                    onUpdateUbicacion={handleUpdateUbicacion}
                   />
                 </CardContent>
               </Card>

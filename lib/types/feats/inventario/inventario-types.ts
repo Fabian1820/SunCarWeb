@@ -46,6 +46,7 @@ export interface StockItem {
   categoria?: string;
   um?: string;
   cantidad: number;
+  ubicacion_en_almacen?: string | null;
   actualizado_en?: string;
 }
 
@@ -102,6 +103,7 @@ export interface MovimientoCreateData {
   tienda_id?: string;
   motivo?: string;
   referencia?: string;
+  ubicacion_en_almacen?: string;
 }
 
 export interface MovimientoLoteItemData {
@@ -109,6 +111,7 @@ export interface MovimientoLoteItemData {
   cantidad: number;
   origen_captura?: "scanner" | "manual" | string;
   estado?: "nuevo" | "usado" | string;
+  ubicacion_en_almacen?: string;
 }
 
 export interface MovimientoLoteCreateData {
