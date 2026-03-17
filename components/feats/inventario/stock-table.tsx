@@ -321,8 +321,9 @@ export function StockTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full">
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
