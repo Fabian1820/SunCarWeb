@@ -376,7 +376,9 @@ function WalletPageContent() {
   const [bankSessionId, setBankSessionId] = useState<string | null>(null);
   const [bankLoading, setBankLoading] = useState(false);
   const [bankConnecting, setBankConnecting] = useState(false);
-  const [selectedBankName, setSelectedBankName] = useState("Santander");
+  const [selectedBankName, setSelectedBankName] = useState("Banco Santander");
+  const [availableBanks, setAvailableBanks] = useState<Array<{ name: string; country: string }>>([]);
+  const [loadingBanks, setLoadingBanks] = useState(false);
   const [bankBalance, setBankBalance] = useState<{ amount: string; currency: string } | null>(null);
   const [bankTransactions, setBankTransactions] = useState<Array<{
     id: string; date: string; amount: string; currency: string; description: string; isCredit: boolean;
@@ -445,6 +447,26 @@ function WalletPageContent() {
   useEffect(() => {
     const saved = localStorage.getItem("bank_session_id");
     if (saved) setBankSessionId(saved);
+    
+    // Cargar bancos disponibles
+    const loadBanks = async () => {
+      setLoadingBanks(true);
+      try {
+        const res = await fetch("/api/bank/aspsps?country=ES");
+        const data = await res.json() as { success: boolean; aspsps?: Array<{ name: string; country: string }> };
+        if (data.success && data.aspsps) {
+          setAvailableBanks(data.aspsps);
+          if (data.aspsps.length > 0 && !selectedBankName) {
+            setSelectedBankName(data.aspsps[0].name);
+          }
+        }
+      } catch (err) {
+        console.error("Error cargando bancos:", err);
+      } finally {
+        setLoadingBanks(false);
+      }
+    };
+    void loadBanks();
   }, []);
 
   const handleConnectBank = async () => {
@@ -1073,32 +1095,25 @@ function WalletPageContent() {
                   <select
                     value={selectedBankName}
                     onChange={(e) => setSelectedBankName(e.target.value)}
-                    className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    disabled={loadingBanks}
+                    className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50"
                   >
-                    <optgroup label="— Pruebas sandbox —">
-                      <option value="Mock ASPSP">Mock ASPSP (pruebas)</option>
-                      <option value="Banco de Sabadell">Sabadell sandbox</option>
-                      <option value="BBVA">BBVA sandbox</option>
-                    </optgroup>
-                    <optgroup label="— Bancos reales (producción) —">
-                      {[
-                        "Santander",
-                        "BBVA",
-                        "CaixaBank",
-                        "ING",
-                        "Sabadell",
-                        "Bankinter",
-                        "Unicaja",
-                        "Kutxabank",
-                      ].map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </optgroup>
+                    {loadingBanks ? (
+                      <option>Cargando bancos...</option>
+                    ) : availableBanks.length > 0 ? (
+                      availableBanks.map((bank) => (
+                        <option key={bank.name} value={bank.name}>
+                          {bank.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option>No hay bancos disponibles</option>
+                    )}
                   </select>
                 </div>
                 <Button
                   onClick={() => void handleConnectBank()}
-                  disabled={bankConnecting}
+                  disabled={bankConnecting || loadingBanks}
                   className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm gap-2"
                 >
                   <Link2 className="h-4 w-4" />

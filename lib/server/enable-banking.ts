@@ -103,9 +103,22 @@ export interface EBTransaction {
   debtor_name?: string
 }
 
+export interface EBASPSP {
+  name: string
+  country: string
+  logo: string
+  psu_types: string[]
+}
+
 // ────────────────────────────────────────────────────────────
 // Funciones públicas
 // ────────────────────────────────────────────────────────────
+
+export async function getAvailableASPSPs(country?: string): Promise<EBASPSP[]> {
+  const query = country ? `?country=${country}` : ''
+  const data = await ebRequest<{ aspsps: EBASPSP[] }>(`/aspsps${query}`)
+  return data.aspsps ?? []
+}
 
 export async function startAuthorization(
   redirectUrl: string,
