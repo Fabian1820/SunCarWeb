@@ -201,6 +201,7 @@ export default function ClientesPage() {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
 
+
   const [isCreateClientDialogOpen, setIsCreateClientDialogOpen] =
     useState(false);
   const [clientFormLoading, setClientFormLoading] = useState(false);
@@ -268,6 +269,7 @@ export default function ClientesPage() {
 
   const fetchAllClientsByBaseFilters = useCallback(
     async (baseParams: {
+      q?: string;
       estado?: string[];
       fuente?: string;
       comercial?: string;
@@ -340,44 +342,19 @@ export default function ClientesPage() {
           new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
         );
 
-        const baseParams = {
+        const result = await ClienteService.getClientes({
+          q: searchValue || undefined,
           estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
           fuente: filters.fuente || undefined,
           comercial: filters.comercial || undefined,
           fechaDesde: filters.fechaDesde || undefined,
           fechaHasta: filters.fechaHasta || undefined,
-        };
+          skip: filters.skip,
+          limit: filters.limit,
+        });
 
-        const hasActiveFilters =
-          Boolean(searchValue) ||
-          normalizedEstado.length > 0 ||
-          Boolean(filters.fuente.trim()) ||
-          Boolean(filters.comercial.trim()) ||
-          Boolean(filters.fechaDesde) ||
-          Boolean(filters.fechaHasta);
-
-        const allBaseClients = await fetchAllClientsByBaseFilters(baseParams);
-        const allFilteredAndSortedClients = sortClientsByCodigo(
-          hasActiveFilters
-            ? allBaseClients.filter((client) =>
-                matchesClientFilters(client, {
-                  searchTerm: searchValue,
-                  estado: normalizedEstado,
-                  fuente: filters.fuente,
-                  comercial: filters.comercial,
-                  fechaDesde: filters.fechaDesde,
-                  fechaHasta: filters.fechaHasta,
-                }),
-              )
-            : allBaseClients,
-        );
-
-        const start = Math.max(0, filters.skip);
-        const end = start + Math.max(1, filters.limit);
-        const paginatedClients = allFilteredAndSortedClients.slice(start, end);
-
-        setClients(paginatedClients);
-        setTotalClients(allFilteredAndSortedClients.length);
+        setClients(sortClientsByCodigo(result.clients));
+        setTotalClients(result.total);
         if (
           overrideFilters?.skip !== undefined ||
           overrideFilters?.limit !== undefined
@@ -392,7 +369,7 @@ export default function ClientesPage() {
         setLoading(false);
       }
     },
-    [appliedFilters, fetchAllClientsByBaseFilters],
+    [appliedFilters],
   );
 
   const getAllFilteredClientsForExport = useCallback(async (): Promise<
@@ -404,27 +381,17 @@ export default function ClientesPage() {
         appliedFilters.estado.map((value) => value.trim()).filter(Boolean),
       ),
     );
-    const baseParams = {
+
+    const result = await fetchAllClientsByBaseFilters({
+      q: searchValue || undefined,
       estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
       fuente: appliedFilters.fuente || undefined,
       comercial: appliedFilters.comercial || undefined,
       fechaDesde: appliedFilters.fechaDesde || undefined,
       fechaHasta: appliedFilters.fechaHasta || undefined,
-    };
+    });
 
-    const allClients = await fetchAllClientsByBaseFilters(baseParams);
-    const exportClients = allClients.filter((client) =>
-      matchesClientFilters(client, {
-        searchTerm: searchValue,
-        estado: normalizedEstado,
-        fuente: appliedFilters.fuente,
-        comercial: appliedFilters.comercial,
-        fechaDesde: appliedFilters.fechaDesde,
-        fechaHasta: appliedFilters.fechaHasta,
-      }),
-    );
-
-    return sortClientsByCodigo(exportClients);
+    return sortClientsByCodigo(result);
   }, [appliedFilters, fetchAllClientsByBaseFilters]);
 
   // Cargar datos iniciales
