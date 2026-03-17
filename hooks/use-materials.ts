@@ -29,6 +29,8 @@ interface UseMaterialsReturn {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
   ) => void;
   createCategory: (categoria: string) => Promise<string>;
@@ -50,6 +52,8 @@ interface UseMaterialsReturn {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
     categoria?: string,
   ) => Promise<boolean>;
@@ -75,6 +79,8 @@ interface UseMaterialsReturn {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
     categoria?: string,
   ) => Promise<boolean>;
@@ -188,6 +194,8 @@ export function useMaterials(): UseMaterialsReturn {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
     categoria?: string,
   ) => {
@@ -230,6 +238,8 @@ export function useMaterials(): UseMaterialsReturn {
           precio_por_cantidad: material.precio_por_cantidad,
           especificaciones: material.especificaciones,
           ficha_tecnica_url: material.ficha_tecnica_url,
+          numero_serie: material.numero_serie ?? null,
+          stockaje_minimo: material.stockaje_minimo ?? null,
           producto_id: productoId,
         } as Material;
         console.log("[useMaterials] New material to add:", newMaterial);
@@ -288,6 +298,8 @@ export function useMaterials(): UseMaterialsReturn {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
   ) => {
     setRawCategories((prev) => {
@@ -345,6 +357,8 @@ export function useMaterials(): UseMaterialsReturn {
         precio_por_cantidad: material.precio_por_cantidad,
         especificaciones: material.especificaciones,
         ficha_tecnica_url: material.ficha_tecnica_url,
+        numero_serie: material.numero_serie ?? null,
+        stockaje_minimo: material.stockaje_minimo ?? null,
         producto_id: productoId,
       } as Material;
       return [newMaterial, ...prev];
@@ -369,6 +383,8 @@ export function useMaterials(): UseMaterialsReturn {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
     categoria?: string,
   ) => {
@@ -443,6 +459,14 @@ export function useMaterials(): UseMaterialsReturn {
                 payload.ficha_tecnica_url !== undefined
                   ? payload.ficha_tecnica_url
                   : m.ficha_tecnica_url,
+              numero_serie:
+                payload.numero_serie !== undefined
+                  ? payload.numero_serie
+                  : m.numero_serie,
+              stockaje_minimo:
+                payload.stockaje_minimo !== undefined
+                  ? payload.stockaje_minimo
+                  : m.stockaje_minimo,
             };
             console.log("[useMaterials] Updated material:", updatedMaterial);
             return updatedMaterial;

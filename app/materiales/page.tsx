@@ -123,6 +123,8 @@ export default function MaterialesPage() {
     const ubicacion_en_almacen = (material as any).ubicacion_en_almacen;
     const comentario = (material as any).comentario;
     const ficha_tecnica_url = (material as any).ficha_tecnica_url;
+    const numero_serie = (material as any).numero_serie;
+    const stockaje_minimo = (material as any).stockaje_minimo;
 
     const materialData = {
       codigo: String(codigo),
@@ -139,6 +141,8 @@ export default function MaterialesPage() {
       precio_por_cantidad: precio_por_cantidad || null,
       especificaciones: especificaciones || null,
       ficha_tecnica_url: ficha_tecnica_url || null,
+      numero_serie: numero_serie?.trim() || null,
+      stockaje_minimo: stockaje_minimo || null,
     };
 
     try {
@@ -205,6 +209,8 @@ export default function MaterialesPage() {
     const ubicacion_en_almacen = (updatedMaterial as any).ubicacion_en_almacen;
     const comentario = (updatedMaterial as any).comentario;
     const ficha_tecnica_url = (updatedMaterial as any).ficha_tecnica_url;
+    const numero_serie = (updatedMaterial as any).numero_serie;
+    const stockaje_minimo = (updatedMaterial as any).stockaje_minimo;
 
     const materialCodigo = String(editingMaterial?.codigo || codigo);
     const categoriaOriginal = editingMaterial?.categoria;
@@ -258,6 +264,8 @@ export default function MaterialesPage() {
             precio_por_cantidad,
             especificaciones,
             ficha_tecnica_url: ficha_tecnica_url || null,
+            numero_serie: numero_serie?.trim() || null,
+            stockaje_minimo: stockaje_minimo || null,
           },
           categoria,
         );
@@ -298,6 +306,8 @@ export default function MaterialesPage() {
             precio_por_cantidad,
             especificaciones,
             ficha_tecnica_url: ficha_tecnica_url || null,
+            numero_serie: numero_serie?.trim() || null,
+            stockaje_minimo: stockaje_minimo || null,
           },
           categoria,
         );
