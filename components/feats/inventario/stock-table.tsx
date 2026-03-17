@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/shared/atom/button";
-import { Package, MapPin, Loader2 } from "lucide-react";
+import { Package, MapPin, Loader2, Pencil } from "lucide-react";
 import type { StockItem } from "@/lib/inventario-types";
 import type { Material } from "@/lib/material-types";
 import {
