@@ -585,6 +585,7 @@ export function ClientsTable({
     useState<TerminosCondicionesPayload | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [filters, setFilters] = useState({
     estado: [] as string[],
     fuente: "",
@@ -622,11 +623,19 @@ export function ClientsTable({
     });
   };
 
+  // Debounce del searchTerm para evitar llamadas al backend por cada tecla
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   // Notificar al padre cuando cambien los filtros
   useEffect(() => {
     if (onFiltersChange) {
       onFiltersChange({
-        searchTerm,
+        searchTerm: debouncedSearchTerm,
         estado: filters.estado,
         fuente: filters.fuente,
         comercial: filters.comercial,
@@ -634,7 +643,7 @@ export function ClientsTable({
         fechaHasta: filters.fechaHasta,
       });
     }
-  }, [searchTerm, filters, onFiltersChange]);
+  }, [debouncedSearchTerm, filters, onFiltersChange]);
 
   const sortedClients = useMemo(() => {
     return [...clients].sort((a, b) => {
@@ -931,6 +940,7 @@ export function ClientsTable({
 
   const handleClearFilters = () => {
     setSearchTerm("");
+    setDebouncedSearchTerm("");
     setFilters({
       estado: [],
       fuente: "",
