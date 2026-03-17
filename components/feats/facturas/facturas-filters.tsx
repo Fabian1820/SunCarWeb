@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
@@ -12,28 +12,51 @@ import {
   SelectValue,
 } from "@/components/shared/atom/select";
 import { Card, CardContent } from "@/components/shared/molecule/card";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, X, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import type {
   FacturaFilters,
   EstadoFactura,
+  FacturaTipo,
+  FacturaSubTipo,
 } from "@/lib/types/feats/facturas/factura-types";
 
 interface FacturasFiltersProps {
   filters: FacturaFilters;
   onApplyFilters: (filters: FacturaFilters) => void;
   onClearFilters: () => void;
+  reversed?: boolean;
+  onToggleReversed?: () => void;
 }
 
 export function FacturasFilters({
   filters,
   onApplyFilters,
   onClearFilters,
+  reversed = false,
+  onToggleReversed,
 }: FacturasFiltersProps) {
   const [localFilters, setLocalFilters] = useState<FacturaFilters>(filters);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     filters.fecha_vale ? new Date(filters.fecha_vale) : undefined,
   );
+
+  // Aplicar filtros automáticamente cuando cambian
+  useEffect(() => {
+    const filtersToApply: FacturaFilters = { ...localFilters };
+
+    // Si hay fecha específica, remover mes y año
+    if (selectedDate) {
+      filtersToApply.fecha_vale = format(selectedDate, "yyyy-MM-dd");
+      delete filtersToApply.mes_vale;
+      delete filtersToApply.anio_vale;
+    } else {
+      delete filtersToApply.fecha_vale;
+    }
+
+    onApplyFilters(filtersToApply);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localFilters, selectedDate]);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -58,20 +81,15 @@ export function FacturasFilters({
     { value: "no_terminada", label: "No Terminada" },
   ];
 
-  const handleApply = () => {
-    const filtersToApply: FacturaFilters = { ...localFilters };
+  const tipos: { value: FacturaTipo; label: string }[] = [
+    { value: "instaladora", label: "Instaladora" },
+    { value: "cliente_directo", label: "Cliente Directo" },
+  ];
 
-    // Si hay fecha específica, remover mes y año
-    if (selectedDate) {
-      filtersToApply.fecha_vale = format(selectedDate, "yyyy-MM-dd");
-      delete filtersToApply.mes_vale;
-      delete filtersToApply.anio_vale;
-    } else {
-      delete filtersToApply.fecha_vale;
-    }
-
-    onApplyFilters(filtersToApply);
-  };
+  const subtipos: { value: FacturaSubTipo; label: string }[] = [
+    { value: "cliente", label: "Cliente" },
+    { value: "brigada", label: "Brigada" },
+  ];
 
   const handleClear = () => {
     setLocalFilters({});
@@ -88,11 +106,11 @@ export function FacturasFilters({
           <div className="w-full sm:w-auto min-w-[140px] space-y-1">
             <Label>Mes</Label>
             <Select
-              value={localFilters.mes_vale?.toString()}
+              value={localFilters.mes_vale?.toString() || "0"}
               onValueChange={(value) =>
                 setLocalFilters({
                   ...localFilters,
-                  mes_vale: value ? parseInt(value) : undefined,
+                  mes_vale: value === "0" ? undefined : parseInt(value),
                 })
               }
               disabled={!!selectedDate}
@@ -114,11 +132,11 @@ export function FacturasFilters({
           <div className="w-full sm:w-auto min-w-[120px] space-y-1">
             <Label>Año</Label>
             <Select
-              value={localFilters.anio_vale?.toString()}
+              value={localFilters.anio_vale?.toString() || "0"}
               onValueChange={(value) =>
                 setLocalFilters({
                   ...localFilters,
-                  anio_vale: value ? parseInt(value) : undefined,
+                  anio_vale: value === "0" ? undefined : parseInt(value),
                 })
               }
               disabled={!!selectedDate}
@@ -175,7 +193,7 @@ export function FacturasFilters({
               onValueChange={(value) =>
                 setLocalFilters({
                   ...localFilters,
-                  estado: value as EstadoFactura,
+                  estado: value === "all" ? undefined : (value as EstadoFactura),
                 })
               }
             >
@@ -187,6 +205,57 @@ export function FacturasFilters({
                 {estados.map((estado) => (
                   <SelectItem key={estado.value} value={estado.value}>
                     {estado.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-auto min-w-[150px] space-y-1">
+            <Label>Tipo</Label>
+            <Select
+              value={localFilters.tipo}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  tipo: value === "all" ? undefined : (value as FacturaTipo),
+                })
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los tipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                {tipos.map((tipo) => (
+                  <SelectItem key={tipo.value} value={tipo.value}>
+                    {tipo.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-full sm:w-auto min-w-[150px] space-y-1">
+            <Label>Subtipo</Label>
+            <Select
+              value={localFilters.subtipo}
+              onValueChange={(value) =>
+                setLocalFilters({
+                  ...localFilters,
+                  subtipo: value === "all" ? undefined : (value as FacturaSubTipo),
+                })
+              }
+              disabled={localFilters.tipo === "cliente_directo"}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los subtipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los subtipos</SelectItem>
+                {subtipos.map((subtipo) => (
+                  <SelectItem key={subtipo.value} value={subtipo.value}>
+                    {subtipo.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -207,8 +276,8 @@ export function FacturasFilters({
             />
           </div>
 
-          <div className="flex items-center gap-2 ml-auto">
-            {hasActiveFilters && (
+          {hasActiveFilters && (
+            <div className="flex items-center gap-2 ml-auto">
               <Button
                 variant="ghost"
                 size="sm"
@@ -218,14 +287,20 @@ export function FacturasFilters({
                 <X className="h-4 w-4" />
                 Limpiar
               </Button>
-            )}
+            </div>
+          )}
+          
+          {onToggleReversed && (
             <Button
-              onClick={handleApply}
-              className="bg-orange-600 hover:bg-orange-700"
+              variant="ghost"
+              size="icon"
+              onClick={onToggleReversed}
+              className="h-9 w-9 text-gray-600 hover:text-gray-700 hover:bg-gray-100"
+              title={reversed ? "Más antiguas primero" : "Más recientes primero"}
             >
-              Aplicar
+              <ArrowUpDown className="h-4 w-4" />
             </Button>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>

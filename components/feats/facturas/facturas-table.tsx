@@ -117,85 +117,112 @@ export function FacturasTable({
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Número</TableHead>
-                                    <TableHead>Cliente</TableHead>
+                                    <TableHead>Número Factura</TableHead>
+                                    <TableHead>Mes</TableHead>
                                     <TableHead>Fecha</TableHead>
-                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead>Fecha de Creación</TableHead>
+                                    <TableHead>Cliente</TableHead>
+                                    <TableHead className="text-right">Total Factura</TableHead>
+                                    <TableHead className="text-right">Monto Cobrado</TableHead>
+                                    <TableHead className="text-right">Monto Pendiente</TableHead>
+                                    <TableHead className="text-right">Precio Final Oferta</TableHead>
+                                    <TableHead className="text-right">Ganancia Actual</TableHead>
                                     <TableHead className="text-center">Estado</TableHead>
                                     <TableHead className="text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {facturasMostradas.map((factura) => (
-                                    <TableRow key={factura.id} className="hover:bg-gray-50">
-                                        <TableCell className="font-medium">{factura.numero_factura}</TableCell>
-                                        <TableCell>
-                                            {factura.cliente_id ? (
-                                                <button
-                                                    onClick={() => handleClienteClick(factura.cliente_id)}
-                                                    className="text-orange-600 hover:text-orange-700 hover:underline font-medium"
-                                                    disabled={loadingCliente}
-                                                >
-                                                    {factura.nombre_cliente || 'Cliente'}
-                                                </button>
-                                            ) : (
-                                                <span className="text-gray-600">{factura.nombre_cliente || 'N/A'}</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            {factura.fecha_creacion
-                                                ? format(new Date(factura.fecha_creacion), "dd MMM yyyy", { locale: es })
-                                                : 'N/A'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-semibold">
-                                            {formatCurrency(factura.total || 0)}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <div className="flex justify-center">
-                                                <EstadoBadge pagada={factura.pagada} terminada={factura.terminada} />
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex justify-end gap-2">
-                                                {onAddVale && (
+                                {facturasMostradas.map((factura) => {
+                                    const fechaCreacion = factura.fecha_creacion ? new Date(factura.fecha_creacion) : null
+                                    
+                                    // Obtener fecha del primer vale si existe
+                                    const primerVale = factura.vales && factura.vales.length > 0 ? factura.vales[0] : null
+                                    const fechaPrimerVale = primerVale?.fecha ? new Date(primerVale.fecha) : null
+                                    
+                                    const mes = fechaPrimerVale ? format(fechaPrimerVale, "MMMM", { locale: es }) : 'N/A'
+                                    const fecha = fechaPrimerVale ? format(fechaPrimerVale, "dd/MM/yyyy", { locale: es }) : 'N/A'
+                                    
+                                    return (
+                                        <TableRow key={factura.id} className="hover:bg-gray-50">
+                                            <TableCell className="font-medium">{factura.numero_factura}</TableCell>
+                                            <TableCell className="capitalize">{mes}</TableCell>
+                                            <TableCell>{fecha}</TableCell>
+                                            <TableCell>
+                                                {fechaCreacion
+                                                    ? format(fechaCreacion, "dd/MM/yyyy", { locale: es })
+                                                    : 'N/A'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="space-y-0.5">
+                                                    {factura.cliente_id ? (
+                                                        <button
+                                                            onClick={() => handleClienteClick(factura.cliente_id)}
+                                                            className="text-orange-600 hover:text-orange-700 hover:underline font-medium block"
+                                                            disabled={loadingCliente}
+                                                        >
+                                                            {factura.nombre_cliente || 'Cliente'}
+                                                        </button>
+                                                    ) : (
+                                                        <span className="text-gray-900 font-medium block">{factura.nombre_cliente || 'N/A'}</span>
+                                                    )}
+                                                    <span className="text-xs text-gray-500 block">Código: -</span>
+                                                    <span className="text-xs text-gray-500 block">Dirección: -</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-semibold">
+                                                {formatCurrency(factura.total || 0)}
+                                            </TableCell>
+                                            <TableCell className="text-right text-gray-500">
+                                                -
+                                            </TableCell>
+                                            <TableCell className="text-right text-gray-500">
+                                                -
+                                            </TableCell>
+                                            <TableCell className="text-right text-gray-500">
+                                                -
+                                            </TableCell>
+                                            <TableCell className="text-right text-gray-500">
+                                                -
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <div className="flex justify-center">
+                                                    <EstadoBadge pagada={factura.pagada} terminada={factura.terminada} />
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex justify-end gap-2">
+                                                    {onAddVale && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => onAddVale(factura)}
+                                                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        >
+                                                            <PlusCircle className="h-4 w-4" />
+                                                            <span className="sr-only">Agregar vale</span>
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => onAddVale(factura)}
-                                                        className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                        onClick={() => onViewDetails(factura)}
+                                                        className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                                                     >
-                                                        <PlusCircle className="h-4 w-4" />
-                                                        <span className="sr-only">Agregar vale</span>
+                                                        <Eye className="h-4 w-4" />
                                                     </Button>
-                                                )}
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => onViewDetails(factura)}
-                                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => onEdit(factura)}
-                                                    className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                                >
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => onDelete(factura.id!)}
-                                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => onEdit(factura)}
+                                                        className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
                             </TableBody>
                         </Table>
                     </div>

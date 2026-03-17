@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
-import { FacturasTable } from "./facturas-table";
+import { FacturasConsolidadasTable } from "./facturas-consolidadas-table";
 import { FacturaFormDialog } from "./factura-form-dialog";
-import type { Factura, Vale } from "@/lib/types/feats/facturas/factura-types";
+import type { Factura, FacturaConsolidada, Vale } from "@/lib/types/feats/facturas/factura-types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -108,6 +108,7 @@ const getMesAnioFactura = (
 export function FacturasSection() {
   const {
     facturas,
+    facturasConsolidadas,
     stats,
     loading,
     error,
@@ -120,6 +121,7 @@ export function FacturasSection() {
     eliminarFactura,
     agregarVale,
     actualizarVale,
+    cargarFacturasConsolidadas,
   } = useFacturas();
   const { materials, loading: loadingMaterials } = useMaterials();
   const { toast } = useToast();
@@ -136,6 +138,7 @@ export function FacturasSection() {
   const [valeToEdit, setValeToEdit] = useState<{ valeId: string } | null>(null);
   const [savingVale, setSavingVale] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [reversed, setReversed] = useState(false);
   const [valeDraft, setValeDraft] = useState<Vale>({
     fecha: "",
     items: [],
@@ -214,6 +217,20 @@ export function FacturasSection() {
     setFormDialogOpen(true);
   };
 
+  const handleEditConsolidada = (facturaConsolidada: FacturaConsolidada) => {
+    // Buscar la factura completa en el array de facturas normales
+    const facturaCompleta = facturas.find(f => f.numero_factura === facturaConsolidada.numero_factura);
+    if (facturaCompleta) {
+      handleEdit(facturaCompleta);
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la factura para editar",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleEditFacturaFromDetails = () => {
     if (!facturaDetails) return;
     setDetailsDialogOpen(false);
@@ -223,6 +240,20 @@ export function FacturasSection() {
   const handleViewDetails = (factura: Factura) => {
     setFacturaDetails(factura);
     setDetailsDialogOpen(true);
+  };
+
+  const handleViewDetailsConsolidada = (facturaConsolidada: FacturaConsolidada) => {
+    // Buscar la factura completa en el array de facturas normales
+    const facturaCompleta = facturas.find(f => f.numero_factura === facturaConsolidada.numero_factura);
+    if (facturaCompleta) {
+      handleViewDetails(facturaCompleta);
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar los detalles de la factura",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDeleteClick = (id: string) => {
@@ -238,6 +269,20 @@ export function FacturasSection() {
       items: [],
     });
     setValeDialogOpen(true);
+  };
+
+  const handleAddValeConsolidada = (facturaConsolidada: FacturaConsolidada) => {
+    // Buscar la factura completa en el array de facturas normales
+    const facturaCompleta = facturas.find(f => f.numero_factura === facturaConsolidada.numero_factura);
+    if (facturaCompleta) {
+      handleAddValeClick(facturaCompleta);
+    } else {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la factura para agregar vale",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEditValeClick = (factura: Factura, vale: Vale) => {
@@ -352,21 +397,64 @@ export function FacturasSection() {
 
   // Filtro local de respaldo para asegurar que el buscador siempre funcione
   const facturasFiltradas = useMemo(() => {
+    let resultado = facturasConsolidadas;
+
+    // Filtro por búsqueda de texto
     const term = (filters.nombre_cliente || "").trim().toLowerCase();
-    if (!term) return facturas;
+    if (term) {
+      resultado = resultado.filter((factura) => {
+        const numeroFactura = (factura.numero_factura || "").toLowerCase();
+        const nombreCliente = (factura.cliente_nombre || "").toLowerCase();
+        const codigoCliente = (factura.cliente_codigo || "").toLowerCase();
 
-    return facturas.filter((factura) => {
-      const numeroFactura = (factura.numero_factura || "").toLowerCase();
-      const nombreCliente = (factura.nombre_cliente || "").toLowerCase();
-      const facturaId = (factura.id || "").toLowerCase();
+        return (
+          numeroFactura.includes(term) ||
+          nombreCliente.includes(term) ||
+          codigoCliente.includes(term)
+        );
+      });
+    }
 
-      return (
-        numeroFactura.includes(term) ||
-        nombreCliente.includes(term) ||
-        facturaId.includes(term)
-      );
-    });
-  }, [facturas, filters.nombre_cliente]);
+    // Filtro por tipo
+    if (filters.tipo) {
+      resultado = resultado.filter((factura) => factura.tipo === filters.tipo);
+    }
+
+    // Filtro por subtipo
+    if (filters.subtipo) {
+      resultado = resultado.filter((factura) => factura.subtipo === filters.subtipo);
+    }
+
+    // Filtro por fecha específica
+    if (filters.fecha_vale) {
+      resultado = resultado.filter((factura) => {
+        if (!factura.fecha) return false;
+        // Comparar solo la fecha (sin hora)
+        const facturaFecha = factura.fecha.split('T')[0] || factura.fecha;
+        return facturaFecha === filters.fecha_vale;
+      });
+    } else {
+      // Filtro por mes
+      if (filters.mes_vale) {
+        resultado = resultado.filter((factura) => {
+          if (!factura.fecha) return false;
+          const fecha = new Date(factura.fecha);
+          return fecha.getMonth() + 1 === filters.mes_vale;
+        });
+      }
+
+      // Filtro por año
+      if (filters.anio_vale) {
+        resultado = resultado.filter((factura) => {
+          if (!factura.fecha) return false;
+          const fecha = new Date(factura.fecha);
+          return fecha.getFullYear() === filters.anio_vale;
+        });
+      }
+    }
+
+    return resultado;
+  }, [facturasConsolidadas, filters]);
 
   const handleExportFacturasExcel = async () => {
     if (facturasFiltradas.length === 0) {
@@ -492,7 +580,7 @@ export function FacturasSection() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
       <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
               <Link href="/facturas">
@@ -567,7 +655,7 @@ export function FacturasSection() {
         </div>
       </header>
 
-      <main className="content-with-fixed-header pb-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <main className="content-with-fixed-header pb-10 w-full px-4 sm:px-6 lg:px-8">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-4">
             <div className="flex items-start gap-3">
@@ -602,15 +690,17 @@ export function FacturasSection() {
             filters={filters}
             onApplyFilters={aplicarFiltros}
             onClearFilters={limpiarFiltros}
+            reversed={reversed}
+            onToggleReversed={() => setReversed(!reversed)}
           />
 
-          <FacturasTable
+          <FacturasConsolidadasTable
             facturas={facturasFiltradas}
             loading={loading}
-            onEdit={handleEdit}
-            onDelete={handleDeleteClick}
-            onViewDetails={handleViewDetails}
-            onAddVale={handleAddValeClick}
+            onEdit={handleEditConsolidada}
+            onViewDetails={handleViewDetailsConsolidada}
+            onAddVale={handleAddValeConsolidada}
+            reversed={reversed}
           />
         </div>
       </main>

@@ -1,6 +1,7 @@
-import { API_BASE_URL } from '@/lib/api-config';
+import { API_BASE_URL, apiRequest } from '@/lib/api-config';
 import type {
     Factura,
+    FacturaConsolidada,
     FacturaFilters,
     FacturaStats,
     NumeroFacturaSugerido,
@@ -255,6 +256,25 @@ export class FacturaService {
         const data = await response.json();
         console.log('✅ Stats recibidas:', data);
         return data;
+    }
+
+    /**
+     * Obtiene facturas consolidadas con información de ofertas y pagos
+     */
+    async obtenerFacturasConsolidadas(): Promise<FacturaConsolidada[]> {
+        const url = `/facturas/consolidadas`;
+        console.log('📡 Obteniendo facturas consolidadas:', url);
+
+        try {
+            const data = await apiRequest<FacturaConsolidada[]>(url, {
+                method: 'GET',
+            });
+            console.log('✅ Facturas consolidadas recibidas:', data?.length || 0);
+            return data;
+        } catch (error) {
+            console.error('❌ Error obteniendo facturas consolidadas:', error);
+            throw error;
+        }
     }
 }
 
