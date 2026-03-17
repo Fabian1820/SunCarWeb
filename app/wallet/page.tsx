@@ -372,11 +372,9 @@ function WalletPageContent() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferReason, setTransferReason] = useState("");
 
-  // ── Estado banco (Enable Banking) ──
+  // ── Estado banco (Enable Banking) - Integrado ──
   const [bankSessionId, setBankSessionId] = useState<string | null>(null);
   const [bankLoading, setBankLoading] = useState(false);
-  const [bankConnecting, setBankConnecting] = useState(false);
-  const [selectedBankName, setSelectedBankName] = useState("Banco Santander");
   const [availableBanks, setAvailableBanks] = useState<Array<{ name: string; country: string }>>([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
   const [bankBalance, setBankBalance] = useState<{ amount: string; currency: string } | null>(null);
@@ -384,6 +382,9 @@ function WalletPageContent() {
     id: string; date: string; amount: string; currency: string; description: string; isCredit: boolean;
   }>>([]);
   const [bankError, setBankError] = useState<string | null>(null);
+  
+  // ── Selector de fuente (Billetera o Banco) ──
+  const [viewMode, setViewMode] = useState<"wallet" | "bank">("wallet");
 
   const currentFilters = useMemo(
     () => ({
@@ -446,7 +447,11 @@ function WalletPageContent() {
 
   useEffect(() => {
     const saved = localStorage.getItem("bank_session_id");
-    if (saved) setBankSessionId(saved);
+    if (saved) {
+      setBankSessionId(saved);
+      // Auto-cargar datos bancarios si hay sesión guardada
+      void loadBankData(saved);
+    }
     
     // Cargar bancos disponibles
     const loadBanks = async () => {
@@ -456,9 +461,6 @@ function WalletPageContent() {
         const data = await res.json() as { success: boolean; aspsps?: Array<{ name: string; country: string }> };
         if (data.success && data.aspsps) {
           setAvailableBanks(data.aspsps);
-          if (data.aspsps.length > 0 && !selectedBankName) {
-            setSelectedBankName(data.aspsps[0].name);
-          }
         }
       } catch (err) {
         console.error("Error cargando bancos:", err);
@@ -469,32 +471,30 @@ function WalletPageContent() {
     void loadBanks();
   }, []);
 
-  const handleConnectBank = async () => {
-    setBankConnecting(true);
+  const connectBank = async (bankName: string) => {
+    setBankLoading(true);
     setBankError(null);
     try {
       const redirectUrl = `${window.location.origin}/bank-callback`;
       const res = await fetch("/api/bank/connect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bankName: selectedBankName, country: "ES", redirectUrl }),
+        body: JSON.stringify({ bankName, country: "ES", redirectUrl }),
       });
       const data = await res.json() as { success: boolean; url?: string; message?: string };
       if (!data.success || !data.url) throw new Error(data.message ?? "Error al iniciar conexión");
       window.location.href = data.url;
     } catch (err) {
       setBankError(err instanceof Error ? err.message : "Error al conectar banco");
-    } finally {
-      setBankConnecting(false);
+      setBankLoading(false);
     }
   };
 
-  const handleLoadBankData = async () => {
-    if (!bankSessionId) return;
+  const loadBankData = async (sessionId: string) => {
     setBankLoading(true);
     setBankError(null);
     try {
-      const res = await fetch(`/api/bank/data?session_id=${bankSessionId}`);
+      const res = await fetch(`/api/bank/data?session_id=${sessionId}`);
       const data = await res.json() as {
         success: boolean;
         balance?: { amount: string; currency: string };
@@ -517,6 +517,7 @@ function WalletPageContent() {
     setBankBalance(null);
     setBankTransactions([]);
     setBankError(null);
+    setViewMode("wallet");
   };
 
   const getWalletViewBalance = (walletData?: WalletType | null) =>
@@ -760,28 +761,86 @@ function WalletPageContent() {
             {wallet ? (
               <>
                 <p className="text-3xl sm:text-4xl font-bold tracking-tight mb-1">
-                  {formatMoney(walletBalance, selectedCurrencyCode)}
+                  {viewMode === "wallet" 
+                    ? formatMoney(walletBalance, selectedCurrencyCode)
+                    : bankBalance 
+                      ? `${parseFloat(bankBalance.amount).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${bankBalance.currency}`
+                      : "Conectar banco"
+                  }
                 </p>
-                <p className="text-xs text-slate-400">Saldo disponible</p>
+                <p className="text-xs text-slate-400">
+                  {viewMode === "wallet" ? "Saldo disponible" : "Saldo bancario"}
+                </p>
 
-                {/* Currency selector inside card */}
-                {currencies.length > 0 && (
-                  <div className="mt-4 flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Ver en:</span>
-                    <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
-                      <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[120px] focus:ring-0">
-                        <SelectValue placeholder="Moneda" />
+                {/* Source selector: Wallet or Bank */}
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Fuente:</span>
+                    <Select 
+                      value={viewMode} 
+                      onValueChange={(value: "wallet" | "bank") => setViewMode(value)}
+                    >
+                      <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {currencies.map((currency) => (
-                          <SelectItem key={currency.id} value={currency.id}>
-                            {currency.codigo} · {currency.nombre}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="wallet">💰 Mi Billetera</SelectItem>
+                        <SelectItem value="bank">🏦 Cuenta Bancaria</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+
+                  {/* Currency selector for wallet mode */}
+                  {viewMode === "wallet" && currencies.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">Moneda:</span>
+                      <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
+                        <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[120px] focus:ring-0">
+                          <SelectValue placeholder="Moneda" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {currencies.map((currency) => (
+                            <SelectItem key={currency.id} value={currency.id}>
+                              {currency.codigo} · {currency.nombre}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Bank connection for bank mode */}
+                  {viewMode === "bank" && !bankSessionId && (
+                    <div className="flex items-center gap-2">
+                      <Select 
+                        disabled={loadingBanks}
+                        onValueChange={(bankName) => void connectBank(bankName)}
+                      >
+                        <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
+                          <SelectValue placeholder={loadingBanks ? "Cargando..." : "Seleccionar banco"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableBanks.map((bank) => (
+                            <SelectItem key={bank.name} value={bank.name}>
+                              {bank.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Bank disconnect button */}
+                  {viewMode === "bank" && bankSessionId && (
+                    <button
+                      onClick={handleDisconnectBank}
+                      className="text-xs text-white/70 hover:text-white flex items-center gap-1"
+                    >
+                      <Link2Off className="h-3 w-3" />
+                      Desconectar banco
+                    </button>
+                  )}
+                </div>
               </>
             ) : (
               <div className="mt-2">
@@ -1023,159 +1082,81 @@ function WalletPageContent() {
             </div>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            <TransactionsResponsiveList
-              transactions={transactions}
-              loading={loadingTransactions}
-              emptyMessage="No hay transacciones registradas."
-              fallbackCurrency={selectedCurrencyCode}
-              showWalletOwner
-            />
-          </CardContent>
-        </Card>
-
-        {/* ── Banco (Enable Banking) ── */}
-        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
-          <CardHeader className="px-4 pt-4 pb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-blue-500" />
-                <CardTitle className="text-sm font-semibold text-slate-800">Banco</CardTitle>
-                {bankSessionId && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
-                    Conectado
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {bankSessionId && (
-                  <>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleLoadBankData()}
-                      disabled={bankLoading}
-                      className="h-7 text-xs gap-1"
-                    >
-                      <RefreshCcw className={`h-3 w-3 ${bankLoading ? "animate-spin" : ""}`} />
-                      Actualizar
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleDisconnectBank}
-                      className="h-7 text-xs text-slate-400 hover:text-rose-500 gap-1"
-                    >
-                      <Link2Off className="h-3 w-3" />
-                      Desconectar
-                    </Button>
-                  </>
-                )}
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="px-4 pb-4 space-y-4">
-            {bankError && (
-              <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 flex items-center justify-between">
-                <p className="text-xs text-rose-700">{bankError}</p>
-                <button onClick={() => setBankError(null)} className="text-rose-400 hover:text-rose-600 ml-2">
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-
-            {!bankSessionId ? (
-              /* ── Sin banco conectado ── */
-              <div className="space-y-3">
-                <p className="text-xs text-slate-500">
-                  Conecta tu banco español para ver tu saldo y transacciones reales.
-                </p>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-slate-600">Tu banco</label>
-                  <select
-                    value={selectedBankName}
-                    onChange={(e) => setSelectedBankName(e.target.value)}
-                    disabled={loadingBanks}
-                    className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50"
-                  >
-                    {loadingBanks ? (
-                      <option>Cargando bancos...</option>
-                    ) : availableBanks.length > 0 ? (
-                      availableBanks.map((bank) => (
-                        <option key={bank.name} value={bank.name}>
-                          {bank.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option>No hay bancos disponibles</option>
-                    )}
-                  </select>
-                </div>
-                <Button
-                  onClick={() => void handleConnectBank()}
-                  disabled={bankConnecting || loadingBanks}
-                  className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm gap-2"
-                >
-                  <Link2 className="h-4 w-4" />
-                  {bankConnecting ? "Redirigiendo al banco..." : "Conectar banco"}
-                </Button>
-              </div>
+            {viewMode === "wallet" ? (
+              <TransactionsResponsiveList
+                transactions={transactions}
+                loading={loadingTransactions}
+                emptyMessage="No hay transacciones registradas."
+                fallbackCurrency={selectedCurrencyCode}
+                showWalletOwner
+              />
             ) : (
-              /* ── Banco conectado ── */
-              <div className="space-y-4">
-                {/* Saldo */}
-                {bankBalance ? (
-                  <div className="rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 p-4 text-white">
-                    <p className="text-xs text-blue-200 mb-1">Saldo disponible</p>
-                    <p className="text-2xl font-bold">
-                      {new Intl.NumberFormat("es-ES", {
-                        style: "currency",
-                        currency: bankBalance.currency,
-                      }).format(parseFloat(bankBalance.amount))}
-                    </p>
-                    <p className="text-xs text-blue-300 mt-1">{selectedBankName}</p>
-                  </div>
-                ) : (
-                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-center">
-                    <p className="text-xs text-slate-400">
-                      Pulsa "Actualizar" para cargar los datos de tu banco.
-                    </p>
-                  </div>
-                )}
-
-                {/* Transacciones */}
-                {bankTransactions.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                      Últimas transacciones
-                    </p>
-                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                      {bankTransactions.map((tx) => (
-                        <div
-                          key={tx.id}
-                          className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-medium text-slate-800 truncate">{tx.description}</p>
-                            <p className="text-[11px] text-slate-400">{tx.date}</p>
-                          </div>
-                          <span
-                            className={`text-sm font-semibold ml-3 shrink-0 ${
-                              tx.isCredit ? "text-emerald-600" : "text-rose-600"
-                            }`}
-                          >
-                            {tx.isCredit ? "+" : ""}
-                            {new Intl.NumberFormat("es-ES", {
-                              style: "currency",
-                              currency: tx.currency,
-                            }).format(parseFloat(tx.amount))}
-                          </span>
-                        </div>
-                      ))}
+              // Bank transactions view
+              <>
+                {bankLoading ? (
+                  <div className="py-10 text-center">
+                    <div className="inline-flex items-center gap-2 text-sm text-slate-400">
+                      <RefreshCcw className="h-4 w-4 animate-spin" />
+                      Cargando transacciones bancarias...
                     </div>
                   </div>
+                ) : bankError ? (
+                  <div className="py-10 text-center">
+                    <p className="text-sm text-rose-600">{bankError}</p>
+                  </div>
+                ) : !bankSessionId ? (
+                  <div className="py-10 text-center">
+                    <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">Selecciona un banco para conectar</p>
+                  </div>
+                ) : bankTransactions.length === 0 ? (
+                  <div className="py-10 text-center">
+                    <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                    <p className="text-sm text-slate-400">No hay transacciones bancarias</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {bankTransactions.map((tx) => (
+                      <div
+                        key={tx.id}
+                        className={`bg-white rounded-xl border border-l-4 ${
+                          tx.isCredit ? "border-l-emerald-400" : "border-l-rose-400"
+                        } border-slate-100 p-3 shadow-sm`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <Badge className={
+                                tx.isCredit
+                                  ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-[11px]"
+                                  : "bg-rose-100 text-rose-700 border-rose-200 text-[11px]"
+                              }>
+                                {tx.isCredit ? (
+                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
+                                ) : (
+                                  <ArrowDownCircle className="h-3 w-3 mr-1" />
+                                )}
+                                {tx.isCredit ? "Ingreso" : "Gasto"}
+                              </Badge>
+                              <span className="text-[11px] text-slate-400">{tx.date}</span>
+                            </div>
+                            <p className={`text-base font-bold ${
+                              tx.isCredit ? "text-emerald-600" : "text-rose-600"
+                            }`}>
+                              {tx.isCredit ? "+" : "-"}
+                              {parseFloat(tx.amount).toLocaleString('es-ES', { 
+                                minimumFractionDigits: 2, 
+                                maximumFractionDigits: 2 
+                              })} {tx.currency}
+                            </p>
+                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">{tx.description}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </CardContent>
         </Card>
