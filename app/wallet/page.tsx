@@ -40,8 +40,11 @@ import { PageLoader } from "@/components/shared/atom/page-loader";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
+  Building2,
   Coins,
   Eye,
+  Link2,
+  Link2Off,
   Plus,
   RefreshCcw,
   Search,
@@ -369,6 +372,17 @@ function WalletPageContent() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferReason, setTransferReason] = useState("");
 
+  // ── Estado banco (Enable Banking) ──
+  const [bankSessionId, setBankSessionId] = useState<string | null>(null);
+  const [bankLoading, setBankLoading] = useState(false);
+  const [bankConnecting, setBankConnecting] = useState(false);
+  const [selectedBankName, setSelectedBankName] = useState("Santander");
+  const [bankBalance, setBankBalance] = useState<{ amount: string; currency: string } | null>(null);
+  const [bankTransactions, setBankTransactions] = useState<Array<{
+    id: string; date: string; amount: string; currency: string; description: string; isCredit: boolean;
+  }>>([]);
+  const [bankError, setBankError] = useState<string | null>(null);
+
   const currentFilters = useMemo(
     () => ({
       limit: 200,
@@ -427,6 +441,61 @@ function WalletPageContent() {
       setTransferToWalletId("");
     }
   }, [wallet?.id, transferToWalletId]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("bank_session_id");
+    if (saved) setBankSessionId(saved);
+  }, []);
+
+  const handleConnectBank = async () => {
+    setBankConnecting(true);
+    setBankError(null);
+    try {
+      const redirectUrl = `${window.location.origin}/bank-callback`;
+      const res = await fetch("/api/bank/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bankName: selectedBankName, country: "ES", redirectUrl }),
+      });
+      const data = await res.json() as { success: boolean; url?: string; message?: string };
+      if (!data.success || !data.url) throw new Error(data.message ?? "Error al iniciar conexión");
+      window.location.href = data.url;
+    } catch (err) {
+      setBankError(err instanceof Error ? err.message : "Error al conectar banco");
+    } finally {
+      setBankConnecting(false);
+    }
+  };
+
+  const handleLoadBankData = async () => {
+    if (!bankSessionId) return;
+    setBankLoading(true);
+    setBankError(null);
+    try {
+      const res = await fetch(`/api/bank/data?session_id=${bankSessionId}`);
+      const data = await res.json() as {
+        success: boolean;
+        balance?: { amount: string; currency: string };
+        transactions?: Array<{ id: string; date: string; amount: string; currency: string; description: string; isCredit: boolean }>;
+        message?: string;
+      };
+      if (!data.success) throw new Error(data.message ?? "Error al obtener datos");
+      setBankBalance(data.balance ?? null);
+      setBankTransactions(data.transactions ?? []);
+    } catch (err) {
+      setBankError(err instanceof Error ? err.message : "Error al cargar datos bancarios");
+    } finally {
+      setBankLoading(false);
+    }
+  };
+
+  const handleDisconnectBank = () => {
+    localStorage.removeItem("bank_session_id");
+    setBankSessionId(null);
+    setBankBalance(null);
+    setBankTransactions([]);
+    setBankError(null);
+  };
 
   const getWalletViewBalance = (walletData?: WalletType | null) =>
     getWalletBalanceForCurrency(walletData, selectedCurrency);
@@ -939,6 +1008,160 @@ function WalletPageContent() {
               fallbackCurrency={selectedCurrencyCode}
               showWalletOwner
             />
+          </CardContent>
+        </Card>
+
+        {/* ── Banco (Enable Banking) ── */}
+        <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+          <CardHeader className="px-4 pt-4 pb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-blue-500" />
+                <CardTitle className="text-sm font-semibold text-slate-800">Banco</CardTitle>
+                {bankSessionId && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 font-medium">
+                    Conectado
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {bankSessionId && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleLoadBankData()}
+                      disabled={bankLoading}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <RefreshCcw className={`h-3 w-3 ${bankLoading ? "animate-spin" : ""}`} />
+                      Actualizar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDisconnectBank}
+                      className="h-7 text-xs text-slate-400 hover:text-rose-500 gap-1"
+                    >
+                      <Link2Off className="h-3 w-3" />
+                      Desconectar
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="px-4 pb-4 space-y-4">
+            {bankError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 flex items-center justify-between">
+                <p className="text-xs text-rose-700">{bankError}</p>
+                <button onClick={() => setBankError(null)} className="text-rose-400 hover:text-rose-600 ml-2">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            {!bankSessionId ? (
+              /* ── Sin banco conectado ── */
+              <div className="space-y-3">
+                <p className="text-xs text-slate-500">
+                  Conecta tu banco español para ver tu saldo y transacciones reales.
+                </p>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-slate-600">Tu banco</label>
+                  <select
+                    value={selectedBankName}
+                    onChange={(e) => setSelectedBankName(e.target.value)}
+                    className="w-full h-9 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                  >
+                    <optgroup label="— Pruebas sandbox —">
+                      <option value="Mock ASPSP">Mock ASPSP (pruebas)</option>
+                      <option value="Banco de Sabadell">Sabadell sandbox</option>
+                      <option value="BBVA">BBVA sandbox</option>
+                    </optgroup>
+                    <optgroup label="— Bancos reales (producción) —">
+                      {[
+                        "Santander",
+                        "BBVA",
+                        "CaixaBank",
+                        "ING",
+                        "Sabadell",
+                        "Bankinter",
+                        "Unicaja",
+                        "Kutxabank",
+                      ].map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </optgroup>
+                  </select>
+                </div>
+                <Button
+                  onClick={() => void handleConnectBank()}
+                  disabled={bankConnecting}
+                  className="w-full h-9 bg-blue-600 hover:bg-blue-700 text-sm gap-2"
+                >
+                  <Link2 className="h-4 w-4" />
+                  {bankConnecting ? "Redirigiendo al banco..." : "Conectar banco"}
+                </Button>
+              </div>
+            ) : (
+              /* ── Banco conectado ── */
+              <div className="space-y-4">
+                {/* Saldo */}
+                {bankBalance ? (
+                  <div className="rounded-xl bg-gradient-to-br from-blue-600 to-blue-800 p-4 text-white">
+                    <p className="text-xs text-blue-200 mb-1">Saldo disponible</p>
+                    <p className="text-2xl font-bold">
+                      {new Intl.NumberFormat("es-ES", {
+                        style: "currency",
+                        currency: bankBalance.currency,
+                      }).format(parseFloat(bankBalance.amount))}
+                    </p>
+                    <p className="text-xs text-blue-300 mt-1">{selectedBankName}</p>
+                  </div>
+                ) : (
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 text-center">
+                    <p className="text-xs text-slate-400">
+                      Pulsa "Actualizar" para cargar los datos de tu banco.
+                    </p>
+                  </div>
+                )}
+
+                {/* Transacciones */}
+                {bankTransactions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                      Últimas transacciones
+                    </p>
+                    <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                      {bankTransactions.map((tx) => (
+                        <div
+                          key={tx.id}
+                          className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-lg px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-slate-800 truncate">{tx.description}</p>
+                            <p className="text-[11px] text-slate-400">{tx.date}</p>
+                          </div>
+                          <span
+                            className={`text-sm font-semibold ml-3 shrink-0 ${
+                              tx.isCredit ? "text-emerald-600" : "text-rose-600"
+                            }`}
+                          >
+                            {tx.isCredit ? "+" : ""}
+                            {new Intl.NumberFormat("es-ES", {
+                              style: "currency",
+                              currency: tx.currency,
+                            }).format(parseFloat(tx.amount))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

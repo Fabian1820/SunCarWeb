@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
 import { Card, CardContent } from "@/components/shared/molecule/card"
@@ -14,9 +14,9 @@ import {
   DollarSign,
   CalendarDays,
   TrendingUp,
-  X,
   Eye,
   PlusCircle,
+  Calculator,
 } from "lucide-react"
 import { Input } from "@/components/shared/molecule/input"
 import { useToast } from "@/hooks/use-toast"
@@ -28,6 +28,7 @@ import { FichaDetalleCard } from "@/components/feats/fichas-costo/ficha-detalle-
 import { ComparacionDialog } from "@/components/feats/fichas-costo/comparacion-dialog"
 import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialog"
 import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
+import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import type {
   FichaCostoCreateData,
@@ -72,25 +73,37 @@ function FichasCostoPageContent() {
   const [materialDetalle, setMaterialDetalle] = useState<MaterialFichaResumen | null>(null)
   const [materialParaFicha, setMaterialParaFicha] = useState<MaterialFichaResumen | null>(null)
   const [isCrearFichaOpen, setIsCrearFichaOpen] = useState(false)
+  const [isDetalleOpen, setIsDetalleOpen] = useState(false)
   const [isComparacionOpen, setIsComparacionOpen] = useState(false)
   const [isHistorialOpen, setIsHistorialOpen] = useState(false)
+  const [isCalcOpen, setIsCalcOpen] = useState(false)
   const [busqueda, setBusqueda] = useState("")
-  const detailRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     void loadResumen()
   }, [loadResumen])
 
   const resumenOrdenado = useMemo(() => {
-    const conFicha = resumen
-      .filter((r) => r.ficha_activa !== null)
-      .sort((a, b) => {
+    return resumen.sort((a, b) => {
+      // Primero: materiales CON ficha (ordenados por fecha más reciente)
+      // Después: materiales SIN ficha (ordenados alfabéticamente)
+      const aConFicha = a.ficha_activa !== null
+      const bConFicha = b.ficha_activa !== null
+      
+      if (aConFicha && !bConFicha) return -1
+      if (!aConFicha && bConFicha) return 1
+      
+      if (aConFicha && bConFicha) {
         const da = new Date(a.ficha_activa!.vigente_desde).getTime()
         const db = new Date(b.ficha_activa!.vigente_desde).getTime()
         return db - da
-      })
-    const sinFicha = resumen.filter((r) => r.ficha_activa === null)
-    return [...conFicha, ...sinFicha]
+      }
+      
+      // Ambos sin ficha: ordenar por nombre
+      const nombreA = (a.nombre || a.descripcion || '').toLowerCase()
+      const nombreB = (b.nombre || b.descripcion || '').toLowerCase()
+      return nombreA.localeCompare(nombreB)
+    })
   }, [resumen])
 
   const resumenFiltrado = useMemo(() => {
@@ -142,8 +155,16 @@ function FichasCostoPageContent() {
   const handleVerDetalle = async (row: MaterialFichaResumen) => {
     limpiarEstado()
     setMaterialDetalle(row)
+    setIsDetalleOpen(true)
     await cargarFichaActiva(row.material_id)
-    setTimeout(() => detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100)
+  }
+
+  const handleDetalleOpenChange = (open: boolean) => {
+    setIsDetalleOpen(open)
+    if (!open) {
+      setMaterialDetalle(null)
+      limpiarEstado()
+    }
   }
 
   const handleCompararPrecio = async () => {
@@ -182,16 +203,27 @@ function FichasCostoPageContent() {
         subtitle="Gestiona fichas producto a producto con costo base y % de incremento"
         badge={{ text: "Costos", className: "bg-teal-100 text-teal-800" }}
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void loadResumen()}
-            disabled={loadingResumen}
-            title="Actualizar lista"
-          >
-            <RefreshCcw className={`h-4 w-4 ${loadingResumen ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline ml-1">Actualizar</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCalcOpen(true)}
+              className="border-teal-200 text-teal-700 hover:bg-teal-50"
+            >
+              <Calculator className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1">Calculadora %</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void loadResumen()}
+              disabled={loadingResumen}
+              title="Actualizar lista"
+            >
+              <RefreshCcw className={`h-4 w-4 ${loadingResumen ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline ml-1">Actualizar</span>
+            </Button>
+          </div>
         }
       />
 
@@ -213,7 +245,7 @@ function FichasCostoPageContent() {
               <div>
                 <h2 className="font-semibold text-gray-900">Materiales</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {loadingResumen ? "Cargando..." : `${resumen.length} materiales · crea o actualiza su ficha individual`}
+                  {loadingResumen ? "Cargando..." : `${resumenOrdenado.length} materiales · ${resumenOrdenado.filter(r => r.ficha_activa).length} con ficha`}
                 </p>
               </div>
               <div className="relative w-full sm:w-64">
@@ -255,14 +287,10 @@ function FichasCostoPageContent() {
                   </thead>
                   <tbody>
                     {resumenFiltrado.map((row) => {
-                      const isDetalle = materialDetalle?.material_id === row.material_id
-
                       return (
                         <tr
                           key={row.material_id}
-                          className={`border-b border-gray-100 transition-colors ${
-                            isDetalle ? "bg-blue-50/40" : "hover:bg-gray-50"
-                          }`}
+                          className="border-b border-gray-100 transition-colors hover:bg-gray-50"
                         >
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2">
@@ -356,11 +384,7 @@ function FichasCostoPageContent() {
                                 <button
                                   onClick={() => void handleVerDetalle(row)}
                                   title="Ver detalle de ficha"
-                                  className={`inline-flex items-center justify-center rounded p-1 transition-colors ${
-                                    isDetalle
-                                      ? "text-blue-600 bg-blue-50"
-                                      : "text-gray-300 hover:text-blue-600 hover:bg-blue-50"
-                                  }`}
+                                  className="inline-flex items-center justify-center rounded p-1 transition-colors text-gray-300 hover:text-blue-600 hover:bg-blue-50"
                                 >
                                   <Eye className="h-3.5 w-3.5" />
                                 </button>
@@ -377,60 +401,50 @@ function FichasCostoPageContent() {
           </CardContent>
         </Card>
 
-        <div ref={detailRef}>
-          {materialDetalle && (
-            <>
-              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Eye className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-gray-900 text-sm">
-                      {materialDetalle.nombre || materialDetalle.descripcion || `Material ${materialDetalle.codigo}`}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {[materialDetalle.codigo && `Código: ${materialDetalle.codigo}`, materialDetalle.marca]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setMaterialDetalle(null)
-                    limpiarEstado()
-                  }}
-                  className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {loading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-teal-600 mr-3" />
-                  <p className="text-gray-600 text-sm">Cargando ficha...</p>
-                </div>
-              ) : fichaActiva ? (
-                <FichaDetalleCard
-                  ficha={fichaActiva}
-                  onCompararPrecio={handleCompararPrecio}
-                  onAplicarPrecio={handleAplicarPrecio}
-                  onVerHistorial={handleVerHistorial}
-                  loadingAction={loadingAction}
-                />
-              ) : (
-                <Card className="border-dashed border-2 border-gray-200">
-                  <CardContent className="p-8 text-center">
-                    <FileSpreadsheet className="h-10 w-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-sm text-gray-500">Este material no tiene ficha activa aún.</p>
-                    <p className="text-xs text-gray-400 mt-1">Crea la ficha desde el botón + de la fila del material.</p>
-                  </CardContent>
-                </Card>
-              )}
-            </>
-          )}
-        </div>
       </main>
+
+      <Dialog open={isDetalleOpen} onOpenChange={handleDetalleOpenChange}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-600" />
+              <div>
+                <span className="block">
+                  {materialDetalle?.nombre || materialDetalle?.descripcion || `Material ${materialDetalle?.codigo}`}
+                </span>
+                {(materialDetalle?.codigo || materialDetalle?.marca) && (
+                  <span className="text-xs font-normal text-gray-500 block mt-0.5">
+                    {[materialDetalle?.codigo && `Código: ${materialDetalle.codigo}`, materialDetalle?.marca]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                )}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-teal-600 mr-3" />
+              <p className="text-gray-600 text-sm">Cargando ficha...</p>
+            </div>
+          ) : fichaActiva ? (
+            <FichaDetalleCard
+              ficha={fichaActiva}
+              onCompararPrecio={handleCompararPrecio}
+              onAplicarPrecio={handleAplicarPrecio}
+              onVerHistorial={handleVerHistorial}
+              loadingAction={loadingAction}
+            />
+          ) : (
+            <div className="p-8 text-center">
+              <FileSpreadsheet className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500">Este material no tiene ficha activa aún.</p>
+              <p className="text-xs text-gray-400 mt-1">Crea la ficha desde el botón + de la fila del material.</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isCrearFichaOpen} onOpenChange={handleCrearDialogOpenChange}>
         <DialogContent className="max-w-md">
@@ -467,6 +481,8 @@ function FichasCostoPageContent() {
         historial={historial}
         loading={loading}
       />
+
+      <CalcPorcentajeDialog open={isCalcOpen} onOpenChange={setIsCalcOpen} materiales={resumen} />
 
       <Toaster />
     </div>

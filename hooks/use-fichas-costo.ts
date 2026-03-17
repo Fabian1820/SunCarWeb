@@ -50,7 +50,7 @@ export function useFichasCosto(): UseFichasCostoReturn {
   const loadResumen = useCallback(async () => {
     setLoadingResumen(true)
     try {
-      const data = await FichaCostoService.getResumen()
+      const data = await FichaCostoService.getTodosMaterialesConFichas()
       setResumen(Array.isArray(data) ? data : [])
     } catch {
       setResumen([])
@@ -64,15 +64,26 @@ export function useFichasCosto(): UseFichasCostoReturn {
       setLoadingAction(true)
       setError(null)
       const ficha = await FichaCostoService.crearFicha(data)
-      if (!ficha || typeof (ficha as any).precio_venta_calculado !== 'number') {
+      
+      // Validación más flexible: verificar que la ficha tenga datos básicos
+      if (!ficha) {
+        const errMsg = 'No se recibió respuesta del servidor'
+        setError(errMsg)
+        return null
+      }
+      
+      // Si tiene _id o id, consideramos que se creó exitosamente
+      const fichaId = (ficha as any)._id || (ficha as any).id
+      if (!fichaId) {
         const errMsg = (ficha as any)?.detail || (ficha as any)?.message || 'Error al crear ficha de costo'
         setError(errMsg)
         return null
       }
+      
       setFichaActiva(ficha)
       return ficha
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al crear ficha de costo'
+    } catch (err: any) {
+      const msg = err?.detail || err?.message || err?.toString() || 'Error al crear ficha de costo'
       setError(msg)
       return null
     } finally {

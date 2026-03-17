@@ -54,7 +54,7 @@ export function MaterialSearchDialog({ open, onOpenChange, onSelect }: MaterialS
     m.material_id || m._id || m.id || ""
 
   const getMaterialName = (m: MaterialCatalogoWeb): string =>
-    m.nombre || ("Material " + (m.codigo || getMaterialId(m)))
+    m.nombre || m.descripcion || (m.codigo ? String(m.codigo) : "") || "Sin nombre"
 
   const getFotoUrl = (m: MaterialCatalogoWeb): string | null => {
     if (m.foto) return m.foto
