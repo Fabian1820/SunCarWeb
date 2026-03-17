@@ -1,6 +1,7 @@
-import { API_BASE_URL } from '@/lib/api-config';
+import { API_BASE_URL, apiRequest } from '@/lib/api-config';
 import type {
     Factura,
+    FacturaConsolidada,
     FacturaFilters,
     FacturaStats,
     NumeroFacturaSugerido,
@@ -134,6 +135,50 @@ export class FacturaService {
     }
 
     /**
+     * Obtiene una factura por su número de factura
+     */
+    async obtenerFacturaPorNumero(numeroFactura: string): Promise<Factura> {
+        try {
+            // Usar el endpoint de listar con filtro por nombre de cliente (que también busca por número)
+            const params = new URLSearchParams();
+            params.append('nombre_cliente', numeroFactura);
+            params.append('skip', '0');
+            params.append('limit', '1');
+
+            const url = `${this.baseUrl}?${params}`;
+            console.log('📡 Obteniendo factura por número:', url);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getHeaders(),
+            });
+
+            if (!response.ok) {
+                throw new Error('Error obteniendo factura');
+            }
+
+            const facturas = await response.json();
+            
+            if (!facturas || facturas.length === 0) {
+                throw new Error('Factura no encontrada');
+            }
+
+            // Buscar la factura exacta por número
+            const factura = facturas.find((f: Factura) => f.numero_factura === numeroFactura);
+            
+            if (!factura) {
+                throw new Error('Factura no encontrada');
+            }
+
+            console.log('✅ Factura encontrada:', factura);
+            return factura;
+        } catch (error) {
+            console.error('❌ Error obteniendo factura por número:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Actualiza una factura existente
      */
     async actualizarFactura(id: string, factura: Omit<Factura, 'id' | 'fecha_creacion' | 'total'>): Promise<{ message: string }> {
@@ -255,6 +300,25 @@ export class FacturaService {
         const data = await response.json();
         console.log('✅ Stats recibidas:', data);
         return data;
+    }
+
+    /**
+     * Obtiene facturas consolidadas con información de ofertas y pagos
+     */
+    async obtenerFacturasConsolidadas(): Promise<FacturaConsolidada[]> {
+        const url = `/facturas/consolidadas`;
+        console.log('📡 Obteniendo facturas consolidadas:', url);
+
+        try {
+            const data = await apiRequest<FacturaConsolidada[]>(url, {
+                method: 'GET',
+            });
+            console.log('✅ Facturas consolidadas recibidas:', data?.length || 0);
+            return data;
+        } catch (error) {
+            console.error('❌ Error obteniendo facturas consolidadas:', error);
+            throw error;
+        }
     }
 }
 

@@ -5,6 +5,7 @@ import { facturaService } from '@/lib/services/feats/facturas/factura-service'
 import { useAuth } from '@/contexts/auth-context'
 import type {
     Factura,
+    FacturaConsolidada,
     FacturaFilters,
     FacturaStats,
     Vale
@@ -12,12 +13,38 @@ import type {
 
 export function useFacturas() {
     const [facturas, setFacturas] = useState<Factura[]>([])
+    const [facturasConsolidadas, setFacturasConsolidadas] = useState<FacturaConsolidada[]>([])
     const [stats, setStats] = useState<FacturaStats | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [filters, setFilters] = useState<FacturaFilters>({})
     const { token } = useAuth()
     const lastTokenRef = useRef<string | null>(null)
+
+    /**
+     * Cargar facturas consolidadas
+     */
+    const cargarFacturasConsolidadas = useCallback(async () => {
+        if (!token) {
+            console.log('⚠️ No hay token disponible, saltando carga de facturas consolidadas')
+            return
+        }
+        
+        setLoading(true)
+        setError(null)
+        try {
+            console.log('🔄 Cargando facturas consolidadas')
+            const data = await facturaService.obtenerFacturasConsolidadas()
+            console.log('✅ Facturas consolidadas cargadas:', data?.length || 0)
+            setFacturasConsolidadas(data)
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Error cargando facturas consolidadas'
+            setError(errorMessage)
+            console.error('❌ Error cargando facturas consolidadas:', err)
+        } finally {
+            setLoading(false)
+        }
+    }, [token])
 
     /**
      * Cargar facturas con filtros
@@ -66,11 +93,11 @@ export function useFacturas() {
     }, [filters, token])
 
     /**
-     * Recargar datos (facturas y stats)
+     * Recargar datos (facturas normales y consolidadas)
      */
     const recargar = useCallback(async () => {
-        await Promise.all([cargarFacturas(), cargarStats()])
-    }, [cargarFacturas, cargarStats])
+        await Promise.all([cargarFacturas(), cargarFacturasConsolidadas()])
+    }, [cargarFacturas, cargarFacturasConsolidadas])
 
     // Configurar token y cargar datos cuando esté disponible
     useEffect(() => {
@@ -94,22 +121,20 @@ export function useFacturas() {
     }, [token, recargar])
 
     /**
-     * Aplicar nuevos filtros
+     * Aplicar nuevos filtros (solo actualiza el estado, el filtrado es local)
      */
     const aplicarFiltros = useCallback(async (newFilters: FacturaFilters) => {
         setFilters(newFilters)
-        await cargarFacturas(newFilters)
-        await cargarStats(newFilters)
-    }, [cargarFacturas, cargarStats])
+        // El filtrado se hace localmente en el componente, no necesitamos recargar
+    }, [])
 
     /**
-     * Limpiar filtros
+     * Limpiar filtros (solo resetea el estado)
      */
     const limpiarFiltros = useCallback(async () => {
         setFilters({})
-        await cargarFacturas({})
-        await cargarStats({})
-    }, [cargarFacturas, cargarStats])
+        // El filtrado se hace localmente en el componente, no necesitamos recargar
+    }, [])
 
     /**
      * Obtener número sugerido
@@ -203,6 +228,7 @@ export function useFacturas() {
     return {
         // Estado
         facturas,
+        facturasConsolidadas,
         stats,
         loading,
         error,
@@ -210,6 +236,7 @@ export function useFacturas() {
 
         // Acciones
         cargarFacturas,
+        cargarFacturasConsolidadas,
         cargarStats,
         recargar,
         aplicarFiltros,

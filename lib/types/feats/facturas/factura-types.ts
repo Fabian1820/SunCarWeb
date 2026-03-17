@@ -20,6 +20,15 @@ export interface Vale {
     total?: number;
 }
 
+export interface OfertaInfo {
+    oferta_id: string;
+    numero_oferta: string;
+    nombre_automatico: string;
+    precio_final: number;
+    monto_cobrado: number;
+    monto_pendiente: number;
+}
+
 export interface Factura {
     id?: string;
     numero_factura: string;
@@ -32,6 +41,24 @@ export interface Factura {
     pagada: boolean;
     terminada: boolean;
     total?: number;
+}
+
+export interface FacturaConsolidada {
+    numero_factura: string;
+    tipo: FacturaTipo;
+    subtipo?: FacturaSubTipo | null;
+    mes?: string;
+    fecha?: string;
+    fecha_creacion: string;
+    cliente_nombre?: string;
+    cliente_codigo?: string;
+    cliente_direccion?: string;
+    total_factura: number;
+    ofertas: OfertaInfo[];
+    total_cobrado_todas_ofertas: number;
+    monto_pendiente_materiales: number;
+    pagada: boolean;
+    terminada: boolean;
 }
 
 export interface FacturaListItem {
@@ -58,6 +85,8 @@ export interface FacturaFilters {
     fecha_vale?: string;
     nombre_cliente?: string;
     estado?: EstadoFactura;
+    tipo?: FacturaTipo;
+    subtipo?: FacturaSubTipo;
 }
 
 export interface NumeroFacturaSugerido {
