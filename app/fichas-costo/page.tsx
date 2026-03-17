@@ -14,12 +14,9 @@ import {
   DollarSign,
   CalendarDays,
   TrendingUp,
-  CheckSquare,
-  Square,
-  Percent,
-  Zap,
   X,
   Eye,
+  PlusCircle,
 } from "lucide-react"
 import { Input } from "@/components/shared/molecule/input"
 import { useToast } from "@/hooks/use-toast"
@@ -30,7 +27,12 @@ import { useFichasCosto } from "@/hooks/use-fichas-costo"
 import { FichaDetalleCard } from "@/components/feats/fichas-costo/ficha-detalle-card"
 import { ComparacionDialog } from "@/components/feats/fichas-costo/comparacion-dialog"
 import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialog"
-import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
+import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import type {
+  FichaCostoCreateData,
+  MaterialFichaResumen,
+} from "@/lib/types/feats/fichas-costo/ficha-costo-types"
 
 const formatDate = (value: string) => {
   if (!value) return "-"
@@ -57,9 +59,8 @@ function FichasCostoPageContent() {
     loading,
     loadingAction,
     loadingResumen,
-    loadingBulk,
     error,
-    crearBulk,
+    crearFicha,
     cargarFichaActiva,
     cargarHistorial,
     compararPrecio,
@@ -68,12 +69,9 @@ function FichasCostoPageContent() {
     limpiarEstado,
   } = useFichasCosto()
 
-  // Multi-select state
-  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
-  const [porcentajeBulk, setPorcentajeBulk] = useState("")
-
-  // Detail panel state
   const [materialDetalle, setMaterialDetalle] = useState<MaterialFichaResumen | null>(null)
+  const [materialParaFicha, setMaterialParaFicha] = useState<MaterialFichaResumen | null>(null)
+  const [isCrearFichaOpen, setIsCrearFichaOpen] = useState(false)
   const [isComparacionOpen, setIsComparacionOpen] = useState(false)
   const [isHistorialOpen, setIsHistorialOpen] = useState(false)
   const [busqueda, setBusqueda] = useState("")
@@ -83,7 +81,6 @@ function FichasCostoPageContent() {
     void loadResumen()
   }, [loadResumen])
 
-  // Sorted: with ficha first (desc date), then without
   const resumenOrdenado = useMemo(() => {
     const conFicha = resumen
       .filter((r) => r.ficha_activa !== null)
@@ -108,62 +105,40 @@ function FichasCostoPageContent() {
     })
   }, [resumenOrdenado, busqueda])
 
-  // ── Selection helpers ──
-  const toggleSeleccion = (materialId: string) => {
-    setSeleccionados((prev) => {
-      const next = new Set(prev)
-      if (next.has(materialId)) next.delete(materialId)
-      else next.add(materialId)
-      return next
-    })
+  const handleOpenCrearFicha = (row: MaterialFichaResumen) => {
+    setMaterialParaFicha(row)
+    setIsCrearFichaOpen(true)
   }
 
-  const toggleTodos = () => {
-    if (seleccionados.size === resumenFiltrado.length) {
-      setSeleccionados(new Set())
-    } else {
-      setSeleccionados(new Set(resumenFiltrado.map((r) => r.material_id)))
-    }
+  const handleCrearDialogOpenChange = (open: boolean) => {
+    setIsCrearFichaOpen(open)
+    if (!open) setMaterialParaFicha(null)
   }
 
-  const limpiarSeleccion = () => setSeleccionados(new Set())
-
-  const todosSeleccionados =
-    resumenFiltrado.length > 0 && seleccionados.size === resumenFiltrado.length
-  const algunoSeleccionado = seleccionados.size > 0
-  const pct = parseFloat(porcentajeBulk) || 0
-
-  // ── Bulk create ──
-  const handleCrearBulk = async () => {
-    if (!algunoSeleccionado || pct <= 0) return
-    const ids = Array.from(seleccionados)
-    const result = await crearBulk(ids, pct)
+  const handleCrearFicha = async (data: FichaCostoCreateData) => {
+    const result = await crearFicha(data)
     if (!result) {
-      toast({ title: "Error", description: error || "No se pudo crear las fichas", variant: "destructive" })
+      toast({
+        title: "Error",
+        description: error || "No se pudo crear la ficha de costo",
+        variant: "destructive",
+      })
       return
     }
-    if (result.creadas > 0) {
-      toast({
-        title: `✅ ${result.creadas} ficha${result.creadas !== 1 ? "s" : ""} creada${result.creadas !== 1 ? "s" : ""}`,
-        description:
-          result.errores_count > 0
-            ? `${result.errores_count} material${result.errores_count !== 1 ? "es" : ""} con error`
-            : `+${pct}% aplicado a ${result.creadas} material${result.creadas !== 1 ? "es" : ""}`,
-      })
+
+    toast({
+      title: "Ficha creada",
+      description: `${materialParaFicha?.nombre || materialParaFicha?.descripcion || "Material"} · +${data.porcentaje}%`,
+    })
+
+    handleCrearDialogOpenChange(false)
+
+    if (materialDetalle?.material_id === data.material_id) {
+      await cargarFichaActiva(data.material_id)
     }
-    if (result.errores_count > 0 && result.creadas === 0) {
-      toast({ title: "Error", description: "No se pudo crear ninguna ficha", variant: "destructive" })
-    }
-    limpiarSeleccion()
-    setPorcentajeBulk("")
     void loadResumen()
-    // Refresh detail panel if its material was updated
-    if (materialDetalle && ids.includes(materialDetalle.material_id)) {
-      await cargarFichaActiva(materialDetalle.material_id)
-    }
   }
 
-  // ── Detail panel ──
   const handleVerDetalle = async (row: MaterialFichaResumen) => {
     limpiarEstado()
     setMaterialDetalle(row)
@@ -204,7 +179,7 @@ function FichasCostoPageContent() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
         title="Fichas de Costo"
-        subtitle="Selecciona materiales, pon un % y crea las fichas"
+        subtitle="Gestiona fichas producto a producto con costo base y % de incremento"
         badge={{ text: "Costos", className: "bg-teal-100 text-teal-800" }}
         actions={
           <Button
@@ -220,10 +195,7 @@ function FichasCostoPageContent() {
         }
       />
 
-      <main
-        className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6"
-        style={{ paddingBottom: algunoSeleccionado ? "110px" : undefined }}
-      >
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6">
         {error && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-4">
@@ -235,19 +207,13 @@ function FichasCostoPageContent() {
           </Card>
         )}
 
-        {/* ── MATERIALES TABLE ── */}
         <Card className="border-l-4 border-l-teal-600">
           <CardContent className="p-0">
-            {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-gray-100">
               <div>
                 <h2 className="font-semibold text-gray-900">Materiales</h2>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {loadingResumen
-                    ? "Cargando..."
-                    : algunoSeleccionado
-                    ? `${seleccionados.size} seleccionado${seleccionados.size !== 1 ? "s" : ""} de ${resumen.length}`
-                    : `${resumen.length} materiales · marca los que quieres y pon el %`}
+                  {loadingResumen ? "Cargando..." : `${resumen.length} materiales · crea o actualiza su ficha individual`}
                 </p>
               </div>
               <div className="relative w-full sm:w-64">
@@ -261,7 +227,6 @@ function FichasCostoPageContent() {
               </div>
             </div>
 
-            {/* Table */}
             {loadingResumen ? (
               <div className="flex items-center justify-center py-16 gap-3 text-gray-500">
                 <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
@@ -279,59 +244,26 @@ function FichasCostoPageContent() {
                 <table className="w-full table-fixed text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <th className="py-2.5 px-3 w-10">
-                        <button
-                          onClick={toggleTodos}
-                          className="flex items-center justify-center text-gray-400 hover:text-teal-600 transition-colors"
-                          title={todosSeleccionados ? "Deseleccionar todos" : "Seleccionar todos"}
-                        >
-                          {todosSeleccionados ? (
-                            <CheckSquare className="h-4 w-4 text-teal-600" />
-                          ) : (
-                            <Square className="h-4 w-4" />
-                          )}
-                        </button>
-                      </th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Código</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">Categoría</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Nombre</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Precio</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Ficha</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Ficha</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Última ficha</th>
-                      <th className="py-2.5 px-3 w-14"></th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {resumenFiltrado.map((row) => {
-                      const isChecked = seleccionados.has(row.material_id)
                       const isDetalle = materialDetalle?.material_id === row.material_id
+
                       return (
                         <tr
                           key={row.material_id}
-                          onClick={() => toggleSeleccion(row.material_id)}
-                          className={`border-b border-gray-100 cursor-pointer transition-colors select-none ${
-                            isChecked
-                              ? "bg-teal-50/60"
-                              : isDetalle
-                              ? "bg-blue-50/40"
-                              : "hover:bg-gray-50"
+                          className={`border-b border-gray-100 transition-colors ${
+                            isDetalle ? "bg-blue-50/40" : "hover:bg-gray-50"
                           }`}
                         >
-                          {/* Checkbox */}
-                          <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
-                            <button
-                              onClick={() => toggleSeleccion(row.material_id)}
-                              className="flex items-center justify-center"
-                            >
-                              {isChecked ? (
-                                <CheckSquare className="h-4 w-4 text-teal-600" />
-                              ) : (
-                                <Square className="h-4 w-4 text-gray-300 hover:text-gray-500" />
-                              )}
-                            </button>
-                          </td>
-
-                          {/* Código + foto */}
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-2">
                               {row.foto ? (
@@ -357,7 +289,6 @@ function FichasCostoPageContent() {
                             </div>
                           </td>
 
-                          {/* Categoría */}
                           <td className="py-2.5 px-3">
                             <Badge
                               variant="outline"
@@ -367,17 +298,13 @@ function FichasCostoPageContent() {
                             </Badge>
                           </td>
 
-                          {/* Nombre */}
                           <td className="py-2.5 px-3">
                             <p className="font-medium text-gray-900 truncate text-sm">
                               {row.nombre || row.descripcion || "-"}
                             </p>
-                            {row.marca && (
-                              <p className="text-xs text-gray-400 truncate">{row.marca}</p>
-                            )}
+                            {row.marca && <p className="text-xs text-gray-400 truncate">{row.marca}</p>}
                           </td>
 
-                          {/* Precio actual */}
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-0.5">
                               <DollarSign className="h-3 w-3 text-gray-400 flex-shrink-0" />
@@ -387,7 +314,6 @@ function FichasCostoPageContent() {
                             </div>
                           </td>
 
-                          {/* Precio ficha */}
                           <td className="py-2.5 px-3">
                             {row.ficha_activa ? (
                               <div className="flex items-center gap-0.5">
@@ -406,7 +332,6 @@ function FichasCostoPageContent() {
                             )}
                           </td>
 
-                          {/* Fecha */}
                           <td className="py-2.5 px-3">
                             {row.ficha_activa ? (
                               <div className="flex items-center gap-1 text-xs text-gray-600">
@@ -418,21 +343,29 @@ function FichasCostoPageContent() {
                             )}
                           </td>
 
-                          {/* Ver detalle */}
-                          <td className="py-2.5 px-3" onClick={(e) => e.stopPropagation()}>
-                            {row.ficha_activa && (
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-1">
                               <button
-                                onClick={() => void handleVerDetalle(row)}
-                                title="Ver detalle de ficha"
-                                className={`flex items-center justify-center rounded p-1 transition-colors ${
-                                  isDetalle
-                                    ? "text-blue-600 bg-blue-50"
-                                    : "text-gray-300 hover:text-blue-600 hover:bg-blue-50"
-                                }`}
+                                onClick={() => handleOpenCrearFicha(row)}
+                                title={row.ficha_activa ? "Crear nueva versión de ficha" : "Crear ficha de costo"}
+                                className="inline-flex items-center justify-center rounded p-1 text-teal-600 hover:text-teal-700 hover:bg-teal-50 transition-colors"
                               >
-                                <Eye className="h-3.5 w-3.5" />
+                                <PlusCircle className="h-3.5 w-3.5" />
                               </button>
-                            )}
+                              {row.ficha_activa && (
+                                <button
+                                  onClick={() => void handleVerDetalle(row)}
+                                  title="Ver detalle de ficha"
+                                  className={`inline-flex items-center justify-center rounded p-1 transition-colors ${
+                                    isDetalle
+                                      ? "text-blue-600 bg-blue-50"
+                                      : "text-gray-300 hover:text-blue-600 hover:bg-blue-50"
+                                  }`}
+                                >
+                                  <Eye className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       )
@@ -444,7 +377,6 @@ function FichasCostoPageContent() {
           </CardContent>
         </Card>
 
-        {/* ── DETAIL PANEL ── */}
         <div ref={detailRef}>
           {materialDetalle && (
             <>
@@ -456,10 +388,7 @@ function FichasCostoPageContent() {
                       {materialDetalle.nombre || materialDetalle.descripcion || `Material ${materialDetalle.codigo}`}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {[
-                        materialDetalle.codigo && `Código: ${materialDetalle.codigo}`,
-                        materialDetalle.marca,
-                      ]
+                      {[materialDetalle.codigo && `Código: ${materialDetalle.codigo}`, materialDetalle.marca]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
@@ -494,9 +423,7 @@ function FichasCostoPageContent() {
                   <CardContent className="p-8 text-center">
                     <FileSpreadsheet className="h-10 w-10 text-gray-300 mx-auto mb-3" />
                     <p className="text-sm text-gray-500">Este material no tiene ficha activa aún.</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Selecciónalo con el checkbox y usa la barra inferior para crear una.
-                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Crea la ficha desde el botón + de la fila del material.</p>
                   </CardContent>
                 </Card>
               )}
@@ -505,70 +432,27 @@ function FichasCostoPageContent() {
         </div>
       </main>
 
-      {/* ── STICKY BULK ACTION BAR ── */}
-      {algunoSeleccionado && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t-2 border-teal-300 shadow-2xl">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row items-center gap-3">
-            {/* Count badge */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="flex items-center gap-1.5 bg-teal-50 border border-teal-200 rounded-full px-3 py-1.5">
-                <CheckSquare className="h-4 w-4 text-teal-600" />
-                <span className="text-sm font-bold text-teal-800">
-                  {seleccionados.size} material{seleccionados.size !== 1 ? "es" : ""}
-                </span>
-              </div>
-              <button
-                onClick={limpiarSeleccion}
-                className="text-xs text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
-              >
-                Limpiar
-              </button>
-            </div>
+      <Dialog open={isCrearFichaOpen} onOpenChange={handleCrearDialogOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {materialParaFicha?.ficha_activa ? "Nueva versión de ficha" : "Crear ficha de costo"}
+            </DialogTitle>
+          </DialogHeader>
 
-            {/* Percentage input */}
-            <div className="flex items-center gap-2 flex-1 sm:max-w-xs">
-              <div className="relative flex-1">
-                <Percent className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-amber-500 pointer-events-none" />
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  placeholder="Porcentaje (ej: 20)"
-                  value={porcentajeBulk}
-                  onChange={(e) => setPorcentajeBulk(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 border-2 border-gray-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
-                />
-              </div>
-              {pct > 0 && (
-                <span className="text-xs font-semibold text-amber-600 whitespace-nowrap flex-shrink-0 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                  +{pct}%
-                </span>
-              )}
-            </div>
+          {materialParaFicha && (
+            <CrearFichaForm
+              materialId={materialParaFicha.material_id}
+              materialNombre={materialParaFicha.nombre || materialParaFicha.descripcion || "Material"}
+              materialPrecio={materialParaFicha.precio}
+              onSubmit={handleCrearFicha}
+              onCancel={() => handleCrearDialogOpenChange(false)}
+              loading={loadingAction}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
-            {/* Create button */}
-            <Button
-              onClick={() => void handleCrearBulk()}
-              disabled={loadingBulk || pct <= 0}
-              className="bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 whitespace-nowrap flex-shrink-0 w-full sm:w-auto font-semibold"
-            >
-              {loadingBulk ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Creando fichas...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Crear {seleccionados.size} ficha{seleccionados.size !== 1 ? "s" : ""}
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Dialogs */}
       <ComparacionDialog
         open={isComparacionOpen}
         onOpenChange={setIsComparacionOpen}

@@ -1,8 +1,9 @@
 // Tipos para el módulo de Fichas de Costo (modelo simplificado)
 
-// Payload para crear ficha: solo material + porcentaje a subir
+// Payload para crear ficha: material + precio de costo + porcentaje a subir
 export interface FichaCostoCreateData {
   material_id: string
+  precio_base: number
   porcentaje: number
 }
 
@@ -98,5 +99,5 @@ export interface MaterialCatalogoWeb {
   foto_url?: string
   fotos?: string[]
   unidad?: string
-  [key: string]: any
+  [key: string]: unknown
 }

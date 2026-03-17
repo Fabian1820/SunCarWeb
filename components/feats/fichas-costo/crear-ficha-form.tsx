@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
-import { Loader2, Percent, Package, TrendingUp, Info } from "lucide-react"
+import { Loader2, Percent, Package, TrendingUp, Info, DollarSign } from "lucide-react"
 import type { FichaCostoCreateData } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
 
 interface CrearFichaFormProps {
@@ -24,16 +24,22 @@ export function CrearFichaForm({
   onCancel,
   loading,
 }: CrearFichaFormProps) {
+  const [precioCosto, setPrecioCosto] = useState(materialPrecio != null ? materialPrecio.toFixed(2) : "")
   const [porcentaje, setPorcentaje] = useState("")
 
+  useEffect(() => {
+    setPrecioCosto(materialPrecio != null ? materialPrecio.toFixed(2) : "")
+    setPorcentaje("")
+  }, [materialId, materialPrecio])
+
+  const costoBase = parseFloat(precioCosto) || 0
   const pct = parseFloat(porcentaje) || 0
-  const precioBase = materialPrecio ?? 0
-  const precioCalculado = precioBase > 0 ? precioBase * (1 + pct / 100) : null
+  const precioCalculado = costoBase > 0 ? costoBase * (1 + pct / 100) : null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!porcentaje || pct < 0) return
-    await onSubmit({ material_id: materialId, porcentaje: pct })
+    if (!precioCosto || costoBase <= 0 || !porcentaje || pct < 0) return
+    await onSubmit({ material_id: materialId, precio_base: costoBase, porcentaje: pct })
   }
 
   return (
@@ -45,9 +51,31 @@ export function CrearFichaForm({
           <p className="text-sm font-semibold text-teal-800 truncate">{materialNombre}</p>
           {materialPrecio != null && (
             <p className="text-xs text-teal-600 mt-0.5">
-              Precio actual del material: <span className="font-bold">${materialPrecio.toFixed(2)}</span>
+              Precio actual en catálogo: <span className="font-bold">${materialPrecio.toFixed(2)}</span>
             </p>
           )}
+        </div>
+      </div>
+
+      {/* Costo base */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5 text-sm font-semibold">
+          <DollarSign className="h-4 w-4 text-emerald-600" />
+          Precio de costo del producto
+        </Label>
+        <div className="relative">
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Ej: 1200"
+            value={precioCosto}
+            onChange={(e) => setPrecioCosto(e.target.value)}
+            className="pr-14 text-lg font-semibold"
+            required
+            autoFocus
+          />
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-sm">USD</span>
         </div>
       </div>
 
@@ -55,7 +83,7 @@ export function CrearFichaForm({
       <div className="space-y-2">
         <Label className="flex items-center gap-1.5 text-sm font-semibold">
           <Percent className="h-4 w-4 text-amber-500" />
-          Porcentaje a subir (%)
+          % de incremento (transporte y extras)
         </Label>
         <div className="relative">
           <Input
@@ -67,13 +95,12 @@ export function CrearFichaForm({
             onChange={(e) => setPorcentaje(e.target.value)}
             className="pr-10 text-lg font-semibold"
             required
-            autoFocus
           />
           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium">%</span>
         </div>
         <p className="text-xs text-gray-500 flex items-center gap-1">
           <Info className="h-3 w-3" />
-          Este % se aplica al precio base del material. Si ya existe una ficha anterior, se usa el precio mayor.
+          Este % se aplica al precio de costo. No se desglosa por conceptos.
         </p>
       </div>
 
@@ -83,12 +110,12 @@ export function CrearFichaForm({
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vista previa</p>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-[11px] text-gray-400">Precio base</p>
-              <p className="text-sm font-bold text-gray-700">${precioBase.toFixed(2)}</p>
+              <p className="text-[11px] text-gray-400">Costo base</p>
+              <p className="text-sm font-bold text-gray-700">${costoBase.toFixed(2)}</p>
             </div>
             <div>
               <p className="text-[11px] text-gray-400">+ {pct}%</p>
-              <p className="text-sm font-bold text-amber-600">+${(precioCalculado - precioBase).toFixed(2)}</p>
+              <p className="text-sm font-bold text-amber-600">+${(precioCalculado - costoBase).toFixed(2)}</p>
             </div>
             <div className="bg-teal-50 rounded-lg py-1">
               <p className="text-[11px] text-teal-600 flex items-center justify-center gap-0.5">
@@ -111,7 +138,7 @@ export function CrearFichaForm({
         </Button>
         <Button
           type="submit"
-          disabled={loading || !porcentaje || pct < 0}
+          disabled={loading || !precioCosto || costoBase <= 0 || !porcentaje || pct < 0}
           className="bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800"
         >
           {loading ? (
