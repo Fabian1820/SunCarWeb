@@ -471,6 +471,13 @@ function WalletPageContent() {
     void loadBanks();
   }, []);
 
+  // Cargar datos bancarios cuando cambia a modo banco y hay sesión
+  useEffect(() => {
+    if (viewMode === "bank" && bankSessionId && bankTransactions.length === 0) {
+      void loadBankData(bankSessionId);
+    }
+  }, [viewMode, bankSessionId]);
+
   const connectBank = async (bankName: string) => {
     setBankLoading(true);
     setBankError(null);
@@ -1057,39 +1064,72 @@ function WalletPageContent() {
           <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-sm font-semibold text-slate-800">Historial de Transacciones</CardTitle>
-                <p className="text-xs text-slate-400 mt-0.5">{totalTransactions} registros</p>
+                <CardTitle className="text-sm font-semibold text-slate-800">
+                  {viewMode === "wallet" ? "Historial de Transacciones" : "Transacciones Bancarias"}
+                </CardTitle>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {viewMode === "wallet" 
+                    ? `${totalTransactions} registros` 
+                    : bankTransactions.length > 0 
+                      ? `${bankTransactions.length} transacciones`
+                      : "Sin transacciones"
+                  }
+                </p>
               </div>
-            </div>
-            <div className="flex gap-1.5 flex-wrap">
-              {(["todos", "ingreso", "gasto"] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFiltroTipo(f)}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
-                    filtroTipo === f
-                      ? f === "ingreso"
-                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                        : f === "gasto"
-                        ? "bg-rose-100 text-rose-700 border-rose-200"
-                        : "bg-slate-800 text-white border-slate-800"
-                      : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                  }`}
+              {viewMode === "bank" && bankSessionId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadBankData(bankSessionId)}
+                  disabled={bankLoading}
+                  className="h-7 text-xs gap-1"
                 >
-                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
-                </button>
-              ))}
+                  <RefreshCcw className={`h-3 w-3 ${bankLoading ? "animate-spin" : ""}`} />
+                  Actualizar
+                </Button>
+              )}
             </div>
+            {viewMode === "wallet" && (
+              <div className="flex gap-1.5 flex-wrap">
+                {(["todos", "ingreso", "gasto"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFiltroTipo(f)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                      filtroTipo === f
+                        ? f === "ingreso"
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                          : f === "gasto"
+                          ? "bg-rose-100 text-rose-700 border-rose-200"
+                          : "bg-slate-800 text-white border-slate-800"
+                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
+                  </button>
+                ))}
+              </div>
+            )}
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {viewMode === "wallet" ? (
-              <TransactionsResponsiveList
-                transactions={transactions}
-                loading={loadingTransactions}
-                emptyMessage="No hay transacciones registradas."
-                fallbackCurrency={selectedCurrencyCode}
-                showWalletOwner
-              />
+              <>
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                    <p>Transacciones: {transactions.length}</p>
+                    <p>Loading: {loadingTransactions ? 'Sí' : 'No'}</p>
+                    <p>Filtro: {filtroTipo}</p>
+                  </div>
+                )}
+                <TransactionsResponsiveList
+                  transactions={transactions}
+                  loading={loadingTransactions}
+                  emptyMessage="No hay transacciones registradas."
+                  fallbackCurrency={selectedCurrencyCode}
+                  showWalletOwner
+                />
+              </>
             ) : (
               // Bank transactions view
               <>
@@ -1107,12 +1147,14 @@ function WalletPageContent() {
                 ) : !bankSessionId ? (
                   <div className="py-10 text-center">
                     <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">Selecciona un banco para conectar</p>
+                    <p className="text-sm text-slate-500 font-medium mb-1">No hay banco conectado</p>
+                    <p className="text-xs text-slate-400">Selecciona un banco en el selector de fuente arriba</p>
                   </div>
                 ) : bankTransactions.length === 0 ? (
                   <div className="py-10 text-center">
                     <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-400">No hay transacciones bancarias</p>
+                    <p className="text-sm text-slate-500 font-medium mb-1">No hay transacciones</p>
+                    <p className="text-xs text-slate-400">Haz clic en "Actualizar" para cargar las transacciones</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
