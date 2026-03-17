@@ -11,30 +11,58 @@ export default function BankCallbackPage() {
   const [message, setMessage] = useState("")
 
   useEffect(() => {
-    // Enable Banking redirige con ?session_id=... o ?error=...
-    const sessionId = searchParams.get("session_id")
-    const error = searchParams.get("error")
+    const processCallback = async () => {
+      // Enable Banking redirige con ?code=... o ?error=...
+      const code = searchParams.get("code")
+      const error = searchParams.get("error")
+      const errorDescription = searchParams.get("error_description")
 
-    if (error) {
-      setStatus("error")
-      setMessage(`El banco rechazó el acceso: ${error}`)
-      setTimeout(() => router.push("/wallet"), 4000)
-      return
+      if (error) {
+        setStatus("error")
+        setMessage(errorDescription || `El banco rechazó el acceso: ${error}`)
+        setTimeout(() => router.push("/wallet"), 4000)
+        return
+      }
+
+      if (!code) {
+        setStatus("error")
+        setMessage("No se recibió código de autorización del banco.")
+        setTimeout(() => router.push("/wallet"), 4000)
+        return
+      }
+
+      try {
+        // Llamar al backend para completar la autorización
+        const response = await fetch("/api/bank/authorize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        })
+
+        const data = await response.json() as { 
+          success: boolean
+          session_id?: string
+          message?: string 
+        }
+
+        if (!data.success || !data.session_id) {
+          throw new Error(data.message || "Error al autorizar sesión")
+        }
+
+        // Guardar session_id en localStorage
+        localStorage.setItem("bank_session_id", data.session_id)
+
+        setStatus("success")
+        setMessage("Banco conectado correctamente. Redirigiendo...")
+        setTimeout(() => router.push("/wallet"), 2000)
+      } catch (err) {
+        setStatus("error")
+        setMessage(err instanceof Error ? err.message : "Error al procesar autorización")
+        setTimeout(() => router.push("/wallet"), 4000)
+      }
     }
 
-    if (!sessionId) {
-      setStatus("error")
-      setMessage("No se recibió session_id del banco.")
-      setTimeout(() => router.push("/wallet"), 4000)
-      return
-    }
-
-    // Guardar en localStorage para que la wallet lo use
-    localStorage.setItem("bank_session_id", sessionId)
-
-    setStatus("success")
-    setMessage("Banco conectado correctamente. Redirigiendo...")
-    setTimeout(() => router.push("/wallet"), 2000)
+    void processCallback()
   }, [searchParams, router])
 
   return (

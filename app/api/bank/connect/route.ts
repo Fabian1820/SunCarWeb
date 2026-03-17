@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createBankSession } from '@/lib/server/enable-banking'
+import { startAuthorization } from '@/lib/server/enable-banking'
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,12 +16,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const session = await createBankSession(redirectUrl, bankName, country)
+    const authResponse = await startAuthorization(redirectUrl, bankName, country)
 
     return NextResponse.json({
       success: true,
-      url: session.url,
-      session_id: session.session_id,
+      url: authResponse.url,
+      authorization_id: authResponse.authorization_id,
     })
   } catch (error) {
     return NextResponse.json(

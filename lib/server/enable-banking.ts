@@ -70,9 +70,16 @@ async function ebRequest<T>(path: string, options: RequestInit = {}): Promise<T>
 // Tipos
 // ────────────────────────────────────────────────────────────
 
+export interface EBAuthResponse {
+  url: string
+  authorization_id: string
+  psu_id_hash: string
+}
+
 export interface EBSession {
   session_id: string
-  url: string
+  accounts: string[]
+  status: string
 }
 
 export interface EBSessionDetail {
@@ -100,20 +107,28 @@ export interface EBTransaction {
 // Funciones públicas
 // ────────────────────────────────────────────────────────────
 
-export async function createBankSession(
+export async function startAuthorization(
   redirectUrl: string,
   bankName: string,
   country: string
-): Promise<EBSession> {
+): Promise<EBAuthResponse> {
   const validUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()
-  return ebRequest<EBSession>('/sessions', {
+  return ebRequest<EBAuthResponse>('/auth', {
     method: 'POST',
     body: JSON.stringify({
       access: { valid_until: validUntil },
       aspsp: { name: bankName, country },
       redirect_url: redirectUrl,
       psu_type: 'personal',
+      state: 'bank-connection',
     }),
+  })
+}
+
+export async function authorizeSession(code: string): Promise<EBSession> {
+  return ebRequest<EBSession>('/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
   })
 }
 
