@@ -258,6 +258,11 @@ export function MaterialsTable({
                     <p className="font-semibold text-gray-900 text-sm whitespace-nowrap">
                       {material.codigo}
                     </p>
+                    {material.numero_serie && (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        N/S: {material.numero_serie}
+                      </p>
+                    )}
                   </div>
                 </div>
               </td>

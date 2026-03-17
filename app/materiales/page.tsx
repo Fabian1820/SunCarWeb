@@ -36,10 +36,12 @@ import {
   Grid,
   List,
   Globe,
+  AlertTriangle,
 } from "lucide-react";
 import { MaterialsTable } from "@/components/feats/materials/materials-table";
 import { CategoriesTable } from "@/components/feats/materials/categories-table";
 import { VistaWeb } from "@/components/feats/materials/vista-web";
+import { StockMinimoView } from "@/components/feats/materials/stock-minimo-view";
 import { MaterialForm } from "@/components/feats/materials/material-form";
 import { EditCategoryForm } from "@/components/feats/materials/edit-category-form";
 import { DuplicatesDashboard } from "@/components/feats/materials/duplicates-dashboard";
@@ -80,7 +82,7 @@ export default function MaterialesPage() {
   );
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [viewMode, setViewMode] = useState<
-    "materials" | "categories" | "marcas" | "web"
+    "materials" | "categories" | "marcas" | "web" | "stock-minimo"
   >("materials");
   const [isEditCategoryDialogOpen, setIsEditCategoryDialogOpen] =
     useState(false);
@@ -771,13 +773,23 @@ export default function MaterialesPage() {
                     <Globe className="h-4 w-4 mr-2" />
                     Vista Web
                   </Button>
+                  <Button
+                    variant={viewMode === "stock-minimo" ? "default" : "outline"}
+                    onClick={() => setViewMode("stock-minimo")}
+                    className={
+                      viewMode === "stock-minimo" ? "bg-red-600 hover:bg-red-700" : ""
+                    }
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    Stock Mínimo
+                  </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Filters and Search - Solo para materiales y categorías */}
-          {viewMode !== "marcas" && viewMode !== "web" && (
+          {viewMode !== "marcas" && viewMode !== "web" && viewMode !== "stock-minimo" && (
             <Card className="border-0 shadow-md mb-6 border-l-4 border-l-emerald-600">
               <CardContent className="pt-6">
                 <div className="flex flex-col lg:flex-row gap-4">
@@ -895,6 +907,21 @@ export default function MaterialesPage() {
                 return result;
               }}
             />
+          ) : viewMode === "stock-minimo" ? (
+            <Card className="border-0 shadow-md border-l-4 border-l-red-600">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <AlertTriangle className="h-5 w-5 text-red-600" />
+                  <span>Materiales Bajo Stock Mínimo</span>
+                </CardTitle>
+                <CardDescription>
+                  Listado de materiales que requieren reabastecimiento urgente
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <StockMinimoView />
+              </CardContent>
+            </Card>
           ) : (
             <>
               {/* Dynamic Table */}

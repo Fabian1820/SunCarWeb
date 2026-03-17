@@ -1168,11 +1168,11 @@ export function MaterialForm({
             <div className="flex items-center space-x-2">
               <Package className="h-5 w-5 text-green-600" />
               <h3 className="text-lg font-semibold text-green-900">
-                Información de Inventario (Opcional)
+                Información de Inventario
               </h3>
             </div>
             <p className="text-sm text-green-700">
-              Campos opcionales para gestión de inventario y control de stock.
+              Gestión de inventario y control de stock.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

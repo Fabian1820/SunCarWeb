@@ -19,6 +19,7 @@ import type {
   MovimientoLoteResumenPorMaterial,
   VentaCreateData,
 } from "../../../inventario-types";
+import type { MaterialesBajoMinimoResponse } from "../../../types/feats/inventario/stock-minimo-types";
 
 const MOVIMIENTO_TIPOS: InventarioMovimientoTipo[] = [
   "entrada",
@@ -711,5 +712,12 @@ export class InventarioService {
       method: "PATCH",
       body: JSON.stringify(data),
     });
+  }
+
+  static async getMaterialesBajoMinimo(): Promise<MaterialesBajoMinimoResponse> {
+    const response = await apiRequest<MaterialesBajoMinimoResponse>(
+      "/inventario/materiales-bajo-minimo"
+    );
+    return response;
   }
 }
