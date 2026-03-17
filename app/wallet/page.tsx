@@ -373,18 +373,37 @@ function WalletPageContent() {
   const [transferReason, setTransferReason] = useState("");
 
   // ── Estado banco (Enable Banking) - Integrado ──
-  const [bankSessionId, setBankSessionId] = useState<string | null>(null);
+  const [bankSessions, setBankSessions] = useState<Array<{
+    sessionId: string;
+    bankName: string;
+    balance: { amount: string; currency: string } | null;
+    transactions: Array<{
+      id: string;
+      date: string;
+      amount: string;
+      currency: string;
+      description: string;
+      isCredit: boolean;
+    }>;
+  }>>([]);
+  const [selectedBankSessionId, setSelectedBankSessionId] = useState<string | null>(null);
   const [bankLoading, setBankLoading] = useState(false);
   const [availableBanks, setAvailableBanks] = useState<Array<{ name: string; country: string }>>([]);
   const [loadingBanks, setLoadingBanks] = useState(false);
-  const [bankBalance, setBankBalance] = useState<{ amount: string; currency: string } | null>(null);
-  const [bankTransactions, setBankTransactions] = useState<Array<{
-    id: string; date: string; amount: string; currency: string; description: string; isCredit: boolean;
-  }>>([]);
   const [bankError, setBankError] = useState<string | null>(null);
   
   // ── Selector de fuente (Billetera o Banco) ──
   const [viewMode, setViewMode] = useState<"wallet" | "bank">("wallet");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Obtener sesión bancaria seleccionada
+  const selectedBankSession = useMemo(
+    () => bankSessions.find(s => s.sessionId === selectedBankSessionId) ?? null,
+    [bankSessions, selectedBankSessionId]
+  );
+
+  const bankBalance = selectedBankSession?.balance ?? null;
+  const bankTransactions = selectedBankSession?.transactions ?? [];
 
   const currentFilters = useMemo(
     () => ({
@@ -416,6 +435,27 @@ function WalletPageContent() {
 
   const selectedCurrencyCode = selectedCurrency?.codigo || "USD";
 
+  // Filtrar transacciones de billetera por búsqueda
+  const filteredWalletTransactions = useMemo(() => {
+    if (!searchQuery.trim()) return transactions;
+    const query = searchQuery.toLowerCase();
+    return transactions.filter(tx => 
+      tx.motivo.toLowerCase().includes(query) ||
+      tx.wallet_user_nombre.toLowerCase().includes(query) ||
+      tx.created_by_nombre.toLowerCase().includes(query)
+    );
+  }, [transactions, searchQuery]);
+
+  // Filtrar transacciones bancarias por búsqueda
+  const filteredBankTransactions = useMemo(() => {
+    if (!searchQuery.trim()) return bankTransactions;
+    const query = searchQuery.toLowerCase();
+    return bankTransactions.filter(tx => 
+      tx.description.toLowerCase().includes(query) ||
+      tx.amount.includes(query)
+    );
+  }, [bankTransactions, searchQuery]);
+
   useEffect(() => {
     void loadWallet();
     void loadWallets({ limit: 500 });
@@ -446,11 +486,18 @@ function WalletPageContent() {
   }, [wallet?.id, transferToWalletId]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("bank_session_id");
-    if (saved) {
-      setBankSessionId(saved);
-      // Auto-cargar datos bancarios si hay sesión guardada
-      void loadBankData(saved);
+    // Cargar sesiones bancarias guardadas
+    const savedSessions = localStorage.getItem("bank_sessions");
+    if (savedSessions) {
+      try {
+        const sessions = JSON.parse(savedSessions) as typeof bankSessions;
+        setBankSessions(sessions);
+        if (sessions.length > 0) {
+          setSelectedBankSessionId(sessions[0].sessionId);
+        }
+      } catch (err) {
+        console.error("Error cargando sesiones bancarias:", err);
+      }
     }
     
     // Cargar bancos disponibles
@@ -471,12 +518,24 @@ function WalletPageContent() {
     void loadBanks();
   }, []);
 
+  // Guardar sesiones en localStorage cuando cambien
+  useEffect(() => {
+    if (bankSessions.length > 0) {
+      localStorage.setItem("bank_sessions", JSON.stringify(bankSessions));
+    }
+  }, [bankSessions]);
+
   // Cargar datos bancarios cuando cambia a modo banco y hay sesión
   useEffect(() => {
-    if (viewMode === "bank" && bankSessionId && bankTransactions.length === 0) {
-      void loadBankData(bankSessionId);
+    if (viewMode === "bank" && selectedBankSessionId) {
+      const session = bankSessions.find(s => s.sessionId === selectedBankSessionId);
+      if (session && session.transactions.length === 0) {
+        void loadBankData(selectedBankSessionId, session.bankName);
+      }
     }
-  }, [viewMode, bankSessionId]);
+    // Limpiar búsqueda al cambiar de modo
+    setSearchQuery("");
+  }, [viewMode, selectedBankSessionId]);
 
   const connectBank = async (bankName: string) => {
     setBankLoading(true);
@@ -490,6 +549,9 @@ function WalletPageContent() {
       });
       const data = await res.json() as { success: boolean; url?: string; message?: string };
       if (!data.success || !data.url) throw new Error(data.message ?? "Error al iniciar conexión");
+      
+      // Guardar el nombre del banco para asociarlo después
+      localStorage.setItem("pending_bank_name", bankName);
       window.location.href = data.url;
     } catch (err) {
       setBankError(err instanceof Error ? err.message : "Error al conectar banco");
@@ -497,7 +559,7 @@ function WalletPageContent() {
     }
   };
 
-  const loadBankData = async (sessionId: string) => {
+  const loadBankData = async (sessionId: string, bankName: string) => {
     setBankLoading(true);
     setBankError(null);
     try {
@@ -509,8 +571,25 @@ function WalletPageContent() {
         message?: string;
       };
       if (!data.success) throw new Error(data.message ?? "Error al obtener datos");
-      setBankBalance(data.balance ?? null);
-      setBankTransactions(data.transactions ?? []);
+      
+      // Actualizar o agregar sesión
+      setBankSessions(prev => {
+        const existing = prev.find(s => s.sessionId === sessionId);
+        if (existing) {
+          return prev.map(s => 
+            s.sessionId === sessionId 
+              ? { ...s, balance: data.balance ?? null, transactions: data.transactions ?? [] }
+              : s
+          );
+        } else {
+          return [...prev, {
+            sessionId,
+            bankName,
+            balance: data.balance ?? null,
+            transactions: data.transactions ?? []
+          }];
+        }
+      });
     } catch (err) {
       setBankError(err instanceof Error ? err.message : "Error al cargar datos bancarios");
     } finally {
@@ -518,13 +597,17 @@ function WalletPageContent() {
     }
   };
 
-  const handleDisconnectBank = () => {
-    localStorage.removeItem("bank_session_id");
-    setBankSessionId(null);
-    setBankBalance(null);
-    setBankTransactions([]);
-    setBankError(null);
-    setViewMode("wallet");
+  const handleDisconnectBank = (sessionId: string) => {
+    setBankSessions(prev => prev.filter(s => s.sessionId !== sessionId));
+    if (selectedBankSessionId === sessionId) {
+      const remaining = bankSessions.filter(s => s.sessionId !== sessionId);
+      setSelectedBankSessionId(remaining.length > 0 ? remaining[0].sessionId : null);
+    }
+    // Limpiar localStorage si no quedan sesiones
+    const remaining = bankSessions.filter(s => s.sessionId !== sessionId);
+    if (remaining.length === 0) {
+      localStorage.removeItem("bank_sessions");
+    }
   };
 
   const getWalletViewBalance = (walletData?: WalletType | null) =>
@@ -817,34 +900,62 @@ function WalletPageContent() {
                   )}
 
                   {/* Bank connection for bank mode */}
-                  {viewMode === "bank" && !bankSessionId && (
-                    <div className="flex items-center gap-2">
-                      <Select 
-                        disabled={loadingBanks}
-                        onValueChange={(bankName) => void connectBank(bankName)}
-                      >
-                        <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
-                          <SelectValue placeholder={loadingBanks ? "Cargando..." : "Seleccionar banco"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableBanks.map((bank) => (
-                            <SelectItem key={bank.name} value={bank.name}>
-                              {bank.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  {viewMode === "bank" && (
+                    <>
+                      {/* Selector de banco conectado */}
+                      {bankSessions.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-500">Banco:</span>
+                          <Select 
+                            value={selectedBankSessionId || ""}
+                            onValueChange={setSelectedBankSessionId}
+                          >
+                            <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
+                              <SelectValue placeholder="Seleccionar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {bankSessions.map((session) => (
+                                <SelectItem key={session.sessionId} value={session.sessionId}>
+                                  🏦 {session.bankName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Conectar nuevo banco */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-500">
+                          {bankSessions.length > 0 ? "Agregar:" : "Conectar:"}
+                        </span>
+                        <Select 
+                          disabled={loadingBanks}
+                          onValueChange={(bankName) => void connectBank(bankName)}
+                        >
+                          <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
+                            <SelectValue placeholder={loadingBanks ? "Cargando..." : "Nuevo banco"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableBanks.map((bank) => (
+                              <SelectItem key={bank.name} value={bank.name}>
+                                {bank.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
                   )}
 
                   {/* Bank disconnect button */}
-                  {viewMode === "bank" && bankSessionId && (
+                  {viewMode === "bank" && selectedBankSessionId && (
                     <button
-                      onClick={handleDisconnectBank}
+                      onClick={() => handleDisconnectBank(selectedBankSessionId)}
                       className="text-xs text-white/70 hover:text-white flex items-center gap-1"
                     >
                       <Link2Off className="h-3 w-3" />
-                      Desconectar banco
+                      Desconectar este banco
                     </button>
                   )}
                 </div>
@@ -864,8 +975,8 @@ function WalletPageContent() {
           </div>
         </div>
 
-        {/* Quick Action Buttons */}
-        {wallet && (
+        {/* Quick Action Buttons - Solo en modo wallet */}
+        {wallet && viewMode === "wallet" && (
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => handleActionToggle("ingreso")}
@@ -1076,11 +1187,16 @@ function WalletPageContent() {
                   }
                 </p>
               </div>
-              {viewMode === "bank" && bankSessionId && (
+              {viewMode === "bank" && selectedBankSessionId && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => void loadBankData(bankSessionId)}
+                  onClick={() => {
+                    const session = bankSessions.find(s => s.sessionId === selectedBankSessionId);
+                    if (session) {
+                      void loadBankData(selectedBankSessionId, session.bankName);
+                    }
+                  }}
                   disabled={bankLoading}
                   className="h-7 text-xs gap-1"
                 >
@@ -1089,6 +1205,19 @@ function WalletPageContent() {
                 </Button>
               )}
             </div>
+
+            {/* Buscador */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={viewMode === "wallet" ? "Buscar por motivo..." : "Buscar por descripción..."}
+                className="h-9 pl-9 text-sm"
+              />
+            </div>
+
+            {/* Filtros - Solo en modo wallet */}
             {viewMode === "wallet" && (
               <div className="flex gap-1.5 flex-wrap">
                 {(["todos", "ingreso", "gasto"] as const).map((f) => (
@@ -1118,14 +1247,15 @@ function WalletPageContent() {
                 {process.env.NODE_ENV === 'development' && (
                   <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
                     <p>Transacciones: {transactions.length}</p>
+                    <p>Filtradas: {filteredWalletTransactions.length}</p>
                     <p>Loading: {loadingTransactions ? 'Sí' : 'No'}</p>
                     <p>Filtro: {filtroTipo}</p>
                   </div>
                 )}
                 <TransactionsResponsiveList
-                  transactions={transactions}
+                  transactions={filteredWalletTransactions}
                   loading={loadingTransactions}
-                  emptyMessage="No hay transacciones registradas."
+                  emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
                   fallbackCurrency={selectedCurrencyCode}
                   showWalletOwner
                 />
@@ -1144,21 +1274,25 @@ function WalletPageContent() {
                   <div className="py-10 text-center">
                     <p className="text-sm text-rose-600">{bankError}</p>
                   </div>
-                ) : !bankSessionId ? (
+                ) : !selectedBankSessionId ? (
                   <div className="py-10 text-center">
                     <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
                     <p className="text-sm text-slate-500 font-medium mb-1">No hay banco conectado</p>
                     <p className="text-xs text-slate-400">Selecciona un banco en el selector de fuente arriba</p>
                   </div>
-                ) : bankTransactions.length === 0 ? (
+                ) : filteredBankTransactions.length === 0 ? (
                   <div className="py-10 text-center">
                     <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500 font-medium mb-1">No hay transacciones</p>
-                    <p className="text-xs text-slate-400">Haz clic en "Actualizar" para cargar las transacciones</p>
+                    <p className="text-sm text-slate-500 font-medium mb-1">
+                      {searchQuery ? "No se encontraron transacciones" : "No hay transacciones"}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      {searchQuery ? "Intenta con otro término de búsqueda" : "Haz clic en 'Actualizar' para cargar las transacciones"}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {bankTransactions.map((tx) => (
+                    {filteredBankTransactions.map((tx) => (
                       <div
                         key={tx.id}
                         className={`bg-white rounded-xl border border-l-4 ${

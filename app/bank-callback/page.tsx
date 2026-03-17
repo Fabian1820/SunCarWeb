@@ -49,8 +49,24 @@ export default function BankCallbackPage() {
           throw new Error(data.message || "Error al autorizar sesión")
         }
 
-        // Guardar session_id en localStorage
-        localStorage.setItem("bank_session_id", data.session_id)
+        // Obtener el nombre del banco guardado
+        const bankName = localStorage.getItem("pending_bank_name") || "Banco desconocido"
+        localStorage.removeItem("pending_bank_name")
+
+        // Guardar sesión en el array de sesiones
+        const existingSessions = localStorage.getItem("bank_sessions")
+        const sessions = existingSessions ? JSON.parse(existingSessions) : []
+        
+        // Agregar nueva sesión si no existe
+        if (!sessions.find((s: { sessionId: string }) => s.sessionId === data.session_id)) {
+          sessions.push({
+            sessionId: data.session_id,
+            bankName,
+            balance: null,
+            transactions: []
+          })
+          localStorage.setItem("bank_sessions", JSON.stringify(sessions))
+        }
 
         setStatus("success")
         setMessage("Banco conectado correctamente. Redirigiendo...")
