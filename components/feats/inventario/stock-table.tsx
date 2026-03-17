@@ -109,8 +109,9 @@ export function StockTable({
   if (detailed) {
     return (
       <TooltipProvider>
-        <div className="overflow-x-auto">
-          <table className="w-full table-fixed">
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[80px]">
@@ -457,5 +458,7 @@ export function StockTable({
         </div>
       </DialogContent>
     </Dialog>
-  );
-}
+        </>
+      </TooltipProvider>
+    );
+  }
