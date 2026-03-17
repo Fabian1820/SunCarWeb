@@ -72,6 +72,10 @@ export class MaterialService {
         raw?.especificaciones && typeof raw.especificaciones === "object"
           ? raw.especificaciones
           : undefined,
+      ficha_tecnica_url:
+        typeof raw?.ficha_tecnica_url === "string"
+          ? raw.ficha_tecnica_url
+          : null,
       ubicacion_en_almacen:
         typeof raw?.ubicacion_en_almacen === "string"
           ? raw.ubicacion_en_almacen
@@ -228,6 +232,7 @@ export class MaterialService {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
   ): Promise<boolean> {
     console.log("[MaterialService] Agregando material a producto:", {
@@ -340,6 +345,7 @@ export class MaterialService {
       habilitar_venta_web?: boolean;
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
+      ficha_tecnica_url?: string | null;
     },
   ): Promise<boolean> {
     console.log("[MaterialService] Editando material:", {
@@ -475,5 +481,41 @@ export class MaterialService {
     }
 
     return true;
+  }
+
+  static async uploadFichaTecnica(file: File): Promise<string> {
+    console.log("[MaterialService] Subiendo ficha técnica:", file.name);
+    
+    const formData = new FormData();
+    formData.append("ficha", file);
+
+    try {
+      const result = await apiRequest<{
+        success?: boolean;
+        url?: string;
+        message?: string;
+        error?: string;
+      }>("/productos/upload-ficha-tecnica", {
+        method: "POST",
+        body: formData,
+      });
+
+      console.log("[MaterialService] Respuesta al subir ficha técnica:", result);
+
+      if (result?.url) {
+        return result.url;
+      }
+
+      if (result?.error || result?.success === false) {
+        throw new Error(
+          result.error || result.message || "Error al subir ficha técnica",
+        );
+      }
+
+      throw new Error("No se recibió URL de la ficha técnica");
+    } catch (error: any) {
+      console.error("[MaterialService] Error al subir ficha técnica:", error);
+      throw error;
+    }
   }
 }

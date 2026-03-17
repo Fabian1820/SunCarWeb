@@ -31,11 +31,14 @@ import {
   Package,
   Upload,
   Image as ImageIcon,
+  FileText,
+  Download,
 } from "lucide-react";
 import type { Material, MaterialFormData } from "@/lib/material-types";
 import { useToast } from "@/hooks/use-toast";
 import { useMarcas } from "@/hooks/use-marcas";
 import { useUploadFoto } from "@/hooks/use-upload-foto";
+import { MaterialService } from "@/lib/api-services";
 
 interface MaterialFormProps {
   initialData?: Material;
@@ -85,6 +88,14 @@ export function MaterialForm({
     initialData?.foto || null,
   );
   const [cambiarFoto, setCambiarFoto] = useState(false);
+
+  // Estado para ficha técnica
+  const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null);
+  const [fichaTecnicaUrl, setFichaTecnicaUrl] = useState<string | null>(
+    initialData?.ficha_tecnica_url || null,
+  );
+  const [cambiarFichaTecnica, setCambiarFichaTecnica] = useState(false);
+  const [uploadingFichaTecnica, setUploadingFichaTecnica] = useState(false);
 
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -140,6 +151,8 @@ export function MaterialForm({
     setFotoUrl(initialData.foto || null);
     setFotoPreview(initialData.foto || null);
     setCambiarFoto(false);
+    setFichaTecnicaUrl(initialData.ficha_tecnica_url || null);
+    setCambiarFichaTecnica(false);
     setHabilitarVentaWeb(initialData.habilitar_venta_web ?? false);
     setPrecioPorCantidad(
       initialData.precio_por_cantidad
@@ -211,6 +224,39 @@ export function MaterialForm({
     reader.readAsDataURL(file);
   };
 
+  // Manejar cambio de archivo de ficha técnica
+  const handleFichaTecnicaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (!file) {
+      setFichaTecnicaFile(null);
+      return;
+    }
+
+    // Validar tipo de archivo (PDF, Word, etc.)
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setError("El archivo debe ser PDF, Word o Excel");
+      return;
+    }
+
+    // Validar tamaño (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError("La ficha técnica no debe superar 10MB");
+      return;
+    }
+
+    setFichaTecnicaFile(file);
+    setError(null);
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
     if (!formData.codigo.trim()) {
@@ -263,7 +309,21 @@ export function MaterialForm({
         }
       }
 
-      // 2. Preparar datos del material
+      // 2. Subir ficha técnica si hay un archivo nuevo
+      let finalFichaTecnicaUrl = fichaTecnicaUrl;
+      if (fichaTecnicaFile) {
+        try {
+          setUploadingFichaTecnica(true);
+          finalFichaTecnicaUrl = await MaterialService.uploadFichaTecnica(fichaTecnicaFile);
+          setFichaTecnicaUrl(finalFichaTecnicaUrl);
+        } catch (uploadErr: any) {
+          throw new Error(`Error al subir la ficha técnica: ${uploadErr.message}`);
+        } finally {
+          setUploadingFichaTecnica(false);
+        }
+      }
+
+      // 3. Preparar datos del material
       if (onSubmit) {
         // Construir precio_por_cantidad como Record o null
         const precioPorCantidadObj =
@@ -302,6 +362,7 @@ export function MaterialForm({
           comentario: formData.comentario?.trim() || null,
           nombre: formData.nombre,
           foto: finalFotoUrl || undefined,
+          ficha_tecnica_url: finalFichaTecnicaUrl || undefined,
           ...(requiereMarcaYPotencia && {
             marca_id: formData.marca_id,
             potenciaKW: formData.potenciaKW,
@@ -338,6 +399,8 @@ export function MaterialForm({
           setFotoFile(null);
           setFotoPreview(null);
           setFotoUrl(null);
+          setFichaTecnicaFile(null);
+          setFichaTecnicaUrl(null);
           setIsNewCategory(false);
           setHabilitarVentaWeb(false);
           setPrecioPorCantidad([]);
@@ -772,6 +835,103 @@ export function MaterialForm({
                 <span>{uploadError}</span>
               </div>
             )}
+          </div>
+
+          {/* Ficha Técnica del Material */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-gray-700">
+              Ficha Técnica (Opcional)
+            </Label>
+
+            <div className="flex flex-col gap-4">
+              {/* Ficha técnica actual (solo en modo edición) */}
+              {isEditing && fichaTecnicaUrl && !cambiarFichaTecnica && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg bg-gray-50">
+                    <FileText className="h-8 w-8 text-blue-600" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-700">
+                        Ficha técnica actual
+                      </p>
+                      <a
+                        href={fichaTecnicaUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Download className="h-3 w-3" />
+                        Descargar archivo
+                      </a>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCambiarFichaTecnica(true)}
+                    disabled={isSubmitting || uploadingFichaTecnica}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Cambiar Ficha Técnica
+                  </Button>
+                </div>
+              )}
+
+              {/* Input de archivo (crear o cambiar ficha técnica) */}
+              {(!isEditing || !fichaTecnicaUrl || cambiarFichaTecnica) && (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={handleFichaTecnicaChange}
+                      disabled={isSubmitting || uploadingFichaTecnica}
+                      className="flex-1"
+                    />
+                    {cambiarFichaTecnica && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCambiarFichaTecnica(false);
+                          setFichaTecnicaFile(null);
+                        }}
+                        disabled={isSubmitting || uploadingFichaTecnica}
+                      >
+                        Cancelar
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    Formatos: PDF, Word, Excel. Máximo 10MB
+                  </p>
+                </div>
+              )}
+
+              {/* Archivo seleccionado */}
+              {fichaTecnicaFile && (
+                <div className="flex items-center gap-3 p-3 border-2 border-green-200 rounded-lg bg-green-50">
+                  <FileText className="h-8 w-8 text-green-600" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-gray-700">
+                      {fichaTecnicaFile.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {(fichaTecnicaFile.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Indicador de subida */}
+              {uploadingFichaTecnica && (
+                <div className="flex items-center gap-2 text-sm text-blue-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Subiendo ficha técnica...</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Precio y Unidad de Medida */}

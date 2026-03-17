@@ -13,6 +13,7 @@ export interface BackendMaterial {
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
+  ficha_tecnica_url?: string | null;
 }
 
 export interface BackendCatalogoProductos {
@@ -39,6 +40,7 @@ export interface MaterialItem {
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
+  ficha_tecnica_url?: string | null;
 }
 
 export interface MaterialCategory {
@@ -62,6 +64,7 @@ export interface Material {
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
+  ficha_tecnica_url?: string | null;
   producto_id?: string;
 }
 
@@ -76,6 +79,7 @@ export interface MaterialFormData {
   marca_id?: string;
   foto?: File | null;
   potenciaKW?: number;
+  ficha_tecnica?: File | null;
 }
 
 export interface MaterialFilters {
@@ -102,6 +106,7 @@ export interface CreateMaterialRequest {
   habilitar_venta_web?: boolean;
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
+  ficha_tecnica_url?: string | null;
 }
 
 export interface UpdateCategoryRequest {

@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
-import { Edit, Trash2, Package, DollarSign } from "lucide-react";
+import { Edit, Trash2, Package, DollarSign, FileText, Download } from "lucide-react";
 import type { Material } from "@/lib/material-types";
 
 interface MaterialsTableProps {
@@ -121,6 +121,9 @@ export function MaterialsTable({
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">
               Precio
             </th>
+            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[80px]">
+              Ficha
+            </th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">
               Acciones
             </th>
@@ -231,6 +234,21 @@ export function MaterialsTable({
                     {material.precio ? `${material.precio.toFixed(2)}` : "N/A"}
                   </span>
                 </div>
+              </td>
+              <td className="py-3 px-2">
+                {material.ficha_tecnica_url ? (
+                  <a
+                    href={material.ficha_tecnica_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
+                    title="Descargar ficha técnica"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                  </a>
+                ) : (
+                  <span className="text-sm text-gray-400">-</span>
+                )}
               </td>
               <td className="py-3 px-2">
                 <div className="flex items-center space-x-1">
