@@ -14,6 +14,8 @@ export interface BackendMaterial {
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
   ficha_tecnica_url?: string | null;
+  numero_serie?: string | null;
+  stockaje_minimo?: number | null;
 }
 
 export interface BackendCatalogoProductos {
@@ -41,6 +43,8 @@ export interface MaterialItem {
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
   ficha_tecnica_url?: string | null;
+  numero_serie?: string | null;
+  stockaje_minimo?: number | null;
 }
 
 export interface MaterialCategory {
@@ -66,6 +70,8 @@ export interface Material {
   especificaciones?: Record<string, string> | null;
   ficha_tecnica_url?: string | null;
   producto_id?: string;
+  numero_serie?: string | null;
+  stockaje_minimo?: number | null;
 }
 
 export interface MaterialFormData {
@@ -80,6 +86,8 @@ export interface MaterialFormData {
   foto?: File | null;
   potenciaKW?: number;
   ficha_tecnica?: File | null;
+  numero_serie?: string | null;
+  stockaje_minimo?: number | null;
 }
 
 export interface MaterialFilters {
@@ -107,6 +115,8 @@ export interface CreateMaterialRequest {
   precio_por_cantidad?: Record<string, number> | null;
   especificaciones?: Record<string, string> | null;
   ficha_tecnica_url?: string | null;
+  numero_serie?: string | null;
+  stockaje_minimo?: number | null;
 }
 
 export interface UpdateCategoryRequest {
@@ -140,6 +150,8 @@ export function transformBackendToFrontend(
         precio_por_cantidad: material.precio_por_cantidad,
         especificaciones: material.especificaciones,
         producto_id: catalogo.id,
+        numero_serie: material.numero_serie ?? null,
+        stockaje_minimo: material.stockaje_minimo ?? null,
       });
     });
   });
@@ -171,6 +183,8 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         habilitar_venta_web: material.habilitar_venta_web,
         precio_por_cantidad: material.precio_por_cantidad,
         especificaciones: material.especificaciones,
+        numero_serie: material.numero_serie ?? null,
+        stockaje_minimo: material.stockaje_minimo ?? null,
       });
     });
   });

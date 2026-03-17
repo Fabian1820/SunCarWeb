@@ -78,6 +78,8 @@ export function MaterialForm({
     marca_id: initialData?.marca_id || undefined,
     foto: null,
     potenciaKW: initialData?.potenciaKW ?? undefined,
+    numero_serie: initialData?.numero_serie ?? null,
+    stockaje_minimo: initialData?.stockaje_minimo ?? null,
   });
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
@@ -148,6 +150,8 @@ export function MaterialForm({
       marca_id: initialData.marca_id || undefined,
       foto: null,
       potenciaKW: initialData.potenciaKW ?? undefined,
+      numero_serie: initialData.numero_serie ?? null,
+      stockaje_minimo: initialData.stockaje_minimo ?? null,
     });
     setFotoUrl(initialData.foto || null);
     setFotoPreview(initialData.foto || null);
@@ -375,6 +379,9 @@ export function MaterialForm({
             marca_id: formData.marca_id,
             potenciaKW: formData.potenciaKW,
           }),
+          // Campos opcionales de inventario
+          numero_serie: formData.numero_serie?.trim() || null,
+          stockaje_minimo: formData.stockaje_minimo || null,
           // Campos opcionales para web
           habilitar_venta_web: habilitarVentaWeb,
           precio_por_cantidad:
@@ -403,6 +410,8 @@ export function MaterialForm({
             marca_id: undefined,
             foto: null,
             potenciaKW: undefined,
+            numero_serie: null,
+            stockaje_minimo: null,
           });
           setFotoFile(null);
           setFotoPreview(null);
@@ -1150,6 +1159,76 @@ export function MaterialForm({
                     </div>
                   </DialogContent>
                 </Dialog>
+              </div>
+            </div>
+          </div>
+
+          {/* Campos opcionales de inventario */}
+          <div className="space-y-4 p-4 bg-green-50 rounded-lg border border-green-200">
+            <div className="flex items-center space-x-2">
+              <Package className="h-5 w-5 text-green-600" />
+              <h3 className="text-lg font-semibold text-green-900">
+                Información de Inventario (Opcional)
+              </h3>
+            </div>
+            <p className="text-sm text-green-700">
+              Campos opcionales para gestión de inventario y control de stock.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Número de Serie */}
+              <div>
+                <Label
+                  htmlFor="material-numero-serie"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Número de Serie
+                </Label>
+                <Input
+                  id="material-numero-serie"
+                  value={formData.numero_serie ?? ""}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      numero_serie: e.target.value || null,
+                    })
+                  }
+                  placeholder="Ej: SN-2026-ABC123"
+                  disabled={isSubmitting || uploadingFoto}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Código alfanumérico único del material
+                </p>
+              </div>
+
+              {/* Stockaje Mínimo */}
+              <div>
+                <Label
+                  htmlFor="material-stockaje-minimo"
+                  className="text-sm font-medium text-gray-700 mb-2 block"
+                >
+                  Stockaje Mínimo
+                </Label>
+                <Input
+                  id="material-stockaje-minimo"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.stockaje_minimo ?? ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({
+                      ...formData,
+                      stockaje_minimo:
+                        value === "" ? null : parseInt(value) || 0,
+                    });
+                  }}
+                  placeholder="Ej: 10"
+                  disabled={isSubmitting || uploadingFoto}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Cantidad mínima requerida en almacenes
+                </p>
               </div>
             </div>
           </div>

@@ -81,6 +81,10 @@ export class MaterialService {
           ? raw.ubicacion_en_almacen
           : null,
       comentario: typeof raw?.comentario === "string" ? raw.comentario : null,
+      numero_serie:
+        typeof raw?.numero_serie === "string" ? raw.numero_serie : null,
+      stockaje_minimo:
+        typeof raw?.stockaje_minimo === "number" ? raw.stockaje_minimo : null,
     };
   }
 
@@ -233,6 +237,8 @@ export class MaterialService {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
   ): Promise<boolean> {
     console.log("[MaterialService] Agregando material a producto:", {
@@ -346,6 +352,8 @@ export class MaterialService {
       precio_por_cantidad?: Record<string, number> | null;
       especificaciones?: Record<string, string> | null;
       ficha_tecnica_url?: string | null;
+      numero_serie?: string | null;
+      stockaje_minimo?: number | null;
     },
   ): Promise<boolean> {
     console.log("[MaterialService] Editando material:", {
