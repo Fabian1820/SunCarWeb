@@ -190,70 +190,26 @@ export function useLeads(): UseLeadsReturn {
         const effectiveSearchTerm = (
           overrideFilters?.searchTerm ?? debouncedSearchTerm
         ).trim();
-        const normalizedSearchTerm = normalizeSearchValue(effectiveSearchTerm);
 
-        if (effectiveSearchTerm) {
-          const allBaseLeads = await fetchAllLeadsByBaseFilters({
-            estado: effectiveFilters.estado,
-            fuente: effectiveFilters.fuente,
-            comercial: effectiveFilters.comercial,
-            fechaDesde: effectiveFilters.fechaDesde,
-            fechaHasta: effectiveFilters.fechaHasta,
-          });
+        const { leads: fetchedLeads, total, skip, limit } = await LeadService.getLeads({
+          q: effectiveSearchTerm || undefined,
+          estado: effectiveFilters.estado || undefined,
+          fuente: effectiveFilters.fuente || undefined,
+          comercial: effectiveFilters.comercial || undefined,
+          fechaDesde: effectiveFilters.fechaDesde || undefined,
+          fechaHasta: effectiveFilters.fechaHasta || undefined,
+          skip: effectiveFilters.skip,
+          limit: effectiveFilters.limit,
+        });
 
-          const filteredByGlobalSearch = allBaseLeads.filter((lead) =>
-            buildLeadSearchText(lead).includes(normalizedSearchTerm),
-          );
+        setLeads(fetchedLeads.filter((lead) => !isTemporaryCodegenLead(lead)));
+        setTotalLeads(total);
 
-          const start = Math.max(0, effectiveFilters.skip);
-          const end = start + Math.max(1, effectiveFilters.limit);
-          const paginatedLeads = filteredByGlobalSearch.slice(start, end);
-
-          setLeads(paginatedLeads);
-          setTotalLeads(filteredByGlobalSearch.length);
-
-          if (
-            overrideFilters?.skip !== undefined ||
-            overrideFilters?.limit !== undefined
-          ) {
-            setFiltersState((prev) => ({
-              ...prev,
-              skip: effectiveFilters.skip,
-              limit: effectiveFilters.limit,
-            }));
-          }
-        } else {
-          const {
-            leads: fetchedLeads,
-            total,
-            skip,
-            limit,
-          } = await LeadService.getLeads({
-            estado: effectiveFilters.estado || undefined,
-            fuente: effectiveFilters.fuente || undefined,
-            comercial: effectiveFilters.comercial || undefined,
-            fechaDesde: effectiveFilters.fechaDesde || undefined,
-            fechaHasta: effectiveFilters.fechaHasta || undefined,
-            skip: effectiveFilters.skip,
-            limit: effectiveFilters.limit,
-          });
-          console.log("Backend response for leads:", {
-            fetchedLeads,
-            total,
-            skip,
-            limit,
-          });
-          setLeads(
-            fetchedLeads.filter((lead) => !isTemporaryCodegenLead(lead)),
-          );
-          setTotalLeads(total);
-
-          if (
-            overrideFilters?.skip !== undefined ||
-            overrideFilters?.limit !== undefined
-          ) {
-            setFiltersState((prev) => ({ ...prev, skip, limit }));
-          }
+        if (
+          overrideFilters?.skip !== undefined ||
+          overrideFilters?.limit !== undefined
+        ) {
+          setFiltersState((prev) => ({ ...prev, skip, limit }));
         }
       } catch (err) {
         setError(
@@ -265,13 +221,7 @@ export function useLeads(): UseLeadsReturn {
         setInitialLoading(false);
       }
     },
-    [
-      filters,
-      debouncedSearchTerm,
-      fetchAllLeadsByBaseFilters,
-      buildLeadSearchText,
-      normalizeSearchValue,
-    ],
+    [filters, debouncedSearchTerm],
   );
 
   // Obtener fuentes únicas de los leads existentes
