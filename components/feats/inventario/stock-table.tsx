@@ -315,6 +315,7 @@ export function StockTable({
           </div>
         </DialogContent>
       </Dialog>
+        </>
       </TooltipProvider>
     );
   }
