@@ -917,6 +917,10 @@ export default function MaterialesPage() {
                       materials={filteredMaterials}
                       onEdit={openEditDialog}
                       onDelete={deleteMaterial}
+                      onFichaTecnicaUploaded={(codigo, url) => {
+                        // Actualizar el material en el estado local
+                        refetchBackground();
+                      }}
                       marcas={marcas}
                     />
                   ) : (

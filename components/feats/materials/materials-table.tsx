@@ -1,14 +1,18 @@
 "use client";
 
+import { useState, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
-import { Edit, Trash2, Package, DollarSign, FileText, Download } from "lucide-react";
+import { Edit, Trash2, Package, DollarSign, FileText, Upload, Loader2 } from "lucide-react";
 import type { Material } from "@/lib/material-types";
+import { MaterialService } from "@/lib/api-services";
+import { useToast } from "@/hooks/use-toast";
 
 interface MaterialsTableProps {
   materials: Material[];
   onEdit: (material: Material) => void;
   onDelete: (id: string) => void;
+  onFichaTecnicaUploaded?: (materialCodigo: string, url: string) => void;
   marcas?: any[];
 }
 
@@ -16,8 +20,12 @@ export function MaterialsTable({
   materials,
   onEdit,
   onDelete,
+  onFichaTecnicaUploaded,
   marcas = [],
 }: MaterialsTableProps) {
+  const { toast } = useToast();
+  const [uploadingFicha, setUploadingFicha] = useState<string | null>(null);
+  const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
   // Función para obtener el nombre de la marca por ID
   const getMarcaNombre = (marcaId: string | undefined): string | null => {
     if (!marcaId || marcas.length === 0) return null;
@@ -79,6 +87,92 @@ export function MaterialsTable({
     const index = Math.abs(hash) % colors.length;
 
     return colors[index];
+  };
+
+  // Manejar subida rápida de ficha técnica
+  const handleQuickUploadFicha = async (material: Material, file: File) => {
+    const materialKey = `${material.codigo}_${material.categoria}`;
+    
+    // Validar tipo de archivo
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Error",
+        description: "El archivo debe ser PDF, Word o Excel",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validar tamaño (máximo 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "La ficha técnica no debe superar 10MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploadingFicha(materialKey);
+
+    try {
+      // 1. Subir archivo a S3
+      const fichaTecnicaUrl = await MaterialService.uploadFichaTecnica(file);
+
+      // 2. Actualizar material con la URL
+      if (material.producto_id) {
+        await MaterialService.editMaterialInProduct(
+          material.producto_id,
+          material.codigo,
+          {
+            codigo: material.codigo,
+            descripcion: material.descripcion,
+            um: material.um,
+            precio: material.precio,
+            nombre: material.nombre,
+            foto: material.foto,
+            marca_id: material.marca_id,
+            potenciaKW: material.potenciaKW,
+            ubicacion_en_almacen: material.ubicacion_en_almacen,
+            comentario: material.comentario,
+            habilitar_venta_web: material.habilitar_venta_web,
+            precio_por_cantidad: material.precio_por_cantidad,
+            especificaciones: material.especificaciones,
+            ficha_tecnica_url: fichaTecnicaUrl,
+          }
+        );
+
+        // 3. Notificar al componente padre
+        if (onFichaTecnicaUploaded) {
+          onFichaTecnicaUploaded(material.codigo, fichaTecnicaUrl);
+        }
+
+        toast({
+          title: "Éxito",
+          description: "Ficha técnica adjuntada correctamente",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al subir la ficha técnica",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFicha(null);
+      // Limpiar el input
+      if (fileInputRefs.current[materialKey]) {
+        fileInputRefs.current[materialKey]!.value = '';
+      }
+    }
   };
 
   if (materials.length === 0) {
@@ -241,13 +335,43 @@ export function MaterialsTable({
                     href={material.ficha_tecnica_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-green-300 text-green-700 hover:bg-green-50 transition-colors"
+                    className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-green-400 bg-green-50 text-green-700 hover:bg-green-100 transition-colors shadow-sm"
                     title="Descargar ficha técnica"
                   >
-                    <FileText className="h-3.5 w-3.5" />
+                    <FileText className="h-4 w-4" />
                   </a>
+                ) : uploadingFicha === `${material.codigo}_${material.categoria}` ? (
+                  <div className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-blue-300 bg-blue-50">
+                    <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                  </div>
                 ) : (
-                  <span className="text-sm text-gray-400">-</span>
+                  <>
+                    <input
+                      ref={(el) => {
+                        fileInputRefs.current[`${material.codigo}_${material.categoria}`] = el;
+                      }}
+                      type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleQuickUploadFicha(material, file);
+                        }
+                      }}
+                      className="hidden"
+                      id={`ficha-input-${material.codigo}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById(`ficha-input-${material.codigo}`)?.click();
+                      }}
+                      className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-gray-300 bg-gray-50 text-gray-400 hover:border-purple-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                      title="Adjuntar ficha técnica"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                  </>
                 )}
               </td>
               <td className="py-3 px-2">
