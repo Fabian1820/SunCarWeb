@@ -70,6 +70,7 @@ export interface ValeSalida {
   id: string;
   codigo?: string;
   estado?: "usado" | "anulado" | string;
+  facturado?: boolean;
   recogio_por?: string | null;
   recogido_por?: string | null;
   recibido_por?: string | null;

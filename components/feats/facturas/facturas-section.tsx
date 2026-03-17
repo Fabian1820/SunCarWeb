@@ -9,6 +9,11 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Package,
+  Hand,
+  FileText,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
@@ -39,6 +44,11 @@ import {
   FacturaContabilidadService,
   type FacturaContabilidadReporteMensualItem,
 } from "@/lib/services/feats/facturas/factura-contabilidad-service";
+import { SeleccionarValesSalidaDialog } from "./seleccionar-vales-salida-dialog";
+import type { ValeSalida } from "@/lib/api-types";
+import { ValeSalidaService } from "@/lib/services/feats/vales-salida/vale-salida-service";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
+import { Label } from "@/components/shared/atom/label";
 
 const parseNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -134,6 +144,11 @@ export function FacturasSection() {
   const [facturaDetails, setFacturaDetails] = useState<Factura | null>(null);
   const [valesListDialogOpen, setValesListDialogOpen] = useState(false);
   const [valeDialogOpen, setValeDialogOpen] = useState(false);
+  const [modoManual, setModoManual] = useState(true); // true = manual, false = desde vales de salida
+  const [valesDisponibles, setValesDisponibles] = useState<ValeSalida[]>([]);
+  const [valesSeleccionados, setValesSeleccionados] = useState<Set<string>>(new Set());
+  const [valesExpandidos, setValesExpandidos] = useState<Set<string>>(new Set());
+  const [loadingValesSalida, setLoadingValesSalida] = useState(false);
   const [facturaForVale, setFacturaForVale] = useState<Factura | null>(null);
   const [valeToEdit, setValeToEdit] = useState<{ valeId: string } | null>(null);
   const [savingVale, setSavingVale] = useState(false);
@@ -264,6 +279,9 @@ export function FacturasSection() {
   const handleAddValeClick = (factura: Factura) => {
     setFacturaForVale(factura);
     setValeToEdit(null);
+    setModoManual(true);
+    setValesDisponibles([]);
+    setValesSeleccionados(new Set());
     setValeDraft({
       fecha: "",
       items: [],
@@ -310,6 +328,10 @@ export function FacturasSection() {
   const resetValeDialogState = () => {
     setFacturaForVale(null);
     setValeToEdit(null);
+    setModoManual(true);
+    setValesDisponibles([]);
+    setValesSeleccionados(new Set());
+    setValesExpandidos(new Set());
     setValeDraft({
       fecha: "",
       items: [],
@@ -361,6 +383,131 @@ export function FacturasSection() {
     } finally {
       setSavingVale(false);
     }
+  };
+
+  const handleValesSalidaSeleccionados = async (vales: ValeSalida[]) => {
+    if (!facturaForVale?.id) return;
+
+    setSavingVale(true);
+    try {
+      // Convertir cada vale de salida al formato de Vale de factura
+      for (const valeSalida of vales) {
+        const valeParaFactura: Vale = {
+          id: valeSalida.id, // Usar el ID del vale de salida como ID del vale
+          fecha: valeSalida.fecha_creacion || new Date().toISOString(),
+          items: valeSalida.materiales.map((material) => ({
+            material_id: material.material_id,
+            codigo: material.material_codigo || material.codigo || "",
+            descripcion: material.material_descripcion || material.descripcion || "",
+            precio: material.material?.precio || 0,
+            cantidad: material.cantidad,
+          })),
+        };
+
+        await agregarVale(facturaForVale.id, valeParaFactura);
+      }
+
+      toast({
+        title: "Vales agregados",
+        description: `Se agregaron ${vales.length} vale(s) a la factura correctamente.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error agregando vales",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron agregar los vales.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingVale(false);
+    }
+  };
+
+  const cargarValesDisponibles = async () => {
+    if (!facturaForVale?.cliente_id) return;
+
+    setLoadingValesSalida(true);
+    try {
+      // Obtener vales de salida con filtros optimizados
+      const vales = await ValeSalidaService.getVales({
+        estado: "usado", // Solo vales usados
+        // El backend debería filtrar por facturado=false, pero lo hacemos aquí también
+      });
+
+      // Filtrar vales que cumplan todos los criterios:
+      // 1. Pertenecen al cliente (comparar por numero de cliente)
+      // 2. Campo facturado = false
+      // 3. No están anulados (ya filtrado por estado="usado")
+      const valesFiltrados = vales.filter((vale) => {
+        // Verificar que no esté ya facturado
+        if (vale.facturado === true) return false;
+
+        // Obtener la solicitud
+        const solicitud = vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
+        if (!solicitud) return false;
+
+        // Verificar que pertenezca al cliente (comparar por numero)
+        const cliente = solicitud.cliente || solicitud.cliente_venta;
+        if (!cliente) return false;
+
+        // Comparar por numero de cliente
+        const numeroCliente = cliente.numero || cliente.id;
+        if (numeroCliente !== facturaForVale.cliente_id) return false;
+
+        return true;
+      });
+
+      setValesDisponibles(valesFiltrados);
+
+      if (valesFiltrados.length === 0) {
+        toast({
+          title: "Sin vales disponibles",
+          description: "No hay vales de salida disponibles para este cliente.",
+          variant: "default",
+        });
+      }
+    } catch (error) {
+      console.error("Error cargando vales disponibles:", error);
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar los vales disponibles.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingValesSalida(false);
+    }
+  };
+
+  const toggleVale = (valeId: string) => {
+    const newSet = new Set(valesSeleccionados);
+    if (newSet.has(valeId)) {
+      newSet.delete(valeId);
+    } else {
+      newSet.add(valeId);
+    }
+    setValesSeleccionados(newSet);
+  };
+
+  const toggleExpandirVale = (valeId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newSet = new Set(valesExpandidos);
+    if (newSet.has(valeId)) {
+      newSet.delete(valeId);
+    } else {
+      newSet.add(valeId);
+    }
+    setValesExpandidos(newSet);
+  };
+
+  const handleAgregarValesSeleccionados = async () => {
+    const vales = valesDisponibles.filter((vale) =>
+      valesSeleccionados.has(vale.id)
+    );
+    await handleValesSalidaSeleccionados(vales);
+    setValeDialogOpen(false);
+    resetValeDialogState();
   };
 
   const confirmDelete = async () => {
@@ -922,29 +1069,261 @@ export function FacturasSection() {
 
       {/* Dialogo para agregar vale a factura existente */}
       <Dialog open={valeDialogOpen} onOpenChange={handleValeDialogOpenChange}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {valeToEdit ? "Editar Vale" : "Agregar Vale"}
             </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+
+          <div className="flex-1 overflow-y-auto space-y-4">
             <p className="text-sm text-gray-600">
               Factura:{" "}
               <span className="font-semibold">
                 {facturaForVale?.numero_factura || "Sin número"}
               </span>
             </p>
-            <ValeForm
-              vale={valeDraft}
-              index={0}
-              materiales={materials}
-              onChange={(_, vale) => setValeDraft(vale)}
-              onRemove={() => setValeDraft(valeDraft)}
-              canRemove={false}
-              tipoFactura={facturaForVale?.tipo}
-            />
-            <div className="flex justify-end gap-2">
+
+            {/* Selector Manual / Desde Vales de Salida */}
+            {!valeToEdit && facturaForVale?.cliente_id && (
+              <div>
+                <Label className="text-sm font-medium text-gray-700 block">
+                  Forma de agregar vale
+                </Label>
+                <p className="text-xs text-gray-600 mt-1 mb-3">
+                  Selecciona cómo deseas agregar el vale a la factura.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setModoManual(true)}
+                    className={`rounded-md border p-3 text-left transition-colors ${
+                      modoManual
+                        ? "border-amber-500 bg-amber-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                      <Hand className="h-4 w-4" />
+                      Manual
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Crea un vale agregando materiales manualmente.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoManual(false);
+                      cargarValesDisponibles();
+                    }}
+                    className={`rounded-md border p-3 text-left transition-colors ${
+                      !modoManual
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-900">
+                      <FileText className="h-4 w-4" />
+                      Desde Vales de Salida
+                    </div>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Selecciona vales de salida existentes del cliente.
+                    </p>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Contenido según modo */}
+            {modoManual ? (
+              <ValeForm
+                vale={valeDraft}
+                index={0}
+                materiales={materials}
+                onChange={(_, vale) => setValeDraft(vale)}
+                onRemove={() => setValeDraft(valeDraft)}
+                canRemove={false}
+                tipoFactura={facturaForVale?.tipo}
+              />
+            ) : (
+              <div className="space-y-3">
+                {loadingValesSalida ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                  </div>
+                ) : valesDisponibles.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <Package className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                    <p className="text-gray-600 font-medium">
+                      No hay vales disponibles
+                    </p>
+                    <p className="text-sm text-gray-500 mt-1">
+                      No se encontraron vales de salida para este cliente.
+                    </p>
+                  </div>
+                ) : (
+                  valesDisponibles.map((vale) => {
+                    const total = vale.materiales.reduce((sum, material) => {
+                      const precio = material.material?.precio || 0;
+                      const cantidad = material.cantidad || 0;
+                      return sum + precio * cantidad;
+                    }, 0);
+                    const isSelected = valesSeleccionados.has(vale.id);
+                    const isExpanded = valesExpandidos.has(vale.id);
+
+                    return (
+                      <div
+                        key={vale.id}
+                        className={`border rounded-lg transition-all ${
+                          isSelected
+                            ? "border-orange-500 bg-orange-50"
+                            : "border-gray-200 hover:border-orange-300"
+                        }`}
+                      >
+                        <div
+                          className="p-4 cursor-pointer"
+                          onClick={() => toggleVale(vale.id)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleVale(vale.id)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 space-y-2">
+                              {/* Header */}
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-lg">
+                                    Vale {vale.codigo || vale.id.slice(0, 8)}
+                                  </span>
+                                </div>
+                                <span className="font-bold text-orange-600">
+                                  {formatCurrency(total)}
+                                </span>
+                              </div>
+
+                              {/* Info */}
+                              <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
+                                {vale.fecha_creacion && (
+                                  <div>
+                                    Fecha:{" "}
+                                    {new Date(
+                                      vale.fecha_creacion
+                                    ).toLocaleDateString("es-ES")}
+                                  </div>
+                                )}
+                                {vale.recogido_por && (
+                                  <div>Recogido: {vale.recogido_por}</div>
+                                )}
+                              </div>
+
+                              {/* Materiales preview */}
+                              <div className="space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs text-gray-500">
+                                    Materiales ({vale.materiales.length})
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => toggleExpandirVale(vale.id, e)}
+                                    className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                                  >
+                                    {isExpanded ? (
+                                      <>
+                                        <ChevronUp className="h-3 w-3" />
+                                        Ocultar
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronDown className="h-3 w-3" />
+                                        Ver todos
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+
+                                {!isExpanded ? (
+                                  <div className="space-y-1">
+                                    {vale.materiales.slice(0, 2).map((material, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="text-sm text-gray-700 flex justify-between"
+                                      >
+                                        <span>
+                                          {material.material_codigo || material.codigo} -{" "}
+                                          {material.material_descripcion ||
+                                            material.descripcion}
+                                        </span>
+                                        <span className="text-gray-500">
+                                          x{material.cantidad}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {vale.materiales.length > 2 && (
+                                      <p className="text-xs text-gray-500">
+                                        +{vale.materiales.length - 2} más...
+                                      </p>
+                                    )}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Lista expandida de materiales */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-200 bg-gray-50 p-4">
+                            <div className="space-y-2">
+                              {vale.materiales.map((material, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-start text-sm bg-white p-2 rounded border border-gray-200"
+                                >
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900">
+                                      {material.material_codigo || material.codigo}
+                                    </p>
+                                    <p className="text-gray-600 text-xs">
+                                      {material.material_descripcion ||
+                                        material.descripcion}
+                                    </p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-gray-900">
+                                      x{material.cantidad}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {formatCurrency(
+                                        (material.material?.precio || 0) *
+                                          material.cantidad
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-between items-center gap-2 border-t pt-4">
+            {!modoManual && valesSeleccionados.size > 0 && (
+              <div className="text-sm text-gray-600">
+                <span className="font-medium">
+                  {valesSeleccionados.size} vale(s) seleccionado(s)
+                </span>
+              </div>
+            )}
+            <div className="flex gap-2 ml-auto">
               <Button
                 variant="outline"
                 onClick={() => handleValeDialogOpenChange(false)}
@@ -952,27 +1331,44 @@ export function FacturasSection() {
               >
                 Cancelar
               </Button>
-              <Button
-                onClick={handleSaveVale}
-                className="bg-orange-600 hover:bg-orange-700"
-                disabled={
-                  savingVale ||
-                  loadingMaterials ||
-                  valeDraft.items.length === 0 ||
-                  !valeDraft.fecha
-                }
-              >
-                {savingVale ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando...
-                  </>
-                ) : valeToEdit ? (
-                  "Actualizar Vale"
-                ) : (
-                  "Guardar Vale"
-                )}
-              </Button>
+              {modoManual ? (
+                <Button
+                  onClick={handleSaveVale}
+                  className="bg-orange-600 hover:bg-orange-700"
+                  disabled={
+                    savingVale ||
+                    loadingMaterials ||
+                    valeDraft.items.length === 0 ||
+                    !valeDraft.fecha
+                  }
+                >
+                  {savingVale ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : valeToEdit ? (
+                    "Actualizar Vale"
+                  ) : (
+                    "Guardar Vale"
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleAgregarValesSeleccionados}
+                  className="bg-orange-600 hover:bg-orange-700"
+                  disabled={savingVale || valesSeleccionados.size === 0}
+                >
+                  {savingVale ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Guardando...
+                    </>
+                  ) : (
+                    `Agregar (${valesSeleccionados.size})`
+                  )}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>

@@ -14,7 +14,7 @@ export interface ItemVale {
 }
 
 export interface Vale {
-    id?: string;
+    id?: string; // ID del vale (puede ser el ID del vale de salida si proviene de uno)
     fecha: string; // ISO date string
     items: ItemVale[];
     total?: number;
