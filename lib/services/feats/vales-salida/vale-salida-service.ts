@@ -125,6 +125,36 @@ export class ValeSalidaService {
     return (raw?.data ?? raw) as ValeSalida;
   }
 
+  /**
+   * Get vales de salida by cliente venta ID
+   * GET /api/operaciones/vales-salida/por-cliente-venta/{cliente_venta_id}
+   */
+  static async getValesPorClienteVenta(
+    clienteVentaId: string,
+    params: {
+      estado?: "usado" | "anulado" | string;
+      skip?: number;
+      limit?: number;
+    } = {},
+  ): Promise<ValeSalida[]> {
+    const search = new URLSearchParams();
+    if (params.estado) search.append("estado", params.estado);
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+
+    const query = search.toString() ? `?${search.toString()}` : "";
+    const encodedClienteId = encodeURIComponent(clienteVentaId);
+    const endpoint = `${BASE_ENDPOINT}/por-cliente-venta/${encodedClienteId}${query}`;
+
+    const raw = await apiRequest<any>(endpoint);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = raw?.data ?? raw;
+    if (Array.isArray(payload)) return payload;
+    return payload?.vales || payload?.data || [];
+  }
+
   static async getSolicitudesPorAlmacen(
     almacenId: string,
     params: {

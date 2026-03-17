@@ -5,7 +5,7 @@ import { Button } from "@/components/shared/atom/button";
 import { ChevronDown, ChevronRight, Pencil, Trash2, UserRound } from "lucide-react";
 import type { ClienteVenta } from "@/lib/api-types";
 import { useState } from "react";
-import { ClienteSolicitudesRow } from "./cliente-solicitudes-row";
+import { ClienteValesRow } from "./cliente-vales-row";
 
 interface ClientesVentasTableProps {
   clientes: ClienteVenta[];
@@ -87,7 +87,7 @@ export function ClientesVentasTable({
                       size="sm"
                       onClick={() => toggleRow(cliente.id)}
                       className="p-1 h-8 w-8"
-                      title="Ver solicitudes de venta"
+                      title="Ver vales de salida"
                     >
                       {isExpanded ? (
                         <ChevronDown className="h-4 w-4" />
@@ -141,7 +141,7 @@ export function ClientesVentasTable({
                     </div>
                   </td>
                 </tr>
-                {isExpanded && <ClienteSolicitudesRow clienteVentaId={cliente.id} />}
+                {isExpanded && <ClienteValesRow clienteVentaId={cliente.id} />}
               </>
             );
           })}

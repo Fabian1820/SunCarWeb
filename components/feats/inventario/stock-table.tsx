@@ -4,6 +4,12 @@ import { Button } from "@/components/shared/atom/button";
 import { Package, Pencil } from "lucide-react";
 import type { StockItem } from "@/lib/inventario-types";
 import type { Material } from "@/lib/material-types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/shared/molecule/tooltip";
 
 interface MarcaItem {
   id: string;
@@ -55,8 +61,9 @@ export function StockTable({
 
   if (detailed) {
     return (
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed">
+      <TooltipProvider>
+        <div className="overflow-x-auto">
+          <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[80px]">
@@ -126,9 +133,16 @@ export function StockTable({
                     )}
                   </td>
                   <td className="py-3 px-2">
-                    <div className="text-sm font-medium text-gray-900 truncate">
-                      {nombreMaterial}
-                    </div>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="text-sm font-medium text-gray-900 truncate cursor-help">
+                          {nombreMaterial}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">{nombreMaterial}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   <td className="py-3 px-2">
                     <div className="text-sm font-semibold text-gray-900">
@@ -175,6 +189,7 @@ export function StockTable({
           </tbody>
         </table>
       </div>
+      </TooltipProvider>
     );
   }
 

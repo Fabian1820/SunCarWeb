@@ -109,6 +109,9 @@ export function MaterialsTable({
             <th className="text-left py-3 px-2 font-semibold text-gray-900">
               Nombre
             </th>
+            <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[60px]">
+              UM
+            </th>
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
               Marca
             </th>
@@ -179,6 +182,11 @@ export function MaterialsTable({
                 ) : (
                   <span className="text-sm text-gray-400">-</span>
                 )}
+              </td>
+              <td className="py-3 px-2">
+                <span className="text-xs text-gray-600 font-medium">
+                  {material.um || "-"}
+                </span>
               </td>
               <td className="py-3 px-2">
                 {material.marca_id ? (
