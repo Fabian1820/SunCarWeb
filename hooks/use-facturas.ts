@@ -93,11 +93,11 @@ export function useFacturas() {
     }, [filters, token])
 
     /**
-     * Recargar datos (facturas consolidadas solamente)
+     * Recargar datos (facturas normales y consolidadas)
      */
     const recargar = useCallback(async () => {
-        await cargarFacturasConsolidadas()
-    }, [cargarFacturasConsolidadas])
+        await Promise.all([cargarFacturas(), cargarFacturasConsolidadas()])
+    }, [cargarFacturas, cargarFacturasConsolidadas])
 
     // Configurar token y cargar datos cuando esté disponible
     useEffect(() => {

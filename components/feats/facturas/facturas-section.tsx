@@ -429,26 +429,32 @@ export function FacturasSection() {
     if (filters.fecha_vale) {
       resultado = resultado.filter((factura) => {
         if (!factura.fecha) return false;
-        // Comparar solo la fecha (sin hora)
-        const facturaFecha = factura.fecha.split('T')[0] || factura.fecha;
+        // Comparar solo la fecha (sin hora) - formato DD/MM/YYYY del backend
+        const [dia, mes, anio] = factura.fecha.split('/');
+        const facturaFecha = `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
         return facturaFecha === filters.fecha_vale;
       });
     } else {
-      // Filtro por mes
+      // Filtro por mes (usando el campo 'mes' que viene del backend)
       if (filters.mes_vale) {
         resultado = resultado.filter((factura) => {
-          if (!factura.fecha) return false;
-          const fecha = new Date(factura.fecha);
-          return fecha.getMonth() + 1 === filters.mes_vale;
+          if (!factura.mes) return false;
+          const mesesMap: { [key: string]: number } = {
+            'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
+            'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
+            'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+          };
+          const mesFactura = mesesMap[factura.mes.toLowerCase()];
+          return mesFactura === filters.mes_vale;
         });
       }
 
-      // Filtro por año
+      // Filtro por año (extraer del campo 'fecha' DD/MM/YYYY)
       if (filters.anio_vale) {
         resultado = resultado.filter((factura) => {
           if (!factura.fecha) return false;
-          const fecha = new Date(factura.fecha);
-          return fecha.getFullYear() === filters.anio_vale;
+          const [, , anio] = factura.fecha.split('/');
+          return parseInt(anio) === filters.anio_vale;
         });
       }
     }
