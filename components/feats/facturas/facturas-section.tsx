@@ -462,6 +462,11 @@ export function FacturasSection() {
     return resultado;
   }, [facturasConsolidadas, filters]);
 
+  // Calcular total facturado de las facturas filtradas
+  const totalFacturado = useMemo(() => {
+    return facturasFiltradas.reduce((sum, factura) => sum + factura.total_factura, 0);
+  }, [facturasFiltradas]);
+
   const handleExportFacturasExcel = async () => {
     if (facturasFiltradas.length === 0) {
       toast({
@@ -474,101 +479,56 @@ export function FacturasSection() {
 
     setExportingExcel(true);
     try {
-      const mesesAnios = new Map<string, { mes: number; anio: number }>();
-      facturasFiltradas.forEach((factura) => {
-        const mesAnio = getMesAnioFactura(factura);
-        if (!mesAnio) return;
-        mesesAnios.set(`${mesAnio.anio}-${mesAnio.mes}`, mesAnio);
-      });
-
-      if (mesesAnios.size === 0) {
-        const today = new Date();
-        mesesAnios.set(`${today.getFullYear()}-${today.getMonth() + 1}`, {
-          mes: today.getMonth() + 1,
-          anio: today.getFullYear(),
-        });
-      }
-
-      const reportesMensuales = await Promise.all(
-        Array.from(mesesAnios.values()).map(async ({ mes, anio }) => {
-          try {
-            return await FacturaContabilidadService.obtenerReporteMensual({
-              mes,
-              anio,
-            });
-          } catch (error) {
-            console.error(
-              `No se pudo obtener reporte mensual de facturas para ${mes}/${anio}:`,
-              error,
-            );
-            return { facturas: [] };
-          }
-        }),
-      );
-
-      const reportePorNumeroFactura = new Map<
-        string,
-        FacturaContabilidadReporteMensualItem
-      >();
-      reportesMensuales.forEach((reporte) => {
-        (reporte.facturas || []).forEach((item) => {
-          const numeroFactura = String(item.numero_factura || "").trim();
-          if (!numeroFactura) return;
-          reportePorNumeroFactura.set(numeroFactura, item);
-        });
-      });
-
       const data = facturasFiltradas.map((factura) => {
-        const numeroFactura = String(factura.numero_factura || "").trim();
-        const reporte = numeroFactura
-          ? reportePorNumeroFactura.get(numeroFactura)
-          : undefined;
-
-        const totalMateriales =
-          parseNullableNumber(reporte?.total_facturado_materiales) ??
-          calcularTotalMaterialesFactura(factura);
-        const precioFinal = parseNullableNumber(reporte?.precio_final_oferta);
-        const gananciaReporte = parseNullableNumber(reporte?.ganancia);
-        const ganancia =
-          gananciaReporte !== null
-            ? gananciaReporte
-            : precioFinal !== null
-              ? precioFinal - totalMateriales
-              : null;
+        const totalPrecioFinal = factura.ofertas.reduce((sum, oferta) => sum + oferta.precio_final, 0);
+        const gananciaTotal = factura.ofertas.length > 0 ? totalPrecioFinal - factura.total_factura : 0;
+        
+        // Determinar el tipo/subtipo para mostrar cuando no hay cliente
+        let clienteDisplay = factura.cliente_nombre || '';
+        if (!clienteDisplay) {
+          if (factura.tipo === 'cliente_directo') {
+            clienteDisplay = 'Cliente Directo';
+          } else if (factura.subtipo === 'brigada') {
+            clienteDisplay = 'Brigada';
+          } else {
+            clienteDisplay = 'Sin cliente';
+          }
+        }
 
         return {
-          nombre_cliente:
-            String(reporte?.cliente || "").trim() ||
-            factura.nombre_cliente ||
-            "Sin nombre",
-          numero_factura: factura.numero_factura || "",
-          fecha: formatDateForExcel(
-            reporte?.fecha_emision || factura.fecha_creacion,
-          ),
-          total_materiales: totalMateriales,
-          precio_final: precioFinal ?? "",
-          ganancia: ganancia ?? "",
+          numero_factura: factura.numero_factura,
+          mes: factura.mes || 'N/A',
+          fecha: factura.fecha || 'N/A',
+          cliente: clienteDisplay,
+          total_materiales: factura.total_factura,
+          monto_cobrado: factura.total_cobrado_todas_ofertas,
+          monto_pendiente: factura.monto_pendiente_materiales,
+          precio_final_oferta: factura.ofertas.length > 0 ? totalPrecioFinal : 0,
+          ganancia_actual: factura.ofertas.length > 0 ? gananciaTotal : 0,
         };
       });
 
       await exportToExcel({
-        title: "Suncar SRL - Facturas de Instaladora",
-        subtitle: `Registros exportados: ${data.length} (según filtros aplicados)`,
+        title: "Suncar SRL - Vales y Facturas de Instaladora",
+        subtitle: `Registros exportados: ${data.length} facturas${Object.keys(filters).length > 0 ? ' (filtradas)' : ''}`,
         filename: generateFilename("facturas_instaladora"),
         columns: [
-          { header: "Nombre cliente", key: "nombre_cliente", width: 28 },
-          { header: "Número de factura", key: "numero_factura", width: 20 },
+          { header: "Número Factura", key: "numero_factura", width: 18 },
+          { header: "Mes", key: "mes", width: 12 },
           { header: "Fecha", key: "fecha", width: 14 },
-          { header: "Total de Materiales", key: "total_materiales", width: 20 },
-          { header: "Precio Final", key: "precio_final", width: 16 },
-          { header: "Ganancia", key: "ganancia", width: 14 },
+          { header: "Cliente", key: "cliente", width: 30 },
+          { header: "Total Materiales Facturados", key: "total_materiales", width: 22 },
+          { header: "Monto Cobrado", key: "monto_cobrado", width: 18 },
+          { header: "Monto Pendiente Materiales", key: "monto_pendiente", width: 22 },
+          { header: "Precio Final Oferta", key: "precio_final_oferta", width: 20 },
+          { header: "Ganancia Actual", key: "ganancia_actual", width: 18 },
         ],
         data,
       });
 
       toast({
         title: "Exportación completada",
-        description: "Se generó el Excel con las facturas filtradas.",
+        description: `Se exportaron ${data.length} facturas a Excel.`,
       });
     } catch (error) {
       console.error("Error exportando facturas a Excel:", error);
@@ -623,7 +583,7 @@ export function FacturasSection() {
             </div>
             <div className="flex flex-wrap items-center gap-3 justify-end">
               <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
-                Total facturado: {formatCurrency(stats?.total_facturado || 0)}
+                Total facturado: {formatCurrency(totalFacturado)}
               </div>
               <Button
                 onClick={handleExportFacturasExcel}

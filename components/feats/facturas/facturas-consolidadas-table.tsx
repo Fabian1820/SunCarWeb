@@ -130,7 +130,6 @@ export function FacturasConsolidadasTable({
                                     <TableHead className="text-right">Monto Pendiente Materiales</TableHead>
                                     <TableHead className="text-right">Precio Final Oferta</TableHead>
                                     <TableHead className="text-right">Ganancia Actual</TableHead>
-                                    <TableHead className="text-center">Estado</TableHead>
                                     <TableHead className="text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -202,11 +201,6 @@ export function FacturasConsolidadasTable({
                                                 </TableCell>
                                                 <TableCell className={`text-right font-semibold ${gananciaTotal !== 0 ? 'text-blue-600' : 'text-gray-600'}`}>
                                                     {hasOfertas ? formatCurrency(gananciaTotal) : '-'}
-                                                </TableCell>
-                                                <TableCell className="text-center">
-                                                    <div className="flex justify-center">
-                                                        <EstadoBadge pagada={factura.pagada} terminada={factura.terminada} />
-                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex justify-end gap-2">
