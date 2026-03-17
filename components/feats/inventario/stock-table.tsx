@@ -135,8 +135,11 @@ export function StockTable({
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[150px]">
                 Cantidad en stock
               </th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">
+                Ubicación
+              </th>
               {(onEditStock || onUpdateUbicacion) ? (
-                <th className="text-right py-3 px-2 font-semibold text-gray-900 w-[130px]">
+                <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[80px]">
                   Acciones
                 </th>
               ) : null}
@@ -218,19 +221,30 @@ export function StockTable({
                       {item.um ? ` ${item.um}` : ""}
                     </span>
                   </td>
+                  <td className="py-3 px-2">
+                    <span className="text-sm text-gray-700">
+                      {item.ubicacion_en_almacen || "-"}
+                    </span>
+                  </td>
                   {(onEditStock || onUpdateUbicacion) ? (
-                    <td className="py-3 px-2 text-right">
+                    <td className="py-3 px-2 text-center">
                       {onUpdateUbicacion ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenUbicacionDialog(item)}
-                          title="Editar ubicación"
-                        >
-                          <MapPin className="h-4 w-4 mr-2" />
-                          Ubicación
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenUbicacionDialog(item)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <MapPin className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Editar ubicación</p>
+                          </TooltipContent>
+                        </Tooltip>
                       ) : onEditStock ? (
                         <Button
                           type="button"
