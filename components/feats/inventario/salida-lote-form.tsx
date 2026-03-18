@@ -697,7 +697,7 @@ export function SalidaLoteForm({
                         />
                       </td>
                     ) : null}
-                    <td className="py-2 px-3 text-sm text-gray-700 w-[140px]">
+                    <td className="py-2 px-3 text-sm text-gray-700 min-w-[100px]">
                       <Input
                         ref={(element) => {
                           cantidadRefs.current[item.material_codigo] = element;
@@ -712,6 +712,7 @@ export function SalidaLoteForm({
                             event.target.value,
                           )
                         }
+                        className="w-full"
                       />
                     </td>
                     {tipo === "entrada" ? (

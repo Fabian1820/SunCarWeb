@@ -50,7 +50,10 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
 export function buildApiUrl(endpoint: string): string {
   const backendUrlRaw =
     process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
-  const backendUrl = backendUrlRaw.trim();
+  const backendUrl = backendUrlRaw
+    .trim()
+    .replace(/^['"]+/, "")
+    .replace(/['"]+$/, "");
 
   let normalized = backendUrl;
   if (!/^https?:\/\//i.test(normalized)) {

@@ -23,7 +23,7 @@ import { Loader2, MapPin } from "lucide-react";
 import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector";
 import type { ClienteCreateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
-import { apiRequest } from "@/lib/api-config";
+import { API_BASE_URL, apiRequest } from "@/lib/api-config";
 import MapPicker from "@/components/shared/organism/MapPickerNoSSR";
 
 interface Provincia {
@@ -805,10 +805,7 @@ export function CreateClientDialog({
       // Obtener token de autenticación
       const authToken = localStorage.getItem("auth_token") || "";
 
-      // Usar fetch directamente para tener más control sobre la URL
-      const API_BASE_URL =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
-      const url = `${API_BASE_URL}/api/phone/country?phone_number=${encodeURIComponent(cleanedNumber)}`;
+      const url = `${API_BASE_URL}/phone/country?phone_number=${encodeURIComponent(cleanedNumber)}`;
 
       console.log("📡 URL completa:", url);
 

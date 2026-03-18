@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/shared/molecule/textarea"
 import { Loader2 } from "lucide-react"
 import { PagoService } from "@/lib/services/feats/pagos/pago-service"
+import { API_BASE_URL } from "@/lib/api-config"
 
 interface EditarPagoDialogProps {
     open: boolean
@@ -146,7 +147,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
             const formDataUpload = new FormData()
             formDataUpload.append('archivo', file)
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.suncarsrl.com'}/api/pagos/upload-comprobante`, {
+            const response = await fetch(`${API_BASE_URL}/pagos/upload-comprobante`, {
                 method: 'POST',
                 body: formDataUpload,
                 headers: {

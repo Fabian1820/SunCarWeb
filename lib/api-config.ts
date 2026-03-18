@@ -1,12 +1,16 @@
-﻿// ConfiguraciÃ³n de la API
+// ConfiguraciÃ³n de la API
 // FunciÃ³n para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
   const PROD_BACKEND_FALLBACK = "https://api.suncarsrl.com";
   const backendUrlEnvRaw =
     process.env.NEXT_PUBLIC_BACKEND_URL || PROD_BACKEND_FALLBACK;
-  const backendUrlEnv = backendUrlEnvRaw.trim();
+  // Sanitiza comillas accidentales en variables de entorno, ej: "https://api..."
+  const backendUrlEnv = backendUrlEnvRaw
+    .trim()
+    .replace(/^['"]+/, "")
+    .replace(/['"]+$/, "");
 
-  let normalized = backendUrlEnv;
+  let normalized = backendUrlEnv || PROD_BACKEND_FALLBACK;
   if (!/^https?:\/\//i.test(normalized)) {
     normalized = `https://${normalized}`;
   }

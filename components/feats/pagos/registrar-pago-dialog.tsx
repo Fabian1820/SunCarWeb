@@ -10,6 +10,7 @@ import { Textarea } from "@/components/shared/molecule/textarea"
 import { Loader2 } from "lucide-react"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { PagoService, type PagoCreateData } from "@/lib/services/feats/pagos/pago-service"
+import { API_BASE_URL } from "@/lib/api-config"
 
 interface RegistrarPagoDialogProps {
     open: boolean
@@ -187,7 +188,7 @@ export function RegistrarPagoDialog({
             const formData = new FormData()
             formData.append('archivo', file)
 
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://api.suncarsrl.com'}/api/pagos/upload-comprobante`, {
+            const response = await fetch(`${API_BASE_URL}/pagos/upload-comprobante`, {
                 method: 'POST',
                 body: formData,
                 headers: {

@@ -5,6 +5,7 @@ import type { Sede, SedeUpsertRequest } from "../../../types/feats/sedes/sede-ty
 import { ensureValidObjectId } from "../../../utils/object-id";
 
 const BASE_ENDPOINT = "/sedes";
+const COLLECTION_ENDPOINT = "/sedes/";
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -63,7 +64,9 @@ export class SedeService {
     const query =
       typeof activo === "boolean" ? `?activo=${activo ? "true" : "false"}` : "";
 
-    const raw = await apiRequest<any>(`${BASE_ENDPOINT}${query}`);
+    // Evita redirect automático (307) de FastAPI de /sedes a /sedes/, que en
+    // despliegues detrás de proxy puede devolver Location en http.
+    const raw = await apiRequest<any>(`${COLLECTION_ENDPOINT}${query}`);
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
@@ -109,7 +112,7 @@ export class SedeService {
       );
     }
 
-    const raw = await apiRequest<any>(BASE_ENDPOINT, {
+    const raw = await apiRequest<any>(COLLECTION_ENDPOINT, {
       method: "POST",
       body: JSON.stringify(normalized),
     });

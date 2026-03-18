@@ -8,6 +8,7 @@ import type {
 import { ensureValidObjectId } from "../../../utils/object-id";
 
 const BASE_ENDPOINT = "/departamentos";
+const COLLECTION_ENDPOINT = "/departamentos/";
 
 const extractApiError = (response: any): string | null => {
   if (!response) return null;
@@ -51,7 +52,9 @@ export class DepartamentoService {
     const query =
       typeof activo === "boolean" ? `?activo=${activo ? "true" : "false"}` : "";
 
-    const raw = await apiRequest<any>(`${BASE_ENDPOINT}${query}`);
+    // Evita redirect automático (307) de FastAPI de /departamentos a
+    // /departamentos/, que detrás de proxy puede publicar Location en http.
+    const raw = await apiRequest<any>(`${COLLECTION_ENDPOINT}${query}`);
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
@@ -94,7 +97,7 @@ export class DepartamentoService {
       throw new Error("El nombre del departamento es obligatorio.");
     }
 
-    const raw = await apiRequest<any>(BASE_ENDPOINT, {
+    const raw = await apiRequest<any>(COLLECTION_ENDPOINT, {
       method: "POST",
       body: JSON.stringify(normalized),
     });

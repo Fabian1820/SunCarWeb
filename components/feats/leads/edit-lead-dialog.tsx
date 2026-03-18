@@ -23,7 +23,7 @@ import { Loader2 } from "lucide-react";
 import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector";
 import type { Lead, LeadUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
-import { apiRequest } from "@/lib/api-config";
+import { API_BASE_URL, apiRequest } from "@/lib/api-config";
 
 interface Provincia {
   codigo: string;
@@ -513,9 +513,7 @@ export function EditLeadDialog({
     try {
       const cleanedNumber = phoneNumber.replace(/[^\d+]/g, "");
       const authToken = localStorage.getItem("auth_token") || "";
-      const API_BASE_URL =
-        process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
-      const url = `${API_BASE_URL}/api/phone/country?phone_number=${encodeURIComponent(cleanedNumber)}`;
+      const url = `${API_BASE_URL}/phone/country?phone_number=${encodeURIComponent(cleanedNumber)}`;
 
       const response = await fetch(url, {
         method: "GET",
