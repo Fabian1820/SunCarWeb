@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Input } from "@/components/shared/molecule/input"
 import { Badge } from "@/components/shared/atom/badge"
+import { Button } from "@/components/shared/atom/button"
 import {
   Calculator,
   Package,
@@ -17,9 +18,13 @@ import {
   X,
   ShoppingCart,
   Receipt,
+  Download,
+  Loader2,
 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -146,6 +151,7 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
   const [totalManual, setTotalManual] = useState("")
   const [costos, setCostos] = useState<CostoItem[]>([{ id: uid(), nombre: "", valor: 0 }])
   const [showSearch, setShowSearch] = useState(false)
+  const [exportingPDF, setExportingPDF] = useState(false)
 
   useEffect(() => {
     if (!open) {
@@ -190,6 +196,194 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
   // ── Result ──
   const porcentaje = totalMercancia > 0 ? (totalCostos / totalMercancia) * 100 : 0
   const precioFinal = totalMercancia + totalCostos
+
+  // ── PDF Export ──
+  const handleExportPDF = async () => {
+    setExportingPDF(true)
+    try {
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const margin = 15
+      let y = margin
+
+      // Header bar
+      doc.setFillColor(13, 148, 136)
+      doc.rect(0, 0, pageWidth, 30, "F")
+      doc.setTextColor(255, 255, 255)
+      doc.setFontSize(15)
+      doc.setFont("helvetica", "bold")
+      doc.text("Calculadora de Porcentaje de Costos", margin, 13)
+      doc.setFontSize(8)
+      doc.setFont("helvetica", "normal")
+      const fecha = new Date().toLocaleDateString("es-CU", { day: "2-digit", month: "2-digit", year: "numeric" })
+      doc.text(`Generado el ${fecha}`, margin, 22)
+      doc.text("SunCar Admin", pageWidth - margin, 22, { align: "right" })
+
+      y = 40
+
+      // ── Mercancía section ──
+      doc.setTextColor(15, 118, 110)
+      doc.setFontSize(11)
+      doc.setFont("helvetica", "bold")
+      doc.text("MERCANCÍA", margin, y)
+      y += 2
+
+      if (modoMercancia === "total") {
+        autoTable(doc, {
+          startY: y,
+          body: [["Valor total ingresado:", `$${fmt(totalMercancia)}`]],
+          theme: "plain",
+          bodyStyles: { fontSize: 9, textColor: [50, 50, 50] },
+          columnStyles: { 0: { fontStyle: "bold", cellWidth: 60 }, 1: { halign: "right" } },
+          margin: { left: margin, right: margin },
+        })
+      } else if (productos.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [["#", "Producto", "Marca", "Cant.", "Precio unit.", "Subtotal"]],
+          body: productos.map((p, i) => [
+            i + 1,
+            getMaterialName(p.material),
+            p.material.marca || "—",
+            p.cantidad,
+            `$${fmt(p.precio)}`,
+            `$${fmt(p.precio * p.cantidad)}`,
+          ]),
+          foot: [["", "", "", "", "Total mercancía:", `$${fmt(totalMercancia)}`]],
+          theme: "striped",
+          headStyles: { fillColor: [13, 148, 136], textColor: 255, fontSize: 8, fontStyle: "bold" },
+          footStyles: { fillColor: [204, 251, 241], textColor: [15, 118, 110], fontStyle: "bold", fontSize: 9 },
+          bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+          columnStyles: {
+            0: { cellWidth: 8, halign: "center" },
+            3: { cellWidth: 12, halign: "center" },
+            4: { cellWidth: 28, halign: "right" },
+            5: { cellWidth: 28, halign: "right" },
+          },
+          margin: { left: margin, right: margin },
+        })
+      } else {
+        y += 4
+        doc.setTextColor(160, 160, 160)
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "italic")
+        doc.text("Sin productos agregados.", margin, y)
+        y += 8
+      }
+
+      y = (doc as any).lastAutoTable?.finalY
+        ? (doc as any).lastAutoTable.finalY + 10
+        : y + 10
+
+      // ── Costos section ──
+      doc.setTextColor(194, 65, 12)
+      doc.setFontSize(11)
+      doc.setFont("helvetica", "bold")
+      doc.text("COSTOS ADICIONALES", margin, y)
+      y += 2
+
+      const costosConValor = costos.filter((c) => c.valor > 0 || c.nombre)
+      if (costosConValor.length > 0) {
+        autoTable(doc, {
+          startY: y,
+          head: [["#", "Concepto", "Valor ($)", "% s/ mercancía"]],
+          body: costosConValor.map((c, i) => [
+            i + 1,
+            c.nombre || "Sin nombre",
+            `$${fmt(c.valor)}`,
+            totalMercancia > 0 ? `${((c.valor / totalMercancia) * 100).toFixed(2)}%` : "—",
+          ]),
+          foot: [
+            [
+              "",
+              "Total costos:",
+              `$${fmt(totalCostos)}`,
+              totalMercancia > 0 ? `${((totalCostos / totalMercancia) * 100).toFixed(2)}%` : "—",
+            ],
+          ],
+          theme: "striped",
+          headStyles: { fillColor: [234, 88, 12], textColor: 255, fontSize: 8, fontStyle: "bold" },
+          footStyles: { fillColor: [255, 237, 213], textColor: [154, 52, 18], fontStyle: "bold", fontSize: 9 },
+          bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
+          columnStyles: {
+            0: { cellWidth: 8, halign: "center" },
+            2: { cellWidth: 30, halign: "right" },
+            3: { cellWidth: 35, halign: "right" },
+          },
+          margin: { left: margin, right: margin },
+        })
+        y = (doc as any).lastAutoTable.finalY + 10
+      } else {
+        y += 4
+        doc.setTextColor(160, 160, 160)
+        doc.setFontSize(8)
+        doc.setFont("helvetica", "italic")
+        doc.text("Sin costos adicionales.", margin, y)
+        y += 10
+      }
+
+      // ── Result box ──
+      const boxH = 36
+      const boxY = Math.min(y, pageHeight - 50)
+      doc.setFillColor(240, 253, 250)
+      doc.setDrawColor(20, 184, 166)
+      doc.setLineWidth(0.5)
+      doc.roundedRect(margin, boxY, pageWidth - margin * 2, boxH, 3, 3, "FD")
+
+      // Left side: numeric summary
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(8.5)
+      doc.setTextColor(15, 118, 110)
+      const lx = margin + 6
+      doc.text("Total mercancía:", lx, boxY + 9)
+      doc.setFont("helvetica", "bold")
+      doc.text(`$${fmt(totalMercancia)}`, lx + 42, boxY + 9)
+
+      doc.setFont("helvetica", "normal")
+      doc.text("Total costos:", lx, boxY + 18)
+      doc.setFont("helvetica", "bold")
+      doc.text(`$${fmt(totalCostos)}`, lx + 42, boxY + 18)
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(9)
+      doc.setTextColor(17, 94, 89)
+      doc.text("Precio final:", lx, boxY + 28)
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(10)
+      doc.text(`$${fmt(precioFinal)}`, lx + 42, boxY + 28)
+
+      // Right side: big percentage
+      const rx = pageWidth - margin - 35
+      doc.setFontSize(7.5)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(20, 184, 166)
+      doc.text("PORCENTAJE A APLICAR", rx, boxY + 9, { align: "center" })
+      doc.setFontSize(22)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(13, 148, 136)
+      doc.text(
+        totalMercancia > 0 ? `${porcentaje.toFixed(2)}%` : "—",
+        rx,
+        boxY + 27,
+        { align: "center" }
+      )
+
+      // Footer line
+      doc.setDrawColor(200, 200, 200)
+      doc.setLineWidth(0.3)
+      doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12)
+      doc.setFontSize(7)
+      doc.setFont("helvetica", "normal")
+      doc.setTextColor(160, 160, 160)
+      doc.text("SunCar Admin · Calculadora de Porcentaje de Costos", margin, pageHeight - 7)
+      doc.text(fecha, pageWidth - margin, pageHeight - 7, { align: "right" })
+
+      doc.save(`calculadora-costos-${new Date().toISOString().slice(0, 10)}.pdf`)
+    } finally {
+      setExportingPDF(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -498,6 +692,26 @@ export function CalcPorcentajeDialog({ open, onOpenChange, materiales }: CalcPor
               </div>
             </div>
           </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="px-5 py-3 border-t border-gray-100 flex-shrink-0 flex items-center justify-between bg-gray-50">
+          <p className="text-xs text-gray-400">
+            {totalMercancia > 0 || totalCostos > 0
+              ? "Listo para exportar"
+              : "Agrega datos para poder exportar"}
+          </p>
+          <Button
+            onClick={handleExportPDF}
+            disabled={exportingPDF || (totalMercancia === 0 && totalCostos === 0)}
+            size="sm"
+            className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5"
+          >
+            {exportingPDF
+              ? <><Loader2 className="h-4 w-4 animate-spin" /> Generando...</>
+              : <><Download className="h-4 w-4" /> Descargar PDF</>
+            }
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
