@@ -34,7 +34,7 @@ export function useRecursosHumanos() {
       try {
         // Filtrar solo trabajadores no brigadistas
         const noBrigadistas = trabajadoresActuales.filter(
-          (t) => !t.is_brigadista,
+          (t) => !t.is_brigadista && t.activo !== false,
         );
 
         if (noBrigadistas.length === 0) {
@@ -261,6 +261,10 @@ export function useRecursosHumanos() {
           data.ci,
           data.nombre,
           data.contrasena,
+          {
+            sede_id: data.sede_id,
+            departamento_id: data.departamento_id,
+          },
         );
 
         console.log("Trabajador creado con ID:", trabajador_id);
@@ -309,32 +313,48 @@ export function useRecursosHumanos() {
     [loadData],
   );
 
-  // Eliminar trabajador
-  const eliminarTrabajador = useCallback(
-    async (ci: string): Promise<{ success: boolean; message: string }> => {
+  // Cambiar estado activo/inactivo (baja lógica)
+  const cambiarEstadoTrabajador = useCallback(
+    async (
+      ci: string,
+      activo: boolean,
+    ): Promise<{ success: boolean; message: string }> => {
       try {
-        console.log("Eliminando trabajador con CI:", ci);
-        const result = await TrabajadorService.eliminarTrabajador(ci);
+        console.log("Actualizando estado del trabajador:", { ci, activo });
+        const result = await TrabajadorService.actualizarEstadoTrabajador(
+          ci,
+          activo,
+        );
 
         if (result) {
           // Actualizar estado local inmediatamente
-          setTrabajadores((prev) => prev.filter((t) => t.CI !== ci));
+          setTrabajadores((prev) =>
+            prev.map((t) => (t.CI === ci ? { ...t, activo } : t)),
+          );
 
           return {
             success: true,
-            message: "Trabajador eliminado exitosamente",
+            message: activo
+              ? "Trabajador reactivado exitosamente"
+              : "Trabajador dado de baja exitosamente",
           };
         } else {
           return {
             success: false,
-            message: "No se pudo eliminar el trabajador",
+            message: activo
+              ? "No se pudo reactivar el trabajador"
+              : "No se pudo dar de baja el trabajador",
           };
         }
       } catch (err: any) {
-        console.error("Error al eliminar trabajador:", err);
+        console.error("Error al actualizar estado del trabajador:", err);
         return {
           success: false,
-          message: err.message || "Error al eliminar el trabajador",
+          message:
+            err.message ||
+            (activo
+              ? "Error al reactivar el trabajador"
+              : "Error al dar de baja el trabajador"),
         };
       }
     },
@@ -374,7 +394,7 @@ export function useRecursosHumanos() {
     actualizarTrabajador,
     guardarIngresoMensual,
     crearTrabajador,
-    eliminarTrabajador,
+    cambiarEstadoTrabajador,
     loadCargos,
     loadAsistencia,
     refresh,

@@ -146,16 +146,16 @@ export function TrabajadoresTable({
   const handleDelete = async (worker: Trabajador) => {
     setIsDeleting(true)
     try {
-      await TrabajadorService.eliminarTrabajador(worker.CI)
+      await TrabajadorService.darBajaTrabajador(worker.CI)
       toast({
-        title: "Instalador eliminado",
-        description: `El instalador ${worker.nombre} ha sido eliminado correctamente.`,
+        title: "Instalador dado de baja",
+        description: `El instalador ${worker.nombre} se dio de baja correctamente.`,
       })
       onRefresh()
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "No se pudo eliminar el instalador",
+        description: error.message || "No se pudo dar de baja el instalador",
         variant: "destructive",
       })
     } finally {
@@ -282,8 +282,8 @@ export function TrabajadoresTable({
                   size="icon"
                   onClick={() => setConfirmDelete(worker)}
                   className="border-red-300 text-red-700 hover:bg-red-50 touch-manipulation"
-                  title="Eliminar instalador"
-                  aria-label="Eliminar instalador"
+                  title="Dar de baja instalador"
+                  aria-label="Dar de baja instalador"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -390,8 +390,8 @@ export function TrabajadoresTable({
                       size="icon"
                       onClick={() => setConfirmDelete(worker)}
                       className="border-red-300 text-red-700 hover:bg-red-50"
-                      title="Eliminar instalador"
-                      aria-label="Eliminar instalador"
+                      title="Dar de baja instalador"
+                      aria-label="Dar de baja instalador"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -638,15 +638,15 @@ export function TrabajadoresTable({
         <Dialog open={!!confirmDelete} onOpenChange={() => setConfirmDelete(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Confirmar eliminación de instalador</DialogTitle>
+              <DialogTitle>Confirmar baja de instalador</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <p>
-                ¿Estás seguro de que quieres eliminar al instalador{" "}
+                ¿Estás seguro de que quieres dar de baja al instalador{" "}
                 <span className="font-semibold">{confirmDelete.nombre}</span> (CI: {confirmDelete.CI})?
               </p>
               <p className="text-sm text-red-600">
-                Esta acción es permanente y no se puede deshacer. Se eliminará toda la información del instalador.
+                Esta acción no elimina el registro, pero lo ocultará de los listados de instaladores activos.
               </p>
             </div>
             <DialogFooter>
@@ -669,15 +669,15 @@ export function TrabajadoresTable({
                 disabled={isDeleting}
                 size="icon"
                 className="w-10 sm:w-auto sm:px-4 touch-manipulation"
-                title="Eliminar instalador"
-                aria-label="Eliminar instalador"
+                title="Dar de baja instalador"
+                aria-label="Dar de baja instalador"
               >
                 <Trash2 className="h-4 w-4" />
                 <span className="hidden sm:inline">
-                  {isDeleting ? "Eliminando..." : "Eliminar instalador"}
+                  {isDeleting ? "Procesando..." : "Dar de baja"}
                 </span>
                 <span className="sr-only">
-                  {isDeleting ? "Eliminando..." : "Eliminar instalador"}
+                  {isDeleting ? "Procesando..." : "Dar de baja"}
                 </span>
               </Button>
             </DialogFooter>

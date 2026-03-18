@@ -24,7 +24,7 @@ export default function TrabajadoresPage() {
   const { brigadas: brigadasTrabajadores, trabajadores, loading: loadingTrabajadores, error: errorTrabajadores, refetch } = useBrigadasTrabajadores()
   const { brigadas: backendBrigades, loading: loadingBrigadas, loadBrigadas } = useBrigadas()
 
-  // Todos los hooks deben estar al inicio, antes de cualquier lógica condicional
+  // Todos los hooks deben estar al inicio, antes de cualquier logica condicional
   const [isAssignBrigadeDialogOpen, setIsAssignBrigadeDialogOpen] = useState(false)
   const [isConvertJefeDialogOpen, setIsConvertJefeDialogOpen] = useState(false)
   const [isCreateWorkerDialogOpen, setIsCreateWorkerDialogOpen] = useState(false)
@@ -47,13 +47,17 @@ export default function TrabajadoresPage() {
   if (errorTrabajadores) {
     return <div>Error: {errorTrabajadores}</div>
   }
+  const trabajadoresActivos = Array.isArray(trabajadores)
+    ? trabajadores.filter((w) => w.activo !== false)
+    : [];
+
   // Filtrar solo brigadistas (is_brigadista = true)
-  const filteredTrabajadores = Array.isArray(trabajadores) ? trabajadores.filter(w =>
+  const filteredTrabajadores = trabajadoresActivos.filter(w =>
     // Solo mostrar trabajadores que son brigadistas
     (w.is_brigadista === true || w.is_brigadista === undefined) // Mantener compatibilidad con datos sin el campo
-    && (workerType === 'todos' ? true : workerType === 'jefes' ? w.tiene_contraseña : !w.tiene_contraseña)
+    && (workerType === 'todos' ? true : workerType === 'jefes' ? w["tiene_contrase\u00F1a"] : !w["tiene_contrase\u00F1a"])
     && (workerSearch === '' || w.nombre.toLowerCase().includes(workerSearch.toLowerCase()) || w.CI.includes(workerSearch))
-  ) : [];
+  );
 
   // Handler para asignar brigada a trabajador existente
   const handleAsignarBrigada = async (data: { brigadaId: string }) => {
@@ -66,7 +70,7 @@ export default function TrabajadoresPage() {
       );
       if (result === true) {
         toast({
-          title: "Éxito",
+          title: "Exito",
           description: 'Brigada asignada correctamente',
         });
         setIsAssignBrigadeDialogOpen(false);
@@ -98,7 +102,7 @@ export default function TrabajadoresPage() {
       const integrantesArr = data.integrantes.map(ci => ({ CI: ci }))
       await TrabajadorService.convertirTrabajadorAJefe(selectedTrabajador.CI, data.contrasena, integrantesArr)
       toast({
-        title: "Éxito",
+        title: "Exito",
         description: 'Trabajador convertido en jefe de brigada correctamente',
       });
       setIsConvertJefeDialogOpen(false)
@@ -118,11 +122,14 @@ export default function TrabajadoresPage() {
   const handleCreateWorker = async (data: any) => {
     setLoadingAction(true)
     try {
-      let trabajadorId: string
-      
+      const relaciones = {
+        sede_id: data.sede_id ?? null,
+        departamento_id: data.departamento_id ?? null,
+      }
+
       if (data.mode === 'trabajador') {
         // Crear trabajador simple
-        trabajadorId = await TrabajadorService.crearTrabajador(data.ci, data.name)
+        await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
         // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         toast({
@@ -131,7 +138,7 @@ export default function TrabajadoresPage() {
         });
       } else if (data.mode === 'trabajador_asignar') {
         // Crear trabajador y asignar a brigada
-        trabajadorId = await TrabajadorService.crearTrabajador(data.ci, data.name)
+        await TrabajadorService.crearTrabajador(data.ci, data.name, undefined, relaciones)
         // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         await TrabajadorService.asignarTrabajadorABrigada(data.brigadeId, data.ci, data.name)
@@ -141,7 +148,7 @@ export default function TrabajadoresPage() {
         });
       } else if (data.mode === 'jefe') {
         // Crear jefe sin integrantes
-        trabajadorId = await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [])
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, [], relaciones)
         // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         toast({
@@ -151,7 +158,7 @@ export default function TrabajadoresPage() {
       } else if (data.mode === 'jefe_brigada') {
         // Crear jefe con integrantes
         const integrantesArr = data.integrantes.map((ci: string) => ({ CI: ci }))
-        trabajadorId = await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr)
+        await TrabajadorService.crearJefeBrigada(data.ci, data.name, data.password, integrantesArr, relaciones)
         // Actualizar is_brigadista usando endpoint de RRHH
         await RecursosHumanosService.actualizarTrabajadorRRHH(data.ci, { is_brigadista: true })
         toast({
@@ -159,6 +166,11 @@ export default function TrabajadoresPage() {
           description: 'Jefe de brigada creado con integrantes correctamente',
         });
       }
+
+      if (relaciones.sede_id || relaciones.departamento_id) {
+        await TrabajadorService.actualizarRelacionesTrabajador(data.ci, relaciones)
+      }
+
       setIsCreateWorkerDialogOpen(false)
       await Promise.all([refetch(), loadBrigadas()]);
     } catch (e: any) {
@@ -175,7 +187,7 @@ export default function TrabajadoresPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
-        title="Gestión de Instaladores"
+        title="Gestion de Instaladores"
         subtitle="Administrar personal y asignaciones"
         badge={{ text: "Personal", className: "bg-blue-100 text-blue-800" }}
       />
@@ -281,7 +293,7 @@ export default function TrabajadoresPage() {
                 onCancel={() => setIsConvertJefeDialogOpen(false)}
                 loading={loadingAction}
                 trabajador={selectedTrabajador}
-                trabajadores={trabajadores}
+                trabajadores={trabajadoresActivos}
               />
             )}
           </DialogContent>
@@ -297,7 +309,7 @@ export default function TrabajadoresPage() {
               onSubmit={handleCreateWorker}
               onCancel={() => setIsCreateWorkerDialogOpen(false)}
               brigades={brigades}
-              workers={trabajadores}
+              workers={trabajadoresActivos}
             />
           </DialogContent>
         </Dialog>
@@ -307,3 +319,4 @@ export default function TrabajadoresPage() {
     </div>
   )
 }
+

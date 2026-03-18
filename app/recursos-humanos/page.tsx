@@ -1,11 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/shared/molecule/dropdown-menu"
-import { DollarSign, Users, Calendar, UserPlus, List, Briefcase, Archive, Save, History, Settings, ChevronDown, RefreshCw } from "lucide-react"
+import { DollarSign, Users, Calendar, UserPlus, List, Briefcase, Archive, Save, History, Settings, RefreshCw } from "lucide-react"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
@@ -23,10 +23,11 @@ import { RecursosHumanosFilters } from "@/components/feats/recursos-humanos/recu
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import { useRecursosHumanos } from "@/hooks/use-recursos-humanos"
 import { useArchivoRH } from "@/hooks/use-archivo-rh"
-import { IngresoMensualService } from "@/lib/api-services"
+import { IngresoMensualService, SedeService, DepartamentoService, TrabajadorService } from "@/lib/api-services"
 import type { CrearTrabajadorRRHHRequest, TrabajadorRRHH, IngresoMensual } from "@/lib/recursos-humanos-types"
 import type { ExportOptions } from "@/lib/export-service"
 import type { ArchivoNominaRH } from "@/lib/types/feats/recursos-humanos/archivo-rh-types"
+import type { Sede, Departamento } from "@/lib/api-types"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { cn } from "@/lib/utils"
 
@@ -43,7 +44,7 @@ export default function RecursosHumanosPage() {
     actualizarCampoTrabajador,
     guardarIngresoMensual,
     crearTrabajador,
-    eliminarTrabajador,
+    cambiarEstadoTrabajador,
     loadCargos,
     refresh
   } = useRecursosHumanos()
@@ -62,8 +63,13 @@ export default function RecursosHumanosPage() {
   const [isCrearTrabajadorDialogOpen, setIsCrearTrabajadorDialogOpen] = useState(false)
   const [isSubmittingWorker, setIsSubmittingWorker] = useState(false)
   const [vistaActual, setVistaActual] = useState<'trabajadores' | 'cargos' | 'archivo'>('trabajadores')
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [trabajadorToDelete, setTrabajadorToDelete] = useState<{ ci: string; nombre: string } | null>(null)
+  const [isEstadoDialogOpen, setIsEstadoDialogOpen] = useState(false)
+  const [trabajadorEstadoTarget, setTrabajadorEstadoTarget] = useState<{
+    ci: string
+    nombre: string
+    activoActual: boolean
+    activoObjetivo: boolean
+  } | null>(null)
   const [isDeletingWorker, setIsDeletingWorker] = useState(false)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<TrabajadorRRHH | null>(null)
@@ -80,10 +86,18 @@ export default function RecursosHumanosPage() {
   const [datosNominaHistorica, setDatosNominaHistorica] = useState<ArchivoNominaRH | null>(null)
 
   // Estados para filtros
-  const [filtros, setFiltros] = useState<{ searchTerm: string; cargoSeleccionado: string }>({
+  const [filtros, setFiltros] = useState<{
+    searchTerm: string
+    cargoSeleccionado: string
+    estadoActivo: "activos" | "inactivos" | "todos"
+  }>({
     searchTerm: "",
-    cargoSeleccionado: ""
+    cargoSeleccionado: "",
+    estadoActivo: "activos",
   })
+  const [sedes, setSedes] = useState<Sede[]>([])
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([])
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false)
 
   const { toast } = useToast()
 
@@ -100,6 +114,30 @@ export default function RecursosHumanosPage() {
       loadNominas()
     }
   }, [vistaActual, loadNominas])
+
+  useEffect(() => {
+    const loadCatalogos = async () => {
+      setLoadingCatalogos(true)
+      try {
+        const [sedesData, departamentosData] = await Promise.all([
+          SedeService.getSedes(true),
+          DepartamentoService.getDepartamentos(true),
+        ])
+        setSedes(sedesData)
+        setDepartamentos(departamentosData)
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error?.message || "No se pudieron cargar sedes y departamentos.",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingCatalogos(false)
+      }
+    }
+
+    loadCatalogos()
+  }, [toast])
 
   // Obtener mes y año actuales o del último ingreso
   const mesActual = ultimoIngreso?.mes || new Date().getMonth() + 1
@@ -118,22 +156,30 @@ export default function RecursosHumanosPage() {
 
   // Aplicar filtros a los trabajadores
   const trabajadoresMostrar = trabajadoresBase.filter((trabajador) => {
-    // Filtro por nombre (búsqueda local)
+    const estaActivo = trabajador.activo !== false
+
+    const matchesEstado =
+      filtros.estadoActivo === "todos" ||
+      (filtros.estadoActivo === "activos" && estaActivo) ||
+      (filtros.estadoActivo === "inactivos" && !estaActivo)
+
     const matchesSearch = filtros.searchTerm === "" || 
       trabajador.nombre.toLowerCase().includes(filtros.searchTerm.toLowerCase())
     
-    // Filtro por cargo
     const matchesCargo = filtros.cargoSeleccionado === "" || 
       trabajador.cargo === filtros.cargoSeleccionado
     
-    return matchesSearch && matchesCargo
+    return matchesEstado && matchesSearch && matchesCargo
   })
 
   // Obtener lista única de cargos para el filtro
   const cargosDisponibles = Array.from(new Set(trabajadoresBase.map(t => t.cargo))).sort()
 
   // Verificar si hay filtros activos
-  const hasActiveFilters = filtros.searchTerm !== "" || filtros.cargoSeleccionado !== ""
+  const hasActiveFilters =
+    filtros.searchTerm !== "" ||
+    filtros.cargoSeleccionado !== "" ||
+    filtros.estadoActivo !== "activos"
 
   const handleActualizarCampo = async (ci: string, campo: string, valor: any) => {
     const result = await actualizarCampoTrabajador(ci, campo as any, valor)
@@ -152,6 +198,36 @@ export default function RecursosHumanosPage() {
     }
 
     return result
+  }
+
+  const sedesMap = useMemo(() => {
+    return new Map(sedes.map((sede) => [sede.id, sede.nombre]))
+  }, [sedes])
+
+  const departamentosMap = useMemo(() => {
+    return new Map(departamentos.map((departamento) => [departamento.id, departamento.nombre]))
+  }, [departamentos])
+
+  const handleActualizarRelacion = async (
+    ci: string,
+    campo: "sede_id" | "departamento_id",
+    valor: string | null,
+  ): Promise<{ success: boolean; message: string }> => {
+    try {
+      await TrabajadorService.actualizarRelacionesTrabajador(ci, {
+        [campo]: valor,
+      })
+      await refresh()
+      return {
+        success: true,
+        message: "Relación actualizada correctamente",
+      }
+    } catch (error: any) {
+      return {
+        success: false,
+        message: error?.message || "No se pudo actualizar la relación",
+      }
+    }
   }
 
   const handleGuardarEstimulos = async (monto: number, mes: string, anio: string) => {
@@ -200,9 +276,18 @@ export default function RecursosHumanosPage() {
     }
   }
 
-  const handleEliminarTrabajador = async (ci: string, nombre: string): Promise<void> => {
-    setTrabajadorToDelete({ ci, nombre })
-    setIsDeleteDialogOpen(true)
+  const handleCambiarEstadoTrabajador = async (
+    ci: string,
+    nombre: string,
+    activoActual: boolean,
+  ): Promise<void> => {
+    setTrabajadorEstadoTarget({
+      ci,
+      nombre,
+      activoActual,
+      activoObjetivo: !activoActual,
+    })
+    setIsEstadoDialogOpen(true)
   }
 
   const handleVerDetalles = (trabajador: TrabajadorRRHH) => {
@@ -210,24 +295,32 @@ export default function RecursosHumanosPage() {
     setIsDetailsDialogOpen(true)
   }
 
-  const confirmEliminarTrabajador = async () => {
-    if (!trabajadorToDelete) return
+  const confirmCambioEstadoTrabajador = async () => {
+    if (!trabajadorEstadoTarget) return
 
     setIsDeletingWorker(true)
-    const result = await eliminarTrabajador(trabajadorToDelete.ci)
+    const result = await cambiarEstadoTrabajador(
+      trabajadorEstadoTarget.ci,
+      trabajadorEstadoTarget.activoObjetivo,
+    )
     setIsDeletingWorker(false)
 
     if (result.success) {
       toast({
-        title: "Trabajador eliminado",
-        description: `Se ha eliminado el trabajador ${trabajadorToDelete.nombre} exitosamente.`,
+        title: trabajadorEstadoTarget.activoObjetivo
+          ? "Trabajador reactivado"
+          : "Trabajador dado de baja",
+        description: trabajadorEstadoTarget.activoObjetivo
+          ? `Se ha reactivado el trabajador ${trabajadorEstadoTarget.nombre} exitosamente.`
+          : `Se ha dado de baja el trabajador ${trabajadorEstadoTarget.nombre} exitosamente.`,
       })
-      setIsDeleteDialogOpen(false)
-      setTrabajadorToDelete(null)
-      // La tabla ya se actualiza automáticamente porque el hook actualiza el estado local
+      setIsEstadoDialogOpen(false)
+      setTrabajadorEstadoTarget(null)
     } else {
       toast({
-        title: "Error al eliminar trabajador",
+        title: trabajadorEstadoTarget.activoObjetivo
+          ? "Error al reactivar trabajador"
+          : "Error al dar de baja trabajador",
         description: result.message,
         variant: "destructive",
       })
@@ -496,6 +589,8 @@ export default function RecursosHumanosPage() {
 	            onSubmit={handleCrearTrabajador}
 	            onCancel={() => setIsCrearTrabajadorDialogOpen(false)}
 	            isSubmitting={isSubmittingWorker}
+              sedes={sedes}
+              departamentos={departamentos}
 	          />
 	        </DialogContent>
 	      </Dialog>
@@ -664,10 +759,14 @@ export default function RecursosHumanosPage() {
                   mes={mesVisualizando}
                   anio={anioVisualizando}
                   montoTotalEstimulos={ingresoMostrar}
+                  sedes={sedes}
+                  departamentos={departamentos}
+                  loadingCatalogos={loadingCatalogos}
                   estadoAsistencia={estadoAsistencia}
                   loadingAsistencia={loadingAsistencia}
                   onActualizarCampo={estaViendoHistorico ? async () => ({ success: false, message: 'No se pueden editar datos históricos' }) : handleActualizarCampo}
-                  onEliminarTrabajador={estaViendoHistorico ? async () => {} : handleEliminarTrabajador}
+                  onActualizarRelacion={estaViendoHistorico ? async () => ({ success: false, message: 'No se pueden editar datos históricos' }) : handleActualizarRelacion}
+                  onCambiarEstadoTrabajador={estaViendoHistorico ? async () => {} : handleCambiarEstadoTrabajador}
                   onVerDetalles={handleVerDetalles}
                   isVistaHistorica={estaViendoHistorico}
                 />
@@ -703,13 +802,17 @@ export default function RecursosHumanosPage() {
         </Card>
       </main>
 
-      {/* Dialog de confirmación de eliminación */}
+      {/* Dialog de confirmación de cambio de estado */}
       <ConfirmDeleteDialog
-        open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
-        title="Eliminar Trabajador"
-        message={`¿Está seguro que desea eliminar al trabajador ${trabajadorToDelete?.nombre}? Esta acción no se puede deshacer y eliminará completamente al trabajador del sistema.`}
-        onConfirm={confirmEliminarTrabajador}
+        open={isEstadoDialogOpen}
+        onOpenChange={setIsEstadoDialogOpen}
+        title={trabajadorEstadoTarget?.activoObjetivo ? "Reactivar Trabajador" : "Dar de Baja Trabajador"}
+        message={
+          trabajadorEstadoTarget?.activoObjetivo
+            ? `¿Está seguro que desea reactivar al trabajador ${trabajadorEstadoTarget?.nombre}?`
+            : `¿Está seguro que desea dar de baja al trabajador ${trabajadorEstadoTarget?.nombre}? Esta acción lo ocultará de Instaladores y de la tabla principal de Recursos Humanos.`
+        }
+        onConfirm={confirmCambioEstadoTrabajador}
         isLoading={isDeletingWorker}
       />
 
@@ -735,6 +838,16 @@ export default function RecursosHumanosPage() {
               anio={anioVisualizando}
               estadoAsistencia={estadoAsistencia}
               loadingAsistencia={loadingAsistencia}
+              sedeNombre={
+                trabajadorSeleccionado.sede_id
+                  ? sedesMap.get(trabajadorSeleccionado.sede_id) || trabajadorSeleccionado.sede_id
+                  : "No asignada"
+              }
+              departamentoNombre={
+                trabajadorSeleccionado.departamento_id
+                  ? departamentosMap.get(trabajadorSeleccionado.departamento_id) || trabajadorSeleccionado.departamento_id
+                  : "No asignado"
+              }
             />
           )}
         </DialogContent>

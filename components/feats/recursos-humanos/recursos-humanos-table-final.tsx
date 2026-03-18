@@ -1,36 +1,49 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Check, Calendar, Trash2, Eye } from "lucide-react"
+import { Check, Calendar, UserCheck, UserX, Eye } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
 import { AsistenciaBadge } from "./asistencia-badge"
 import { toast } from "sonner"
 import type { TrabajadorRRHH } from "@/lib/recursos-humanos-types"
+import type { Sede, Departamento } from "@/lib/api-types"
 
 interface RecursosHumanosTableProps {
   trabajadores: TrabajadorRRHH[]
   mes: number
   anio: number
   montoTotalEstimulos: number
+  sedes: Sede[]
+  departamentos: Departamento[]
+  loadingCatalogos?: boolean
   estadoAsistencia?: Map<string, boolean>
   loadingAsistencia?: boolean
   onActualizarCampo: (ci: string, campo: string, valor: any) => Promise<{success: boolean; message: string}>
-  onEliminarTrabajador?: (ci: string, nombre: string) => Promise<void>
+  onActualizarRelacion?: (
+    ci: string,
+    campo: "sede_id" | "departamento_id",
+    valor: string | null,
+  ) => Promise<{success: boolean; message: string}>
+  onCambiarEstadoTrabajador?: (
+    ci: string,
+    nombre: string,
+    activoActual: boolean,
+  ) => Promise<void>
   onVerDetalles?: (trabajador: TrabajadorRRHH) => void
   isVistaHistorica?: boolean
 }
 
-// Función para calcular el salario de un trabajador según la nueva especificación
+// FunciÃ³n para calcular el salario de un trabajador segÃºn la nueva especificaciÃ³n
 function calcularSalario(
   trabajador: TrabajadorRRHH,
   montoTotalEstimulos: number,
   totalTrabajadores: number,
   trabajadoresDestacados: number
 ): number | null {
-  // Validar que todos los datos estén completos
+  // Validar que todos los datos estÃ©n completos
   if (trabajador.salario_fijo === undefined || trabajador.salario_fijo === null ||
       trabajador.alimentacion === undefined || trabajador.alimentacion === null ||
       trabajador.dias_trabajables === undefined || trabajador.dias_trabajables === null ||
@@ -39,7 +52,7 @@ function calcularSalario(
       trabajador.porcentaje_variable_estimulo === undefined || trabajador.porcentaje_variable_estimulo === null ||
       montoTotalEstimulos < 0 ||
       totalTrabajadores <= 0) {
-    console.log('❌ Datos incompletos para calcular salario:', {
+    console.log('âŒ Datos incompletos para calcular salario:', {
       salario_fijo: trabajador.salario_fijo,
       alimentacion: trabajador.alimentacion,
       dias_trabajables: trabajador.dias_trabajables,
@@ -52,26 +65,26 @@ function calcularSalario(
     return null
   }
 
-  // Cálculo según la nueva especificación
-  // Días efectivamente trabajados
+  // CÃ¡lculo segÃºn la nueva especificaciÃ³n
+  // DÃ­as efectivamente trabajados
   const diasTrabajados = trabajador.dias_trabajables - trabajador.dias_no_trabajados.length
 
-  // Salario proporcional a días trabajados
+  // Salario proporcional a dÃ­as trabajados
   const salarioProporcional = (trabajador.salario_fijo / trabajador.dias_trabajables) * diasTrabajados
 
   // Calcular trabajadores destacados (porcentaje_variable_estimulo > 0)
-  // Ya se pasa como parámetro
+  // Ya se pasa como parÃ¡metro
 
-  // Estímulo fijo: 30% del total × porcentaje individual del trabajador
+  // EstÃ­mulo fijo: 30% del total Ã— porcentaje individual del trabajador
   const estimuloFijo = montoTotalEstimulos * 0.30 * (trabajador.porcentaje_fijo_estimulo / 100)
 
-  // Estímulo variable: 70% del total × porcentaje individual del trabajador
+  // EstÃ­mulo variable: 70% del total Ã— porcentaje individual del trabajador
   // Solo se aplica si el trabajador es destacado (porcentaje_variable_estimulo > 0)
   const estimuloVariable = trabajador.porcentaje_variable_estimulo > 0 
     ? montoTotalEstimulos * 0.70 * (trabajador.porcentaje_variable_estimulo / 100)
     : 0
 
-  // Total: salario proporcional + estímulos + alimentación completa
+  // Total: salario proporcional + estÃ­mulos + alimentaciÃ³n completa
   const salarioTotal = salarioProporcional + estimuloFijo + estimuloVariable + trabajador.alimentacion
 
   return salarioTotal
@@ -82,10 +95,14 @@ export function RecursosHumanosTableFinal({
   mes,
   anio,
   montoTotalEstimulos,
+  sedes,
+  departamentos,
+  loadingCatalogos = false,
   estadoAsistencia,
   loadingAsistencia,
   onActualizarCampo,
-  onEliminarTrabajador,
+  onActualizarRelacion,
+  onCambiarEstadoTrabajador,
   onVerDetalles,
   isVistaHistorica = false
 }: RecursosHumanosTableProps) {
@@ -95,12 +112,19 @@ export function RecursosHumanosTableFinal({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [trabajadorSeleccionado, setTrabajadorSeleccionado] = useState<TrabajadorRRHH | null>(null)
   const [guardando, setGuardando] = useState<{ci: string, campo: string} | null>(null)
+  const [guardandoRelacion, setGuardandoRelacion] = useState<{ci: string, campo: "sede_id" | "departamento_id"} | null>(null)
   const [salariosCalculados, setSalariosCalculados] = useState<Record<string, number | null>>({})
   const [filaResaltada, setFilaResaltada] = useState<string | null>(null)
 
+  const sedesMap = useMemo(() => new Map(sedes.map((sede) => [sede.id, sede.nombre])), [sedes])
+  const departamentosMap = useMemo(
+    () => new Map(departamentos.map((departamento) => [departamento.id, departamento.nombre])),
+    [departamentos],
+  )
+
   // Recalcular salarios cuando cambien los datos
   useEffect(() => {
-    console.log('🔄 Recalculando salarios...', { 
+    console.log('ðŸ”„ Recalculando salarios...', { 
       trabajadoresCount: trabajadores.length, 
       montoTotalEstimulos 
     })
@@ -115,7 +139,7 @@ export function RecursosHumanosTableFinal({
     const sumaPorcentajesFijos = trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0)
     const sumaPorcentajesVariables = trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0)
     
-    console.log('📊 Validación de porcentajes:', {
+    console.log('ðŸ“Š ValidaciÃ³n de porcentajes:', {
       sumaFijos: sumaPorcentajesFijos,
       sumaVariables: sumaPorcentajesVariables,
       excedeFijos: sumaPorcentajesFijos > 100,
@@ -124,26 +148,26 @@ export function RecursosHumanosTableFinal({
     
     // Mostrar alertas si excede el 100%
     if (sumaPorcentajesFijos > 100) {
-      console.warn('⚠️ La suma de porcentajes fijos excede el 100%:', sumaPorcentajesFijos + '%')
-      toast.error(`⚠️ La suma de porcentajes fijos excede el 100%: ${sumaPorcentajesFijos.toFixed(1)}%`, {
+      console.warn('âš ï¸ La suma de porcentajes fijos excede el 100%:', sumaPorcentajesFijos + '%')
+      toast.error(`âš ï¸ La suma de porcentajes fijos excede el 100%: ${sumaPorcentajesFijos.toFixed(1)}%`, {
         duration: 5000,
         description: 'Ajusta los porcentajes para que no excedan el 100% en total'
       })
     }
     if (sumaPorcentajesVariables > 100) {
-      console.warn('⚠️ La suma de porcentajes variables excede el 100%:', sumaPorcentajesVariables + '%')
-      toast.error(`⚠️ La suma de porcentajes variables excede el 100%: ${sumaPorcentajesVariables.toFixed(1)}%`, {
+      console.warn('âš ï¸ La suma de porcentajes variables excede el 100%:', sumaPorcentajesVariables + '%')
+      toast.error(`âš ï¸ La suma de porcentajes variables excede el 100%: ${sumaPorcentajesVariables.toFixed(1)}%`, {
         duration: 5000,
         description: 'Ajusta los porcentajes para que no excedan el 100% en total'
       })
     }
     
-    console.log('👥 Trabajadores destacados:', trabajadoresDestacados, 'de', totalTrabajadores)
+    console.log('ðŸ‘¥ Trabajadores destacados:', trabajadoresDestacados, 'de', totalTrabajadores)
 
     trabajadores.forEach(trabajador => {
       const salario = calcularSalario(trabajador, montoTotalEstimulos, totalTrabajadores, trabajadoresDestacados)
       nuevosSalarios[trabajador.CI] = salario
-      console.log(`💰 Salario calculado para ${trabajador.nombre}:`, salario)
+      console.log(`ðŸ’° Salario calculado para ${trabajador.nombre}:`, salario)
     })
     setSalariosCalculados(nuevosSalarios)
   }, [trabajadores, montoTotalEstimulos])
@@ -164,11 +188,11 @@ export function RecursosHumanosTableFinal({
     let valor = valores[key]
     const valorOriginal = valoresOriginales[key]
 
-    // Convertir string vacío o inválido a 0 antes de guardar
+    // Convertir string vacÃ­o o invÃ¡lido a 0 antes de guardar
     if (valor === '' || valor === null || valor === undefined) {
       valor = 0
     } else if (typeof valor === 'string') {
-      // Intentar convertir a número si es un string numérico
+      // Intentar convertir a nÃºmero si es un string numÃ©rico
       const numValue = parseFloat(valor)
       if (!isNaN(numValue)) {
         valor = numValue
@@ -187,7 +211,7 @@ export function RecursosHumanosTableFinal({
     if (valor === valorOriginalNormalizado ||
         (typeof valor === 'number' && typeof valorOriginalNormalizado === 'number' &&
          Math.abs(valor - valorOriginalNormalizado) < 0.000001)) {
-      // No hubo cambios, solo cerrar la edición sin llamar al backend
+      // No hubo cambios, solo cerrar la ediciÃ³n sin llamar al backend
       setEditando(null)
       return
     }
@@ -198,7 +222,7 @@ export function RecursosHumanosTableFinal({
 
     if (result.success) {
       setEditando(null)
-      // Actualizar el valor original después de guardado exitoso
+      // Actualizar el valor original despuÃ©s de guardado exitoso
       setValoresOriginales({ ...valoresOriginales, [key]: valor })
     }
   }
@@ -206,6 +230,22 @@ export function RecursosHumanosTableFinal({
   const abrirCalendario = (trabajador: TrabajadorRRHH) => {
     setTrabajadorSeleccionado(trabajador)
     setIsCalendarOpen(true)
+  }
+
+  const guardarRelacion = async (
+    ci: string,
+    campo: "sede_id" | "departamento_id",
+    valor: string | null,
+  ) => {
+    if (!onActualizarRelacion) return
+
+    setGuardandoRelacion({ ci, campo })
+    const result = await onActualizarRelacion(ci, campo, valor)
+    setGuardandoRelacion(null)
+
+    if (!result.success) {
+      toast.error(result.message || "No se pudo actualizar la relaciÃ³n")
+    }
   }
 
   const guardarDias = async () => {
@@ -243,7 +283,7 @@ export function RecursosHumanosTableFinal({
             value={valores[key] ?? valorActual}
             onChange={(e) => {
               if (tipo === 'number') {
-                // Permitir string vacío o convertir a número
+                // Permitir string vacÃ­o o convertir a nÃºmero
                 const value = e.target.value === '' ? '' : e.target.value
                 setValores({ ...valores, [key]: value })
               } else {
@@ -277,7 +317,7 @@ export function RecursosHumanosTableFinal({
             disabled={estaGuardando}
             className="h-7 w-7 p-0"
           >
-            <span className="text-xs">✕</span>
+            <span className="text-xs">âœ•</span>
           </Button>
         </div>
       )
@@ -307,14 +347,16 @@ export function RecursosHumanosTableFinal({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
-            <tr className="border-b-2 border-gray-200">
-              <th className="text-left py-3 px-3 font-semibold text-gray-900 sticky left-0 bg-white z-10 min-w-[160px]">Nombre</th>
-              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[130px]">Cargo</th>
-              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Fijo</th>
+	            <tr className="border-b-2 border-gray-200">
+	              <th className="text-left py-3 px-3 font-semibold text-gray-900 sticky left-0 bg-white z-10 min-w-[160px]">Nombre</th>
+	              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[130px]">Cargo</th>
+              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[150px]">Sede</th>
+              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[150px]">Departamento</th>
+	              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Fijo</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Var.</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[100px]">Salario</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[90px]">Aliment.</th>
-              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">Días T.</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">DÃ­as T.</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">NT</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 bg-green-50 w-[110px]">Total</th>
               {!isVistaHistorica && <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] w-[80px]">Acc.</th>}
@@ -332,7 +374,7 @@ export function RecursosHumanosTableFinal({
                     estaResaltada ? 'bg-purple-200/60' : 'hover:bg-purple-50/30'
                   }`}
                 >
-                  {/* Nombre + Asistencia - IMPORTANTE: Más grande */}
+                  {/* Nombre + Asistencia - IMPORTANTE: MÃ¡s grande */}
                   <td 
                     className={`py-3 px-3 sticky left-0 z-10 transition-colors duration-150 cursor-pointer ${
                       estaResaltada ? 'bg-purple-200/60' : 'bg-white group-hover:bg-purple-50/30'
@@ -355,49 +397,122 @@ export function RecursosHumanosTableFinal({
                     </div>
                   </td>
 
-                  {/* Cargo - IMPORTANTE: Más grande */}
+                  {/* Cargo - IMPORTANTE: MÃ¡s grande */}
                   <td className={`py-3 px-3 text-left transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.cargo : renderCampoEditable(trabajador, 'cargo', trabajador.cargo, 'text')}
                   </td>
 
-                  {/* % Estímulo Fijo - Menos importante: más pequeño */}
+                  {/* Sede */}
+                  <td className={`py-3 px-3 text-left transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
+                    {isVistaHistorica ? (
+                      <span className="text-sm text-gray-700">
+                        {trabajador.sede_id
+                          ? sedesMap.get(trabajador.sede_id) || trabajador.sede_id
+                          : "No asignada"}
+                      </span>
+                    ) : (
+                      <select
+                        value={trabajador.sede_id || ""}
+                        onChange={(event) =>
+                          guardarRelacion(
+                            trabajador.CI,
+                            "sede_id",
+                            event.target.value ? event.target.value : null,
+                          )
+                        }
+                        disabled={
+                          loadingCatalogos ||
+                          (guardandoRelacion?.ci === trabajador.CI &&
+                            guardandoRelacion?.campo === "sede_id")
+                        }
+                        className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                      >
+                        <option value="">Sin sede</option>
+                        {sedes.map((sede) => (
+                          <option key={sede.id} value={sede.id}>
+                            {sede.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+
+                  {/* Departamento */}
+                  <td className={`py-3 px-3 text-left transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
+                    {isVistaHistorica ? (
+                      <span className="text-sm text-gray-700">
+                        {trabajador.departamento_id
+                          ? departamentosMap.get(trabajador.departamento_id) || trabajador.departamento_id
+                          : "No asignado"}
+                      </span>
+                    ) : (
+                      <select
+                        value={trabajador.departamento_id || ""}
+                        onChange={(event) =>
+                          guardarRelacion(
+                            trabajador.CI,
+                            "departamento_id",
+                            event.target.value ? event.target.value : null,
+                          )
+                        }
+                        disabled={
+                          loadingCatalogos ||
+                          (guardandoRelacion?.ci === trabajador.CI &&
+                            guardandoRelacion?.campo === "departamento_id")
+                        }
+                        className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
+                      >
+                        <option value="">Sin departamento</option>
+                        {departamentos.map((departamento) => (
+                          <option key={departamento.id} value={departamento.id}>
+                            {departamento.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </td>
+                  {/* % EstÃ­mulo Fijo - Menos importante: mÃ¡s pequeÃ±o */}
                   <td className={`py-3 px-2 text-center text-sm transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.porcentaje_fijo_estimulo : renderCampoEditable(trabajador, 'porcentaje_fijo_estimulo', trabajador.porcentaje_fijo_estimulo, 'number', 1)}
                   </td>
 
-                  {/* % Estímulo Variable - Menos importante: más pequeño */}
+                  {/* % EstÃ­mulo Variable - Menos importante: mÃ¡s pequeÃ±o */}
                   <td className={`py-3 px-2 text-center text-sm transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.porcentaje_variable_estimulo : renderCampoEditable(trabajador, 'porcentaje_variable_estimulo', trabajador.porcentaje_variable_estimulo, 'number', 1)}
                   </td>
 
-                  {/* Salario Fijo - IMPORTANTE: Tamaño normal */}
+                  {/* Salario Fijo - IMPORTANTE: TamaÃ±o normal */}
                   <td className={`py-3 px-2 text-center transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.salario_fijo : renderCampoEditable(trabajador, 'salario_fijo', trabajador.salario_fijo, 'number', 1000)}
                   </td>
 
-                  {/* Alimentación - IMPORTANTE: Tamaño normal */}
+                  {/* AlimentaciÃ³n - IMPORTANTE: TamaÃ±o normal */}
                   <td className={`py-3 px-2 text-center transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.alimentacion : renderCampoEditable(trabajador, 'alimentacion', trabajador.alimentacion, 'number', 1000)}
                   </td>
 
-                  {/* Días Trabajables - Menos importante: más pequeño */}
+                  {/* DÃ­as Trabajables - Menos importante: mÃ¡s pequeÃ±o */}
                   <td className={`py-3 px-2 text-center text-sm transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.dias_trabajables : renderCampoEditable(trabajador, 'dias_trabajables', trabajador.dias_trabajables, 'number', 1)}
                   </td>
 
-                  {/* Días No Trabajados - Menos importante: más pequeño */}
+                  {/* DÃ­as No Trabajados - Menos importante: mÃ¡s pequeÃ±o */}
                   <td className={`py-3 px-2 transition-colors duration-150 ${
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
@@ -418,7 +533,7 @@ export function RecursosHumanosTableFinal({
                     )}
                   </td>
 
-                  {/* Salario Calculado - MUY IMPORTANTE: Más grande y destacado */}
+                  {/* Salario Calculado - MUY IMPORTANTE: MÃ¡s grande y destacado */}
                   <td className={`py-3 px-2 transition-colors duration-150 ${
                     estaResaltada ? 'bg-green-200/80' : 'bg-green-50 group-hover:bg-green-100/50'
                   }`}>
@@ -435,7 +550,7 @@ export function RecursosHumanosTableFinal({
                     </div>
                   </td>
 
-                  {/* Acciones - Menos importante: iconos pequeños */}
+                  {/* Acciones - Menos importante: iconos pequeÃ±os */}
                   {!isVistaHistorica && (
                     <td className={`py-3 px-2 sticky right-0 z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] transition-colors duration-150 ${
                       estaResaltada ? 'bg-purple-200/60' : 'bg-white group-hover:bg-purple-50/30'
@@ -452,15 +567,29 @@ export function RecursosHumanosTableFinal({
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        {onEliminarTrabajador && (
+                        {onCambiarEstadoTrabajador && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => onEliminarTrabajador(trabajador.CI, trabajador.nombre)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50 h-7 w-7 p-0"
-                            title="Eliminar"
+                            onClick={() =>
+                              onCambiarEstadoTrabajador(
+                                trabajador.CI,
+                                trabajador.nombre,
+                                trabajador.activo !== false,
+                              )
+                            }
+                            className={`h-7 w-7 p-0 ${
+                              trabajador.activo === false
+                                ? "text-green-600 hover:text-green-800 hover:bg-green-50"
+                                : "text-red-600 hover:text-red-800 hover:bg-red-50"
+                            }`}
+                            title={trabajador.activo === false ? "Reactivar" : "Dar de baja"}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            {trabajador.activo === false ? (
+                              <UserCheck className="h-3.5 w-3.5" />
+                            ) : (
+                              <UserX className="h-3.5 w-3.5" />
+                            )}
                           </Button>
                         )}
                       </div>
@@ -472,7 +601,7 @@ export function RecursosHumanosTableFinal({
             
             {/* Fila de totales */}
             <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
-              <td colSpan={2} className="py-2 px-3 text-center sticky left-0 bg-gray-100 z-10">
+              <td colSpan={4} className="py-2 px-3 text-center sticky left-0 bg-gray-100 z-10">
                 <span className="text-gray-700">TOTALES</span>
               </td>
               <td className="py-2 px-2 text-center text-sm">
@@ -480,7 +609,7 @@ export function RecursosHumanosTableFinal({
                   {trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0).toFixed(1)}%
                 </span>
                 {trabajadores.reduce((sum, t) => sum + (t.porcentaje_fijo_estimulo || 0), 0) > 100 && (
-                  <span className="text-red-500 ml-1">⚠️</span>
+                  <span className="text-red-500 ml-1">âš ï¸</span>
                 )}
               </td>
               <td className="py-2 px-2 text-center text-sm">
@@ -488,7 +617,7 @@ export function RecursosHumanosTableFinal({
                   {trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0).toFixed(1)}%
                 </span>
                 {trabajadores.reduce((sum, t) => sum + (t.porcentaje_variable_estimulo || 0), 0) > 100 && (
-                  <span className="text-red-500 ml-1">⚠️</span>
+                  <span className="text-red-500 ml-1">âš ï¸</span>
                 )}
               </td>
               <td className="py-2 px-2 text-center">
@@ -527,7 +656,7 @@ export function RecursosHumanosTableFinal({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Días No Trabajados - {trabajadorSeleccionado?.nombre}
+              DÃ­as No Trabajados - {trabajadorSeleccionado?.nombre}
             </DialogTitle>
           </DialogHeader>
           {trabajadorSeleccionado && (

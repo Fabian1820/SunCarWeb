@@ -1,8 +1,9 @@
-// Recursos Humanos feature types mirroring backend contracts.
+﻿// Recursos Humanos feature types mirroring backend contracts.
 
 export interface TrabajadorRRHH {
   CI: string
   nombre: string
+  activo?: boolean
   cargo: string
   salario_fijo: number
   porcentaje_fijo_estimulo: number
@@ -12,6 +13,8 @@ export interface TrabajadorRRHH {
   dias_no_trabajados: number[]
   is_brigadista?: boolean
   tiene_contraseña?: boolean
+  sede_id?: string | null
+  departamento_id?: string | null
 }
 
 export interface IngresoMensual {
@@ -28,6 +31,7 @@ export interface RecursosHumanosResponse {
 }
 
 export interface ActualizarTrabajadorRRHHRequest {
+  activo?: boolean
   cargo?: string
   salario_fijo?: number
   porcentaje_fijo_estimulo?: number
@@ -36,11 +40,14 @@ export interface ActualizarTrabajadorRRHHRequest {
   dias_trabajables?: number
   dias_no_trabajados?: number[]
   is_brigadista?: boolean
+  sede_id?: string | null
+  departamento_id?: string | null
 }
 
 export interface CrearTrabajadorRRHHRequest {
   ci: string
   nombre: string
+  activo?: boolean
   cargo?: string
   salario_fijo?: number
   porcentaje_fijo_estimulo?: number
@@ -49,6 +56,8 @@ export interface CrearTrabajadorRRHHRequest {
   dias_trabajables?: number
   is_brigadista?: boolean
   contrasena?: string
+  sede_id?: string | null
+  departamento_id?: string | null
 }
 
 export interface IngresoMensualRequest {

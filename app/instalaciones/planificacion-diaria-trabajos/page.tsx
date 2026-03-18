@@ -473,7 +473,9 @@ export default function PlanificacionDiariaTrabajosPage() {
         brigadasResult.status === "fulfilled" ? brigadasResult.value : [];
       const trabajadoresRaw =
         trabajadoresResult.status === "fulfilled"
-          ? trabajadoresResult.value
+          ? trabajadoresResult.value.filter(
+              (trabajador) => trabajador.activo !== false,
+            )
           : [];
       const clientesEnProceso = clientes.filter(
         (cliente) => safeText(cliente.estado) === "Instalación en Proceso",

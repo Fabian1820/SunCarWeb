@@ -28,6 +28,8 @@ import {
   PackageSearch,
   Wallet,
   CalendarDays,
+  Building2,
+  Building,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -242,6 +244,22 @@ export default function Dashboard() {
       iconClass: "text-purple-600",
     },
     {
+      id: "sedes",
+      href: "/sedes",
+      icon: Building2,
+      title: "Gestionar Sedes",
+      description: "Administrar sedes nacionales y provinciales.",
+      iconClass: "text-blue-700",
+    },
+    {
+      id: "departamentos",
+      href: "/departamentos",
+      icon: Building,
+      title: "Gestionar Departamentos",
+      description: "Administrar departamentos organizacionales.",
+      iconClass: "text-teal-700",
+    },
+    {
       id: "fichas-costo",
       href: "/fichas-costo",
       icon: FileSpreadsheet,
@@ -317,6 +335,8 @@ export default function Dashboard() {
         "inventario",
         "tiendas-suncarventas",
         "recursos-humanos",
+        "sedes",
+        "departamentos",
         "fichas-costo",
       ],
     },

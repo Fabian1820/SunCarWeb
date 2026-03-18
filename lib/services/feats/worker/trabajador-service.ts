@@ -3,6 +3,18 @@
 import { apiRequest } from '../../../api-config'
 import type { Trabajador as ApiTrabajador } from '../../../api-types'
 import type { BirthdaysResponse } from '../../../types/feats/trabajador/birthday-types'
+import { ensureValidObjectId, normalizeOptionalObjectId } from '../../../utils/object-id'
+
+export interface TrabajadorRelacionesPayload {
+  sede_id?: string | null
+  departamento_id?: string | null
+}
+
+export interface ActualizarTrabajadorPayload extends TrabajadorRelacionesPayload {
+  nombre?: string
+  nuevo_ci?: string
+  activo?: boolean
+}
 
 export class TrabajadorService {
   static async getAllTrabajadores(): Promise<ApiTrabajador[]> {
@@ -41,11 +53,28 @@ export class TrabajadorService {
     return apiRequest<ApiTrabajador[]>(`/trabajadores/buscar?nombre=${encodeURIComponent(nombre)}`)
   }
 
-  static async crearTrabajador(ci: string, nombre: string, contrasena?: string): Promise<string> {
-    console.log('Calling crearTrabajador with:', { ci, nombre, contrasena })
+  static async crearTrabajador(
+    ci: string,
+    nombre: string,
+    contrasena?: string,
+    relaciones?: TrabajadorRelacionesPayload
+  ): Promise<string> {
+    const sedeId = ensureValidObjectId(relaciones?.sede_id, 'sede_id')
+    const departamentoId = ensureValidObjectId(relaciones?.departamento_id, 'departamento_id')
+
+    const payload: Record<string, unknown> = {
+      ci,
+      nombre,
+      contrasena,
+    }
+
+    if (sedeId !== undefined) payload.sede_id = sedeId
+    if (departamentoId !== undefined) payload.departamento_id = departamentoId
+
+    console.log('Calling crearTrabajador with:', payload)
     const response = await apiRequest<{ trabajador_id?: string; brigada_id?: string }>('/trabajadores/', {
       method: 'POST',
-      body: JSON.stringify({ ci, nombre, contrasena }),
+      body: JSON.stringify(payload),
     })
     console.log('crearTrabajador response:', response)
     return response.trabajador_id || response.brigada_id || 'success'
@@ -55,9 +84,13 @@ export class TrabajadorService {
     ci: string,
     nombre: string,
     contrasena: string,
-    integrantes: { CI: string; nombre?: string }[]
+    integrantes: { CI: string; nombre?: string }[],
+    relaciones?: TrabajadorRelacionesPayload
   ): Promise<string> {
-    console.log('Calling crearJefeBrigada with:', { ci, nombre, contrasena, integrantes })
+    const sedeId = ensureValidObjectId(relaciones?.sede_id, 'sede_id')
+    const departamentoId = ensureValidObjectId(relaciones?.departamento_id, 'departamento_id')
+
+    console.log('Calling crearJefeBrigada with:', { ci, nombre, contrasena, integrantes, sedeId, departamentoId })
     let integrantesFinal = integrantes
     if (integrantes.length > 0 && !integrantes[0].nombre) {
       const trabajadores = await this.getAllTrabajadores()
@@ -67,11 +100,21 @@ export class TrabajadorService {
       })
     }
     try {
+      const payload: Record<string, unknown> = {
+        ci,
+        nombre,
+        contrasena,
+        integrantes: integrantesFinal,
+      }
+
+      if (sedeId !== undefined) payload.sede_id = sedeId
+      if (departamentoId !== undefined) payload.departamento_id = departamentoId
+
       const response = await apiRequest<{ trabajador_id?: string; brigada_id?: string }>(
         '/trabajadores/jefes_brigada',
         {
           method: 'POST',
-          body: JSON.stringify({ ci, nombre, contrasena, integrantes: integrantesFinal }),
+          body: JSON.stringify(payload),
         }
       )
       console.log('crearJefeBrigada response:', response)
@@ -141,10 +184,58 @@ export class TrabajadorService {
     return response.success === true
   }
 
-  static async actualizarTrabajador(ci: string, nombre: string, nuevoCi?: string): Promise<boolean> {
-    const body: any = { nombre }
-    if (nuevoCi) {
-      body.nuevo_ci = nuevoCi
+  static async actualizarEstadoTrabajador(ci: string, activo: boolean): Promise<boolean> {
+    const body = JSON.stringify({ activo })
+
+    try {
+      const response = await apiRequest<{ success?: boolean }>(`/trabajadores/${ci}/rrhh`, {
+        method: 'PUT',
+        body,
+      })
+      return response.success !== false
+    } catch (rrhhError) {
+      console.warn('No se pudo actualizar estado en /rrhh, intentando endpoint general:', rrhhError)
+      const response = await apiRequest<{ success?: boolean }>(`/trabajadores/${ci}`, {
+        method: 'PUT',
+        body,
+      })
+      return response.success !== false
+    }
+  }
+
+  static async darBajaTrabajador(ci: string): Promise<boolean> {
+    return this.actualizarEstadoTrabajador(ci, false)
+  }
+
+  static async reactivarTrabajador(ci: string): Promise<boolean> {
+    return this.actualizarEstadoTrabajador(ci, true)
+  }
+
+  static async actualizarTrabajador(ci: string, payload: ActualizarTrabajadorPayload): Promise<boolean> {
+    const sedeId = ensureValidObjectId(payload.sede_id, 'sede_id')
+    const departamentoId = ensureValidObjectId(payload.departamento_id, 'departamento_id')
+
+    const body: Record<string, unknown> = {}
+
+    if (payload.nombre !== undefined) {
+      body.nombre = payload.nombre
+    }
+    if (payload.nuevo_ci !== undefined) {
+      body.nuevo_ci = payload.nuevo_ci
+    }
+    if (payload.activo !== undefined) {
+      body.activo = payload.activo
+    }
+    if (sedeId !== undefined) {
+      body.sede_id = sedeId
+    }
+    if (departamentoId !== undefined) {
+      body.departamento_id = departamentoId
+    }
+
+    // El backend responde 400 si no llega ningÃºn campo para actualizar.
+    if (Object.keys(body).length === 0) {
+      throw new Error('No se enviaron campos para actualizar el trabajador.')
     }
 
     const response = await apiRequest<{ success: boolean }>(`/trabajadores/${ci}`, {
@@ -152,6 +243,16 @@ export class TrabajadorService {
       body: JSON.stringify(body),
     })
     return response.success === true
+  }
+
+  static async actualizarRelacionesTrabajador(ci: string, relaciones: TrabajadorRelacionesPayload): Promise<boolean> {
+    const sedeId = normalizeOptionalObjectId(relaciones.sede_id)
+    const departamentoId = normalizeOptionalObjectId(relaciones.departamento_id)
+
+    return this.actualizarTrabajador(ci, {
+      sede_id: sedeId,
+      departamento_id: departamentoId,
+    })
   }
 
   static async eliminarTrabajadorDeBrigada(ci: string, brigadaId: string): Promise<boolean> {

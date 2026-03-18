@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
@@ -12,15 +12,31 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { Save, X, Eye, EyeOff } from "lucide-react";
+import { Save, X, Eye, EyeOff, Loader2 } from "lucide-react";
 import type { Brigade } from "@/lib/brigade-types";
+import { DepartamentoService, SedeService } from "@/lib/api-services";
+import type { Departamento, Sede, Trabajador } from "@/lib/api-types";
+import { isValidObjectId } from "@/lib/utils/object-id";
+
+interface WorkerFormSubmitData {
+  ci: string;
+  name: string;
+  mode: "trabajador" | "trabajador_asignar" | "jefe" | "jefe_brigada";
+  brigadeId?: string;
+  password?: string;
+  integrantes?: string[];
+  sede_id?: string | null;
+  departamento_id?: string | null;
+}
 
 interface WorkerFormProps {
-  onSubmit: (worker: any) => void;
+  onSubmit: (worker: WorkerFormSubmitData) => void;
   onCancel: () => void;
   brigades: Brigade[];
-  workers: any[];
+  workers: Trabajador[];
 }
+
+const NONE_OPTION = "__none__";
 
 export function WorkerForm({
   onSubmit,
@@ -32,12 +48,37 @@ export function WorkerForm({
     name: "",
     ci: "",
     brigadeId: "",
+    sedeId: "",
+    departamentoId: "",
     password: "",
     integrantes: [] as string[],
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [sedes, setSedes] = useState<Sede[]>([]);
+  const [departamentos, setDepartamentos] = useState<Departamento[]>([]);
+  const [loadingCatalogos, setLoadingCatalogos] = useState(false);
+
+  useEffect(() => {
+    const loadCatalogos = async () => {
+      setLoadingCatalogos(true);
+      try {
+        const [sedesData, departamentosData] = await Promise.all([
+          SedeService.getSedes(true),
+          DepartamentoService.getDepartamentos(true),
+        ]);
+        setSedes(sedesData);
+        setDepartamentos(departamentosData);
+      } catch (error) {
+        console.error("Error loading sede/departamento catalogs:", error);
+      } finally {
+        setLoadingCatalogos(false);
+      }
+    };
+
+    loadCatalogos();
+  }, []);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -50,18 +91,16 @@ export function WorkerForm({
       newErrors.ci = "El CI es requerido";
     }
 
+    if (formData.sedeId && !isValidObjectId(formData.sedeId)) {
+      newErrors.sedeId = "La sede seleccionada es inválida";
+    }
+
+    if (formData.departamentoId && !isValidObjectId(formData.departamentoId)) {
+      newErrors.departamentoId = "El departamento seleccionado es inválido";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
-
-  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setFormData((prev) => ({
-      ...prev,
-      password: value,
-      brigadeId: value ? "" : prev.brigadeId,
-      integrantes: value ? prev.integrantes : [],
-    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -76,12 +115,16 @@ export function WorkerForm({
           ci: formData.ci,
           name: formData.name,
           brigadeId: formData.brigadeId,
+          sede_id: formData.sedeId || null,
+          departamento_id: formData.departamentoId || null,
           mode: "trabajador_asignar",
         });
       } else {
         onSubmit({
           ci: formData.ci,
           name: formData.name,
+          sede_id: formData.sedeId || null,
+          departamento_id: formData.departamentoId || null,
           mode: "trabajador",
         });
       }
@@ -93,6 +136,8 @@ export function WorkerForm({
           name: formData.name,
           password: formData.password,
           integrantes: formData.integrantes,
+          sede_id: formData.sedeId || null,
+          departamento_id: formData.departamentoId || null,
           mode: "jefe_brigada",
         });
       } else {
@@ -100,6 +145,8 @@ export function WorkerForm({
           ci: formData.ci,
           name: formData.name,
           password: formData.password,
+          sede_id: formData.sedeId || null,
+          departamento_id: formData.departamentoId || null,
           mode: "jefe",
         });
       }
@@ -144,6 +191,79 @@ export function WorkerForm({
           {errors.ci && (
             <p className="text-red-600 text-sm mt-1">{errors.ci}</p>
           )}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              Sede
+            </Label>
+            <Select
+              value={formData.sedeId || NONE_OPTION}
+              onValueChange={(value) =>
+                setFormData({
+                  ...formData,
+                  sedeId: value === NONE_OPTION ? "" : value,
+                })
+              }
+            >
+              <SelectTrigger className={errors.sedeId ? "border-red-300" : ""}>
+                <SelectValue placeholder="Sin sede" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_OPTION}>Sin sede</SelectItem>
+                {sedes.map((sede) => (
+                  <SelectItem key={sede.id} value={sede.id}>
+                    {sede.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {loadingCatalogos && (
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Cargando sedes...
+              </p>
+            )}
+            {errors.sedeId && (
+              <p className="text-red-600 text-sm mt-1">{errors.sedeId}</p>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              Departamento
+            </Label>
+            <Select
+              value={formData.departamentoId || NONE_OPTION}
+              onValueChange={(value) =>
+                setFormData({
+                  ...formData,
+                  departamentoId: value === NONE_OPTION ? "" : value,
+                })
+              }
+            >
+              <SelectTrigger className={errors.departamentoId ? "border-red-300" : ""}>
+                <SelectValue placeholder="Sin departamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE_OPTION}>Sin departamento</SelectItem>
+                {departamentos.map((departamento) => (
+                  <SelectItem key={departamento.id} value={departamento.id}>
+                    {departamento.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {loadingCatalogos && (
+              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Cargando departamentos...
+              </p>
+            )}
+            {errors.departamentoId && (
+              <p className="text-red-600 text-sm mt-1">{errors.departamentoId}</p>
+            )}
+          </div>
         </div>
         <div>
           <Label

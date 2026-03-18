@@ -141,3 +141,14 @@ export type {
   MaterialVentaInfo,
   MaterialVentaWeb,
 } from "./types/feats/solicitudes-ventas/solicitud-venta-types";
+
+export type {
+  Sede,
+  SedeTipo,
+  SedeUpsertRequest,
+} from "./types/feats/sedes/sede-types";
+
+export type {
+  Departamento,
+  DepartamentoUpsertRequest,
+} from "./types/feats/departamentos/departamento-types";

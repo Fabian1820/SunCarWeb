@@ -1,12 +1,16 @@
-// Brigade & worker types shared between backend payloads and frontend forms.
+﻿// Brigade & worker types shared between backend payloads and frontend forms.
 
 export interface Trabajador {
   id: string
   CI: string
   nombre: string
   tiene_contraseña: boolean
+  is_brigadista?: boolean
+  activo?: boolean
   telefono?: string
   email?: string
+  sede_id?: string | null
+  departamento_id?: string | null
 }
 
 export interface Brigada {
