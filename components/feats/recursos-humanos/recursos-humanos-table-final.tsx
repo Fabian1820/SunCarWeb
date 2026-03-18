@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
-import { Check, Calendar, UserCheck, UserX, Eye } from "lucide-react"
+import { Check, Calendar, UserCheck, UserX, Eye, X } from "lucide-react"
 import { CalendarDiasSelector } from "./calendar-dias-selector"
 import { AsistenciaBadge } from "./asistencia-badge"
 import { toast } from "sonner"
@@ -312,12 +312,11 @@ export function RecursosHumanosTableFinal({
           </Button>
           <Button
             size="sm"
-            variant="outline"
             onClick={cancelarEdicion}
             disabled={estaGuardando}
-            className="h-7 w-7 p-0"
+            className="h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white"
           >
-            <span className="text-xs">âœ•</span>
+            <X className="h-3 w-3" />
           </Button>
         </div>
       )
@@ -356,7 +355,7 @@ export function RecursosHumanosTableFinal({
               <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Var.</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[100px]">Salario</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[90px]">Aliment.</th>
-              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">DÃ­as T.</th>
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">Días T.</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[60px]">NT</th>
               <th className="text-center py-3 px-2 font-semibold text-gray-900 bg-green-50 w-[110px]">Total</th>
               {!isVistaHistorica && <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm sticky right-0 bg-white z-10 shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.1)] w-[80px]">Acc.</th>}
