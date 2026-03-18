@@ -1,5 +1,5 @@
-// Configuración de la API
-// Función para obtener la URL de la API directamente del backend
+﻿// ConfiguraciÃ³n de la API
+// FunciÃ³n para obtener la URL de la API directamente del backend
 function getApiBaseUrl(): string {
   const PROD_BACKEND_FALLBACK = "https://api.suncarsrl.com";
   const backendUrlEnvRaw =
@@ -17,12 +17,12 @@ function getApiBaseUrl(): string {
     const isLocalhost =
       parsed.hostname.includes("localhost") || parsed.hostname === "127.0.0.1";
 
-    // En producción siempre usar HTTPS para evitar redirects que rompen preflight (CORS)
+    // En producciÃ³n siempre usar HTTPS para evitar redirects que rompen preflight (CORS)
     if (!isLocalhost && parsed.protocol === "http:") {
       parsed.protocol = "https:";
     }
 
-    // Si la app corre en https y el backend quedó en http, elevar a https igualmente.
+    // Si la app corre en https y el backend quedÃ³ en http, elevar a https igualmente.
     if (
       typeof window !== "undefined" &&
       window.location.protocol === "https:" &&
@@ -40,7 +40,7 @@ function getApiBaseUrl(): string {
       typeof console !== "undefined"
     ) {
       console.warn(
-        `⚠️ NEXT_PUBLIC_BACKEND_URL incluye path '${suppliedPath}'. Se ignorará y se usará solo el origen.`,
+        `âš ï¸ NEXT_PUBLIC_BACKEND_URL incluye path '${suppliedPath}'. Se ignorarÃ¡ y se usarÃ¡ solo el origen.`,
       );
     }
 
@@ -51,7 +51,7 @@ function getApiBaseUrl(): string {
 
     if (isSuncarNonApiHost) {
       console.warn(
-        `⚠️ Host backend '${parsed.hostname}' no es API. Se usará '${PROD_BACKEND_FALLBACK}'.`,
+        `âš ï¸ Host backend '${parsed.hostname}' no es API. Se usarÃ¡ '${PROD_BACKEND_FALLBACK}'.`,
       );
       backendOrigin = PROD_BACKEND_FALLBACK;
     } else {
@@ -78,8 +78,8 @@ function getApiBaseUrl(): string {
   }
   const apiUrl = `${backendOrigin.replace(/\/+$/, "")}/api`;
 
-  console.log("✅ Using direct backend URL:", apiUrl);
-  console.log("🔧 Backend origin URL:", backendOrigin);
+  console.log("âœ… Using direct backend URL:", apiUrl);
+  console.log("ðŸ”§ Backend origin URL:", backendOrigin);
 
   return apiUrl;
 }
@@ -87,8 +87,8 @@ function getApiBaseUrl(): string {
 // Exportar la URL base
 export const API_BASE_URL = getApiBaseUrl();
 
-// Log inicial para verificar configuración
-console.log("🔧 API Configuration loaded:", {
+// Log inicial para verificar configuraciÃ³n
+console.log("ðŸ”§ API Configuration loaded:", {
   API_BASE_URL,
   timestamp: new Date().toISOString(),
 });
@@ -98,46 +98,78 @@ export const API_HEADERS = {
   "Content-Type": "application/json",
 };
 
-// Configuración de timeout
+// ConfiguraciÃ³n de timeout
 export const API_TIMEOUT = 10000; // 10 segundos
 
-// Las funciones de autenticación se manejan directamente en apiRequest()
+// Las funciones de autenticaciÃ³n se manejan directamente en apiRequest()
 // usando el token guardado en localStorage por el AuthContext
 
-// Función helper para hacer peticiones HTTP con autenticación automática
+function ensureSecureRequestUrl(url: string): string {
+  if (typeof window === "undefined") return url;
+  if (window.location.protocol !== "https:") return url;
+
+  try {
+    const parsed = new URL(url);
+    const isLocalhost =
+      parsed.hostname.includes("localhost") || parsed.hostname === "127.0.0.1";
+
+    if (!isLocalhost && parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+      const upgraded = parsed.toString();
+      console.warn("⚠️ URL HTTP detectada en cliente HTTPS. Se fuerza HTTPS:", {
+        original: url,
+        upgraded,
+      });
+      return upgraded;
+    }
+  } catch {
+    if (url.startsWith("http://")) {
+      const upgraded = `https://${url.slice("http://".length)}`;
+      console.warn("⚠️ URL HTTP inválida detectada en cliente HTTPS. Se fuerza HTTPS:", {
+        original: url,
+        upgraded,
+      });
+      return upgraded;
+    }
+  }
+
+  return url;
+}
+// FunciÃ³n helper para hacer peticiones HTTP con autenticaciÃ³n automÃ¡tica
 export async function apiRequest<T>(
   endpoint: string,
   options: RequestInit & { responseType?: "json" | "blob" } = {},
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
+  const rawUrl = `${API_BASE_URL}${endpoint}`;
+  const url = ensureSecureRequestUrl(rawUrl);
   const { responseType = "json", ...requestOptions } = options;
 
-  console.log("🚀 Starting API request:", { endpoint, url, API_BASE_URL });
-  console.log("🌍 Environment check:", {
+  console.log("ðŸš€ Starting API request:", { endpoint, url, API_BASE_URL });
+  console.log("ðŸŒ Environment check:", {
     NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
     NODE_ENV: process.env.NODE_ENV,
     isBrowser: typeof window !== "undefined",
   });
 
   try {
-    // Obtener token de autenticación del localStorage
+    // Obtener token de autenticaciÃ³n del localStorage
     let authToken = "";
     if (typeof window !== "undefined") {
       authToken = localStorage.getItem("auth_token") || "";
       if (authToken) {
         console.log(
-          "🔐 Using auth token from localStorage:",
+          "ðŸ” Using auth token from localStorage:",
           authToken.substring(0, 20) + "...",
         );
       } else {
-        console.warn("⚠️ No auth token found in localStorage");
+        console.warn("âš ï¸ No auth token found in localStorage");
       }
     }
 
     // Preparar headers base
     const baseHeaders: Record<string, string> = {};
 
-    // Agregar token de autorización si existe
+    // Agregar token de autorizaciÃ³n si existe
     if (authToken) {
       baseHeaders["Authorization"] = `Bearer ${authToken}`;
     }
@@ -192,46 +224,46 @@ export async function apiRequest<T>(
 
         if (isPlaceholderLead) {
           throw new Error(
-            "Se bloqueó un lead temporal de marcador de posición. Completa nombre, teléfono y dirección reales.",
+            "Se bloqueÃ³ un lead temporal de marcador de posiciÃ³n. Completa nombre, telÃ©fono y direcciÃ³n reales.",
           );
         }
       } catch (parseOrValidationError) {
         if (
           parseOrValidationError instanceof Error &&
-          parseOrValidationError.message.includes("bloqueó un lead temporal")
+          parseOrValidationError.message.includes("bloqueÃ³ un lead temporal")
         ) {
           console.error(
-            "⛔ Payload bloqueado para POST /leads/:",
+            "â›” Payload bloqueado para POST /leads/:",
             parseOrValidationError.message,
           );
           throw parseOrValidationError;
         }
       }
     }
-    console.log(`📡 Making API request to: ${url}`);
-    console.log("📋 Request config:", {
+    console.log(`ðŸ“¡ Making API request to: ${url}`);
+    console.log("ðŸ“‹ Request config:", {
       method: config.method || "GET",
       headers: config.headers,
       body: config.body ? "Present" : "None",
       responseType,
     });
     console.log(
-      "🔐 Authorization header:",
+      "ðŸ” Authorization header:",
       config.headers?.["Authorization"] ? "Present" : "NOT FOUND",
     );
 
     const response = await fetch(url, config);
-    console.log("📨 Response received:", {
+    console.log("ðŸ“¨ Response received:", {
       status: response.status,
       ok: response.ok,
       url: response.url,
     });
 
-    // Intentar parsear la respuesta priorizando JSON, con fallback seguro para cuerpo vacío/no-JSON.
+    // Intentar parsear la respuesta priorizando JSON, con fallback seguro para cuerpo vacÃ­o/no-JSON.
     let data: unknown;
     if (responseType === "blob") {
       const blob = await response.blob();
-      console.log("📄 API Response blob size:", blob.size);
+      console.log("ðŸ“„ API Response blob size:", blob.size);
 
       // Si hay error HTTP con blob, intentar leer como texto para ver si es JSON
       if (!response.ok) {
@@ -240,7 +272,7 @@ export async function apiRequest<T>(
           const jsonData = JSON.parse(text);
           // Devolver el error para que el servicio lo maneje
           if (jsonData.success === false || jsonData.detail || jsonData.error) {
-            console.log("📦 Returning error response from blob");
+            console.log("ðŸ“¦ Returning error response from blob");
             return jsonData as T;
           }
         } catch {
@@ -255,7 +287,7 @@ export async function apiRequest<T>(
     if (response.status === 204 || response.status === 205) {
       data = {};
       console.log(
-        "📦 Empty response body (no content), returning empty object",
+        "ðŸ“¦ Empty response body (no content), returning empty object",
       );
     } else {
       const contentType = response.headers.get("content-type") || "";
@@ -264,7 +296,7 @@ export async function apiRequest<T>(
       if (!rawText.trim()) {
         if (response.ok) {
           data = {};
-          console.log("📦 Empty response body, returning empty object");
+          console.log("ðŸ“¦ Empty response body, returning empty object");
         } else {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -272,11 +304,11 @@ export async function apiRequest<T>(
         try {
           data = JSON.parse(rawText);
         } catch {
-          console.error("❌ Could not parse response as JSON");
+          console.error("âŒ Could not parse response as JSON");
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          throw new Error("Respuesta JSON inválida del servidor");
+          throw new Error("Respuesta JSON invÃ¡lida del servidor");
         }
       } else {
         try {
@@ -293,7 +325,7 @@ export async function apiRequest<T>(
           }
         }
       }
-      console.log("📦 Response data:", data);
+      console.log("ðŸ“¦ Response data:", data);
     }
 
     const dataRecord =
@@ -307,18 +339,18 @@ export async function apiRequest<T>(
     const dataSuccess = dataRecord?.success;
     const dataError = dataRecord?.error;
 
-    // Detectar token expirado o inválido (401) ANTES de cualquier otro manejo
+    // Detectar token expirado o invÃ¡lido (401) ANTES de cualquier otro manejo
     if (!response.ok && response.status === 401) {
       const errorMessage = dataDetail || dataMessage || "";
 
       if (
         errorMessage.toLowerCase().includes("token") &&
         (errorMessage.toLowerCase().includes("expirado") ||
-          errorMessage.toLowerCase().includes("inválido") ||
+          errorMessage.toLowerCase().includes("invÃ¡lido") ||
           errorMessage.toLowerCase().includes("invalido"))
       ) {
         console.warn(
-          "🔐 Token expirado o inválido - cerrando sesión automáticamente",
+          "ðŸ” Token expirado o invÃ¡lido - cerrando sesiÃ³n automÃ¡ticamente",
         );
 
         if (typeof window !== "undefined") {
@@ -330,7 +362,7 @@ export async function apiRequest<T>(
           }, 500);
         }
 
-        throw new Error("Sesión expirada. Redirigiendo al login...");
+        throw new Error("SesiÃ³n expirada. Redirigiendo al login...");
       }
     }
 
@@ -341,7 +373,7 @@ export async function apiRequest<T>(
       (Boolean(dataDetail) && !response.ok) ||
       Boolean(dataError)
     ) {
-      console.log("📦 Returning error response to service for handling");
+      console.log("ðŸ“¦ Returning error response to service for handling");
       if (dataRecord) {
         return {
           ...dataRecord,
@@ -353,22 +385,22 @@ export async function apiRequest<T>(
       return data as T;
     }
 
-    // Si el HTTP status no es OK pero no tenemos estructura de error, lanzar excepción
+    // Si el HTTP status no es OK pero no tenemos estructura de error, lanzar excepciÃ³n
     if (!response.ok) {
       console.error(
-        `❌ API request failed: ${response.status} ${response.statusText}`,
+        `âŒ API request failed: ${response.status} ${response.statusText}`,
       );
-      console.error("❌ Error data:", data);
+      console.error("âŒ Error data:", data);
 
       // Para errores 400 (Bad Request), devolver la respuesta como error estructurado
-      // en lugar de lanzar excepción para evitar el overlay de Next.js
+      // en lugar de lanzar excepciÃ³n para evitar el overlay de Next.js
       if (response.status === 400) {
-        console.log("📦 Returning 400 error as structured response");
+        console.log("ðŸ“¦ Returning 400 error as structured response");
         return {
           success: false,
           error: {
             code: "BAD_REQUEST",
-            title: "Error de Validación",
+            title: "Error de ValidaciÃ³n",
             message: dataDetail || dataMessage || "Error en la solicitud",
           },
         } as T;
@@ -392,8 +424,8 @@ export async function apiRequest<T>(
       );
     }
 
-    console.error("💥 API Request Error:", error);
-    console.error("💥 API Request Error Details:", {
+    console.error("ðŸ’¥ API Request Error:", error);
+    console.error("ðŸ’¥ API Request Error Details:", {
       message: error instanceof Error ? error.message : "Unknown error",
       name: error instanceof Error ? error.name : "Unknown",
       url,
@@ -405,3 +437,5 @@ export async function apiRequest<T>(
     throw error;
   }
 }
+
+

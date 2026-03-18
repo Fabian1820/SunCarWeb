@@ -48,13 +48,34 @@ export const OFERTAS_CONFECCION_ENDPOINTS = {
  * Construir URL completa del endpoint
  */
 export function buildApiUrl(endpoint: string): string {
-  const backendUrl =
+  const backendUrlRaw =
     process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.suncarsrl.com";
-  const apiUrl = backendUrl.endsWith("/api") ? backendUrl : `${backendUrl}/api`;
+  const backendUrl = backendUrlRaw.trim();
+
+  let normalized = backendUrl;
+  if (!/^https?:\/\//i.test(normalized)) {
+    normalized = `https://${normalized}`;
+  }
+
+  try {
+    const parsed = new URL(normalized);
+    const isLocalhost =
+      parsed.hostname.includes("localhost") || parsed.hostname === "127.0.0.1";
+    if (!isLocalhost && parsed.protocol === "http:") {
+      parsed.protocol = "https:";
+    }
+    normalized = parsed.origin + parsed.pathname;
+  } catch {
+    if (normalized.startsWith("http://")) {
+      normalized = `https://${normalized.slice("http://".length)}`;
+    }
+  }
+
+  const apiUrl = normalized.endsWith("/api") ? normalized : `${normalized}/api`;
 
   // Si el endpoint ya incluye /api, no duplicarlo
   if (endpoint.startsWith("/api/")) {
-    return `${backendUrl.replace(/\/api$/, "")}${endpoint}`;
+    return `${normalized.replace(/\/api$/, "")}${endpoint}`;
   }
 
   return `${apiUrl}${endpoint}`;
