@@ -116,6 +116,37 @@ export interface ResumenEquiposEnServicioCliente {
   tiene_alguno_en_servicio: boolean;
 }
 
+export interface TrabajoDiarioItem {
+  material_id: string;
+  material_codigo?: string | null;
+  material_descripcion?: string | null;
+  um?: string | null;
+  cantidad: number;
+}
+
+export interface TrabajoDiarioVale {
+  vale_id: string;
+  vale_codigo: string;
+  vale_estado: string;
+  fecha_creacion?: string | null;
+  solicitud_id: string;
+  solicitud_codigo: string;
+  fecha_recogida?: string | null;
+  responsable_recogida?: string | null;
+  almacen?: {
+    id?: string | null;
+    nombre?: string | null;
+    codigo?: string | null;
+  } | null;
+  cliente_id?: string | null;
+  cliente_numero?: string | null;
+  cliente_nombre?: string | null;
+  cliente_telefono?: string | null;
+  cliente_direccion?: string | null;
+  cliente_provincia_montaje?: string | null;
+  items: TrabajoDiarioItem[];
+}
+
 const parseArrayToIdSet = (values: unknown): Set<string> => {
   const ids = new Set<string>();
   if (!Array.isArray(values)) return ids;
@@ -155,6 +186,45 @@ const buildResumenServicioDefault = (
 });
 
 export const InstalacionesService = {
+  async getTrabajosDiarios(fecha: string): Promise<TrabajoDiarioVale[]> {
+    const fechaNormalizada = String(fecha || "").trim();
+    if (!fechaNormalizada) return [];
+
+    const response = await apiRequest<unknown>(
+      `/operaciones/trabajos-diarios?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      { method: "GET" },
+    );
+
+    if (Array.isArray(response)) {
+      return response as TrabajoDiarioVale[];
+    }
+
+    const responseObj =
+      response && typeof response === "object"
+        ? (response as Record<string, unknown>)
+        : null;
+
+    const payload = responseObj?.data ?? responseObj;
+    if (Array.isArray(payload)) {
+      return payload as TrabajoDiarioVale[];
+    }
+
+    const payloadObj =
+      payload && typeof payload === "object"
+        ? (payload as Record<string, unknown>)
+        : null;
+
+    if (Array.isArray(payloadObj?.vales)) {
+      return payloadObj.vales as TrabajoDiarioVale[];
+    }
+
+    if (Array.isArray(payloadObj?.data)) {
+      return payloadObj.data as TrabajoDiarioVale[];
+    }
+
+    return [];
+  },
+
   /**
    * Obtiene todos los leads y clientes con estado "Pendiente de Instalación"
    */

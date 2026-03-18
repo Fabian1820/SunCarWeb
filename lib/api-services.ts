@@ -31,3 +31,4 @@ export { ValeSalidaService } from "./services/feats/vales-salida/vale-salida-ser
 export { ClienteVentaService } from "./services/feats/clientes-ventas/cliente-venta-service";
 export { SolicitudVentaService } from "./services/feats/solicitudes-ventas/solicitud-venta-service";
 export { WalletService } from "./services/feats/wallet/wallet-service";
+export { InstalacionesService } from "./services/feats/instalaciones/instalaciones-service";
