@@ -183,6 +183,15 @@ const mapValeToFacturaVale = (
   materials: Material[],
   tipoFactura: FacturaTipo,
 ): Factura["vales"][number] => {
+  // Debug: verificar el vale original
+  console.log('🔍 mapValeToFacturaVale - Vale original:', {
+    id: vale.id,
+    tipo_id: typeof vale.id,
+    codigo: vale.codigo,
+    tiene_id: !!vale.id,
+    vale_completo: vale
+  });
+  
   const items = (vale.materiales || []).map((item, index) => {
     const matchedMaterial = findMaterialForValeItem(item, materials);
     const materialCode =
@@ -217,11 +226,22 @@ const mapValeToFacturaVale = (
     };
   });
 
-  return {
+  const valeResultado = {
     id: vale.id, // ← Incluir el ID del vale de salida
     fecha: vale.fecha_creacion || new Date().toISOString(),
     items,
   };
+  
+  // Debug: verificar el vale resultante
+  console.log('✅ mapValeToFacturaVale - Vale resultante:', {
+    id: valeResultado.id,
+    tipo_id: typeof valeResultado.id,
+    tiene_id: !!valeResultado.id,
+    fecha: valeResultado.fecha,
+    items_count: valeResultado.items.length
+  });
+  
+  return valeResultado;
 };
 
 const getValeClienteName = (vale: ValeSalida) =>
@@ -370,9 +390,26 @@ export function FacturaFormDialog({
         });
         if (cancelled) return;
 
+        // Debug: verificar vales cargados
+        console.log('📥 Vales cargados del backend:', allVales.map(v => ({
+          id: v.id,
+          tipo_id: typeof v.id,
+          codigo: v.codigo,
+          tiene_id: !!v.id
+        })));
+
         const filtered = allVales.filter((vale) =>
           valeMatchesClient(vale, formData.cliente_id as string),
         );
+        
+        // Debug: verificar vales filtrados
+        console.log('🔍 Vales filtrados para cliente:', filtered.map(v => ({
+          id: v.id,
+          tipo_id: typeof v.id,
+          codigo: v.codigo,
+          tiene_id: !!v.id
+        })));
+        
         setValesDisponibles(filtered);
       } catch (error) {
         if (cancelled) return;
@@ -404,6 +441,10 @@ export function FacturaFormDialog({
     const mappedVales = selectedVales.map((vale) =>
       mapValeToFacturaVale(vale, materials, formData.tipo),
     );
+    
+    // Debug: verificar que los vales mapeados tienen el ID
+    console.log('🔄 Vales mapeados:', mappedVales.map(v => ({ id: v.id, fecha: v.fecha, items_count: v.items.length })));
+    
     setFormData((prev) => ({ ...prev, vales: mappedVales }));
   }, [
     open,
@@ -486,6 +527,10 @@ export function FacturaFormDialog({
     e.preventDefault();
     setSaving(true);
     try {
+      // Debug: verificar que los vales tienen el ID
+      console.log('📤 Datos de factura a enviar:', JSON.stringify(formData, null, 2));
+      console.log('📤 Vales con IDs:', formData.vales.map(v => ({ id: v.id, fecha: v.fecha, items_count: v.items.length })));
+      
       await onSave(formData);
       onOpenChange(false);
     } catch (error) {
