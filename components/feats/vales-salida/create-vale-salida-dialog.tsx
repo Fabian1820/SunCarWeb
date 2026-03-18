@@ -18,6 +18,7 @@ import {
   Package,
   FileOutput,
   X,
+  Hash,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import {
@@ -42,6 +43,7 @@ interface MaterialRow {
   descripcion: string;
   um: string;
   cantidad: number;
+  numero_serie?: string;
   foto?: string;
 }
 
@@ -120,6 +122,10 @@ export function CreateValeSalidaDialog({
     [],
   );
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
+
+  const [serialNumberDialogOpen, setSerialNumberDialogOpen] = useState(false);
+  const [serialNumberMaterialIndex, setSerialNumberMaterialIndex] = useState<number | null>(null);
+  const [tempSerialNumbers, setTempSerialNumbers] = useState<string[]>([]);
 
   const [materialCatalogMaterial, setMaterialCatalogMaterial] = useState<
     MaterialCatalogItem[]
@@ -379,6 +385,55 @@ export function CreateValeSalidaDialog({
     );
   };
 
+  const handleNumeroSerieChange = (index: number, value: string) => {
+    setMateriales((prev) =>
+      prev.map((material, i) =>
+        i === index ? { ...material, numero_serie: value.trim() || undefined } : material,
+      ),
+    );
+  };
+
+  const handleOpenSerialNumberDialog = (index: number) => {
+    const material = materiales[index];
+    if (!material) return;
+    
+    const currentSerials = material.numero_serie 
+      ? material.numero_serie.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
+    
+    const cantidad = Math.max(1, material.cantidad);
+    const serialsArray = Array(cantidad).fill('').map((_, i) => currentSerials[i] || '');
+    
+    setSerialNumberMaterialIndex(index);
+    setTempSerialNumbers(serialsArray);
+    setSerialNumberDialogOpen(true);
+  };
+
+  const handleSaveSerialNumbers = () => {
+    if (serialNumberMaterialIndex === null) return;
+    
+    const validSerials = tempSerialNumbers.filter(s => s.trim());
+    const serialString = validSerials.length > 0 ? validSerials.join(', ') : undefined;
+    
+    setMateriales((prev) =>
+      prev.map((material, i) =>
+        i === serialNumberMaterialIndex 
+          ? { ...material, numero_serie: serialString } 
+          : material,
+      ),
+    );
+    
+    setSerialNumberDialogOpen(false);
+    setSerialNumberMaterialIndex(null);
+    setTempSerialNumbers([]);
+  };
+
+  const handleCancelSerialNumbers = () => {
+    setSerialNumberDialogOpen(false);
+    setSerialNumberMaterialIndex(null);
+    setTempSerialNumbers([]);
+  };
+
   const handleSubmit = async () => {
     if (!selectedSolicitud) return;
 
@@ -391,6 +446,7 @@ export function CreateValeSalidaDialog({
       materiales: validMaterials.map((material) => ({
         material_id: material.material_id,
         cantidad: material.cantidad,
+        numero_serie: material.numero_serie,
       })),
       solicitud_material_id:
         selectedSolicitud.tipo_solicitud === "material"
@@ -436,6 +492,7 @@ export function CreateValeSalidaDialog({
     : null;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -624,6 +681,9 @@ export function CreateValeSalidaDialog({
                       <th className="text-left py-2 px-3 font-medium text-gray-700 w-28">
                         Cantidad
                       </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-40">
+                        N° Series (opcional)
+                      </th>
                       <th className="w-10" />
                     </tr>
                   </thead>
@@ -676,6 +736,37 @@ export function CreateValeSalidaDialog({
                             }
                             className="h-8 w-24"
                           />
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            {material.numero_serie ? (
+                              <div className="flex-1 flex items-center gap-2">
+                                <span className="text-xs text-gray-600 truncate max-w-[100px]" title={material.numero_serie}>
+                                  {material.numero_serie.split(',').length} serie(s)
+                                </span>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenSerialNumberDialog(idx)}
+                                  className="h-7 text-xs"
+                                >
+                                  Editar
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenSerialNumberDialog(idx)}
+                                className="h-7 text-xs"
+                              >
+                                <Plus className="h-3 w-3 mr-1" />
+                                Agregar
+                              </Button>
+                            )}
+                          </div>
                         </td>
                         <td className="py-2 px-3">
                           <button
@@ -778,5 +869,59 @@ export function CreateValeSalidaDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <Dialog open={serialNumberDialogOpen} onOpenChange={setSerialNumberDialogOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Hash className="h-5 w-5 text-orange-600" />
+            Números de Serie
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <p className="text-sm text-gray-600">
+            Ingrese los números de serie para cada unidad del material:
+          </p>
+          
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            {tempSerialNumbers.map((serial, idx) => (
+              <div key={idx} className="space-y-1">
+                <Label className="text-xs text-gray-600">
+                  Unidad {idx + 1}
+                </Label>
+                <Input
+                  type="text"
+                  placeholder={`Ej: SN${String(idx + 1).padStart(3, '0')}`}
+                  value={serial}
+                  onChange={(e) => {
+                    const newSerials = [...tempSerialNumbers];
+                    newSerials[idx] = e.target.value;
+                    setTempSerialNumbers(newSerials);
+                  }}
+                  className="h-9"
+                />
+              </div>
+            ))}
+          </div>
+          
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={handleCancelSerialNumbers}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveSerialNumbers}
+              className="bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white"
+            >
+              Guardar
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }

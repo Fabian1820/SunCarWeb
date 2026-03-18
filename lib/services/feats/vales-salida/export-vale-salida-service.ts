@@ -517,7 +517,7 @@ export class ExportValeSalidaService {
       startY: y + 2,
       margin: { left: marginLeft, right: marginRight },
       head: [
-        ["Código", "Descripción", "U/M", "Cantidad", "Precio", "Existencia"],
+        ["Código", "Descripción", "U/M", "Cantidad", "N° Series", "Precio", "Existencia"],
       ],
       body:
         materiales.length > 0
@@ -528,11 +528,12 @@ export class ExportValeSalidaService {
                 getMaterialDescription(material),
                 getMaterialUm(material),
                 String(material.cantidad || 0),
+                material.numero_serie || "-",
                 formatMoney(getMaterialPrice(material)),
                 existencia === null ? "-" : String(existencia),
               ];
             })
-          : [["-", "Sin materiales", "-", "0", "0.00", "-"]],
+          : [["-", "Sin materiales", "-", "0", "-", "0.00", "-"]],
       theme: "grid",
       headStyles: {
         fillColor: [255, 255, 255],
@@ -550,12 +551,13 @@ export class ExportValeSalidaService {
         textColor: [0, 0, 0],
       },
       columnStyles: {
-        0: { cellWidth: 24 },
-        1: { cellWidth: 80 },
-        2: { cellWidth: 14, halign: "center" },
-        3: { cellWidth: 18, halign: "right" },
-        4: { cellWidth: 23, halign: "right" },
-        5: { cellWidth: 23, halign: "right" },
+        0: { cellWidth: 20 },
+        1: { cellWidth: 65 },
+        2: { cellWidth: 12, halign: "center" },
+        3: { cellWidth: 16, halign: "right" },
+        4: { cellWidth: 24, halign: "center" },
+        5: { cellWidth: 20, halign: "right" },
+        6: { cellWidth: 20, halign: "right" },
       },
     });
 
@@ -627,17 +629,18 @@ export class ExportValeSalidaService {
     const stockByCode = await loadStockByCode(vale);
 
     worksheet.columns = [
-      { key: "a", width: 22 },
-      { key: "b", width: 30 },
+      { key: "a", width: 20 },
+      { key: "b", width: 35 },
       { key: "c", width: 22 },
       { key: "d", width: 30 },
-      { key: "e", width: 14 },
-      { key: "f", width: 14 },
-      { key: "g", width: 16 },
-      { key: "h", width: 18 },
+      { key: "e", width: 12 },
+      { key: "f", width: 12 },
+      { key: "g", width: 22 },
+      { key: "h", width: 16 },
+      { key: "i", width: 16 },
     ];
 
-    worksheet.mergeCells("A1:H1");
+    worksheet.mergeCells("A1:I1");
     worksheet.getCell("A1").value = "SUNCAR SRL - VALE DE ENTREGA DE ALMACÉN";
     worksheet.getCell("A1").font = {
       bold: true,
@@ -661,7 +664,7 @@ export class ExportValeSalidaService {
       });
     }
 
-    worksheet.mergeCells("A2:H2");
+    worksheet.mergeCells("A2:I2");
     worksheet.getCell("A2").value =
       "Documento de control de salidas de almacén - generado automáticamente";
     worksheet.getCell("A2").font = { size: 10, color: { argb: "FF4B5563" } };
@@ -671,7 +674,7 @@ export class ExportValeSalidaService {
     };
     worksheet.getRow(2).height = 18;
 
-    worksheet.mergeCells("A4:H4");
+    worksheet.mergeCells("A4:I4");
     worksheet.getCell("A4").value = "Datos del Vale";
     applySectionTitleStyle(worksheet.getRow(4));
 
@@ -735,8 +738,9 @@ export class ExportValeSalidaService {
       { cell: `B${headerRow}`, label: "Descripción" },
       { cell: `E${headerRow}`, label: "UM" },
       { cell: `F${headerRow}`, label: "Cantidad" },
-      { cell: `G${headerRow}`, label: "Precio" },
-      { cell: `H${headerRow}`, label: "Existencia" },
+      { cell: `G${headerRow}`, label: "N° Series" },
+      { cell: `H${headerRow}`, label: "Precio" },
+      { cell: `I${headerRow}`, label: "Existencia" },
     ];
 
     tableHeaders.forEach(({ cell, label }) => {
@@ -767,28 +771,29 @@ export class ExportValeSalidaService {
       worksheet.getCell(`F${currentRow}`).value = Number(
         material.cantidad || 0,
       );
-      worksheet.getCell(`G${currentRow}`).value = getMaterialPrice(material);
-      worksheet.getCell(`H${currentRow}`).value = getMaterialExistencia(
+      worksheet.getCell(`G${currentRow}`).value = material.numero_serie || "-";
+      worksheet.getCell(`H${currentRow}`).value = getMaterialPrice(material);
+      worksheet.getCell(`I${currentRow}`).value = getMaterialExistencia(
         material,
         stockByCode,
       );
 
-      ["A", "B", "E", "F", "G", "H"].forEach((col) => {
+      ["A", "B", "E", "F", "G", "H", "I"].forEach((col) => {
         const cell = worksheet.getCell(`${col}${currentRow}`);
         cell.alignment = {
           vertical: "middle",
           horizontal:
-            col === "E"
+            col === "E" || col === "G"
               ? "center"
-              : col === "F" || col === "G" || col === "H"
+              : col === "F" || col === "H" || col === "I"
                 ? "right"
                 : "left",
           wrapText: col === "B",
         };
-        if (col === "H" && (cell.value === null || cell.value === undefined)) {
+        if (col === "I" && (cell.value === null || cell.value === undefined)) {
           cell.value = "-";
         }
-        if (col === "G" && typeof cell.value === "number") {
+        if (col === "H" && typeof cell.value === "number") {
           cell.numFmt = "#,##0.00";
         }
         cell.border = {
@@ -802,16 +807,17 @@ export class ExportValeSalidaService {
     });
 
     const summaryRow = currentRow + 1;
-    worksheet.mergeCells(`A${summaryRow}:G${summaryRow}`);
+
+    worksheet.mergeCells(`A${summaryRow}:H${summaryRow}`);
     worksheet.getCell(`A${summaryRow}`).value = "Total de materiales";
     worksheet.getCell(`A${summaryRow}`).font = { bold: true };
-    worksheet.getCell(`H${summaryRow}`).value = header.cantidadMateriales;
-    worksheet.getCell(`H${summaryRow}`).font = { bold: true };
-    worksheet.getCell(`H${summaryRow}`).alignment = { horizontal: "right" };
+    worksheet.getCell(`I${summaryRow}`).value = header.cantidadMateriales;
+    worksheet.getCell(`I${summaryRow}`).font = { bold: true };
+    worksheet.getCell(`I${summaryRow}`).alignment = { horizontal: "right" };
 
     if (vale.estado === "anulado") {
       const anuladoRow = summaryRow + 2;
-      worksheet.mergeCells(`A${anuladoRow}:H${anuladoRow}`);
+      worksheet.mergeCells(`A${anuladoRow}:I${anuladoRow}`);
       worksheet.getCell(`A${anuladoRow}`).value =
         `VALE ANULADO - Motivo: ${vale.motivo_anulacion || "No especificado"}`;
       worksheet.getCell(`A${anuladoRow}`).font = {

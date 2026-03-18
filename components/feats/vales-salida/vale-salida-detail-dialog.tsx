@@ -280,6 +280,9 @@ export function ValeSalidaDetailDialog({
                     <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                       Cantidad
                     </th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-32">
+                      N° Series
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -327,6 +330,16 @@ export function ValeSalidaDetailDialog({
                         </td>
                         <td className="py-2.5 px-3 text-right font-semibold text-gray-900">
                           {mat.cantidad}
+                        </td>
+                        <td className="py-2.5 px-3">
+                          {mat.numero_serie ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-xs font-mono">
+                              <Hash className="h-3 w-3" />
+                              {mat.numero_serie}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </td>
                       </tr>
                     );
