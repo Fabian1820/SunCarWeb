@@ -7,6 +7,12 @@ import { Edit, Trash2, Package, DollarSign, FileText, Upload, Loader2 } from "lu
 import type { Material } from "@/lib/material-types";
 import { MaterialService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/shared/molecule/tooltip";
 
 interface MaterialsTableProps {
   materials: Material[];
@@ -190,8 +196,9 @@ export function MaterialsTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full table-fixed">
+    <TooltipProvider>
+      <div className="overflow-x-auto">
+        <table className="w-full table-fixed">
         <thead>
           <tr className="border-b border-gray-200">
             <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">
@@ -278,9 +285,16 @@ export function MaterialsTable({
               </td>
               <td className="py-3 px-2">
                 {material.nombre ? (
-                  <span className="text-sm font-medium text-gray-900 truncate block">
-                    {material.nombre}
-                  </span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="text-sm font-medium text-gray-900 truncate block cursor-help">
+                        {material.nombre}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="max-w-xs">{material.nombre}</p>
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
                   <span className="text-sm text-gray-400">-</span>
                 )}
@@ -406,5 +420,6 @@ export function MaterialsTable({
         </tbody>
       </table>
     </div>
+    </TooltipProvider>
   );
 }
