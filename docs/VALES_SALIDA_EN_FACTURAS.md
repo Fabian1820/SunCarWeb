@@ -154,40 +154,81 @@ const handleValesSalidaSeleccionados = async (vales: ValeSalida[]) => {
 
 ### 2. Actualizar Campo `facturado` al Agregar a Factura
 
-Cuando se agrega un vale de salida a una factura (mediante el campo `vale_salida_id`), el backend debe:
+⚠️ **IMPORTANTE**: El frontend envía el ID del vale de salida en el campo `id` del vale (NO en un campo separado `vale_salida_id`).
 
-1. Verificar que el vale no esté ya facturado (`facturado == false`)
-2. Marcar el vale como facturado (`facturado = true`)
-3. Validar que el vale pertenezca al cliente de la factura
-4. Validar que la solicitud esté en estado "facturado"
+Cuando se agrega un vale de salida a una factura, el backend debe:
+
+1. **Detectar** que el vale proviene de un vale de salida (campo `id` presente)
+2. **Validar** que el vale no esté ya facturado (`facturado == false`)
+3. **Validar** que no esté anulado (`estado != "anulado"`)
+4. **Validar** que pertenezca al cliente de la factura
+5. **Marcar** el vale como facturado (`facturado = true`)
+6. **Guardar** la referencia del vale de salida en el vale de la factura
 
 **Endpoint de Facturas**: `POST /api/facturas/{factura_id}/vales`
 
-```python
-# Cuando se recibe un vale con vale_salida_id:
-if vale_data.get("vale_salida_id"):
-    vale_salida_id = vale_data["vale_salida_id"]
-    
-    # Obtener el vale de salida
-    vale_salida = obtener_vale_salida(vale_salida_id)
-    
-    # Validaciones
-    if vale_salida.facturado:
-        raise HTTPException(400, "Este vale ya fue agregado a otra factura")
-    
-    if vale_salida.estado == "anulado":
-        raise HTTPException(400, "No se puede agregar un vale anulado")
-    
-    # Verificar que pertenezca al cliente
-    solicitud = vale_salida.solicitud_material or vale_salida.solicitud_venta
-    cliente_vale = solicitud.cliente or solicitud.cliente_venta
-    
-    if cliente_vale.id != factura.cliente_id:
-        raise HTTPException(400, "El vale no pertenece al cliente de la factura")
-    
-    # Marcar como facturado
-    actualizar_vale_salida(vale_salida_id, {"facturado": True})
+**Datos recibidos del frontend**:
+```json
+{
+  "id": "vale_salida_abc123",  // ← ID del vale de salida
+  "fecha": "2024-03-17T10:30:00Z",
+  "items": [...]
+}
 ```
+
+**Lógica requerida**:
+```python
+@router.post("/{factura_id}/vales")
+async def agregar_vale_a_factura(factura_id: str, vale_data: dict):
+    # Detectar si el vale proviene de un vale de salida
+    vale_salida_id = vale_data.get("id")
+    
+    if vale_salida_id:
+        # Este vale proviene de un vale de salida
+        vale_salida = await obtener_vale_salida(vale_salida_id)
+        
+        # Validaciones
+        if vale_salida.facturado:
+            raise HTTPException(400, "Este vale ya fue agregado a otra factura")
+        
+        if vale_salida.estado == "anulado":
+            raise HTTPException(400, "No se puede agregar un vale anulado")
+        
+        # Verificar que pertenezca al cliente
+        factura = await obtener_factura(factura_id)
+        solicitud = vale_salida.solicitud_material or vale_salida.solicitud_venta
+        cliente_vale = solicitud.cliente or solicitud.cliente_venta
+        
+        if cliente_vale.numero != factura.cliente_id:
+            raise HTTPException(400, "El vale no pertenece al cliente de la factura")
+        
+        # ✅ MARCAR COMO FACTURADO
+        await actualizar_vale_salida(vale_salida_id, {"facturado": True})
+        
+        # Agregar vale a factura con referencia
+        nuevo_vale = {
+            "id": generar_id_unico(),
+            "vale_salida_id": vale_salida_id,  # ← Guardar referencia
+            "fecha": vale_data.get("fecha"),
+            "items": vale_data.get("items", [])
+        }
+        
+        await agregar_vale_a_factura_db(factura_id, nuevo_vale)
+    else:
+        # Vale manual (sin vale de salida)
+        nuevo_vale = {
+            "id": generar_id_unico(),
+            "vale_salida_id": None,
+            "fecha": vale_data.get("fecha"),
+            "items": vale_data.get("items", [])
+        }
+        
+        await agregar_vale_a_factura_db(factura_id, nuevo_vale)
+    
+    return {"message": "Vale agregado correctamente"}
+```
+
+**Ver documentación completa**: `docs/BACKEND_VALES_SALIDA_EN_FACTURAS.md`
 
 ### 3. Endpoint para Obtener Vales Disponibles (Opcional pero Recomendado)
 
@@ -226,17 +267,33 @@ async def obtener_vales_disponibles_para_factura(
     return vales_filtrados
 ```
 
-### 4. Desmarcar Vale al Eliminar de Factura (Opcional)
+### 4. Desmarcar Vale al Eliminar de Factura
 
-Si se elimina un vale de una factura que proviene de un vale de salida, considerar desmarcar el campo `facturado`:
+Si se elimina un vale de una factura que proviene de un vale de salida, debe desmarcarse el campo `facturado`:
 
 **Endpoint**: `DELETE /api/facturas/{factura_id}/vales/{vale_id}`
 
 ```python
-# Si el vale tiene vale_salida_id, desmarcar como facturado
-if vale.vale_salida_id:
-    actualizar_vale_salida(vale.vale_salida_id, {"facturado": False})
+@router.delete("/{factura_id}/vales/{vale_id}")
+async def eliminar_vale_de_factura(factura_id: str, vale_id: str):
+    # Obtener el vale de la factura
+    factura = await obtener_factura(factura_id)
+    vale = next((v for v in factura.vales if v.id == vale_id), None)
+    
+    if not vale:
+        raise HTTPException(404, "Vale no encontrado")
+    
+    # Si el vale tiene vale_salida_id, desmarcar como facturado
+    if vale.vale_salida_id:
+        await actualizar_vale_salida(vale.vale_salida_id, {"facturado": False})
+    
+    # Eliminar el vale de la factura
+    await eliminar_vale_de_factura_db(factura_id, vale_id)
+    
+    return {"message": "Vale eliminado correctamente"}
 ```
+
+**Ver documentación completa**: `docs/BACKEND_VALES_SALIDA_EN_FACTURAS.md`
 
 ## Formato de Datos en Factura
 

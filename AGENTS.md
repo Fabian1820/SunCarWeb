@@ -479,3 +479,147 @@ console.log('📥 Nombre recibido del backend:', response.data.nombre_completo)
 ```
 
 Si los valores son diferentes, confirma que el backend está regenerando el nombre incorrectamente.
+
+
+---
+
+## ✅ Vales de Salida en Facturas de Instaladora - IMPLEMENTADO
+
+### Estado: COMPLETADO
+
+La funcionalidad está completamente implementada y funcionando en frontend y backend.
+
+### Descripción General
+
+El sistema permite agregar vales de salida existentes a facturas de instaladora de dos formas:
+
+1. **Al crear una factura nueva**: Seleccionar vales de salida durante la creación
+2. **Agregar a factura existente**: Usar la acción "Agregar Vale" en una factura ya creada
+
+En ambos casos:
+1. El frontend envía el ID del vale de salida en el campo `id` del vale
+2. El backend guarda la referencia en el campo `id_vale_salida` (Optional[str])
+3. El backend marca el vale de salida como `facturado = true`
+4. Al eliminar el vale de la factura, se desmarca automáticamente
+
+### Implementación Backend
+
+El backend maneja correctamente ambos casos mediante el método `_validar_y_marcar_vale_salida`:
+
+**Vales con `id_vale_salida`**:
+- ✅ Se validan y marcan como facturados
+- ✅ Validaciones: existe, no facturado, no anulado, pertenece al cliente
+
+**Vales manuales (sin `id_vale_salida`)**:
+- ✅ Se agregan directamente sin validaciones
+- ✅ El método retorna inmediatamente si no hay `id_vale_salida`
+
+### Cambio Reciente en Frontend
+
+**Archivo**: `components/feats/facturas/factura-form-dialog.tsx`
+
+Se modificó la función `mapValeToFacturaVale` para incluir el ID del vale de salida:
+
+```typescript
+return {
+  id: vale.id, // ← Agregado: ID del vale de salida
+  fecha: vale.fecha_creacion || new Date().toISOString(),
+  items,
+};
+```
+
+Esto asegura que al crear una factura con vales de salida, el backend pueda marcarlos como facturados.
+
+### Modelo de Datos
+
+```python
+class Vale(BaseModel):
+    id: str
+    id_vale_salida: Optional[str] = None  # ← Campo agregado
+    fecha: str
+    items: List[ItemVale]
+```
+
+### Flujo de Datos
+
+**Frontend → Backend (Crear Factura)**:
+```json
+POST /api/facturas
+
+{
+  "numero_factura": "F-2024-001",
+  "tipo": "instaladora",
+  "subtipo": "cliente",
+  "cliente_id": "12345",
+  "vales": [
+    {
+      "id": "65f8a1b2c3d4e5f6g7h8i9j0",  // ← ID del vale de salida
+      "fecha": "2024-03-17T10:30:00Z",
+      "items": [...]
+    }
+  ]
+}
+```
+
+**Frontend → Backend (Agregar Vale)**:
+```json
+POST /api/facturas/{factura_id}/vales
+
+{
+  "id": "65f8a1b2c3d4e5f6g7h8i9j0",  // ← ID del vale de salida
+  "fecha": "2024-03-17T10:30:00Z",
+  "items": [...]
+}
+```
+
+**Backend → Base de Datos**:
+```json
+{
+  "vales": [
+    {
+      "id": "vale_interno_1",
+      "id_vale_salida": "65f8a1b2c3d4e5f6g7h8i9j0",  // ← Referencia guardada
+      "fecha": "2024-03-17T10:30:00Z",
+      "items": [...]
+    }
+  ]
+}
+```
+
+**Vale de Salida Marcado**:
+```json
+{
+  "_id": ObjectId("65f8a1b2c3d4e5f6g7h8i9j0"),
+  "facturado": true  // ← Marcado como facturado
+}
+```
+
+### Validaciones Implementadas
+
+1. ✅ Vale de salida existe
+2. ✅ `facturado == false` (no está en otra factura)
+3. ✅ `estado != "anulado"`
+4. ✅ Pertenece al cliente de la factura
+5. ✅ No está duplicado en la misma factura
+
+### Documentación Completa
+
+- `docs/IMPLEMENTACION_COMPLETADA_VALES.md` - ✅ Estado de implementación completa
+- `docs/CAMBIOS_FRONTEND_VALES_FACTURAS.md` - Cambio reciente en frontend
+- `docs/BACKEND_VALES_SALIDA_EN_FACTURAS.md` - Implementación completa con código
+- `docs/RESUMEN_VALES_SALIDA_FACTURAS.md` - Resumen ejecutivo
+- `docs/FLUJO_VALES_SALIDA_FACTURAS.md` - Flujo paso a paso con diagramas
+- `docs/CODIGO_BACKEND_VALES_FACTURAS.md` - Ejemplos de código Python/FastAPI
+- `docs/CHECKLIST_IMPLEMENTACION_VALES.md` - ✅ Checklist completado
+- `docs/VALES_SALIDA_EN_FACTURAS.md` - Integración frontend
+- `docs/ENDPOINT_VALES_DISPONIBLES_FACTURA.md` - Endpoint auxiliar optimizado
+
+### Estado de Implementación
+
+✅ **Frontend**: Completado  
+✅ **Backend**: Completado  
+✅ **Validaciones**: Implementadas  
+✅ **Testing**: Casos de prueba definidos  
+✅ **Documentación**: Completa  
+
+Ver `docs/IMPLEMENTACION_COMPLETADA_VALES.md` para detalles completos.
