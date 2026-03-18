@@ -1,4 +1,4 @@
-"use client"
+npm"use client"
 
 import { useState } from 'react'
 import { Plus, Search } from 'lucide-react'
