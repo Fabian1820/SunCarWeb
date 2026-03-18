@@ -11,6 +11,28 @@ export interface User {
   is_superAdmin?: boolean
 }
 
+const normalizeUser = (raw: any): User | null => {
+  if (!raw || typeof raw !== "object") return null
+  const ci = String(raw.ci ?? raw.CI ?? "").trim()
+  const nombre = String(raw.nombre ?? "").trim()
+  const rol = String(raw.rol ?? "").trim()
+  if (!ci || !nombre || !rol) return null
+
+  const isSuper =
+    raw.is_superAdmin ??
+    raw.is_superadmin ??
+    raw.is_super_admin ??
+    raw.isSuperAdmin ??
+    false
+
+  return {
+    ci,
+    nombre,
+    rol,
+    is_superAdmin: Boolean(isSuper),
+  }
+}
+
 interface AuthContextType {
   isAuthenticated: boolean
   token: string | null
@@ -40,7 +62,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (savedToken && savedUser) {
       try {
-        const userData = JSON.parse(savedUser)
+        const userDataRaw = JSON.parse(savedUser)
+        const userData = normalizeUser(userDataRaw) ?? userDataRaw
         setToken(savedToken)
         setUser(userData)
         setIsAuthenticated(true)
@@ -69,11 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('Login response:', data)
 
       if (data.success && data.token && data.user) {
+        const normalizedUser = normalizeUser(data.user) ?? data.user
         setToken(data.token)
-        setUser(data.user)
+        setUser(normalizedUser)
         setIsAuthenticated(true)
         localStorage.setItem("auth_token", data.token)
-        localStorage.setItem("user_data", JSON.stringify(data.user))
+        localStorage.setItem("user_data", JSON.stringify(normalizedUser))
 
         // Guardar últimas credenciales para auto-completar
         localStorage.setItem("last_credentials", JSON.stringify({ ci, adminPass }))
