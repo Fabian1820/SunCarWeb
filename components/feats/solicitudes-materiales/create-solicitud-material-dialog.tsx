@@ -393,6 +393,14 @@ export function CreateSolicitudMaterialDialog({
   };
 
   const handleCantidadChange = (index: number, value: string) => {
+    // Permitir campo vacío temporalmente para facilitar edición
+    if (value === "") {
+      setMateriales((prev) =>
+        prev.map((m, i) => (i === index ? { ...m, cantidad: 0 } : m)),
+      );
+      return;
+    }
+    
     const num = Number.parseInt(value, 10);
     if (Number.isNaN(num) || num < 0) return;
     setMateriales((prev) =>
@@ -407,6 +415,15 @@ export function CreateSolicitudMaterialDialog({
       (m) => m.material_id && !m.sinVinculo,
     );
     if (validMaterials.length === 0) return;
+
+    // Validar que no haya materiales con cantidad 0
+    const materialesConCantidadCero = validMaterials.filter((m) => m.cantidad === 0);
+    if (materialesConCantidadCero.length > 0) {
+      alert(
+        `No se puede ${isEditMode ? "guardar" : "crear"} la solicitud. Hay ${materialesConCantidadCero.length} material(es) con cantidad 0. Por favor, ajuste las cantidades o elimine los materiales no necesarios.`
+      );
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -645,11 +662,12 @@ export function CreateSolicitudMaterialDialog({
                             type="number"
                             min="0"
                             step="1"
-                            value={mat.cantidad}
+                            value={mat.cantidad === 0 ? "" : mat.cantidad}
                             onChange={(e) =>
                               handleCantidadChange(idx, e.target.value)
                             }
                             className="h-8 w-24"
+                            placeholder="0"
                           />
                         </td>
                         <td className="py-2 px-3">
