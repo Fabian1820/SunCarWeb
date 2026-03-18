@@ -1,10 +1,33 @@
 // Tipos para el módulo de Fichas de Costo (modelo simplificado)
 
-// Payload para crear ficha: material + precio de costo + porcentaje a subir
+// Item de mercancía en el desglose
+export interface DesgloseMercanciaItem {
+  nombre: string
+  cantidad: number
+  precio_unitario: number
+  subtotal: number
+}
+
+// Item de gasto adicional en el desglose
+export interface DesgloseGastoItem {
+  nombre: string
+  valor: number
+}
+
+// Desglose completo del cálculo
+export interface DesgloseCalculo {
+  mercancia: DesgloseMercanciaItem[]
+  gastos: DesgloseGastoItem[]
+  total_mercancia: number
+  total_gastos: number
+}
+
+// Payload para crear ficha: material + desglose completo
 export interface FichaCostoCreateData {
   material_id: string
   precio_base: number
   porcentaje: number
+  desglose: DesgloseCalculo
 }
 
 // Auditoría
@@ -35,6 +58,7 @@ export interface FichaCosto {
   precio_anterior_ficha?: number | null
   // MAX(precio_calculado, precio_anterior_ficha) — precio final de venta
   precio_venta_calculado: number
+  desglose: DesgloseCalculo
   auditoria: AuditoriaEntry[]
   fecha_creacion?: string
   fecha_actualizacion?: string
