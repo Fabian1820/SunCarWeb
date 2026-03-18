@@ -42,6 +42,7 @@ interface MaterialRow {
   descripcion: string;
   um: string;
   cantidad: number;
+  numero_serie?: string;
   foto?: string;
 }
 
@@ -379,6 +380,14 @@ export function CreateValeSalidaDialog({
     );
   };
 
+  const handleNumeroSerieChange = (index: number, value: string) => {
+    setMateriales((prev) =>
+      prev.map((material, i) =>
+        i === index ? { ...material, numero_serie: value.trim() || undefined } : material,
+      ),
+    );
+  };
+
   const handleSubmit = async () => {
     if (!selectedSolicitud) return;
 
@@ -391,6 +400,7 @@ export function CreateValeSalidaDialog({
       materiales: validMaterials.map((material) => ({
         material_id: material.material_id,
         cantidad: material.cantidad,
+        numero_serie: material.numero_serie,
       })),
       solicitud_material_id:
         selectedSolicitud.tipo_solicitud === "material"
@@ -624,6 +634,9 @@ export function CreateValeSalidaDialog({
                       <th className="text-left py-2 px-3 font-medium text-gray-700 w-28">
                         Cantidad
                       </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-40">
+                        N° Serie (opcional)
+                      </th>
                       <th className="w-10" />
                     </tr>
                   </thead>
@@ -675,6 +688,18 @@ export function CreateValeSalidaDialog({
                               handleCantidadChange(idx, e.target.value)
                             }
                             className="h-8 w-24"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <Input
+                            type="text"
+                            placeholder="Ej: SN123456"
+                            value={material.numero_serie || ""}
+                            onChange={(e) =>
+                              handleNumeroSerieChange(idx, e.target.value)
+                            }
+                            className="h-8 w-36 text-xs"
+                            title="Número de serie para garantía (opcional)"
                           />
                         </td>
                         <td className="py-2 px-3">

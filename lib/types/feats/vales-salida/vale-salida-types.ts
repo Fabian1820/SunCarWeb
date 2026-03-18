@@ -1,6 +1,7 @@
 export interface ValeSalidaMaterialItem {
   material_id: string;
   cantidad: number;
+  numero_serie?: string;
 }
 
 export type ValeSolicitudTipo = "material" | "venta";
@@ -8,6 +9,7 @@ export type ValeSolicitudTipo = "material" | "venta";
 export interface ValeSalidaMaterialItemDetalle {
   material_id: string;
   cantidad: number;
+  numero_serie?: string;
   material_codigo?: string;
   material_descripcion?: string;
   um?: string;
