@@ -1,32 +1,32 @@
-npm"use client"
+"use client";
 
-import { useState } from 'react'
-import { Plus, Search } from 'lucide-react'
-import { Button } from '@/components/shared/atom/button'
-import { Input } from '@/components/shared/molecule/input'
-import { Card } from '@/components/shared/molecule/card'
-import { Label } from '@/components/shared/atom/label'
+import { useState } from "react";
+import { Plus, Search } from "lucide-react";
+import { Button } from "@/components/shared/atom/button";
+import { Input } from "@/components/shared/molecule/input";
+import { Card } from "@/components/shared/molecule/card";
+import { Label } from "@/components/shared/atom/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/shared/atom/select'
-import { useToast } from '@/hooks/use-toast'
-import { useOfertasPersonalizadas } from '@/hooks/use-ofertas-personalizadas'
-import { OfertasPersonalizadasTable } from '@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table'
-import { CreateOfertaDialog } from '@/components/feats/ofertas-personalizadas/create-oferta-dialog'
-import { EditOfertaDialog } from '@/components/feats/ofertas-personalizadas/edit-oferta-dialog'
+} from "@/components/shared/atom/select";
+import { useToast } from "@/hooks/use-toast";
+import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
+import { OfertasPersonalizadasTable } from "@/components/feats/ofertas-personalizadas/ofertas-personalizadas-table";
+import { CreateOfertaDialog } from "@/components/feats/ofertas-personalizadas/create-oferta-dialog";
+import { EditOfertaDialog } from "@/components/feats/ofertas-personalizadas/edit-oferta-dialog";
 import type {
   OfertaPersonalizada,
   OfertaPersonalizadaCreateRequest,
   OfertaPersonalizadaUpdateRequest,
-} from '@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types'
-import { ModuleHeader } from '@/components/shared/organism/module-header'
+} from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
+import { ModuleHeader } from "@/components/shared/organism/module-header";
 
 export default function OfertasPersonalizadasPage() {
-  const { toast } = useToast()
+  const { toast } = useToast();
   const {
     filteredOfertas,
     loading,
@@ -38,104 +38,105 @@ export default function OfertasPersonalizadasPage() {
     createOferta,
     updateOferta,
     deleteOferta,
-  } = useOfertasPersonalizadas()
+  } = useOfertasPersonalizadas();
 
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingOferta, setEditingOferta] = useState<OfertaPersonalizada | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingOferta, setEditingOferta] =
+    useState<OfertaPersonalizada | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCreateOferta = async (data: OfertaPersonalizadaCreateRequest) => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const success = await createOferta(data)
+      const success = await createOferta(data);
       if (success) {
         toast({
-          title: 'Éxito',
-          description: 'Oferta personalizada creada exitosamente',
-        })
-        setIsCreateDialogOpen(false)
+          title: "Éxito",
+          description: "Oferta personalizada creada exitosamente",
+        });
+        setIsCreateDialogOpen(false);
       } else {
         toast({
-          title: 'Error',
-          description: 'No se pudo crear la oferta personalizada',
-          variant: 'destructive',
-        })
+          title: "Error",
+          description: "No se pudo crear la oferta personalizada",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Error creating oferta:', error)
+      console.error("Error creating oferta:", error);
       toast({
-        title: 'Error',
-        description: 'Error al crear la oferta personalizada',
-        variant: 'destructive',
-      })
+        title: "Error",
+        description: "Error al crear la oferta personalizada",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleEditOferta = async (
     id: string,
-    data: OfertaPersonalizadaUpdateRequest
+    data: OfertaPersonalizadaUpdateRequest,
   ) => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      const success = await updateOferta(id, data)
+      const success = await updateOferta(id, data);
       if (success) {
         toast({
-          title: 'Éxito',
-          description: 'Oferta personalizada actualizada exitosamente',
-        })
-        setIsEditDialogOpen(false)
-        setEditingOferta(null)
+          title: "Éxito",
+          description: "Oferta personalizada actualizada exitosamente",
+        });
+        setIsEditDialogOpen(false);
+        setEditingOferta(null);
       } else {
         toast({
-          title: 'Error',
-          description: 'No se pudo actualizar la oferta personalizada',
-          variant: 'destructive',
-        })
+          title: "Error",
+          description: "No se pudo actualizar la oferta personalizada",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Error updating oferta:', error)
+      console.error("Error updating oferta:", error);
       toast({
-        title: 'Error',
-        description: 'Error al actualizar la oferta personalizada',
-        variant: 'destructive',
-      })
+        title: "Error",
+        description: "Error al actualizar la oferta personalizada",
+        variant: "destructive",
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   const handleDeleteOferta = async (id: string) => {
     try {
-      const success = await deleteOferta(id)
+      const success = await deleteOferta(id);
       if (success) {
         toast({
-          title: 'Éxito',
-          description: 'Oferta personalizada eliminada exitosamente',
-        })
+          title: "Éxito",
+          description: "Oferta personalizada eliminada exitosamente",
+        });
       } else {
         toast({
-          title: 'Error',
-          description: 'No se pudo eliminar la oferta personalizada',
-          variant: 'destructive',
-        })
+          title: "Error",
+          description: "No se pudo eliminar la oferta personalizada",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error('Error deleting oferta:', error)
+      console.error("Error deleting oferta:", error);
       toast({
-        title: 'Error',
-        description: 'Error al eliminar la oferta personalizada',
-        variant: 'destructive',
-      })
+        title: "Error",
+        description: "Error al eliminar la oferta personalizada",
+        variant: "destructive",
+      });
     }
-  }
+  };
 
   const handleEditClick = (oferta: OfertaPersonalizada) => {
-    setEditingOferta(oferta)
-    setIsEditDialogOpen(true)
-  }
+    setEditingOferta(oferta);
+    setIsEditDialogOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -143,7 +144,7 @@ export default function OfertasPersonalizadasPage() {
       <ModuleHeader
         title="Ofertas Personalizadas"
         subtitle="Gestión de ofertas personalizadas para clientes y leads."
-        badge={{ text: 'Ventas', className: 'bg-amber-100 text-amber-800' }}
+        badge={{ text: "Ventas", className: "bg-amber-100 text-amber-800" }}
         actions={
           <Button
             size="icon"
@@ -183,11 +184,17 @@ export default function OfertasPersonalizadasPage() {
             <div>
               <Label>Estado de Pago</Label>
               <Select
-                value={filters.pagada === 'all' ? 'all' : filters.pagada ? 'true' : 'false'}
+                value={
+                  filters.pagada === "all"
+                    ? "all"
+                    : filters.pagada
+                      ? "true"
+                      : "false"
+                }
                 onValueChange={(value) =>
                   setFilters({
                     ...filters,
-                    pagada: value === 'all' ? 'all' : value === 'true',
+                    pagada: value === "all" ? "all" : value === "true",
                   })
                 }
               >
@@ -208,8 +215,8 @@ export default function OfertasPersonalizadasPage() {
                 variant="outline"
                 className="w-full"
                 onClick={() => {
-                  setSearchTerm('')
-                  setFilters({ pagada: 'all' })
+                  setSearchTerm("");
+                  setFilters({ pagada: "all" });
                 }}
               >
                 Limpiar Filtros
@@ -251,5 +258,5 @@ export default function OfertasPersonalizadasPage() {
         isLoading={isSubmitting}
       />
     </div>
-  )
+  );
 }
