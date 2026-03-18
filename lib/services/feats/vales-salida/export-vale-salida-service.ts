@@ -517,7 +517,7 @@ export class ExportValeSalidaService {
       startY: y + 2,
       margin: { left: marginLeft, right: marginRight },
       head: [
-        ["Código", "Descripción", "U/M", "Cantidad", "N° Serie", "Precio", "Existencia"],
+        ["Código", "Descripción", "U/M", "Cantidad", "N° Series", "Precio", "Existencia"],
       ],
       body:
         materiales.length > 0
@@ -738,7 +738,7 @@ export class ExportValeSalidaService {
       { cell: `B${headerRow}`, label: "Descripción" },
       { cell: `E${headerRow}`, label: "UM" },
       { cell: `F${headerRow}`, label: "Cantidad" },
-      { cell: `G${headerRow}`, label: "N° Serie" },
+      { cell: `G${headerRow}`, label: "N° Series" },
       { cell: `H${headerRow}`, label: "Precio" },
       { cell: `I${headerRow}`, label: "Existencia" },
     ];

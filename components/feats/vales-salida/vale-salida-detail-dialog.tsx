@@ -281,7 +281,7 @@ export function ValeSalidaDetailDialog({
                       Cantidad
                     </th>
                     <th className="text-left py-2 px-3 font-medium text-gray-700 w-32">
-                      N° Serie
+                      N° Series
                     </th>
                   </tr>
                 </thead>

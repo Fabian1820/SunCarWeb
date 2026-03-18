@@ -635,7 +635,7 @@ export function CreateValeSalidaDialog({
                         Cantidad
                       </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-700 w-40">
-                        N° Serie (opcional)
+                        N° Series (opcional)
                       </th>
                       <th className="w-10" />
                     </tr>
@@ -693,13 +693,13 @@ export function CreateValeSalidaDialog({
                         <td className="py-2 px-3">
                           <Input
                             type="text"
-                            placeholder="Ej: SN123456"
+                            placeholder="SN001, SN002, SN003"
                             value={material.numero_serie || ""}
                             onChange={(e) =>
                               handleNumeroSerieChange(idx, e.target.value)
                             }
                             className="h-8 w-36 text-xs"
-                            title="Número de serie para garantía (opcional)"
+                            title="Números de serie separados por coma (opcional)"
                           />
                         </td>
                         <td className="py-2 px-3">
