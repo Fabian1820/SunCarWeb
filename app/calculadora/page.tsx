@@ -41,6 +41,9 @@ import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import type { CalculoEnergeticoCategoria } from "@/lib/types/calculo-energetico-types"
+import jsPDF from "jspdf"
+import autoTable from "jspdf-autotable"
+import { Download } from "lucide-react"
 
 const categoriaIconos: Record<string, string> = {
   "Electrodomésticos de Cocina": "🏠",
@@ -117,6 +120,7 @@ export default function CalculadoraPage() {
   const [initialLoading, setInitialLoading] = useState(true)
   const [loadingCategorias, setLoadingCategorias] = useState(false)
   const [categoriasError, setCategoriasError] = useState<string | null>(null)
+  const [exportingPDF, setExportingPDF] = useState(false)
 
   const fetchCategorias = useCallback(async () => {
     setLoadingCategorias(true)
@@ -495,6 +499,199 @@ export default function CalculadoraPage() {
     }
   }, [])
 
+  const generarPDF = async () => {
+    setExportingPDF(true)
+    try {
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      })
+
+      const pageWidth = doc.internal.pageSize.getWidth()
+      let yPosition = 15
+
+      // Encabezado con logo
+      doc.setFillColor(189, 215, 176)
+      doc.rect(0, 0, pageWidth, 35, "F")
+
+      // Logo
+      try {
+        const logoUrl = "/logo.png"
+        const response = await fetch(logoUrl)
+        const blob = await response.blob()
+        const logoBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(blob)
+        })
+        doc.addImage(logoBase64, "PNG", pageWidth - 32, 3, 28, 28)
+      } catch (error) {
+        console.error("Error cargando logo:", error)
+      }
+
+      // Título
+      doc.setFontSize(20)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(0, 0, 0)
+      doc.text("FICHA DE COSTO", 10, 15)
+
+      // Subtítulo
+      doc.setFontSize(11)
+      doc.setFont("helvetica", "normal")
+      doc.text("Calculadora de Consumo Eléctrico", 10, 23)
+
+      // Fecha
+      doc.setFontSize(9)
+      doc.setTextColor(100, 100, 100)
+      const fecha = new Date().toLocaleDateString("es-ES", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      })
+      doc.text(`Fecha: ${fecha}`, 10, 30)
+
+      yPosition = 45
+
+      // Resumen de consumo
+      doc.setFillColor(250, 250, 250)
+      doc.rect(10, yPosition, pageWidth - 20, 35, "F")
+
+      doc.setFontSize(12)
+      doc.setFont("helvetica", "bold")
+      doc.setTextColor(0, 0, 0)
+      doc.text("Resumen de Consumo", 15, yPosition + 8)
+
+      doc.setFontSize(10)
+      doc.setFont("helvetica", "normal")
+      doc.text(`Potencia Total (Inversor): ${potenciaTotalKw.toFixed(2)} kW`, 15, yPosition + 16)
+      doc.text(`Consumo Real por Hora: ${consumoRealKwh.toFixed(3)} kWh`, 15, yPosition + 23)
+      doc.text(`Total de Equipos: ${totalEquipos}`, 15, yPosition + 30)
+
+      yPosition += 45
+
+      // Tabla de equipos seleccionados
+      if (equiposCantidad.size > 0) {
+        doc.setFontSize(12)
+        doc.setFont("helvetica", "bold")
+        doc.text("Equipos Seleccionados", 10, yPosition)
+        yPosition += 5
+
+        const equiposData: any[] = []
+        equiposCantidad.forEach((cantidad, key) => {
+          const equipo = equiposIndex.get(key)
+          if (equipo) {
+            equiposData.push([
+              equipo.categoriaNombre,
+              equipo.nombre,
+              cantidad,
+              `${Math.round(equipo.potencia_kw * 1000)} W`,
+              `${Math.round(equipo.energia_kwh * 1000)} W`,
+              `${(equipo.potencia_kw * cantidad).toFixed(2)} kW`,
+              `${(equipo.energia_kwh * cantidad).toFixed(3)} kWh`,
+            ])
+          }
+        })
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["Categoría", "Equipo", "Cant", "Potencia", "Consumo", "Total Pot.", "Total Cons."]],
+          body: equiposData,
+          theme: "grid",
+          headStyles: {
+            fillColor: [234, 88, 12],
+            textColor: [255, 255, 255],
+            fontSize: 9,
+            fontStyle: "bold",
+          },
+          bodyStyles: {
+            fontSize: 8,
+          },
+          columnStyles: {
+            0: { cellWidth: 35 },
+            1: { cellWidth: 50 },
+            2: { cellWidth: 15, halign: "center" },
+            3: { cellWidth: 20, halign: "right" },
+            4: { cellWidth: 20, halign: "right" },
+            5: { cellWidth: 22, halign: "right" },
+            6: { cellWidth: 22, halign: "right" },
+          },
+          margin: { left: 10, right: 10 },
+        })
+
+        yPosition = (doc as any).lastAutoTable.finalY + 10
+      }
+
+      // Recomendaciones de dimensionamiento
+      if (showRecomendaciones || totalEquipos > 0) {
+        if (yPosition > 220) {
+          doc.addPage()
+          yPosition = 20
+        }
+
+        doc.setFontSize(12)
+        doc.setFont("helvetica", "bold")
+        doc.text("Dimensionamiento del Sistema", 10, yPosition)
+        yPosition += 10
+
+        // Inversor
+        doc.setFillColor(255, 243, 224)
+        doc.rect(10, yPosition, pageWidth - 20, 25, "F")
+
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "bold")
+        doc.text("Inversor Recomendado", 15, yPosition + 7)
+
+        doc.setFontSize(14)
+        doc.setTextColor(234, 88, 12)
+        doc.text(`${inversorRecomendado.toFixed(2)} kW`, 15, yPosition + 15)
+
+        doc.setFontSize(8)
+        doc.setTextColor(100, 100, 100)
+        doc.text(`Potencia base: ${potenciaTotalKw.toFixed(2)} kW + 25% de margen`, 15, yPosition + 21)
+
+        yPosition += 30
+
+        // Batería
+        doc.setFillColor(224, 242, 254)
+        doc.rect(10, yPosition, pageWidth - 20, 35, "F")
+
+        doc.setFontSize(10)
+        doc.setFont("helvetica", "bold")
+        doc.setTextColor(0, 0, 0)
+        doc.text("Banco de Baterías", 15, yPosition + 7)
+
+        doc.setFontSize(14)
+        doc.setTextColor(234, 88, 12)
+        doc.text(`${bateriaRecomendada5h.toFixed(2)} kWh`, 15, yPosition + 15)
+
+        doc.setFontSize(8)
+        doc.setTextColor(100, 100, 100)
+        doc.text(`Capacidad recomendada para 5 horas de autonomía`, 15, yPosition + 21)
+        doc.text(`Duración estimada: ${duracionConBateria.toFixed(1)} horas`, 15, yPosition + 27)
+        doc.text(`Consumo diario (24h): ${(consumoRealKwh * 24).toFixed(2)} kWh`, 15, yPosition + 32)
+      }
+
+      // Guardar PDF
+      const filename = `Ficha_Costo_${fecha.replace(/\//g, "-")}.pdf`
+      doc.save(filename)
+
+      toast({
+        title: "PDF generado",
+        description: "La ficha de costo se ha descargado correctamente.",
+      })
+    } catch (error) {
+      console.error("Error generando PDF:", error)
+      toast({
+        title: "Error al generar PDF",
+        description: "No se pudo generar el archivo. Intenta nuevamente.",
+        variant: "destructive",
+      })
+    } finally {
+      setExportingPDF(false)
+    }
+  }
+
   if (initialLoading) {
     return <PageLoader moduleName="Calculadora" text="Cargando equipos del backend..." />
   }
@@ -600,6 +797,26 @@ export default function CalculadoraPage() {
                     Dimensionar
                   </Button>
                 )}
+                {totalEquipos > 0 && (
+                  <Button
+                    onClick={generarPDF}
+                    disabled={exportingPDF}
+                    variant="outline"
+                    className="mt-2 w-full h-9 border-orange-200 hover:bg-orange-50 flex items-center justify-center gap-2"
+                  >
+                    {exportingPDF ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Generando...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4" />
+                        Descargar PDF
+                      </>
+                    )}
+                  </Button>
+                )}
               </CardContent>
             </Card>
 
@@ -644,6 +861,24 @@ export default function CalculadoraPage() {
                     >
                       <Lightbulb className="h-5 w-5" />
                       Dimensionar Inversor y Batería
+                    </Button>
+                    <Button
+                      onClick={generarPDF}
+                      disabled={exportingPDF}
+                      variant="outline"
+                      className="w-full mt-2 border-orange-200 hover:bg-orange-50 flex items-center justify-center gap-2"
+                    >
+                      {exportingPDF ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Generando PDF...
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-5 w-5" />
+                          Descargar PDF
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
@@ -1167,7 +1402,24 @@ export default function CalculadoraPage() {
             </div>
           </div>
           <div className="border-t border-gray-200 px-6 py-4 bg-white">
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-3">
+              <Button 
+                onClick={generarPDF} 
+                disabled={exportingPDF}
+                className="bg-orange-600 hover:bg-orange-700 flex items-center gap-2"
+              >
+                {exportingPDF ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generando PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Descargar PDF
+                  </>
+                )}
+              </Button>
               <Button onClick={() => setShowRecomendaciones(false)} variant="outline">
                 Cerrar
               </Button>
