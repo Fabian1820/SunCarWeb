@@ -365,6 +365,16 @@ export function RecursosHumanosTableFinal({
             {trabajadores.map((trabajador) => {
               const salarioCalculado = salariosCalculados[trabajador.CI]
               const estaResaltada = filaResaltada === trabajador.CI
+              const sedeId =
+                typeof trabajador.sede_id === "string" ? trabajador.sede_id : ""
+              const departamentoId =
+                typeof trabajador.departamento_id === "string"
+                  ? trabajador.departamento_id
+                  : ""
+              const tieneSedeFueraCatalogo =
+                !!sedeId && !sedesMap.has(sedeId)
+              const tieneDepartamentoFueraCatalogo =
+                !!departamentoId && !departamentosMap.has(departamentoId)
 
               return (
                 <tr 
@@ -415,7 +425,7 @@ export function RecursosHumanosTableFinal({
                       </span>
                     ) : (
                       <select
-                        value={trabajador.sede_id || ""}
+                        value={sedeId}
                         onChange={(event) =>
                           guardarRelacion(
                             trabajador.CI,
@@ -431,6 +441,11 @@ export function RecursosHumanosTableFinal({
                         className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
                       >
                         <option value="">Sin sede</option>
+                        {tieneSedeFueraCatalogo ? (
+                          <option value={sedeId}>
+                            Sede no activa ({sedeId})
+                          </option>
+                        ) : null}
                         {sedes.map((sede) => (
                           <option key={sede.id} value={sede.id}>
                             {sede.nombre}
@@ -452,7 +467,7 @@ export function RecursosHumanosTableFinal({
                       </span>
                     ) : (
                       <select
-                        value={trabajador.departamento_id || ""}
+                        value={departamentoId}
                         onChange={(event) =>
                           guardarRelacion(
                             trabajador.CI,
@@ -468,6 +483,11 @@ export function RecursosHumanosTableFinal({
                         className="w-full h-8 rounded-md border border-gray-300 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:bg-gray-100"
                       >
                         <option value="">Sin departamento</option>
+                        {tieneDepartamentoFueraCatalogo ? (
+                          <option value={departamentoId}>
+                            Departamento no activo ({departamentoId})
+                          </option>
+                        ) : null}
                         {departamentos.map((departamento) => (
                           <option key={departamento.id} value={departamento.id}>
                             {departamento.nombre}
