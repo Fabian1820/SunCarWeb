@@ -3,6 +3,12 @@
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/shared/molecule/dropdown-menu";
+import {
   FileOutput,
   Eye,
   Calendar,
@@ -10,6 +16,7 @@ import {
   Ban,
   FileText,
   FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import type { ValeSalida } from "@/lib/api-types";
 import { formatFechaRecogida } from "@/lib/utils/fecha-recogida";
@@ -286,29 +293,40 @@ export function ValesSalidaTable({
                         <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
                     ) : null}
-                    {onExportPdf ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onExportPdf(vale)}
-                        className="border-slate-300 text-slate-700 hover:bg-slate-50"
-                        title="Exportar vale a PDF"
-                      >
-                        <FileText className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline text-xs">PDF</span>
-                      </Button>
-                    ) : null}
-                    {onExportExcel ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onExportExcel(vale)}
-                        className="border-green-300 text-green-700 hover:bg-green-50"
-                        title="Exportar vale a Excel"
-                      >
-                        <FileSpreadsheet className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline text-xs">Excel</span>
-                      </Button>
+                    {(onExportPdf || onExportExcel) ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                            title="Exportar vale"
+                          >
+                            <Download className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline text-xs">Exportar</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {onExportPdf ? (
+                            <DropdownMenuItem
+                              onClick={() => onExportPdf(vale)}
+                              className="cursor-pointer"
+                            >
+                              <FileText className="h-4 w-4 mr-2 text-red-600" />
+                              <span>Exportar a PDF</span>
+                            </DropdownMenuItem>
+                          ) : null}
+                          {onExportExcel ? (
+                            <DropdownMenuItem
+                              onClick={() => onExportExcel(vale)}
+                              className="cursor-pointer"
+                            >
+                              <FileSpreadsheet className="h-4 w-4 mr-2 text-green-600" />
+                              <span>Exportar a Excel</span>
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     ) : null}
                     {onAnular ? (
                       <Button

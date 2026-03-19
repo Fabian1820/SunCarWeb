@@ -148,3 +148,49 @@ export interface ValeSalidaListResponse {
   skip?: number;
   limit?: number;
 }
+
+export interface DevolucionValeMaterialPayload {
+  material_id: string;
+  cantidad: number;
+}
+
+export interface DevolucionValeCreateData {
+  vale_id: string;
+  responsable_devolucion: string;
+  comentario?: string;
+  materiales: DevolucionValeMaterialPayload[];
+}
+
+export interface DevolucionValeMaterial {
+  material_id: string;
+  cantidad: number;
+  material_codigo?: string;
+  material_descripcion?: string;
+  um?: string;
+}
+
+export interface DevolucionVale {
+  id: string;
+  vale_id: string;
+  responsable_devolucion?: string;
+  comentario?: string | null;
+  materiales: DevolucionValeMaterial[];
+  creado_por_ci?: string;
+  fecha_creacion?: string;
+  fecha_actualizacion?: string;
+}
+
+export interface DevolucionValeResumenMaterial {
+  material_id: string;
+  cantidad_salida: number;
+  cantidad_devuelta: number;
+  cantidad_disponible_devolver: number;
+  material_codigo?: string;
+  material_descripcion?: string;
+  um?: string;
+}
+
+export interface DevolucionValeResumen {
+  vale_id: string;
+  materiales: DevolucionValeResumenMaterial[];
+}

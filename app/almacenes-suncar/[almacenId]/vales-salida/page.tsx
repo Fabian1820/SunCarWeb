@@ -38,6 +38,7 @@ import { useValesSalida } from "@/hooks/use-vales-salida";
 import { ValesSalidaTable } from "@/components/feats/vales-salida/vales-salida-table";
 import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-vale-salida-dialog";
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
+import { DevolucionValeDialog } from "@/components/feats/vales-salida/devolucion-vale-dialog";
 import { AnularValeDialog } from "@/components/feats/vales-salida/anular-vale-dialog";
 import type { ValeSalida, ValeSolicitudPendiente } from "@/lib/api-types";
 import {
@@ -79,6 +80,7 @@ export default function ValesSalidaPage() {
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isDevolucionDialogOpen, setIsDevolucionDialogOpen] = useState(false);
   const [selectedVale, setSelectedVale] = useState<ValeSalida | null>(null);
 
   const [isAnularDialogOpen, setIsAnularDialogOpen] = useState(false);
@@ -145,6 +147,12 @@ export default function ValesSalidaPage() {
   const handleCreateDialogOpenChange = (open: boolean) => {
     setIsCreateDialogOpen(open);
     if (!open) setPrefillSolicitudId(null);
+  };
+
+  const handleOpenDevolucion = (vale: ValeSalida) => {
+    setSelectedVale(vale);
+    setIsDetailDialogOpen(false);
+    setIsDevolucionDialogOpen(true);
   };
 
   const handleAnularVale = (vale: ValeSalida) => {
@@ -508,6 +516,16 @@ export default function ValesSalidaPage() {
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         vale={selectedVale}
+        onRegistrarDevolucion={handleOpenDevolucion}
+      />
+
+      <DevolucionValeDialog
+        open={isDevolucionDialogOpen}
+        onOpenChange={setIsDevolucionDialogOpen}
+        vale={selectedVale}
+        onSuccess={() => {
+          void loadVales();
+        }}
       />
 
       <AnularValeDialog

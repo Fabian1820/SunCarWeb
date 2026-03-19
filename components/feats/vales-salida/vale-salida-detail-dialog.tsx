@@ -17,6 +17,7 @@ import {
   FileText,
   Undo2,
 } from "lucide-react";
+import { Button } from "@/components/shared/atom/button";
 import type { ValeSalida } from "@/lib/api-types";
 import {
   formatFechaRecogida,
@@ -27,6 +28,7 @@ interface ValeSalidaDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   vale: ValeSalida | null;
+  onRegistrarDevolucion?: (vale: ValeSalida) => void;
 }
 
 const getSolicitudTipo = (vale: ValeSalida): "material" | "venta" => {
@@ -49,6 +51,7 @@ export function ValeSalidaDetailDialog({
   open,
   onOpenChange,
   vale,
+  onRegistrarDevolucion,
 }: ValeSalidaDetailDialogProps) {
   if (!vale) return null;
 
@@ -97,6 +100,8 @@ export function ValeSalidaDetailDialog({
     solicitud?.cliente_venta?.nombre || solicitud?.cliente?.nombre;
   const recogidaResponsable =
     vale.recogido_por || solicitud?.responsable_recogida || null;
+  const valeBloqueadoDevolucion =
+    vale.estado === "anulado" || vale.facturado === true;
   const recogidaBadge = getFechaRecogidaBadge(solicitud?.fecha_recogida);
   const recogidaBadgeClass =
     recogidaBadge.kind === "today" || recogidaBadge.kind === "unknown"
@@ -142,6 +147,30 @@ export function ValeSalidaDetailDialog({
               </div>
             ) : null}
           </div>
+
+          {onRegistrarDevolucion ? (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+              <p className="text-sm text-blue-800">
+                Registre devoluciones de materiales para este vale.
+              </p>
+              <Button
+                type="button"
+                onClick={() => onRegistrarDevolucion(vale)}
+                disabled={valeBloqueadoDevolucion}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                title={
+                  valeBloqueadoDevolucion
+                    ? vale.estado === "anulado"
+                      ? "No se puede devolver en un vale anulado"
+                      : "No se puede devolver en un vale facturado"
+                    : "Registrar devolucion"
+                }
+              >
+                <Undo2 className="h-4 w-4 mr-2" />
+                Registrar devolucion
+              </Button>
+            </div>
+          ) : null}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
