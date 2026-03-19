@@ -15,18 +15,21 @@ import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
 import { Textarea } from "@/components/shared/molecule/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { DevolucionValeService } from "@/lib/api-services";
+import { DevolucionValeService, TrabajadorService } from "@/lib/api-services";
 import type {
   DevolucionVale,
   DevolucionValeResumenMaterial,
+  Trabajador,
   ValeSalida,
 } from "@/lib/api-types";
 import {
   AlertTriangle,
   Loader2,
   RefreshCw,
+  Search,
   Trash2,
   Undo2,
+  X,
 } from "lucide-react";
 
 interface DevolucionValeDialogProps {
@@ -115,6 +118,12 @@ export function DevolucionValeDialog({
   const [resumenMateriales, setResumenMateriales] = useState<
     DevolucionValeResumenMaterial[]
   >([]);
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
+  const [trabajadoresLoading, setTrabajadoresLoading] = useState(false);
+  const [responsableResults, setResponsableResults] = useState<Trabajador[]>(
+    [],
+  );
+  const [showResponsableDropdown, setShowResponsableDropdown] = useState(false);
   const [materialesForm, setMaterialesForm] = useState<DevolucionMaterialFormRow[]>([]);
   const [responsableDevolucion, setResponsableDevolucion] = useState("");
   const [comentario, setComentario] = useState("");
@@ -173,11 +182,50 @@ export function DevolucionValeDialog({
   }, [open, loadResumenEHistorial]);
 
   useEffect(() => {
+    if (!open) return;
+
+    const loadTrabajadores = async () => {
+      setTrabajadoresLoading(true);
+      try {
+        const trabajadoresData = await TrabajadorService.getAllTrabajadores();
+        const trabajadoresDisponibles = (Array.isArray(trabajadoresData)
+          ? trabajadoresData
+          : []
+        )
+          .filter(
+            (trabajador): trabajador is Trabajador =>
+              Boolean(trabajador?.nombre?.trim()),
+          )
+          .map((trabajador) => ({
+            ...trabajador,
+            nombre: trabajador.nombre.trim(),
+          }))
+          .sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", {
+              sensitivity: "base",
+            }),
+          );
+
+        setTrabajadores(trabajadoresDisponibles);
+      } catch (error) {
+        console.error("Error loading trabajadores for devolucion:", error);
+        setTrabajadores([]);
+      } finally {
+        setTrabajadoresLoading(false);
+      }
+    };
+
+    void loadTrabajadores();
+  }, [open]);
+
+  useEffect(() => {
     if (!open) {
       setLoadError(null);
       setResponsableDevolucion("");
       setComentario("");
       setMaterialesForm([]);
+      setResponsableResults([]);
+      setShowResponsableDropdown(false);
       return;
     }
 
@@ -185,6 +233,29 @@ export function DevolucionValeDialog({
       setComentario("");
     }
   }, [open, valeId]);
+
+  useEffect(() => {
+    const term = responsableDevolucion.trim().toLowerCase();
+    if (!term) {
+      setResponsableResults([]);
+      setShowResponsableDropdown(false);
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      const filtered = trabajadores
+        .filter((trabajador) => {
+          const nombre = trabajador.nombre?.toLowerCase() || "";
+          const ci = trabajador.CI?.toLowerCase() || "";
+          return nombre.includes(term) || ci.includes(term);
+        })
+        .slice(0, 15);
+      setResponsableResults(filtered);
+      setShowResponsableDropdown(filtered.length > 0);
+    }, 200);
+
+    return () => clearTimeout(handler);
+  }, [responsableDevolucion, trabajadores]);
 
   const handleRemoveMaterial = (materialId: string) => {
     setMaterialesForm((prev) =>
@@ -199,6 +270,18 @@ export function DevolucionValeDialog({
         material.material_id === materialId ? { ...material, cantidad } : material,
       ),
     );
+  };
+
+  const handleSelectResponsable = (trabajador: Trabajador) => {
+    setResponsableDevolucion(trabajador.nombre);
+    setShowResponsableDropdown(false);
+    setResponsableResults([]);
+  };
+
+  const handleClearResponsable = () => {
+    setResponsableDevolucion("");
+    setShowResponsableDropdown(false);
+    setResponsableResults([]);
   };
 
   const materialesDisponiblesDevolver = useMemo(
@@ -449,15 +532,71 @@ export function DevolucionValeDialog({
                       Responsable de devolucion{" "}
                       <span className="text-red-600">*</span>
                     </Label>
-                    <Input
-                      id="responsable-devolucion"
-                      value={responsableDevolucion}
-                      onChange={(event) =>
-                        setResponsableDevolucion(event.target.value)
-                      }
-                      placeholder="Nombre de quien devuelve"
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        id="responsable-devolucion"
+                        placeholder="Buscar trabajador por nombre o CI..."
+                        value={responsableDevolucion}
+                        onChange={(event) =>
+                          setResponsableDevolucion(event.target.value)
+                        }
+                        onFocus={() => {
+                          if (responsableResults.length > 0) {
+                            setShowResponsableDropdown(true);
+                          }
+                        }}
+                        disabled={submitting || valeBloqueado}
+                        className="pl-10 pr-10"
+                      />
+                      {trabajadoresLoading ? (
+                        <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                      ) : null}
+                      {!trabajadoresLoading && responsableDevolucion ? (
+                        <button
+                          type="button"
+                          onClick={handleClearResponsable}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                          disabled={submitting || valeBloqueado}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                      {showResponsableDropdown && responsableResults.length > 0 ? (
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                          {responsableResults.map((trabajador) => (
+                            <button
+                              key={`${trabajador.id}-${trabajador.CI}`}
+                              type="button"
+                              className="w-full text-left px-4 py-2 hover:bg-blue-50 text-sm"
+                              onClick={() => handleSelectResponsable(trabajador)}
+                            >
+                              <span className="font-medium">
+                                {trabajador.nombre}
+                              </span>
+                              {trabajador.CI ? (
+                                <span className="ml-2 text-gray-500">
+                                  CI {trabajador.CI}
+                                </span>
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    {!trabajadoresLoading && trabajadores.length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        No hay trabajadores disponibles.
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      onClick={handleClearResponsable}
+                      className="text-xs text-blue-600 hover:text-blue-800"
                       disabled={submitting || valeBloqueado}
-                    />
+                    >
+                      Limpiar responsable
+                    </button>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="comentario-devolucion">Comentario</Label>
