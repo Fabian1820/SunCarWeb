@@ -40,7 +40,7 @@ export function WorkerDetailsDashboard({
 
   return (
     <div className="space-y-6 max-h-[75vh] sm:max-h-[80vh] overflow-y-auto p-1 sm:p-2">
-      {/* Información Principal del Trabajador */}
+      {/* InformaciÃ³n Principal del Trabajador */}
       <Card className="border-l-4 border-l-purple-600 shadow-lg">
         <CardHeader className="bg-gradient-to-r from-purple-50 to-purple-100">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -82,7 +82,7 @@ export function WorkerDetailsDashboard({
             <div className="flex items-center gap-3">
               <Calendar className="h-8 w-8 text-purple-600" />
               <div>
-                <p className="text-xs text-gray-600">Período</p>
+                <p className="text-xs text-gray-600">PerÃ­odo</p>
                 <p className="font-semibold text-gray-900">
                   {String(mes).padStart(2, '0')}/{anio}
                 </p>
@@ -122,7 +122,7 @@ export function WorkerDetailsDashboard({
               <p className="text-2xl text-gray-500 italic">Datos incompletos</p>
             )}
             <p className="text-sm text-gray-600 mt-2">
-              Incluye salario base, estímulos y alimentación
+              Incluye salario base, estÃ­mulos y alimentaciÃ³n
             </p>
           </div>
         </CardContent>
@@ -149,16 +149,16 @@ export function WorkerDetailsDashboard({
               <div>
                 <span className="text-sm font-medium text-blue-700">Salario Proporcional</span>
                 <p className="text-xs text-blue-600">
-                  {diasTrabajados} de {trabajador.dias_trabajables} días trabajados
+                  {diasTrabajados} de {trabajador.dias_trabajables} dÃ­as trabajados
                 </p>
               </div>
               <span className="font-bold text-blue-700">${salarioProporcional.toFixed(2)}</span>
             </div>
 
-            {/* Estímulo Fijo */}
+            {/* EstÃ­mulo Fijo */}
             <div className="flex justify-between items-center p-3 bg-purple-50 rounded-lg">
               <div>
-                <span className="text-sm font-medium text-purple-700">Estímulo Fijo (30%)</span>
+                <span className="text-sm font-medium text-purple-700">EstÃ­mulo Fijo (30%)</span>
                 <p className="text-xs text-purple-600">
                   {trabajador.porcentaje_fijo_estimulo}% de ${(montoTotalEstimulos * 0.30).toFixed(2)}
                 </p>
@@ -166,10 +166,10 @@ export function WorkerDetailsDashboard({
               <span className="font-bold text-purple-700">${estimuloFijo.toFixed(2)}</span>
             </div>
 
-            {/* Estímulo Variable */}
+            {/* EstÃ­mulo Variable */}
             <div className="flex justify-between items-center p-3 bg-orange-50 rounded-lg">
               <div>
-                <span className="text-sm font-medium text-orange-700">Estímulo Variable (70%)</span>
+                <span className="text-sm font-medium text-orange-700">EstÃ­mulo Variable (70%)</span>
                 <p className="text-xs text-orange-600">
                   {trabajador.porcentaje_variable_estimulo}% de ${(montoTotalEstimulos * 0.70).toFixed(2)}
                 </p>
@@ -177,11 +177,11 @@ export function WorkerDetailsDashboard({
               <span className="font-bold text-orange-700">${estimuloVariable.toFixed(2)}</span>
             </div>
 
-            {/* Alimentación */}
+            {/* AlimentaciÃ³n */}
             <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg">
               <div className="flex items-center gap-2">
                 <Utensils className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-700">Alimentación</span>
+                <span className="text-sm font-medium text-green-700">AlimentaciÃ³n</span>
               </div>
               <span className="font-bold text-green-700">${trabajador.alimentacion?.toFixed(2) || '0.00'}</span>
             </div>
@@ -189,26 +189,26 @@ export function WorkerDetailsDashboard({
         </CardContent>
       </Card>
 
-      {/* Información de Asistencia */}
+      {/* InformaciÃ³n de Asistencia */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5 text-purple-600" />
-            Asistencia y Días Laborables
+            Asistencia y DÃ­as Laborables
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
             <div className="p-4 bg-blue-50 rounded-lg text-center">
-              <p className="text-sm text-blue-600 mb-1">Días Trabajables</p>
+              <p className="text-sm text-blue-600 mb-1">DÃ­as Trabajables</p>
               <p className="text-2xl sm:text-3xl font-bold text-blue-700">{trabajador.dias_trabajables || 0}</p>
             </div>
             <div className="p-4 bg-red-50 rounded-lg text-center">
-              <p className="text-sm text-red-600 mb-1">Días No Trabajados</p>
+              <p className="text-sm text-red-600 mb-1">DÃ­as No Trabajados</p>
               <p className="text-2xl sm:text-3xl font-bold text-red-700">{trabajador.dias_no_trabajados?.length || 0}</p>
             </div>
             <div className="p-4 bg-green-50 rounded-lg text-center">
-              <p className="text-sm text-green-600 mb-1">Días Efectivos</p>
+              <p className="text-sm text-green-600 mb-1">DÃ­as Efectivos</p>
               <p className="text-2xl sm:text-3xl font-bold text-green-700">{diasTrabajados}</p>
             </div>
             <div className="p-4 bg-purple-50 rounded-lg text-center">
@@ -221,12 +221,12 @@ export function WorkerDetailsDashboard({
             </div>
           </div>
 
-          {/* Listado de días no trabajados */}
+          {/* Listado de dÃ­as no trabajados */}
           {trabajador.dias_no_trabajados && trabajador.dias_no_trabajados.length > 0 && (
             <div className="mt-4 p-4 bg-red-50 rounded-lg">
               <h4 className="text-sm font-semibold text-red-800 mb-2 flex items-center gap-2">
                 <XCircle className="h-4 w-4" />
-                Días No Trabajados
+                DÃ­as No Trabajados
               </h4>
               <div className="flex flex-wrap gap-2">
                 {trabajador.dias_no_trabajados.map((dia) => (
@@ -240,10 +240,10 @@ export function WorkerDetailsDashboard({
         </CardContent>
       </Card>
 
-      {/* Información Complementaria (datos de la tabla con menos prioridad visual) */}
+      {/* InformaciÃ³n Complementaria (datos de la tabla con menos prioridad visual) */}
       <Card className="shadow-md border-gray-200">
         <CardHeader className="bg-gray-50">
-          <CardTitle className="text-base text-gray-700">Información Complementaria</CardTitle>
+          <CardTitle className="text-base text-gray-700">InformaciÃ³n Complementaria</CardTitle>
         </CardHeader>
         <CardContent className="pt-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">

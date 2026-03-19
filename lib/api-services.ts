@@ -34,3 +34,4 @@ export { WalletService } from "./services/feats/wallet/wallet-service";
 export { SedeService } from "./services/feats/sedes/sede-service";
 export { DepartamentoService } from "./services/feats/departamentos/departamento-service";
 export { InstalacionesService } from "./services/feats/instalaciones/instalaciones-service";
+export { TrabajosDiariosService } from "./services/feats/instalaciones/trabajos-diarios-service";

@@ -14,9 +14,11 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ClienteService,
   InstalacionesService,
+  TrabajosDiariosService,
   TrabajadorService,
 } from "@/lib/api-services";
 import type { TrabajoDiarioVale } from "@/lib/services/feats/instalaciones/instalaciones-service";
+import type { TrabajoDiarioRegistro } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { CheckCircle2, Users } from "lucide-react";
 
 type Brigadista = {
@@ -154,6 +156,46 @@ export function TrabajosDiariosView() {
 
     setConfirmando((prev) => ({ ...prev, [valeId]: true }));
     try {
+      const instaladores = seleccionados
+        .map((ci) => {
+          const worker = brigadistas.find((b) => safeText(b.CI) === ci);
+          return safeText(worker?.nombre, ci);
+        })
+        .filter(Boolean);
+
+      const trabajoPayload: TrabajoDiarioRegistro = {
+        cliente_numero: clienteNumero,
+        fecha: fechaTrabajo,
+        fecha_trabajo: fechaTrabajo,
+        instaladores,
+        inicio: {
+          archivos: [],
+          comentario: "",
+          fecha: `${fechaTrabajo}T00:00:00`,
+        },
+        fin: {
+          archivos: [],
+          comentario: "",
+          fecha: `${fechaTrabajo}T00:00:00`,
+        },
+        tipo_trabajo: "INSTALACION EN PROCESO",
+        instalacion_terminada: false,
+        queda_pendiente: "Pendiente de completar en registro.",
+        id_vale_salida: vale.vale_id,
+        id_solicitud_materiales: vale.solicitud_id,
+        responsable_solicitud_materiales: vale.responsable_recogida,
+        materiales_utilizados: (vale.items || []).map((item) => ({
+          id_material: item.material_id,
+          codigo_material: item.material_codigo || "",
+          nombre:
+            item.material_descripcion || item.material_codigo || "Material",
+          cantidad_utilizada: Number(item.cantidad || 0),
+        })),
+      };
+
+      const trabajoCreado =
+        await TrabajosDiariosService.createTrabajo(trabajoPayload);
+
       const payload = {
         estado: "Instalación en Proceso",
         fecha_instalacion: `${fechaTrabajo}T00:00:00`,
@@ -168,7 +210,7 @@ export function TrabajosDiariosView() {
 
       toast({
         title: "Confirmado",
-        description: `Cliente ${clienteNumero} pasó a Instalación en Proceso (inicio: ${fechaTrabajo}).`,
+        description: `Trabajo diario ${safeText(trabajoCreado.id, "creado")} y cliente ${clienteNumero} en Instalación en Proceso (inicio: ${fechaTrabajo}).`,
       });
     } catch (error) {
       const message =

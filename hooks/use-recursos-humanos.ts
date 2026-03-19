@@ -12,7 +12,6 @@ import type {
   CrearTrabajadorRRHHRequest,
   CargosResumen,
 } from "@/lib/recursos-humanos-types";
-import type { Trabajador as TrabajadorBase } from "@/lib/api-types";
 
 export function useRecursosHumanos() {
   const [trabajadores, setTrabajadores] = useState<TrabajadorRRHH[]>([]);
@@ -27,21 +26,6 @@ export function useRecursosHumanos() {
   const [loadingCargos, setLoadingCargos] = useState(false);
   const [loadingAsistencia, setLoadingAsistencia] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const normalizeObjectId = (value: unknown): string | null => {
-    if (value == null) return null;
-    if (typeof value === "string") {
-      const trimmed = value.trim();
-      return trimmed.length > 0 ? trimmed : null;
-    }
-    if (typeof value === "object") {
-      const candidate = value as { $oid?: unknown; oid?: unknown; id?: unknown };
-      if (typeof candidate.$oid === "string") return candidate.$oid;
-      if (typeof candidate.oid === "string") return candidate.oid;
-      if (typeof candidate.id === "string") return candidate.id;
-    }
-    return null;
-  };
 
   // Cargar estado de asistencia (solo para trabajadores no brigadistas)
   const loadAsistencia = useCallback(
@@ -80,45 +64,13 @@ export function useRecursosHumanos() {
     setLoading(true);
     setError(null);
     try {
-      const [data, trabajadoresBase] = await Promise.all([
-        RecursosHumanosService.getRecursosHumanos(),
-        TrabajadorService.getAllTrabajadores().catch((error) => {
-          console.warn(
-            "No se pudo cargar /trabajadores/ para completar sede/departamento:",
-            error,
-          );
-          return [] as TrabajadorBase[];
-        }),
-      ]);
+      const data = await RecursosHumanosService.getRecursosHumanos();
       const trabajadoresCargados = data.trabajadores || [];
-      const relacionesByCi = new Map(
-        trabajadoresBase.map((trabajador) => [
-          String(trabajador.CI),
-          {
-            sede_id: normalizeObjectId(trabajador.sede_id),
-            departamento_id: normalizeObjectId(trabajador.departamento_id),
-          },
-        ]),
-      );
-      const trabajadoresConRelaciones = trabajadoresCargados.map((trabajador) => {
-        const relaciones = relacionesByCi.get(String(trabajador.CI));
-        const sedeIdRh = normalizeObjectId((trabajador as any).sede_id);
-        const departamentoIdRh = normalizeObjectId(
-          (trabajador as any).departamento_id,
-        );
-        if (!relaciones) return trabajador;
-        return {
-          ...trabajador,
-          sede_id: sedeIdRh ?? relaciones.sede_id ?? null,
-          departamento_id:
-            departamentoIdRh ?? relaciones.departamento_id ?? null,
-        };
-      });
-      setTrabajadores(trabajadoresConRelaciones);
+      setTrabajadores(trabajadoresCargados);
       setUltimoIngreso(data.ultimo_ingreso_mensual);
 
       // Cargar estado de asistencia después de cargar trabajadores
-      await loadAsistencia(trabajadoresConRelaciones);
+      await loadAsistencia(trabajadoresCargados);
     } catch (err: any) {
       console.error("Error al cargar datos de recursos humanos:", err);
       setError(err.message || "Error al cargar los datos");
