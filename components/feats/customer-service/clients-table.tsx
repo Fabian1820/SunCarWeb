@@ -203,6 +203,60 @@ const parseNumber = (value: unknown) => {
   return Number.isFinite(numberValue) ? numberValue : 0;
 };
 
+const parseBoolean = (value: unknown) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value > 0;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return (
+      normalized === "true" ||
+      normalized === "1" ||
+      normalized === "si" ||
+      normalized === "sí" ||
+      normalized === "yes"
+    );
+  }
+  return false;
+};
+
+const clienteTieneOfertaConfeccion = (client: Cliente) => {
+  const raw = client as Cliente & Record<string, unknown>;
+
+  if (parseBoolean(raw.tiene_oferta_confeccion)) {
+    return true;
+  }
+
+  if (
+    Array.isArray(raw.ofertas_confeccion_ids) &&
+    raw.ofertas_confeccion_ids.length > 0
+  ) {
+    return true;
+  }
+
+  if (
+    Array.isArray(raw.ofertas_confeccion_resumen) &&
+    raw.ofertas_confeccion_resumen.length > 0
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const esOfertaConfeccionLike = (value: unknown): value is OfertaConfeccion => {
+  if (!value || typeof value !== "object") return false;
+  const raw = value as Record<string, unknown>;
+
+  return Boolean(
+    Array.isArray(raw.items) ||
+    Array.isArray(raw.materiales) ||
+    typeof raw.id === "string" ||
+    typeof raw._id === "string" ||
+    typeof raw.oferta_id === "string" ||
+    typeof raw.numero_oferta === "string",
+  );
+};
+
 type ServicioCategoria = "inversores" | "paneles" | "baterias";
 
 const normalizeMaterialCode = (value: unknown) =>
@@ -1099,15 +1153,6 @@ export function ClientsTable({
         return;
       }
 
-      if (!cargaSetOfertasTerminada) {
-        toast({
-          title: "Cargando ofertas",
-          description:
-            "Espera un momento mientras se verifica el estado de ofertas.",
-        });
-        return;
-      }
-
       // SIEMPRE verificar con el servidor, sin importar si está en el set local
       // Esto asegura que detectemos ofertas eliminadas directamente de la BD
       console.log(
@@ -1117,7 +1162,10 @@ export function ClientsTable({
       const result = await obtenerOfertaPorCliente(numeroCliente);
       console.log("📡 Resultado de verificacion:", result);
 
-      if (result.success && result.oferta) {
+      if (
+        result.success &&
+        (result.oferta || (result.ofertas?.length ?? 0) > 0)
+      ) {
         // Cliente tiene oferta - actualizar set local si no estaba
         if (!clientesConOferta.has(numeroCliente)) {
           console.log(
@@ -1132,9 +1180,14 @@ export function ClientsTable({
 
         const ofertas = result.ofertas?.length
           ? result.ofertas
-          : [result.oferta];
+          : result.oferta
+            ? [result.oferta]
+            : [];
+        if (ofertas.length === 0) {
+          throw new Error("No se pudo leer la oferta del cliente.");
+        }
         setOfertasClienteActuales(ofertas);
-        setOfertaClienteActual(result.oferta);
+        setOfertaClienteActual(result.oferta ?? ofertas[0] ?? null);
 
         // Si solo tiene UNA oferta, abrir directamente el diálogo de detalles
         if (ofertas.length === 1) {
@@ -1382,13 +1435,9 @@ export function ClientsTable({
 
   const getEquipoEntregadoStatus = useCallback(
     (client: Cliente) => {
-      const numeroCliente = normalizeClienteNumero(client.numero);
-      if (numeroCliente && numeroCliente in clienteEquipoEntregadoMap) {
-        return clienteEquipoEntregadoMap[numeroCliente] === true;
-      }
       return getFallbackEquipoEntregadoStatus(client);
     },
-    [clienteEquipoEntregadoMap, getFallbackEquipoEntregadoStatus],
+    [getFallbackEquipoEntregadoStatus],
   );
 
   const closeEquipoEntregadoDialog = () => {
@@ -1418,12 +1467,7 @@ export function ClientsTable({
     setOfertaEquipoEntregadoIndex(0);
 
     try {
-      const result = await obtenerOfertaPorCliente(numeroCliente);
-      const ofertasCliente = result.ofertas?.length
-        ? result.ofertas
-        : result.oferta
-          ? [result.oferta]
-          : [];
+      const ofertasCliente = await cargarOfertasEntregasCliente(numeroCliente);
 
       setOfertasEquipoEntregado(ofertasCliente);
 
@@ -1577,13 +1621,94 @@ export function ClientsTable({
 
   const getServicioStatus = useCallback(
     (client: Cliente) => {
-      const numeroCliente = normalizeClienteNumero(client.numero);
-      if (numeroCliente && numeroCliente in clienteEquiposEnServicioMap) {
-        return clienteEquiposEnServicioMap[numeroCliente] === true;
-      }
       return getFallbackServicioStatus(client);
     },
-    [clienteEquiposEnServicioMap, getFallbackServicioStatus],
+    [getFallbackServicioStatus],
+  );
+
+  const getOfertaStatus = useCallback(
+    (client: Cliente) => clienteTieneOfertaConfeccion(client),
+    [],
+  );
+
+  const extraerOfertasDesdeRespuesta = useCallback((payload: unknown) => {
+    if (!payload || typeof payload !== "object")
+      return [] as OfertaConfeccion[];
+
+    const raw = payload as Record<string, unknown>;
+    const data =
+      raw.data && typeof raw.data === "object"
+        ? (raw.data as Record<string, unknown>)
+        : null;
+
+    const candidates: unknown[] = [
+      raw.ofertas,
+      data?.ofertas,
+      data?.entregas,
+      raw.entregas,
+      data?.resultados,
+      raw.resultados,
+    ];
+
+    for (const candidate of candidates) {
+      if (!Array.isArray(candidate)) continue;
+      const ofertas = candidate.filter(esOfertaConfeccionLike);
+      if (ofertas.length > 0) return ofertas;
+    }
+
+    return [] as OfertaConfeccion[];
+  }, []);
+
+  const cargarOfertasEquiposServicioCliente = useCallback(
+    async (numeroCliente: string) => {
+      try {
+        const response = await apiRequest<unknown>(
+          `/equipos-en-servicio/cliente/${encodeURIComponent(numeroCliente)}`,
+          { method: "GET" },
+        );
+        const ofertas = extraerOfertasDesdeRespuesta(response);
+        if (ofertas.length > 0) return ofertas;
+      } catch (error) {
+        console.warn(
+          "No se pudo cargar equipos en servicio por endpoint dedicado, usando fallback:",
+          error,
+        );
+      }
+
+      const fallback = await obtenerOfertaPorCliente(numeroCliente);
+      return fallback.ofertas?.length
+        ? fallback.ofertas
+        : fallback.oferta
+          ? [fallback.oferta]
+          : [];
+    },
+    [extraerOfertasDesdeRespuesta, obtenerOfertaPorCliente],
+  );
+
+  const cargarOfertasEntregasCliente = useCallback(
+    async (numeroCliente: string) => {
+      try {
+        const response = await apiRequest<unknown>(
+          `/entregas-materiales/cliente/${encodeURIComponent(numeroCliente)}`,
+          { method: "GET" },
+        );
+        const ofertas = extraerOfertasDesdeRespuesta(response);
+        if (ofertas.length > 0) return ofertas;
+      } catch (error) {
+        console.warn(
+          "No se pudo cargar entregas por endpoint dedicado, usando fallback:",
+          error,
+        );
+      }
+
+      const fallback = await obtenerOfertaPorCliente(numeroCliente);
+      return fallback.ofertas?.length
+        ? fallback.ofertas
+        : fallback.oferta
+          ? [fallback.oferta]
+          : [];
+    },
+    [extraerOfertasDesdeRespuesta, obtenerOfertaPorCliente],
   );
 
   const buildServicioDraftFromOferta = useCallback(
@@ -1750,12 +1875,8 @@ export function ClientsTable({
     setCantidadEnServicioPorItem({});
 
     try {
-      const result = await obtenerOfertaPorCliente(numeroCliente);
-      const ofertasCliente = result.ofertas?.length
-        ? result.ofertas
-        : result.oferta
-          ? [result.oferta]
-          : [];
+      const ofertasCliente =
+        await cargarOfertasEquiposServicioCliente(numeroCliente);
 
       if (ofertasCliente.length === 0) {
         setClienteEquiposEnServicioMap((prev) => ({
@@ -1897,44 +2018,68 @@ export function ClientsTable({
     const tieneEquiposEnServicioActualizados = itemsActualizados.some((item) =>
       itemEstaEnServicio(item),
     );
+    const materialesServicioPayload = itemsActualizados
+      .filter((item) => String(item.material_codigo || "").trim())
+      .map((item) => {
+        const rawItem = item as OfertaConfeccion["items"][number] &
+          Record<string, unknown>;
+        return {
+          material_codigo: String(item.material_codigo || "").trim(),
+          descripcion: String(item.descripcion || ""),
+          cantidad: Math.max(0, parseNumber(item.cantidad)),
+          cantidad_en_servicio: Math.max(
+            0,
+            parseNumber(rawItem.cantidad_en_servicio),
+          ),
+        };
+      });
 
     setSavingEquiposEnServicio(true);
     try {
-      const ofertaPayloadCompleta: Record<string, unknown> = {
-        ...ofertaEquiposEnServicioSeleccionada,
-        items: itemsActualizados,
-        materiales: itemsActualizados,
-      };
-
-      let response = await apiRequest<any>(
-        `/ofertas/confeccion/${encodeURIComponent(ofertaId)}`,
-        {
-          method: "PUT",
-          body: JSON.stringify(ofertaPayloadCompleta),
-        },
-      );
-
-      if (response?.success === false || response?.error) {
-        response = await apiRequest<any>(
-          `/ofertas/confeccion/${encodeURIComponent(ofertaId)}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify(ofertaPayloadCompleta),
-          },
+      let response: {
+        success?: boolean;
+        error?: unknown;
+        message?: string;
+        detail?: string;
+      } | null = null;
+      try {
+        response = await apiRequest<{
+          success?: boolean;
+          error?: unknown;
+          message?: string;
+          detail?: string;
+        }>("/equipos-en-servicio/", {
+          method: "POST",
+          body: JSON.stringify({
+            id_oferta: ofertaId,
+            cliente_numero: clientForEquiposEnServicio.numero,
+            items: materialesServicioPayload,
+            materiales: materialesServicioPayload,
+          }),
+        });
+      } catch (error) {
+        console.warn(
+          "No se pudo guardar por /equipos-en-servicio/, intentando fallback:",
+          error,
         );
       }
 
-      if (response?.success === false || response?.error) {
-        response = await apiRequest<any>(
-          `/ofertas/confeccion/${encodeURIComponent(ofertaId)}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({
-              items: itemsActualizados,
-              materiales: itemsActualizados,
-            }),
-          },
-        );
+      if (!response || response?.success === false || response?.error) {
+        const ofertaPayloadCompleta: Record<string, unknown> = {
+          ...ofertaEquiposEnServicioSeleccionada,
+          items: itemsActualizados,
+          materiales: itemsActualizados,
+        };
+
+        response = await apiRequest<{
+          success?: boolean;
+          error?: unknown;
+          message?: string;
+          detail?: string;
+        }>(`/ofertas/confeccion/${encodeURIComponent(ofertaId)}`, {
+          method: "PATCH",
+          body: JSON.stringify(ofertaPayloadCompleta),
+        });
       }
 
       if (response?.success === false || response?.error) {
@@ -1947,12 +2092,8 @@ export function ClientsTable({
       const numeroCliente = normalizeClienteNumero(
         clientForEquiposEnServicio.numero,
       );
-      const resultRecarga = await obtenerOfertaPorCliente(numeroCliente);
-      const ofertasRecargadas = resultRecarga.ofertas?.length
-        ? resultRecarga.ofertas
-        : resultRecarga.oferta
-          ? [resultRecarga.oferta]
-          : [];
+      const ofertasRecargadas =
+        await cargarOfertasEquiposServicioCliente(numeroCliente);
 
       setOfertasEquiposEnServicio(ofertasRecargadas);
       const ofertaRecargada = ofertasRecargadas.find(
@@ -4278,36 +4419,22 @@ export function ClientsTable({
                                   });
                               }}
                               disabled={
-                                consultandoOfertaCliente === client.numero ||
-                                !cargaSetOfertasTerminada
+                                consultandoOfertaCliente === client.numero
                               }
                               className={(() => {
-                                if (!cargaSetOfertasTerminada) {
-                                  return "text-slate-400 hover:text-slate-500 hover:bg-slate-50";
-                                }
-                                const numeroCliente = normalizeClienteNumero(
-                                  client.numero,
-                                );
-                                const tieneOferta =
-                                  clientesConOferta.has(numeroCliente);
+                                const tieneOferta = getOfertaStatus(client);
                                 if (tieneOferta)
                                   return "text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-300";
                                 return "text-gray-600 hover:text-gray-700 hover:bg-gray-50";
                               })()}
                               title={(() => {
-                                if (!cargaSetOfertasTerminada)
-                                  return "Cargando estado de oferta...";
-                                const numeroCliente = normalizeClienteNumero(
-                                  client.numero,
-                                );
-                                const tieneOferta =
-                                  clientesConOferta.has(numeroCliente);
+                                const tieneOferta = getOfertaStatus(client);
                                 if (tieneOferta) return "Ver oferta asignada";
                                 return "Asignar oferta generica";
                               })()}
                             >
                               <FileCheck
-                                className={`h-4 w-4 ${consultandoOfertaCliente === client.numero || !cargaSetOfertasTerminada ? "animate-pulse" : ""}`}
+                                className={`h-4 w-4 ${consultandoOfertaCliente === client.numero ? "animate-pulse" : ""}`}
                               />
                             </Button>
                             {(() => {

@@ -17,9 +17,10 @@ import {
   TrabajosDiariosService,
   TrabajadorService,
 } from "@/lib/api-services";
+import { apiRequest } from "@/lib/api-config";
 import type { TrabajoDiarioVale } from "@/lib/services/feats/instalaciones/instalaciones-service";
 import type { TrabajoDiarioRegistro } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
-import { CheckCircle2, Users } from "lucide-react";
+import { CheckCircle2, Truck, Users } from "lucide-react";
 
 type Brigadista = {
   id?: string;
@@ -27,6 +28,8 @@ type Brigadista = {
   nombre?: string;
   is_brigadista?: boolean;
 };
+
+type OfertaConfeccionLike = Record<string, unknown>;
 
 const toDateInput = (value: Date) => {
   const yyyy = value.getFullYear();
@@ -38,6 +41,114 @@ const toDateInput = (value: Date) => {
 const safeText = (value: unknown, fallback = "") => {
   const text = String(value ?? "").trim();
   return text || fallback;
+};
+
+const normalizeEstadoClienteKey = (estado: string) =>
+  safeText(estado)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+const ESTADO_PENDIENTE_INSTALACION_KEY = "pendiente de instalacion";
+const ESTADO_INSTALACION_EN_PROCESO_KEY = "instalacion en proceso";
+
+const parseNumber = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const toRecordArray = (value: unknown): Record<string, unknown>[] =>
+  Array.isArray(value)
+    ? value.filter((item) => item && typeof item === "object")
+    : [];
+
+const normalizeMaterialCode = (value: unknown) =>
+  safeText(value).toUpperCase().trim();
+
+const normalizeMaterialDescription = (value: unknown) =>
+  safeText(value).toLowerCase().trim();
+
+const getOfertaItems = (
+  oferta: OfertaConfeccionLike,
+): Record<string, unknown>[] => {
+  const items = toRecordArray(oferta.items);
+  if (items.length > 0) return items;
+  return toRecordArray(oferta.materiales);
+};
+
+const getOfertaPersistedId = (oferta: OfertaConfeccionLike | null) => {
+  if (!oferta) return "";
+  return safeText(
+    oferta.id || oferta._id || oferta.oferta_id || oferta.numero_oferta,
+  );
+};
+
+const extractApiErrorMessage = (response: unknown) => {
+  if (!response || typeof response !== "object") return "";
+  const data = response as Record<string, unknown>;
+  if (typeof data.message === "string" && data.message.trim())
+    return data.message;
+  if (typeof data.detail === "string" && data.detail.trim()) return data.detail;
+  if (typeof data.error === "string" && data.error.trim()) return data.error;
+  if (
+    data.error &&
+    typeof data.error === "object" &&
+    typeof (data.error as Record<string, unknown>).message === "string"
+  ) {
+    return String((data.error as Record<string, unknown>).message);
+  }
+  return "";
+};
+
+const extractOfertasConfeccion = (
+  response: unknown,
+): OfertaConfeccionLike[] => {
+  if (!response || typeof response !== "object") return [];
+
+  const responseObj = response as Record<string, unknown>;
+  if (
+    responseObj.success === false &&
+    !responseObj.data &&
+    !responseObj.ofertas
+  ) {
+    return [];
+  }
+
+  const payload = responseObj.data ?? responseObj;
+  if (Array.isArray(payload)) {
+    return payload.filter(
+      (row) => row && typeof row === "object",
+    ) as OfertaConfeccionLike[];
+  }
+
+  const payloadObj =
+    payload && typeof payload === "object"
+      ? (payload as Record<string, unknown>)
+      : null;
+  if (!payloadObj) return [];
+
+  const ofertasFromPayload = toRecordArray(payloadObj.ofertas);
+  const ofertasFromRoot = toRecordArray(responseObj.ofertas);
+  const ofertasRaw =
+    ofertasFromPayload.length > 0 ? ofertasFromPayload : ofertasFromRoot;
+
+  if (ofertasRaw.length > 0) return ofertasRaw;
+
+  const singleOferta = payloadObj.oferta ?? payloadObj.data ?? payloadObj;
+  if (singleOferta && typeof singleOferta === "object") {
+    const ofertaObj = singleOferta as Record<string, unknown>;
+    const isOfertaLike =
+      Boolean(ofertaObj.id) ||
+      Boolean(ofertaObj._id) ||
+      Boolean(ofertaObj.oferta_id) ||
+      Boolean(ofertaObj.numero_oferta) ||
+      Array.isArray(ofertaObj.items) ||
+      Array.isArray(ofertaObj.materiales);
+    if (isOfertaLike) return [ofertaObj];
+  }
+
+  return [];
 };
 
 const matchResponsable = (responsable: string, worker: Brigadista) => {
@@ -67,6 +178,15 @@ export function TrabajosDiariosView() {
     Record<string, string[]>
   >({});
   const [confirmando, setConfirmando] = useState<Record<string, boolean>>({});
+  const [salidaConfirmadaPorVale, setSalidaConfirmadaPorVale] = useState<
+    Record<string, boolean>
+  >({});
+  const [confirmandoEntrega, setConfirmandoEntrega] = useState<
+    Record<string, boolean>
+  >({});
+  const [entregaConfirmadaPorVale, setEntregaConfirmadaPorVale] = useState<
+    Record<string, boolean>
+  >({});
 
   const valesFiltrados = useMemo(() => vales || [], [vales]);
 
@@ -196,28 +316,206 @@ export function TrabajosDiariosView() {
       const trabajoCreado =
         await TrabajosDiariosService.createTrabajo(trabajoPayload);
 
-      const payload = {
-        estado: "Instalación en Proceso",
-        fecha_instalacion: `${fechaTrabajo}T00:00:00`,
-      };
-      const response = await ClienteService.actualizarCliente(
-        clienteNumero,
-        payload,
-      );
-      if (response?.success === false) {
-        throw new Error(response.message || "No se pudo actualizar el cliente");
+      let detalleEstadoCliente = "Estado del cliente sin cambios.";
+      const clienteActual =
+        await ClienteService.getClienteByNumero(clienteNumero);
+      const estadoActual = safeText(clienteActual?.estado);
+      const estadoActualKey = normalizeEstadoClienteKey(estadoActual);
+
+      if (estadoActualKey === ESTADO_PENDIENTE_INSTALACION_KEY) {
+        const payload = {
+          estado: "Instalación en Proceso",
+          fecha_instalacion: `${fechaTrabajo}T00:00:00`,
+        };
+        const response = await ClienteService.actualizarCliente(
+          clienteNumero,
+          payload,
+        );
+        if (response?.success === false) {
+          throw new Error(
+            response.message || "No se pudo actualizar el cliente",
+          );
+        }
+        detalleEstadoCliente = "Cliente actualizado a Instalación en Proceso.";
+      } else if (estadoActualKey === ESTADO_INSTALACION_EN_PROCESO_KEY) {
+        detalleEstadoCliente =
+          "Cliente ya estaba en Instalación en Proceso; no se realizaron cambios.";
+      } else if (estadoActual) {
+        detalleEstadoCliente = `Cliente sin cambio de estado (actual: ${estadoActual}).`;
+      } else {
+        detalleEstadoCliente =
+          "No se pudo determinar el estado actual del cliente; no se actualizó estado.";
       }
 
       toast({
         title: "Confirmado",
-        description: `Trabajo diario ${safeText(trabajoCreado.id, "creado")} y cliente ${clienteNumero} en Instalación en Proceso (inicio: ${fechaTrabajo}).`,
+        description: `Trabajo diario ${safeText(trabajoCreado.id, "creado")} confirmado para cliente ${clienteNumero}. ${detalleEstadoCliente}`,
       });
+      setSalidaConfirmadaPorVale((prev) => ({ ...prev, [valeId]: true }));
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Error confirmando salida";
       toast({ title: "Error", description: message, variant: "destructive" });
     } finally {
       setConfirmando((prev) => ({ ...prev, [valeId]: false }));
+    }
+  };
+
+  const cargarOfertasCliente = async (
+    clienteNumero: string,
+  ): Promise<OfertaConfeccionLike[]> => {
+    const response = await apiRequest<unknown>(
+      `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
+      { method: "GET" },
+    );
+    return extractOfertasConfeccion(response);
+  };
+
+  const seleccionarOfertaIdParaEntrega = (
+    ofertas: OfertaConfeccionLike[],
+    vale: TrabajoDiarioVale,
+  ) => {
+    const materialesVale = (vale.items || []).filter(
+      (item) => parseNumber(item.cantidad) > 0,
+    );
+    if (materialesVale.length === 0) return "";
+
+    const matchMaterial = (
+      materialVale: (typeof materialesVale)[number],
+      itemOferta: Record<string, unknown>,
+    ) => {
+      const materialIdVale = safeText(materialVale.material_id);
+      const materialIdOferta = safeText(itemOferta.material_id);
+      const sameId =
+        materialIdVale &&
+        materialIdOferta &&
+        materialIdVale === materialIdOferta;
+      const sameCode =
+        normalizeMaterialCode(materialVale.material_codigo) !== "" &&
+        normalizeMaterialCode(materialVale.material_codigo) ===
+          normalizeMaterialCode(itemOferta.material_codigo);
+      const sameDescription =
+        normalizeMaterialDescription(
+          materialVale.material_descripcion || materialVale.material_codigo,
+        ) !== "" &&
+        normalizeMaterialDescription(
+          materialVale.material_descripcion || materialVale.material_codigo,
+        ) === normalizeMaterialDescription(itemOferta.descripcion);
+      return sameId || sameCode || sameDescription;
+    };
+
+    for (const oferta of ofertas) {
+      const ofertaId = getOfertaPersistedId(oferta);
+      if (!ofertaId) continue;
+      const itemsOferta = getOfertaItems(oferta);
+      if (itemsOferta.length === 0) continue;
+
+      const allMatch = materialesVale.every((materialVale) =>
+        itemsOferta.some((itemOferta) =>
+          matchMaterial(materialVale, itemOferta),
+        ),
+      );
+      if (allMatch) return ofertaId;
+    }
+
+    const firstWithId = ofertas.find((oferta) =>
+      Boolean(getOfertaPersistedId(oferta)),
+    );
+    return getOfertaPersistedId(firstWithId || null);
+  };
+
+  const confirmarEntregaMateriales = async (vale: TrabajoDiarioVale) => {
+    const clienteNumero = safeText(vale.cliente_numero);
+    const valeId = safeText(vale.vale_id);
+    const solicitudId = safeText(vale.solicitud_id);
+    if (!clienteNumero) {
+      toast({
+        title: "Sin cliente",
+        description: "Este vale no tiene un cliente válido asociado.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!valeId) {
+      toast({
+        title: "Vale inválido",
+        description: "No se pudo identificar el vale de salida.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!solicitudId) {
+      toast({
+        title: "Solicitud inválida",
+        description: "No se pudo identificar la solicitud asociada al vale.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!Array.isArray(vale.items) || vale.items.length === 0) {
+      toast({
+        title: "Sin materiales",
+        description: "Este vale no tiene materiales para confirmar entrega.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setConfirmandoEntrega((prev) => ({ ...prev, [valeId]: true }));
+    try {
+      const ofertasCliente = await cargarOfertasCliente(clienteNumero);
+      if (ofertasCliente.length === 0) {
+        throw new Error(
+          "No se encontró una oferta confeccionada para este cliente.",
+        );
+      }
+
+      const ofertaId = seleccionarOfertaIdParaEntrega(ofertasCliente, vale);
+      if (!ofertaId) {
+        throw new Error(
+          "No se pudo identificar una oferta válida para registrar la entrega.",
+        );
+      }
+
+      const response = await apiRequest<unknown>("/entregas-materiales/", {
+        method: "POST",
+        body: JSON.stringify({
+          id_oferta: ofertaId,
+          cliente_numero: clienteNumero,
+          id_solicitud: solicitudId,
+          id_vale: valeId,
+          fecha: fechaTrabajo,
+        }),
+      });
+
+      if (response && typeof response === "object") {
+        const responseObj = response as Record<string, unknown>;
+        if (responseObj.success === false || responseObj.error) {
+          throw new Error(
+            extractApiErrorMessage(response) ||
+              "No se pudo crear la entrega de materiales.",
+          );
+        }
+      }
+
+      const responsable = safeText(vale.responsable_recogida, "N/A");
+      const entregaId =
+        response && typeof response === "object"
+          ? safeText((response as Record<string, unknown>).entrega_material_id)
+          : "";
+      setEntregaConfirmadaPorVale((prev) => ({ ...prev, [valeId]: true }));
+      toast({
+        title: "Entrega confirmada",
+        description: `Entrega creada para el vale ${safeText(vale.vale_codigo, valeId)}${entregaId ? ` (${entregaId})` : ""}. Responsable de recogida: ${responsable}.`,
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo confirmar la entrega de materiales";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setConfirmandoEntrega((prev) => ({ ...prev, [valeId]: false }));
     }
   };
 
@@ -278,7 +576,15 @@ export function TrabajosDiariosView() {
               {valesFiltrados.map((vale) => {
                 const responsable = safeText(vale.responsable_recogida, "N/A");
                 const seleccion = new Set(seleccionPorVale[vale.vale_id] || []);
-                const disabled = confirmando[vale.vale_id] === true;
+                const salidaConfirmada =
+                  salidaConfirmadaPorVale[vale.vale_id] === true;
+                const salidaDisabled =
+                  confirmando[vale.vale_id] === true || salidaConfirmada;
+                const entregaConfirmada =
+                  entregaConfirmadaPorVale[vale.vale_id] === true;
+                const entregaDisabled =
+                  confirmandoEntrega[vale.vale_id] === true ||
+                  entregaConfirmada;
 
                 return (
                   <div
@@ -320,16 +626,50 @@ export function TrabajosDiariosView() {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                         <Button
                           type="button"
-                          className="bg-emerald-700 hover:bg-emerald-800 w-full sm:w-auto"
+                          className={`w-full sm:w-auto ${
+                            salidaConfirmada
+                              ? "bg-slate-500 hover:bg-slate-500"
+                              : "bg-emerald-700 hover:bg-emerald-800"
+                          }`}
                           onClick={() => void confirmarSalida(vale)}
-                          disabled={disabled}
-                          title="Pasa el cliente a Instalación en Proceso y asigna fecha de inicio"
+                          disabled={salidaDisabled}
+                          title={
+                            salidaConfirmada
+                              ? "Salida ya confirmada para este vale"
+                              : "Confirma salida y actualiza el estado del cliente solo si aplica"
+                          }
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
-                          {disabled ? "Confirmando..." : "Confirmar salida"}
+                          {salidaConfirmada
+                            ? "Salida confirmada"
+                            : salidaDisabled
+                              ? "Confirmando..."
+                              : "Confirmar salida"}
+                        </Button>
+                        <Button
+                          type="button"
+                          className={`w-full sm:w-auto ${
+                            entregaConfirmada
+                              ? "bg-slate-500 hover:bg-slate-500"
+                              : "bg-blue-700 hover:bg-blue-800"
+                          }`}
+                          onClick={() => void confirmarEntregaMateriales(vale)}
+                          disabled={entregaDisabled}
+                          title={
+                            entregaConfirmada
+                              ? "Entrega de materiales ya confirmada para este vale"
+                              : "Confirma solo la entrega de materiales del vale"
+                          }
+                        >
+                          <Truck className="h-4 w-4 mr-2" />
+                          {entregaConfirmada
+                            ? "Entrega confirmada"
+                            : entregaDisabled
+                              ? "Confirmando..."
+                              : "Confirmar entrega de materiales"}
                         </Button>
                       </div>
                     </div>

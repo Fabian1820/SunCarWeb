@@ -48,6 +48,29 @@ const pickFirstString = (...values: unknown[]): string | undefined => {
   return undefined;
 };
 
+const normalizeInstaladoresInput = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((entry) => normalizeInstaladoresInput(entry))
+      .filter(Boolean);
+  }
+  const text = asString(value);
+  if (!text) return [];
+  return text
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const buildInstaladoresFilter = (filters: TrabajoDiarioFiltro): string[] => {
+  const raw = [
+    ...normalizeInstaladoresInput(filters.instaladores),
+    ...normalizeInstaladoresInput(filters.instalador),
+    ...normalizeInstaladoresInput(filters.trabajador),
+  ];
+  return Array.from(new Set(raw));
+};
+
 const normalizeDateOnly = (value: unknown): string => {
   const text = asString(value);
   if (!text) return "";
@@ -408,8 +431,10 @@ export class TrabajosDiariosService {
 
     const query = new URLSearchParams();
     query.append("fecha", fecha);
-    const instalador = (filters.instalador || filters.trabajador || "").trim();
-    if (instalador) query.append("instalador", instalador);
+    const instaladores = buildInstaladoresFilter(filters);
+    instaladores.forEach((instalador) =>
+      query.append("instalador", instalador),
+    );
     if (filters.skip != null) query.append("skip", String(filters.skip));
     if (filters.limit != null) query.append("limit", String(filters.limit));
 

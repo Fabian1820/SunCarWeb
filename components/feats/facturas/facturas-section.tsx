@@ -19,7 +19,11 @@ import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
 import { FacturasConsolidadasTable } from "./facturas-consolidadas-table";
 import { FacturaFormDialog } from "./factura-form-dialog";
-import type { Factura, FacturaConsolidada, Vale } from "@/lib/types/feats/facturas/factura-types";
+import type {
+  Factura,
+  FacturaConsolidada,
+  Vale,
+} from "@/lib/types/feats/facturas/factura-types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -82,10 +86,24 @@ const parseNullableNumber = (value: unknown): number | null => {
 };
 
 const formatDateForExcel = (value?: string): string => {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  const timestamp = parseDateTimestamp(value);
+  if (!timestamp) return "";
+  return new Date(timestamp).toISOString().slice(0, 10);
+};
+
+const parseDateTimestamp = (value?: string): number => {
+  if (!value) return 0;
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split("/").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 };
 
 const calcularTotalMaterialesFactura = (factura: Factura): number => {
@@ -146,8 +164,12 @@ export function FacturasSection() {
   const [valeDialogOpen, setValeDialogOpen] = useState(false);
   const [modoManual, setModoManual] = useState(true); // true = manual, false = desde vales de salida
   const [valesDisponibles, setValesDisponibles] = useState<ValeSalida[]>([]);
-  const [valesSeleccionados, setValesSeleccionados] = useState<Set<string>>(new Set());
-  const [valesExpandidos, setValesExpandidos] = useState<Set<string>>(new Set());
+  const [valesSeleccionados, setValesSeleccionados] = useState<Set<string>>(
+    new Set(),
+  );
+  const [valesExpandidos, setValesExpandidos] = useState<Set<string>>(
+    new Set(),
+  );
   const [loadingValesSalida, setLoadingValesSalida] = useState(false);
   const [facturaForVale, setFacturaForVale] = useState<Factura | null>(null);
   const [valeToEdit, setValeToEdit] = useState<{ valeId: string } | null>(null);
@@ -170,12 +192,13 @@ export function FacturasSection() {
 
   const exportFacturaItems = () => {
     if (!facturaDetails || !facturaDetails.vales) return;
-    const rows = facturaDetails.vales.flatMap((vale, valeIndex) =>
+    const valesOrdenados = [...facturaDetails.vales].sort(
+      (a, b) => parseDateTimestamp(b.fecha) - parseDateTimestamp(a.fecha),
+    );
+    const rows = valesOrdenados.flatMap((vale, valeIndex) =>
       vale.items.map((item) => ({
         vale: valeIndex + 1,
-        fecha_vale: vale.fecha
-          ? new Date(vale.fecha).toISOString().slice(0, 10)
-          : "",
+        fecha_vale: formatDateForExcel(vale.fecha),
         codigo: item.codigo,
         descripcion: item.descripcion,
         cantidad: item.cantidad,
@@ -234,7 +257,9 @@ export function FacturasSection() {
 
   const handleEditConsolidada = (facturaConsolidada: FacturaConsolidada) => {
     // Buscar la factura completa en el array de facturas normales
-    const facturaCompleta = facturas.find(f => f.numero_factura === facturaConsolidada.numero_factura);
+    const facturaCompleta = facturas.find(
+      (f) => f.numero_factura === facturaConsolidada.numero_factura,
+    );
     if (facturaCompleta) {
       handleEdit(facturaCompleta);
     } else {
@@ -257,9 +282,13 @@ export function FacturasSection() {
     setDetailsDialogOpen(true);
   };
 
-  const handleViewDetailsConsolidada = (facturaConsolidada: FacturaConsolidada) => {
+  const handleViewDetailsConsolidada = (
+    facturaConsolidada: FacturaConsolidada,
+  ) => {
     // Buscar la factura completa en el array de facturas normales
-    const facturaCompleta = facturas.find(f => f.numero_factura === facturaConsolidada.numero_factura);
+    const facturaCompleta = facturas.find(
+      (f) => f.numero_factura === facturaConsolidada.numero_factura,
+    );
     if (facturaCompleta) {
       handleViewDetails(facturaCompleta);
     } else {
@@ -291,7 +320,9 @@ export function FacturasSection() {
 
   const handleAddValeConsolidada = (facturaConsolidada: FacturaConsolidada) => {
     // Buscar la factura completa en el array de facturas normales
-    const facturaCompleta = facturas.find(f => f.numero_factura === facturaConsolidada.numero_factura);
+    const facturaCompleta = facturas.find(
+      (f) => f.numero_factura === facturaConsolidada.numero_factura,
+    );
     if (facturaCompleta) {
       handleAddValeClick(facturaCompleta);
     } else {
@@ -398,7 +429,8 @@ export function FacturasSection() {
           items: valeSalida.materiales.map((material) => ({
             material_id: material.material_id,
             codigo: material.material_codigo || material.codigo || "",
-            descripcion: material.material_descripcion || material.descripcion || "",
+            descripcion:
+              material.material_descripcion || material.descripcion || "",
             precio: material.material?.precio || 0,
             cantidad: material.cantidad,
           })),
@@ -445,7 +477,8 @@ export function FacturasSection() {
         if (vale.facturado === true) return false;
 
         // Obtener la solicitud
-        const solicitud = vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
+        const solicitud =
+          vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
         if (!solicitud) return false;
 
         // Verificar que pertenezca al cliente (comparar por numero)
@@ -503,7 +536,7 @@ export function FacturasSection() {
 
   const handleAgregarValesSeleccionados = async () => {
     const vales = valesDisponibles.filter((vale) =>
-      valesSeleccionados.has(vale.id)
+      valesSeleccionados.has(vale.id),
     );
     await handleValesSalidaSeleccionados(vales);
     setValeDialogOpen(false);
@@ -569,7 +602,9 @@ export function FacturasSection() {
 
     // Filtro por subtipo
     if (filters.subtipo) {
-      resultado = resultado.filter((factura) => factura.subtipo === filters.subtipo);
+      resultado = resultado.filter(
+        (factura) => factura.subtipo === filters.subtipo,
+      );
     }
 
     // Filtro por fecha específica
@@ -577,8 +612,8 @@ export function FacturasSection() {
       resultado = resultado.filter((factura) => {
         if (!factura.fecha) return false;
         // Comparar solo la fecha (sin hora) - formato DD/MM/YYYY del backend
-        const [dia, mes, anio] = factura.fecha.split('/');
-        const facturaFecha = `${anio}-${mes.padStart(2, '0')}-${dia.padStart(2, '0')}`;
+        const [dia, mes, anio] = factura.fecha.split("/");
+        const facturaFecha = `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
         return facturaFecha === filters.fecha_vale;
       });
     } else {
@@ -587,9 +622,18 @@ export function FacturasSection() {
         resultado = resultado.filter((factura) => {
           if (!factura.mes) return false;
           const mesesMap: { [key: string]: number } = {
-            'enero': 1, 'febrero': 2, 'marzo': 3, 'abril': 4,
-            'mayo': 5, 'junio': 6, 'julio': 7, 'agosto': 8,
-            'septiembre': 9, 'octubre': 10, 'noviembre': 11, 'diciembre': 12
+            enero: 1,
+            febrero: 2,
+            marzo: 3,
+            abril: 4,
+            mayo: 5,
+            junio: 6,
+            julio: 7,
+            agosto: 8,
+            septiembre: 9,
+            octubre: 10,
+            noviembre: 11,
+            diciembre: 12,
           };
           const mesFactura = mesesMap[factura.mes.toLowerCase()];
           return mesFactura === filters.mes_vale;
@@ -600,7 +644,7 @@ export function FacturasSection() {
       if (filters.anio_vale) {
         resultado = resultado.filter((factura) => {
           if (!factura.fecha) return false;
-          const [, , anio] = factura.fecha.split('/');
+          const [, , anio] = factura.fecha.split("/");
           return parseInt(anio) === filters.anio_vale;
         });
       }
@@ -611,7 +655,10 @@ export function FacturasSection() {
 
   // Calcular total facturado de las facturas filtradas
   const totalFacturado = useMemo(() => {
-    return facturasFiltradas.reduce((sum, factura) => sum + factura.total_factura, 0);
+    return facturasFiltradas.reduce(
+      (sum, factura) => sum + factura.total_factura,
+      0,
+    );
   }, [facturasFiltradas]);
 
   const handleExportFacturasExcel = async () => {
@@ -626,48 +673,73 @@ export function FacturasSection() {
 
     setExportingExcel(true);
     try {
-      const data = facturasFiltradas.map((factura) => {
-        const totalPrecioFinal = factura.ofertas.reduce((sum, oferta) => sum + oferta.precio_final, 0);
-        const gananciaTotal = factura.ofertas.length > 0 ? totalPrecioFinal - factura.total_factura : 0;
-        
+      const facturasOrdenadas = [...facturasFiltradas].sort((a, b) => {
+        const fechaA = parseDateTimestamp(a.fecha || a.fecha_creacion || "");
+        const fechaB = parseDateTimestamp(b.fecha || b.fecha_creacion || "");
+        return fechaB - fechaA;
+      });
+
+      const data = facturasOrdenadas.map((factura) => {
+        const totalPrecioFinal = factura.ofertas.reduce(
+          (sum, oferta) => sum + oferta.precio_final,
+          0,
+        );
+        const gananciaTotal =
+          factura.ofertas.length > 0
+            ? totalPrecioFinal - factura.total_factura
+            : 0;
+
         // Determinar el tipo/subtipo para mostrar cuando no hay cliente
-        let clienteDisplay = factura.cliente_nombre || '';
+        let clienteDisplay = factura.cliente_nombre || "";
         if (!clienteDisplay) {
-          if (factura.tipo === 'cliente_directo') {
-            clienteDisplay = 'Cliente Directo';
-          } else if (factura.subtipo === 'brigada') {
-            clienteDisplay = 'Brigada';
+          if (factura.tipo === "cliente_directo") {
+            clienteDisplay = "Cliente Directo";
+          } else if (factura.subtipo === "brigada") {
+            clienteDisplay = "Brigada";
           } else {
-            clienteDisplay = 'Sin cliente';
+            clienteDisplay = "Sin cliente";
           }
         }
 
         return {
           numero_factura: factura.numero_factura,
-          mes: factura.mes || 'N/A',
-          fecha: factura.fecha || 'N/A',
+          mes: factura.mes || "N/A",
+          fecha: factura.fecha || "N/A",
           cliente: clienteDisplay,
           total_materiales: factura.total_factura,
           monto_cobrado: factura.total_cobrado_todas_ofertas,
           monto_pendiente: factura.monto_pendiente_materiales,
-          precio_final_oferta: factura.ofertas.length > 0 ? totalPrecioFinal : 0,
+          precio_final_oferta:
+            factura.ofertas.length > 0 ? totalPrecioFinal : 0,
           ganancia_actual: factura.ofertas.length > 0 ? gananciaTotal : 0,
         };
       });
 
       await exportToExcel({
         title: "Suncar SRL - Vales y Facturas de Instaladora",
-        subtitle: `Registros exportados: ${data.length} facturas${Object.keys(filters).length > 0 ? ' (filtradas)' : ''}`,
+        subtitle: `Registros exportados: ${data.length} facturas${Object.keys(filters).length > 0 ? " (filtradas)" : ""}`,
         filename: generateFilename("facturas_instaladora"),
         columns: [
           { header: "Número Factura", key: "numero_factura", width: 18 },
           { header: "Mes", key: "mes", width: 12 },
           { header: "Fecha", key: "fecha", width: 14 },
           { header: "Cliente", key: "cliente", width: 30 },
-          { header: "Total Materiales Facturados", key: "total_materiales", width: 22 },
+          {
+            header: "Total Materiales Facturados",
+            key: "total_materiales",
+            width: 22,
+          },
           { header: "Monto Cobrado", key: "monto_cobrado", width: 18 },
-          { header: "Monto Pendiente Materiales", key: "monto_pendiente", width: 22 },
-          { header: "Precio Final Oferta", key: "precio_final_oferta", width: 20 },
+          {
+            header: "Monto Pendiente Materiales",
+            key: "monto_pendiente",
+            width: 22,
+          },
+          {
+            header: "Precio Final Oferta",
+            key: "precio_final_oferta",
+            width: 20,
+          },
           { header: "Ganancia Actual", key: "ganancia_actual", width: 18 },
         ],
         data,
@@ -1210,7 +1282,7 @@ export function FacturasSection() {
                                   <div>
                                     Fecha:{" "}
                                     {new Date(
-                                      vale.fecha_creacion
+                                      vale.fecha_creacion,
                                     ).toLocaleDateString("es-ES")}
                                   </div>
                                 )}
@@ -1227,7 +1299,9 @@ export function FacturasSection() {
                                   </span>
                                   <button
                                     type="button"
-                                    onClick={(e) => toggleExpandirVale(vale.id, e)}
+                                    onClick={(e) =>
+                                      toggleExpandirVale(vale.id, e)
+                                    }
                                     className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
                                   >
                                     {isExpanded ? (
@@ -1246,21 +1320,25 @@ export function FacturasSection() {
 
                                 {!isExpanded ? (
                                   <div className="space-y-1">
-                                    {vale.materiales.slice(0, 2).map((material, idx) => (
-                                      <div
-                                        key={idx}
-                                        className="text-sm text-gray-700 flex justify-between"
-                                      >
-                                        <span>
-                                          {material.material_codigo || material.codigo} -{" "}
-                                          {material.material_descripcion ||
-                                            material.descripcion}
-                                        </span>
-                                        <span className="text-gray-500">
-                                          x{material.cantidad}
-                                        </span>
-                                      </div>
-                                    ))}
+                                    {vale.materiales
+                                      .slice(0, 2)
+                                      .map((material, idx) => (
+                                        <div
+                                          key={idx}
+                                          className="text-sm text-gray-700 flex justify-between"
+                                        >
+                                          <span>
+                                            {material.material_codigo ||
+                                              material.codigo}{" "}
+                                            -{" "}
+                                            {material.material_descripcion ||
+                                              material.descripcion}
+                                          </span>
+                                          <span className="text-gray-500">
+                                            x{material.cantidad}
+                                          </span>
+                                        </div>
+                                      ))}
                                     {vale.materiales.length > 2 && (
                                       <p className="text-xs text-gray-500">
                                         +{vale.materiales.length - 2} más...
@@ -1284,7 +1362,8 @@ export function FacturasSection() {
                                 >
                                   <div className="flex-1">
                                     <p className="font-medium text-gray-900">
-                                      {material.material_codigo || material.codigo}
+                                      {material.material_codigo ||
+                                        material.codigo}
                                     </p>
                                     <p className="text-gray-600 text-xs">
                                       {material.material_descripcion ||
@@ -1298,7 +1377,7 @@ export function FacturasSection() {
                                     <p className="text-xs text-gray-500">
                                       {formatCurrency(
                                         (material.material?.precio || 0) *
-                                          material.cantidad
+                                          material.cantidad,
                                       )}
                                     </p>
                                   </div>

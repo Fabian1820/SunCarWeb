@@ -87,7 +87,7 @@ export function TrabajosDiariosRegistroView({
     try {
       const rows = await TrabajosDiariosService.getTrabajos({
         fecha,
-        instalador: trabajadorFiltro,
+        instaladores: trabajadorFiltro ? [trabajadorFiltro] : [],
       });
       setTrabajos(rows || []);
       if (!rows || rows.length === 0) {

@@ -63,6 +63,7 @@ export interface TrabajoDiarioRegistro {
 export interface TrabajoDiarioFiltro {
   fecha?: string;
   instalador?: string;
+  instaladores?: string[];
   trabajador?: string;
   skip?: number;
   limit?: number;

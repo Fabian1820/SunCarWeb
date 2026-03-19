@@ -277,6 +277,33 @@ const normalizeClienteNumero = (value: string | null | undefined) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
+const extractOfertasCliente = (payload: unknown): unknown[] => {
+  if (!payload) return [];
+
+  if (Array.isArray(payload)) return payload;
+  if (typeof payload !== "object") return [];
+
+  const raw = payload as Record<string, unknown>;
+  const nestedData =
+    raw.data && typeof raw.data === "object"
+      ? (raw.data as Record<string, unknown>)
+      : null;
+
+  const candidates: unknown[] = [
+    raw.ofertas,
+    raw.ofertas_confeccion,
+    nestedData?.ofertas,
+    nestedData?.ofertas_confeccion,
+    nestedData?.data,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+
+  return [];
+};
+
 const CLIENTES_CON_OFERTA_CACHE_KEY = "clientes_con_ofertas_cache_v2";
 const CLIENTES_CON_OFERTA_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -539,6 +566,14 @@ export function useOfertasConfeccion() {
         });
 
         if (!response.ok) {
+          // Compatibilidad: si el backend ya no expone este endpoint,
+          // usamos el flujo basado en GET /clientes enriquecido.
+          if (response.status === 404) {
+            console.log(
+              "ℹ️ Endpoint clientes-con-ofertas no disponible (404), continuando sin set auxiliar",
+            );
+            return { success: true as const, numeros_clientes: [] as string[] };
+          }
           console.error(
             "❌ Error en endpoint clientes-con-ofertas:",
             response.status,
@@ -636,15 +671,24 @@ export function useOfertasConfeccion() {
       console.log("📦 Response data:", data);
 
       const payload = data?.data ?? data;
-      const ofertasRaw = Array.isArray(payload?.ofertas)
-        ? payload.ofertas
-        : Array.isArray(data?.ofertas)
-          ? data.ofertas
-          : [];
+      const ofertasRaw = extractOfertasCliente(payload).length
+        ? extractOfertasCliente(payload)
+        : extractOfertasCliente(data);
 
       if (Array.isArray(ofertasRaw) && ofertasRaw.length > 0) {
         const ofertas = ofertasRaw.map(normalizeOfertaConfeccion);
-        const total = payload?.total_ofertas ?? ofertas.length;
+        const rawObject =
+          payload && typeof payload === "object"
+            ? (payload as Record<string, unknown>)
+            : null;
+        const totalRaw =
+          rawObject?.total_ofertas ??
+          data?.total_ofertas ??
+          data?.total ??
+          ofertas.length;
+        const total = Number.isFinite(Number(totalRaw))
+          ? Number(totalRaw)
+          : ofertas.length;
         console.log(
           "✅ Oferta encontrada para cliente:",
           numeroNormalizado,
