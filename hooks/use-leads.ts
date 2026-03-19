@@ -56,6 +56,49 @@ interface UseLeadsReturn {
 
 const TEMP_CODEGEN_LEAD_MARKER = "__TEMP_LEAD_GENERAR_CODIGO_CLIENTE__";
 
+const parseLeadDate = (value?: string): Date | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split("/").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split("-").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const applyLeadDateRangeFilter = (
+  leads: Lead[],
+  fechaDesde?: string,
+  fechaHasta?: string,
+): Lead[] => {
+  if (!fechaDesde && !fechaHasta) return leads;
+
+  const desde = parseLeadDate(fechaDesde);
+  const hasta = parseLeadDate(fechaHasta);
+  if (desde) desde.setHours(0, 0, 0, 0);
+  if (hasta) hasta.setHours(23, 59, 59, 999);
+
+  return leads.filter((lead) => {
+    const fechaLead = parseLeadDate(lead.fecha_contacto);
+    if (!fechaLead) return false;
+
+    if (desde && fechaLead < desde) return false;
+    if (hasta && fechaLead > hasta) return false;
+    return true;
+  });
+};
+
 const isTemporaryCodegenLead = (lead: Lead): boolean => {
   const comentario = lead.comentario?.trim();
   if (comentario === TEMP_CODEGEN_LEAD_MARKER) return true;
@@ -143,8 +186,6 @@ export function useLeads(): UseLeadsReturn {
       estado: string;
       fuente: string;
       comercial: string;
-      fechaDesde: string;
-      fechaHasta: string;
     }): Promise<Lead[]> => {
       const allLeads: Lead[] = [];
       const backendPageSize = 200;
@@ -157,8 +198,6 @@ export function useLeads(): UseLeadsReturn {
           estado: baseFilters.estado || undefined,
           fuente: baseFilters.fuente || undefined,
           comercial: baseFilters.comercial || undefined,
-          fechaDesde: baseFilters.fechaDesde || undefined,
-          fechaHasta: baseFilters.fechaHasta || undefined,
           skip: currentSkip,
           limit: backendPageSize,
         });
@@ -190,8 +229,56 @@ export function useLeads(): UseLeadsReturn {
         const effectiveSearchTerm = (
           overrideFilters?.searchTerm ?? debouncedSearchTerm
         ).trim();
+        const hasDateFilters = Boolean(
+          effectiveFilters.fechaDesde || effectiveFilters.fechaHasta,
+        );
 
-        const { leads: fetchedLeads, total, skip, limit } = await LeadService.getLeads({
+        if (hasDateFilters) {
+          const allBaseLeads = await fetchAllLeadsByBaseFilters({
+            estado: effectiveFilters.estado,
+            fuente: effectiveFilters.fuente,
+            comercial: effectiveFilters.comercial,
+          });
+
+          const filteredByDate = applyLeadDateRangeFilter(
+            allBaseLeads,
+            effectiveFilters.fechaDesde,
+            effectiveFilters.fechaHasta,
+          );
+
+          const filteredBySearch = effectiveSearchTerm
+            ? filteredByDate.filter((lead) =>
+                buildLeadSearchText(lead).includes(
+                  normalizeSearchValue(effectiveSearchTerm),
+                ),
+              )
+            : filteredByDate;
+
+          const total = filteredBySearch.length;
+          const skip = effectiveFilters.skip ?? 0;
+          const limit = effectiveFilters.limit ?? 20;
+          const end = limit > 0 ? skip + limit : undefined;
+          const paged = filteredBySearch.slice(skip, end);
+
+          setLeads(paged);
+          setTotalLeads(total);
+
+          if (
+            overrideFilters?.skip !== undefined ||
+            overrideFilters?.limit !== undefined
+          ) {
+            setFiltersState((prev) => ({ ...prev, skip, limit }));
+          }
+
+          return;
+        }
+
+        const {
+          leads: fetchedLeads,
+          total,
+          skip,
+          limit,
+        } = await LeadService.getLeads({
           q: effectiveSearchTerm || undefined,
           estado: effectiveFilters.estado || undefined,
           fuente: effectiveFilters.fuente || undefined,
@@ -221,7 +308,13 @@ export function useLeads(): UseLeadsReturn {
         setInitialLoading(false);
       }
     },
-    [filters, debouncedSearchTerm],
+    [
+      filters,
+      debouncedSearchTerm,
+      fetchAllLeadsByBaseFilters,
+      buildLeadSearchText,
+      normalizeSearchValue,
+    ],
   );
 
   // Obtener fuentes únicas de los leads existentes
@@ -418,16 +511,20 @@ export function useLeads(): UseLeadsReturn {
       estado: filters.estado,
       fuente: filters.fuente,
       comercial: filters.comercial,
-      fechaDesde: filters.fechaDesde,
-      fechaHasta: filters.fechaHasta,
     });
+
+    const allDateFilteredLeads = applyLeadDateRangeFilter(
+      allBaseLeads,
+      filters.fechaDesde,
+      filters.fechaHasta,
+    );
 
     const effectiveSearchTerm = normalizeSearchValue(filters.searchTerm.trim());
     if (!effectiveSearchTerm) {
-      return allBaseLeads;
+      return allDateFilteredLeads;
     }
 
-    return allBaseLeads.filter((lead) =>
+    return allDateFilteredLeads.filter((lead) =>
       buildLeadSearchText(lead).includes(effectiveSearchTerm),
     );
   }, [

@@ -74,6 +74,9 @@ export function buildApiUrl(endpoint: string): string {
     }
   }
 
+  // Evitar dobles barras y facilitar detección correcta de sufijo /api
+  normalized = normalized.replace(/\/+$/, "");
+
   const apiUrl = normalized.endsWith("/api") ? normalized : `${normalized}/api`;
 
   // Si el endpoint ya incluye /api, no duplicarlo
