@@ -27,7 +27,6 @@ import {
   FileSpreadsheet,
   PackageSearch,
   Wallet,
-  CalendarDays,
   Building2,
   Building,
 } from "lucide-react";
@@ -153,15 +152,6 @@ export default function Dashboard() {
       title: "Solicitudes de Materiales",
       description: "Crear y gestionar solicitudes de materiales.",
       iconClass: "text-teal-600",
-    },
-    {
-      id: "Trabajos Diarios",
-      href: "/instalaciones/trabajos-diarios",
-      icon: CalendarDays,
-      title: "Trabajos Diarios",
-      description:
-        "Cargar vales por fecha, seleccionar brigadistas y confirmar salida a instalación.",
-      iconClass: "text-purple-700",
     },
     {
       id: "brigadas",
@@ -319,7 +309,6 @@ export default function Dashboard() {
         "reportes",
         "instalaciones",
         "solicitudes-materiales",
-        "Trabajos Diarios",
       ],
     },
     {

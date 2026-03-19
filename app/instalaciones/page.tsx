@@ -8,6 +8,7 @@ import {
   AlertTriangle,
   MapPin,
   CalendarCheck,
+  CalendarDays,
   ClipboardList,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -39,6 +40,14 @@ export default function InstalacionesPage() {
       icon: Wrench,
       color: "green",
       href: "/instalaciones/nuevas",
+    },
+    {
+      id: "trabajos-diarios",
+      title: "Trabajos Diarios",
+      description: "Confirmar salida y entrega de materiales por vale",
+      icon: CalendarDays,
+      color: "indigo",
+      href: "/instalaciones/trabajos-diarios",
     },
     {
       id: "averias",
