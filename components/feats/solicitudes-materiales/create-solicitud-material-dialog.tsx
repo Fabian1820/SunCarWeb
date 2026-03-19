@@ -34,7 +34,7 @@ import {
   SolicitudMaterialService,
   TrabajadorService,
 } from "@/lib/api-services";
-import type { Almacen } from "@/lib/api-types";
+import type { Almacen, Trabajador } from "@/lib/api-types";
 import type {
   SolicitudMaterial,
   SolicitudMaterialCreateData,
@@ -69,13 +69,6 @@ interface CatalogMaterial {
   um?: string;
   foto?: string;
 }
-
-interface TrabajadorConBrigadista {
-  nombre?: string;
-  is_brigadista?: boolean;
-}
-
-const RESPONSABLE_NONE_VALUE = "__sin_responsable__";
 
 const normalizeDateInput = (dateStr?: string | null): string => {
   if (!dateStr) return "";
@@ -120,8 +113,12 @@ export function CreateSolicitudMaterialDialog({
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [selectedAlmacenId, setSelectedAlmacenId] = useState("");
   const [almacenesLoading, setAlmacenesLoading] = useState(false);
-  const [brigadistas, setBrigadistas] = useState<string[]>([]);
-  const [brigadistasLoading, setBrigadistasLoading] = useState(false);
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
+  const [trabajadoresLoading, setTrabajadoresLoading] = useState(false);
+  const [responsableResults, setResponsableResults] = useState<Trabajador[]>(
+    [],
+  );
+  const [showResponsableDropdown, setShowResponsableDropdown] = useState(false);
   const [responsableRecogida, setResponsableRecogida] = useState("");
   const [fechaRecogida, setFechaRecogida] = useState("");
 
@@ -133,7 +130,7 @@ export function CreateSolicitudMaterialDialog({
 
     const loadData = async () => {
       setAlmacenesLoading(true);
-      setBrigadistasLoading(true);
+      setTrabajadoresLoading(true);
       try {
         const [almacenesData, materialsData, trabajadoresData] =
           await Promise.all([
@@ -143,30 +140,29 @@ export function CreateSolicitudMaterialDialog({
           ]);
         setAlmacenes(Array.isArray(almacenesData) ? almacenesData : []);
         setAllMaterials(Array.isArray(materialsData) ? materialsData : []);
-        const brigadistaNames = Array.from(
-          new Set(
-            (Array.isArray(trabajadoresData) ? trabajadoresData : [])
-              .filter(
-                (trabajador) =>
-                  (trabajador as TrabajadorConBrigadista).is_brigadista ===
-                  true,
-              )
-              .map((trabajador) =>
-                (trabajador as TrabajadorConBrigadista).nombre?.trim(),
-              )
-              .filter((nombre): nombre is string => Boolean(nombre)),
-          ),
-        ).sort((a, b) =>
-          a.localeCompare(b, "es", {
-            sensitivity: "base",
-          }),
-        );
-        setBrigadistas(brigadistaNames);
+        const trabajadoresDisponibles = (Array.isArray(trabajadoresData)
+          ? trabajadoresData
+          : []
+        )
+          .filter(
+            (trabajador): trabajador is Trabajador =>
+              Boolean(trabajador?.nombre?.trim()),
+          )
+          .map((trabajador) => ({
+            ...trabajador,
+            nombre: trabajador.nombre.trim(),
+          }))
+          .sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", {
+              sensitivity: "base",
+            }),
+          );
+        setTrabajadores(trabajadoresDisponibles);
       } catch (error) {
         console.error("Error loading dialog data:", error);
       } finally {
         setAlmacenesLoading(false);
-        setBrigadistasLoading(false);
+        setTrabajadoresLoading(false);
       }
     };
 
@@ -185,8 +181,10 @@ export function CreateSolicitudMaterialDialog({
       setFechaRecogida("");
       setMaterialSearch("");
       setMaterialResults([]);
+      setResponsableResults([]);
       setShowClienteDropdown(false);
       setShowMaterialDropdown(false);
+      setShowResponsableDropdown(false);
       return;
     }
 
@@ -201,8 +199,10 @@ export function CreateSolicitudMaterialDialog({
       setFechaRecogida("");
       setMaterialSearch("");
       setMaterialResults([]);
+      setResponsableResults([]);
       setShowClienteDropdown(false);
       setShowMaterialDropdown(false);
+      setShowResponsableDropdown(false);
       return;
     }
 
@@ -248,8 +248,10 @@ export function CreateSolicitudMaterialDialog({
     setFechaRecogida(normalizeDateInput(solicitud.fecha_recogida));
     setMaterialSearch("");
     setMaterialResults([]);
+    setResponsableResults([]);
     setShowClienteDropdown(false);
     setShowMaterialDropdown(false);
+    setShowResponsableDropdown(false);
   }, [open, solicitud]);
 
   useEffect(() => {
@@ -367,6 +369,39 @@ export function CreateSolicitudMaterialDialog({
 
     return () => clearTimeout(handler);
   }, [materialSearch, allMaterials, materiales]);
+
+  useEffect(() => {
+    const term = responsableRecogida.trim().toLowerCase();
+    if (!term) {
+      setResponsableResults([]);
+      setShowResponsableDropdown(false);
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      const filtered = trabajadores
+        .filter((trabajador) =>
+          trabajador.nombre.toLowerCase().includes(term),
+        )
+        .slice(0, 15);
+      setResponsableResults(filtered);
+      setShowResponsableDropdown(filtered.length > 0);
+    }, 200);
+
+    return () => clearTimeout(handler);
+  }, [responsableRecogida, trabajadores]);
+
+  const handleSelectResponsable = (trabajador: Trabajador) => {
+    setResponsableRecogida(trabajador.nombre);
+    setShowResponsableDropdown(false);
+    setResponsableResults([]);
+  };
+
+  const handleClearResponsable = () => {
+    setResponsableRecogida("");
+    setShowResponsableDropdown(false);
+    setResponsableResults([]);
+  };
 
   const handleAddMaterial = (material: CatalogMaterial) => {
     const id = material.id || material._id || "";
@@ -486,12 +521,6 @@ export function CreateSolicitudMaterialDialog({
   const validCount = materiales.filter(
     (m) => m.material_id && !m.sinVinculo,
   ).length;
-  const responsableOptions = useMemo(() => {
-    if (!responsableRecogida || brigadistas.includes(responsableRecogida)) {
-      return brigadistas;
-    }
-    return [responsableRecogida, ...brigadistas];
-  }, [brigadistas, responsableRecogida]);
   const canSubmit =
     selectedAlmacenId && validCount > 0 && !submitting && !hasSinVinculo;
 
@@ -778,40 +807,63 @@ export function CreateSolicitudMaterialDialog({
                 Responsable de Recogida{" "}
                 <span className="text-gray-400 font-normal">(opcional)</span>
               </Label>
-              {brigadistasLoading ? (
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Cargando brigadistas...
-                </div>
-              ) : (
-                <Select
-                  value={responsableRecogida || RESPONSABLE_NONE_VALUE}
-                  onValueChange={(value) =>
-                    setResponsableRecogida(
-                      value === RESPONSABLE_NONE_VALUE ? "" : value,
-                    )
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona responsable" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={RESPONSABLE_NONE_VALUE}>
-                      Sin responsable
-                    </SelectItem>
-                    {responsableOptions.map((nombre) => (
-                      <SelectItem key={nombre} value={nombre}>
-                        {nombre}
-                      </SelectItem>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar trabajador por nombre..."
+                  value={responsableRecogida}
+                  onChange={(event) => setResponsableRecogida(event.target.value)}
+                  onFocus={() => {
+                    if (responsableResults.length > 0) {
+                      setShowResponsableDropdown(true);
+                    }
+                  }}
+                  className="pl-10 pr-10"
+                />
+                {trabajadoresLoading ? (
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
+                ) : null}
+                {!trabajadoresLoading && responsableRecogida ? (
+                  <button
+                    type="button"
+                    onClick={handleClearResponsable}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+                {showResponsableDropdown && responsableResults.length > 0 ? (
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {responsableResults.map((trabajador) => (
+                      <button
+                        key={`${trabajador.id}-${trabajador.CI}`}
+                        type="button"
+                        className="w-full text-left px-4 py-2 hover:bg-purple-50 text-sm"
+                        onClick={() => handleSelectResponsable(trabajador)}
+                      >
+                        <span className="font-medium">{trabajador.nombre}</span>
+                        {trabajador.CI ? (
+                          <span className="ml-2 text-gray-500">
+                            CI {trabajador.CI}
+                          </span>
+                        ) : null}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {!brigadistasLoading && brigadistas.length === 0 ? (
+                  </div>
+                ) : null}
+              </div>
+              {!trabajadoresLoading && trabajadores.length === 0 ? (
                 <p className="text-xs text-gray-500">
-                  No hay trabajadores brigadistas disponibles.
+                  No hay trabajadores disponibles.
                 </p>
               ) : null}
+              <button
+                type="button"
+                onClick={handleClearResponsable}
+                className="text-xs text-purple-600 hover:text-purple-800"
+              >
+                Dejar sin responsable
+              </button>
             </div>
 
             <div className="space-y-2">

@@ -96,6 +96,7 @@ export type {
 
 export type {
   SolicitudMaterial,
+  SolicitudMaterialAnularData,
   SolicitudMaterialCreateData,
   SolicitudMaterialUpdateData,
   SolicitudMaterialItem,
@@ -130,6 +131,7 @@ export type {
 
 export type {
   SolicitudVenta,
+  SolicitudVentaAnularData,
   SolicitudVentaCreateData,
   SolicitudVentaUpdateData,
   SolicitudVentaMaterialItem,

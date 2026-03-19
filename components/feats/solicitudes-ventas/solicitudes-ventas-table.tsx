@@ -10,6 +10,7 @@ import {
   RotateCcw,
   User,
   Warehouse,
+  Ban,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 
@@ -17,12 +18,16 @@ interface SolicitudesVentasTableProps {
   solicitudes: SolicitudVenta[];
   onView?: (solicitud: SolicitudVenta) => void;
   onEdit?: (solicitud: SolicitudVenta) => void;
+  onAnular?: (solicitud: SolicitudVenta) => void;
+  onReabrir?: (solicitud: SolicitudVenta) => void;
 }
 
 export function SolicitudesVentasTable({
   solicitudes,
   onView,
   onEdit,
+  onAnular,
+  onReabrir,
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -69,6 +74,7 @@ export function SolicitudesVentasTable({
             const estado = solicitud.estado?.toLowerCase();
             const isUsada = estado === "usada";
             const isAnulada = estado === "anulada";
+            const isNueva = estado === "nueva";
 
             return (
               <tr
@@ -149,32 +155,41 @@ export function SolicitudesVentasTable({
                         <span className="hidden sm:inline text-xs">Ver</span>
                       </Button>
                     )}
-                    {onEdit && (
+                    {onEdit && isNueva && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => onEdit(solicitud)}
-                        className={
-                          isAnulada
-                            ? "border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                            : "border-amber-300 text-amber-700 hover:bg-amber-50"
-                        }
-                        title={
-                          isUsada
-                            ? "No se puede editar una solicitud usada"
-                            : isAnulada
-                              ? "Reabrir solicitud anulada"
-                              : "Editar solicitud"
-                        }
-                        disabled={isUsada}
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                        title="Editar solicitud"
                       >
-                        {isAnulada ? (
-                          <RotateCcw className="h-4 w-4 sm:mr-1" />
-                        ) : (
-                          <Pencil className="h-4 w-4 sm:mr-1" />
-                        )}
+                        <Pencil className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">Editar</span>
+                      </Button>
+                    )}
+                    {onAnular && isNueva && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onAnular(solicitud)}
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                        title="Anular solicitud"
+                      >
+                        <Ban className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">Anular</span>
+                      </Button>
+                    )}
+                    {onReabrir && isAnulada && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onReabrir(solicitud)}
+                        className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                        title="Reabrir creando una nueva solicitud"
+                      >
+                        <RotateCcw className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline text-xs">
-                          {isAnulada ? "Reabrir" : "Editar"}
+                          Reabrir
                         </span>
                       </Button>
                     )}

@@ -16,6 +16,8 @@ import {
   MapPin,
   Hash,
   Briefcase,
+  Ban,
+  RotateCcw,
 } from "lucide-react";
 import type { SolicitudMaterial } from "@/lib/api-types";
 import {
@@ -53,6 +55,8 @@ export function SolicitudMaterialDetailDialog({
       return "—";
     }
   };
+  const formatTraceId = (value?: string | null) =>
+    value ? value.slice(-6).toUpperCase() : "-";
 
   const getMaterialName = (mat: SolicitudMaterial["materiales"][number]) =>
     mat.material?.nombre ||
@@ -123,6 +127,71 @@ export function SolicitudMaterialDetailDialog({
               </div>
             )}
           </div>
+
+          {isAnulada ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-red-700 mb-2 flex items-center gap-1.5">
+                <Ban className="h-4 w-4" />
+                Datos de anulacion
+              </h3>
+              <div className="space-y-1.5 text-sm text-red-800">
+                <p>
+                  Motivo:{" "}
+                  <span className="font-medium">
+                    {solicitud.motivo_anulacion || "No especificado"}
+                  </span>
+                </p>
+                <p>
+                  Anulada por CI:{" "}
+                  <span className="font-medium">
+                    {solicitud.anulada_por_ci || "-"}
+                  </span>
+                </p>
+                <p>
+                  Fecha anulacion:{" "}
+                  <span className="font-medium">
+                    {formatDate(solicitud.anulada_en || undefined)}
+                  </span>
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {(solicitud.solicitud_origen_id ||
+            solicitud.solicitud_reabierta_id) && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <h3 className="text-sm font-semibold text-emerald-700 mb-2 flex items-center gap-1.5">
+                <RotateCcw className="h-4 w-4" />
+                Trazabilidad de reapertura
+              </h3>
+              <div className="space-y-1.5 text-sm text-emerald-800">
+                <p>
+                  Solicitud origen:{" "}
+                  <span className="font-mono font-medium">
+                    {formatTraceId(solicitud.solicitud_origen_id)}
+                  </span>
+                </p>
+                <p>
+                  Solicitud reabierta:{" "}
+                  <span className="font-mono font-medium">
+                    {formatTraceId(solicitud.solicitud_reabierta_id)}
+                  </span>
+                </p>
+                <p>
+                  Reabierta por CI:{" "}
+                  <span className="font-medium">
+                    {solicitud.reabierta_por_ci || "-"}
+                  </span>
+                </p>
+                <p>
+                  Fecha reapertura:{" "}
+                  <span className="font-medium">
+                    {formatDate(solicitud.reabierta_en || undefined)}
+                  </span>
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="bg-gray-50 rounded-lg p-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">

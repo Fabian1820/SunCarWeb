@@ -51,6 +51,13 @@ export interface SolicitudVenta {
   id: string;
   codigo?: string;
   estado?: "nueva" | "usada" | "anulada" | string;
+  motivo_anulacion?: string | null;
+  anulada_por_ci?: string | null;
+  anulada_en?: string | null;
+  solicitud_origen_id?: string | null;
+  solicitud_reabierta_id?: string | null;
+  reabierta_por_ci?: string | null;
+  reabierta_en?: string | null;
   cliente_venta_id?: string;
   cliente_venta?: ClienteVenta | null;
   almacen_id: string;
@@ -74,6 +81,10 @@ export interface SolicitudVentaUpdateData {
   cliente_venta?: ClienteVentaUpdateData;
   almacen_id?: string;
   materiales?: SolicitudVentaMaterialItem[];
+}
+
+export interface SolicitudVentaAnularData {
+  motivo_anulacion: string;
 }
 
 export interface SolicitudVentaListParams {

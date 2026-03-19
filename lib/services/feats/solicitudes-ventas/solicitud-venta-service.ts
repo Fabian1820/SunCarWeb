@@ -3,6 +3,7 @@
 import { apiRequest } from "../../../api-config";
 import type {
   MaterialVentaWeb,
+  SolicitudVentaAnularData,
   SolicitudVenta,
   SolicitudVentaCreateData,
   SolicitudVentaListParams,
@@ -13,6 +14,8 @@ import type {
 const BASE_ENDPOINT = "/operaciones/solicitudes-ventas";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+const buildAnularEndpoint = (id: string) =>
+  `${buildDetailEndpoint(id)}/anular`;
 const buildReabrirEndpoint = (id: string) =>
   `${buildDetailEndpoint(id)}/reabrir`;
 
@@ -351,15 +354,17 @@ export class SolicitudVentaService {
     return (raw?.data ?? raw) as SolicitudVenta;
   }
 
-  static async deleteSolicitud(
+  static async anularSolicitud(
     id: string,
-  ): Promise<{ success?: boolean; message?: string }> {
-    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
-      method: "DELETE",
+    data: SolicitudVentaAnularData,
+  ): Promise<SolicitudVenta> {
+    const raw = await apiRequest<any>(buildAnularEndpoint(id), {
+      method: "PATCH",
+      body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
-    return (raw?.data ?? raw) as { success?: boolean; message?: string };
+    return (raw?.data ?? raw) as SolicitudVenta;
   }
 }

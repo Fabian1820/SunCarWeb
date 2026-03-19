@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { SolicitudMaterialService } from "@/lib/api-services";
 import type {
   SolicitudMaterial,
+  SolicitudMaterialAnularData,
   SolicitudMaterialCreateData,
   SolicitudMaterialUpdateData,
 } from "@/lib/api-types";
@@ -21,8 +22,11 @@ interface UseSolicitudesMaterialesReturn {
     id: string,
     data: SolicitudMaterialUpdateData,
   ) => Promise<boolean>;
-  reabrirSolicitud: (id: string) => Promise<boolean>;
-  deleteSolicitud: (id: string) => Promise<boolean>;
+  anularSolicitud: (
+    id: string,
+    data: SolicitudMaterialAnularData,
+  ) => Promise<SolicitudMaterial>;
+  reabrirSolicitud: (id: string) => Promise<SolicitudMaterial>;
   clearError: () => void;
 }
 
@@ -108,17 +112,20 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     [loadSolicitudes],
   );
 
-  const deleteSolicitud = useCallback(
-    async (id: string): Promise<boolean> => {
+  const anularSolicitud = useCallback(
+    async (
+      id: string,
+      data: SolicitudMaterialAnularData,
+    ): Promise<SolicitudMaterial> => {
       setLoading(true);
       setError(null);
       try {
-        await SolicitudMaterialService.deleteSolicitud(id);
+        const response = await SolicitudMaterialService.anularSolicitud(id, data);
         await loadSolicitudes();
-        return true;
+        return response;
       } catch (err) {
         const msg =
-          err instanceof Error ? err.message : "Error al eliminar la solicitud";
+          err instanceof Error ? err.message : "Error al anular la solicitud";
         setError(msg);
         throw new Error(msg);
       } finally {
@@ -129,13 +136,13 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
   );
 
   const reabrirSolicitud = useCallback(
-    async (id: string): Promise<boolean> => {
+    async (id: string): Promise<SolicitudMaterial> => {
       setLoading(true);
       setError(null);
       try {
-        await SolicitudMaterialService.reabrirSolicitud(id);
+        const response = await SolicitudMaterialService.reabrirSolicitud(id);
         await loadSolicitudes();
-        return true;
+        return response;
       } catch (err) {
         const msg =
           err instanceof Error ? err.message : "Error al reabrir la solicitud";
@@ -164,8 +171,8 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,
+    anularSolicitud,
     reabrirSolicitud,
-    deleteSolicitud,
     clearError,
   };
 }

@@ -61,6 +61,13 @@ export interface ValeTrabajadorInfo {
 export interface ValeSolicitudInfo {
   id: string;
   codigo?: string;
+  motivo_anulacion?: string | null;
+  anulada_por_ci?: string | null;
+  anulada_en?: string | null;
+  solicitud_origen_id?: string | null;
+  solicitud_reabierta_id?: string | null;
+  reabierta_por_ci?: string | null;
+  reabierta_en?: string | null;
   cliente?: ValeClienteInfo | null;
   cliente_venta?: ValeClienteInfo | null;
   almacen?: ValeAlmacenInfo;

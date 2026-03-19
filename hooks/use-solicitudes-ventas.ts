@@ -2,6 +2,7 @@
 import { SolicitudVentaService } from "@/lib/api-services";
 import type {
   SolicitudVenta,
+  SolicitudVentaAnularData,
   SolicitudVentaCreateData,
   SolicitudVentaListParams,
   SolicitudVentaUpdateData,
@@ -25,8 +26,11 @@ interface UseSolicitudesVentasReturn {
     data: SolicitudVentaUpdateData,
     usePut?: boolean,
   ) => Promise<SolicitudVenta>;
+  anularSolicitud: (
+    id: string,
+    data: SolicitudVentaAnularData,
+  ) => Promise<SolicitudVenta>;
   reabrirSolicitud: (id: string) => Promise<SolicitudVenta>;
-  deleteSolicitud: (id: string) => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -158,19 +162,20 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     [loadSolicitudes],
   );
 
-  const deleteSolicitud = useCallback(
-    async (id: string): Promise<boolean> => {
+  const anularSolicitud = useCallback(
+    async (
+      id: string,
+      data: SolicitudVentaAnularData,
+    ): Promise<SolicitudVenta> => {
       setLoading(true);
       setError(null);
       try {
-        await SolicitudVentaService.deleteSolicitud(id);
+        const response = await SolicitudVentaService.anularSolicitud(id, data);
         await loadSolicitudes();
-        return true;
+        return response;
       } catch (err) {
         const message =
-          err instanceof Error
-            ? err.message
-            : "Error al eliminar solicitud de venta";
+          err instanceof Error ? err.message : "Error al anular solicitud de venta";
         setError(message);
         throw new Error(message);
       } finally {
@@ -221,8 +226,8 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,
+    anularSolicitud,
     reabrirSolicitud,
-    deleteSolicitud,
     clearError,
   };
 }

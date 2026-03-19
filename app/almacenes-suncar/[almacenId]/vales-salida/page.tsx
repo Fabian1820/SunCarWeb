@@ -162,7 +162,7 @@ export default function ValesSalidaPage() {
       toast({
         title: "Exito",
         description:
-          "Vale anulado. El stock se repuso y la solicitud regreso a nueva.",
+          "Vale anulado. El stock se repuso y la solicitud asociada tambien quedo anulada con el mismo motivo.",
       });
       void loadSolicitudesPendientes();
       setValeToAnular(null);

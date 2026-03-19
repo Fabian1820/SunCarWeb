@@ -173,6 +173,11 @@ export function ValeSalidaDetailDialog({
                       {solicitud.estado}
                     </Badge>
                   ) : null}
+                  {solicitud.motivo_anulacion ? (
+                    <p className="text-red-700 text-xs mt-1">
+                      Motivo anulacion solicitud: {solicitud.motivo_anulacion}
+                    </p>
+                  ) : null}
                   <div className="pt-1 border-t border-gray-200 mt-2">
                     <p className="text-gray-600">
                       Recogida:{" "}
@@ -246,6 +251,10 @@ export function ValeSalidaDetailDialog({
                   <span className="font-medium">
                     {vale.motivo_anulacion || "No especificado"}
                   </span>
+                </p>
+                <p className="text-red-700">
+                  La solicitud asociada tambien queda anulada con el mismo
+                  motivo.
                 </p>
                 {vale.movimientos_ids?.length ? (
                   <p className="text-red-700">

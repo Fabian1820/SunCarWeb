@@ -20,6 +20,7 @@ import { useSolicitudesMateriales } from "@/hooks/use-solicitudes-materiales";
 import { SolicitudesMaterialesTable } from "@/components/feats/solicitudes-materiales/solicitudes-materiales-table";
 import { CreateSolicitudMaterialDialog } from "@/components/feats/solicitudes-materiales/create-solicitud-material-dialog";
 import { SolicitudMaterialDetailDialog } from "@/components/feats/solicitudes-materiales/solicitud-material-detail-dialog";
+import { AnularSolicitudDialog } from "@/components/shared/molecule/anular-solicitud-dialog";
 import type { SolicitudMaterial } from "@/lib/api-types";
 
 export default function SolicitudesMaterialesPage() {
@@ -30,6 +31,7 @@ export default function SolicitudesMaterialesPage() {
     searchTerm,
     setSearchTerm,
     loadSolicitudes,
+    anularSolicitud,
     reabrirSolicitud,
   } = useSolicitudesMateriales();
 
@@ -42,6 +44,10 @@ export default function SolicitudesMaterialesPage() {
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [solicitudDetalle, setSolicitudDetalle] =
     useState<SolicitudMaterial | null>(null);
+  const [isAnularDialogOpen, setIsAnularDialogOpen] = useState(false);
+  const [solicitudToAnular, setSolicitudToAnular] =
+    useState<SolicitudMaterial | null>(null);
+  const [anularLoading, setAnularLoading] = useState(false);
 
   if (loading && filteredSolicitudes.length === 0) {
     return (
@@ -61,21 +67,11 @@ export default function SolicitudesMaterialesPage() {
   };
 
   const handleEditSuccess = async () => {
-    const editedSolicitud = solicitudToEdit;
     try {
-      if (editedSolicitud?.estado?.toLowerCase() === "anulada") {
-        await reabrirSolicitud(editedSolicitud.id);
-        toast({
-          title: "Exito",
-          description: "Solicitud reabierta y actualizada correctamente",
-        });
-      } else {
-        toast({
-          title: "Exito",
-          description: "Solicitud de materiales actualizada correctamente",
-        });
-      }
-
+      toast({
+        title: "Exito",
+        description: "Solicitud de materiales actualizada correctamente",
+      });
       await loadSolicitudes();
       setSolicitudToEdit(null);
       setIsEditDialogOpen(false);
@@ -83,13 +79,96 @@ export default function SolicitudesMaterialesPage() {
       const message =
         error instanceof Error
           ? error.message
-          : "No se pudo reabrir la solicitud";
+          : "No se pudo actualizar la solicitud";
       toast({
         title: "Error",
         description: message,
         variant: "destructive",
       });
       throw error;
+    }
+  };
+
+  const getSolicitudCodigo = (solicitud: SolicitudMaterial) =>
+    solicitud.codigo || solicitud.id.slice(-6).toUpperCase();
+
+  const handleEditSolicitud = (solicitud: SolicitudMaterial) => {
+    if (solicitud.estado?.toLowerCase() !== "nueva") {
+      toast({
+        title: "Accion no permitida",
+        description: "Solo se puede editar una solicitud con estado nueva.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSolicitudToEdit(solicitud);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleOpenAnularSolicitud = (solicitud: SolicitudMaterial) => {
+    if (solicitud.estado?.toLowerCase() !== "nueva") {
+      toast({
+        title: "Accion no permitida",
+        description: "Solo se puede anular una solicitud con estado nueva.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSolicitudToAnular(solicitud);
+    setIsAnularDialogOpen(true);
+  };
+
+  const handleConfirmAnularSolicitud = async (motivo: string) => {
+    if (!solicitudToAnular) return;
+
+    setAnularLoading(true);
+    try {
+      const response = await anularSolicitud(solicitudToAnular.id, {
+        motivo_anulacion: motivo,
+      });
+      toast({
+        title: "Exito",
+        description: `Solicitud ${getSolicitudCodigo(response)} anulada correctamente.`,
+      });
+      setIsAnularDialogOpen(false);
+      setSolicitudToAnular(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "No se pudo anular la solicitud",
+        variant: "destructive",
+      });
+    } finally {
+      setAnularLoading(false);
+    }
+  };
+
+  const handleReabrirSolicitud = async (solicitud: SolicitudMaterial) => {
+    if (solicitud.estado?.toLowerCase() !== "anulada") {
+      toast({
+        title: "Accion no permitida",
+        description: "Solo se puede reabrir una solicitud anulada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const nuevaSolicitud = await reabrirSolicitud(solicitud.id);
+      toast({
+        title: "Exito",
+        description: `Se creo la nueva solicitud ${getSolicitudCodigo(nuevaSolicitud)} a partir de ${getSolicitudCodigo(solicitud)}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "No se pudo reabrir la solicitud",
+        variant: "destructive",
+      });
     }
   };
 
@@ -162,9 +241,10 @@ export default function SolicitudesMaterialesPage() {
                 setSolicitudDetalle(s);
                 setIsDetailDialogOpen(true);
               }}
-              onEdit={(s) => {
-                setSolicitudToEdit(s);
-                setIsEditDialogOpen(true);
+              onEdit={handleEditSolicitud}
+              onAnular={handleOpenAnularSolicitud}
+              onReabrir={(s) => {
+                void handleReabrirSolicitud(s);
               }}
               loading={loading}
             />
@@ -192,6 +272,22 @@ export default function SolicitudesMaterialesPage() {
         open={isDetailDialogOpen}
         onOpenChange={setIsDetailDialogOpen}
         solicitud={solicitudDetalle}
+      />
+
+      <AnularSolicitudDialog
+        open={isAnularDialogOpen}
+        onOpenChange={(open) => {
+          setIsAnularDialogOpen(open);
+          if (!open) setSolicitudToAnular(null);
+        }}
+        solicitudCodigo={
+          solicitudToAnular
+            ? getSolicitudCodigo(solicitudToAnular)
+            : null
+        }
+        solicitudTipo="material"
+        onConfirm={handleConfirmAnularSolicitud}
+        isLoading={anularLoading}
       />
 
       <Toaster />

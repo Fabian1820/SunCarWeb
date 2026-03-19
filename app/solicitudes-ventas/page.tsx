@@ -20,6 +20,7 @@ import { useSolicitudesVentas } from "@/hooks/use-solicitudes-ventas";
 import { SolicitudesVentasTable } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 import { SolicitudVentaDetailDialog } from "@/components/feats/solicitudes-ventas/solicitud-venta-detail-dialog";
 import { UpsertSolicitudVentaDialog } from "@/components/feats/solicitudes-ventas/upsert-solicitud-venta-dialog";
+import { AnularSolicitudDialog } from "@/components/shared/molecule/anular-solicitud-dialog";
 import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
@@ -35,15 +36,20 @@ export default function SolicitudesVentasPage() {
     setSearchTerm,
     createSolicitud,
     updateSolicitud,
+    anularSolicitud,
     reabrirSolicitud,
   } = useSolicitudesVentas();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
+  const [isAnularDialogOpen, setIsAnularDialogOpen] = useState(false);
 
   const [selectedSolicitud, setSelectedSolicitud] =
     useState<SolicitudVenta | null>(null);
+  const [solicitudToAnular, setSolicitudToAnular] =
+    useState<SolicitudVenta | null>(null);
+  const [anularLoading, setAnularLoading] = useState(false);
 
   if (loading && filteredSolicitudes.length === 0) {
     return (
@@ -53,6 +59,9 @@ export default function SolicitudesVentasPage() {
       />
     );
   }
+
+  const getSolicitudCodigo = (solicitud: SolicitudVenta) =>
+    solicitud.codigo || solicitud.id.slice(-6).toUpperCase();
 
   const handleCreate = async (
     data: SolicitudVentaCreateData | SolicitudVentaUpdateData,
@@ -95,22 +104,24 @@ export default function SolicitudesVentasPage() {
     if (!selectedSolicitud) return;
     const solicitudEditada = selectedSolicitud;
 
+    if (solicitudEditada.estado?.toLowerCase() !== "nueva") {
+      const error = new Error(
+        "Solo se puede editar una solicitud de venta con estado nueva.",
+      );
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      throw error;
+    }
+
     try {
       await updateSolicitud(solicitudEditada.id, data);
-
-      if (solicitudEditada.estado?.toLowerCase() === "anulada") {
-        await reabrirSolicitud(solicitudEditada.id);
-        toast({
-          title: "Exito",
-          description: "Solicitud reabierta y actualizada correctamente",
-        });
-      } else {
-        toast({
-          title: "Exito",
-          description: "Solicitud de venta actualizada correctamente",
-        });
-      }
-
+      toast({
+        title: "Exito",
+        description: "Solicitud de venta actualizada correctamente",
+      });
       setSelectedSolicitud(null);
     } catch (error) {
       toast({
@@ -122,6 +133,90 @@ export default function SolicitudesVentasPage() {
         variant: "destructive",
       });
       throw error;
+    }
+  };
+
+  const handleEditSolicitud = (solicitud: SolicitudVenta) => {
+    if (solicitud.estado?.toLowerCase() !== "nueva") {
+      toast({
+        title: "Accion no permitida",
+        description:
+          "Solo se puede editar una solicitud de venta con estado nueva.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSelectedSolicitud(solicitud);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleOpenAnularSolicitud = (solicitud: SolicitudVenta) => {
+    if (solicitud.estado?.toLowerCase() !== "nueva") {
+      toast({
+        title: "Accion no permitida",
+        description:
+          "Solo se puede anular una solicitud de venta con estado nueva.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setSolicitudToAnular(solicitud);
+    setIsAnularDialogOpen(true);
+  };
+
+  const handleConfirmAnularSolicitud = async (motivo: string) => {
+    if (!solicitudToAnular) return;
+
+    setAnularLoading(true);
+    try {
+      const response = await anularSolicitud(solicitudToAnular.id, {
+        motivo_anulacion: motivo,
+      });
+      toast({
+        title: "Exito",
+        description: `Solicitud ${getSolicitudCodigo(response)} anulada correctamente.`,
+      });
+      setIsAnularDialogOpen(false);
+      setSolicitudToAnular(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo anular la solicitud de venta",
+        variant: "destructive",
+      });
+    } finally {
+      setAnularLoading(false);
+    }
+  };
+
+  const handleReabrirSolicitud = async (solicitud: SolicitudVenta) => {
+    if (solicitud.estado?.toLowerCase() !== "anulada") {
+      toast({
+        title: "Accion no permitida",
+        description: "Solo se puede reabrir una solicitud anulada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const nuevaSolicitud = await reabrirSolicitud(solicitud.id);
+      toast({
+        title: "Exito",
+        description: `Se creo la nueva solicitud ${getSolicitudCodigo(nuevaSolicitud)} a partir de ${getSolicitudCodigo(solicitud)}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo reabrir solicitud de venta",
+        variant: "destructive",
+      });
     }
   };
 
@@ -189,9 +284,10 @@ export default function SolicitudesVentasPage() {
                 setSelectedSolicitud(solicitud);
                 setIsDetailDialogOpen(true);
               }}
-              onEdit={(solicitud) => {
-                setSelectedSolicitud(solicitud);
-                setIsEditDialogOpen(true);
+              onEdit={handleEditSolicitud}
+              onAnular={handleOpenAnularSolicitud}
+              onReabrir={(solicitud) => {
+                void handleReabrirSolicitud(solicitud);
               }}
             />
           </CardContent>
@@ -221,6 +317,20 @@ export default function SolicitudesVentasPage() {
           if (!open) setSelectedSolicitud(null);
         }}
         solicitud={selectedSolicitud}
+      />
+
+      <AnularSolicitudDialog
+        open={isAnularDialogOpen}
+        onOpenChange={(open) => {
+          setIsAnularDialogOpen(open);
+          if (!open) setSolicitudToAnular(null);
+        }}
+        solicitudCodigo={
+          solicitudToAnular ? getSolicitudCodigo(solicitudToAnular) : null
+        }
+        solicitudTipo="venta"
+        onConfirm={handleConfirmAnularSolicitud}
+        isLoading={anularLoading}
       />
 
       <Toaster />

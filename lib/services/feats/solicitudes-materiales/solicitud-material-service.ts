@@ -3,6 +3,7 @@
 import { apiRequest } from "../../../api-config";
 import type {
   SolicitudMaterial,
+  SolicitudMaterialAnularData,
   SolicitudMaterialCreateData,
   SolicitudMaterialUpdateData,
   MaterialSugerido,
@@ -11,6 +12,8 @@ import type {
 const BASE_ENDPOINT = "/operaciones/solicitudes-materiales";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+const buildAnularEndpoint = (id: string) =>
+  `${buildDetailEndpoint(id)}/anular`;
 const buildReabrirEndpoint = (id: string) =>
   `${buildDetailEndpoint(id)}/reabrir`;
 
@@ -117,7 +120,7 @@ export class SolicitudMaterialService {
   }
 
   /**
-   * Reopen a solicitud
+   * Reopen a solicitud by creating a new one from an anulada solicitud
    * PATCH /api/operaciones/solicitudes-materiales/{solicitud_id}/reabrir
    */
   static async reabrirSolicitud(id: string): Promise<SolicitudMaterial> {
@@ -130,19 +133,20 @@ export class SolicitudMaterialService {
   }
 
   /**
-   * Delete a solicitud
-   * DELETE /api/operaciones/solicitudes-materiales/{solicitud_id}
+   * Anular una solicitud
+   * PATCH /api/operaciones/solicitudes-materiales/{solicitud_id}/anular
    */
-  static async deleteSolicitud(
+  static async anularSolicitud(
     id: string,
-  ): Promise<{ success?: boolean; message?: string }> {
-    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
-      method: "DELETE",
+    data: SolicitudMaterialAnularData,
+  ): Promise<SolicitudMaterial> {
+    const raw = await apiRequest<any>(buildAnularEndpoint(id), {
+      method: "PATCH",
+      body: JSON.stringify(data),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
-    const payload = raw?.data ?? raw;
-    return payload as { success?: boolean; message?: string };
+    return (raw?.data ?? raw) as SolicitudMaterial;
   }
 
   /**

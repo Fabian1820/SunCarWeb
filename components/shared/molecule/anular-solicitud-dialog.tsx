@@ -10,41 +10,46 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Button } from "@/components/shared/atom/button";
-import { Textarea } from "@/components/shared/molecule/textarea";
 import { Label } from "@/components/shared/atom/label";
-import { Loader2, Undo2 } from "lucide-react";
-import type { ValeSalida } from "@/lib/api-types";
+import { Textarea } from "@/components/shared/molecule/textarea";
+import { Loader2, Ban } from "lucide-react";
 
-interface AnularValeDialogProps {
+interface AnularSolicitudDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  vale: ValeSalida | null;
+  solicitudCodigo?: string | null;
+  solicitudTipo: "material" | "venta";
   onConfirm: (motivo: string) => Promise<void>;
   isLoading?: boolean;
 }
 
-export function AnularValeDialog({
+const tipoLabelByValue = {
+  material: "materiales",
+  venta: "ventas",
+} as const;
+
+export function AnularSolicitudDialog({
   open,
   onOpenChange,
-  vale,
+  solicitudCodigo,
+  solicitudTipo,
   onConfirm,
   isLoading = false,
-}: AnularValeDialogProps) {
+}: AnularSolicitudDialogProps) {
   const [motivo, setMotivo] = useState("");
 
   useEffect(() => {
     if (!open) setMotivo("");
   }, [open]);
 
-  const valeCodigo = useMemo(
-    () => vale?.codigo || vale?.id?.slice(-6).toUpperCase() || "-",
-    [vale],
+  const motivoValido = motivo.trim().length >= 3;
+  const tipoLabel = useMemo(
+    () => tipoLabelByValue[solicitudTipo],
+    [solicitudTipo],
   );
 
-  const motivoValido = motivo.trim().length >= 3;
-
   const handleConfirm = async () => {
-    if (!motivoValido || !vale || isLoading) return;
+    if (!motivoValido || isLoading) return;
     await onConfirm(motivo.trim());
   };
 
@@ -53,28 +58,30 @@ export function AnularValeDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-red-700 flex items-center gap-2">
-            <Undo2 className="h-5 w-5" />
-            Anular Vale de Salida
+            <Ban className="h-5 w-5" />
+            Anular Solicitud de {tipoLabel}
           </DialogTitle>
           <DialogDescription>
-            Esta accion repone el stock y anula la solicitud asociada con el
-            mismo motivo de anulacion.
+            Esta accion cambia el estado a anulada y guarda el motivo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <p className="text-sm text-gray-700">
-            Vale: <span className="font-mono font-semibold">{valeCodigo}</span>
+            Solicitud:{" "}
+            <span className="font-mono font-semibold">
+              {solicitudCodigo || "-"}
+            </span>
           </p>
           <div className="space-y-2">
-            <Label htmlFor="motivo-anulacion">
+            <Label htmlFor="motivo-anulacion-solicitud">
               Motivo de anulacion <span className="text-red-600">*</span>
             </Label>
             <Textarea
-              id="motivo-anulacion"
+              id="motivo-anulacion-solicitud"
               value={motivo}
               onChange={(event) => setMotivo(event.target.value)}
-              placeholder="Describa por que se anula el vale..."
+              placeholder="Describa por que se anula la solicitud..."
               disabled={isLoading}
               maxLength={400}
               className="min-h-[110px]"
@@ -102,7 +109,7 @@ export function AnularValeDialog({
                 Anulando...
               </>
             ) : (
-              "Anular vale"
+              "Anular solicitud"
             )}
           </Button>
         </DialogFooter>

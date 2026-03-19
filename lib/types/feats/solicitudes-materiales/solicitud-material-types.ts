@@ -43,6 +43,13 @@ export interface SolicitudMaterial {
   id: string;
   codigo?: string;
   estado?: "nueva" | "usada" | "anulada" | string;
+  motivo_anulacion?: string | null;
+  anulada_por_ci?: string | null;
+  anulada_en?: string | null;
+  solicitud_origen_id?: string | null;
+  solicitud_reabierta_id?: string | null;
+  reabierta_por_ci?: string | null;
+  reabierta_en?: string | null;
   // Legacy flat IDs (kept for compatibility)
   cliente_id?: string | null;
   almacen_id: string;
@@ -72,6 +79,10 @@ export interface SolicitudMaterialUpdateData {
   responsable_recogida?: string | null;
   fecha_recogida?: string | null;
   materiales?: SolicitudMaterialItem[];
+}
+
+export interface SolicitudMaterialAnularData {
+  motivo_anulacion: string;
 }
 
 export interface MaterialSugeridoInfo {
