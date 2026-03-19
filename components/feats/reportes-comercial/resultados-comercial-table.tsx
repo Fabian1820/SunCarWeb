@@ -1,10 +1,15 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { Input } from "@/components/shared/atom/input"
-import { Button } from "@/components/shared/atom/button"
-import { Badge } from "@/components/shared/atom/badge"
+import { useState, useMemo } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/shared/molecule/card";
+import { Input } from "@/components/shared/atom/input";
+import { Button } from "@/components/shared/atom/button";
+import { Badge } from "@/components/shared/atom/badge";
 import {
   Table,
   TableBody,
@@ -12,22 +17,32 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/shared/molecule/table"
+} from "@/components/shared/molecule/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/shared/atom/select"
-import { Search, RefreshCw, DollarSign, TrendingUp, Lock, X } from "lucide-react"
-import type { ResultadoComercial, EstadisticaComercial } from "@/lib/types/feats/reportes-comercial/reportes-comercial-types"
-import { useAuth } from "@/contexts/auth-context"
+} from "@/components/shared/atom/select";
+import {
+  Search,
+  RefreshCw,
+  DollarSign,
+  TrendingUp,
+  Lock,
+  X,
+} from "lucide-react";
+import type {
+  ResultadoComercial,
+  EstadisticaComercial,
+} from "@/lib/types/feats/reportes-comercial/reportes-comercial-types";
+import { useAuth } from "@/contexts/auth-context";
 
 interface ResultadosComercialTableProps {
-  resultados: ResultadoComercial[]
-  loading: boolean
-  onRefresh: () => void
+  resultados: ResultadoComercial[];
+  loading: boolean;
+  onRefresh: () => void;
 }
 
 export function ResultadosComercialTable({
@@ -35,153 +50,167 @@ export function ResultadosComercialTable({
   loading,
   onRefresh,
 }: ResultadosComercialTableProps) {
-  const { user } = useAuth()
-  const [searchTerm, setSearchTerm] = useState("")
-  const [comercialFilter, setComercialFilter] = useState<string>("todos")
-  const [mesFilter, setMesFilter] = useState<string>("todos")
-  const [anioFilter, setAnioFilter] = useState<string>("todos")
-  const [fechaDesde, setFechaDesde] = useState<string>("")
-  const [fechaHasta, setFechaHasta] = useState<string>("")
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [comercialFilter, setComercialFilter] = useState<string>("todos");
+  const [mesFilter, setMesFilter] = useState<string>("todos");
+  const [anioFilter, setAnioFilter] = useState<string>("todos");
+  const [fechaDesde, setFechaDesde] = useState<string>("");
+  const [fechaHasta, setFechaHasta] = useState<string>("");
 
   // Usuarios con restricciones (solo ven su propio monto)
   const RESTRICTED_USERS = [
     "Gretel María Mojena Almenares",
     "Ariagna Carballo Gil",
-    "Dashel Pinillos Zubiaur"
-  ]
-  
-  const isRestrictedUser = RESTRICTED_USERS.includes(user?.nombre || "")
+    "Dashel Pinillos Zubiaur",
+  ];
+
+  const isRestrictedUser = RESTRICTED_USERS.includes(user?.nombre || "");
 
   // Función para verificar si el usuario puede ver el monto de una tarjeta
   const canViewAmount = (comercial: string) => {
     // Si no es usuario restringido, puede ver todo
-    if (!isRestrictedUser) return true
+    if (!isRestrictedUser) return true;
     // Si es usuario restringido, solo ve su propio monto
-    return user?.nombre === comercial
-  }
+    return user?.nombre === comercial;
+  };
 
   // Obtener lista única de comerciales
   const comerciales = useMemo(() => {
     const uniqueComerciales = new Set(
       resultados
-        .map(r => r.contacto.comercial)
-        .filter(c => c !== null && c !== undefined)
-    )
-    return Array.from(uniqueComerciales).sort()
-  }, [resultados])
+        .map((r) => r.contacto.comercial)
+        .filter((c) => c !== null && c !== undefined),
+    );
+    return Array.from(uniqueComerciales).sort();
+  }, [resultados]);
 
   // Obtener años disponibles
   const anios = useMemo(() => {
     const uniqueAnios = new Set(
       resultados
-        .filter(r => r.fecha_primer_pago)
-        .map(r => new Date(r.fecha_primer_pago!).getFullYear().toString())
-    )
-    return Array.from(uniqueAnios).sort().reverse()
-  }, [resultados])
+        .filter((r) => r.fecha_primer_pago)
+        .map((r) => new Date(r.fecha_primer_pago!).getFullYear().toString()),
+    );
+    return Array.from(uniqueAnios).sort().reverse();
+  }, [resultados]);
 
   // Filtrar resultados
   const filteredResultados = useMemo(() => {
-    return resultados.filter(resultado => {
+    return resultados.filter((resultado) => {
       // Filtro de búsqueda
       if (searchTerm) {
-        const search = searchTerm.toLowerCase()
-        const comercial = resultado.contacto.comercial || ''
-        const matchesSearch = 
+        const search = searchTerm.toLowerCase();
+        const comercial = resultado.contacto.comercial || "";
+        const matchesSearch =
           resultado.numero_oferta.toLowerCase().includes(search) ||
           resultado.nombre_completo.toLowerCase().includes(search) ||
-          (resultado.contacto.nombre?.toLowerCase().includes(search) || false) ||
-          comercial.toLowerCase().includes(search)
-        
-        if (!matchesSearch) return false
+          resultado.contacto.nombre?.toLowerCase().includes(search) ||
+          false ||
+          comercial.toLowerCase().includes(search);
+
+        if (!matchesSearch) return false;
       }
 
       // Filtro de comercial
-      if (comercialFilter !== "todos" && resultado.contacto.comercial !== comercialFilter) {
-        return false
+      if (
+        comercialFilter !== "todos" &&
+        resultado.contacto.comercial !== comercialFilter
+      ) {
+        return false;
       }
 
       // Filtros de fecha
       if (resultado.fecha_primer_pago) {
-        const fechaPago = new Date(resultado.fecha_primer_pago)
-        
+        const fechaPago = new Date(resultado.fecha_primer_pago);
+
         // Filtro de fecha desde
         if (fechaDesde) {
-          const desde = new Date(fechaDesde)
-          desde.setHours(0, 0, 0, 0)
+          const desde = new Date(fechaDesde);
+          desde.setHours(0, 0, 0, 0);
           if (fechaPago < desde) {
-            return false
+            return false;
           }
         }
-        
+
         // Filtro de fecha hasta
         if (fechaHasta) {
-          const hasta = new Date(fechaHasta)
-          hasta.setHours(23, 59, 59, 999)
+          const hasta = new Date(fechaHasta);
+          hasta.setHours(23, 59, 59, 999);
           if (fechaPago > hasta) {
-            return false
+            return false;
           }
         }
 
         // Filtro de mes (solo si no hay filtros de fecha desde/hasta)
         if (!fechaDesde && !fechaHasta && mesFilter !== "todos") {
-          const mes = (fechaPago.getMonth() + 1).toString()
+          const mes = (fechaPago.getMonth() + 1).toString();
           if (mes !== mesFilter) {
-            return false
+            return false;
           }
         }
 
         // Filtro de año (solo si no hay filtros de fecha desde/hasta)
         if (!fechaDesde && !fechaHasta && anioFilter !== "todos") {
-          const anio = fechaPago.getFullYear().toString()
+          const anio = fechaPago.getFullYear().toString();
           if (anio !== anioFilter) {
-            return false
+            return false;
           }
         }
       }
 
-      return true
-    })
-  }, [resultados, searchTerm, comercialFilter, mesFilter, anioFilter, fechaDesde, fechaHasta])
+      return true;
+    });
+  }, [
+    resultados,
+    searchTerm,
+    comercialFilter,
+    mesFilter,
+    anioFilter,
+    fechaDesde,
+    fechaHasta,
+  ]);
 
   // Calcular estadísticas por comercial
   const estadisticas = useMemo(() => {
-    const stats = new Map<string, EstadisticaComercial>()
+    const stats = new Map<string, EstadisticaComercial>();
 
-    filteredResultados.forEach(resultado => {
-      const comercial = resultado.contacto.comercial || "Sin asignar"
-      
+    filteredResultados.forEach((resultado) => {
+      const comercial = resultado.contacto.comercial || "Sin asignar";
+
       if (!stats.has(comercial)) {
         stats.set(comercial, {
           comercial,
           ofertas_cerradas: 0,
           total_margen: 0,
-        })
+        });
       }
 
-      const stat = stats.get(comercial)!
-      stat.ofertas_cerradas += 1
-      stat.total_margen += resultado.margen_dolares
-    })
+      const stat = stats.get(comercial)!;
+      stat.ofertas_cerradas += 1;
+      stat.total_margen += resultado.precio_final;
+    });
 
-    return Array.from(stats.values()).sort((a, b) => b.total_margen - a.total_margen)
-  }, [filteredResultados])
+    return Array.from(stats.values()).sort(
+      (a, b) => b.total_margen - a.total_margen,
+    );
+  }, [filteredResultados]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("es-ES", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 2,
-    }).format(value)
-  }
+    }).format(value);
+  };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-ES', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
+    return new Date(dateString).toLocaleDateString("es-ES", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   const meses = [
     { value: "1", label: "Enero" },
@@ -196,15 +225,15 @@ export function ResultadosComercialTable({
     { value: "10", label: "Octubre" },
     { value: "11", label: "Noviembre" },
     { value: "12", label: "Diciembre" },
-  ]
+  ];
 
   return (
     <div className="space-y-6">
       {/* Tarjetas de estadísticas por comercial */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {estadisticas.map((stat) => {
-          const showAmount = canViewAmount(stat.comercial)
-          
+          const showAmount = canViewAmount(stat.comercial);
+
           return (
             <Card key={stat.comercial} className="border-2">
               <CardHeader className="pb-3">
@@ -214,13 +243,15 @@ export function ResultadosComercialTable({
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Ofertas Cerradas</span>
+                  <span className="text-xs text-gray-500">
+                    Ofertas Cerradas
+                  </span>
                   <Badge variant="secondary" className="font-semibold">
                     {stat.ofertas_cerradas}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-500">Margen Total</span>
+                  <span className="text-xs text-gray-500">Total Vendido</span>
                   {showAmount ? (
                     <div className="flex items-center gap-1">
                       <DollarSign className="h-3 w-3 text-green-600" />
@@ -231,15 +262,13 @@ export function ResultadosComercialTable({
                   ) : (
                     <div className="flex items-center gap-1">
                       <Lock className="h-3 w-3 text-gray-400" />
-                      <span className="text-xs text-gray-400">
-                        Restringido
-                      </span>
+                      <span className="text-xs text-gray-400">Restringido</span>
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -252,8 +281,8 @@ export function ResultadosComercialTable({
               {(fechaDesde || fechaHasta) && (
                 <Button
                   onClick={() => {
-                    setFechaDesde("")
-                    setFechaHasta("")
+                    setFechaDesde("");
+                    setFechaHasta("");
                   }}
                   variant="outline"
                   size="sm"
@@ -270,7 +299,9 @@ export function ResultadosComercialTable({
               variant="outline"
               size="sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`}
+              />
               Actualizar
             </Button>
           </div>
@@ -290,7 +321,10 @@ export function ResultadosComercialTable({
                 />
               </div>
 
-              <Select value={comercialFilter} onValueChange={setComercialFilter}>
+              <Select
+                value={comercialFilter}
+                onValueChange={setComercialFilter}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Filtrar por comercial" />
                 </SelectTrigger>
@@ -308,15 +342,17 @@ export function ResultadosComercialTable({
             {/* Segunda fila: Filtros de fecha */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-600 px-1">Fecha Desde</label>
+                <label className="text-xs font-medium text-gray-600 px-1">
+                  Fecha Desde
+                </label>
                 <Input
                   type="date"
                   value={fechaDesde}
                   onChange={(e) => {
-                    setFechaDesde(e.target.value)
+                    setFechaDesde(e.target.value);
                     if (e.target.value) {
-                      setMesFilter("todos")
-                      setAnioFilter("todos")
+                      setMesFilter("todos");
+                      setAnioFilter("todos");
                     }
                   }}
                   className="text-sm"
@@ -324,15 +360,17 @@ export function ResultadosComercialTable({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-600 px-1">Fecha Hasta</label>
+                <label className="text-xs font-medium text-gray-600 px-1">
+                  Fecha Hasta
+                </label>
                 <Input
                   type="date"
                   value={fechaHasta}
                   onChange={(e) => {
-                    setFechaHasta(e.target.value)
+                    setFechaHasta(e.target.value);
                     if (e.target.value) {
-                      setMesFilter("todos")
-                      setAnioFilter("todos")
+                      setMesFilter("todos");
+                      setAnioFilter("todos");
                     }
                   }}
                   className="text-sm"
@@ -340,14 +378,16 @@ export function ResultadosComercialTable({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-600 px-1">Mes</label>
-                <Select 
-                  value={mesFilter} 
+                <label className="text-xs font-medium text-gray-600 px-1">
+                  Mes
+                </label>
+                <Select
+                  value={mesFilter}
                   onValueChange={(value) => {
-                    setMesFilter(value)
+                    setMesFilter(value);
                     if (value !== "todos") {
-                      setFechaDesde("")
-                      setFechaHasta("")
+                      setFechaDesde("");
+                      setFechaHasta("");
                     }
                   }}
                   disabled={!!fechaDesde || !!fechaHasta}
@@ -367,14 +407,16 @@ export function ResultadosComercialTable({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-gray-600 px-1">Año</label>
-                <Select 
-                  value={anioFilter} 
+                <label className="text-xs font-medium text-gray-600 px-1">
+                  Año
+                </label>
+                <Select
+                  value={anioFilter}
                   onValueChange={(value) => {
-                    setAnioFilter(value)
+                    setAnioFilter(value);
                     if (value !== "todos") {
-                      setFechaDesde("")
-                      setFechaHasta("")
+                      setFechaDesde("");
+                      setFechaHasta("");
                     }
                   }}
                   disabled={!!fechaDesde || !!fechaHasta}
@@ -414,20 +456,27 @@ export function ResultadosComercialTable({
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                    <TableCell
+                      colSpan={9}
+                      className="text-center py-8 text-gray-500"
+                    >
                       Cargando resultados...
                     </TableCell>
                   </TableRow>
                 ) : filteredResultados.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                    <TableCell
+                      colSpan={9}
+                      className="text-center py-8 text-gray-500"
+                    >
                       No se encontraron resultados
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredResultados.map((resultado) => {
-                    const comercial = resultado.contacto.comercial || "Sin asignar"
-                    
+                    const comercial =
+                      resultado.contacto.comercial || "Sin asignar";
+
                     return (
                       <TableRow key={resultado.id}>
                         <TableCell className="font-medium">
@@ -477,14 +526,18 @@ export function ResultadosComercialTable({
                         </TableCell>
                         <TableCell className="text-right">
                           <Badge
-                            variant={resultado.monto_pendiente > 0 ? "destructive" : "secondary"}
+                            variant={
+                              resultado.monto_pendiente > 0
+                                ? "destructive"
+                                : "secondary"
+                            }
                             className="font-medium"
                           >
                             {formatCurrency(resultado.monto_pendiente)}
                           </Badge>
                         </TableCell>
                       </TableRow>
-                    )
+                    );
                   })
                 )}
               </TableBody>
@@ -498,25 +551,36 @@ export function ResultadosComercialTable({
                 <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md">
                   <TrendingUp className="h-4 w-4" />
                   <span>
-                    Filtrado por fecha: 
-                    {fechaDesde && ` desde ${new Date(fechaDesde).toLocaleDateString('es-ES')}`}
-                    {fechaHasta && ` hasta ${new Date(fechaHasta).toLocaleDateString('es-ES')}`}
+                    Filtrado por fecha:
+                    {fechaDesde &&
+                      ` desde ${new Date(fechaDesde).toLocaleDateString("es-ES")}`}
+                    {fechaHasta &&
+                      ` hasta ${new Date(fechaHasta).toLocaleDateString("es-ES")}`}
                   </span>
                 </div>
               )}
               <div className="flex justify-between items-center text-sm text-gray-600">
                 <span>
-                  Mostrando {filteredResultados.length} de {resultados.length} ofertas
+                  Mostrando {filteredResultados.length} de {resultados.length}{" "}
+                  ofertas
                 </span>
                 <div className="flex gap-6">
                   <span className="font-medium">
-                    Total Margen: {formatCurrency(
-                      filteredResultados.reduce((sum, r) => sum + r.margen_dolares, 0)
+                    Total Margen:{" "}
+                    {formatCurrency(
+                      filteredResultados.reduce(
+                        (sum, r) => sum + r.margen_dolares,
+                        0,
+                      ),
                     )}
                   </span>
                   <span className="font-medium">
-                    Total Pagado: {formatCurrency(
-                      filteredResultados.reduce((sum, r) => sum + r.total_pagado, 0)
+                    Total Pagado:{" "}
+                    {formatCurrency(
+                      filteredResultados.reduce(
+                        (sum, r) => sum + r.total_pagado,
+                        0,
+                      ),
                     )}
                   </span>
                 </div>
@@ -526,5 +590,5 @@ export function ResultadosComercialTable({
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

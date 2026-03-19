@@ -1159,7 +1159,7 @@ export function ClientsTable({
         "🔍 Verificando oferta en servidor para cliente:",
         numeroCliente,
       );
-      const result = await obtenerOfertaPorCliente(numeroCliente);
+      const result = await obtenerOfertaPorCliente(client.numero);
       console.log("📡 Resultado de verificacion:", result);
 
       if (

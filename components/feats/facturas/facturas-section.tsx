@@ -193,7 +193,7 @@ export function FacturasSection() {
   const exportFacturaItems = () => {
     if (!facturaDetails || !facturaDetails.vales) return;
     const valesOrdenados = [...facturaDetails.vales].sort(
-      (a, b) => parseDateTimestamp(b.fecha) - parseDateTimestamp(a.fecha),
+      (a, b) => parseDateTimestamp(a.fecha) - parseDateTimestamp(b.fecha),
     );
     const rows = valesOrdenados.flatMap((vale, valeIndex) =>
       vale.items.map((item) => ({
@@ -676,7 +676,7 @@ export function FacturasSection() {
       const facturasOrdenadas = [...facturasFiltradas].sort((a, b) => {
         const fechaA = parseDateTimestamp(a.fecha || a.fecha_creacion || "");
         const fechaB = parseDateTimestamp(b.fecha || b.fecha_creacion || "");
-        return fechaB - fechaA;
+        return fechaA - fechaB;
       });
 
       const data = facturasOrdenadas.map((factura) => {

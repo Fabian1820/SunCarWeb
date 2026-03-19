@@ -305,82 +305,6 @@ const extractOfertasCliente = (payload: unknown): unknown[] => {
 };
 
 const CLIENTES_CON_OFERTA_CACHE_KEY = "clientes_con_ofertas_cache_v2";
-const CLIENTES_CON_OFERTA_CACHE_TTL_MS = 5 * 60 * 1000;
-
-const extractNumerosClientes = (payload: unknown): string[] | null => {
-  if (!payload) return null;
-
-  if (Array.isArray(payload)) {
-    const numeros = payload
-      .map((value: unknown) => {
-        if (typeof value === "string" || typeof value === "number") {
-          return normalizeClienteNumero(String(value));
-        }
-
-        if (value && typeof value === "object") {
-          const obj = value as Record<string, unknown>;
-          return normalizeClienteNumero(
-            (obj.cliente_numero as string | number | undefined)?.toString() ??
-              (obj.codigo_cliente as string | number | undefined)?.toString() ??
-              (obj.numero as string | number | undefined)?.toString() ??
-              (
-                obj.cliente as { numero?: string | number } | undefined
-              )?.numero?.toString() ??
-              (obj.clienteNumero as string | number | undefined)?.toString() ??
-              (obj.cliente_codigo as string | number | undefined)?.toString() ??
-              "",
-          );
-        }
-
-        return "";
-      })
-      .filter(Boolean);
-
-    return Array.from(new Set(numeros));
-  }
-
-  const data = payload as Record<string, unknown>;
-
-  const rawCandidates = [
-    (data.data as Record<string, unknown> | undefined)?.numeros_clientes,
-    data.numeros_clientes,
-    (data.data as Record<string, unknown> | undefined)?.clientes,
-    data.clientes,
-    (data.data as Record<string, unknown> | undefined)?.items,
-    data.items,
-    data.data,
-  ];
-
-  const rawArray = rawCandidates.find((candidate) => Array.isArray(candidate));
-  if (!Array.isArray(rawArray)) return null;
-
-  const numeros = rawArray
-    .map((value: unknown) => {
-      if (typeof value === "string" || typeof value === "number") {
-        return normalizeClienteNumero(String(value));
-      }
-
-      if (value && typeof value === "object") {
-        const obj = value as Record<string, unknown>;
-        return normalizeClienteNumero(
-          (obj.cliente_numero as string | number | undefined)?.toString() ??
-            (obj.codigo_cliente as string | number | undefined)?.toString() ??
-            (obj.numero as string | number | undefined)?.toString() ??
-            (
-              obj.cliente as { numero?: string | number } | undefined
-            )?.numero?.toString() ??
-            (obj.clienteNumero as string | number | undefined)?.toString() ??
-            (obj.cliente_codigo as string | number | undefined)?.toString() ??
-            "",
-        );
-      }
-
-      return "";
-    })
-    .filter(Boolean);
-
-  return Array.from(new Set(numeros));
-};
 
 export function useOfertasConfeccion() {
   const [ofertas, setOfertas] = useState<OfertaConfeccion[]>([]);
@@ -517,97 +441,13 @@ export function useOfertasConfeccion() {
     async (options?: { skipCache?: boolean }) => {
       try {
         const skipCache = options?.skipCache === true;
-
-        if (skipCache) {
-          console.log("🔄 Ignorando cache - consultando servidor directamente");
-        }
-
-        if (typeof window !== "undefined" && !skipCache) {
-          const cachedRaw = localStorage.getItem(CLIENTES_CON_OFERTA_CACHE_KEY);
-          if (cachedRaw) {
-            try {
-              const cached = JSON.parse(cachedRaw) as {
-                ts?: number;
-                numeros?: unknown;
-              };
-              const isFresh =
-                typeof cached.ts === "number" &&
-                Date.now() - cached.ts < CLIENTES_CON_OFERTA_CACHE_TTL_MS;
-              const cachedNumeros = extractNumerosClientes(cached.numeros);
-
-              if (isFresh && cachedNumeros) {
-                console.log(
-                  "✅ Usando cache de clientes con ofertas:",
-                  cachedNumeros.length,
-                );
-                return {
-                  success: true as const,
-                  numeros_clientes: cachedNumeros,
-                };
-              } else {
-                console.log(
-                  "⏰ Cache expirado o inválido - consultando servidor",
-                );
-              }
-            } catch {
-              console.log("⚠️ Cache corrupto - consultando servidor");
-            }
-          }
-        }
-
-        const url = buildApiUrl(
-          OFERTAS_CONFECCION_ENDPOINTS.CLIENTES_CON_OFERTAS,
-        );
-        console.log("🌐 Fetching clientes con ofertas desde:", url);
-
-        const response = await fetch(url, {
-          method: "GET",
-          headers: getCommonHeaders(),
-        });
-
-        if (!response.ok) {
-          // Compatibilidad: si el backend ya no expone este endpoint,
-          // usamos el flujo basado en GET /clientes enriquecido.
-          if (response.status === 404) {
-            console.log(
-              "ℹ️ Endpoint clientes-con-ofertas no disponible (404), continuando sin set auxiliar",
-            );
-            return { success: true as const, numeros_clientes: [] as string[] };
-          }
-          console.error(
-            "❌ Error en endpoint clientes-con-ofertas:",
-            response.status,
-            response.statusText,
-          );
-          return { success: false as const, numeros_clientes: [] as string[] };
-        }
-
-        const data = await response.json();
-        const numeros = extractNumerosClientes(data);
-
-        if (!numeros) {
-          console.error("❌ Respuesta sin array parseable");
-          return { success: false as const, numeros_clientes: [] as string[] };
-        }
-
-        console.log(
-          "✅ Clientes con oferta cargados desde servidor:",
-          numeros.length,
-        );
-
-        // Cachear resultado exitoso
         if (typeof window !== "undefined") {
-          localStorage.setItem(
-            CLIENTES_CON_OFERTA_CACHE_KEY,
-            JSON.stringify({
-              ts: Date.now(),
-              numeros,
-            }),
-          );
-          console.log("💾 Cache actualizado con", numeros.length, "clientes");
+          localStorage.removeItem(CLIENTES_CON_OFERTA_CACHE_KEY);
         }
-
-        return { success: true as const, numeros_clientes: numeros };
+        console.log(
+          `ℹ️ Endpoint clientes-con-ofertas deshabilitado en frontend (se usa GET /clientes enriquecido)${skipCache ? " [skipCache]" : ""}`,
+        );
+        return { success: true as const, numeros_clientes: [] as string[] };
       } catch (error) {
         console.error(
           "💥 Error obteniendo numeros de clientes con ofertas:",
@@ -621,32 +461,13 @@ export function useOfertasConfeccion() {
 
   const obtenerOfertaPorCliente = useCallback(async (clienteNumero: string) => {
     try {
+      const numeroOriginal = String(clienteNumero || "").trim();
       const numeroNormalizado = normalizeClienteNumero(clienteNumero);
-      if (!numeroNormalizado) {
-        return {
-          success: false,
-          oferta: null,
-          ofertas: [] as OfertaConfeccion[],
-          total: 0,
-          error: false as const,
-        };
-      }
-
-      const url = buildApiUrl(
-        OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_CLIENTE(numeroNormalizado),
+      const candidatos = Array.from(
+        new Set([numeroOriginal, numeroNormalizado].filter(Boolean)),
       );
-      console.log("🌐 Fetching oferta para cliente:", numeroNormalizado);
-      console.log("🔗 URL:", url);
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: getCommonHeaders(),
-      });
-
-      console.log("📡 Response status:", response.status, response.statusText);
-
-      if (response.status === 404) {
-        console.log("ℹ️ Cliente sin oferta asignada");
+      if (candidatos.length === 0) {
         return {
           success: false,
           oferta: null,
@@ -656,90 +477,116 @@ export function useOfertasConfeccion() {
         };
       }
 
-      if (!response.ok) {
-        console.error("❌ Error en endpoint oferta cliente:", response.status);
-        return {
-          success: false,
-          oferta: null,
-          ofertas: [] as OfertaConfeccion[],
-          total: 0,
-          error: true as const,
-        };
-      }
+      let hayErrorServidor = false;
 
-      const data = await response.json();
-      console.log("📦 Response data:", data);
-
-      const payload = data?.data ?? data;
-      const ofertasRaw = extractOfertasCliente(payload).length
-        ? extractOfertasCliente(payload)
-        : extractOfertasCliente(data);
-
-      if (Array.isArray(ofertasRaw) && ofertasRaw.length > 0) {
-        const ofertas = ofertasRaw.map(normalizeOfertaConfeccion);
-        const rawObject =
-          payload && typeof payload === "object"
-            ? (payload as Record<string, unknown>)
-            : null;
-        const totalRaw =
-          rawObject?.total_ofertas ??
-          data?.total_ofertas ??
-          data?.total ??
-          ofertas.length;
-        const total = Number.isFinite(Number(totalRaw))
-          ? Number(totalRaw)
-          : ofertas.length;
-        console.log(
-          "✅ Oferta encontrada para cliente:",
-          numeroNormalizado,
-          "- Total:",
-          total,
+      for (const candidato of candidatos) {
+        const url = buildApiUrl(
+          OFERTAS_CONFECCION_ENDPOINTS.OFERTAS_CLIENTE(
+            encodeURIComponent(candidato),
+          ),
         );
-        return {
-          success: true,
-          oferta: ofertas[0] ?? null,
-          ofertas,
-          total,
-          error: false as const,
-        };
-      }
+        console.log("🌐 Fetching oferta para cliente:", candidato);
+        console.log("🔗 URL:", url);
 
-      // Compatibilidad: backend antiguo con una sola oferta
-      const singleOferta = payload?.oferta ?? payload?.data ?? payload;
-      const hasSingleOfertaPayload =
-        !!singleOferta &&
-        typeof singleOferta === "object" &&
-        (!!singleOferta.id ||
-          !!singleOferta._id ||
-          !!singleOferta.oferta_id ||
-          !!singleOferta.numero_oferta ||
-          Array.isArray(singleOferta.items));
+        const response = await fetch(url, {
+          method: "GET",
+          headers: getCommonHeaders(),
+        });
 
-      if (hasSingleOfertaPayload) {
-        const oferta = normalizeOfertaConfeccion(singleOferta);
         console.log(
-          "✅ Oferta única encontrada para cliente:",
-          numeroNormalizado,
+          "📡 Response status:",
+          response.status,
+          response.statusText,
         );
-        return {
-          success: true,
-          oferta,
-          ofertas: [oferta],
-          total: 1,
-          error: false as const,
-        };
+
+        if (response.status === 404) {
+          console.log(
+            "ℹ️ Cliente sin oferta con formato:",
+            candidato,
+            "- probando siguiente",
+          );
+          continue;
+        }
+
+        if (!response.ok) {
+          hayErrorServidor = true;
+          console.error(
+            "❌ Error en endpoint oferta cliente:",
+            response.status,
+            "formato:",
+            candidato,
+          );
+          continue;
+        }
+
+        const data = await response.json();
+        console.log("📦 Response data:", data);
+
+        const payload = data?.data ?? data;
+        const ofertasRaw = extractOfertasCliente(payload).length
+          ? extractOfertasCliente(payload)
+          : extractOfertasCliente(data);
+
+        if (Array.isArray(ofertasRaw) && ofertasRaw.length > 0) {
+          const ofertas = ofertasRaw.map(normalizeOfertaConfeccion);
+          const rawObject =
+            payload && typeof payload === "object"
+              ? (payload as Record<string, unknown>)
+              : null;
+          const totalRaw =
+            rawObject?.total_ofertas ??
+            data?.total_ofertas ??
+            data?.total ??
+            ofertas.length;
+          const total = Number.isFinite(Number(totalRaw))
+            ? Number(totalRaw)
+            : ofertas.length;
+          console.log(
+            "✅ Oferta encontrada para cliente:",
+            candidato,
+            "- Total:",
+            total,
+          );
+          return {
+            success: true,
+            oferta: ofertas[0] ?? null,
+            ofertas,
+            total,
+            error: false as const,
+          };
+        }
+
+        // Compatibilidad: backend antiguo con una sola oferta
+        const singleOferta = payload?.oferta ?? payload?.data ?? payload;
+        const hasSingleOfertaPayload =
+          !!singleOferta &&
+          typeof singleOferta === "object" &&
+          (!!singleOferta.id ||
+            !!singleOferta._id ||
+            !!singleOferta.oferta_id ||
+            !!singleOferta.numero_oferta ||
+            Array.isArray(singleOferta.items));
+
+        if (hasSingleOfertaPayload) {
+          const oferta = normalizeOfertaConfeccion(singleOferta);
+          console.log("✅ Oferta única encontrada para cliente:", candidato);
+          return {
+            success: true,
+            oferta,
+            ofertas: [oferta],
+            total: 1,
+            error: false as const,
+          };
+        }
       }
 
-      console.log(
-        "ℹ️ Sin ofertas en respuesta para cliente:",
-        numeroNormalizado,
-      );
+      console.log("ℹ️ Sin ofertas en respuesta para cliente:", clienteNumero);
       return {
         success: false,
         oferta: null,
         ofertas: [] as OfertaConfeccion[],
         total: 0,
-        error: false as const,
+        error: hayErrorServidor as false | true,
       };
     } catch (error: any) {
       console.error("💥 Error en obtenerOfertaPorCliente:", error);
