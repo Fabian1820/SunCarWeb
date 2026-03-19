@@ -349,6 +349,7 @@ export function FacturasSection() {
     setValeToEdit({ valeId: vale.id });
     setValeDraft({
       id: vale.id,
+      id_vale_salida: vale.id_vale_salida,
       fecha: vale.fecha,
       items: (vale.items || []).map((item) => ({ ...item })),
     });
@@ -384,11 +385,13 @@ export function FacturasSection() {
       if (valeToEdit?.valeId) {
         await actualizarVale(facturaForVale.id, valeToEdit.valeId, {
           id: valeToEdit.valeId,
+          id_vale_salida: valeDraft.id_vale_salida,
           fecha: valeDraft.fecha,
           items: valeDraft.items,
         });
       } else {
         await agregarVale(facturaForVale.id, {
+          id_vale_salida: valeDraft.id_vale_salida,
           fecha: valeDraft.fecha,
           items: valeDraft.items,
         });
@@ -425,6 +428,7 @@ export function FacturasSection() {
       for (const valeSalida of vales) {
         const valeParaFactura: Vale = {
           id: valeSalida.id, // Usar el ID del vale de salida como ID del vale
+          id_vale_salida: valeSalida.id, // Referencia explícita para backend
           fecha: valeSalida.fecha_creacion || new Date().toISOString(),
           items: valeSalida.materiales.map((material) => ({
             material_id: material.material_id,

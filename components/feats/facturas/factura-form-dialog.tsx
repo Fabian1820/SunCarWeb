@@ -228,6 +228,7 @@ const mapValeToFacturaVale = (
 
   const valeResultado = {
     id: vale.id, // ← Incluir el ID del vale de salida
+    id_vale_salida: vale.id, // ← Referencia explícita para backend
     fecha: vale.fecha_creacion || new Date().toISOString(),
     items,
   };
