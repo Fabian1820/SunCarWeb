@@ -19,9 +19,11 @@ import {
   FileOutput,
   X,
   Hash,
+  AlertTriangle,
 } from "lucide-react";
 import { Badge } from "@/components/shared/atom/badge";
 import {
+  InventarioService,
   MaterialService,
   SolicitudVentaService,
   ValeSalidaService,
@@ -43,6 +45,12 @@ interface MaterialRow {
   descripcion: string;
   um: string;
   cantidad: number;
+  cantidad_pedida: number;
+  stock_actual: number | null;
+  alerta_stock: boolean;
+  stock_suficiente: boolean;
+  stock_despues: number | null;
+  faltante: number;
   numero_serie?: string;
   foto?: string;
 }
@@ -98,6 +106,42 @@ const getRecogidaBadgeClass = (
   }
   return "bg-red-50 text-red-700 border-red-200";
 };
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const calculateStockAlert = (
+  cantidadDespachar: number,
+  stockActual: number | null,
+  fallbackAlert = false,
+) => {
+  if (stockActual === null) {
+    return {
+      alerta_stock: fallbackAlert,
+      stock_suficiente: !fallbackAlert,
+      stock_despues: null,
+      faltante: 0,
+    };
+  }
+
+  const alerta_stock = cantidadDespachar > stockActual;
+  return {
+    alerta_stock,
+    stock_suficiente: !alerta_stock,
+    faltante: Math.max(cantidadDespachar - stockActual, 0),
+    stock_despues: stockActual - cantidadDespachar,
+  };
+};
+
+const normalizeCode = (value?: string): string => value?.trim().toLowerCase() || "";
 
 export function CreateValeSalidaDialog({
   open,
@@ -217,6 +261,14 @@ export function CreateValeSalidaDialog({
     const rows: MaterialRow[] = (selectedSolicitud.materiales || []).map(
       (item) => {
         const mat = item.material;
+        const cantidadPedida = toFiniteNumber(item.cantidad) ?? 0;
+        const stockActual = toFiniteNumber(item.stock_actual);
+        const status = calculateStockAlert(
+          cantidadPedida,
+          stockActual,
+          item.alerta_stock === true,
+        );
+
         return {
           material_id: item.material_id || "",
           codigo: mat?.codigo || item.material_codigo || item.codigo || "",
@@ -233,7 +285,14 @@ export function CreateValeSalidaDialog({
             item.descripcion ||
             "",
           um: mat?.um || item.um || "U",
-          cantidad: item.cantidad || 0,
+          cantidad: cantidadPedida,
+          cantidad_pedida: cantidadPedida,
+          stock_actual: stockActual,
+          alerta_stock: status.alerta_stock,
+          stock_suficiente: status.stock_suficiente,
+          stock_despues: status.stock_despues,
+          faltante:
+            toFiniteNumber(item.faltante) ?? status.faltante,
           foto: mat?.foto,
         };
       },
@@ -351,22 +410,74 @@ export function CreateValeSalidaDialog({
     setMateriales([]);
   };
 
-  const handleAddMaterial = (material: MaterialCatalogItem) => {
+  const getMaterialStockActual = async (
+    materialId: string,
+    materialCodigo?: string,
+  ): Promise<number | null> => {
+    try {
+      let stockRows = await InventarioService.getStock({
+        almacen_id: almacenId,
+        material_id: materialId,
+      });
+
+      if ((!stockRows || stockRows.length === 0) && materialCodigo) {
+        stockRows = await InventarioService.getStock({
+          almacen_id: almacenId,
+          material_codigo: materialCodigo,
+        });
+      }
+
+      if (!stockRows || stockRows.length === 0) return 0;
+
+      const targetCode = normalizeCode(materialCodigo);
+      const match =
+        stockRows.find((row) => row.material_id === materialId) ||
+        stockRows.find(
+          (row) =>
+            targetCode.length > 0 &&
+            normalizeCode(String(row.material_codigo || "")) === targetCode,
+        ) ||
+        stockRows[0];
+
+      return toFiniteNumber(match?.cantidad) ?? 0;
+    } catch (error) {
+      console.error("Error consultando stock de material para vale:", error);
+      return 0;
+    }
+  };
+
+  const handleAddMaterial = async (material: MaterialCatalogItem) => {
     const id = material.id || material._id || "";
     if (!id || materiales.some((m) => m.material_id === id)) return;
 
-    setMateriales((prev) => [
-      ...prev,
-      {
-        material_id: id,
-        codigo: material.codigo?.toString() || "",
-        nombre: material.nombre || material.descripcion || "",
-        descripcion: material.descripcion || material.nombre || "",
-        um: material.um || "U",
-        cantidad: 1,
-        foto: material.foto,
-      },
-    ]);
+    const stockActual = await getMaterialStockActual(
+      id,
+      material.codigo?.toString(),
+    );
+    const stockState = calculateStockAlert(1, stockActual);
+
+    setMateriales((prev) =>
+      prev.some((row) => row.material_id === id)
+        ? prev
+        : [
+            ...prev,
+            {
+              material_id: id,
+              codigo: material.codigo?.toString() || "",
+              nombre: material.nombre || material.descripcion || "",
+              descripcion: material.descripcion || material.nombre || "",
+              um: material.um || "U",
+              cantidad: 1,
+              cantidad_pedida: 1,
+              stock_actual: stockActual,
+              alerta_stock: stockState.alerta_stock,
+              stock_suficiente: stockState.stock_suficiente,
+              stock_despues: stockState.stock_despues,
+              faltante: stockState.faltante,
+              foto: material.foto,
+            },
+          ],
+    );
     setMaterialSearch("");
     setShowMaterialDropdown(false);
   };
@@ -380,7 +491,17 @@ export function CreateValeSalidaDialog({
     if (!Number.isFinite(num) || num < 0) return;
     setMateriales((prev) =>
       prev.map((material, i) =>
-        i === index ? { ...material, cantidad: num } : material,
+        i === index
+          ? {
+              ...material,
+              cantidad: num,
+              ...calculateStockAlert(
+                num,
+                material.stock_actual,
+                material.alerta_stock,
+              ),
+            }
+          : material,
       ),
     );
   };
@@ -490,6 +611,7 @@ export function CreateValeSalidaDialog({
   const selectedRecogidaBadge = selectedSolicitud
     ? getFechaRecogidaBadge(selectedSolicitud.fecha_recogida)
     : null;
+  const selectedHasStockAlerts = selectedSolicitud?.tiene_alertas_stock === true;
 
   return (
     <>
@@ -528,6 +650,16 @@ export function CreateValeSalidaDialog({
                           ? "Venta"
                           : "Material"}
                       </Badge>
+                      {selectedHasStockAlerts ? (
+                        <Badge
+                          variant="outline"
+                          className="bg-red-50 text-red-700 border-red-200"
+                        >
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          {selectedSolicitud.total_materiales_con_alerta || 0}{" "}
+                          alerta(s)
+                        </Badge>
+                      ) : null}
                     </div>
                     <span className="text-sm">
                       {getSolicitudCliente(selectedSolicitud)}
@@ -556,6 +688,12 @@ export function CreateValeSalidaDialog({
                           "Sin responsable"}
                       </span>
                     </div>
+                    {selectedHasStockAlerts ? (
+                      <p className="mt-2 text-xs font-medium text-red-700">
+                        Esta solicitud tiene materiales con stock insuficiente.
+                        Es una alerta visual, el vale se puede crear igual.
+                      </p>
+                    ) : null}
                   </div>
                   <button
                     onClick={handleClearSolicitud}
@@ -593,10 +731,13 @@ export function CreateValeSalidaDialog({
                     const recogidaBadge = getFechaRecogidaBadge(
                       solicitud.fecha_recogida,
                     );
+                    const hasStockAlert = solicitud.tiene_alertas_stock === true;
                     return (
                       <button
                         key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
-                        className={`w-full text-left px-4 py-2 text-sm ${styles.dropdown}`}
+                        className={`w-full text-left px-4 py-2 text-sm ${
+                          hasStockAlert ? "bg-red-50/40 hover:bg-red-50/70" : styles.dropdown
+                        }`}
                         onClick={() => handleSelectSolicitud(solicitud)}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -616,6 +757,15 @@ export function CreateValeSalidaDialog({
                               <Package className="h-3 w-3 mr-1" />
                               {solicitud.materiales?.length || 0}
                             </Badge>
+                            {hasStockAlert ? (
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-red-50 text-red-700 border-red-200"
+                              >
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                {solicitud.total_materiales_con_alerta || 0}
+                              </Badge>
+                            ) : null}
                           </div>
                         </div>
                         <div className="text-xs text-gray-500 mt-0.5 truncate">
@@ -688,96 +838,129 @@ export function CreateValeSalidaDialog({
                     </tr>
                   </thead>
                   <tbody>
-                    {materiales.map((material, idx) => (
-                      <tr key={idx} className="border-b last:border-b-0">
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-2">
-                            {material.foto ? (
-                              <img
-                                src={material.foto}
-                                alt={material.nombre || material.descripcion}
-                                className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                                onError={(event) => {
-                                  (
-                                    event.target as HTMLImageElement
-                                  ).style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                <Package className="h-4 w-4 text-gray-400" />
+                    {materiales.map((material, idx) => {
+                      const showStockAlert = material.alerta_stock === true;
+                      return (
+                        <tr
+                          key={idx}
+                          className={`border-b last:border-b-0 ${
+                            showStockAlert ? "bg-red-50/70" : ""
+                          }`}
+                        >
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              {material.foto ? (
+                                <img
+                                  src={material.foto}
+                                  alt={material.nombre || material.descripcion}
+                                  className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
+                                  onError={(event) => {
+                                    (
+                                      event.target as HTMLImageElement
+                                    ).style.display = "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                  <Package className="h-4 w-4 text-gray-400" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="font-medium text-gray-900 leading-tight">
+                                    {material.nombre ||
+                                      material.descripcion ||
+                                      material.codigo}
+                                  </p>
+                                  {showStockAlert ? (
+                                    <Badge
+                                      variant="outline"
+                                      className="bg-red-50 text-red-700 border-red-200"
+                                    >
+                                      <AlertTriangle className="h-3 w-3 mr-1" />
+                                      Stock insuficiente
+                                    </Badge>
+                                  ) : null}
+                                </div>
+                                {material.codigo ? (
+                                  <p className="text-xs text-gray-400">
+                                    {material.codigo}
+                                  </p>
+                                ) : null}
+                                {showStockAlert ? (
+                                  <p className="text-xs text-red-700 mt-1">
+                                    Pedida: {material.cantidad} | Stock actual:{" "}
+                                    {material.stock_actual ?? 0} | Faltante:{" "}
+                                    {material.faltante}
+                                  </p>
+                                ) : null}
                               </div>
-                            )}
-                            <div>
-                              <p className="font-medium text-gray-900 leading-tight">
-                                {material.nombre ||
-                                  material.descripcion ||
-                                  material.codigo}
-                              </p>
-                              {material.codigo ? (
-                                <p className="text-xs text-gray-400">
-                                  {material.codigo}
-                                </p>
-                              ) : null}
                             </div>
-                          </div>
-                        </td>
-                        <td className="py-2 px-3 text-gray-500">
-                          {material.um}
-                        </td>
-                        <td className="py-2 px-3">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={material.cantidad}
-                            onChange={(e) =>
-                              handleCantidadChange(idx, e.target.value)
-                            }
-                            className="h-8 w-24"
-                          />
-                        </td>
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-2">
-                            {material.numero_serie ? (
-                              <div className="flex-1 flex items-center gap-2">
-                                <span className="text-xs text-gray-600 truncate max-w-[100px]" title={material.numero_serie}>
-                                  {material.numero_serie.split(',').length} serie(s)
-                                </span>
+                          </td>
+                          <td className="py-2 px-3 text-gray-500">
+                            {material.um}
+                          </td>
+                          <td className="py-2 px-3">
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={material.cantidad}
+                              onChange={(e) =>
+                                handleCantidadChange(idx, e.target.value)
+                              }
+                              className="h-8 w-24"
+                            />
+                          </td>
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              {material.numero_serie ? (
+                                <div className="flex-1 flex items-center gap-2">
+                                  <span
+                                    className="text-xs text-gray-600 truncate max-w-[100px]"
+                                    title={material.numero_serie}
+                                  >
+                                    {material.numero_serie.split(",").length} serie(s)
+                                  </span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() =>
+                                      handleOpenSerialNumberDialog(idx)
+                                    }
+                                    className="h-7 text-xs"
+                                  >
+                                    Editar
+                                  </Button>
+                                </div>
+                              ) : (
                                 <Button
                                   type="button"
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleOpenSerialNumberDialog(idx)}
+                                  onClick={() =>
+                                    handleOpenSerialNumberDialog(idx)
+                                  }
                                   className="h-7 text-xs"
                                 >
-                                  Editar
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  Agregar
                                 </Button>
-                              </div>
-                            ) : (
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenSerialNumberDialog(idx)}
-                                className="h-7 text-xs"
-                              >
-                                <Plus className="h-3 w-3 mr-1" />
-                                Agregar
-                              </Button>
-                            )}
-                          </div>
-                        </td>
-                        <td className="py-2 px-3">
-                          <button
-                            onClick={() => handleRemoveMaterial(idx)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-3">
+                            <button
+                              onClick={() => handleRemoveMaterial(idx)}
+                              className="text-red-400 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

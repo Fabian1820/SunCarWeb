@@ -10,6 +10,11 @@ export interface ValeSalidaMaterialItemDetalle {
   material_id: string;
   cantidad: number;
   numero_serie?: string;
+  alerta_stock?: boolean;
+  stock_suficiente?: boolean;
+  stock_actual?: number;
+  stock_despues?: number;
+  faltante?: number;
   material_codigo?: string;
   material_descripcion?: string;
   um?: string;
@@ -111,6 +116,8 @@ export interface ValeSolicitudPendiente {
   solicitud_id: string;
   codigo?: string;
   estado?: "nueva" | "usada" | string;
+  tiene_alertas_stock?: boolean;
+  total_materiales_con_alerta?: number;
   cliente?: ValeClienteInfo | null;
   cliente_venta?: ValeClienteInfo | null;
   almacen?: ValeAlmacenInfo;

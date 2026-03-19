@@ -29,6 +29,7 @@ import {
   Loader2,
   ClipboardList,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import { ValeSalidaService } from "@/lib/api-services";
 import { ExportValeSalidaService } from "@/lib/services/feats/vales-salida/export-vale-salida-service";
@@ -329,10 +330,16 @@ export default function ValesSalidaPage() {
                         const recogidaBadge = getFechaRecogidaBadge(
                           solicitud.fecha_recogida,
                         );
+                        const hasStockAlert =
+                          solicitud.tiene_alertas_stock === true;
                         return (
                           <tr
                             key={`${solicitud.tipo_solicitud}-${solicitud.solicitud_id}`}
-                            className={`border-b border-gray-100 ${styles.row}`}
+                            className={`border-b border-gray-100 ${
+                              hasStockAlert
+                                ? "bg-red-50/40 hover:bg-red-50/70"
+                                : styles.row
+                            }`}
                           >
                             <td className="py-2 px-2">
                               <span
@@ -352,7 +359,16 @@ export default function ValesSalidaPage() {
                               {getSolicitudCliente(solicitud)}
                             </td>
                             <td className="py-2 px-2 text-gray-700">
-                              {solicitud.materiales?.length || 0}
+                              <div className="flex items-center gap-2">
+                                <span>{solicitud.materiales?.length || 0}</span>
+                                {hasStockAlert ? (
+                                  <span className="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    {solicitud.total_materiales_con_alerta || 0}{" "}
+                                    alerta(s)
+                                  </span>
+                                ) : null}
+                              </div>
                             </td>
                             <td className="py-2 px-2 text-gray-700">
                               <div className="flex flex-col gap-1">
