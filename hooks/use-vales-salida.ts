@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { ValeSalidaService } from "@/lib/api-services";
-import type { ValeSalida, ValeSalidaCreateData } from "@/lib/api-types";
+import type {
+  ValeSalida,
+  ValeSalidaCreateData,
+  ValeSalidaSummary,
+} from "@/lib/api-types";
 
 interface UseValesSalidaReturn {
-  vales: ValeSalida[];
-  filteredVales: ValeSalida[];
+  vales: ValeSalidaSummary[];
+  filteredVales: ValeSalidaSummary[];
   loading: boolean;
   error: string | null;
   searchTerm: string;
@@ -15,10 +19,12 @@ interface UseValesSalidaReturn {
   createVale: (data: ValeSalidaCreateData) => Promise<ValeSalida>;
   anularVale: (id: string, motivoAnulacion: string) => Promise<boolean>;
   clearError: () => void;
+  total: number;
 }
 
 export function useValesSalida(): UseValesSalidaReturn {
-  const [vales, setVales] = useState<ValeSalida[]>([]);
+  const [vales, setVales] = useState<ValeSalidaSummary[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -30,10 +36,11 @@ export function useValesSalida(): UseValesSalidaReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await ValeSalidaService.getVales(
+      const response = await ValeSalidaService.getValesSummary(
         estadoFilter === "todos" ? {} : { estado: estadoFilter },
       );
-      setVales(data);
+      setVales(response.data);
+      setTotal(response.total);
     } catch (err) {
       setError(
         err instanceof Error
@@ -41,6 +48,7 @@ export function useValesSalida(): UseValesSalidaReturn {
           : "Error al cargar los vales de salida",
       );
       setVales([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -51,25 +59,13 @@ export function useValesSalida(): UseValesSalidaReturn {
 
     const term = searchTerm.toLowerCase();
     return vales.filter((v) => {
-      const solicitud =
-        v.solicitud_material || v.solicitud_venta || v.solicitud;
-      const clienteNombre =
-        solicitud?.cliente?.nombre || solicitud?.cliente_venta?.nombre;
-      const solicitudCodigo =
-        solicitud?.codigo ||
-        v.solicitud_material_id?.slice(-6).toUpperCase() ||
-        v.solicitud_venta_id?.slice(-6).toUpperCase();
-      const responsableRecogida =
-        v.recogido_por || solicitud?.responsable_recogida;
       return (
         v.codigo?.toLowerCase().includes(term) ||
         v.estado?.toLowerCase().includes(term) ||
-        solicitudCodigo?.toLowerCase().includes(term) ||
-        clienteNombre?.toLowerCase().includes(term) ||
-        v.trabajador?.nombre?.toLowerCase().includes(term) ||
-        v.trabajador?.ci?.toLowerCase().includes(term) ||
-        responsableRecogida?.toLowerCase().includes(term) ||
-        solicitud?.fecha_recogida?.toLowerCase().includes(term)
+        v.solicitud_codigo?.toLowerCase().includes(term) ||
+        v.cliente_nombre?.toLowerCase().includes(term) ||
+        v.creador_nombre?.toLowerCase().includes(term) ||
+        v.recibido_por?.toLowerCase().includes(term)
       );
     });
   }, [vales, searchTerm]);
@@ -137,5 +133,6 @@ export function useValesSalida(): UseValesSalidaReturn {
     createVale,
     anularVale,
     clearError,
+    total,
   };
 }

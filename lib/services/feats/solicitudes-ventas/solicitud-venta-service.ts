@@ -9,6 +9,8 @@ import type {
   SolicitudVentaListParams,
   SolicitudVentaMaterialItem,
   SolicitudVentaUpdateData,
+  SolicitudVentaSummary,
+  SolicitudVentaSummaryResponse,
 } from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/solicitudes-ventas";
@@ -192,6 +194,46 @@ export class SolicitudVentaService {
 
     const fallbackPayload = fallback?.data ?? fallback;
     return flattenVendibles(fallbackPayload);
+  }
+
+  /**
+   * List solicitudes summary (optimized for table views)
+   * GET /api/operaciones/solicitudes-ventas/summary
+   */
+  static async getSolicitudesSummary(
+    params: SolicitudVentaListParams = {},
+  ): Promise<{ data: SolicitudVentaSummary[]; total: number }> {
+    const search = new URLSearchParams();
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+    if (params.cliente_venta_id) {
+      search.append("cliente_venta_id", params.cliente_venta_id);
+    }
+    if (params.cliente_venta_numero) {
+      search.append("cliente_venta_numero", params.cliente_venta_numero);
+    }
+    if (params.almacen_id) search.append("almacen_id", params.almacen_id);
+    if (params.trabajador_id) {
+      search.append("trabajador_id", params.trabajador_id);
+    }
+    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.estado) search.append("estado", params.estado);
+
+    const endpoint = search.toString()
+      ? `${BASE_ENDPOINT}/summary?${search.toString()}`
+      : `${BASE_ENDPOINT}/summary`;
+
+    const raw = await apiRequest<SolicitudVentaSummaryResponse>(endpoint);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = raw?.data ?? raw;
+    const data = Array.isArray(payload)
+      ? payload
+      : payload?.data || payload?.solicitudes || [];
+    const total = typeof payload === "object" ? payload.total || 0 : 0;
+
+    return { data, total };
   }
 
   static async getSolicitudes(

@@ -117,3 +117,25 @@ export interface MaterialVentaWeb {
   habilitar_venta_web?: boolean;
   categoria?: string;
 }
+
+// ========================================
+// Summary Types (Optimized for Table Views)
+// ========================================
+
+export interface SolicitudVentaSummary {
+  id: string;
+  codigo?: string;
+  estado?: "nueva" | "usada" | "anulada" | string;
+  cliente_venta_nombre?: string;
+  almacen_nombre?: string;
+  creador_nombre?: string;
+  materiales_resumen?: string; // e.g., "4 materiales"
+  fecha_creacion?: string;
+}
+
+export interface SolicitudVentaSummaryResponse {
+  success?: boolean;
+  message?: string;
+  data: SolicitudVentaSummary[];
+  total: number;
+}

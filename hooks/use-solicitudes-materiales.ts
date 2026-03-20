@@ -5,11 +5,12 @@ import type {
   SolicitudMaterialAnularData,
   SolicitudMaterialCreateData,
   SolicitudMaterialUpdateData,
+  SolicitudMaterialSummary,
 } from "@/lib/api-types";
 
 interface UseSolicitudesMaterialesReturn {
-  solicitudes: SolicitudMaterial[];
-  filteredSolicitudes: SolicitudMaterial[];
+  solicitudes: SolicitudMaterialSummary[];
+  filteredSolicitudes: SolicitudMaterialSummary[];
   loading: boolean;
   error: string | null;
   searchTerm: string;
@@ -28,10 +29,14 @@ interface UseSolicitudesMaterialesReturn {
   ) => Promise<SolicitudMaterial>;
   reabrirSolicitud: (id: string) => Promise<SolicitudMaterial>;
   clearError: () => void;
+  total: number;
 }
 
 export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
-  const [solicitudes, setSolicitudes] = useState<SolicitudMaterial[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudMaterialSummary[]>(
+    [],
+  );
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,13 +45,15 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     setLoading(true);
     setError(null);
     try {
-      const data = await SolicitudMaterialService.getSolicitudes();
-      setSolicitudes(data);
+      const response = await SolicitudMaterialService.getSolicitudesSummary();
+      setSolicitudes(response.data);
+      setTotal(response.total);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al cargar las solicitudes",
       );
       setSolicitudes([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -59,11 +66,9 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     return solicitudes.filter((s) => {
       return (
         s.codigo?.toLowerCase().includes(term) ||
-        s.cliente?.nombre?.toLowerCase().includes(term) ||
-        s.cliente?.numero?.toLowerCase().includes(term) ||
-        s.almacen?.nombre?.toLowerCase().includes(term) ||
-        s.trabajador?.nombre?.toLowerCase().includes(term) ||
-        s.trabajador?.ci?.toLowerCase().includes(term) ||
+        s.cliente_nombre?.toLowerCase().includes(term) ||
+        s.almacen_nombre?.toLowerCase().includes(term) ||
+        s.creador_nombre?.toLowerCase().includes(term) ||
         s.responsable_recogida?.toLowerCase().includes(term) ||
         s.fecha_recogida?.toLowerCase().includes(term)
       );
@@ -174,5 +179,6 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     anularSolicitud,
     reabrirSolicitud,
     clearError,
+    total,
   };
 }

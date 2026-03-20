@@ -125,3 +125,27 @@ export interface SolicitudMaterialListResponse {
   skip?: number;
   limit?: number;
 }
+
+// ========================================
+// Summary Types (Optimized for Table Views)
+// ========================================
+
+export interface SolicitudMaterialSummary {
+  id: string;
+  codigo?: string;
+  estado?: "nueva" | "usada" | "anulada" | string;
+  cliente_nombre?: string;
+  almacen_nombre?: string;
+  creador_nombre?: string;
+  materiales_resumen?: string; // e.g., "3 materiales"
+  responsable_recogida?: string | null;
+  fecha_recogida?: string | null;
+  fecha_creacion?: string;
+}
+
+export interface SolicitudMaterialSummaryResponse {
+  success?: boolean;
+  message?: string;
+  data: SolicitudMaterialSummary[];
+  total: number;
+}

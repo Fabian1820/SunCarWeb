@@ -21,7 +21,11 @@ import { SolicitudesMaterialesTable } from "@/components/feats/solicitudes-mater
 import { CreateSolicitudMaterialDialog } from "@/components/feats/solicitudes-materiales/create-solicitud-material-dialog";
 import { SolicitudMaterialDetailDialog } from "@/components/feats/solicitudes-materiales/solicitud-material-detail-dialog";
 import { AnularSolicitudDialog } from "@/components/shared/molecule/anular-solicitud-dialog";
-import type { SolicitudMaterial } from "@/lib/api-types";
+import type {
+  SolicitudMaterial,
+  SolicitudMaterialSummary,
+} from "@/lib/api-types";
+import { SolicitudMaterialService } from "@/lib/api-services";
 
 export default function SolicitudesMaterialesPage() {
   const { toast } = useToast();
@@ -92,7 +96,7 @@ export default function SolicitudesMaterialesPage() {
   const getSolicitudCodigo = (solicitud: SolicitudMaterial) =>
     solicitud.codigo || solicitud.id.slice(-6).toUpperCase();
 
-  const handleEditSolicitud = (solicitud: SolicitudMaterial) => {
+  const handleEditSolicitud = async (solicitud: SolicitudMaterialSummary) => {
     if (solicitud.estado?.toLowerCase() !== "nueva") {
       toast({
         title: "Accion no permitida",
@@ -102,11 +106,33 @@ export default function SolicitudesMaterialesPage() {
       return;
     }
 
-    setSolicitudToEdit(solicitud);
-    setIsEditDialogOpen(true);
+    try {
+      const solicitudCompleta = await SolicitudMaterialService.getSolicitudById(
+        solicitud.id,
+      );
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSolicitudToEdit(solicitudCompleta);
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading solicitud for edit:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la solicitud",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleOpenAnularSolicitud = (solicitud: SolicitudMaterial) => {
+  const handleOpenAnularSolicitud = async (
+    solicitud: SolicitudMaterialSummary,
+  ) => {
     if (solicitud.estado?.toLowerCase() !== "nueva") {
       toast({
         title: "Accion no permitida",
@@ -116,8 +142,28 @@ export default function SolicitudesMaterialesPage() {
       return;
     }
 
-    setSolicitudToAnular(solicitud);
-    setIsAnularDialogOpen(true);
+    try {
+      const solicitudCompleta = await SolicitudMaterialService.getSolicitudById(
+        solicitud.id,
+      );
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSolicitudToAnular(solicitudCompleta);
+      setIsAnularDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading solicitud for anular:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la solicitud",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleConfirmAnularSolicitud = async (motivo: string) => {
@@ -146,7 +192,9 @@ export default function SolicitudesMaterialesPage() {
     }
   };
 
-  const handleReabrirSolicitud = async (solicitud: SolicitudMaterial) => {
+  const handleReabrirSolicitud = async (
+    solicitud: SolicitudMaterialSummary,
+  ) => {
     if (solicitud.estado?.toLowerCase() !== "anulada") {
       toast({
         title: "Accion no permitida",
@@ -160,13 +208,40 @@ export default function SolicitudesMaterialesPage() {
       const nuevaSolicitud = await reabrirSolicitud(solicitud.id);
       toast({
         title: "Exito",
-        description: `Se creo la nueva solicitud ${getSolicitudCodigo(nuevaSolicitud)} a partir de ${getSolicitudCodigo(solicitud)}.`,
+        description: `Se creo la nueva solicitud ${getSolicitudCodigo(nuevaSolicitud)} a partir de ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}.`,
       });
     } catch (error) {
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "No se pudo reabrir la solicitud",
+          error instanceof Error
+            ? error.message
+            : "No se pudo reabrir la solicitud",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewSolicitud = async (solicitud: SolicitudMaterialSummary) => {
+    try {
+      const solicitudCompleta = await SolicitudMaterialService.getSolicitudById(
+        solicitud.id,
+      );
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSolicitudDetalle(solicitudCompleta);
+      setIsDetailDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading solicitud details:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar los detalles de la solicitud",
         variant: "destructive",
       });
     }
@@ -238,11 +313,14 @@ export default function SolicitudesMaterialesPage() {
             <SolicitudesMaterialesTable
               solicitudes={filteredSolicitudes}
               onView={(s) => {
-                setSolicitudDetalle(s);
-                setIsDetailDialogOpen(true);
+                void handleViewSolicitud(s);
               }}
-              onEdit={handleEditSolicitud}
-              onAnular={handleOpenAnularSolicitud}
+              onEdit={(s) => {
+                void handleEditSolicitud(s);
+              }}
+              onAnular={(s) => {
+                void handleOpenAnularSolicitud(s);
+              }}
               onReabrir={(s) => {
                 void handleReabrirSolicitud(s);
               }}

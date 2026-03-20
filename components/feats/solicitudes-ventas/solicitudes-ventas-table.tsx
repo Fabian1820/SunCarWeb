@@ -12,14 +12,14 @@ import {
   Warehouse,
   Ban,
 } from "lucide-react";
-import type { SolicitudVenta } from "@/lib/api-types";
+import type { SolicitudVentaSummary } from "@/lib/api-types";
 
 interface SolicitudesVentasTableProps {
-  solicitudes: SolicitudVenta[];
-  onView?: (solicitud: SolicitudVenta) => void;
-  onEdit?: (solicitud: SolicitudVenta) => void;
-  onAnular?: (solicitud: SolicitudVenta) => void;
-  onReabrir?: (solicitud: SolicitudVenta) => void;
+  solicitudes: SolicitudVentaSummary[];
+  onView?: (solicitud: SolicitudVentaSummary) => void;
+  onEdit?: (solicitud: SolicitudVentaSummary) => void;
+  onAnular?: (solicitud: SolicitudVentaSummary) => void;
+  onReabrir?: (solicitud: SolicitudVentaSummary) => void;
 }
 
 export function SolicitudesVentasTable({
@@ -38,6 +38,12 @@ export function SolicitudesVentasTable({
       month: "2-digit",
       year: "numeric",
     });
+  };
+
+  const parseMaterialesCount = (resumen?: string): number => {
+    if (!resumen) return 0;
+    const match = resumen.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
   };
 
   if (solicitudes.length === 0) {
@@ -75,6 +81,9 @@ export function SolicitudesVentasTable({
             const isUsada = estado === "usada";
             const isAnulada = estado === "anulada";
             const isNueva = estado === "nueva";
+            const cantidadMateriales = parseMaterialesCount(
+              solicitud.materiales_resumen,
+            );
 
             return (
               <tr
@@ -104,27 +113,20 @@ export function SolicitudesVentasTable({
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="space-y-1">
-                    <p className="font-medium text-gray-900">
-                      {solicitud.cliente_venta?.nombre || "-"}
-                    </p>
-                    {solicitud.cliente_venta?.numero && (
-                      <p className="text-xs text-gray-500 font-mono">
-                        {solicitud.cliente_venta.numero}
-                      </p>
-                    )}
-                  </div>
+                  <p className="font-medium text-gray-900">
+                    {solicitud.cliente_venta_nombre || "-"}
+                  </p>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>{solicitud.almacen?.nombre || "-"}</span>
+                    <span>{solicitud.almacen_nombre || "-"}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>{solicitud.trabajador?.nombre || "-"}</span>
+                    <span>{solicitud.creador_nombre || "-"}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
@@ -132,7 +134,7 @@ export function SolicitudesVentasTable({
                     variant="outline"
                     className="bg-blue-50 text-blue-700 border-blue-200"
                   >
-                    {solicitud.materiales?.length || 0} items
+                    {cantidadMateriales} items
                   </Badge>
                 </td>
                 <td className="py-4 px-4">

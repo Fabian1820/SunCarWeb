@@ -12,18 +12,18 @@ import {
   RotateCcw,
   Ban,
 } from "lucide-react";
-import type { SolicitudMaterial } from "@/lib/api-types";
+import type { SolicitudMaterialSummary } from "@/lib/api-types";
 import {
   formatFechaRecogida,
   getFechaRecogidaBadge,
 } from "@/lib/utils/fecha-recogida";
 
 interface SolicitudesMaterialesTableProps {
-  solicitudes: SolicitudMaterial[];
-  onEdit?: (solicitud: SolicitudMaterial) => void;
-  onAnular?: (solicitud: SolicitudMaterial) => void;
-  onReabrir?: (solicitud: SolicitudMaterial) => void;
-  onView?: (solicitud: SolicitudMaterial) => void;
+  solicitudes: SolicitudMaterialSummary[];
+  onEdit?: (solicitud: SolicitudMaterialSummary) => void;
+  onAnular?: (solicitud: SolicitudMaterialSummary) => void;
+  onReabrir?: (solicitud: SolicitudMaterialSummary) => void;
+  onView?: (solicitud: SolicitudMaterialSummary) => void;
   loading?: boolean;
 }
 
@@ -34,12 +34,14 @@ export function SolicitudesMaterialesTable({
   onReabrir,
   onView,
 }: SolicitudesMaterialesTableProps) {
-  const getClienteName = (s: SolicitudMaterial) => s.cliente?.nombre || null;
-  const getAlmacenName = (s: SolicitudMaterial) => s.almacen?.nombre || "-";
-  const getTrabajadorName = (s: SolicitudMaterial) =>
-    s.trabajador?.nombre || "-";
-  const getRecogidaBadgeClass = (solicitud: SolicitudMaterial) => {
-    const badge = getFechaRecogidaBadge(solicitud.fecha_recogida);
+  const parseMaterialesCount = (resumen?: string): number => {
+    if (!resumen) return 0;
+    const match = resumen.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  };
+
+  const getRecogidaBadgeClass = (fechaRecogida?: string | null) => {
+    const badge = getFechaRecogidaBadge(fechaRecogida);
     if (badge.kind === "today" || badge.kind === "unknown") {
       return "bg-emerald-50 text-emerald-700 border-emerald-200";
     }
@@ -99,11 +101,13 @@ export function SolicitudesMaterialesTable({
         </thead>
         <tbody>
           {solicitudes.map((solicitud) => {
-            const clienteName = getClienteName(solicitud);
             const estado = solicitud.estado?.toLowerCase();
             const isUsada = estado === "usada";
             const isAnulada = estado === "anulada";
             const isNueva = estado === "nueva";
+            const cantidadMateriales = parseMaterialesCount(
+              solicitud.materiales_resumen,
+            );
 
             return (
               <tr
@@ -133,8 +137,10 @@ export function SolicitudesMaterialesTable({
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
-                  {clienteName ? (
-                    <p className="font-medium text-gray-900">{clienteName}</p>
+                  {solicitud.cliente_nombre ? (
+                    <p className="font-medium text-gray-900">
+                      {solicitud.cliente_nombre}
+                    </p>
                   ) : (
                     <span className="text-gray-400 italic text-sm">
                       Sin cliente
@@ -145,7 +151,7 @@ export function SolicitudesMaterialesTable({
                   <div className="flex items-center gap-1.5">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-700">
-                      {getAlmacenName(solicitud)}
+                      {solicitud.almacen_nombre || "-"}
                     </span>
                   </div>
                 </td>
@@ -153,7 +159,7 @@ export function SolicitudesMaterialesTable({
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-700">
-                      {getTrabajadorName(solicitud)}
+                      {solicitud.creador_nombre || "-"}
                     </span>
                   </div>
                 </td>
@@ -163,7 +169,7 @@ export function SolicitudesMaterialesTable({
                     className="bg-blue-50 text-blue-700 border-blue-200"
                   >
                     <Package className="h-3 w-3 mr-1" />
-                    {solicitud.materiales?.length || 0} items
+                    {cantidadMateriales} items
                   </Badge>
                 </td>
                 <td className="py-4 px-4">
@@ -176,7 +182,7 @@ export function SolicitudesMaterialesTable({
                       <div className="flex items-center gap-2">
                         <Badge
                           variant="outline"
-                          className={`text-[11px] ${getRecogidaBadgeClass(solicitud)}`}
+                          className={`text-[11px] ${getRecogidaBadgeClass(solicitud.fecha_recogida)}`}
                         >
                           {
                             getFechaRecogidaBadge(solicitud.fecha_recogida)

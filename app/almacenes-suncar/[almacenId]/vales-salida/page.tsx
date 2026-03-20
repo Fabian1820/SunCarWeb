@@ -40,7 +40,11 @@ import { CreateValeSalidaDialog } from "@/components/feats/vales-salida/create-v
 import { ValeSalidaDetailDialog } from "@/components/feats/vales-salida/vale-salida-detail-dialog";
 import { DevolucionValeDialog } from "@/components/feats/vales-salida/devolucion-vale-dialog";
 import { AnularValeDialog } from "@/components/feats/vales-salida/anular-vale-dialog";
-import type { ValeSalida, ValeSolicitudPendiente } from "@/lib/api-types";
+import type {
+  ValeSalida,
+  ValeSolicitudPendiente,
+  ValeSalidaSummary,
+} from "@/lib/api-types";
 import {
   formatFechaRecogida,
   getFechaRecogidaBadge,
@@ -155,9 +159,28 @@ export default function ValesSalidaPage() {
     setIsDevolucionDialogOpen(true);
   };
 
-  const handleAnularVale = (vale: ValeSalida) => {
-    setValeToAnular(vale);
-    setIsAnularDialogOpen(true);
+  const handleAnularVale = async (vale: ValeSalidaSummary) => {
+    try {
+      // Cargar detalles completos del vale para anular
+      const valeCompleto = await ValeSalidaService.getValeById(vale.id);
+      if (!valeCompleto) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar el vale",
+          variant: "destructive",
+        });
+        return;
+      }
+      setValeToAnular(valeCompleto);
+      setIsAnularDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading vale for anular:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el vale",
+        variant: "destructive",
+      });
+    }
   };
 
   const confirmAnular = async (motivo: string) => {
@@ -215,10 +238,11 @@ export default function ValesSalidaPage() {
     setIsCreateDialogOpen(true);
   };
 
-  const handleExportValePDF = async (vale: ValeSalida) => {
+  const handleExportValePDF = async (vale: ValeSalidaSummary) => {
     try {
       const valeDetalle = await ValeSalidaService.getValeById(vale.id);
-      await ExportValeSalidaService.exportarPDF(valeDetalle || vale);
+      if (!valeDetalle) throw new Error("No se pudo cargar el vale");
+      await ExportValeSalidaService.exportarPDF(valeDetalle);
       toast({
         title: "PDF generado",
         description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato PDF.`,
@@ -233,10 +257,11 @@ export default function ValesSalidaPage() {
     }
   };
 
-  const handleExportValeExcel = async (vale: ValeSalida) => {
+  const handleExportValeExcel = async (vale: ValeSalidaSummary) => {
     try {
       const valeDetalle = await ValeSalidaService.getValeById(vale.id);
-      await ExportValeSalidaService.exportarExcel(valeDetalle || vale);
+      if (!valeDetalle) throw new Error("No se pudo cargar el vale");
+      await ExportValeSalidaService.exportarExcel(valeDetalle);
       toast({
         title: "Excel generado",
         description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato Excel.`,
@@ -246,6 +271,30 @@ export default function ValesSalidaPage() {
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el Excel del vale.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewVale = async (vale: ValeSalidaSummary) => {
+    try {
+      // Cargar detalles completos del vale
+      const valeCompleto = await ValeSalidaService.getValeById(vale.id);
+      if (!valeCompleto) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar el vale",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedVale(valeCompleto);
+      setIsDetailDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading vale details:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar los detalles del vale",
         variant: "destructive",
       });
     }
@@ -488,10 +537,11 @@ export default function ValesSalidaPage() {
             <ValesSalidaTable
               vales={valesAlmacen}
               onView={(vale) => {
-                setSelectedVale(vale);
-                setIsDetailDialogOpen(true);
+                void handleViewVale(vale);
               }}
-              onAnular={handleAnularVale}
+              onAnular={(vale) => {
+                void handleAnularVale(vale);
+              }}
               onExportPdf={(vale) => {
                 void handleExportValePDF(vale);
               }}

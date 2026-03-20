@@ -18,21 +18,19 @@ import {
   FileSpreadsheet,
   Download,
 } from "lucide-react";
-import type { ValeSalida } from "@/lib/api-types";
-import { formatFechaRecogida } from "@/lib/utils/fecha-recogida";
+import type { ValeSalidaSummary } from "@/lib/api-types";
 
 interface ValesSalidaTableProps {
-  vales: ValeSalida[];
-  onAnular?: (vale: ValeSalida) => void;
-  onView?: (vale: ValeSalida) => void;
-  onExportPdf?: (vale: ValeSalida) => void;
-  onExportExcel?: (vale: ValeSalida) => void;
+  vales: ValeSalidaSummary[];
+  onAnular?: (vale: ValeSalidaSummary) => void;
+  onView?: (vale: ValeSalidaSummary) => void;
+  onExportPdf?: (vale: ValeSalidaSummary) => void;
+  onExportExcel?: (vale: ValeSalidaSummary) => void;
   loading?: boolean;
 }
 
-const getSolicitudTipo = (vale: ValeSalida): "material" | "venta" => {
+const getSolicitudTipo = (vale: ValeSalidaSummary): "material" | "venta" => {
   if (vale.solicitud_tipo === "venta") return "venta";
-  if (vale.solicitud_venta_id || vale.solicitud_venta) return "venta";
   return "material";
 };
 
@@ -69,85 +67,10 @@ export function ValesSalidaTable({
     }
   };
 
-  const getSolicitudCode = (vale: ValeSalida) =>
-    vale.solicitud_material?.codigo ||
-    vale.solicitud_venta?.codigo ||
-    vale.solicitud?.codigo ||
-    vale.solicitud_material_id?.slice(-6).toUpperCase() ||
-    vale.solicitud_venta_id?.slice(-6).toUpperCase() ||
-    vale.solicitud_id?.slice(-6).toUpperCase() ||
-    "-";
-
-  const getClienteInfo = (vale: ValeSalida) => {
-    const cliente =
-      vale.solicitud_venta?.cliente_venta ||
-      vale.solicitud_venta?.cliente ||
-      vale.solicitud_material?.cliente_venta ||
-      vale.solicitud_material?.cliente ||
-      vale.solicitud?.cliente_venta ||
-      vale.solicitud?.cliente ||
-      null;
-
-    return {
-      nombre: cliente?.nombre || "Sin cliente",
-      direccion: cliente?.direccion || "-",
-      telefono: cliente?.telefono || "-",
-    };
-  };
-
-  const getTrabajadorName = (vale: ValeSalida) =>
-    vale.trabajador?.nombre || vale.creado_por_ci || "-";
-
-  const getRecibidoInfo = (vale: ValeSalida) => {
-    const solicitudes = [
-      vale.solicitud_material,
-      vale.solicitud_venta,
-      vale.solicitud,
-    ].filter(Boolean);
-    const firstNonEmpty = (...values: Array<string | null | undefined>) =>
-      values.find(
-        (value) => typeof value === "string" && value.trim().length > 0,
-      ) || null;
-
-    const solicitudRecords = solicitudes as Array<
-      Record<string, unknown> & {
-        recogio_por?: string | null;
-        recogido_por?: string | null;
-        recibido_por?: string | null;
-        responsable_recogida?: string | null;
-        fecha_recogida?: string | null;
-        fechaRecogida?: string | null;
-      }
-    >;
-
-    const recibidoPor =
-      vale.recogio_por ||
-      vale.recogido_por ||
-      vale.recibido_por ||
-      firstNonEmpty(
-        ...solicitudRecords.map((solicitud) => solicitud.recogio_por),
-        ...solicitudRecords.map((solicitud) => solicitud.recogido_por),
-        ...solicitudRecords.map((solicitud) => solicitud.recibido_por),
-        ...solicitudRecords.map((solicitud) => solicitud.responsable_recogida),
-      ) ||
-      "-";
-
-    const fechaRecogidaRaw =
-      firstNonEmpty(
-        ...solicitudRecords.map((solicitud) => solicitud.fecha_recogida),
-        ...solicitudRecords
-          .map((solicitud) =>
-            typeof solicitud.fechaRecogida === "string"
-              ? solicitud.fechaRecogida
-              : null,
-          )
-          .filter(Boolean),
-      ) || null;
-
-    return {
-      recibidoPor,
-      fechaRecogida: formatFechaRecogida(fechaRecogidaRaw),
-    };
+  const parseMaterialesCount = (resumen?: string): number => {
+    if (!resumen) return 0;
+    const match = resumen.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
   };
 
   if (vales.length === 0) {
@@ -188,7 +111,7 @@ export function ValesSalidaTable({
               Creador
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
-              Recibió / Fecha recogida
+              Recibido por
             </th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">
               Acciones
@@ -197,13 +120,12 @@ export function ValesSalidaTable({
         </thead>
         <tbody>
           {vales.map((vale) => {
-            const cliente = getClienteInfo(vale);
             const solicitudTipo = getSolicitudTipo(vale);
             const isAnulado = vale.estado === "anulado";
-            const cantidadMateriales =
-              vale.total_materiales ?? vale.materiales?.length ?? 0;
+            const cantidadMateriales = parseMaterialesCount(
+              vale.materiales_resumen,
+            );
             const tipoStyles = getTipoStyles(solicitudTipo);
-            const recibidoInfo = getRecibidoInfo(vale);
             return (
               <tr
                 key={vale.id}
@@ -216,7 +138,7 @@ export function ValesSalidaTable({
                 </td>
                 <td className="py-4 px-4">
                   <p className="font-mono text-sm text-gray-900">
-                    {getSolicitudCode(vale)}
+                    {vale.solicitud_codigo || "-"}
                   </p>
                 </td>
                 <td className="py-4 px-4">
@@ -236,26 +158,20 @@ export function ValesSalidaTable({
                       variant="outline"
                       className="bg-gray-50 text-gray-700 border-gray-200"
                     >
-                      Materiales: {cantidadMateriales}
+                      {vale.materiales_resumen || "0 materiales"}
                     </Badge>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="space-y-1.5">
-                    <p className="font-medium text-gray-900">
-                      {cliente.nombre}
-                    </p>
-                    <p className="text-sm text-gray-500">{cliente.direccion}</p>
-                    <p className="text-sm text-gray-500">
-                      Tel: {cliente.telefono}
-                    </p>
-                  </div>
+                  <p className="font-medium text-gray-900">
+                    {vale.cliente_nombre || "Sin cliente"}
+                  </p>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-700">
-                      {getTrabajadorName(vale)}
+                      {vale.creador_nombre || "-"}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5 mt-1.5">
@@ -269,13 +185,7 @@ export function ValesSalidaTable({
                   <div className="flex items-center gap-1.5">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-700">
-                      {recibidoInfo.recibidoPor}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      Fecha-recogida: {recibidoInfo.fechaRecogida}
+                      {vale.recibido_por || "-"}
                     </span>
                   </div>
                 </td>

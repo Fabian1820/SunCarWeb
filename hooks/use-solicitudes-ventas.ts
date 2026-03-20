@@ -6,11 +6,12 @@ import type {
   SolicitudVentaCreateData,
   SolicitudVentaListParams,
   SolicitudVentaUpdateData,
+  SolicitudVentaSummary,
 } from "@/lib/api-types";
 
 interface UseSolicitudesVentasReturn {
-  solicitudes: SolicitudVenta[];
-  filteredSolicitudes: SolicitudVenta[];
+  solicitudes: SolicitudVentaSummary[];
+  filteredSolicitudes: SolicitudVentaSummary[];
   loading: boolean;
   error: string | null;
   searchTerm: string;
@@ -32,6 +33,7 @@ interface UseSolicitudesVentasReturn {
   ) => Promise<SolicitudVenta>;
   reabrirSolicitud: (id: string) => Promise<SolicitudVenta>;
   clearError: () => void;
+  total: number;
 }
 
 const normalizeText = (value?: string): string =>
@@ -42,7 +44,8 @@ const normalizeText = (value?: string): string =>
     .trim();
 
 export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
-  const [solicitudes, setSolicitudes] = useState<SolicitudVenta[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudVentaSummary[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -70,8 +73,10 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
       };
 
       try {
-        const data = await SolicitudVentaService.getSolicitudes(finalFilters);
-        setSolicitudes(data);
+        const response =
+          await SolicitudVentaService.getSolicitudesSummary(finalFilters);
+        setSolicitudes(response.data);
+        setTotal(response.total);
         if (overrideFilters) {
           setFiltersState(finalFilters);
         }
@@ -82,6 +87,7 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
             : "Error al cargar solicitudes de ventas",
         );
         setSolicitudes([]);
+        setTotal(0);
       } finally {
         setLoading(false);
       }
@@ -97,13 +103,9 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
       const searchIndex = [
         solicitud.codigo,
         solicitud.estado,
-        solicitud.cliente_venta?.numero,
-        solicitud.cliente_venta?.nombre,
-        solicitud.cliente_venta?.telefono,
-        solicitud.cliente_venta?.ci,
-        solicitud.almacen?.nombre,
-        solicitud.trabajador?.nombre,
-        solicitud.trabajador?.ci,
+        solicitud.cliente_venta_nombre,
+        solicitud.almacen_nombre,
+        solicitud.creador_nombre,
       ]
         .map((value) => normalizeText(value))
         .join(" ");
@@ -229,5 +231,6 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     anularSolicitud,
     reabrirSolicitud,
     clearError,
+    total,
   };
 }

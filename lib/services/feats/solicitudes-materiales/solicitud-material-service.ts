@@ -7,6 +7,8 @@ import type {
   SolicitudMaterialCreateData,
   SolicitudMaterialUpdateData,
   MaterialSugerido,
+  SolicitudMaterialSummary,
+  SolicitudMaterialSummaryResponse,
 } from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/solicitudes-materiales";
@@ -34,6 +36,48 @@ const extractApiError = (response: any): string | null => {
 };
 
 export class SolicitudMaterialService {
+  /**
+   * List solicitudes summary (optimized for table views)
+   * GET /api/operaciones/solicitudes-materiales/summary
+   */
+  static async getSolicitudesSummary(
+    params: {
+      cliente_id?: string;
+      almacen_id?: string;
+      trabajador_id?: string;
+      codigo?: string;
+      estado?: "nueva" | "usada" | "anulada" | string;
+      skip?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{ data: SolicitudMaterialSummary[]; total: number }> {
+    const search = new URLSearchParams();
+    if (params.cliente_id) search.append("cliente_id", params.cliente_id);
+    if (params.almacen_id) search.append("almacen_id", params.almacen_id);
+    if (params.trabajador_id)
+      search.append("trabajador_id", params.trabajador_id);
+    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.estado) search.append("estado", params.estado);
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+
+    const endpoint = search.toString()
+      ? `${BASE_ENDPOINT}/summary?${search.toString()}`
+      : `${BASE_ENDPOINT}/summary`;
+
+    const raw = await apiRequest<SolicitudMaterialSummaryResponse>(endpoint);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = raw?.data ?? raw;
+    const data = Array.isArray(payload)
+      ? payload
+      : payload?.data || payload?.solicitudes || [];
+    const total = typeof payload === "object" ? payload.total || 0 : 0;
+
+    return { data, total };
+  }
+
   /**
    * List solicitudes with optional filters
    * GET /api/operaciones/solicitudes-materiales/

@@ -25,7 +25,9 @@ import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
   SolicitudVentaUpdateData,
+  SolicitudVentaSummary,
 } from "@/lib/api-types";
+import { SolicitudVentaService } from "@/lib/api-services";
 
 export default function SolicitudesVentasPage() {
   const { toast } = useToast();
@@ -136,7 +138,7 @@ export default function SolicitudesVentasPage() {
     }
   };
 
-  const handleEditSolicitud = (solicitud: SolicitudVenta) => {
+  const handleEditSolicitud = async (solicitud: SolicitudVentaSummary) => {
     if (solicitud.estado?.toLowerCase() !== "nueva") {
       toast({
         title: "Accion no permitida",
@@ -146,11 +148,33 @@ export default function SolicitudesVentasPage() {
       });
       return;
     }
-    setSelectedSolicitud(solicitud);
-    setIsEditDialogOpen(true);
+
+    try {
+      const solicitudCompleta =
+        await SolicitudVentaService.getSolicitudById(solicitud.id);
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedSolicitud(solicitudCompleta);
+      setIsEditDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading solicitud for edit:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la solicitud",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleOpenAnularSolicitud = (solicitud: SolicitudVenta) => {
+  const handleOpenAnularSolicitud = async (
+    solicitud: SolicitudVentaSummary,
+  ) => {
     if (solicitud.estado?.toLowerCase() !== "nueva") {
       toast({
         title: "Accion no permitida",
@@ -160,8 +184,28 @@ export default function SolicitudesVentasPage() {
       });
       return;
     }
-    setSolicitudToAnular(solicitud);
-    setIsAnularDialogOpen(true);
+
+    try {
+      const solicitudCompleta =
+        await SolicitudVentaService.getSolicitudById(solicitud.id);
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSolicitudToAnular(solicitudCompleta);
+      setIsAnularDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading solicitud for anular:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la solicitud",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleConfirmAnularSolicitud = async (motivo: string) => {
@@ -192,7 +236,7 @@ export default function SolicitudesVentasPage() {
     }
   };
 
-  const handleReabrirSolicitud = async (solicitud: SolicitudVenta) => {
+  const handleReabrirSolicitud = async (solicitud: SolicitudVentaSummary) => {
     if (solicitud.estado?.toLowerCase() !== "anulada") {
       toast({
         title: "Accion no permitida",
@@ -206,7 +250,7 @@ export default function SolicitudesVentasPage() {
       const nuevaSolicitud = await reabrirSolicitud(solicitud.id);
       toast({
         title: "Exito",
-        description: `Se creo la nueva solicitud ${getSolicitudCodigo(nuevaSolicitud)} a partir de ${getSolicitudCodigo(solicitud)}.`,
+        description: `Se creo la nueva solicitud ${getSolicitudCodigo(nuevaSolicitud)} a partir de ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}.`,
       });
     } catch (error) {
       toast({
@@ -215,6 +259,30 @@ export default function SolicitudesVentasPage() {
           error instanceof Error
             ? error.message
             : "No se pudo reabrir solicitud de venta",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewSolicitud = async (solicitud: SolicitudVentaSummary) => {
+    try {
+      const solicitudCompleta =
+        await SolicitudVentaService.getSolicitudById(solicitud.id);
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      setSelectedSolicitud(solicitudCompleta);
+      setIsDetailDialogOpen(true);
+    } catch (error) {
+      console.error("Error loading solicitud details:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo cargar los detalles de la solicitud",
         variant: "destructive",
       });
     }
@@ -281,11 +349,14 @@ export default function SolicitudesVentasPage() {
             <SolicitudesVentasTable
               solicitudes={filteredSolicitudes}
               onView={(solicitud) => {
-                setSelectedSolicitud(solicitud);
-                setIsDetailDialogOpen(true);
+                void handleViewSolicitud(solicitud);
               }}
-              onEdit={handleEditSolicitud}
-              onAnular={handleOpenAnularSolicitud}
+              onEdit={(solicitud) => {
+                void handleEditSolicitud(solicitud);
+              }}
+              onAnular={(solicitud) => {
+                void handleOpenAnularSolicitud(solicitud);
+              }}
               onReabrir={(solicitud) => {
                 void handleReabrirSolicitud(solicitud);
               }}

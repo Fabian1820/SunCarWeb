@@ -6,6 +6,8 @@ import type {
   ValeSalidaAnularData,
   ValeSalidaCreateData,
   ValeSolicitudPendiente,
+  ValeSalidaSummary,
+  ValeSalidaSummaryResponse,
 } from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/vales-salida";
@@ -30,6 +32,56 @@ const extractApiError = (response: any): string | null => {
 };
 
 export class ValeSalidaService {
+  /**
+   * List vales de salida summary (optimized for table views)
+   * GET /api/operaciones/vales-salida/summary
+   */
+  static async getValesSummary(
+    params: {
+      solicitud_tipo?: "material" | "venta";
+      solicitud_material_id?: string;
+      solicitud_venta_id?: string;
+      trabajador_id?: string;
+      codigo?: string;
+      estado?: "usado" | "anulado" | string;
+      skip?: number;
+      limit?: number;
+    } = {},
+  ): Promise<{ data: ValeSalidaSummary[]; total: number }> {
+    const search = new URLSearchParams();
+    if (params.solicitud_tipo) {
+      search.append("solicitud_tipo", params.solicitud_tipo);
+    }
+    if (params.solicitud_material_id) {
+      search.append("solicitud_material_id", params.solicitud_material_id);
+    }
+    if (params.solicitud_venta_id) {
+      search.append("solicitud_venta_id", params.solicitud_venta_id);
+    }
+    if (params.trabajador_id)
+      search.append("trabajador_id", params.trabajador_id);
+    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.estado) search.append("estado", params.estado);
+    if (params.skip != null) search.append("skip", String(params.skip));
+    if (params.limit != null) search.append("limit", String(params.limit));
+
+    const endpoint = search.toString()
+      ? `${BASE_ENDPOINT}/summary?${search.toString()}`
+      : `${BASE_ENDPOINT}/summary`;
+
+    const raw = await apiRequest<ValeSalidaSummaryResponse>(endpoint);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+
+    const payload = raw?.data ?? raw;
+    const data = Array.isArray(payload)
+      ? payload
+      : payload?.data || payload?.vales || [];
+    const total = typeof payload === "object" ? payload.total || 0 : 0;
+
+    return { data, total };
+  }
+
   /**
    * List vales de salida with optional filters
    * GET /api/operaciones/vales-salida/
