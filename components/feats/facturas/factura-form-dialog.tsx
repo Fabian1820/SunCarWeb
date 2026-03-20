@@ -22,7 +22,10 @@ import {
 import { Eye, Loader2, Package } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
-import { ValeSalidaService } from "@/lib/services/feats/vales-salida/vale-salida-service";
+import { TrabajadorService } from "@/lib/services/feats/worker/trabajador-service";
+import { facturaService } from "@/lib/services/feats/facturas/factura-service";
+import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
+import { TrabajadorSearchSelector } from "@/components/feats/worker/trabajador-search-selector";
 import type {
   Factura,
   FacturaTipo,
@@ -30,6 +33,7 @@ import type {
 } from "@/lib/types/feats/facturas/factura-types";
 import type {
   Cliente,
+  Trabajador,
   ValeSalida,
   ValeSalidaMaterialItemDetalle,
 } from "@/lib/api-types";
@@ -39,6 +43,8 @@ interface FacturaFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   factura?: Factura | null;
+  prefillClienteId?: string | null;
+  prefillVales?: ValeSalida[] | null;
   onSave: (
     factura: Omit<Factura, "id" | "fecha_creacion" | "total">,
   ) => Promise<void>;
@@ -65,32 +71,6 @@ const normalizeText = (value?: string | null) =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase();
-
-const getValeClientKeys = (vale: ValeSalida): string[] => {
-  const candidates = [
-    vale.solicitud_material?.cliente?.id,
-    vale.solicitud_material?.cliente?.numero,
-    vale.solicitud_material?.cliente_venta?.id,
-    vale.solicitud_material?.cliente_venta?.numero,
-    vale.solicitud_venta?.cliente?.id,
-    vale.solicitud_venta?.cliente?.numero,
-    vale.solicitud_venta?.cliente_venta?.id,
-    vale.solicitud_venta?.cliente_venta?.numero,
-    vale.solicitud?.cliente?.id,
-    vale.solicitud?.cliente?.numero,
-    vale.solicitud?.cliente_venta?.id,
-    vale.solicitud?.cliente_venta?.numero,
-  ];
-  return candidates
-    .filter((value): value is string => Boolean(value))
-    .map((value) => value.trim().toUpperCase());
-};
-
-const valeMatchesClient = (vale: ValeSalida, selectedClient: string) => {
-  const selected = selectedClient.trim().toUpperCase();
-  if (!selected) return false;
-  return getValeClientKeys(vale).includes(selected);
-};
 
 const buildValeCode = (vale: ValeSalida) =>
   vale.codigo ||
@@ -184,14 +164,14 @@ const mapValeToFacturaVale = (
   tipoFactura: FacturaTipo,
 ): Factura["vales"][number] => {
   // Debug: verificar el vale original
-  console.log('🔍 mapValeToFacturaVale - Vale original:', {
+  console.log("🔍 mapValeToFacturaVale - Vale original:", {
     id: vale.id,
     tipo_id: typeof vale.id,
     codigo: vale.codigo,
     tiene_id: !!vale.id,
-    vale_completo: vale
+    vale_completo: vale,
   });
-  
+
   const items = (vale.materiales || []).map((item, index) => {
     const matchedMaterial = findMaterialForValeItem(item, materials);
     const materialCode =
@@ -232,16 +212,16 @@ const mapValeToFacturaVale = (
     fecha: vale.fecha_creacion || new Date().toISOString(),
     items,
   };
-  
+
   // Debug: verificar el vale resultante
-  console.log('✅ mapValeToFacturaVale - Vale resultante:', {
+  console.log("✅ mapValeToFacturaVale - Vale resultante:", {
     id: valeResultado.id,
     tipo_id: typeof valeResultado.id,
     tiene_id: !!valeResultado.id,
     fecha: valeResultado.fecha,
-    items_count: valeResultado.items.length
+    items_count: valeResultado.items.length,
   });
-  
+
   return valeResultado;
 };
 
@@ -264,28 +244,60 @@ const getValeItemDescription = (item: ValeSalidaMaterialItemDetalle) =>
   item.material?.nombre ||
   "Sin descripcion";
 
+const buildClienteLookupParams = (
+  selectedValue: string,
+  clientes: Cliente[],
+): { cliente_id?: string; cliente_numero?: string } => {
+  const raw = (selectedValue || "").toString().trim();
+  if (!raw) return {};
+
+  const selectedCliente = clientes.find(
+    (cliente) => cliente.id === raw || cliente.numero === raw,
+  );
+
+  if (selectedCliente) {
+    const params: { cliente_id?: string; cliente_numero?: string } = {};
+    if (selectedCliente.id) params.cliente_id = selectedCliente.id;
+    if (selectedCliente.numero) params.cliente_numero = selectedCliente.numero;
+    return params;
+  }
+
+  // Fallback para valores pre-cargados que no estén aún en el listado local.
+  if (/^[a-f\d]{24}$/i.test(raw)) {
+    return { cliente_id: raw };
+  }
+  return { cliente_numero: raw };
+};
+
 export function FacturaFormDialog({
   open,
   onOpenChange,
   factura,
+  prefillClienteId = null,
+  prefillVales,
   onSave,
   onGetNumeroSugerido,
   materials,
 }: FacturaFormDialogProps) {
   const { token } = useAuth();
+  const hasPrefilledVales = !factura && (prefillVales?.length || 0) > 0;
   const [formData, setFormData] = useState<
     Omit<Factura, "id" | "fecha_creacion" | "total">
   >({
     numero_factura: "",
-    tipo: "cliente_directo",
-    subtipo: null,
+    tipo: "instaladora",
+    subtipo: "cliente",
     cliente_id: null,
+    trabajador_ci: null,
+    nombre_responsable: null,
     vales: [],
     pagada: false,
     terminada: false,
   });
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
+  const [loadingTrabajadores, setLoadingTrabajadores] = useState(false);
   const [loadingNumero, setLoadingNumero] = useState(false);
   const [valesDisponibles, setValesDisponibles] = useState<ValeSalida[]>([]);
   const [loadingVales, setLoadingVales] = useState(false);
@@ -322,25 +334,54 @@ export function FacturaFormDialog({
     }
   }, [onGetNumeroSugerido]);
 
-  // Cargar clientes al abrir
+  const loadTrabajadores = useCallback(async () => {
+    setLoadingTrabajadores(true);
+    try {
+      const data = await TrabajadorService.getAllTrabajadores();
+      setTrabajadores(data.filter((trabajador) => trabajador.activo !== false));
+    } catch (error) {
+      console.error("Error cargando trabajadores:", error);
+      setTrabajadores([]);
+    } finally {
+      setLoadingTrabajadores(false);
+    }
+  }, []);
+
+  // Cargar datos base al abrir
   useEffect(() => {
     if (open && token) {
       loadClientes();
+      loadTrabajadores();
       if (!factura) {
         // Modo crear: obtener número sugerido
         loadNumeroSugerido();
       }
     }
-  }, [open, token, factura, loadClientes, loadNumeroSugerido]);
+  }, [
+    open,
+    token,
+    factura,
+    loadClientes,
+    loadTrabajadores,
+    loadNumeroSugerido,
+  ]);
 
   // Cargar datos de factura existente
   useEffect(() => {
     if (factura && open) {
       setFormData({
         numero_factura: factura.numero_factura,
-        tipo: factura.tipo,
-        subtipo: factura.subtipo || null,
-        cliente_id: factura.cliente_id || null,
+        tipo: "instaladora",
+        subtipo: factura.subtipo || "cliente",
+        cliente_id:
+          factura.subtipo === "cliente" ? factura.cliente_id || null : null,
+        trabajador_ci:
+          factura.subtipo === "brigada" ? factura.trabajador_ci || null : null,
+        nombre_responsable:
+          factura.subtipo === "brigada"
+            ? factura.nombre_responsable || factura.responsable_nombre || null
+            : null,
+        nombre_cliente: factura.nombre_cliente,
         vales: factura.vales,
         pagada: factura.pagada,
         terminada: factura.terminada,
@@ -348,28 +389,34 @@ export function FacturaFormDialog({
       setSelectedValeIds([]);
       setValesDisponibles([]);
     } else if (!factura && open) {
+      const valesPrefill = prefillVales || [];
+      const mappedPrefillVales = valesPrefill.map((vale) =>
+        mapValeToFacturaVale(vale, materials, "instaladora"),
+      );
+
       // Reset form para nueva factura
       setFormData({
         numero_factura: "",
-        tipo: "cliente_directo",
-        subtipo: null,
-        cliente_id: null,
-        vales: [],
+        tipo: "instaladora",
+        subtipo: "cliente",
+        cliente_id: prefillClienteId || null,
+        trabajador_ci: null,
+        nombre_responsable: null,
+        vales: mappedPrefillVales,
         pagada: false,
         terminada: false,
       });
-      setSelectedValeIds([]);
-      setValesDisponibles([]);
+      setSelectedValeIds(valesPrefill.map((vale) => vale.id));
+      setValesDisponibles(valesPrefill);
     }
-  }, [factura, open]);
+  }, [factura, open, prefillClienteId, prefillVales, materials]);
 
   useEffect(() => {
     if (!open || !!factura) return;
+    if (hasPrefilledVales) return;
 
     const mustLoadVales =
-      formData.tipo === "instaladora" &&
-      formData.subtipo === "cliente" &&
-      Boolean(formData.cliente_id);
+      formData.subtipo === "cliente" && Boolean(formData.cliente_id);
 
     if (!mustLoadVales) {
       setValesDisponibles([]);
@@ -385,33 +432,35 @@ export function FacturaFormDialog({
       setLoadingVales(true);
       setValesError(null);
       try {
-        const allVales = await ValeSalidaService.getVales({
-          estado: "usado",
-          limit: 2000,
+        const clienteLookup = buildClienteLookupParams(
+          formData.cliente_id as string,
+          clientes,
+        );
+
+        if (!clienteLookup.cliente_id && !clienteLookup.cliente_numero) {
+          setValesDisponibles([]);
+          return;
+        }
+
+        const allVales = await facturaService.obtenerValesDisponibles({
+          ...clienteLookup,
+          skip: 0,
+          limit: 200,
         });
         if (cancelled) return;
 
         // Debug: verificar vales cargados
-        console.log('📥 Vales cargados del backend:', allVales.map(v => ({
-          id: v.id,
-          tipo_id: typeof v.id,
-          codigo: v.codigo,
-          tiene_id: !!v.id
-        })));
-
-        const filtered = allVales.filter((vale) =>
-          valeMatchesClient(vale, formData.cliente_id as string),
+        console.log(
+          "📥 Vales cargados del backend:",
+          allVales.map((v) => ({
+            id: v.id,
+            tipo_id: typeof v.id,
+            codigo: v.codigo,
+            tiene_id: !!v.id,
+          })),
         );
-        
-        // Debug: verificar vales filtrados
-        console.log('🔍 Vales filtrados para cliente:', filtered.map(v => ({
-          id: v.id,
-          tipo_id: typeof v.id,
-          codigo: v.codigo,
-          tiene_id: !!v.id
-        })));
-        
-        setValesDisponibles(filtered);
+
+        setValesDisponibles(allVales);
       } catch (error) {
         if (cancelled) return;
         setValesDisponibles([]);
@@ -431,10 +480,18 @@ export function FacturaFormDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, factura, formData.tipo, formData.subtipo, formData.cliente_id]);
+  }, [
+    open,
+    factura,
+    formData.subtipo,
+    formData.cliente_id,
+    clientes,
+    hasPrefilledVales,
+  ]);
 
   useEffect(() => {
     if (!open || !!factura) return;
+    if (hasPrefilledVales) return;
 
     const selectedVales = valesDisponibles.filter((vale) =>
       selectedValeIds.includes(vale.id),
@@ -442,10 +499,17 @@ export function FacturaFormDialog({
     const mappedVales = selectedVales.map((vale) =>
       mapValeToFacturaVale(vale, materials, formData.tipo),
     );
-    
+
     // Debug: verificar que los vales mapeados tienen el ID
-    console.log('🔄 Vales mapeados:', mappedVales.map(v => ({ id: v.id, fecha: v.fecha, items_count: v.items.length })));
-    
+    console.log(
+      "🔄 Vales mapeados:",
+      mappedVales.map((v) => ({
+        id: v.id,
+        fecha: v.fecha,
+        items_count: v.items.length,
+      })),
+    );
+
     setFormData((prev) => ({ ...prev, vales: mappedVales }));
   }, [
     open,
@@ -454,23 +518,8 @@ export function FacturaFormDialog({
     selectedValeIds,
     materials,
     formData.tipo,
+    hasPrefilledVales,
   ]);
-
-  const handleTipoChange = (tipo: FacturaTipo) => {
-    const resetCliente = tipo !== "instaladora";
-    setFormData({
-      ...formData,
-      tipo,
-      subtipo: tipo === "instaladora" ? "brigada" : null,
-      cliente_id: resetCliente ? null : formData.cliente_id,
-      vales: resetCliente ? [] : formData.vales,
-    });
-    if (resetCliente) {
-      setSelectedValeIds([]);
-      setValesDisponibles([]);
-      setValesError(null);
-    }
-  };
 
   const handleSubTipoChange = (subtipo: FacturaSubTipo) => {
     const isClienteSubtipo = subtipo === "cliente";
@@ -478,6 +527,10 @@ export function FacturaFormDialog({
       ...formData,
       subtipo,
       cliente_id: isClienteSubtipo ? formData.cliente_id : null,
+      trabajador_ci: isClienteSubtipo ? null : formData.trabajador_ci || null,
+      nombre_responsable: isClienteSubtipo
+        ? null
+        : formData.nombre_responsable || null,
       vales: isClienteSubtipo ? formData.vales : [],
     });
     if (!isClienteSubtipo) {
@@ -488,14 +541,58 @@ export function FacturaFormDialog({
   };
 
   const handleClienteChange = (clienteId: string) => {
+    const clienteSeleccionado = clientes.find(
+      (cliente) => cliente.id === clienteId || cliente.numero === clienteId,
+    );
+    const clienteNumero = clienteSeleccionado?.numero || clienteId;
     setFormData({
       ...formData,
-      cliente_id: clienteId,
+      // En facturas siempre persistimos el número de cliente, no el ObjectId.
+      cliente_id: clienteNumero,
+      nombre_cliente:
+        clienteSeleccionado?.nombre || formData.nombre_cliente || undefined,
       vales: [],
     });
     setSelectedValeIds([]);
     setValesDisponibles([]);
     setValesError(null);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    if (formData.subtipo !== "cliente") return;
+    if (!formData.cliente_id) return;
+    if (clientes.length === 0) return;
+
+    const clienteSeleccionado = clientes.find(
+      (cliente) =>
+        cliente.id === formData.cliente_id ||
+        cliente.numero === formData.cliente_id,
+    );
+    if (!clienteSeleccionado?.numero) return;
+    if (formData.cliente_id === clienteSeleccionado.numero) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      cliente_id: clienteSeleccionado.numero,
+      nombre_cliente:
+        clienteSeleccionado.nombre || prev.nombre_cliente || undefined,
+    }));
+  }, [open, clientes, formData.subtipo, formData.cliente_id]);
+
+  const handleTrabajadorChange = (trabajadorCi: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      trabajador_ci: trabajadorCi || null,
+      nombre_responsable: trabajadorCi ? null : prev.nombre_responsable,
+    }));
+  };
+
+  const handleResponsableNombreChange = (responsableNombre: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      nombre_responsable: responsableNombre,
+    }));
   };
 
   const handleValeCheckedChange = (valeId: string, checked: boolean) => {
@@ -518,21 +615,68 @@ export function FacturaFormDialog({
   const valesSeleccionables = useMemo(
     () =>
       !factura &&
-      formData.tipo === "instaladora" &&
+      !hasPrefilledVales &&
       formData.subtipo === "cliente" &&
       Boolean(formData.cliente_id),
-    [factura, formData.tipo, formData.subtipo, formData.cliente_id],
+    [factura, formData.subtipo, formData.cliente_id, hasPrefilledVales],
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
+      const trabajadorSeleccionado = trabajadores.find(
+        (trabajador) => trabajador.CI === formData.trabajador_ci,
+      );
+      const clienteSeleccionado = clientes.find(
+        (cliente) =>
+          cliente.id === formData.cliente_id ||
+          cliente.numero === formData.cliente_id,
+      );
+      const responsableNombre = formData.nombre_responsable?.trim() || null;
+      const payload: Omit<Factura, "id" | "fecha_creacion" | "total"> = {
+        ...formData,
+        numero_factura: formData.numero_factura.trim(),
+        tipo: "instaladora",
+        subtipo: formData.subtipo || "cliente",
+        cliente_id:
+          formData.subtipo === "cliente"
+            ? clienteSeleccionado?.numero || formData.cliente_id || null
+            : null,
+        trabajador_ci:
+          formData.subtipo === "brigada"
+            ? formData.trabajador_ci || null
+            : null,
+        nombre_responsable:
+          formData.subtipo === "brigada"
+            ? responsableNombre ||
+              trabajadorSeleccionado?.nombre ||
+              formData.nombre_cliente ||
+              null
+            : null,
+        nombre_cliente:
+          formData.subtipo === "cliente"
+            ? clienteSeleccionado?.nombre ||
+              formData.nombre_cliente ||
+              undefined
+            : responsableNombre || trabajadorSeleccionado?.nombre || undefined,
+      };
+
       // Debug: verificar que los vales tienen el ID
-      console.log('📤 Datos de factura a enviar:', JSON.stringify(formData, null, 2));
-      console.log('📤 Vales con IDs:', formData.vales.map(v => ({ id: v.id, fecha: v.fecha, items_count: v.items.length })));
-      
-      await onSave(formData);
+      console.log(
+        "📤 Datos de factura a enviar:",
+        JSON.stringify(payload, null, 2),
+      );
+      console.log(
+        "📤 Vales con IDs:",
+        payload.vales.map((v) => ({
+          id: v.id,
+          fecha: v.fecha,
+          items_count: v.items.length,
+        })),
+      );
+
+      await onSave(payload);
       onOpenChange(false);
     } catch (error) {
       console.error("Error guardando factura:", error);
@@ -544,10 +688,14 @@ export function FacturaFormDialog({
 
   const isFormValid = () => {
     if (!formData.numero_factura.trim()) return false;
+    if (!formData.subtipo) return false;
+    if (formData.subtipo === "cliente" && !formData.cliente_id) {
+      return false;
+    }
     if (
-      formData.tipo === "instaladora" &&
-      formData.subtipo === "cliente" &&
-      !formData.cliente_id
+      formData.subtipo === "brigada" &&
+      !formData.trabajador_ci &&
+      !formData.nombre_responsable?.trim()
     ) {
       return false;
     }
@@ -556,7 +704,7 @@ export function FacturaFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {factura ? "Editar Factura" : "Nueva Factura"}
@@ -596,75 +744,69 @@ export function FacturaFormDialog({
               </div>
             </div>
 
-            {/* Tipo de Factura */}
             <div className="space-y-2">
-              <Label>Tipo de Factura</Label>
+              <Label>Subtipo</Label>
               <Select
-                value={formData.tipo}
-                onValueChange={(v) => handleTipoChange(v as FacturaTipo)}
+                value={formData.subtipo || ""}
+                onValueChange={(v) => handleSubTipoChange(v as FacturaSubTipo)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="instaladora">Instaladora</SelectItem>
-                  <SelectItem value="cliente_directo">
-                    Cliente Directo
-                  </SelectItem>
+                  <SelectItem value="cliente">Cliente</SelectItem>
+                  <SelectItem value="brigada">Brigada</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          {/* Opciones condicionales para Instaladora */}
-          {formData.tipo === "instaladora" && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Subtipo</Label>
-                <Select
-                  value={formData.subtipo || ""}
-                  onValueChange={(v) =>
-                    handleSubTipoChange(v as FacturaSubTipo)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="brigada">Brigada</SelectItem>
-                    <SelectItem value="cliente">Cliente</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          <div className="space-y-4">
+            {formData.subtipo === "cliente" && (
+              <ClienteSearchSelector
+                label="Buscar cliente"
+                clients={clientes}
+                value={formData.cliente_id || ""}
+                onChange={handleClienteChange}
+                loading={loadingClientes}
+              />
+            )}
 
-              {formData.subtipo === "cliente" && (
+            {formData.subtipo === "brigada" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <TrabajadorSearchSelector
+                  label="Buscar trabajador"
+                  trabajadores={trabajadores}
+                  value={formData.trabajador_ci || ""}
+                  onChange={handleTrabajadorChange}
+                  loading={loadingTrabajadores}
+                />
                 <div className="space-y-2">
-                  <Label>Cliente</Label>
-                  <Select
-                    value={formData.cliente_id || ""}
-                    onValueChange={handleClienteChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          loadingClientes
-                            ? "Cargando..."
-                            : "Seleccionar cliente"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {clientes.map((cliente) => (
-                        <SelectItem key={cliente.numero} value={cliente.numero}>
-                          {cliente.nombre} ({cliente.numero})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>
+                    Nombre de responsable
+                    {!formData.trabajador_ci ? " *" : ""}
+                  </Label>
+                  <Input
+                    value={formData.nombre_responsable || ""}
+                    onChange={(event) =>
+                      handleResponsableNombreChange(event.target.value)
+                    }
+                    placeholder={
+                      formData.trabajador_ci
+                        ? "Se usara el trabajador seleccionado"
+                        : "Escribe el nombre del responsable"
+                    }
+                    disabled={Boolean(formData.trabajador_ci)}
+                  />
+                  <p className="text-xs text-gray-600">
+                    {formData.trabajador_ci
+                      ? "Para escribir un responsable manual, limpia el trabajador seleccionado."
+                      : "Si no seleccionas un trabajador, este campo es obligatorio."}
+                  </p>
                 </div>
-              )}
-            </div>
-          )}
+              </div>
+            )}
+          </div>
 
           {valesSeleccionables && (
             <div className="space-y-3 border border-orange-200 rounded-lg p-4 bg-orange-50/40">

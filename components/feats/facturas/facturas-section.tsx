@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
 import { FacturasConsolidadasTable } from "./facturas-consolidadas-table";
 import { FacturaFormDialog } from "./factura-form-dialog";
+import { AnularFacturaDialog } from "./anular-factura-dialog";
 import type {
   Factura,
   FacturaConsolidada,
@@ -45,14 +46,35 @@ import { useMaterials } from "@/hooks/use-materials";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 import { useToast } from "@/hooks/use-toast";
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/shared/molecule/tabs";
+import {
   FacturaContabilidadService,
   type FacturaContabilidadReporteMensualItem,
 } from "@/lib/services/feats/facturas/factura-contabilidad-service";
-import { SeleccionarValesSalidaDialog } from "./seleccionar-vales-salida-dialog";
-import type { ValeSalida } from "@/lib/api-types";
+import { facturaService } from "@/lib/services/feats/facturas/factura-service";
+import {
+  ExportFacturaService,
+  type FacturaExportClienteData,
+  type FacturaExportMeta,
+} from "@/lib/services/feats/facturas/export-factura-service";
+import { useAuth } from "@/contexts/auth-context";
 import { ValeSalidaService } from "@/lib/services/feats/vales-salida/vale-salida-service";
+import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import type { Cliente, ValeSalida } from "@/lib/api-types";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
+import { Input } from "@/components/shared/molecule/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 
 const parseNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -85,12 +107,6 @@ const parseNullableNumber = (value: unknown): number | null => {
   return null;
 };
 
-const formatDateForExcel = (value?: string): string => {
-  const timestamp = parseDateTimestamp(value);
-  if (!timestamp) return "";
-  return new Date(timestamp).toISOString().slice(0, 10);
-};
-
 const parseDateTimestamp = (value?: string): number => {
   if (!value) return 0;
   const trimmed = value.trim();
@@ -105,6 +121,21 @@ const parseDateTimestamp = (value?: string): number => {
   const parsed = new Date(trimmed);
   return Number.isNaN(parsed.getTime()) ? 0 : parsed.getTime();
 };
+
+const MESES_OPCIONES = [
+  { value: 1, label: "Enero" },
+  { value: 2, label: "Febrero" },
+  { value: 3, label: "Marzo" },
+  { value: 4, label: "Abril" },
+  { value: 5, label: "Mayo" },
+  { value: 6, label: "Junio" },
+  { value: 7, label: "Julio" },
+  { value: 8, label: "Agosto" },
+  { value: 9, label: "Septiembre" },
+  { value: 10, label: "Octubre" },
+  { value: 11, label: "Noviembre" },
+  { value: 12, label: "Diciembre" },
+];
 
 const calcularTotalMaterialesFactura = (factura: Factura): number => {
   const totalFactura = parseNullableNumber(factura.total);
@@ -133,6 +164,68 @@ const getMesAnioFactura = (
   };
 };
 
+type VistaFacturacionTab = "facturas" | "vales-no-facturados";
+
+const normalizeKey = (value?: string | null) =>
+  (value || "").trim().toUpperCase();
+
+const getSolicitudFromVale = (vale: ValeSalida) =>
+  vale.solicitud_material || vale.solicitud_venta || vale.solicitud || null;
+
+const getClienteFromVale = (vale: ValeSalida) => {
+  const solicitud = getSolicitudFromVale(vale);
+  if (!solicitud) return null;
+  return solicitud.cliente || solicitud.cliente_venta || null;
+};
+
+const getClienteKeyFromVale = (vale: ValeSalida): string | null => {
+  const cliente = getClienteFromVale(vale);
+  const key = (cliente?.numero || cliente?.id || "").toString().trim();
+  return key || null;
+};
+
+const getClienteNombreFromVale = (vale: ValeSalida) =>
+  getClienteFromVale(vale)?.nombre || "Sin cliente";
+
+const isValeNoFacturadoDisponible = (vale: ValeSalida) => {
+  if (vale.facturado === true) return false;
+
+  const estadoVale = (vale.estado || "").trim().toLowerCase();
+  if (estadoVale === "anulado") return false;
+
+  const solicitud = getSolicitudFromVale(vale);
+  if (!solicitud) return false;
+
+  const estadoSolicitud = (solicitud.estado || "").trim().toLowerCase();
+  if (estadoSolicitud === "anulada" || estadoSolicitud === "anulado") {
+    return false;
+  }
+
+  return Boolean(getClienteKeyFromVale(vale));
+};
+
+const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
+  id: valeSalida.id,
+  id_vale_salida: valeSalida.id,
+  fecha: valeSalida.fecha_creacion || new Date().toISOString(),
+  items: (valeSalida.materiales || []).map((material) => ({
+    material_id: (material.material_id || "").toString(),
+    codigo:
+      material.material_codigo ||
+      material.codigo ||
+      material.material?.codigo ||
+      "",
+    descripcion:
+      material.material_descripcion ||
+      material.descripcion ||
+      material.material?.descripcion ||
+      material.material?.nombre ||
+      "",
+    precio: Number(material.material?.precio || 0),
+    cantidad: Number(material.cantidad || 0),
+  })),
+});
+
 export function FacturasSection() {
   const {
     facturas,
@@ -147,17 +240,22 @@ export function FacturasSection() {
     crearFactura,
     actualizarFactura,
     eliminarFactura,
+    anularFactura,
     agregarVale,
     actualizarVale,
     cargarFacturasConsolidadas,
   } = useFacturas();
   const { materials, loading: loadingMaterials } = useMaterials();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
   const [selectedFactura, setSelectedFactura] = useState<Factura | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [facturaToDelete, setFacturaToDelete] = useState<string | null>(null);
+  const [anularDialogOpen, setAnularDialogOpen] = useState(false);
+  const [facturaToAnular, setFacturaToAnular] = useState<Factura | null>(null);
+  const [anulandoFactura, setAnulandoFactura] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [facturaDetails, setFacturaDetails] = useState<Factura | null>(null);
   const [valesListDialogOpen, setValesListDialogOpen] = useState(false);
@@ -175,11 +273,48 @@ export function FacturasSection() {
   const [valeToEdit, setValeToEdit] = useState<{ valeId: string } | null>(null);
   const [savingVale, setSavingVale] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
+  const [exportingFacturaPdf, setExportingFacturaPdf] = useState(false);
+  const [exportingFacturaExcel, setExportingFacturaExcel] = useState(false);
   const [reversed, setReversed] = useState(false);
+  const [activeTab, setActiveTab] = useState<VistaFacturacionTab>("facturas");
   const [valeDraft, setValeDraft] = useState<Vale>({
     fecha: "",
     items: [],
   });
+  const [valesNoFacturados, setValesNoFacturados] = useState<ValeSalida[]>([]);
+  const [loadingValesNoFacturados, setLoadingValesNoFacturados] =
+    useState(false);
+  const [valesNoFacturadosError, setValesNoFacturadosError] = useState<
+    string | null
+  >(null);
+  const [searchValesNoFacturados, setSearchValesNoFacturados] = useState("");
+  const [mesValesNoFacturados, setMesValesNoFacturados] = useState<
+    number | undefined
+  >(undefined);
+  const [anioValesNoFacturados, setAnioValesNoFacturados] = useState<
+    number | undefined
+  >(undefined);
+  const [fechaValesNoFacturados, setFechaValesNoFacturados] = useState("");
+  const [selectedValesNoFacturados, setSelectedValesNoFacturados] = useState<
+    Set<string>
+  >(new Set());
+  const [expandedValesNoFacturados, setExpandedValesNoFacturados] = useState<
+    Set<string>
+  >(new Set());
+  const [selectedFacturaDestinoId, setSelectedFacturaDestinoId] =
+    useState<string>("");
+  const [processingValesNoFacturados, setProcessingValesNoFacturados] =
+    useState(false);
+  const [prefillNuevaFacturaClienteId, setPrefillNuevaFacturaClienteId] =
+    useState<string | null>(null);
+  const [prefillNuevaFacturaVales, setPrefillNuevaFacturaVales] = useState<
+    ValeSalida[]
+  >([]);
+
+  const yearsValesNoFacturados = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 5 }, (_, i) => currentYear - i);
+  }, []);
 
   useEffect(() => {
     if (!facturaDetails?.id) return;
@@ -190,76 +325,209 @@ export function FacturasSection() {
     }
   }, [facturas, facturaDetails?.id]);
 
-  const exportFacturaItems = () => {
-    if (!facturaDetails || !facturaDetails.vales) return;
-    const valesOrdenados = [...facturaDetails.vales].sort(
-      (a, b) => parseDateTimestamp(a.fecha) - parseDateTimestamp(b.fecha),
-    );
-    const rows = valesOrdenados.flatMap((vale, valeIndex) =>
-      vale.items.map((item) => ({
-        vale: valeIndex + 1,
-        fecha_vale: formatDateForExcel(vale.fecha),
-        codigo: item.codigo,
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        precio: item.precio,
-        subtotal: item.precio * item.cantidad,
-      })),
-    );
-    const headers = [
-      "Vale",
-      "Fecha vale",
-      "Código",
-      "Descripción",
-      "Cantidad",
-      "Precio",
-      "Subtotal",
-    ];
-    const csvBody = rows
-      .map((r) =>
-        [
-          r.vale,
-          r.fecha_vale,
-          r.codigo,
-          `"${(r.descripcion || "").replace(/"/g, '""')}"`,
-          r.cantidad,
-          r.precio,
-          r.subtotal,
-        ].join(";"),
-      )
-      .join("\n");
-    const csvContent = [headers.join(";"), csvBody].join("\n");
+  const getValeSalidaCodeMapForFactura = useCallback(
+    async (factura: Factura) => {
+      const ids = Array.from(
+        new Set(
+          (factura.vales || [])
+            .map((vale) => (vale.id_vale_salida || "").toString().trim())
+            .filter(Boolean),
+        ),
+      );
 
-    // Agregar BOM UTF-8 para correcta detección de encoding en Excel
-    const BOM = "\uFEFF";
-    const csvContentWithBOM = BOM + csvContent;
+      if (ids.length === 0) return new Map<string, string>();
 
-    const blob = new Blob([csvContentWithBOM], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `factura_${facturaDetails.numero_factura || "detalle"}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+      const pairs = await Promise.all(
+        ids.map(async (id) => {
+          try {
+            const vale = await ValeSalidaService.getValeById(id);
+            const codigo = (vale?.codigo || "").toString().trim();
+            if (codigo) return [id, codigo] as const;
+            return [id, `VS-${id.slice(-6).toUpperCase()}`] as const;
+          } catch {
+            return [id, `VS-${id.slice(-6).toUpperCase()}`] as const;
+          }
+        }),
+      );
+
+      return new Map<string, string>(pairs);
+    },
+    [],
+  );
+
+  const mapClienteToExportData = useCallback(
+    (cliente: Cliente | null | undefined): FacturaExportClienteData | null => {
+      if (!cliente) return null;
+      return {
+        numero: cliente.numero || null,
+        nombre: cliente.nombre || null,
+        carnet_identidad: cliente.carnet_identidad || null,
+        telefono: cliente.telefono || null,
+        direccion: cliente.direccion || null,
+        provincia_montaje: cliente.provincia_montaje || null,
+        municipio: cliente.municipio || null,
+      };
+    },
+    [],
+  );
+
+  const getClienteDataForFacturaExport = useCallback(
+    async (factura: Factura) => {
+      const identifier = (factura.cliente_id || "").toString().trim();
+      const fallback: FacturaExportClienteData = {
+        numero: identifier || null,
+        nombre: factura.nombre_cliente || null,
+        carnet_identidad: null,
+        telefono: null,
+        direccion: null,
+        provincia_montaje: null,
+        municipio: null,
+      };
+
+      if (!identifier) return fallback;
+
+      const byNumero = await ClienteService.getClienteByNumero(identifier);
+      const mappedByNumero = mapClienteToExportData(byNumero);
+      if (mappedByNumero) return mappedByNumero;
+
+      try {
+        const response = await ClienteService.getClientes({
+          q: identifier,
+          limit: 80,
+        });
+        const found = (response.clients || []).find(
+          (cliente) =>
+            cliente.id === identifier || cliente.numero === identifier,
+        );
+        const candidate = found || response.clients?.[0] || null;
+        const mappedCandidate = mapClienteToExportData(candidate);
+        if (mappedCandidate) return mappedCandidate;
+      } catch {
+        // noop
+      }
+
+      return fallback;
+    },
+    [mapClienteToExportData],
+  );
+
+  const getExportMetaForFactura = useCallback(
+    async (factura: Factura): Promise<FacturaExportMeta> => {
+      if (factura.subtipo === "brigada") {
+        return {
+          titular: "brigada",
+          responsable_nombre:
+            factura.nombre_responsable || factura.nombre_cliente || null,
+          responsable_ci: factura.trabajador_ci || null,
+        };
+      }
+
+      return {
+        titular: "cliente",
+        cliente: await getClienteDataForFacturaExport(factura),
+      };
+    },
+    [getClienteDataForFacturaExport],
+  );
+
+  const handleExportFacturaPdf = useCallback(async () => {
+    if (!facturaDetails) return;
+    setExportingFacturaPdf(true);
+    try {
+      const valeCodeMap = await getValeSalidaCodeMapForFactura(facturaDetails);
+      const exportMeta = await getExportMetaForFactura(facturaDetails);
+      await ExportFacturaService.exportarFacturaPDF(
+        facturaDetails,
+        valeCodeMap,
+        exportMeta,
+      );
+      toast({
+        title: "PDF exportado",
+        description: `Se exportó la factura ${facturaDetails.numero_factura}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error exportando PDF",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo exportar el PDF.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingFacturaPdf(false);
+    }
+  }, [
+    facturaDetails,
+    getValeSalidaCodeMapForFactura,
+    getExportMetaForFactura,
+    toast,
+  ]);
+
+  const handleExportFacturaExcel = useCallback(async () => {
+    if (!facturaDetails) return;
+    setExportingFacturaExcel(true);
+    try {
+      const valeCodeMap = await getValeSalidaCodeMapForFactura(facturaDetails);
+      const exportMeta = await getExportMetaForFactura(facturaDetails);
+      await ExportFacturaService.exportarFacturaExcel(
+        facturaDetails,
+        valeCodeMap,
+        exportMeta,
+      );
+      toast({
+        title: "Excel exportado",
+        description: `Se exportó la factura ${facturaDetails.numero_factura}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error exportando Excel",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo exportar el Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingFacturaExcel(false);
+    }
+  }, [
+    facturaDetails,
+    getValeSalidaCodeMapForFactura,
+    getExportMetaForFactura,
+    toast,
+  ]);
 
   const handleCreate = () => {
     setSelectedFactura(null);
+    setPrefillNuevaFacturaClienteId(null);
+    setPrefillNuevaFacturaVales([]);
     setFormDialogOpen(true);
   };
 
   const handleEdit = (factura: Factura) => {
     setSelectedFactura(factura);
+    setPrefillNuevaFacturaClienteId(null);
+    setPrefillNuevaFacturaVales([]);
     setFormDialogOpen(true);
   };
 
-  const handleEditConsolidada = (facturaConsolidada: FacturaConsolidada) => {
-    // Buscar la factura completa en el array de facturas normales
+  const getFacturaFromConsolidada = (
+    facturaConsolidada: FacturaConsolidada,
+  ): Factura | undefined => {
+    if (facturaConsolidada.id) {
+      const facturaPorId = facturas.find((f) => f.id === facturaConsolidada.id);
+      if (facturaPorId) return facturaPorId;
+    }
+
     const facturaCompleta = facturas.find(
       (f) => f.numero_factura === facturaConsolidada.numero_factura,
     );
+    return facturaCompleta;
+  };
+
+  const handleEditConsolidada = (facturaConsolidada: FacturaConsolidada) => {
+    const facturaCompleta = getFacturaFromConsolidada(facturaConsolidada);
     if (facturaCompleta) {
       handleEdit(facturaCompleta);
     } else {
@@ -285,10 +553,7 @@ export function FacturasSection() {
   const handleViewDetailsConsolidada = (
     facturaConsolidada: FacturaConsolidada,
   ) => {
-    // Buscar la factura completa en el array de facturas normales
-    const facturaCompleta = facturas.find(
-      (f) => f.numero_factura === facturaConsolidada.numero_factura,
-    );
+    const facturaCompleta = getFacturaFromConsolidada(facturaConsolidada);
     if (facturaCompleta) {
       handleViewDetails(facturaCompleta);
     } else {
@@ -306,6 +571,15 @@ export function FacturasSection() {
   };
 
   const handleAddValeClick = (factura: Factura) => {
+    if (factura.anulada) {
+      toast({
+        title: "Factura anulada",
+        description: "No puedes agregar vales a una factura anulada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setFacturaForVale(factura);
     setValeToEdit(null);
     setModoManual(true);
@@ -319,10 +593,7 @@ export function FacturasSection() {
   };
 
   const handleAddValeConsolidada = (facturaConsolidada: FacturaConsolidada) => {
-    // Buscar la factura completa en el array de facturas normales
-    const facturaCompleta = facturas.find(
-      (f) => f.numero_factura === facturaConsolidada.numero_factura,
-    );
+    const facturaCompleta = getFacturaFromConsolidada(facturaConsolidada);
     if (facturaCompleta) {
       handleAddValeClick(facturaCompleta);
     } else {
@@ -331,6 +602,62 @@ export function FacturasSection() {
         description: "No se pudo cargar la factura para agregar vale",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleAnularClick = (factura: Factura) => {
+    if (factura.anulada) {
+      toast({
+        title: "Factura ya anulada",
+        description: "Esta factura ya está anulada.",
+      });
+      return;
+    }
+    setFacturaToAnular(factura);
+    setAnularDialogOpen(true);
+  };
+
+  const handleAnularConsolidada = (facturaConsolidada: FacturaConsolidada) => {
+    const facturaCompleta = getFacturaFromConsolidada(facturaConsolidada);
+    if (!facturaCompleta) {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar la factura para anular",
+        variant: "destructive",
+      });
+      return;
+    }
+    handleAnularClick(facturaCompleta);
+  };
+
+  const confirmAnularFactura = async (motivo: string) => {
+    if (!facturaToAnular?.id) return;
+
+    setAnulandoFactura(true);
+    try {
+      await anularFactura(
+        facturaToAnular.id,
+        motivo,
+        user?.nombre || undefined,
+      );
+      toast({
+        title: "Factura anulada",
+        description:
+          "La factura se anuló correctamente y los vales de salida asociados se desfacturaron.",
+      });
+      setAnularDialogOpen(false);
+      setFacturaToAnular(null);
+    } catch (error) {
+      toast({
+        title: "Error al anular",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo anular la factura",
+        variant: "destructive",
+      });
+    } finally {
+      setAnulandoFactura(false);
     }
   };
 
@@ -426,19 +753,7 @@ export function FacturasSection() {
     try {
       // Convertir cada vale de salida al formato de Vale de factura
       for (const valeSalida of vales) {
-        const valeParaFactura: Vale = {
-          id: valeSalida.id, // Usar el ID del vale de salida como ID del vale
-          id_vale_salida: valeSalida.id, // Referencia explícita para backend
-          fecha: valeSalida.fecha_creacion || new Date().toISOString(),
-          items: valeSalida.materiales.map((material) => ({
-            material_id: material.material_id,
-            codigo: material.material_codigo || material.codigo || "",
-            descripcion:
-              material.material_descripcion || material.descripcion || "",
-            precio: material.material?.precio || 0,
-            cantidad: material.cantidad,
-          })),
-        };
+        const valeParaFactura = mapValeSalidaToFacturaVale(valeSalida);
 
         await agregarVale(facturaForVale.id, valeParaFactura);
       }
@@ -466,34 +781,11 @@ export function FacturasSection() {
 
     setLoadingValesSalida(true);
     try {
-      // Obtener vales de salida con filtros optimizados
-      const vales = await ValeSalidaService.getVales({
-        estado: "usado", // Solo vales usados
-        // El backend debería filtrar por facturado=false, pero lo hacemos aquí también
-      });
-
-      // Filtrar vales que cumplan todos los criterios:
-      // 1. Pertenecen al cliente (comparar por numero de cliente)
-      // 2. Campo facturado = false
-      // 3. No están anulados (ya filtrado por estado="usado")
-      const valesFiltrados = vales.filter((vale) => {
-        // Verificar que no esté ya facturado
-        if (vale.facturado === true) return false;
-
-        // Obtener la solicitud
-        const solicitud =
-          vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
-        if (!solicitud) return false;
-
-        // Verificar que pertenezca al cliente (comparar por numero)
-        const cliente = solicitud.cliente || solicitud.cliente_venta;
-        if (!cliente) return false;
-
-        // Comparar por numero de cliente
-        const numeroCliente = cliente.numero || cliente.id;
-        if (numeroCliente !== facturaForVale.cliente_id) return false;
-
-        return true;
+      const valesFiltrados = await facturaService.obtenerValesDisponibles({
+        cliente_id: facturaForVale.cliente_id,
+        cliente_numero: facturaForVale.cliente_id,
+        skip: 0,
+        limit: 200,
       });
 
       setValesDisponibles(valesFiltrados);
@@ -568,6 +860,21 @@ export function FacturasSection() {
       await actualizarFactura(selectedFactura.id, factura);
     } else {
       await crearFactura(factura);
+      if (prefillNuevaFacturaVales.length > 0) {
+        limpiarSeleccionValesNoFacturados();
+        await cargarValesNoFacturados();
+        setActiveTab("facturas");
+      }
+    }
+    setPrefillNuevaFacturaClienteId(null);
+    setPrefillNuevaFacturaVales([]);
+  };
+
+  const handleFormDialogOpenChange = (open: boolean) => {
+    setFormDialogOpen(open);
+    if (!open) {
+      setPrefillNuevaFacturaClienteId(null);
+      setPrefillNuevaFacturaVales([]);
     }
   };
 
@@ -577,6 +884,13 @@ export function FacturasSection() {
       currency: "USD",
       minimumFractionDigits: 2,
     }).format(value);
+  };
+
+  const getEstadoFacturaLabel = (factura: Factura) => {
+    if (factura.anulada) return "Anulada";
+    if (!factura.terminada) return "No terminada";
+    if (factura.pagada) return "Terminada y pagada";
+    return "Terminada - no pagada";
   };
 
   // Filtro local de respaldo para asegurar que el buscador siempre funcione
@@ -654,16 +968,355 @@ export function FacturasSection() {
       }
     }
 
-    return resultado;
-  }, [facturasConsolidadas, filters]);
+    const facturasPorNumero = new Map(
+      facturas.map((factura) => [factura.numero_factura, factura]),
+    );
+
+    return resultado.map((facturaConsolidada) => {
+      const facturaReal = facturasPorNumero.get(
+        facturaConsolidada.numero_factura,
+      );
+      if (!facturaReal) return facturaConsolidada;
+
+      return {
+        ...facturaConsolidada,
+        id: facturaConsolidada.id || facturaReal.id,
+        cliente_nombre:
+          facturaConsolidada.cliente_nombre || facturaReal.nombre_cliente,
+        cliente_codigo:
+          facturaConsolidada.cliente_codigo ||
+          facturaReal.cliente_id ||
+          undefined,
+        nombre_responsable:
+          facturaReal.nombre_responsable ||
+          facturaConsolidada.nombre_responsable,
+        anulada: facturaReal.anulada ?? facturaConsolidada.anulada,
+        motivo_anulacion:
+          facturaReal.motivo_anulacion ?? facturaConsolidada.motivo_anulacion,
+      };
+    });
+  }, [facturasConsolidadas, filters, facturas]);
 
   // Calcular total facturado de las facturas filtradas
   const totalFacturado = useMemo(() => {
-    return facturasFiltradas.reduce(
-      (sum, factura) => sum + factura.total_factura,
-      0,
-    );
+    return facturasFiltradas
+      .filter((factura) => factura.anulada !== true)
+      .reduce((sum, factura) => sum + factura.total_factura, 0);
   }, [facturasFiltradas]);
+
+  const cargarValesNoFacturados = useCallback(async () => {
+    setLoadingValesNoFacturados(true);
+    setValesNoFacturadosError(null);
+    try {
+      const allVales = await facturaService.obtenerValesNoFacturados({
+        skip: 0,
+        limit: 200,
+        q: searchValesNoFacturados.trim() || undefined,
+      });
+      const disponibles = allVales.filter(isValeNoFacturadoDisponible);
+      setValesNoFacturados(disponibles);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudieron cargar los vales no facturados.";
+      setValesNoFacturadosError(message);
+      toast({
+        title: "Error cargando vales",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingValesNoFacturados(false);
+    }
+  }, [toast, searchValesNoFacturados]);
+
+  useEffect(() => {
+    if (activeTab !== "vales-no-facturados") return;
+    const timeout = window.setTimeout(() => {
+      cargarValesNoFacturados();
+    }, 250);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [activeTab, cargarValesNoFacturados]);
+
+  useEffect(() => {
+    const availableIds = new Set(valesNoFacturados.map((vale) => vale.id));
+    setSelectedValesNoFacturados((prev) => {
+      const cleaned = new Set(
+        Array.from(prev).filter((id) => availableIds.has(id)),
+      );
+      if (cleaned.size === prev.size) return prev;
+      return cleaned;
+    });
+    setExpandedValesNoFacturados((prev) => {
+      const cleaned = new Set(
+        Array.from(prev).filter((id) => availableIds.has(id)),
+      );
+      if (cleaned.size === prev.size) return prev;
+      return cleaned;
+    });
+  }, [valesNoFacturados]);
+
+  const valesNoFacturadosFiltrados = useMemo(() => {
+    const term = searchValesNoFacturados.trim().toLowerCase();
+
+    return valesNoFacturados.filter((vale) => {
+      if (term) {
+        const solicitud = getSolicitudFromVale(vale);
+        const cliente = getClienteFromVale(vale);
+        const searchableValues = [
+          vale.codigo,
+          vale.id,
+          solicitud?.codigo,
+          solicitud?.estado,
+          cliente?.nombre,
+          cliente?.numero,
+          cliente?.id,
+        ];
+
+        const matchesTerm = searchableValues.some((value) =>
+          (value || "").toString().toLowerCase().includes(term),
+        );
+        if (!matchesTerm) return false;
+      }
+
+      const fechaVale = vale.fecha_creacion
+        ? new Date(vale.fecha_creacion)
+        : null;
+      if (!fechaVale || Number.isNaN(fechaVale.getTime())) {
+        return (
+          !fechaValesNoFacturados &&
+          !mesValesNoFacturados &&
+          !anioValesNoFacturados
+        );
+      }
+
+      if (fechaValesNoFacturados) {
+        return fechaVale.toISOString().slice(0, 10) === fechaValesNoFacturados;
+      }
+
+      if (
+        mesValesNoFacturados &&
+        fechaVale.getMonth() + 1 !== mesValesNoFacturados
+      ) {
+        return false;
+      }
+
+      if (
+        anioValesNoFacturados &&
+        fechaVale.getFullYear() !== anioValesNoFacturados
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    valesNoFacturados,
+    searchValesNoFacturados,
+    fechaValesNoFacturados,
+    mesValesNoFacturados,
+    anioValesNoFacturados,
+  ]);
+
+  const valesNoFacturadosSeleccionadosLista = useMemo(
+    () =>
+      valesNoFacturados.filter((vale) =>
+        selectedValesNoFacturados.has(vale.id),
+      ),
+    [valesNoFacturados, selectedValesNoFacturados],
+  );
+
+  const selectedClienteKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          valesNoFacturadosSeleccionadosLista
+            .map((vale) => normalizeKey(getClienteKeyFromVale(vale)))
+            .filter(Boolean),
+        ),
+      ),
+    [valesNoFacturadosSeleccionadosLista],
+  );
+
+  const selectedClienteKey =
+    selectedClienteKeys.length === 1 ? selectedClienteKeys[0] : null;
+  const hasClientesMezclados =
+    selectedValesNoFacturados.size > 0 && selectedClienteKeys.length > 1;
+
+  const selectedClienteRaw = useMemo(() => {
+    if (!selectedClienteKey) return null;
+    const found = valesNoFacturadosSeleccionadosLista.find(
+      (vale) =>
+        normalizeKey(getClienteKeyFromVale(vale)) === selectedClienteKey,
+    );
+    return found ? getClienteKeyFromVale(found) : null;
+  }, [selectedClienteKey, valesNoFacturadosSeleccionadosLista]);
+
+  const selectedClienteNombre = useMemo(() => {
+    if (!selectedClienteKey) return null;
+    const found = valesNoFacturadosSeleccionadosLista.find(
+      (vale) =>
+        normalizeKey(getClienteKeyFromVale(vale)) === selectedClienteKey,
+    );
+    return found ? getClienteNombreFromVale(found) : null;
+  }, [selectedClienteKey, valesNoFacturadosSeleccionadosLista]);
+
+  const facturasDestinoCompatibles = useMemo(
+    () =>
+      facturas.filter((factura) => {
+        if (!factura.id) return false;
+        if (factura.anulada) return false;
+        if (factura.tipo !== "instaladora" || factura.subtipo !== "cliente") {
+          return false;
+        }
+        return (
+          selectedClienteKey !== null &&
+          normalizeKey(factura.cliente_id) === selectedClienteKey
+        );
+      }),
+    [facturas, selectedClienteKey],
+  );
+
+  useEffect(() => {
+    if (!selectedFacturaDestinoId) return;
+    const exists = facturasDestinoCompatibles.some(
+      (factura) => factura.id === selectedFacturaDestinoId,
+    );
+    if (!exists) setSelectedFacturaDestinoId("");
+  }, [selectedFacturaDestinoId, facturasDestinoCompatibles]);
+
+  const toggleValeNoFacturado = (valeId: string) => {
+    setSelectedValesNoFacturados((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(valeId)) {
+        newSet.delete(valeId);
+      } else {
+        newSet.add(valeId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleExpandirValeNoFacturado = (valeId: string) => {
+    setExpandedValesNoFacturados((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(valeId)) {
+        newSet.delete(valeId);
+      } else {
+        newSet.add(valeId);
+      }
+      return newSet;
+    });
+  };
+
+  const seleccionarTodosValesNoFacturados = () => {
+    setSelectedValesNoFacturados(
+      new Set(valesNoFacturadosFiltrados.map((vale) => vale.id)),
+    );
+  };
+
+  const limpiarFiltrosValesNoFacturados = () => {
+    setMesValesNoFacturados(undefined);
+    setAnioValesNoFacturados(undefined);
+    setFechaValesNoFacturados("");
+    setSearchValesNoFacturados("");
+  };
+
+  const limpiarSeleccionValesNoFacturados = () => {
+    setSelectedValesNoFacturados(new Set());
+    setSelectedFacturaDestinoId("");
+  };
+
+  const handleCrearFacturaDesdeValesNoFacturados = async () => {
+    if (
+      !selectedClienteRaw ||
+      valesNoFacturadosSeleccionadosLista.length === 0
+    ) {
+      return;
+    }
+    if (hasClientesMezclados) {
+      toast({
+        title: "Clientes mezclados",
+        description:
+          "Debes seleccionar vales del mismo cliente para crear la factura.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSelectedFactura(null);
+    setPrefillNuevaFacturaClienteId(selectedClienteRaw);
+    setPrefillNuevaFacturaVales(valesNoFacturadosSeleccionadosLista);
+    setFormDialogOpen(true);
+  };
+
+  const handleAgregarValesNoFacturadosAFactura = async () => {
+    if (
+      !selectedFacturaDestinoId ||
+      valesNoFacturadosSeleccionadosLista.length === 0
+    ) {
+      return;
+    }
+    if (hasClientesMezclados) {
+      toast({
+        title: "Clientes mezclados",
+        description:
+          "Debes seleccionar vales del mismo cliente para agregarlos a una factura existente.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const facturaDestino = facturas.find(
+      (factura) => factura.id === selectedFacturaDestinoId,
+    );
+    if (!facturaDestino) {
+      toast({
+        title: "Factura no encontrada",
+        description: "No se encontró la factura destino seleccionada.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (facturaDestino.anulada) {
+      toast({
+        title: "Factura anulada",
+        description: "No puedes agregar vales a una factura anulada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setProcessingValesNoFacturados(true);
+    try {
+      for (const vale of valesNoFacturadosSeleccionadosLista) {
+        await agregarVale(
+          selectedFacturaDestinoId,
+          mapValeSalidaToFacturaVale(vale),
+        );
+      }
+      toast({
+        title: "Vales agregados",
+        description: `Se agregaron ${valesNoFacturadosSeleccionadosLista.length} vale(s) a la factura seleccionada.`,
+      });
+      limpiarSeleccionValesNoFacturados();
+      await cargarValesNoFacturados();
+    } catch (error) {
+      toast({
+        title: "Error agregando vales",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron agregar los vales a la factura.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingValesNoFacturados(false);
+    }
+  };
 
   const handleExportFacturasExcel = async () => {
     if (facturasFiltradas.length === 0) {
@@ -710,6 +1363,9 @@ export function FacturasSection() {
           mes: factura.mes || "N/A",
           fecha: factura.fecha || "N/A",
           cliente: clienteDisplay,
+          estado_factura: factura.anulada ? "Anulada" : "Activa",
+          motivo_anulacion: factura.motivo_anulacion?.trim() || "-",
+          responsable_anulacion: factura.nombre_responsable?.trim() || "-",
           total_materiales: factura.total_factura,
           monto_cobrado: factura.total_cobrado_todas_ofertas,
           monto_pendiente: factura.monto_pendiente_materiales,
@@ -728,6 +1384,13 @@ export function FacturasSection() {
           { header: "Mes", key: "mes", width: 12 },
           { header: "Fecha", key: "fecha", width: 14 },
           { header: "Cliente", key: "cliente", width: 30 },
+          { header: "Estado", key: "estado_factura", width: 14 },
+          { header: "Motivo Anulacion", key: "motivo_anulacion", width: 34 },
+          {
+            header: "Responsable Anulacion",
+            key: "responsable_anulacion",
+            width: 28,
+          },
           {
             header: "Total Materiales Facturados",
             key: "total_materiales",
@@ -764,6 +1427,15 @@ export function FacturasSection() {
       setExportingExcel(false);
     }
   };
+
+  const allValesFiltradosSeleccionados = useMemo(
+    () =>
+      valesNoFacturadosFiltrados.length > 0 &&
+      valesNoFacturadosFiltrados.every((vale) =>
+        selectedValesNoFacturados.has(vale.id),
+      ),
+    [valesNoFacturadosFiltrados, selectedValesNoFacturados],
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -805,40 +1477,66 @@ export function FacturasSection() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 justify-end">
-              <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
-                Total facturado: {formatCurrency(totalFacturado)}
-              </div>
-              <Button
-                onClick={handleExportFacturasExcel}
-                variant="outline"
-                size="sm"
-                disabled={exportingExcel || facturasFiltradas.length === 0}
-                className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 border-green-300 text-green-700 hover:bg-green-50 touch-manipulation"
-              >
-                {exportingExcel ? (
-                  <>
-                    <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
-                    <span className="hidden sm:inline">Exportando...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
-                    <span className="hidden sm:inline">Exportar Excel</span>
-                  </>
-                )}
-                <span className="sr-only">Exportar facturas a Excel</span>
-              </Button>
-              <Button
-                onClick={handleCreate}
-                size="sm"
-                className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
-                aria-label="Nueva factura"
-                title="Nueva factura"
-              >
-                <Plus className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Nueva Factura</span>
-                <span className="sr-only">Nueva factura</span>
-              </Button>
+              {activeTab === "facturas" ? (
+                <>
+                  <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
+                    Total facturado: {formatCurrency(totalFacturado)}
+                  </div>
+                  <Button
+                    onClick={handleExportFacturasExcel}
+                    variant="outline"
+                    size="sm"
+                    disabled={exportingExcel || facturasFiltradas.length === 0}
+                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 border-green-300 text-green-700 hover:bg-green-50 touch-manipulation"
+                  >
+                    {exportingExcel ? (
+                      <>
+                        <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                        <span className="hidden sm:inline">Exportando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Exportar Excel</span>
+                      </>
+                    )}
+                    <span className="sr-only">Exportar facturas a Excel</span>
+                  </Button>
+                  <Button
+                    onClick={handleCreate}
+                    size="sm"
+                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
+                    aria-label="Nueva factura"
+                    title="Nueva factura"
+                  >
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Nueva Factura</span>
+                    <span className="sr-only">Nueva factura</span>
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
+                    Vales no facturados: {valesNoFacturados.length}
+                  </div>
+                  <Button
+                    onClick={cargarValesNoFacturados}
+                    variant="outline"
+                    size="sm"
+                    disabled={loadingValesNoFacturados}
+                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 border-blue-300 text-blue-700 hover:bg-blue-50 touch-manipulation"
+                  >
+                    {loadingValesNoFacturados ? (
+                      <>
+                        <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" />
+                        <span className="hidden sm:inline">Cargando...</span>
+                      </>
+                    ) : (
+                      "Recargar Vales"
+                    )}
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -874,31 +1572,429 @@ export function FacturasSection() {
           </div>
         )}
 
-        <div className="space-y-6">
-          <FacturasFilters
-            filters={filters}
-            onApplyFilters={aplicarFiltros}
-            onClearFilters={limpiarFiltros}
-            reversed={reversed}
-            onToggleReversed={() => setReversed(!reversed)}
-          />
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as VistaFacturacionTab)}
+          className="space-y-6"
+        >
+          <TabsList className="grid w-full max-w-lg grid-cols-2">
+            <TabsTrigger value="facturas">Facturas</TabsTrigger>
+            <TabsTrigger value="vales-no-facturados">
+              Vales No Facturados
+            </TabsTrigger>
+          </TabsList>
 
-          <FacturasConsolidadasTable
-            facturas={facturasFiltradas}
-            loading={loading}
-            onEdit={handleEditConsolidada}
-            onViewDetails={handleViewDetailsConsolidada}
-            onAddVale={handleAddValeConsolidada}
-            reversed={reversed}
-          />
-        </div>
+          <TabsContent value="facturas" className="space-y-6 mt-0">
+            <FacturasFilters
+              filters={filters}
+              onApplyFilters={aplicarFiltros}
+              onClearFilters={limpiarFiltros}
+              reversed={reversed}
+              onToggleReversed={() => setReversed(!reversed)}
+            />
+
+            <FacturasConsolidadasTable
+              facturas={facturasFiltradas}
+              loading={loading}
+              onEdit={handleEditConsolidada}
+              onViewDetails={handleViewDetailsConsolidada}
+              onAddVale={handleAddValeConsolidada}
+              onAnular={handleAnularConsolidada}
+              reversed={reversed}
+            />
+          </TabsContent>
+
+          <TabsContent value="vales-no-facturados" className="space-y-6 mt-0">
+            <div className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
+              <div>
+                <p className="font-semibold text-gray-900">
+                  Selección de vales no facturados
+                </p>
+                <p className="text-sm text-gray-600">
+                  Selecciona uno o varios vales del mismo cliente para crear una
+                  factura nueva o agregarlos a una factura existente.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+                <div className="space-y-1">
+                  <Label>Mes</Label>
+                  <Select
+                    value={mesValesNoFacturados?.toString() || "0"}
+                    onValueChange={(value) =>
+                      setMesValesNoFacturados(
+                        value === "0" ? undefined : parseInt(value, 10),
+                      )
+                    }
+                    disabled={Boolean(fechaValesNoFacturados)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Mes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Todos</SelectItem>
+                      {MESES_OPCIONES.map((mes) => (
+                        <SelectItem
+                          key={mes.value}
+                          value={mes.value.toString()}
+                        >
+                          {mes.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Año</Label>
+                  <Select
+                    value={anioValesNoFacturados?.toString() || "0"}
+                    onValueChange={(value) =>
+                      setAnioValesNoFacturados(
+                        value === "0" ? undefined : parseInt(value, 10),
+                      )
+                    }
+                    disabled={Boolean(fechaValesNoFacturados)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Año" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Todos</SelectItem>
+                      {yearsValesNoFacturados.map((year) => (
+                        <SelectItem key={year} value={year.toString()}>
+                          {year}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1">
+                  <Label>Fecha específica</Label>
+                  <Input
+                    type="date"
+                    value={fechaValesNoFacturados}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setFechaValesNoFacturados(value);
+                      if (value) {
+                        setMesValesNoFacturados(undefined);
+                        setAnioValesNoFacturados(undefined);
+                      }
+                    }}
+                    disabled={Boolean(
+                      mesValesNoFacturados || anioValesNoFacturados,
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-1 lg:col-span-2">
+                  <Label>Buscador</Label>
+                  <Input
+                    value={searchValesNoFacturados}
+                    onChange={(event) =>
+                      setSearchValesNoFacturados(event.target.value)
+                    }
+                    placeholder="Buscar por vale, cliente o solicitud..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={limpiarFiltrosValesNoFacturados}
+                >
+                  Limpiar filtros
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    allValesFiltradosSeleccionados
+                      ? limpiarSeleccionValesNoFacturados()
+                      : seleccionarTodosValesNoFacturados()
+                  }
+                  disabled={valesNoFacturadosFiltrados.length === 0}
+                >
+                  {allValesFiltradosSeleccionados
+                    ? "Limpiar selección"
+                    : "Seleccionar todos"}
+                </Button>
+              </div>
+
+              {selectedValesNoFacturados.size > 0 && (
+                <div className="space-y-3 border-t pt-3">
+                  <p className="text-sm text-gray-700">
+                    Seleccionados:{" "}
+                    <span className="font-semibold">
+                      {selectedValesNoFacturados.size} vale(s)
+                    </span>
+                    {selectedClienteNombre ? (
+                      <>
+                        {" "}
+                        del cliente{" "}
+                        <span className="font-semibold">
+                          {selectedClienteNombre}
+                        </span>
+                      </>
+                    ) : null}
+                  </p>
+
+                  {hasClientesMezclados ? (
+                    <p className="text-sm text-red-600">
+                      La selección incluye vales de clientes diferentes. Deben
+                      ser del mismo cliente para continuar.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <Button
+                        type="button"
+                        onClick={handleCrearFacturaDesdeValesNoFacturados}
+                        disabled={
+                          processingValesNoFacturados || !selectedClienteRaw
+                        }
+                        className="bg-orange-600 hover:bg-orange-700"
+                      >
+                        {processingValesNoFacturados ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creando factura...
+                          </>
+                        ) : (
+                          "Crear Factura Nueva"
+                        )}
+                      </Button>
+
+                      <div className="flex gap-2">
+                        <Select
+                          value={selectedFacturaDestinoId}
+                          onValueChange={setSelectedFacturaDestinoId}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Selecciona factura destino" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {facturasDestinoCompatibles.length === 0 ? (
+                              <SelectItem value="__sin_facturas__" disabled>
+                                No hay facturas del cliente
+                              </SelectItem>
+                            ) : (
+                              facturasDestinoCompatibles.map((factura) => (
+                                <SelectItem
+                                  key={factura.id}
+                                  value={factura.id as string}
+                                >
+                                  {`${factura.numero_factura} | ${
+                                    factura.fecha_creacion
+                                      ? new Date(
+                                          factura.fecha_creacion,
+                                        ).toLocaleDateString("es-ES")
+                                      : "Sin fecha"
+                                  } | ${formatCurrency(
+                                    calcularTotalMaterialesFactura(factura),
+                                  )} | ${getEstadoFacturaLabel(factura)}`}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleAgregarValesNoFacturadosAFactura}
+                          disabled={
+                            processingValesNoFacturados ||
+                            !selectedFacturaDestinoId ||
+                            facturasDestinoCompatibles.length === 0
+                          }
+                        >
+                          {processingValesNoFacturados ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Agregar"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {loadingValesNoFacturados ? (
+              <div className="flex items-center justify-center py-12 bg-white rounded-lg border border-gray-200">
+                <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+              </div>
+            ) : valesNoFacturadosError ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-sm text-red-700">{valesNoFacturadosError}</p>
+              </div>
+            ) : valesNoFacturadosFiltrados.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-lg border border-dashed border-gray-300">
+                <Package className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                <p className="text-gray-700 font-medium">
+                  No hay vales no facturados disponibles
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  Prueba ajustando la búsqueda o recargando los vales.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {valesNoFacturadosFiltrados.map((vale) => {
+                  const total = vale.materiales.reduce((sum, material) => {
+                    const precio = material.material?.precio || 0;
+                    const cantidad = material.cantidad || 0;
+                    return sum + precio * cantidad;
+                  }, 0);
+                  const solicitud = getSolicitudFromVale(vale);
+                  const cliente = getClienteFromVale(vale);
+                  const isSelected = selectedValesNoFacturados.has(vale.id);
+                  const isExpanded = expandedValesNoFacturados.has(vale.id);
+
+                  return (
+                    <div
+                      key={vale.id}
+                      className={`border rounded-lg transition-all ${
+                        isSelected
+                          ? "border-orange-500 bg-orange-50"
+                          : "border-gray-200 bg-white hover:border-orange-300"
+                      }`}
+                    >
+                      <div
+                        className="p-4 cursor-pointer"
+                        onClick={() => toggleValeNoFacturado(vale.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() =>
+                              toggleValeNoFacturado(vale.id)
+                            }
+                            className="mt-1"
+                          />
+                          <div className="flex-1 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="font-semibold text-gray-900">
+                                  Vale {vale.codigo || vale.id.slice(0, 8)}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  Cliente: {cliente?.nombre || "Sin cliente"}{" "}
+                                  {cliente?.numero
+                                    ? `(#${cliente.numero})`
+                                    : ""}
+                                </p>
+                              </div>
+                              <span className="font-bold text-orange-600">
+                                {formatCurrency(total)}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs text-gray-600">
+                              <p>
+                                Solicitud:{" "}
+                                {solicitud?.codigo || solicitud?.id || "N/A"}
+                              </p>
+                              <p>
+                                Estado solicitud: {solicitud?.estado || "N/A"}
+                              </p>
+                              <p>
+                                Fecha:{" "}
+                                {vale.fecha_creacion
+                                  ? new Date(
+                                      vale.fecha_creacion,
+                                    ).toLocaleDateString("es-ES")
+                                  : "N/A"}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-gray-500">
+                                Materiales ({vale.materiales.length})
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleExpandirValeNoFacturado(vale.id);
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp className="h-3 w-3" />
+                                    Ocultar
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown className="h-3 w-3" />
+                                    Ver todos
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {isExpanded && (
+                        <div className="border-t border-gray-200 bg-gray-50 p-4">
+                          <div className="space-y-2">
+                            {vale.materiales.map((material, idx) => (
+                              <div
+                                key={idx}
+                                className="flex justify-between items-start text-sm bg-white p-2 rounded border border-gray-200"
+                              >
+                                <div className="flex-1">
+                                  <p className="font-medium text-gray-900">
+                                    {material.material_codigo ||
+                                      material.codigo ||
+                                      "Sin código"}
+                                  </p>
+                                  <p className="text-gray-600 text-xs">
+                                    {material.material_descripcion ||
+                                      material.descripcion ||
+                                      material.material?.descripcion ||
+                                      material.material?.nombre ||
+                                      "Sin descripción"}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-gray-900">
+                                    x{material.cantidad}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {formatCurrency(
+                                      (material.material?.precio || 0) *
+                                        material.cantidad,
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Dialog de Formulario */}
       <FacturaFormDialog
         open={formDialogOpen}
-        onOpenChange={setFormDialogOpen}
+        onOpenChange={handleFormDialogOpenChange}
         factura={selectedFactura}
+        prefillClienteId={prefillNuevaFacturaClienteId}
+        prefillVales={prefillNuevaFacturaVales}
         onSave={handleSave}
         onGetNumeroSugerido={obtenerNumeroSugerido}
         materials={materials}
@@ -926,6 +2022,17 @@ export function FacturasSection() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AnularFacturaDialog
+        open={anularDialogOpen}
+        onOpenChange={(open) => {
+          setAnularDialogOpen(open);
+          if (!open) setFacturaToAnular(null);
+        }}
+        factura={facturaToAnular}
+        onConfirm={confirmAnularFactura}
+        isLoading={anulandoFactura}
+      />
+
       {/* Dialog de Detalles */}
       <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
         <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-hidden">
@@ -935,9 +2042,18 @@ export function FacturasSection() {
               {facturaDetails ? (
                 <div className="flex gap-2">
                   <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleAnularClick(facturaDetails)}
+                    disabled={facturaDetails.anulada}
+                  >
+                    {facturaDetails.anulada ? "Factura anulada" : "Anular"}
+                  </Button>
+                  <Button
                     variant="outline"
                     size="sm"
                     onClick={handleEditFacturaFromDetails}
+                    disabled={facturaDetails.anulada}
                   >
                     <Pencil className="mr-2 h-4 w-4" />
                     Editar factura
@@ -947,9 +2063,38 @@ export function FacturasSection() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={exportFacturaItems}
+                        onClick={handleExportFacturaPdf}
+                        disabled={exportingFacturaPdf || exportingFacturaExcel}
                       >
-                        Exportar CSV
+                        {exportingFacturaPdf ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Exportando PDF...
+                          </>
+                        ) : (
+                          <>
+                            <FileText className="mr-2 h-4 w-4" />
+                            Exportar PDF
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExportFacturaExcel}
+                        disabled={exportingFacturaPdf || exportingFacturaExcel}
+                      >
+                        {exportingFacturaExcel ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Exportando Excel...
+                          </>
+                        ) : (
+                          <>
+                            <FileSpreadsheet className="mr-2 h-4 w-4" />
+                            Exportar Excel
+                          </>
+                        )}
                       </Button>
                       <Button
                         variant="outline"
@@ -967,6 +2112,18 @@ export function FacturasSection() {
 
           {facturaDetails && (
             <div className="space-y-6 max-h-[78vh] overflow-y-auto pr-1">
+              {facturaDetails.anulada ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm font-semibold text-red-700">
+                    Factura anulada
+                  </p>
+                  <p className="text-sm text-red-700 mt-1">
+                    Motivo:{" "}
+                    {facturaDetails.motivo_anulacion?.trim() ||
+                      "No especificado"}
+                  </p>
+                </div>
+              ) : null}
               {/* Información General */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -990,6 +2147,11 @@ export function FacturasSection() {
                 <div>
                   <p className="text-sm text-gray-600">Estado</p>
                   <div className="flex gap-2 mt-1">
+                    {facturaDetails.anulada ? (
+                      <span className="px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-700">
+                        Anulada
+                      </span>
+                    ) : null}
                     <span
                       className={`px-2 py-1 rounded text-xs font-medium ${
                         facturaDetails.pagada
