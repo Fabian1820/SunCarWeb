@@ -129,10 +129,13 @@ function ensureSecureRequestUrl(url: string): string {
   } catch {
     if (url.startsWith("http://")) {
       const upgraded = `https://${url.slice("http://".length)}`;
-      console.warn("⚠️ URL HTTP inválida detectada en cliente HTTPS. Se fuerza HTTPS:", {
-        original: url,
-        upgraded,
-      });
+      console.warn(
+        "⚠️ URL HTTP inválida detectada en cliente HTTPS. Se fuerza HTTPS:",
+        {
+          original: url,
+          upgraded,
+        },
+      );
       return upgraded;
     }
   }
@@ -159,7 +162,15 @@ export async function apiRequest<T>(
     // Obtener token de autenticaciÃ³n del localStorage
     let authToken = "";
     if (typeof window !== "undefined") {
-      authToken = localStorage.getItem("auth_token") || "";
+      authToken =
+        localStorage.getItem("auth_token") ||
+        localStorage.getItem("access_token") ||
+        localStorage.getItem("token") ||
+        "";
+      authToken = authToken
+        .trim()
+        .replace(/^['"]+/, "")
+        .replace(/['"]+$/, "");
       if (authToken) {
         console.log(
           "ðŸ” Using auth token from localStorage:",
@@ -441,5 +452,3 @@ export async function apiRequest<T>(
     throw error;
   }
 }
-
-
