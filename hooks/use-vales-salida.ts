@@ -42,18 +42,28 @@ export function useValesSalida(): UseValesSalidaReturn {
         limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
 
-      // Límite alto por defecto para cargar todos los registros
-      params.limit = 10000;
+      // TEMPORAL: Sin límite para debugging
+      // params.limit = 1000;
 
       // Si hay un término de búsqueda, agregarlo a los parámetros
       if (searchTerm.trim()) {
         params.codigo = searchTerm.trim();
       }
 
+      console.log("🔍 [use-vales-salida] Params enviados al backend:", params);
+
       const response = await ValeSalidaService.getValesSummary(params);
+
+      console.log("📦 [use-vales-salida] Respuesta del backend:", {
+        total: response.total,
+        cantidad_vales: response.data?.length,
+        primer_vale: response.data?.[0],
+      });
+
       setVales(response.data);
       setTotal(response.total);
     } catch (err) {
+      console.error("❌ [use-vales-salida] Error al cargar vales:", err);
       setError(
         err instanceof Error
           ? err.message
