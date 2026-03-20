@@ -12,6 +12,7 @@ import {
   Package,
   Hand,
   FileText,
+  Trash2,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -243,6 +244,7 @@ export function FacturasSection() {
     anularFactura,
     agregarVale,
     actualizarVale,
+    eliminarVale,
     cargarFacturasConsolidadas,
   } = useFacturas();
   const { materials, loading: loadingMaterials } = useMaterials();
@@ -272,6 +274,7 @@ export function FacturasSection() {
   const [facturaForVale, setFacturaForVale] = useState<Factura | null>(null);
   const [valeToEdit, setValeToEdit] = useState<{ valeId: string } | null>(null);
   const [savingVale, setSavingVale] = useState(false);
+  const [deletingValeId, setDeletingValeId] = useState<string | null>(null);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [exportingFacturaPdf, setExportingFacturaPdf] = useState(false);
   const [exportingFacturaExcel, setExportingFacturaExcel] = useState(false);
@@ -837,6 +840,56 @@ export function FacturasSection() {
     await handleValesSalidaSeleccionados(vales);
     setValeDialogOpen(false);
     resetValeDialogState();
+  };
+
+  const handleQuitarValeClick = async (factura: Factura, vale: Vale) => {
+    if (!factura.id) {
+      toast({
+        title: "Factura sin identificador",
+        description:
+          "No se puede quitar el vale porque la factura no tiene ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!vale.id) {
+      toast({
+        title: "Vale sin identificador",
+        description: "No se puede quitar este vale porque no tiene ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const esValeSalida = Boolean((vale.id_vale_salida || "").trim());
+    const confirmado = window.confirm(
+      esValeSalida
+        ? "Este vale proviene de vale de salida. Se quitará de la factura y el vale de salida volverá a facturado=false. ¿Continuar?"
+        : "Este vale manual se eliminará de la factura. ¿Continuar?",
+    );
+
+    if (!confirmado) return;
+
+    setDeletingValeId(vale.id);
+    try {
+      await eliminarVale(factura.id, vale.id);
+      toast({
+        title: "Vale eliminado",
+        description: esValeSalida
+          ? "Se quitó de la factura y el vale de salida quedó no facturado."
+          : "Se quitó el vale manual de la factura.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error quitando vale",
+        description:
+          error instanceof Error ? error.message : "No se pudo quitar el vale.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingValeId(null);
+    }
   };
 
   const confirmDelete = async () => {
@@ -2257,9 +2310,29 @@ export function FacturasSection() {
                         onClick={() =>
                           handleEditValeClick(facturaDetails, vale)
                         }
+                        disabled={
+                          facturaDetails.anulada || deletingValeId === vale.id
+                        }
                       >
                         <Pencil className="mr-1 h-3.5 w-3.5" />
                         Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() =>
+                          handleQuitarValeClick(facturaDetails, vale)
+                        }
+                        disabled={
+                          facturaDetails.anulada || deletingValeId === vale.id
+                        }
+                      >
+                        {deletingValeId === vale.id ? (
+                          <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="mr-1 h-3.5 w-3.5" />
+                        )}
+                        Quitar
                       </Button>
                     </div>
                   </div>
