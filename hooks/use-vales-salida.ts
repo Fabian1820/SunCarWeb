@@ -36,9 +36,17 @@ export function useValesSalida(): UseValesSalidaReturn {
     setLoading(true);
     setError(null);
     try {
-      const response = await ValeSalidaService.getValesSummary(
-        estadoFilter === "todos" ? {} : { estado: estadoFilter },
-      );
+      const params: {
+        estado?: string;
+        codigo?: string;
+      } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
+
+      // Si hay un término de búsqueda, agregarlo a los parámetros
+      if (searchTerm.trim()) {
+        params.codigo = searchTerm.trim();
+      }
+
+      const response = await ValeSalidaService.getValesSummary(params);
       setVales(response.data);
       setTotal(response.total);
     } catch (err) {
@@ -52,23 +60,10 @@ export function useValesSalida(): UseValesSalidaReturn {
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter]);
+  }, [estadoFilter, searchTerm]);
 
-  const filteredVales = useMemo(() => {
-    if (!searchTerm.trim()) return vales;
-
-    const term = searchTerm.toLowerCase();
-    return vales.filter((v) => {
-      return (
-        v.codigo?.toLowerCase().includes(term) ||
-        v.estado?.toLowerCase().includes(term) ||
-        v.solicitud_codigo?.toLowerCase().includes(term) ||
-        v.cliente_nombre?.toLowerCase().includes(term) ||
-        v.creador_nombre?.toLowerCase().includes(term) ||
-        v.recibido_por?.toLowerCase().includes(term)
-      );
-    });
-  }, [vales, searchTerm]);
+  // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
+  const filteredVales = vales;
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -116,9 +111,14 @@ export function useValesSalida(): UseValesSalidaReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
-    loadVales();
-  }, [loadVales]);
+    const timer = setTimeout(() => {
+      void loadVales();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [estadoFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     vales,
