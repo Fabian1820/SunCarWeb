@@ -408,13 +408,19 @@ export function TrabajosDiariosView() {
                 const seleccion = new Set(seleccionPorVale[vale.vale_id] || []);
                 const salidaConfirmada =
                   salidaConfirmadaPorVale[vale.vale_id] === true;
-                const salidaDisabled =
-                  confirmando[vale.vale_id] === true || salidaConfirmada;
                 const entregaConfirmada =
                   entregaConfirmadaPorVale[vale.vale_id] === true;
+                
+                // Solo se puede usar uno de los dos botones
+                const salidaDisabled =
+                  confirmando[vale.vale_id] === true || 
+                  salidaConfirmada || 
+                  entregaConfirmada; // Deshabilitar si ya se confirmó entrega
+                
                 const entregaDisabled =
                   confirmandoEntrega[vale.vale_id] === true ||
-                  entregaConfirmada;
+                  entregaConfirmada ||
+                  salidaConfirmada; // Deshabilitar si ya se confirmó salida
 
                 return (
                   <div
@@ -469,7 +475,9 @@ export function TrabajosDiariosView() {
                           title={
                             salidaConfirmada
                               ? "Salida ya confirmada para este vale"
-                              : "Confirma salida y actualiza el estado del cliente solo si aplica"
+                              : entregaConfirmada
+                                ? "No se puede confirmar salida porque ya se confirmó la entrega de materiales"
+                                : "Confirma salida y actualiza el estado del cliente solo si aplica"
                           }
                         >
                           <CheckCircle2 className="h-4 w-4 mr-2" />
@@ -491,7 +499,9 @@ export function TrabajosDiariosView() {
                           title={
                             entregaConfirmada
                               ? "Entrega de materiales ya confirmada para este vale"
-                              : "Confirma solo la entrega de materiales del vale"
+                              : salidaConfirmada
+                                ? "No se puede confirmar entrega porque ya se confirmó la salida"
+                                : "Confirma solo la entrega de materiales del vale"
                           }
                         >
                           <Truck className="h-4 w-4 mr-2" />
@@ -499,7 +509,7 @@ export function TrabajosDiariosView() {
                             ? "Entrega confirmada"
                             : entregaDisabled
                               ? "Confirmando..."
-                              : "Confirmar entrega de materiales"}
+                              : "Entrega Materiales"}
                         </Button>
                       </div>
                     </div>
