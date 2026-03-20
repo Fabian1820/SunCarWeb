@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
-import { Edit, Trash2, Package, DollarSign, FileText, Upload, Loader2 } from "lucide-react";
+import { Edit, Package, DollarSign, FileText, Upload, Loader2 } from "lucide-react";
 import type { Material } from "@/lib/material-types";
 import { MaterialService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +17,6 @@ import {
 interface MaterialsTableProps {
   materials: Material[];
   onEdit: (material: Material) => void;
-  onDelete: (id: string) => void;
   onFichaTecnicaUploaded?: (materialCodigo: string, url: string) => void;
   marcas?: any[];
 }
@@ -25,7 +24,6 @@ interface MaterialsTableProps {
 export function MaterialsTable({
   materials,
   onEdit,
-  onDelete,
   onFichaTecnicaUploaded,
   marcas = [],
 }: MaterialsTableProps) {
@@ -403,15 +401,6 @@ export function MaterialsTable({
                     title="Editar material"
                   >
                     <Edit className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onDelete(material.codigo)}
-                    className="border-red-300 text-red-700 hover:bg-red-50 h-8 w-8 p-0"
-                    title="Eliminar material"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               </td>

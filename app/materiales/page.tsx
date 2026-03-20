@@ -76,11 +76,6 @@ export default function MaterialesPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [materialToDelete, setMaterialToDelete] = useState<Material | null>(
-    null,
-  );
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [viewMode, setViewMode] = useState<
     "materials" | "categories" | "marcas" | "web" | "stock-minimo"
   >("materials");
@@ -326,48 +321,6 @@ export default function MaterialesPage() {
         description: err.message || "Error al actualizar material",
         variant: "destructive",
       });
-    }
-  };
-
-  const deleteMaterial = async (codigo: string) => {
-    const material = materials.find((m) => String(m.codigo) === codigo);
-    if (!material || !material.codigo) {
-      toast({
-        title: "Error",
-        description: "No se encontró el material o el código es inválido.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setMaterialToDelete(material);
-    setIsDeleteDialogOpen(true);
-  };
-
-  // Confirmar eliminación de material
-  const confirmDeleteMaterial = async () => {
-    if (!materialToDelete || !materialToDelete.codigo) return;
-
-    setDeleteLoading(true);
-    try {
-      await deleteMaterialByCodigo(
-        String(materialToDelete.codigo),
-        materialToDelete.categoria,
-      );
-      toast({
-        title: "Éxito",
-        description: "Material eliminado exitosamente",
-      });
-      setIsDeleteDialogOpen(false);
-      setMaterialToDelete(null);
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: "Error al eliminar material: " + (err.message || err),
-        variant: "destructive",
-      });
-      console.error("[UI] Error al eliminar material:", err);
-    } finally {
-      setDeleteLoading(false);
     }
   };
 
@@ -953,7 +906,6 @@ export default function MaterialesPage() {
                     <MaterialsTable
                       materials={filteredMaterials}
                       onEdit={openEditDialog}
-                      onDelete={deleteMaterial}
                       onFichaTecnicaUploaded={(codigo, url) => {
                         // Actualizar el material en el estado local
                         refetchBackground();
@@ -1021,17 +973,6 @@ export default function MaterialesPage() {
             )}
           </DialogContent>
         </Dialog>
-
-        {/* Modal de confirmación de eliminación */}
-        <ConfirmDeleteDialog
-          open={isDeleteDialogOpen}
-          onOpenChange={setIsDeleteDialogOpen}
-          title="Eliminar Material"
-          message={`¿Estás seguro de que quieres eliminar el material "${materialToDelete?.descripcion}" (Código: ${materialToDelete?.codigo})? Esta acción no se puede deshacer.`}
-          onConfirm={confirmDeleteMaterial}
-          confirmText="Eliminar Material"
-          isLoading={deleteLoading}
-        />
 
         {/* Dashboard de Duplicados */}
         <DuplicatesDashboard
