@@ -29,8 +29,6 @@ type Brigadista = {
   is_brigadista?: boolean;
 };
 
-type OfertaConfeccionLike = Record<string, unknown>;
-
 const toDateInput = (value: Date) => {
   const yyyy = value.getFullYear();
   const mm = String(value.getMonth() + 1).padStart(2, "0");
@@ -69,21 +67,6 @@ const normalizeMaterialCode = (value: unknown) =>
 const normalizeMaterialDescription = (value: unknown) =>
   safeText(value).toLowerCase().trim();
 
-const getOfertaItems = (
-  oferta: OfertaConfeccionLike,
-): Record<string, unknown>[] => {
-  const items = toRecordArray(oferta.items);
-  if (items.length > 0) return items;
-  return toRecordArray(oferta.materiales);
-};
-
-const getOfertaPersistedId = (oferta: OfertaConfeccionLike | null) => {
-  if (!oferta) return "";
-  return safeText(
-    oferta.id || oferta._id || oferta.oferta_id || oferta.numero_oferta,
-  );
-};
-
 const extractApiErrorMessage = (response: unknown) => {
   if (!response || typeof response !== "object") return "";
   const data = response as Record<string, unknown>;
@@ -99,56 +82,6 @@ const extractApiErrorMessage = (response: unknown) => {
     return String((data.error as Record<string, unknown>).message);
   }
   return "";
-};
-
-const extractOfertasConfeccion = (
-  response: unknown,
-): OfertaConfeccionLike[] => {
-  if (!response || typeof response !== "object") return [];
-
-  const responseObj = response as Record<string, unknown>;
-  if (
-    responseObj.success === false &&
-    !responseObj.data &&
-    !responseObj.ofertas
-  ) {
-    return [];
-  }
-
-  const payload = responseObj.data ?? responseObj;
-  if (Array.isArray(payload)) {
-    return payload.filter(
-      (row) => row && typeof row === "object",
-    ) as OfertaConfeccionLike[];
-  }
-
-  const payloadObj =
-    payload && typeof payload === "object"
-      ? (payload as Record<string, unknown>)
-      : null;
-  if (!payloadObj) return [];
-
-  const ofertasFromPayload = toRecordArray(payloadObj.ofertas);
-  const ofertasFromRoot = toRecordArray(responseObj.ofertas);
-  const ofertasRaw =
-    ofertasFromPayload.length > 0 ? ofertasFromPayload : ofertasFromRoot;
-
-  if (ofertasRaw.length > 0) return ofertasRaw;
-
-  const singleOferta = payloadObj.oferta ?? payloadObj.data ?? payloadObj;
-  if (singleOferta && typeof singleOferta === "object") {
-    const ofertaObj = singleOferta as Record<string, unknown>;
-    const isOfertaLike =
-      Boolean(ofertaObj.id) ||
-      Boolean(ofertaObj._id) ||
-      Boolean(ofertaObj.oferta_id) ||
-      Boolean(ofertaObj.numero_oferta) ||
-      Array.isArray(ofertaObj.items) ||
-      Array.isArray(ofertaObj.materiales);
-    if (isOfertaLike) return [ofertaObj];
-  }
-
-  return [];
 };
 
 const matchResponsable = (responsable: string, worker: Brigadista) => {
@@ -361,81 +294,9 @@ export function TrabajosDiariosView() {
     }
   };
 
-  const cargarOfertasCliente = async (
-    clienteNumero: string,
-  ): Promise<OfertaConfeccionLike[]> => {
-    const response = await apiRequest<unknown>(
-      `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
-      { method: "GET" },
-    );
-    return extractOfertasConfeccion(response);
-  };
-
-  const seleccionarOfertaIdParaEntrega = (
-    ofertas: OfertaConfeccionLike[],
-    vale: TrabajoDiarioVale,
-  ) => {
-    const materialesVale = (vale.items || []).filter(
-      (item) => parseNumber(item.cantidad) > 0,
-    );
-    if (materialesVale.length === 0) return "";
-
-    const matchMaterial = (
-      materialVale: (typeof materialesVale)[number],
-      itemOferta: Record<string, unknown>,
-    ) => {
-      const materialIdVale = safeText(materialVale.material_id);
-      const materialIdOferta = safeText(itemOferta.material_id);
-      const sameId =
-        materialIdVale &&
-        materialIdOferta &&
-        materialIdVale === materialIdOferta;
-      const sameCode =
-        normalizeMaterialCode(materialVale.material_codigo) !== "" &&
-        normalizeMaterialCode(materialVale.material_codigo) ===
-          normalizeMaterialCode(itemOferta.material_codigo);
-      const sameDescription =
-        normalizeMaterialDescription(
-          materialVale.material_descripcion || materialVale.material_codigo,
-        ) !== "" &&
-        normalizeMaterialDescription(
-          materialVale.material_descripcion || materialVale.material_codigo,
-        ) === normalizeMaterialDescription(itemOferta.descripcion);
-      return sameId || sameCode || sameDescription;
-    };
-
-    for (const oferta of ofertas) {
-      const ofertaId = getOfertaPersistedId(oferta);
-      if (!ofertaId) continue;
-      const itemsOferta = getOfertaItems(oferta);
-      if (itemsOferta.length === 0) continue;
-
-      const allMatch = materialesVale.every((materialVale) =>
-        itemsOferta.some((itemOferta) =>
-          matchMaterial(materialVale, itemOferta),
-        ),
-      );
-      if (allMatch) return ofertaId;
-    }
-
-    const firstWithId = ofertas.find((oferta) =>
-      Boolean(getOfertaPersistedId(oferta)),
-    );
-    return getOfertaPersistedId(firstWithId || null);
-  };
-
   const confirmarEntregaMateriales = async (vale: TrabajoDiarioVale) => {
-    const clienteNumero = safeText(vale.cliente_numero);
     const valeId = safeText(vale.vale_id);
-    const solicitudId = safeText(vale.solicitud_id);
-    if (!clienteNumero) {
-      toast({
-        title: "Sin cliente",
-        description: "Este vale no tiene un cliente válido asociado.",
-        variant: "destructive",
-      });
-      return;
-    }
+    
     if (!valeId) {
       toast({
         title: "Vale inválido",
@@ -444,47 +305,14 @@ export function TrabajosDiariosView() {
       });
       return;
     }
-    if (!solicitudId) {
-      toast({
-        title: "Solicitud inválida",
-        description: "No se pudo identificar la solicitud asociada al vale.",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (!Array.isArray(vale.items) || vale.items.length === 0) {
-      toast({
-        title: "Sin materiales",
-        description: "Este vale no tiene materiales para confirmar entrega.",
-        variant: "destructive",
-      });
-      return;
-    }
 
     setConfirmandoEntrega((prev) => ({ ...prev, [valeId]: true }));
     try {
-      const ofertasCliente = await cargarOfertasCliente(clienteNumero);
-      if (ofertasCliente.length === 0) {
-        throw new Error(
-          "No se encontró una oferta confeccionada para este cliente.",
-        );
-      }
-
-      const ofertaId = seleccionarOfertaIdParaEntrega(ofertasCliente, vale);
-      if (!ofertaId) {
-        throw new Error(
-          "No se pudo identificar una oferta válida para registrar la entrega.",
-        );
-      }
-
-      const response = await apiRequest<unknown>("/entregas-materiales/", {
+      const response = await apiRequest<unknown>("/entregas-materiales/confirmar-desde-vale", {
         method: "POST",
         body: JSON.stringify({
-          id_oferta: ofertaId,
-          cliente_numero: clienteNumero,
-          id_solicitud: solicitudId,
-          id_vale: valeId,
-          fecha: fechaTrabajo,
+          id_vale_salida: valeId,
+          fecha: fechaTrabajo, // Formato YYYY-MM-DD
         }),
       });
 
@@ -493,7 +321,7 @@ export function TrabajosDiariosView() {
         if (responseObj.success === false || responseObj.error) {
           throw new Error(
             extractApiErrorMessage(response) ||
-              "No se pudo crear la entrega de materiales.",
+              "No se pudo confirmar la entrega de materiales.",
           );
         }
       }
@@ -503,7 +331,9 @@ export function TrabajosDiariosView() {
         response && typeof response === "object"
           ? safeText((response as Record<string, unknown>).entrega_material_id)
           : "";
+      
       setEntregaConfirmadaPorVale((prev) => ({ ...prev, [valeId]: true }));
+      
       toast({
         title: "Entrega confirmada",
         description: `Entrega creada para el vale ${safeText(vale.vale_codigo, valeId)}${entregaId ? ` (${entregaId})` : ""}. Responsable de recogida: ${responsable}.`,
