@@ -51,7 +51,7 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFiltersState] = useState<SolicitudVentaListParams>({
     skip: 0,
-    limit: 500,
+    limit: 10000, // Límite alto para cargar todos los registros
   });
 
   const setFilters = useCallback((nextFilters: SolicitudVentaListParams) => {

@@ -39,7 +39,11 @@ export function useValesSalida(): UseValesSalidaReturn {
       const params: {
         estado?: string;
         codigo?: string;
+        limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
+
+      // Límite alto por defecto para cargar todos los registros
+      params.limit = 10000;
 
       // Si hay un término de búsqueda, agregarlo a los parámetros
       if (searchTerm.trim()) {
