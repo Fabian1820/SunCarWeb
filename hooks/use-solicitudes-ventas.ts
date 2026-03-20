@@ -51,7 +51,8 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFiltersState] = useState<SolicitudVentaListParams>({
     skip: 0,
-    limit: 500,
+    // TEMPORAL: Sin límite para debugging
+    // limit: 1000,
   });
 
   const setFilters = useCallback((nextFilters: SolicitudVentaListParams) => {

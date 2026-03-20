@@ -45,7 +45,10 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     setLoading(true);
     setError(null);
     try {
-      const response = await SolicitudMaterialService.getSolicitudesSummary();
+      const response = await SolicitudMaterialService.getSolicitudesSummary({
+        // TEMPORAL: Sin límite para debugging
+        // limit: 1000,
+      });
       setSolicitudes(response.data);
       setTotal(response.total);
     } catch (err) {

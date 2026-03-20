@@ -36,12 +36,34 @@ export function useValesSalida(): UseValesSalidaReturn {
     setLoading(true);
     setError(null);
     try {
-      const response = await ValeSalidaService.getValesSummary(
-        estadoFilter === "todos" ? {} : { estado: estadoFilter },
-      );
+      const params: {
+        estado?: string;
+        codigo?: string;
+        limit?: number;
+      } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
+
+      // TEMPORAL: Sin límite para debugging
+      // params.limit = 1000;
+
+      // Si hay un término de búsqueda, agregarlo a los parámetros
+      if (searchTerm.trim()) {
+        params.codigo = searchTerm.trim();
+      }
+
+      console.log("🔍 [use-vales-salida] Params enviados al backend:", params);
+
+      const response = await ValeSalidaService.getValesSummary(params);
+
+      console.log("📦 [use-vales-salida] Respuesta del backend:", {
+        total: response.total,
+        cantidad_vales: response.data?.length,
+        primer_vale: response.data?.[0],
+      });
+
       setVales(response.data);
       setTotal(response.total);
     } catch (err) {
+      console.error("❌ [use-vales-salida] Error al cargar vales:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -52,23 +74,10 @@ export function useValesSalida(): UseValesSalidaReturn {
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter]);
+  }, [estadoFilter, searchTerm]);
 
-  const filteredVales = useMemo(() => {
-    if (!searchTerm.trim()) return vales;
-
-    const term = searchTerm.toLowerCase();
-    return vales.filter((v) => {
-      return (
-        v.codigo?.toLowerCase().includes(term) ||
-        v.estado?.toLowerCase().includes(term) ||
-        v.solicitud_codigo?.toLowerCase().includes(term) ||
-        v.cliente_nombre?.toLowerCase().includes(term) ||
-        v.creador_nombre?.toLowerCase().includes(term) ||
-        v.recibido_por?.toLowerCase().includes(term)
-      );
-    });
-  }, [vales, searchTerm]);
+  // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
+  const filteredVales = vales;
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -116,9 +125,14 @@ export function useValesSalida(): UseValesSalidaReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
-    loadVales();
-  }, [loadVales]);
+    const timer = setTimeout(() => {
+      void loadVales();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [estadoFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     vales,
