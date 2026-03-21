@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ValeSalidaService } from "@/lib/api-services";
 import type {
   ValeSalida,
@@ -36,6 +36,9 @@ export function useValesSalida(): UseValesSalidaReturn {
     "todos" | "usado" | "anulado"
   >("todos");
 
+  // Ref para evitar recrear loadVales en cada render
+  const isFirstRender = useRef(true);
+
   const loadVales = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -67,10 +70,16 @@ export function useValesSalida(): UseValesSalidaReturn {
       });
 
       // REEMPLAZAR vales (no concatenar)
-      setVales(response.data);
-      setTotal(response.total);
+      setVales(response.data || []);
+      setTotal(response.total || 0);
       setSkip(100); // Ya cargamos los primeros 100
-      setHasMore(response.data.length < response.total); // Hay más si no cargamos todo
+      setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
+
+      console.log("✅ [use-vales-salida] Estado actualizado:", {
+        vales_cargados: response.data?.length || 0,
+        total: response.total || 0,
+        hasMore: (response.data?.length || 0) < (response.total || 0),
+      });
     } catch (err) {
       console.error("❌ [use-vales-salida] Error al cargar vales:", err);
       setError(
@@ -188,11 +197,22 @@ export function useValesSalida(): UseValesSalidaReturn {
 
   // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
+    // Saltar el primer render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void loadVales(); // Cargar inmediatamente en el primer render
+      return;
+    }
+
     const timer = setTimeout(() => {
+      console.log("⏱️ [use-vales-salida] Debounce ejecutado, cargando vales...");
       void loadVales();
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      console.log("🧹 [use-vales-salida] Limpiando timeout del debounce");
+      clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoFilter, searchTerm]); // Solo depende de filtros y búsqueda, NO de loadVales
 
