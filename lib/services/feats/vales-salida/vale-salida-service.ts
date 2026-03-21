@@ -42,7 +42,7 @@ export class ValeSalidaService {
       solicitud_material_id?: string;
       solicitud_venta_id?: string;
       trabajador_id?: string;
-      codigo?: string;
+      q?: string; // Búsqueda de texto libre (antes era 'codigo')
       estado?: "usado" | "anulado" | string;
       skip?: number;
       limit?: number;
@@ -60,7 +60,7 @@ export class ValeSalidaService {
     }
     if (params.trabajador_id)
       search.append("trabajador_id", params.trabajador_id);
-    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.estado) search.append("estado", params.estado);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));

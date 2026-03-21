@@ -188,12 +188,14 @@ export function ValesSalidaTable({
                       {vale.recibido_por || "-"}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {formatDate(vale.fecha_creacion)}
-                    </span>
-                  </div>
+                  {vale.fecha_recogida && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700">
+                        {formatDate(vale.fecha_recogida)}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap">

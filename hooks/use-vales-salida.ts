@@ -38,16 +38,16 @@ export function useValesSalida(): UseValesSalidaReturn {
     try {
       const params: {
         estado?: string;
-        codigo?: string;
+        q?: string; // Búsqueda de texto libre (antes era 'codigo')
         limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
 
-      // TEMPORAL: Sin límite para debugging
-      // params.limit = 1000;
+      // Límite de 1000 para cargar más registros
+      params.limit = 1000;
 
-      // Si hay un término de búsqueda, agregarlo a los parámetros
+      // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
-        params.codigo = searchTerm.trim();
+        params.q = searchTerm.trim();
       }
 
       console.log("🔍 [use-vales-salida] Params enviados al backend:", params);
@@ -132,7 +132,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [estadoFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [estadoFilter, searchTerm, loadVales]);
 
   return {
     vales,

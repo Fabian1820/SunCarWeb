@@ -209,6 +209,7 @@ export interface ValeSalidaSummary {
   cliente_nombre?: string;
   creador_nombre?: string;
   recibido_por?: string | null;
+  fecha_recogida?: string | null; // Fecha en que se recogieron los materiales
   fecha_creacion?: string;
 }
 
