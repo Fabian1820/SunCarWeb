@@ -122,10 +122,12 @@ export function useValesSalida(): UseValesSalidaReturn {
       });
 
       // CONCATENAR nuevos vales al array existente
-      setVales((prev) => [...prev, ...response.data]);
+      const newVales = [...vales, ...response.data];
+      setVales(newVales);
       setTotal(response.total);
-      setSkip((prev) => prev + 100); // Incrementar skip
-      setHasMore(vales.length + response.data.length < response.total);
+      const newSkip = skip + 100;
+      setSkip(newSkip);
+      setHasMore(newVales.length < response.total); // Usar el array actualizado
     } catch (err) {
       console.error("❌ [use-vales-salida] Error al cargar más vales:", err);
       setError(
@@ -191,7 +193,8 @@ export function useValesSalida(): UseValesSalidaReturn {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [estadoFilter, searchTerm, loadVales]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoFilter, searchTerm]); // Solo depende de filtros y búsqueda, NO de loadVales
 
   return {
     vales,
