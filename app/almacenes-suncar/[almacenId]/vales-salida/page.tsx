@@ -74,6 +74,7 @@ export default function ValesSalidaPage() {
     vales,
     filteredVales,
     loading,
+    isSearching, // Nueva bandera de búsqueda
     searchTerm,
     setSearchTerm,
     estadoFilter,
@@ -530,10 +531,22 @@ export default function ValesSalidaPage() {
             <CardTitle className="flex items-center gap-2">
               <FileOutput className="h-5 w-5 text-orange-600" />
               Vales de Salida
+              {isSearching && (
+                <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
+              )}
             </CardTitle>
             <CardDescription>
-              Mostrando {valesAlmacen.length} vale
-              {valesAlmacen.length !== 1 ? "s" : ""}
+              {isSearching ? (
+                <span className="text-orange-600 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Buscando...
+                </span>
+              ) : (
+                <>
+                  Mostrando {valesAlmacen.length} vale
+                  {valesAlmacen.length !== 1 ? "s" : ""}
+                </>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -552,6 +565,8 @@ export default function ValesSalidaPage() {
                 void handleExportValeExcel(vale);
               }}
               loading={loading}
+              isSearching={isSearching}
+              searchTerm={searchTerm}
             />
 
             {/* Botón Cargar Más */}

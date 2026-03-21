@@ -10,6 +10,7 @@ interface UseValesSalidaReturn {
   vales: ValeSalidaSummary[];
   filteredVales: ValeSalidaSummary[];
   loading: boolean;
+  isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
@@ -30,6 +31,7 @@ export function useValesSalida(): UseValesSalidaReturn {
   const [skip, setSkip] = useState(0); // Contador de registros cargados
   const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<
@@ -59,29 +61,14 @@ export function useValesSalida(): UseValesSalidaReturn {
         params.q = searchTerm.trim();
       }
 
-      console.log("🔍 [use-vales-salida] Params enviados al backend:", params);
-
       const response = await ValeSalidaService.getValesSummary(params);
-
-      console.log("📦 [use-vales-salida] Respuesta del backend:", {
-        total: response.total,
-        cantidad_vales: response.data?.length,
-        primer_vale: response.data?.[0],
-      });
 
       // REEMPLAZAR vales (no concatenar)
       setVales(response.data || []);
       setTotal(response.total || 0);
       setSkip(100); // Ya cargamos los primeros 100
       setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
-
-      console.log("✅ [use-vales-salida] Estado actualizado:", {
-        vales_cargados: response.data?.length || 0,
-        total: response.total || 0,
-        hasMore: (response.data?.length || 0) < (response.total || 0),
-      });
     } catch (err) {
-      console.error("❌ [use-vales-salida] Error al cargar vales:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -121,14 +108,7 @@ export function useValesSalida(): UseValesSalidaReturn {
         params.q = searchTerm.trim();
       }
 
-      console.log("🔍 [use-vales-salida] Cargando más, params:", params);
-
       const response = await ValeSalidaService.getValesSummary(params);
-
-      console.log("📦 [use-vales-salida] Más vales cargados:", {
-        nuevos: response.data?.length,
-        total_acumulado: vales.length + response.data?.length,
-      });
 
       // CONCATENAR nuevos vales al array existente
       const newVales = [...vales, ...response.data];
@@ -138,7 +118,6 @@ export function useValesSalida(): UseValesSalidaReturn {
       setSkip(newSkip);
       setHasMore(newVales.length < response.total); // Usar el array actualizado
     } catch (err) {
-      console.error("❌ [use-vales-salida] Error al cargar más vales:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -204,14 +183,18 @@ export function useValesSalida(): UseValesSalidaReturn {
       return;
     }
 
+    // Activar indicador de búsqueda
+    setIsSearching(true);
+
     const timer = setTimeout(() => {
-      console.log("⏱️ [use-vales-salida] Debounce ejecutado, cargando vales...");
-      void loadVales();
+      void loadVales().finally(() => {
+        setIsSearching(false); // Desactivar indicador cuando termine
+      });
     }, 500);
 
     return () => {
-      console.log("🧹 [use-vales-salida] Limpiando timeout del debounce");
       clearTimeout(timer);
+      setIsSearching(false); // Limpiar indicador si se cancela
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [estadoFilter, searchTerm]); // Solo depende de filtros y búsqueda, NO de loadVales
@@ -220,6 +203,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     vales,
     filteredVales,
     loading,
+    isSearching, // Nueva bandera
     error,
     searchTerm,
     setSearchTerm,

@@ -27,6 +27,8 @@ interface ValesSalidaTableProps {
   onExportPdf?: (vale: ValeSalidaSummary) => void;
   onExportExcel?: (vale: ValeSalidaSummary) => void;
   loading?: boolean;
+  isSearching?: boolean;
+  searchTerm?: string;
 }
 
 const getSolicitudTipo = (vale: ValeSalidaSummary): "material" | "venta" => {
@@ -53,6 +55,8 @@ export function ValesSalidaTable({
   onView,
   onExportPdf,
   onExportExcel,
+  isSearching = false,
+  searchTerm = "",
 }: ValesSalidaTableProps) {
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "-";
@@ -80,14 +84,19 @@ export function ValesSalidaTable({
   };
 
   if (vales.length === 0) {
+    const hasActiveSearch = searchTerm.trim().length > 0;
     return (
       <div className="text-center py-12">
         <FileOutput className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          No hay vales de salida
+          {hasActiveSearch
+            ? "No se encontraron resultados"
+            : "No hay vales de salida"}
         </h3>
         <p className="text-gray-600">
-          No se encontraron vales que coincidan con los filtros aplicados.
+          {hasActiveSearch
+            ? `No se encontraron vales que coincidan con "${searchTerm}"`
+            : "No se encontraron vales que coincidan con los filtros aplicados."}
         </p>
       </div>
     );
