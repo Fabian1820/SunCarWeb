@@ -42,8 +42,8 @@ export function useValesSalida(): UseValesSalidaReturn {
         limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
 
-      // Límite de 1000 para cargar más registros
-      params.limit = 1000;
+      // NO enviar límite - dejar que el backend use su valor por defecto
+      // El backend rechaza limit=1000 con error 400
 
       // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
