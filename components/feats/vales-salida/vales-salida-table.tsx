@@ -54,9 +54,15 @@ export function ValesSalidaTable({
   onExportPdf,
   onExportExcel,
 }: ValesSalidaTableProps) {
-  const formatDate = (dateStr?: string) => {
+  const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "-";
     try {
+      // Si ya viene en formato "YYYY-MM-DD", convertir a "DD/MM/YYYY"
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateStr.split("-");
+        return `${day}/${month}/${year}`;
+      }
+      // Si es ISO 8601, usar toLocaleDateString
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
         month: "2-digit",
@@ -182,12 +188,24 @@ export function ValesSalidaTable({
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {vale.recibido_por || "-"}
-                    </span>
-                  </div>
+                  {/* Nombre de quien recibió */}
+                  {vale.recibido_por ? (
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700">
+                        {vale.recibido_por}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                      <span className="text-sm text-gray-400 italic">
+                        Pendiente
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Fecha de recogida (si existe) */}
                   {vale.fecha_recogida && (
                     <div className="flex items-center gap-1.5 mt-1.5">
                       <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
