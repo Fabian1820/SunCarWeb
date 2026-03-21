@@ -73,11 +73,11 @@ export class ValeSalidaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
-    const payload = raw?.data ?? raw;
-    const data = Array.isArray(payload)
-      ? payload
-      : payload?.data || payload?.vales || [];
-    const total = typeof payload === "object" ? payload.total || 0 : 0;
+    // El total está en raw.total, NO en raw.data.total
+    const data = Array.isArray(raw.data)
+      ? raw.data
+      : raw.data?.vales || raw.vales || [];
+    const total = raw.total || 0;
 
     return { data, total };
   }
