@@ -21,7 +21,6 @@ export default function AlmacenesSuncarPage() {
         const data = await InventarioService.getAlmacenes()
         setAlmacenes(Array.isArray(data) ? data : [])
       } catch (error) {
-        console.error("Error loading almacenes:", error)
         setAlmacenes([])
       } finally {
         setLoading(false)

@@ -122,7 +122,6 @@ export default function ValesSalidaPage() {
         description: "No se pudieron cargar las solicitudes pendientes",
         variant: "destructive",
       });
-      console.error("Error loading pending solicitudes:", error);
     } finally {
       setLoadingPendientes(false);
     }
@@ -178,7 +177,6 @@ export default function ValesSalidaPage() {
       setValeToAnular(valeCompleto);
       setIsAnularDialogOpen(true);
     } catch (error) {
-      console.error("Error loading vale for anular:", error);
       toast({
         title: "Error",
         description: "No se pudo cargar el vale",
@@ -252,7 +250,6 @@ export default function ValesSalidaPage() {
         description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato PDF.`,
       });
     } catch (error) {
-      console.error("Error exportando vale a PDF:", error);
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el PDF del vale.",
@@ -271,7 +268,6 @@ export default function ValesSalidaPage() {
         description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato Excel.`,
       });
     } catch (error) {
-      console.error("Error exportando vale a Excel:", error);
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el Excel del vale.",
@@ -295,7 +291,6 @@ export default function ValesSalidaPage() {
       setSelectedVale(valeCompleto);
       setIsDetailDialogOpen(true);
     } catch (error) {
-      console.error("Error loading vale details:", error);
       toast({
         title: "Error",
         description: "No se pudo cargar los detalles del vale",

@@ -208,7 +208,6 @@ export function DevolucionValeDialog({
 
         setTrabajadores(trabajadoresDisponibles);
       } catch (error) {
-        console.error("Error loading trabajadores for devolucion:", error);
         setTrabajadores([]);
       } finally {
         setTrabajadoresLoading(false);
