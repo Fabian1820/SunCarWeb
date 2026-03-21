@@ -94,7 +94,7 @@ export interface SolicitudVentaListParams {
   cliente_venta_numero?: string;
   almacen_id?: string;
   trabajador_id?: string;
-  codigo?: string;
+  q?: string; // Búsqueda de texto libre (antes era 'codigo')
   estado?: "nueva" | "usada" | "anulada" | string;
 }
 

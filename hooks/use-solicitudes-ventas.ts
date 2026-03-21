@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useMemo } from "react";
+﻿import { useState, useEffect, useCallback, useRef } from "react";
 import { SolicitudVentaService } from "@/lib/api-services";
 import type {
   SolicitudVenta,
@@ -13,6 +13,7 @@ interface UseSolicitudesVentasReturn {
   solicitudes: SolicitudVentaSummary[];
   filteredSolicitudes: SolicitudVentaSummary[];
   loading: boolean;
+  isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
@@ -36,17 +37,11 @@ interface UseSolicitudesVentasReturn {
   total: number;
 }
 
-const normalizeText = (value?: string): string =>
-  (value || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-
 export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
   const [solicitudes, setSolicitudes] = useState<SolicitudVentaSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFiltersState] = useState<SolicitudVentaListParams>({
@@ -54,6 +49,9 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     // TEMPORAL: Sin límite para debugging
     // limit: 1000,
   });
+
+  // Ref para evitar recrear loadSolicitudes en cada render
+  const isFirstRender = useRef(true);
 
   const setFilters = useCallback((nextFilters: SolicitudVentaListParams) => {
     setFiltersState((prev) => ({
@@ -72,6 +70,11 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
         ...filters,
         ...(overrideFilters || {}),
       };
+
+      // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
+      if (searchTerm.trim()) {
+        finalFilters.q = searchTerm.trim();
+      }
 
       try {
         const response =
@@ -93,27 +96,11 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
         setLoading(false);
       }
     },
-    [filters],
+    [filters, searchTerm],
   );
 
-  const filteredSolicitudes = useMemo(() => {
-    const term = normalizeText(searchTerm);
-    if (!term) return solicitudes;
-
-    return solicitudes.filter((solicitud) => {
-      const searchIndex = [
-        solicitud.codigo,
-        solicitud.estado,
-        solicitud.cliente_venta_nombre,
-        solicitud.almacen_nombre,
-        solicitud.creador_nombre,
-      ]
-        .map((value) => normalizeText(value))
-        .join(" ");
-
-      return searchIndex.includes(term);
-    });
-  }, [solicitudes, searchTerm]);
+  // Ahora filteredSolicitudes es igual a solicitudes ya que el filtrado lo hace el backend
+  const filteredSolicitudes = solicitudes;
 
   const createSolicitud = useCallback(
     async (data: SolicitudVentaCreateData): Promise<SolicitudVenta> => {
@@ -212,15 +199,36 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
-    void loadSolicitudes({ skip: 0, limit: 500 });
+    // Saltar el primer render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void loadSolicitudes({ skip: 0, limit: 500 }); // Cargar inmediatamente en el primer render
+      return;
+    }
+
+    // Activar indicador de búsqueda
+    setIsSearching(true);
+
+    const timer = setTimeout(() => {
+      void loadSolicitudes().finally(() => {
+        setIsSearching(false); // Desactivar indicador cuando termine
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      setIsSearching(false); // Limpiar indicador si se cancela
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchTerm]); // Solo depende de searchTerm, NO de loadSolicitudes
 
   return {
     solicitudes,
     filteredSolicitudes,
     loading,
+    isSearching, // Nueva bandera
     error,
     searchTerm,
     setSearchTerm,

@@ -182,10 +182,7 @@ export class SolicitudVentaService {
         }
       }
     } catch (error) {
-      console.warn(
-        "[SolicitudVentaService] Fallback a /productos/catalogo-web tras fallo en /productos/materiales-web",
-        error,
-      );
+      // Fallback silencioso a /productos/catalogo-web
     }
 
     const fallback = await apiRequest<any>("/productos/catalogo-web");
@@ -216,7 +213,7 @@ export class SolicitudVentaService {
     if (params.trabajador_id) {
       search.append("trabajador_id", params.trabajador_id);
     }
-    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.estado) search.append("estado", params.estado);
 
     const endpoint = search.toString()
@@ -227,11 +224,11 @@ export class SolicitudVentaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
-    const payload = raw?.data ?? raw;
-    const data = Array.isArray(payload)
-      ? payload
-      : payload?.data || payload?.solicitudes || [];
-    const total = typeof payload === "object" ? payload.total || 0 : 0;
+    // El total está en raw.total, NO en raw.data.total
+    const data = Array.isArray(raw.data)
+      ? raw.data
+      : raw.data?.solicitudes || raw.solicitudes || [];
+    const total = raw.total || 0;
 
     return { data, total };
   }
@@ -252,7 +249,7 @@ export class SolicitudVentaService {
     if (params.trabajador_id) {
       search.append("trabajador_id", params.trabajador_id);
     }
-    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.estado) search.append("estado", params.estado);
 
     const endpoint = search.toString()

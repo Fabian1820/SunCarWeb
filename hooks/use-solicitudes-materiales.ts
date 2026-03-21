@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { SolicitudMaterialService } from "@/lib/api-services";
 import type {
   SolicitudMaterial,
@@ -12,6 +12,7 @@ interface UseSolicitudesMaterialesReturn {
   solicitudes: SolicitudMaterialSummary[];
   filteredSolicitudes: SolicitudMaterialSummary[];
   loading: boolean;
+  isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
@@ -38,17 +39,25 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
   );
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Ref para evitar recrear loadSolicitudes en cada render
+  const isFirstRender = useRef(true);
 
   const loadSolicitudes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await SolicitudMaterialService.getSolicitudesSummary({
-        // TEMPORAL: Sin límite para debugging
-        // limit: 1000,
-      });
+      const params: { q?: string } = {};
+
+      // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+
+      const response = await SolicitudMaterialService.getSolicitudesSummary(params);
       setSolicitudes(response.data);
       setTotal(response.total);
     } catch (err) {
@@ -60,23 +69,10 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm]);
 
-  const filteredSolicitudes = useMemo(() => {
-    if (!searchTerm.trim()) return solicitudes;
-
-    const term = searchTerm.toLowerCase();
-    return solicitudes.filter((s) => {
-      return (
-        s.codigo?.toLowerCase().includes(term) ||
-        s.cliente_nombre?.toLowerCase().includes(term) ||
-        s.almacen_nombre?.toLowerCase().includes(term) ||
-        s.creador_nombre?.toLowerCase().includes(term) ||
-        s.responsable_recogida?.toLowerCase().includes(term) ||
-        s.fecha_recogida?.toLowerCase().includes(term)
-      );
-    });
-  }, [solicitudes, searchTerm]);
+  // Ahora filteredSolicitudes es igual a solicitudes ya que el filtrado lo hace el backend
+  const filteredSolicitudes = solicitudes;
 
   const createSolicitud = useCallback(
     async (data: SolicitudMaterialCreateData): Promise<SolicitudMaterial> => {
@@ -165,14 +161,36 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
-    loadSolicitudes();
-  }, [loadSolicitudes]);
+    // Saltar el primer render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void loadSolicitudes(); // Cargar inmediatamente en el primer render
+      return;
+    }
+
+    // Activar indicador de búsqueda
+    setIsSearching(true);
+
+    const timer = setTimeout(() => {
+      void loadSolicitudes().finally(() => {
+        setIsSearching(false); // Desactivar indicador cuando termine
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      setIsSearching(false); // Limpiar indicador si se cancela
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]); // Solo depende de searchTerm, NO de loadSolicitudes
 
   return {
     solicitudes,
     filteredSolicitudes,
     loading,
+    isSearching, // Nueva bandera
     error,
     searchTerm,
     setSearchTerm,
