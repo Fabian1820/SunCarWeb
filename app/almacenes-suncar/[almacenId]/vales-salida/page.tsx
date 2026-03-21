@@ -79,7 +79,10 @@ export default function ValesSalidaPage() {
     estadoFilter,
     setEstadoFilter,
     loadVales,
+    loadMore, // Nueva función para cargar más
+    hasMore, // Flag para saber si hay más registros
     anularVale,
+    total, // Total de registros
   } = useValesSalida();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -550,6 +553,41 @@ export default function ValesSalidaPage() {
               }}
               loading={loading}
             />
+
+            {/* Botón Cargar Más */}
+            {hasMore && valesAlmacen.length > 0 && (
+              <div className="mt-6 text-center border-t pt-6">
+                <Button
+                  onClick={() => void loadMore()}
+                  disabled={loading}
+                  variant="outline"
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Cargando más vales...
+                    </>
+                  ) : (
+                    <>
+                      Cargar más ({vales.length} de {total})
+                    </>
+                  )}
+                </Button>
+                <p className="text-sm text-gray-500 mt-2">
+                  Mostrando {vales.length} de {total} vales totales
+                </p>
+              </div>
+            )}
+
+            {/* Mensaje cuando se cargaron todos */}
+            {!hasMore && valesAlmacen.length > 0 && (
+              <div className="mt-6 text-center border-t pt-6">
+                <p className="text-sm text-gray-600">
+                  ✓ Mostrando todos los {total} vales
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
