@@ -17,6 +17,8 @@ interface UseSolicitudesMaterialesReturn {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   loadSolicitudes: () => Promise<void>;
+  loadMore: () => Promise<void>; // Nueva función para cargar más
+  hasMore: boolean; // Indica si hay más registros por cargar
   createSolicitud: (
     data: SolicitudMaterialCreateData,
   ) => Promise<SolicitudMaterial>;
@@ -38,6 +40,8 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     [],
   );
   const [total, setTotal] = useState(0);
+  const [skip, setSkip] = useState(0); // Contador de registros cargados
+  const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +54,11 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     setLoading(true);
     setError(null);
     try {
-      const params: { q?: string } = {};
+      const params: { q?: string; skip?: number; limit?: number } = {};
+
+      // Paginación: cargar los primeros 100
+      params.skip = 0;
+      params.limit = 100;
 
       // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
@@ -58,14 +66,20 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
       }
 
       const response = await SolicitudMaterialService.getSolicitudesSummary(params);
-      setSolicitudes(response.data);
-      setTotal(response.total);
+
+      // REEMPLAZAR solicitudes (no concatenar)
+      setSolicitudes(response.data || []);
+      setTotal(response.total || 0);
+      setSkip(100); // Ya cargamos los primeros 100
+      setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al cargar las solicitudes",
       );
       setSolicitudes([]);
       setTotal(0);
+      setSkip(0);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -73,6 +87,43 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
 
   // Ahora filteredSolicitudes es igual a solicitudes ya que el filtrado lo hace el backend
   const filteredSolicitudes = solicitudes;
+
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return; // No cargar si ya está cargando o no hay más
+
+    setLoading(true);
+    setError(null);
+    try {
+      const params: { q?: string; skip?: number; limit?: number } = {};
+
+      // Paginación: cargar siguientes 100 desde skip
+      params.skip = skip;
+      params.limit = 100;
+
+      // Si hay búsqueda, mantenerla
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+
+      const response = await SolicitudMaterialService.getSolicitudesSummary(params);
+
+      // CONCATENAR nuevas solicitudes al array existente
+      const newSolicitudes = [...solicitudes, ...response.data];
+      setSolicitudes(newSolicitudes);
+      setTotal(response.total);
+      const newSkip = skip + 100;
+      setSkip(newSkip);
+      setHasMore(newSolicitudes.length < response.total); // Usar el array actualizado
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al cargar más solicitudes",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, hasMore, skip, searchTerm, solicitudes]);
 
   const createSolicitud = useCallback(
     async (data: SolicitudMaterialCreateData): Promise<SolicitudMaterial> => {
@@ -195,6 +246,8 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     searchTerm,
     setSearchTerm,
     loadSolicitudes,
+    loadMore, // Nueva función
+    hasMore, // Nuevo flag
     createSolicitud,
     updateSolicitud,
     anularSolicitud,

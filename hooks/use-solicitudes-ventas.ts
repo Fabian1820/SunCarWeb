@@ -22,6 +22,8 @@ interface UseSolicitudesVentasReturn {
   loadSolicitudes: (
     overrideFilters?: SolicitudVentaListParams,
   ) => Promise<void>;
+  loadMore: () => Promise<void>; // Nueva función para cargar más
+  hasMore: boolean; // Indica si hay más registros por cargar
   createSolicitud: (data: SolicitudVentaCreateData) => Promise<SolicitudVenta>;
   updateSolicitud: (
     id: string,
@@ -40,6 +42,8 @@ interface UseSolicitudesVentasReturn {
 export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
   const [solicitudes, setSolicitudes] = useState<SolicitudVentaSummary[]>([]);
   const [total, setTotal] = useState(0);
+  const [skip, setSkip] = useState(0); // Contador de registros cargados
+  const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar
   const [loading, setLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +75,10 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
         ...(overrideFilters || {}),
       };
 
+      // Paginación: cargar los primeros 100
+      finalFilters.skip = 0;
+      finalFilters.limit = 100;
+
       // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
         finalFilters.q = searchTerm.trim();
@@ -79,8 +87,13 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
       try {
         const response =
           await SolicitudVentaService.getSolicitudesSummary(finalFilters);
-        setSolicitudes(response.data);
-        setTotal(response.total);
+
+        // REEMPLAZAR solicitudes (no concatenar)
+        setSolicitudes(response.data || []);
+        setTotal(response.total || 0);
+        setSkip(100); // Ya cargamos los primeros 100
+        setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
+
         if (overrideFilters) {
           setFiltersState(finalFilters);
         }
@@ -92,6 +105,8 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
         );
         setSolicitudes([]);
         setTotal(0);
+        setSkip(0);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
@@ -101,6 +116,46 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
 
   // Ahora filteredSolicitudes es igual a solicitudes ya que el filtrado lo hace el backend
   const filteredSolicitudes = solicitudes;
+
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return; // No cargar si ya está cargando o no hay más
+
+    setLoading(true);
+    setError(null);
+    try {
+      const finalFilters: SolicitudVentaListParams = {
+        ...filters,
+      };
+
+      // Paginación: cargar siguientes 100 desde skip
+      finalFilters.skip = skip;
+      finalFilters.limit = 100;
+
+      // Si hay búsqueda, mantenerla
+      if (searchTerm.trim()) {
+        finalFilters.q = searchTerm.trim();
+      }
+
+      const response =
+        await SolicitudVentaService.getSolicitudesSummary(finalFilters);
+
+      // CONCATENAR nuevas solicitudes al array existente
+      const newSolicitudes = [...solicitudes, ...response.data];
+      setSolicitudes(newSolicitudes);
+      setTotal(response.total);
+      const newSkip = skip + 100;
+      setSkip(newSkip);
+      setHasMore(newSolicitudes.length < response.total); // Usar el array actualizado
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al cargar más solicitudes de ventas",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, hasMore, skip, filters, searchTerm, solicitudes]);
 
   const createSolicitud = useCallback(
     async (data: SolicitudVentaCreateData): Promise<SolicitudVenta> => {
@@ -204,7 +259,7 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     // Saltar el primer render
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      void loadSolicitudes({ skip: 0, limit: 500 }); // Cargar inmediatamente en el primer render
+      void loadSolicitudes(); // Cargar inmediatamente en el primer render (con límite 100)
       return;
     }
 
@@ -235,6 +290,8 @@ export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
     filters,
     setFilters,
     loadSolicitudes,
+    loadMore, // Nueva función
+    hasMore, // Nuevo flag
     createSolicitud,
     updateSolicitud,
     anularSolicitud,
