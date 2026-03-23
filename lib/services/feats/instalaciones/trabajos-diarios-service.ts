@@ -183,6 +183,8 @@ const normalizeMateriales = (value: unknown) => {
           pickFirstString(material.codigo_material) || idMaterial,
         nombre: pickFirstString(material.nombre) || "Material",
         cantidad_utilizada: asNumber(material.cantidad_utilizada) || 0,
+        en_servicio: asBoolean(material.en_servicio),
+        cantidad_en_servicio: asNumber(material.cantidad_en_servicio),
       };
     })
     .filter(Boolean);
@@ -363,11 +365,23 @@ const serializeTrabajoPayload = (
   }
 
   const materiales = Array.isArray(payload.materiales_utilizados)
-    ? payload.materiales_utilizados.map((material) => ({
-        id_material: material.id_material,
-        nombre: material.nombre,
-        cantidad_utilizada: material.cantidad_utilizada,
-      }))
+    ? payload.materiales_utilizados.map((material) => {
+        const serialized: Record<string, unknown> = {
+          id_material: material.id_material,
+          nombre: material.nombre,
+          cantidad_utilizada: material.cantidad_utilizada,
+        };
+        if (material.codigo_material) {
+          serialized.codigo_material = material.codigo_material;
+        }
+        if (typeof material.en_servicio === "boolean") {
+          serialized.en_servicio = material.en_servicio;
+        }
+        if (typeof material.cantidad_en_servicio === "number") {
+          serialized.cantidad_en_servicio = material.cantidad_en_servicio;
+        }
+        return serialized;
+      })
     : [];
 
   const body: Record<string, unknown> = {

@@ -12,14 +12,11 @@ import { Input } from "@/components/shared/molecule/input";
 import { Badge } from "@/components/shared/atom/badge";
 import { useToast } from "@/hooks/use-toast";
 import {
-  ClienteService,
   InstalacionesService,
-  TrabajosDiariosService,
   TrabajadorService,
 } from "@/lib/api-services";
 import { apiRequest } from "@/lib/api-config";
 import type { TrabajoDiarioVale } from "@/lib/services/feats/instalaciones/instalaciones-service";
-import type { TrabajoDiarioRegistro } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { CheckCircle2, Truck, Users } from "lucide-react";
 
 type Brigadista = {
@@ -40,32 +37,6 @@ const safeText = (value: unknown, fallback = "") => {
   const text = String(value ?? "").trim();
   return text || fallback;
 };
-
-const normalizeEstadoClienteKey = (estado: string) =>
-  safeText(estado)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-
-const ESTADO_PENDIENTE_INSTALACION_KEY = "pendiente de instalacion";
-const ESTADO_INSTALACION_EN_PROCESO_KEY = "instalacion en proceso";
-
-const parseNumber = (value: unknown) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const toRecordArray = (value: unknown): Record<string, unknown>[] =>
-  Array.isArray(value)
-    ? value.filter((item) => item && typeof item === "object")
-    : [];
-
-const normalizeMaterialCode = (value: unknown) =>
-  safeText(value).toUpperCase().trim();
-
-const normalizeMaterialDescription = (value: unknown) =>
-  safeText(value).toLowerCase().trim();
 
 const extractApiErrorMessage = (response: unknown) => {
   if (!response || typeof response !== "object") return "";
@@ -96,6 +67,8 @@ const matchResponsable = (responsable: string, worker: Brigadista) => {
     r === nombre
   );
 };
+
+const CONFIRMAR_SALIDA_ENDPOINT = "/operaciones/confirmar-salida-instalacion";
 
 export function TrabajosDiariosView() {
   const { toast } = useToast();
@@ -185,12 +158,11 @@ export function TrabajosDiariosView() {
   };
 
   const confirmarSalida = async (vale: TrabajoDiarioVale) => {
-    const clienteNumero = safeText(vale.cliente_numero);
     const valeId = vale.vale_id;
-    if (!clienteNumero) {
+    if (!valeId) {
       toast({
-        title: "Sin cliente",
-        description: "Este vale no tiene un cliente válido asociado.",
+        title: "Vale inválido",
+        description: "No se pudo identificar el vale de salida.",
         variant: "destructive",
       });
       return;
@@ -209,82 +181,87 @@ export function TrabajosDiariosView() {
 
     setConfirmando((prev) => ({ ...prev, [valeId]: true }));
     try {
-      const instaladores = seleccionados
-        .map((ci) => {
-          const worker = brigadistas.find((b) => safeText(b.CI) === ci);
-          return safeText(worker?.nombre, ci);
-        })
-        .filter(Boolean);
+      const response = await apiRequest<unknown>(CONFIRMAR_SALIDA_ENDPOINT, {
+        method: "POST",
+        body: JSON.stringify({
+          id_vale_salida: valeId,
+          fecha: fechaTrabajo,
+          brigadistas_ci: seleccionados,
+        }),
+      });
 
-      const trabajoPayload: TrabajoDiarioRegistro = {
-        cliente_numero: clienteNumero,
-        fecha: fechaTrabajo,
-        fecha_trabajo: fechaTrabajo,
-        instaladores,
-        inicio: {
-          archivos: [],
-          comentario: "",
-          fecha: `${fechaTrabajo}T00:00:00`,
-        },
-        fin: {
-          archivos: [],
-          comentario: "",
-          fecha: `${fechaTrabajo}T00:00:00`,
-        },
-        tipo_trabajo: "INSTALACION EN PROCESO",
-        instalacion_terminada: false,
-        queda_pendiente: "Pendiente de completar en registro.",
-        id_vale_salida: vale.vale_id,
-        id_solicitud_materiales: vale.solicitud_id,
-        responsable_solicitud_materiales: vale.responsable_recogida,
-        materiales_utilizados: (vale.items || []).map((item) => ({
-          id_material: item.material_id,
-          codigo_material: item.material_codigo || "",
-          nombre:
-            item.material_descripcion || item.material_codigo || "Material",
-          cantidad_utilizada: Number(item.cantidad || 0),
-        })),
-      };
-
-      const trabajoCreado =
-        await TrabajosDiariosService.createTrabajo(trabajoPayload);
-
-      let detalleEstadoCliente = "Estado del cliente sin cambios.";
-      const clienteActual =
-        await ClienteService.getClienteByNumero(clienteNumero);
-      const estadoActual = safeText(clienteActual?.estado);
-      const estadoActualKey = normalizeEstadoClienteKey(estadoActual);
-
-      if (estadoActualKey === ESTADO_PENDIENTE_INSTALACION_KEY) {
-        const payload = {
-          estado: "Instalación en Proceso",
-          fecha_instalacion: `${fechaTrabajo}T00:00:00`,
-        };
-        const response = await ClienteService.actualizarCliente(
-          clienteNumero,
-          payload,
-        );
-        if (response?.success === false) {
+      if (response && typeof response === "object") {
+        const responseObj = response as Record<string, unknown>;
+        if (responseObj.success === false || responseObj.error) {
           throw new Error(
-            response.message || "No se pudo actualizar el cliente",
+            extractApiErrorMessage(response) ||
+              "No se pudo confirmar la salida de brigada.",
           );
         }
-        detalleEstadoCliente = "Cliente actualizado a Instalación en Proceso.";
-      } else if (estadoActualKey === ESTADO_INSTALACION_EN_PROCESO_KEY) {
-        detalleEstadoCliente =
-          "Cliente ya estaba en Instalación en Proceso; no se realizaron cambios.";
-      } else if (estadoActual) {
-        detalleEstadoCliente = `Cliente sin cambio de estado (actual: ${estadoActual}).`;
-      } else {
-        detalleEstadoCliente =
-          "No se pudo determinar el estado actual del cliente; no se actualizó estado.";
       }
+
+      const payloadData =
+        response && typeof response === "object"
+          ? ((response as Record<string, unknown>).data as
+              | Record<string, unknown>
+              | undefined)
+          : undefined;
+
+      const trabajoId =
+        safeText(payloadData?.trabajo_diario_id) ||
+        safeText((response as Record<string, unknown> | undefined)?.trabajo_diario_id);
+      const entregaId =
+        safeText(payloadData?.entrega_material_id) ||
+        safeText((response as Record<string, unknown> | undefined)?.entrega_material_id);
+      const clienteNumero =
+        safeText(payloadData?.cliente_numero) ||
+        safeText((response as Record<string, unknown> | undefined)?.cliente_numero) ||
+        safeText(vale.cliente_numero);
+      const clienteEstadoAnterior = safeText(payloadData?.cliente_estado_anterior);
+      const clienteEstadoActual = safeText(payloadData?.cliente_estado_actual);
+      const idempotente =
+        payloadData?.idempotente === true ||
+        (response as Record<string, unknown> | undefined)?.idempotente === true;
+      const clienteActualizado =
+        payloadData?.cliente_actualizado === true ||
+        (response as Record<string, unknown> | undefined)?.cliente_actualizado === true;
+
+      const detalleEstado = clienteEstadoActual
+        ? clienteEstadoAnterior
+          ? `Estado cliente: ${clienteEstadoAnterior} -> ${clienteEstadoActual}.`
+          : `Estado cliente actual: ${clienteEstadoActual}.`
+        : clienteActualizado
+          ? "Cliente actualizado."
+          : "Estado del cliente sin cambios.";
+      const detalleIds = [
+        trabajoId ? `Trabajo: ${trabajoId}` : "",
+        entregaId ? `Entrega: ${entregaId}` : "",
+      ]
+        .filter(Boolean)
+        .join(" • ");
 
       toast({
         title: "Confirmado",
-        description: `Trabajo diario ${safeText(trabajoCreado.id, "creado")} confirmado para cliente ${clienteNumero}. ${detalleEstadoCliente}`,
+        description: `${idempotente ? "Operación ya confirmada previamente." : "Salida y entrega confirmadas."}${clienteNumero ? ` Cliente: ${clienteNumero}.` : ""} ${detalleEstado} ${detalleIds}`.trim(),
       });
       setSalidaConfirmadaPorVale((prev) => ({ ...prev, [valeId]: true }));
+      // Remover inmediatamente el vale de la pestaña de confirmación
+      setVales((prev) => prev.filter((item) => item.vale_id !== valeId));
+      setSeleccionPorVale((prev) => {
+        const next = { ...prev };
+        delete next[valeId];
+        return next;
+      });
+      setConfirmandoEntrega((prev) => {
+        const next = { ...prev };
+        delete next[valeId];
+        return next;
+      });
+      setEntregaConfirmadaPorVale((prev) => {
+        const next = { ...prev };
+        delete next[valeId];
+        return next;
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Error confirmando salida";
@@ -337,6 +314,23 @@ export function TrabajosDiariosView() {
       toast({
         title: "Entrega confirmada",
         description: `Entrega creada para el vale ${safeText(vale.vale_codigo, valeId)}${entregaId ? ` (${entregaId})` : ""}. Responsable de recogida: ${responsable}.`,
+      });
+      // Remover inmediatamente el vale de la pestaña de confirmación
+      setVales((prev) => prev.filter((item) => item.vale_id !== valeId));
+      setSeleccionPorVale((prev) => {
+        const next = { ...prev };
+        delete next[valeId];
+        return next;
+      });
+      setConfirmando((prev) => {
+        const next = { ...prev };
+        delete next[valeId];
+        return next;
+      });
+      setSalidaConfirmadaPorVale((prev) => {
+        const next = { ...prev };
+        delete next[valeId];
+        return next;
       });
     } catch (error) {
       const message =
@@ -483,9 +477,11 @@ export function TrabajosDiariosView() {
                           <CheckCircle2 className="h-4 w-4 mr-2" />
                           {salidaConfirmada
                             ? "Salida confirmada"
-                            : salidaDisabled
+                            : confirmando[vale.vale_id] === true
                               ? "Confirmando..."
-                              : "Confirmar salida"}
+                              : entregaConfirmada
+                                ? "No disponible"
+                                : "Confirmar salida"}
                         </Button>
                         <Button
                           type="button"
@@ -507,9 +503,11 @@ export function TrabajosDiariosView() {
                           <Truck className="h-4 w-4 mr-2" />
                           {entregaConfirmada
                             ? "Entrega confirmada"
-                            : entregaDisabled
+                            : confirmandoEntrega[vale.vale_id] === true
                               ? "Confirmando..."
-                              : "Entrega Materiales"}
+                              : salidaConfirmada
+                                ? "No disponible"
+                                : "Entrega Materiales"}
                         </Button>
                       </div>
                     </div>

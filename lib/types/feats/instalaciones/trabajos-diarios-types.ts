@@ -26,6 +26,8 @@ export interface TrabajoDiarioMaterialUtilizado {
   codigo_material?: string;
   nombre: string;
   cantidad_utilizada: number;
+  en_servicio?: boolean;
+  cantidad_en_servicio?: number;
 }
 
 export interface TrabajoDiarioRegistro {

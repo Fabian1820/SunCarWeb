@@ -30,6 +30,7 @@ import type {
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 type MomentoKey = "inicio" | "fin";
+type ServicioCategoria = "inversor" | "panel" | "bateria";
 
 interface TrabajoDiarioFormProps {
   value: TrabajoDiarioRegistro;
@@ -46,6 +47,41 @@ const TIPOS_TRABAJO: TrabajoDiarioTipo[] = [
 ];
 
 const nowIso = () => new Date().toISOString();
+
+const normalizeText = (value: unknown) =>
+  String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
+const getServicioCategoria = (
+  material: TrabajoDiarioRegistro["materiales_utilizados"][number],
+): ServicioCategoria | null => {
+  const nombre = normalizeText(material?.nombre);
+  const codigo = normalizeText(material?.codigo_material || material?.id_material);
+
+  if (
+    nombre.includes("inversor") ||
+    codigo.includes("inv")
+  ) {
+    return "inversor";
+  }
+  if (
+    nombre.includes("panel") ||
+    codigo.includes("pan")
+  ) {
+    return "panel";
+  }
+  if (
+    nombre.includes("bateria") ||
+    codigo.includes("bat")
+  ) {
+    return "bateria";
+  }
+
+  return null;
+};
 
 export function TrabajoDiarioForm({
   value,
@@ -258,20 +294,27 @@ export function TrabajoDiarioForm({
     value.tipo_trabajo === "INSTALACION NUEVA" ||
     value.tipo_trabajo === "INSTALACION EN PROCESO";
   const instalacionTerminada = Boolean(value.instalacion_terminada);
+  const materialesServicio = (value.materiales_utilizados || [])
+    .map((material, index) => ({
+      material,
+      index,
+      categoria: getServicioCategoria(material),
+    }))
+    .filter((item) => item.categoria !== null);
 
   return (
     <form
-      className="space-y-4"
+      className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         onSubmit();
       }}
     >
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Datos del trabajo</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Datos del trabajo</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tipo de trabajo</Label>
@@ -322,15 +365,148 @@ export function TrabajoDiarioForm({
               />
             </div>
           </div>
+
+          {isInstalacion ? (
+            <div className="rounded-md border border-slate-200 p-3 space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={Boolean(value.instalacion_terminada)}
+                  onCheckedChange={(checked) => {
+                    const terminada = checked === true;
+                    update({
+                      instalacion_terminada: terminada,
+                      queda_pendiente: terminada ? "" : value.queda_pendiente,
+                    });
+                  }}
+                />
+                Instalación terminada
+              </label>
+              {!instalacionTerminada ? (
+                <div className="space-y-1.5">
+                  <Label>Queda pendiente</Label>
+                  <Textarea
+                    value={value.queda_pendiente || ""}
+                    onChange={(e) => update({ queda_pendiente: e.target.value })}
+                  />
+                </div>
+              ) : null}
+
+              {!instalacionTerminada ? (
+                <div className="space-y-2 rounded-md border border-slate-200 p-3 bg-slate-50">
+                  <p className="text-sm font-medium text-slate-800">
+                    Equipos en servicio
+                  </p>
+                  {materialesServicio.length === 0 ? (
+                    <p className="text-xs text-slate-500">
+                      No hay inversores, paneles o baterías en los materiales de este trabajo.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {materialesServicio.map(({ material, index, categoria }) => {
+                        const totalMaterial = Math.max(
+                          0,
+                          Number(material.cantidad_utilizada || 0),
+                        );
+                        const enServicio = material.en_servicio === true;
+                        const cantidadEnServicio = Number(
+                          material.cantidad_en_servicio || 0,
+                        );
+                        const categoriaLabel =
+                          categoria === "inversor"
+                            ? "Inversor"
+                            : categoria === "panel"
+                              ? "Panel"
+                              : "Batería";
+
+                        return (
+                          <div
+                            key={`${material.id_material || material.codigo_material || material.nombre}-${index}`}
+                            className="rounded-md border bg-white p-2.5 space-y-2"
+                          >
+                            <div className="flex flex-col gap-1">
+                              <p className="text-sm font-medium text-slate-900">
+                                {material.nombre || material.codigo_material || "Material"}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {categoriaLabel} • Total: {totalMaterial}
+                              </p>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                              <label className="flex items-center gap-2 text-sm">
+                                <Checkbox
+                                  checked={enServicio}
+                                  onCheckedChange={(checked) => {
+                                    const marcado = checked === true;
+                                    updateMaterial(index, {
+                                      en_servicio: marcado,
+                                      cantidad_en_servicio: marcado
+                                        ? Math.max(
+                                            1,
+                                            Math.min(
+                                              totalMaterial,
+                                              cantidadEnServicio > 0
+                                                ? cantidadEnServicio
+                                                : 1,
+                                            ),
+                                          )
+                                        : 0,
+                                    });
+                                  }}
+                                />
+                                Marcado en servicio
+                              </label>
+
+                              {enServicio ? (
+                                <div className="flex items-center gap-2 sm:ml-auto">
+                                  <Label className="text-xs whitespace-nowrap">
+                                    Cantidad en servicio
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    max={Math.max(1, totalMaterial)}
+                                    value={
+                                      cantidadEnServicio > 0 ? cantidadEnServicio : 1
+                                    }
+                                    onChange={(e) => {
+                                      const parsed = Number(e.target.value || 1);
+                                      const safeCantidad = Math.max(
+                                        1,
+                                        Math.min(
+                                          Math.max(1, totalMaterial),
+                                          Number.isFinite(parsed) ? parsed : 1,
+                                        ),
+                                      );
+                                      updateMaterial(index, {
+                                        en_servicio: true,
+                                        cantidad_en_servicio: safeCantidad,
+                                      });
+                                    }}
+                                    className="w-24"
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
-      {(["inicio", "fin"] as MomentoKey[]).map((momento) => (
-        <Card key={momento}>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base capitalize">{momento}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        {(["inicio", "fin"] as MomentoKey[]).map((momento) => (
+          <Card key={momento}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm capitalize">{momento}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
             <div className="space-y-2">
               <Label>Comentario</Label>
               <Textarea
@@ -358,7 +534,7 @@ export function TrabajoDiarioForm({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label>Archivos ({momento})</Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     key={`${momento}-${fileInputVersion[momento]}`}
                     type="file"
@@ -448,9 +624,10 @@ export function TrabajoDiarioForm({
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       {isAveria ? (
         <Card>
@@ -478,41 +655,9 @@ export function TrabajoDiarioForm({
         </Card>
       ) : null}
 
-      {isInstalacion ? (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Estado de instalación</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={Boolean(value.instalacion_terminada)}
-                onCheckedChange={(checked) => {
-                  const terminada = checked === true;
-                  update({
-                    instalacion_terminada: terminada,
-                    queda_pendiente: terminada ? "" : value.queda_pendiente,
-                  });
-                }}
-              />
-              Instalación terminada
-            </label>
-            {!instalacionTerminada ? (
-              <div className="space-y-2">
-                <Label>Queda pendiente</Label>
-                <Textarea
-                  value={value.queda_pendiente || ""}
-                  onChange={(e) => update({ queda_pendiente: e.target.value })}
-                />
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      ) : null}
-
       <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Materiales utilizados</CardTitle>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Materiales utilizados</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-end">
