@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { ValeSalidaService } from "@/lib/api-services";
 import type {
   ValeSalida,
@@ -10,12 +10,15 @@ interface UseValesSalidaReturn {
   vales: ValeSalidaSummary[];
   filteredVales: ValeSalidaSummary[];
   loading: boolean;
+  isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   estadoFilter: "todos" | "usado" | "anulado";
   setEstadoFilter: (estado: "todos" | "usado" | "anulado") => void;
   loadVales: () => Promise<void>;
+  loadMore: () => Promise<void>; // Nueva función para cargar más
+  hasMore: boolean; // Indica si hay más registros por cargar
   createVale: (data: ValeSalidaCreateData) => Promise<ValeSalida>;
   anularVale: (id: string, motivoAnulacion: string) => Promise<boolean>;
   clearError: () => void;
@@ -25,12 +28,18 @@ interface UseValesSalidaReturn {
 export function useValesSalida(): UseValesSalidaReturn {
   const [vales, setVales] = useState<ValeSalidaSummary[]>([]);
   const [total, setTotal] = useState(0);
+  const [skip, setSkip] = useState(0); // Contador de registros cargados
+  const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<
     "todos" | "usado" | "anulado"
   >("todos");
+
+  // Ref para evitar recrear loadVales en cada render
+  const isFirstRender = useRef(true);
 
   const loadVales = useCallback(async () => {
     setLoading(true);
@@ -38,32 +47,28 @@ export function useValesSalida(): UseValesSalidaReturn {
     try {
       const params: {
         estado?: string;
-        codigo?: string;
+        q?: string;
+        skip?: number;
         limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
 
-      // TEMPORAL: Sin límite para debugging
-      // params.limit = 1000;
+      // Paginación: cargar los primeros 100
+      params.skip = 0;
+      params.limit = 100;
 
-      // Si hay un término de búsqueda, agregarlo a los parámetros
+      // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
-        params.codigo = searchTerm.trim();
+        params.q = searchTerm.trim();
       }
-
-      console.log("🔍 [use-vales-salida] Params enviados al backend:", params);
 
       const response = await ValeSalidaService.getValesSummary(params);
 
-      console.log("📦 [use-vales-salida] Respuesta del backend:", {
-        total: response.total,
-        cantidad_vales: response.data?.length,
-        primer_vale: response.data?.[0],
-      });
-
-      setVales(response.data);
-      setTotal(response.total);
+      // REEMPLAZAR vales (no concatenar)
+      setVales(response.data || []);
+      setTotal(response.total || 0);
+      setSkip(100); // Ya cargamos los primeros 100
+      setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
     } catch (err) {
-      console.error("❌ [use-vales-salida] Error al cargar vales:", err);
       setError(
         err instanceof Error
           ? err.message
@@ -71,6 +76,8 @@ export function useValesSalida(): UseValesSalidaReturn {
       );
       setVales([]);
       setTotal(0);
+      setSkip(0);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
@@ -78,6 +85,48 @@ export function useValesSalida(): UseValesSalidaReturn {
 
   // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
   const filteredVales = vales;
+
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return; // No cargar si ya está cargando o no hay más
+
+    setLoading(true);
+    setError(null);
+    try {
+      const params: {
+        estado?: string;
+        q?: string;
+        skip?: number;
+        limit?: number;
+      } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
+
+      // Paginación: cargar siguientes 100 desde skip
+      params.skip = skip;
+      params.limit = 100;
+
+      // Si hay búsqueda, mantenerla
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+
+      const response = await ValeSalidaService.getValesSummary(params);
+
+      // CONCATENAR nuevos vales al array existente
+      const newVales = [...vales, ...response.data];
+      setVales(newVales);
+      setTotal(response.total);
+      const newSkip = skip + 100;
+      setSkip(newSkip);
+      setHasMore(newVales.length < response.total); // Usar el array actualizado
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al cargar más vales de salida",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, hasMore, skip, estadoFilter, searchTerm, vales.length]);
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -127,23 +176,42 @@ export function useValesSalida(): UseValesSalidaReturn {
 
   // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
+    // Saltar el primer render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void loadVales(); // Cargar inmediatamente en el primer render
+      return;
+    }
+
+    // Activar indicador de búsqueda
+    setIsSearching(true);
+
     const timer = setTimeout(() => {
-      void loadVales();
+      void loadVales().finally(() => {
+        setIsSearching(false); // Desactivar indicador cuando termine
+      });
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [estadoFilter, searchTerm]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => {
+      clearTimeout(timer);
+      setIsSearching(false); // Limpiar indicador si se cancela
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estadoFilter, searchTerm]); // Solo depende de filtros y búsqueda, NO de loadVales
 
   return {
     vales,
     filteredVales,
     loading,
+    isSearching, // Nueva bandera
     error,
     searchTerm,
     setSearchTerm,
     estadoFilter,
     setEstadoFilter,
     loadVales,
+    loadMore, // Nueva función
+    hasMore, // Nuevo flag
     createVale,
     anularVale,
     clearError,

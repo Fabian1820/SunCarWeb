@@ -217,7 +217,6 @@ export function CreateValeSalidaDialog({
 
         setSolicitudes(Array.isArray(solicitudesData) ? solicitudesData : []);
       } catch (error) {
-        console.error("Error loading data for vale dialog:", error);
         toast({
           title: "Error",
           description:
@@ -335,10 +334,6 @@ export function CreateValeSalidaDialog({
           Array.isArray(materialCatalog) ? materialCatalog : [],
         );
       } catch (error) {
-        console.error(
-          "Error loading materials catalog by solicitud tipo:",
-          error,
-        );
         toast({
           title: "Error",
           description:
@@ -441,7 +436,6 @@ export function CreateValeSalidaDialog({
 
       return toFiniteNumber(match?.cantidad) ?? 0;
     } catch (error) {
-      console.error("Error consultando stock de material para vale:", error);
       return 0;
     }
   };
@@ -589,7 +583,6 @@ export function CreateValeSalidaDialog({
         description: "Vale de salida creado correctamente",
       });
     } catch (error) {
-      console.error("Error creating vale de salida:", error);
       toast({
         title: "Error",
         description:

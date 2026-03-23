@@ -324,7 +324,6 @@ const loadStockByCode = async (
       stockByCode.set(code, cantidad);
     });
   } catch (error) {
-    console.warn("No se pudo cargar stock para exportar vale:", error);
   }
 
   return stockByCode;

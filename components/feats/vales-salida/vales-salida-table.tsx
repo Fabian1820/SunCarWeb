@@ -27,6 +27,8 @@ interface ValesSalidaTableProps {
   onExportPdf?: (vale: ValeSalidaSummary) => void;
   onExportExcel?: (vale: ValeSalidaSummary) => void;
   loading?: boolean;
+  isSearching?: boolean;
+  searchTerm?: string;
 }
 
 const getSolicitudTipo = (vale: ValeSalidaSummary): "material" | "venta" => {
@@ -53,10 +55,18 @@ export function ValesSalidaTable({
   onView,
   onExportPdf,
   onExportExcel,
+  isSearching = false,
+  searchTerm = "",
 }: ValesSalidaTableProps) {
-  const formatDate = (dateStr?: string) => {
+  const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "-";
     try {
+      // Si ya viene en formato "YYYY-MM-DD", convertir a "DD/MM/YYYY"
+      if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        const [year, month, day] = dateStr.split("-");
+        return `${day}/${month}/${year}`;
+      }
+      // Si es ISO 8601, usar toLocaleDateString
       return new Date(dateStr).toLocaleDateString("es-ES", {
         day: "2-digit",
         month: "2-digit",
@@ -74,14 +84,19 @@ export function ValesSalidaTable({
   };
 
   if (vales.length === 0) {
+    const hasActiveSearch = searchTerm.trim().length > 0;
     return (
       <div className="text-center py-12">
         <FileOutput className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          No hay vales de salida
+          {hasActiveSearch
+            ? "No se encontraron resultados"
+            : "No hay vales de salida"}
         </h3>
         <p className="text-gray-600">
-          No se encontraron vales que coincidan con los filtros aplicados.
+          {hasActiveSearch
+            ? `No se encontraron vales que coincidan con "${searchTerm}"`
+            : "No se encontraron vales que coincidan con los filtros aplicados."}
         </p>
       </div>
     );
@@ -182,18 +197,32 @@ export function ValesSalidaTable({
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <div className="flex items-center gap-1.5">
-                    <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {vale.recibido_por || "-"}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {formatDate(vale.fecha_creacion)}
-                    </span>
-                  </div>
+                  {/* Nombre de quien recibió */}
+                  {vale.recibido_por ? (
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700">
+                        {vale.recibido_por}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-4 w-4 text-gray-300 flex-shrink-0" />
+                      <span className="text-sm text-gray-400 italic">
+                        Pendiente
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Fecha de recogida (si existe) */}
+                  {vale.fecha_recogida && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Calendar className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-700">
+                        {formatDate(vale.fecha_recogida)}
+                      </span>
+                    </div>
+                  )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap">

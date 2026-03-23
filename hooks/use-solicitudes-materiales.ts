@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { SolicitudMaterialService } from "@/lib/api-services";
 import type {
   SolicitudMaterial,
@@ -12,10 +12,13 @@ interface UseSolicitudesMaterialesReturn {
   solicitudes: SolicitudMaterialSummary[];
   filteredSolicitudes: SolicitudMaterialSummary[];
   loading: boolean;
+  isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   loadSolicitudes: () => Promise<void>;
+  loadMore: () => Promise<void>; // Nueva función para cargar más
+  hasMore: boolean; // Indica si hay más registros por cargar
   createSolicitud: (
     data: SolicitudMaterialCreateData,
   ) => Promise<SolicitudMaterial>;
@@ -37,46 +40,90 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
     [],
   );
   const [total, setTotal] = useState(0);
+  const [skip, setSkip] = useState(0); // Contador de registros cargados
+  const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar
   const [loading, setLoading] = useState(false);
+  const [isSearching, setIsSearching] = useState(false); // Búsqueda en progreso
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Ref para evitar recrear loadSolicitudes en cada render
+  const isFirstRender = useRef(true);
 
   const loadSolicitudes = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await SolicitudMaterialService.getSolicitudesSummary({
-        // TEMPORAL: Sin límite para debugging
-        // limit: 1000,
-      });
-      setSolicitudes(response.data);
-      setTotal(response.total);
+      const params: { q?: string; skip?: number; limit?: number } = {};
+
+      // Paginación: cargar los primeros 100
+      params.skip = 0;
+      params.limit = 100;
+
+      // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+
+      const response = await SolicitudMaterialService.getSolicitudesSummary(params);
+
+      // REEMPLAZAR solicitudes (no concatenar)
+      setSolicitudes(response.data || []);
+      setTotal(response.total || 0);
+      setSkip(100); // Ya cargamos los primeros 100
+      setHasMore((response.data?.length || 0) < (response.total || 0)); // Hay más si no cargamos todo
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Error al cargar las solicitudes",
       );
       setSolicitudes([]);
       setTotal(0);
+      setSkip(0);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm]);
 
-  const filteredSolicitudes = useMemo(() => {
-    if (!searchTerm.trim()) return solicitudes;
+  // Ahora filteredSolicitudes es igual a solicitudes ya que el filtrado lo hace el backend
+  const filteredSolicitudes = solicitudes;
 
-    const term = searchTerm.toLowerCase();
-    return solicitudes.filter((s) => {
-      return (
-        s.codigo?.toLowerCase().includes(term) ||
-        s.cliente_nombre?.toLowerCase().includes(term) ||
-        s.almacen_nombre?.toLowerCase().includes(term) ||
-        s.creador_nombre?.toLowerCase().includes(term) ||
-        s.responsable_recogida?.toLowerCase().includes(term) ||
-        s.fecha_recogida?.toLowerCase().includes(term)
+  const loadMore = useCallback(async () => {
+    if (loading || !hasMore) return; // No cargar si ya está cargando o no hay más
+
+    setLoading(true);
+    setError(null);
+    try {
+      const params: { q?: string; skip?: number; limit?: number } = {};
+
+      // Paginación: cargar siguientes 100 desde skip
+      params.skip = skip;
+      params.limit = 100;
+
+      // Si hay búsqueda, mantenerla
+      if (searchTerm.trim()) {
+        params.q = searchTerm.trim();
+      }
+
+      const response = await SolicitudMaterialService.getSolicitudesSummary(params);
+
+      // CONCATENAR nuevas solicitudes al array existente
+      const newSolicitudes = [...solicitudes, ...response.data];
+      setSolicitudes(newSolicitudes);
+      setTotal(response.total);
+      const newSkip = skip + 100;
+      setSkip(newSkip);
+      setHasMore(newSolicitudes.length < response.total); // Usar el array actualizado
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al cargar más solicitudes",
       );
-    });
-  }, [solicitudes, searchTerm]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loading, hasMore, skip, searchTerm, solicitudes]);
 
   const createSolicitud = useCallback(
     async (data: SolicitudMaterialCreateData): Promise<SolicitudMaterial> => {
@@ -165,18 +212,42 @@ export function useSolicitudesMateriales(): UseSolicitudesMaterialesReturn {
 
   const clearError = useCallback(() => setError(null), []);
 
+  // Debounce para la búsqueda: esperar 500ms después de que el usuario deje de escribir
   useEffect(() => {
-    loadSolicitudes();
-  }, [loadSolicitudes]);
+    // Saltar el primer render
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      void loadSolicitudes(); // Cargar inmediatamente en el primer render
+      return;
+    }
+
+    // Activar indicador de búsqueda
+    setIsSearching(true);
+
+    const timer = setTimeout(() => {
+      void loadSolicitudes().finally(() => {
+        setIsSearching(false); // Desactivar indicador cuando termine
+      });
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+      setIsSearching(false); // Limpiar indicador si se cancela
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]); // Solo depende de searchTerm, NO de loadSolicitudes
 
   return {
     solicitudes,
     filteredSolicitudes,
     loading,
+    isSearching, // Nueva bandera
     error,
     searchTerm,
     setSearchTerm,
     loadSolicitudes,
+    loadMore, // Nueva función
+    hasMore, // Nuevo flag
     createSolicitud,
     updateSolicitud,
     anularSolicitud,

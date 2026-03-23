@@ -35,6 +35,8 @@ export default function SolicitudesMaterialesPage() {
     searchTerm,
     setSearchTerm,
     loadSolicitudes,
+    loadMore, // Nueva función para cargar más
+    hasMore, // Flag para saber si hay más registros
     anularSolicitud,
     reabrirSolicitud,
   } = useSolicitudesMateriales();
@@ -326,6 +328,20 @@ export default function SolicitudesMaterialesPage() {
               }}
               loading={loading}
             />
+
+            {/* Botón Cargar Más */}
+            {hasMore && filteredSolicitudes.length > 0 && (
+              <div className="mt-6 text-center border-t pt-6">
+                <Button
+                  onClick={() => void loadMore()}
+                  disabled={loading}
+                  variant="outline"
+                  className="min-w-[200px]"
+                >
+                  {loading ? "Cargando..." : "Cargar más solicitudes"}
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

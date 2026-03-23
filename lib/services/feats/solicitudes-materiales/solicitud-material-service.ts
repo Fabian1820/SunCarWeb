@@ -45,7 +45,7 @@ export class SolicitudMaterialService {
       cliente_id?: string;
       almacen_id?: string;
       trabajador_id?: string;
-      codigo?: string;
+      q?: string; // Búsqueda de texto libre (antes era 'codigo')
       estado?: "nueva" | "usada" | "anulada" | string;
       skip?: number;
       limit?: number;
@@ -56,7 +56,7 @@ export class SolicitudMaterialService {
     if (params.almacen_id) search.append("almacen_id", params.almacen_id);
     if (params.trabajador_id)
       search.append("trabajador_id", params.trabajador_id);
-    if (params.codigo) search.append("codigo", params.codigo);
+    if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.estado) search.append("estado", params.estado);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
@@ -69,11 +69,11 @@ export class SolicitudMaterialService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
-    const payload = raw?.data ?? raw;
-    const data = Array.isArray(payload)
-      ? payload
-      : payload?.data || payload?.solicitudes || [];
-    const total = typeof payload === "object" ? payload.total || 0 : 0;
+    // El total está en raw.total, NO en raw.data.total
+    const data = Array.isArray(raw.data)
+      ? raw.data
+      : raw.data?.solicitudes || raw.solicitudes || [];
+    const total = raw.total || 0;
 
     return { data, total };
   }

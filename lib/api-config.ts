@@ -43,9 +43,6 @@ function getApiBaseUrl(): string {
       suppliedPath !== "/api" &&
       typeof console !== "undefined"
     ) {
-      console.warn(
-        `âš ï¸ NEXT_PUBLIC_BACKEND_URL incluye path '${suppliedPath}'. Se ignorarÃ¡ y se usarÃ¡ solo el origen.`,
-      );
     }
 
     const isSuncarNonApiHost =
@@ -54,9 +51,6 @@ function getApiBaseUrl(): string {
       !parsed.hostname.startsWith("api.");
 
     if (isSuncarNonApiHost) {
-      console.warn(
-        `âš ï¸ Host backend '${parsed.hostname}' no es API. Se usarÃ¡ '${PROD_BACKEND_FALLBACK}'.`,
-      );
       backendOrigin = PROD_BACKEND_FALLBACK;
     } else {
       // Siempre construir la base con el origen para evitar duplicar /api o paths extra.
@@ -82,20 +76,11 @@ function getApiBaseUrl(): string {
   }
   const apiUrl = `${backendOrigin.replace(/\/+$/, "")}/api`;
 
-  console.log("âœ… Using direct backend URL:", apiUrl);
-  console.log("ðŸ”§ Backend origin URL:", backendOrigin);
-
   return apiUrl;
 }
 
 // Exportar la URL base
 export const API_BASE_URL = getApiBaseUrl();
-
-// Log inicial para verificar configuraciÃ³n
-console.log("ðŸ”§ API Configuration loaded:", {
-  API_BASE_URL,
-  timestamp: new Date().toISOString(),
-});
 
 // Headers comunes para las peticiones
 export const API_HEADERS = {
@@ -120,22 +105,11 @@ function ensureSecureRequestUrl(url: string): string {
     if (!isLocalhost && parsed.protocol === "http:") {
       parsed.protocol = "https:";
       const upgraded = parsed.toString();
-      console.warn("⚠️ URL HTTP detectada en cliente HTTPS. Se fuerza HTTPS:", {
-        original: url,
-        upgraded,
-      });
       return upgraded;
     }
   } catch {
     if (url.startsWith("http://")) {
       const upgraded = `https://${url.slice("http://".length)}`;
-      console.warn(
-        "⚠️ URL HTTP inválida detectada en cliente HTTPS. Se fuerza HTTPS:",
-        {
-          original: url,
-          upgraded,
-        },
-      );
       return upgraded;
     }
   }
@@ -151,13 +125,6 @@ export async function apiRequest<T>(
   const url = ensureSecureRequestUrl(rawUrl);
   const { responseType = "json", ...requestOptions } = options;
 
-  console.log("ðŸš€ Starting API request:", { endpoint, url, API_BASE_URL });
-  console.log("ðŸŒ Environment check:", {
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
-    NODE_ENV: process.env.NODE_ENV,
-    isBrowser: typeof window !== "undefined",
-  });
-
   try {
     // Obtener token de autenticaciÃ³n del localStorage
     let authToken = "";
@@ -171,14 +138,6 @@ export async function apiRequest<T>(
         .trim()
         .replace(/^['"]+/, "")
         .replace(/['"]+$/, "");
-      if (authToken) {
-        console.log(
-          "ðŸ” Using auth token from localStorage:",
-          authToken.substring(0, 20) + "...",
-        );
-      } else {
-        console.warn("âš ï¸ No auth token found in localStorage");
-      }
     }
 
     // Preparar headers base
@@ -247,25 +206,10 @@ export async function apiRequest<T>(
           parseOrValidationError instanceof Error &&
           parseOrValidationError.message.includes("bloqueÃ³ un lead temporal")
         ) {
-          console.error(
-            "â›” Payload bloqueado para POST /leads/:",
-            parseOrValidationError.message,
-          );
           throw parseOrValidationError;
         }
       }
     }
-    console.log(`ðŸ“¡ Making API request to: ${url}`);
-    console.log("ðŸ“‹ Request config:", {
-      method: config.method || "GET",
-      headers: config.headers,
-      body: config.body ? "Present" : "None",
-      responseType,
-    });
-    console.log(
-      "ðŸ” Authorization header:",
-      config.headers?.["Authorization"] ? "Present" : "NOT FOUND",
-    );
 
 
     // 🔥 LOG ESPECIAL PARA CREACIÓN DE LEADS
@@ -310,17 +254,11 @@ export async function apiRequest<T>(
     }
 
     const response = await fetch(url, config);
-    console.log("ðŸ“¨ Response received:", {
-      status: response.status,
-      ok: response.ok,
-      url: response.url,
-    });
 
     // Intentar parsear la respuesta priorizando JSON, con fallback seguro para cuerpo vacÃ­o/no-JSON.
     let data: unknown;
     if (responseType === "blob") {
       const blob = await response.blob();
-      console.log("ðŸ“„ API Response blob size:", blob.size);
 
       // Si hay error HTTP con blob, intentar leer como texto para ver si es JSON
       if (!response.ok) {
@@ -329,7 +267,6 @@ export async function apiRequest<T>(
           const jsonData = JSON.parse(text);
           // Devolver el error para que el servicio lo maneje
           if (jsonData.success === false || jsonData.detail || jsonData.error) {
-            console.log("ðŸ“¦ Returning error response from blob");
             return jsonData as T;
           }
         } catch {
@@ -343,9 +280,6 @@ export async function apiRequest<T>(
 
     if (response.status === 204 || response.status === 205) {
       data = {};
-      console.log(
-        "ðŸ“¦ Empty response body (no content), returning empty object",
-      );
     } else {
       const contentType = response.headers.get("content-type") || "";
       const rawText = await response.text();
@@ -353,7 +287,6 @@ export async function apiRequest<T>(
       if (!rawText.trim()) {
         if (response.ok) {
           data = {};
-          console.log("ðŸ“¦ Empty response body, returning empty object");
         } else {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -361,7 +294,6 @@ export async function apiRequest<T>(
         try {
           data = JSON.parse(rawText);
         } catch {
-          console.error("âŒ Could not parse response as JSON");
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
@@ -382,7 +314,6 @@ export async function apiRequest<T>(
           }
         }
       }
-      console.log("ðŸ“¦ Response data:", data);
     }
 
     const dataRecord =
@@ -406,9 +337,6 @@ export async function apiRequest<T>(
           errorMessage.toLowerCase().includes("invÃ¡lido") ||
           errorMessage.toLowerCase().includes("invalido"))
       ) {
-        console.warn(
-          "ðŸ” Token expirado o invÃ¡lido - cerrando sesiÃ³n automÃ¡ticamente",
-        );
 
         if (typeof window !== "undefined") {
           localStorage.removeItem("auth_token");
@@ -430,7 +358,6 @@ export async function apiRequest<T>(
       (Boolean(dataDetail) && !response.ok) ||
       Boolean(dataError)
     ) {
-      console.log("ðŸ“¦ Returning error response to service for handling");
       if (dataRecord) {
         return {
           ...dataRecord,
@@ -444,21 +371,10 @@ export async function apiRequest<T>(
 
     // Si el HTTP status no es OK pero no tenemos estructura de error, lanzar excepciÃ³n
     if (!response.ok) {
-      console.error(
-        `âŒ API request failed: ${response.status} ${response.statusText}`,
-      );
-      console.error("âŒ Error data:", data);
 
       // Para errores 400 (Bad Request), devolver la respuesta como error estructurado
       // en lugar de lanzar excepciÃ³n para evitar el overlay de Next.js
       if (response.status === 400) {
-        console.error("❌❌❌ ERROR 400 DETECTADO ❌❌❌");
-        console.error("URL:", url);
-        console.error("Method:", method);
-        console.error("Endpoint:", endpoint);
-        console.error("Request body:", config.body);
-        console.error("Response data:", JSON.stringify(data, null, 2));
-        console.log("ðŸ“¦ Returning 400 error as structured response");
         return {
           success: false,
           error: {
@@ -487,16 +403,6 @@ export async function apiRequest<T>(
       );
     }
 
-    console.error("ðŸ’¥ API Request Error:", error);
-    console.error("ðŸ’¥ API Request Error Details:", {
-      message: error instanceof Error ? error.message : "Unknown error",
-      name: error instanceof Error ? error.name : "Unknown",
-      url,
-      endpoint,
-      stack: error instanceof Error ? error.stack : undefined,
-      errorType: typeof error,
-      errorString: String(error),
-    });
     throw error;
   }
 }

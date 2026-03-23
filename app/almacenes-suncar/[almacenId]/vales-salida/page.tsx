@@ -74,12 +74,16 @@ export default function ValesSalidaPage() {
     vales,
     filteredVales,
     loading,
+    isSearching, // Nueva bandera de búsqueda
     searchTerm,
     setSearchTerm,
     estadoFilter,
     setEstadoFilter,
     loadVales,
+    loadMore, // Nueva función para cargar más
+    hasMore, // Flag para saber si hay más registros
     anularVale,
+    total, // Total de registros
   } = useValesSalida();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -118,7 +122,6 @@ export default function ValesSalidaPage() {
         description: "No se pudieron cargar las solicitudes pendientes",
         variant: "destructive",
       });
-      console.error("Error loading pending solicitudes:", error);
     } finally {
       setLoadingPendientes(false);
     }
@@ -174,7 +177,6 @@ export default function ValesSalidaPage() {
       setValeToAnular(valeCompleto);
       setIsAnularDialogOpen(true);
     } catch (error) {
-      console.error("Error loading vale for anular:", error);
       toast({
         title: "Error",
         description: "No se pudo cargar el vale",
@@ -248,7 +250,6 @@ export default function ValesSalidaPage() {
         description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato PDF.`,
       });
     } catch (error) {
-      console.error("Error exportando vale a PDF:", error);
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el PDF del vale.",
@@ -267,7 +268,6 @@ export default function ValesSalidaPage() {
         description: `Se exporto el vale ${vale.codigo || vale.id.slice(-6).toUpperCase()} en formato Excel.`,
       });
     } catch (error) {
-      console.error("Error exportando vale a Excel:", error);
       toast({
         title: "Error al exportar",
         description: "No se pudo generar el Excel del vale.",
@@ -291,7 +291,6 @@ export default function ValesSalidaPage() {
       setSelectedVale(valeCompleto);
       setIsDetailDialogOpen(true);
     } catch (error) {
-      console.error("Error loading vale details:", error);
       toast({
         title: "Error",
         description: "No se pudo cargar los detalles del vale",
@@ -527,10 +526,22 @@ export default function ValesSalidaPage() {
             <CardTitle className="flex items-center gap-2">
               <FileOutput className="h-5 w-5 text-orange-600" />
               Vales de Salida
+              {isSearching && (
+                <Loader2 className="h-4 w-4 text-orange-600 animate-spin" />
+              )}
             </CardTitle>
             <CardDescription>
-              Mostrando {valesAlmacen.length} vale
-              {valesAlmacen.length !== 1 ? "s" : ""}
+              {isSearching ? (
+                <span className="text-orange-600 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Buscando...
+                </span>
+              ) : (
+                <>
+                  Mostrando {valesAlmacen.length} vale
+                  {valesAlmacen.length !== 1 ? "s" : ""}
+                </>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -549,7 +560,44 @@ export default function ValesSalidaPage() {
                 void handleExportValeExcel(vale);
               }}
               loading={loading}
+              isSearching={isSearching}
+              searchTerm={searchTerm}
             />
+
+            {/* Botón Cargar Más */}
+            {hasMore && valesAlmacen.length > 0 && (
+              <div className="mt-6 text-center border-t pt-6">
+                <Button
+                  onClick={() => void loadMore()}
+                  disabled={loading}
+                  variant="outline"
+                  className="border-orange-300 text-orange-700 hover:bg-orange-50"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Cargando más vales...
+                    </>
+                  ) : (
+                    <>
+                      Cargar más ({vales.length} de {total})
+                    </>
+                  )}
+                </Button>
+                <p className="text-sm text-gray-500 mt-2">
+                  Mostrando {vales.length} de {total} vales totales
+                </p>
+              </div>
+            )}
+
+            {/* Mensaje cuando se cargaron todos */}
+            {!hasMore && valesAlmacen.length > 0 && (
+              <div className="mt-6 text-center border-t pt-6">
+                <p className="text-sm text-gray-600">
+                  ✓ Mostrando todos los {total} vales
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
