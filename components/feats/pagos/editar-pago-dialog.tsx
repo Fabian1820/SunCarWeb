@@ -27,7 +27,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
     const [formData, setFormData] = useState({
         monto: '',
         fecha: '',
-        tipo_pago: 'anticipo' as 'anticipo' | 'pendiente',
+        tipo_pago: 'anticipo' as 'anticipo' | 'pendiente' | 'completo',
         metodo_pago: 'efectivo' as 'efectivo' | 'transferencia_bancaria' | 'stripe',
         moneda: 'USD' as 'USD' | 'EUR' | 'CUP',
         tasa_cambio: 1.0,
@@ -479,7 +479,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                             </Label>
                             <Select
                                 value={formData.tipo_pago}
-                                onValueChange={(value: 'anticipo' | 'pendiente') =>
+                                onValueChange={(value: 'anticipo' | 'pendiente' | 'completo') =>
                                     setFormData({ ...formData, tipo_pago: value })
                                 }
                             >
@@ -489,6 +489,7 @@ export function EditarPagoDialog({ open, onOpenChange, pago, oferta, onSuccess }
                                 <SelectContent>
                                     <SelectItem value="anticipo">Anticipo</SelectItem>
                                     <SelectItem value="pendiente">Pago Pendiente</SelectItem>
+                                    <SelectItem value="completo">Completo</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

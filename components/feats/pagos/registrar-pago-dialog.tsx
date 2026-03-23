@@ -27,7 +27,7 @@ export interface RegistrarPagoSuccessPayload {
 export interface RegistrarPagoInitialData {
     monto?: string | number
     fecha?: string
-    tipo_pago?: 'anticipo' | 'pendiente'
+    tipo_pago?: 'anticipo' | 'pendiente' | 'completo'
     metodo_pago?: 'efectivo' | 'transferencia_bancaria' | 'stripe'
     moneda?: 'USD' | 'EUR' | 'CUP'
     tasa_cambio?: number
@@ -43,7 +43,7 @@ export interface RegistrarPagoInitialData {
 const getDefaultFormData = () => ({
     monto: '',
     fecha: new Date().toISOString().slice(0, 10),
-    tipo_pago: 'anticipo' as 'anticipo' | 'pendiente',
+    tipo_pago: 'anticipo' as 'anticipo' | 'pendiente' | 'completo',
     metodo_pago: 'efectivo' as 'efectivo' | 'transferencia_bancaria' | 'stripe',
     moneda: 'USD' as 'USD' | 'EUR' | 'CUP',
     tasa_cambio: 1.0,
@@ -528,7 +528,7 @@ export function RegistrarPagoDialog({
                             </Label>
                             <Select
                                 value={formData.tipo_pago}
-                                onValueChange={(value: 'anticipo' | 'pendiente') =>
+                                onValueChange={(value: 'anticipo' | 'pendiente' | 'completo') =>
                                     setFormData({ ...formData, tipo_pago: value })
                                 }
                             >
@@ -538,6 +538,7 @@ export function RegistrarPagoDialog({
                                 <SelectContent>
                                     <SelectItem value="anticipo">Anticipo</SelectItem>
                                     <SelectItem value="pendiente">Pago Pendiente</SelectItem>
+                                    <SelectItem value="completo">Completo</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

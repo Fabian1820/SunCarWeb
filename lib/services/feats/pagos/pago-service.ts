@@ -4,7 +4,7 @@ export interface PagoCreateData {
   oferta_id: string;
   monto: number;
   fecha: string;
-  tipo_pago: "anticipo" | "pendiente";
+  tipo_pago: "anticipo" | "pendiente" | "completo";
   metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe";
   moneda?: "USD" | "EUR" | "CUP";
   tasa_cambio?: number;
@@ -33,7 +33,7 @@ export interface Pago {
   carnet_pagador: string | null;
   desglose_billetes: Record<string, number> | null;
   fecha: string;
-  tipo_pago: "anticipo" | "pendiente";
+  tipo_pago: "anticipo" | "pendiente" | "completo";
   metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe";
   comprobante_transferencia?: string;
   recibido_por?: string;
@@ -238,7 +238,7 @@ export class PagoService {
    * Obtener todos los pagos con detalles completos
    */
   static async getAllPagosConDetalles(filters?: {
-    tipo_pago?: "anticipo" | "pendiente";
+    tipo_pago?: "anticipo" | "pendiente" | "completo";
     metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe";
   }): Promise<PagoConDetalles[]> {
     try {

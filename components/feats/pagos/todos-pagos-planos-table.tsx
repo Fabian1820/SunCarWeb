@@ -208,11 +208,23 @@ export function TodosPagosPlanosTable({
   };
 
   const getTipoPagoBadge = (tipo: string) => {
-    return tipo === "anticipo" ? (
-      <Badge variant="default" className="bg-blue-100 text-blue-700">
-        Anticipo
-      </Badge>
-    ) : (
+    if (tipo === "anticipo") {
+      return (
+        <Badge variant="default" className="bg-blue-100 text-blue-700">
+          Anticipo
+        </Badge>
+      );
+    }
+
+    if (tipo === "completo") {
+      return (
+        <Badge variant="default" className="bg-emerald-100 text-emerald-700">
+          Completo
+        </Badge>
+      );
+    }
+
+    return (
       <Badge variant="default" className="bg-purple-100 text-purple-700">
         Pendiente
       </Badge>
