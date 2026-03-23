@@ -169,12 +169,8 @@ const getContactLines = (
         ),
       },
       {
-        label: "CI Responsable",
+        label: "CI",
         value: cleanText(meta.responsable_ci || factura.trabajador_ci || null),
-      },
-      {
-        label: "Tipo",
-        value: "Brigada",
       },
     ];
   }
@@ -191,12 +187,12 @@ const getContactLines = (
       value: cleanText(cliente.nombre || factura.nombre_cliente),
     },
     {
-      label: "Codigo",
-      value: cleanText(cliente.numero || factura.cliente_id),
-    },
-    {
       label: "CI",
       value: cleanText(cliente.carnet_identidad),
+    },
+    {
+      label: "Codigo",
+      value: cleanText(cliente.numero || factura.cliente_id),
     },
     {
       label: "Telefono",
@@ -270,70 +266,132 @@ export class ExportFacturaService {
     });
 
     const pageWidth = doc.internal.pageSize.getWidth();
-    const marginX = 12;
-    let y = 12;
+    const marginX = 20;
+    const marginRight = pageWidth - 20;
+    let y = 20;
 
+    // Logo (esquina superior derecha)
     const logo = await resolveLogoBase64();
     if (logo) {
-      doc.addImage(logo, "PNG", marginX, y - 4, 26, 26);
+      doc.addImage(logo, "PNG", marginRight - 25, 12, 25, 25);
     }
 
+    // Título FACTURA con número y fecha (primera línea)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(20);
-    doc.text("SUNCAR SRL", pageWidth / 2, y + 2, { align: "center" });
-
-    doc.setFont("helvetica", "normal");
+    doc.setFontSize(14);
+    doc.text("FACTURA", marginX, y);
+    
     doc.setFontSize(10);
-    doc.text(
-      "Direccion: Calle 24/1era y 3ra #109, Miramar Playa",
-      pageWidth / 2,
-      y + 8,
-      { align: "center" },
-    );
+    doc.setFont("helvetica", "normal");
+    doc.text(`N° ${factura.numero_factura || "-"}`, marginX + 35, y);
+    doc.text(`Fecha: ${formatDate(factura.fecha_creacion)}`, marginRight - 45, y, { align: "left" });
+    y += 10;
 
+    // Datos de la empresa
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.text(
-      `FACTURA N ${factura.numero_factura || "-"}`,
-      pageWidth - marginX,
-      y + 2,
-      { align: "right" },
-    );
+    doc.text("Empresa Solar Carros", marginX, y);
+    y += 5;
 
-    doc.setFontSize(11);
-    doc.text(
-      `FECHA: ${formatDate(factura.fecha_creacion)}`,
-      pageWidth - marginX,
-      y + 8,
-      { align: "right" },
-    );
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Calle 24 #109 e/ 1ra y 3ra, Playa La Habana, Cuba", marginX, y);
+    y += 8;
 
-    y += 24;
+    // Línea separadora
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(marginX, y, marginRight, y);
+    y += 8;
 
+    // Información del cliente/brigada
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(getContactTitle(meta), marginX, y);
-    y += 6;
+    
+    if (meta?.titular === "brigada") {
+      doc.text("Datos de la Brigada:", marginX, y);
+      y += 5;
+      
+      doc.setFont("helvetica", "normal");
+      const responsable = cleanText(
+        meta.responsable_nombre ||
+          factura.nombre_responsable ||
+          factura.nombre_cliente,
+      );
+      doc.text(responsable, marginX, y);
+      y += 5;
+      
+      doc.setFont("helvetica", "bold");
+      doc.text("CI:", marginX, y);
+      doc.setFont("helvetica", "normal");
+      const ci = cleanText(meta.responsable_ci || factura.trabajador_ci || null);
+      doc.text(ci, marginX + 10, y);
+      y += 8;
+    } else {
+      const cliente = meta?.cliente || {};
+      
+      doc.text("Datos del Cliente:", marginX, y);
+      y += 5;
+      
+      doc.setFont("helvetica", "normal");
+      doc.text(cleanText(cliente.nombre || factura.nombre_cliente), marginX, y);
+      y += 5;
+      
+      doc.setFont("helvetica", "bold");
+      doc.text("CI:", marginX, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(cleanText(cliente.carnet_identidad), marginX + 10, y);
+      y += 5;
+      
+      if (cliente.telefono && cleanText(cliente.telefono) !== "-") {
+        doc.setFont("helvetica", "bold");
+        doc.text("Teléfono:", marginX, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(cleanText(cliente.telefono), marginX + 20, y);
+        y += 5;
+      }
+      
+      if (cliente.direccion && cleanText(cliente.direccion) !== "-") {
+        doc.setFont("helvetica", "bold");
+        doc.text("Dirección:", marginX, y);
+        doc.setFont("helvetica", "normal");
+        const direccionLines = doc.splitTextToSize(cleanText(cliente.direccion), 140);
+        doc.text(direccionLines, marginX + 22, y);
+        y += direccionLines.length * 5;
+      }
+      
+      y += 3;
+    }
 
-    const contactLines = getContactLines(factura, meta);
-    contactLines.forEach((line) => {
-      y += drawDetailLine(doc, line.label, line.value, marginX, y);
-    });
+    // Estado de anulación (si aplica)
+    if (factura.anulada === true) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(220, 38, 38); // Rojo
+      doc.text("Estado: ANULADA", marginX, y);
+      y += 5;
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0); // Negro
+      if (factura.motivo_anulacion && cleanText(factura.motivo_anulacion) !== "-") {
+        doc.text(`Motivo: ${cleanText(factura.motivo_anulacion)}`, marginX, y);
+        y += 5;
+      }
+      y += 3;
+    }
 
-    y += 2;
-    const anulacionLines = getAnulacionLines(factura);
-    anulacionLines.forEach((line) => {
-      y += drawDetailLine(doc, line.label, line.value, marginX, y);
-    });
+    // Línea separadora antes de la tabla
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(marginX, y, marginRight, y);
+    y += 5;
 
-    y += 4;
-
+    // Tabla de items
     autoTable(doc, {
       startY: y,
       head: [
         [
           "ITEM",
-          "DESCRIPCION",
+          "DESCRIPCIÓN",
           "U/M",
           "CANTIDAD",
           "PRECIO UNIT",
@@ -350,25 +408,28 @@ export class ExportFacturaService {
         formatMoney(row.total),
         row.valeSalidaCodigo,
       ]),
-      theme: "grid",
+      theme: "plain",
       styles: {
         fontSize: 8,
-        cellPadding: 1.8,
+        cellPadding: 2,
         valign: "middle",
+        lineColor: [220, 220, 220],
+        lineWidth: 0.1,
       },
       headStyles: {
-        fillColor: [230, 230, 230],
+        fillColor: [245, 245, 245],
         textColor: 30,
         fontStyle: "bold",
+        halign: "center",
       },
       columnStyles: {
-        0: { halign: "center", cellWidth: 11 },
-        1: { cellWidth: 63 },
+        0: { halign: "center", cellWidth: 12 },
+        1: { cellWidth: 65 },
         2: { halign: "center", cellWidth: 12 },
-        3: { halign: "right", cellWidth: 22 },
-        4: { halign: "right", cellWidth: 27 },
-        5: { halign: "right", cellWidth: 24 },
-        6: { halign: "center", cellWidth: 25 },
+        3: { halign: "right", cellWidth: 20 },
+        4: { halign: "right", cellWidth: 25 },
+        5: { halign: "right", cellWidth: 25 },
+        6: { halign: "center", cellWidth: 22 },
       },
       margin: { left: marginX, right: marginX },
     });
@@ -377,29 +438,29 @@ export class ExportFacturaService {
       .lastAutoTable?.finalY;
     y = (tableBottom || y) + 8;
 
-    const valesSalidaUnicos = Array.from(
-      new Set(
-        rows
-          .map((row) => row.valeSalidaCodigo)
-          .filter((codigo) => codigo && codigo !== "Manual"),
-      ),
-    );
+    // Línea separadora después de la tabla
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.3);
+    doc.line(marginX, y, marginRight, y);
+    y += 8;
 
-    if (valesSalidaUnicos.length > 0) {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
-      doc.text("Vales de salida asociados:", marginX, y);
-      doc.setFont("helvetica", "normal");
-      const valesTxt = doc.splitTextToSize(valesSalidaUnicos.join(", "), 165);
-      doc.text(valesTxt, marginX + 40, y);
-      y += valesTxt.length * 4 + 2;
-    }
-
+    // Total de la factura (destacado)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.text(`TOTAL FACTURA: ${formatMoney(total)}`, pageWidth - marginX, y, {
-      align: "right",
-    });
+    doc.setFontSize(11);
+    doc.text("Total Factura:", marginX, y);
+    doc.text(formatMoney(total), marginRight, y, { align: "right" });
+    y += 10;
+
+    // Pie de página
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "italic");
+    doc.setTextColor(100, 100, 100);
+    doc.text(
+      "Factura emitida desde Oficina General de Solar Carros",
+      pageWidth / 2,
+      y,
+      { align: "center" },
+    );
 
     doc.save(filename);
   }
@@ -429,7 +490,7 @@ export class ExportFacturaService {
     ];
 
     worksheet.mergeCells("A1:H1");
-    worksheet.getCell("A1").value = "SUNCAR SRL - FACTURA";
+    worksheet.getCell("A1").value = "Solar Carros - FACTURA";
     worksheet.getCell("A1").font = { bold: true, size: 14 };
 
     worksheet.mergeCells("A2:H2");
