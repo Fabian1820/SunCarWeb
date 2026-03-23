@@ -82,17 +82,35 @@ export class LeadService {
   }
 
   static async createLead(leadData: LeadCreateData): Promise<string> {
-    console.log("Calling createLead with:", leadData);
-    const response = await apiRequest<{
-      success: boolean;
-      message: string;
-      data: { id: string };
-    }>("/leads/", {
-      method: "POST",
-      body: JSON.stringify(leadData),
-    });
-    console.log("LeadService.createLead response:", response);
-    return response.data?.id || "success";
+    console.log("🚀 [LeadService.createLead] Iniciando creación de lead");
+    console.log("📋 [LeadService.createLead] Datos completos:", JSON.stringify(leadData, null, 2));
+    console.log("📊 [LeadService.createLead] Resumen:");
+    console.log("  - Nombre:", leadData.nombre);
+    console.log("  - Teléfono:", leadData.telefono);
+    console.log("  - Estado:", leadData.estado);
+    console.log("  - Fuente:", leadData.fuente);
+    console.log("  - Ofertas:", leadData.ofertas?.length || 0);
+    
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        message: string;
+        data: { id: string };
+      }>("/leads/", {
+        method: "POST",
+        body: JSON.stringify(leadData),
+      });
+      
+      console.log("✅ [LeadService.createLead] Respuesta exitosa:", response);
+      return response.data?.id || "success";
+    } catch (error) {
+      console.error("❌ [LeadService.createLead] Error capturado:");
+      console.error("  - Tipo:", error instanceof Error ? error.constructor.name : typeof error);
+      console.error("  - Mensaje:", error instanceof Error ? error.message : String(error));
+      console.error("  - Stack:", error instanceof Error ? error.stack : "N/A");
+      console.error("  - Error completo:", error);
+      throw error;
+    }
   }
 
   static async updateLead(

@@ -267,6 +267,48 @@ export async function apiRequest<T>(
       config.headers?.["Authorization"] ? "Present" : "NOT FOUND",
     );
 
+
+    // 🔥 LOG ESPECIAL PARA CREACIÓN DE LEADS
+    if ((endpoint === "/leads/" || endpoint === "/leads") && method === "POST") {
+      console.log("🎯🎯🎯 CREANDO LEAD - DATOS ENVIADOS AL BACKEND 🎯🎯🎯");
+      console.log("📍 Endpoint:", endpoint);
+      console.log("📍 URL completa:", url);
+      console.log("📍 Método:", method);
+      console.log("📦 Body RAW (string):", config.body);
+      
+      if (typeof config.body === "string") {
+        try {
+          const parsedBody = JSON.parse(config.body);
+          console.log("📦 Body PARSEADO (objeto):", parsedBody);
+          console.log("📦 Body FORMATEADO (JSON pretty):");
+          console.log(JSON.stringify(parsedBody, null, 2));
+          
+          console.log("📊 RESUMEN DE DATOS:");
+          console.log("  ✓ Nombre:", parsedBody.nombre);
+          console.log("  ✓ Teléfono:", parsedBody.telefono);
+          console.log("  ✓ Email:", parsedBody.email);
+          console.log("  ✓ Estado:", parsedBody.estado);
+          console.log("  ✓ Fuente:", parsedBody.fuente);
+          console.log("  ✓ Dirección:", parsedBody.direccion);
+          console.log("  ✓ Prioridad:", parsedBody.prioridad);
+          console.log("  ✓ Ofertas:", parsedBody.ofertas?.length || 0);
+          
+          if (parsedBody.ofertas && parsedBody.ofertas.length > 0) {
+            console.log("🎁 OFERTAS INCLUIDAS:");
+            parsedBody.ofertas.forEach((oferta: any, index: number) => {
+              console.log(`  Oferta ${index + 1}:`, oferta);
+            });
+          }
+          
+          console.log("  ✓ Elementos personalizados:", parsedBody.elementos_personalizados?.length || 0);
+          console.log("  ✓ Notas:", parsedBody.notas || "N/A");
+        } catch (e) {
+          console.error("❌ Error al parsear body:", e);
+        }
+      }
+      console.log("🎯🎯🎯 FIN DE DATOS ENVIADOS 🎯🎯🎯");
+    }
+
     const response = await fetch(url, config);
     console.log("ðŸ“¨ Response received:", {
       status: response.status,
@@ -458,3 +500,4 @@ export async function apiRequest<T>(
     throw error;
   }
 }
+

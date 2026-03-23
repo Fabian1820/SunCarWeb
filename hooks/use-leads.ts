@@ -362,15 +362,28 @@ export function useLeads(): UseLeadsReturn {
 
   const createLead = useCallback(
     async (data: LeadCreateData): Promise<boolean> => {
+      console.log("🎯 [use-leads.createLead] Iniciando proceso de creación");
+      console.log("📝 [use-leads.createLead] Datos recibidos:", data);
+      
       setLoading(true);
       setError(null);
       try {
+        console.log("⏳ [use-leads.createLead] Llamando a LeadService.createLead...");
         await LeadService.createLead(data);
+        
+        console.log("🔄 [use-leads.createLead] Lead creado, recargando lista...");
         await loadLeads(); // Recargar la lista
+        
+        console.log("✅ [use-leads.createLead] Proceso completado exitosamente");
         return true;
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al crear el lead");
-        console.error("Error creating lead:", err);
+        const errorMessage = err instanceof Error ? err.message : "Error al crear el lead";
+        setError(errorMessage);
+        
+        console.error("❌ [use-leads.createLead] Error en el proceso:");
+        console.error("  - Mensaje:", errorMessage);
+        console.error("  - Error completo:", err);
+        
         return false;
       } finally {
         setLoading(false);

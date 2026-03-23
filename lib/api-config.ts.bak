@@ -410,6 +410,12 @@ export async function apiRequest<T>(
       // Para errores 400 (Bad Request), devolver la respuesta como error estructurado
       // en lugar de lanzar excepciÃ³n para evitar el overlay de Next.js
       if (response.status === 400) {
+        console.error("❌❌❌ ERROR 400 DETECTADO ❌❌❌");
+        console.error("URL:", url);
+        console.error("Method:", method);
+        console.error("Endpoint:", endpoint);
+        console.error("Request body:", config.body);
+        console.error("Response data:", JSON.stringify(data, null, 2));
         console.log("ðŸ“¦ Returning 400 error as structured response");
         return {
           success: false,
@@ -452,3 +458,4 @@ export async function apiRequest<T>(
     throw error;
   }
 }
+

@@ -412,6 +412,18 @@ export function CreateLeadDialog({
   const handleInputChange = (field: keyof LeadCreateData, value: string) => {
     let processedValue = value;
 
+    // Validación especial para teléfono adicional: remover caracteres no permitidos
+    if (field === "telefono_adicional") {
+      // Remover caracteres como : y otros caracteres especiales no permitidos en teléfonos
+      // Permitir solo: dígitos, +, espacios, guiones y paréntesis
+      processedValue = value.replace(/[^0-9+\s\-()]/g, "");
+      
+      // Si se removieron caracteres, mostrar advertencia
+      if (processedValue !== value) {
+        console.warn("⚠️ Se removieron caracteres no permitidos del teléfono adicional");
+      }
+    }
+
     // Convertir fecha de input date (YYYY-MM-DD) a formato DD/MM/YYYY
     if (field === "fecha_contacto") {
       processedValue = convertFromDateInput(value);
@@ -689,12 +701,19 @@ export function CreateLeadDialog({
         ofertas: [ofertaToSend], // ← Agregar la oferta al array
       };
 
-      console.log("📤 Enviando lead con oferta:", leadDataWithOferta);
-      console.log("📦 Oferta a enviar:", ofertaToSend);
+      console.log("📤 [CreateLeadDialog] Preparando envío de lead con oferta");
+      console.log("📦 [CreateLeadDialog] Datos del formulario:", formData);
+      console.log("🎁 [CreateLeadDialog] Oferta a enviar:", ofertaToSend);
+      console.log("📮 [CreateLeadDialog] Lead completo con oferta:", JSON.stringify(leadDataWithOferta, null, 2));
 
       await onSubmit(sanitizeLeadData(leadDataWithOferta));
+      
+      console.log("✅ [CreateLeadDialog] Lead creado exitosamente");
     } catch (error) {
-      console.error("Error al crear lead:", error);
+      console.error("❌ [CreateLeadDialog] Error al crear lead:");
+      console.error("  - Tipo:", error instanceof Error ? error.constructor.name : typeof error);
+      console.error("  - Mensaje:", error instanceof Error ? error.message : String(error));
+      console.error("  - Error completo:", error);
     }
   };
 
