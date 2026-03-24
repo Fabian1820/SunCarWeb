@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
@@ -86,6 +86,8 @@ export function TrabajosDiariosRegistroView({
     Record<string, TrabajoDiarioRegistro>
   >({});
   const [selectedId, setSelectedId] = useState("");
+  const selectedIdRef = useRef("");
+  const [loadingTrabajoId, setLoadingTrabajoId] = useState("");
   const [selectedTrabajo, setSelectedTrabajo] =
     useState<TrabajoDiarioRegistro | null>(null);
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -297,7 +299,7 @@ export function TrabajosDiariosRegistroView({
       }
 
       const keepSelected = rows.find(
-        (t) => safeText(t.id) === selectedId,
+        (t) => safeText(t.id) === selectedIdRef.current,
       );
       if (!keepSelected) {
         setSelectedId("");
@@ -321,11 +323,14 @@ export function TrabajosDiariosRegistroView({
     fecha,
     selectedClient?.id,
     selectedClient?.numero,
-    selectedId,
     toast,
     trabajadoresFiltroBackend,
     clienteFiltro,
   ]);
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   useEffect(() => {
     void Promise.all([loadWorkers(), loadClientes()]);
@@ -340,7 +345,6 @@ export function TrabajosDiariosRegistroView({
     fecha,
     selectedClient?.id,
     selectedClient?.numero,
-    selectedId,
     toast,
     trabajadoresFiltroBackend,
     clienteFiltro,
@@ -379,18 +383,40 @@ export function TrabajosDiariosRegistroView({
 
       const previousTrabajo = selectedTrabajo;
       setSelectedId(rowId);
+      setLoadingTrabajoId(rowId);
       setLoadingDetalle(true);
       setLoadingMateriales(true);
       try {
-        const detalle = await TrabajosDiariosService.getTrabajoById(rowId);
+        const [detalleResult, resumenResult] = await Promise.allSettled([
+          TrabajosDiariosService.getTrabajoById(rowId),
+          TrabajosDiariosService.getMaterialesResumen(rowId),
+        ]);
+
+        if (detalleResult.status !== "fulfilled") {
+          throw detalleResult.reason;
+        }
+
+        const detalle = detalleResult.value;
         const nextTrabajo = { ...detalle, id: safeText(detalle.id, rowId) };
         setSelectedTrabajo(nextTrabajo);
         setDraftsById((prev) => ({ ...prev, [rowId]: nextTrabajo }));
+
+        let resumen: TrabajoDiarioMaterialResumen[] = [];
+        if (resumenResult.status === "fulfilled") {
+          resumen = resumenResult.value;
+        }
         const detalleId = safeText(detalle.id, rowId);
-        try {
-          const resumen = await TrabajosDiariosService.getMaterialesResumen(
-            detalleId,
-          );
+        if (resumen.length === 0 && detalleId && detalleId !== rowId) {
+          try {
+            resumen = await TrabajosDiariosService.getMaterialesResumen(
+              detalleId,
+            );
+          } catch {
+            // noop
+          }
+        }
+
+        if (resumen.length > 0) {
           const hydratedResumen = hydrateMaterialesResumen(
             resumen,
             nextTrabajo.materiales_utilizados,
@@ -402,8 +428,7 @@ export function TrabajosDiariosRegistroView({
           };
           setSelectedTrabajo(nextTrabajoWithMateriales);
           setDraftsById((prev) => ({ ...prev, [rowId]: nextTrabajoWithMateriales }));
-        } catch {
-          // El resumen no debe bloquear la edición del trabajo
+        } else {
           setMaterialesResumen([]);
         }
       } catch (error) {
@@ -426,6 +451,7 @@ export function TrabajosDiariosRegistroView({
       } finally {
         setLoadingDetalle(false);
         setLoadingMateriales(false);
+        setLoadingTrabajoId("");
       }
     },
     [
@@ -771,6 +797,7 @@ export function TrabajosDiariosRegistroView({
                 {trabajosFiltrados.map((trabajo) => {
                   const rowId = safeText(trabajo.id);
                   const active = rowId === selectedId;
+                  const loadingRow = loadingTrabajoId === rowId;
                   const instaladores = (trabajo.instaladores || []).filter(Boolean);
                   const instaladoresTexto =
                     instaladores.length > 0 ? instaladores.join(", ") : "Sin instaladores";
@@ -791,6 +818,7 @@ export function TrabajosDiariosRegistroView({
                       onClick={() => {
                         void handleSelectTrabajo(trabajo);
                       }}
+                      disabled={loadingRow}
                     >
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         Cliente
@@ -821,6 +849,9 @@ export function TrabajosDiariosRegistroView({
                           </p>
                         </div>
                       </div>
+                      {loadingRow ? (
+                        <p className="mt-2 text-[11px] text-blue-600">Cargando detalle...</p>
+                      ) : null}
                     </button>
                   );
                 })}
@@ -835,7 +866,12 @@ export function TrabajosDiariosRegistroView({
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto pr-0 xl:pr-2">
             {loadingDetalle ? (
-              <p className="text-sm text-muted-foreground">Cargando detalle...</p>
+              <div className="space-y-3 animate-pulse">
+                <div className="h-10 bg-slate-100 rounded-md" />
+                <div className="h-28 bg-slate-100 rounded-md" />
+                <div className="h-24 bg-slate-100 rounded-md" />
+                <div className="h-40 bg-slate-100 rounded-md" />
+              </div>
             ) : !selectedTrabajo ? (
               <p className="text-sm text-muted-foreground">
                 Selecciona un trabajo de la lista para introducir inicio, fin y materiales.
