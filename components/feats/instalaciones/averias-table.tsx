@@ -29,12 +29,14 @@ import {
   Edit2,
   Plus,
   Camera,
+  FileSpreadsheet,
 } from "lucide-react";
 import { AveriaService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
 import { CrearAveriaDialog } from "./crear-averia-dialog";
 import type { Cliente } from "@/lib/api-types";
 import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 interface AveriasTableProps {
   clients: Cliente[];
@@ -172,6 +174,96 @@ export function AveriasTable({
     setClienteFotosSeleccionado(client);
   };
 
+  // Función para exportar averías a Excel
+  const handleExportarExcel = async () => {
+    try {
+      // Preparar los datos para exportar - expandir cada cliente con sus averías
+      const datosParaExportar: any[] = [];
+
+      clients.forEach((client) => {
+        const averiasFiltered = filtrarAverias(client.averias || []);
+
+        if (averiasFiltered.length > 0) {
+          averiasFiltered.forEach((averia) => {
+            datosParaExportar.push({
+              numero_cliente: client.numero,
+              nombre_cliente: client.nombre,
+              telefono: client.telefono,
+              telefono_adicional: client.telefono_adicional || "",
+              direccion: client.direccion,
+              oferta: formatOfertas(client.ofertas || []),
+              descripcion_averia: averia.descripcion,
+              estado_averia: averia.estado,
+              fecha_reporte: new Date(averia.fecha_reporte).toLocaleDateString(
+                "es-ES",
+                {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                }
+              ),
+              fecha_solucion: averia.fecha_solucion
+                ? new Date(averia.fecha_solucion).toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  })
+                : "",
+            });
+          });
+        }
+      });
+
+      if (datosParaExportar.length === 0) {
+        toast({
+          title: "Sin datos",
+          description: "No hay averías para exportar",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Determinar el subtítulo según los filtros aplicados
+      let subtitle = `Total de averías: ${datosParaExportar.length}`;
+      if (estadoAveria === "pendientes") {
+        subtitle += " (Solo pendientes)";
+      } else if (estadoAveria === "solucionadas") {
+        subtitle += " (Solo solucionadas)";
+      }
+
+      await exportToExcel({
+        title: "Suncar SRL - Reporte de Averías",
+        subtitle,
+        filename: generateFilename("averias"),
+        columns: [
+          { header: "Nº Cliente", key: "numero_cliente", width: 15 },
+          { header: "Cliente", key: "nombre_cliente", width: 30 },
+          { header: "Teléfono", key: "telefono", width: 15 },
+          { header: "Tel. Adicional", key: "telefono_adicional", width: 15 },
+          { header: "Dirección", key: "direccion", width: 35 },
+          { header: "Oferta", key: "oferta", width: 40 },
+          { header: "Descripción Avería", key: "descripcion_averia", width: 50 },
+          { header: "Estado", key: "estado_averia", width: 15 },
+          { header: "Fecha Reporte", key: "fecha_reporte", width: 15 },
+          { header: "Fecha Solución", key: "fecha_solucion", width: 15 },
+        ],
+        data: datosParaExportar,
+      });
+
+      toast({
+        title: "Exportación exitosa",
+        description: `Se exportaron ${datosParaExportar.length} averías a Excel`,
+      });
+    } catch (error: any) {
+      console.error("Error exportando a Excel:", error);
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo exportar a Excel",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       {/* Filtros */}
@@ -255,25 +347,36 @@ export function AveriasTable({
               {estadoAveria === "solucionadas" &&
                 `Clientes con Averías Solucionadas (${clients.length})`}
             </span>
-            <Badge
-              variant="outline"
-              className={
-                estadoAveria === "solucionadas"
-                  ? "bg-green-50 text-green-700"
-                  : "bg-red-50 text-red-700"
-              }
-            >
-              <AlertTriangle className="h-3 w-3 mr-1" />
-              {clients.reduce((total, client) => {
-                const averiasFiltered = filtrarAverias(client.averias || []);
-                return total + averiasFiltered.length;
-              }, 0)}{" "}
-              {estadoAveria === "todas"
-                ? "Total"
-                : estadoAveria === "pendientes"
-                  ? "Pendientes"
-                  : "Solucionadas"}
-            </Badge>
+            <div className="flex items-center gap-3">
+              <Badge
+                variant="outline"
+                className={
+                  estadoAveria === "solucionadas"
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700"
+                }
+              >
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                {clients.reduce((total, client) => {
+                  const averiasFiltered = filtrarAverias(client.averias || []);
+                  return total + averiasFiltered.length;
+                }, 0)}{" "}
+                {estadoAveria === "todas"
+                  ? "Total"
+                  : estadoAveria === "pendientes"
+                    ? "Pendientes"
+                    : "Solucionadas"}
+              </Badge>
+              <Button
+                onClick={handleExportarExcel}
+                disabled={loading || clients.length === 0}
+                className="bg-green-600 hover:bg-green-700"
+                size="sm"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Exportar a Excel
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
