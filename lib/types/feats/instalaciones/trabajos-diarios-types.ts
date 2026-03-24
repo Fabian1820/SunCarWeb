@@ -94,6 +94,7 @@ export interface TrabajoDiarioFiltro {
   cliente_numero?: string;
   cliente_id?: string;
   q_cliente?: string;
+  incluir_cerrados?: boolean;
   skip?: number;
   limit?: number;
 }

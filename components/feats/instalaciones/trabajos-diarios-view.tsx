@@ -70,7 +70,13 @@ const matchResponsable = (responsable: string, worker: Brigadista) => {
 
 const CONFIRMAR_SALIDA_ENDPOINT = "/operaciones/confirmar-salida-instalacion";
 
-export function TrabajosDiariosView() {
+type TrabajosDiariosViewMode = "vales" | "entregas";
+
+interface TrabajosDiariosViewProps {
+  mode?: TrabajosDiariosViewMode;
+}
+
+export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps) {
   const { toast } = useToast();
   const [fechaTrabajo, setFechaTrabajo] = useState(() =>
     toDateInput(new Date()),
@@ -122,7 +128,9 @@ export function TrabajosDiariosView() {
     setLoading(true);
     try {
       const [valesData, trabajadoresData] = await Promise.all([
-        InstalacionesService.getTrabajosDiarios(fechaTrabajo),
+        mode === "entregas"
+          ? InstalacionesService.getEntregasSinInstalar(fechaTrabajo)
+          : InstalacionesService.getTrabajosDiarios(fechaTrabajo),
         TrabajadorService.getAllTrabajadores(),
       ]);
 
@@ -162,7 +170,7 @@ export function TrabajosDiariosView() {
     } finally {
       setLoading(false);
     }
-  }, [fechaTrabajo, toast]);
+  }, [fechaTrabajo, mode, toast]);
 
   useEffect(() => {
     void cargarDatos();
@@ -392,9 +400,19 @@ export function TrabajosDiariosView() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600">
-            Se listan vales de salida de{" "}
-            <strong>solicitudes de materiales</strong> cuya{" "}
-            <strong>fecha de recogida</strong> coincide con la fecha de trabajo.
+            {mode === "entregas" ? (
+              <>
+                Se listan entregas con <strong>salida_brigada=false</strong> para
+                confirmar salida e iniciar/actualizar el trabajo diario, sin
+                volver a registrar la entrega.
+              </>
+            ) : (
+              <>
+                Se listan vales de salida de{" "}
+                <strong>solicitudes de materiales</strong> cuya{" "}
+                <strong>fecha de recogida</strong> coincide con la fecha de trabajo.
+              </>
+            )}
           </p>
         </CardContent>
       </Card>
@@ -402,7 +420,10 @@ export function TrabajosDiariosView() {
       <Card className="border-l-4 border-l-indigo-600">
         <CardHeader>
           <CardTitle className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <span>Vales del día ({valesFiltrados.length})</span>
+            <span>
+              {mode === "entregas" ? "Entregas sin instalar" : "Vales del día"} (
+              {valesFiltrados.length})
+            </span>
             <span className="text-sm text-gray-500 flex items-center gap-2">
               <Users className="h-4 w-4" /> Brigadistas: {brigadistas.length}
             </span>
@@ -427,8 +448,9 @@ export function TrabajosDiariosView() {
             </div>
           ) : valesFiltrados.length === 0 ? (
             <div className="py-10 text-center text-gray-600">
-              No hay vales de salida (solicitudes de materiales) para esta
-              fecha.
+              {mode === "entregas"
+                ? "No hay entregas pendientes de salida de brigada para esta fecha."
+                : "No hay vales de salida (solicitudes de materiales) para esta fecha."}
             </div>
           ) : (
             <div className="space-y-4">
@@ -518,32 +540,34 @@ export function TrabajosDiariosView() {
                                 ? "No disponible"
                                 : "Confirmar salida"}
                         </Button>
-                        <Button
-                          type="button"
-                          className={`w-full sm:w-auto ${
-                            entregaConfirmada
-                              ? "bg-slate-500 hover:bg-slate-500"
-                              : "bg-blue-700 hover:bg-blue-800"
-                          }`}
-                          onClick={() => void confirmarEntregaMateriales(vale)}
-                          disabled={entregaDisabled}
-                          title={
-                            entregaConfirmada
-                              ? "Entrega de materiales ya confirmada para este vale"
-                              : salidaConfirmada
-                                ? "No se puede confirmar entrega porque ya se confirmó la salida"
-                                : "Confirma solo la entrega de materiales del vale"
-                          }
-                        >
-                          <Truck className="h-4 w-4 mr-2" />
-                          {entregaConfirmada
-                            ? "Entrega confirmada"
-                            : confirmandoEntrega[vale.vale_id] === true
-                              ? "Confirmando..."
-                              : salidaConfirmada
-                                ? "No disponible"
-                                : "Entrega Materiales"}
-                        </Button>
+                        {mode === "vales" ? (
+                          <Button
+                            type="button"
+                            className={`w-full sm:w-auto ${
+                              entregaConfirmada
+                                ? "bg-slate-500 hover:bg-slate-500"
+                                : "bg-blue-700 hover:bg-blue-800"
+                            }`}
+                            onClick={() => void confirmarEntregaMateriales(vale)}
+                            disabled={entregaDisabled}
+                            title={
+                              entregaConfirmada
+                                ? "Entrega de materiales ya confirmada para este vale"
+                                : salidaConfirmada
+                                  ? "No se puede confirmar entrega porque ya se confirmó la salida"
+                                  : "Confirma solo la entrega de materiales del vale"
+                            }
+                          >
+                            <Truck className="h-4 w-4 mr-2" />
+                            {entregaConfirmada
+                              ? "Entrega confirmada"
+                              : confirmandoEntrega[vale.vale_id] === true
+                                ? "Confirmando..."
+                                : salidaConfirmada
+                                  ? "No disponible"
+                                  : "Entrega Materiales"}
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
 

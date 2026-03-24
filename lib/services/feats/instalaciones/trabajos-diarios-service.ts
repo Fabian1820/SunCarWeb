@@ -601,6 +601,12 @@ export class TrabajosDiariosService {
     if (clienteNumero) query.append("cliente_numero", clienteNumero);
     if (clienteId) query.append("cliente_id", clienteId);
     if (qCliente) query.append("q_cliente", qCliente);
+    if (typeof filters.incluir_cerrados === "boolean") {
+      query.append(
+        "incluir_cerrados",
+        filters.incluir_cerrados ? "true" : "false",
+      );
+    }
     if (filters.skip != null) query.append("skip", String(filters.skip));
     if (filters.limit != null) query.append("limit", String(filters.limit));
 
@@ -627,6 +633,71 @@ export class TrabajosDiariosService {
     return rows
       .map(normalizeTrabajo)
       .filter(Boolean) as TrabajoDiarioRegistro[];
+  }
+
+  static async getTrabajosTodos(
+    filters: Omit<TrabajoDiarioFiltro, "fecha"> = {},
+  ): Promise<TrabajoDiarioRegistro[]> {
+    const endpoints = [
+      `${BASE_ENDPOINT}/sin-materiales`,
+      `${BASE_ENDPOINT}/sin-materiales/`,
+    ];
+
+    let rows: TrabajoDiarioRegistro[] = [];
+    let lastError: unknown = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const raw = await apiRequest<unknown>(endpoint, { method: "GET" });
+        const array = toArray(raw);
+        const parsed = array
+          .map(normalizeTrabajo)
+          .filter(Boolean) as TrabajoDiarioRegistro[];
+        if (parsed.length > 0 || array.length === 0) {
+          rows = parsed;
+          break;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (rows.length === 0 && lastError instanceof Error) {
+      throw lastError;
+    }
+
+    const normalizeComparable = (value: unknown) =>
+      String(value ?? "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+
+    const instaladores = buildInstaladoresFilter(filters).map(normalizeComparable);
+    const clienteNumero = normalizeComparable(filters.cliente_numero);
+    const clienteId = normalizeComparable(filters.cliente_id);
+    const qCliente = normalizeComparable(filters.q_cliente);
+
+    const filtered = rows.filter((row) => {
+      const instaladoresRow = (row.instaladores || []).map(normalizeComparable);
+      const matchInstaladores =
+        instaladores.length === 0 ||
+        instaladores.some((filtro) => instaladoresRow.some((nombre) => nombre.includes(filtro)));
+
+      const numero = normalizeComparable(row.cliente_numero);
+      const id = normalizeComparable(row.cliente_id);
+      const nombre = normalizeComparable(row.cliente_nombre);
+      const direccion = normalizeComparable(row.cliente_direccion);
+      const clienteConcat = [numero, id, nombre, direccion].filter(Boolean).join(" ");
+
+      const matchClienteNumero = !clienteNumero || numero === clienteNumero;
+      const matchClienteId = !clienteId || id === clienteId;
+      const matchQCliente = !qCliente || clienteConcat.includes(qCliente);
+
+      return matchInstaladores && matchClienteNumero && matchClienteId && matchQCliente;
+    });
+
+    return filtered;
   }
 
   static async getTrabajoById(id: string): Promise<TrabajoDiarioRegistro> {

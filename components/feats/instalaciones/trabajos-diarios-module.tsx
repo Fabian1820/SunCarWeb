@@ -9,9 +9,9 @@ import {
 } from "@/components/shared/molecule/tabs";
 import { TrabajosDiariosView } from "./trabajos-diarios-view";
 import { TrabajosDiariosRegistroView } from "./trabajos-diarios-registro-view";
-import { TrabajosDiariosCrearView } from "./trabajos-diarios-crear-view";
+import { TrabajosDiariosTodosView } from "./trabajos-diarios-todos-view";
 
-type TabKey = "confirmar" | "registrar" | "crear";
+type TabKey = "confirmar" | "registrar" | "entregas" | "todos";
 
 export function TrabajosDiariosModule() {
   const [tab, setTab] = useState<TabKey>("confirmar");
@@ -26,8 +26,11 @@ export function TrabajosDiariosModule() {
           <TabsTrigger value="registrar" className="whitespace-nowrap">
             Cierre diario instalaciones
           </TabsTrigger>
-          <TabsTrigger value="crear" className="whitespace-nowrap">
-            Crear trabajo diario
+          <TabsTrigger value="entregas" className="whitespace-nowrap">
+            Entregas sin instalar
+          </TabsTrigger>
+          <TabsTrigger value="todos" className="whitespace-nowrap">
+            Todos los trabajos
           </TabsTrigger>
         </div>
       </TabsList>
@@ -37,15 +40,15 @@ export function TrabajosDiariosModule() {
       </TabsContent>
 
       <TabsContent value="registrar" className="space-y-4">
-        <TrabajosDiariosRegistroView onCreateRequested={() => setTab("crear")} />
+        <TrabajosDiariosRegistroView />
       </TabsContent>
 
-      <TabsContent value="crear" className="space-y-4">
-        <TrabajosDiariosCrearView
-          onCreated={() => {
-            setTab("registrar");
-          }}
-        />
+      <TabsContent value="entregas" className="space-y-4">
+        <TrabajosDiariosView mode="entregas" />
+      </TabsContent>
+
+      <TabsContent value="todos" className="space-y-4">
+        <TrabajosDiariosTodosView />
       </TabsContent>
     </Tabs>
   );

@@ -225,6 +225,174 @@ export const InstalacionesService = {
     return [];
   },
 
+  async getEntregasSinInstalar(fecha: string): Promise<TrabajoDiarioVale[]> {
+    const fechaNormalizada = String(fecha || "").trim();
+    if (!fechaNormalizada) return [];
+
+    const endpoints = [
+      `/entregas-materiales/sin-salida-brigada?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      // fallback por compatibilidad temporal
+      `/entregas-materiales/sin-salida-brigada/?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/entregas-materiales/pendientes-salida?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/entregas-materiales/pendientes-salida/?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/entregas-materiales?fecha=${encodeURIComponent(fechaNormalizada)}&salida_brigada=false`,
+      `/entregas-materiales?salida_brigada=false&fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/operaciones/entregas-materiales/sin-salida-brigada?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/operaciones/entregas-materiales/pendientes-salida?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/operaciones/trabajos-diarios/entregas-sin-instalar?fecha=${encodeURIComponent(fechaNormalizada)}`,
+      `/operaciones/trabajos-diarios/entregas-sin-instalar/?fecha=${encodeURIComponent(fechaNormalizada)}`,
+    ];
+
+    const toArray = (response: unknown): unknown[] => {
+      if (Array.isArray(response)) return response;
+      const responseObj =
+        response && typeof response === "object"
+          ? (response as Record<string, unknown>)
+          : null;
+      const payload = responseObj?.data ?? responseObj;
+      if (Array.isArray(payload)) return payload;
+      const payloadObj =
+        payload && typeof payload === "object"
+          ? (payload as Record<string, unknown>)
+          : null;
+      if (Array.isArray(payloadObj?.entregas)) return payloadObj.entregas;
+      if (Array.isArray(payloadObj?.items)) return payloadObj.items;
+      if (Array.isArray(payloadObj?.data)) return payloadObj.data;
+      if (
+        payloadObj?.data &&
+        typeof payloadObj.data === "object" &&
+        !Array.isArray(payloadObj.data)
+      ) {
+        const deep = payloadObj.data as Record<string, unknown>;
+        if (Array.isArray(deep.entregas)) return deep.entregas;
+        if (Array.isArray(deep.items)) return deep.items;
+        if (Array.isArray(deep.data)) return deep.data;
+      }
+      return [];
+    };
+
+    const asString = (value: unknown) => {
+      if (typeof value === "string") return value.trim();
+      if (typeof value === "number" && Number.isFinite(value)) return String(value);
+      return "";
+    };
+    const asNumber = (value: unknown) => {
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+
+    const mapEntregaToVale = (raw: unknown): TrabajoDiarioVale | null => {
+      if (!raw || typeof raw !== "object") return null;
+      const row = raw as Record<string, unknown>;
+      const itemRows = Array.isArray(row.items)
+        ? row.items
+        : Array.isArray(row.materiales)
+          ? row.materiales
+          : [];
+      const items = itemRows
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const mat = item as Record<string, unknown>;
+          const materialId = asString(
+            mat.material_id ?? mat.id_material ?? mat.id ?? mat.material_codigo,
+          );
+          if (!materialId) return null;
+          return {
+            material_id: materialId,
+            material_codigo: asString(
+              mat.material_codigo ?? mat.codigo_material ?? mat.codigo,
+            ),
+            material_descripcion: asString(
+              mat.material_descripcion ?? mat.descripcion ?? mat.nombre,
+            ),
+            um: asString(mat.um),
+            cantidad: asNumber(
+              mat.cantidad ??
+                mat.cantidad_entregada ??
+                mat.cantidad_utilizada ??
+                mat.cantidad_en_servicio,
+            ),
+          };
+        })
+        .filter(Boolean) as TrabajoDiarioItem[];
+
+      const valeId = asString(
+        row.id_vale_salida ??
+          row.vale_id ??
+          row.id_vale ??
+          row.vale?.id ??
+          row.vale_salida_id ??
+          row.id_valeSalida,
+      );
+      if (!valeId) return null;
+
+      return {
+        vale_id: valeId,
+        vale_codigo: asString(
+          row.vale_codigo ?? row.codigo_vale ?? row.vale?.codigo ?? valeId,
+        ),
+        vale_estado: asString(row.vale_estado ?? row.estado ?? "entregado"),
+        fecha_creacion: asString(row.created_at ?? row.fecha_creacion) || null,
+        solicitud_id: asString(
+          row.id_solicitud_materiales ?? row.solicitud_id ?? row.id_solicitud,
+        ),
+        solicitud_codigo: asString(
+          row.solicitud_codigo ?? row.codigo_solicitud ?? row.id_solicitud_materiales,
+        ),
+        fecha_recogida: asString(row.fecha ?? row.fecha_recogida) || null,
+        responsable_recogida: asString(
+          row.responsable_solicitud_materiales ??
+            row.responsable_recogida ??
+            row.usuario_nombre,
+        ),
+        cliente_id: asString(row.cliente_id) || null,
+        cliente_numero: asString(row.cliente_numero) || null,
+        cliente_nombre: asString(row.cliente_nombre) || null,
+        cliente_telefono: asString(row.cliente_telefono) || null,
+        cliente_direccion: asString(row.cliente_direccion) || null,
+        items,
+      };
+    };
+
+    let hasAnyRows = false;
+    let lastError: unknown = null;
+    for (const endpoint of endpoints) {
+      try {
+        const response = await apiRequest<unknown>(endpoint, { method: "GET" });
+        if (response && typeof response === "object") {
+          const responseObj = response as Record<string, unknown>;
+          if (responseObj.success === false || responseObj.error) {
+            const message =
+              (typeof responseObj.message === "string" && responseObj.message) ||
+              (typeof responseObj.detail === "string" && responseObj.detail) ||
+              "No se pudieron cargar entregas sin instalar";
+            throw new Error(message);
+          }
+        }
+        const rows = toArray(response);
+        if (rows.length > 0) hasAnyRows = true;
+        const mapped = rows.map(mapEntregaToVale).filter(Boolean) as TrabajoDiarioVale[];
+        if (mapped.length > 0) return mapped;
+      } catch (error) {
+        lastError = error;
+        // probar siguiente endpoint
+      }
+    }
+
+    if (lastError) {
+      console.warn(
+        "No se pudo cargar entregas sin instalar con endpoints conocidos.",
+        lastError,
+      );
+    }
+    if (hasAnyRows) {
+      console.warn(
+        "Se recibieron filas de entregas sin instalar, pero no pudieron mapearse al formato de vale.",
+      );
+    }
+    return [];
+  },
+
   /**
    * Obtiene todos los leads y clientes con estado "Pendiente de Instalación"
    */

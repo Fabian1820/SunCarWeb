@@ -32,7 +32,7 @@ import type {
   TrabajoDiarioRegistro,
 } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
+import { Check, ChevronsUpDown, X } from "lucide-react";
 import { TrabajoDiarioForm } from "./trabajo-diario-form";
 
 type Worker = {
@@ -61,13 +61,7 @@ const formatFechaTrabajo = (value?: string) => {
   return parsed.toLocaleDateString("es-ES");
 };
 
-interface TrabajosDiariosRegistroViewProps {
-  onCreateRequested: () => void;
-}
-
-export function TrabajosDiariosRegistroView({
-  onCreateRequested,
-}: TrabajosDiariosRegistroViewProps) {
+export function TrabajosDiariosRegistroView() {
   const { toast } = useToast();
   const [fecha, setFecha] = useState(() => toDateInput(new Date()));
   const [workerFilterOpen, setWorkerFilterOpen] = useState(false);
@@ -736,16 +730,6 @@ export function TrabajosDiariosRegistroView({
                     className="shrink-0 flex-1 sm:flex-none"
                   >
                     {loading ? "Actualizando..." : "Actualizar"}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={onCreateRequested}
-                    className="shrink-0"
-                    size="icon"
-                    aria-label="Crear trabajo diario"
-                    title="Crear trabajo diario"
-                  >
-                    <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
