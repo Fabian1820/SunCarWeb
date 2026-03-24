@@ -689,8 +689,8 @@ export function TrabajosDiariosRegistroView({
             </div>
 
             <div className="lg:col-span-2 lg:pl-2">
-              <div className="overflow-x-auto">
-                <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap justify-start lg:justify-end min-w-max">
+              <div className="w-full">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-start lg:justify-end">
                   <Button
                     type="button"
                     variant="outline"
@@ -707,7 +707,7 @@ export function TrabajosDiariosRegistroView({
                     variant="outline"
                     onClick={() => void loadTrabajos()}
                     disabled={loading}
-                    className="shrink-0"
+                    className="shrink-0 flex-1 sm:flex-none"
                   >
                     {loading ? "Actualizando..." : "Actualizar"}
                   </Button>
@@ -750,13 +750,13 @@ export function TrabajosDiariosRegistroView({
       </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch">
-        <Card className="xl:col-span-1 h-auto xl:h-[72vh] min-h-0 xl:min-h-[560px] flex flex-col">
+        <Card className="xl:col-span-1 h-auto max-h-[52vh] xl:max-h-none xl:h-[72vh] min-h-0 xl:min-h-[560px] flex flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               Resultados ({trabajosFiltrados.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-visible xl:overflow-y-auto px-0 pb-0">
+          <CardContent className="flex-1 overflow-y-auto px-0 pb-0">
             {loading && trabajosFiltrados.length === 0 ? (
               <p className="text-sm text-muted-foreground px-6 py-4">Cargando...</p>
             ) : trabajosFiltrados.length === 0 ? (
@@ -833,7 +833,7 @@ export function TrabajosDiariosRegistroView({
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Cierre diario instalaciones</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-visible xl:overflow-y-auto pr-0 xl:pr-2">
+          <CardContent className="flex-1 overflow-y-auto pr-0 xl:pr-2">
             {loadingDetalle ? (
               <p className="text-sm text-muted-foreground">Cargando detalle...</p>
             ) : !selectedTrabajo ? (

@@ -18,10 +18,18 @@ export function TrabajosDiariosModule() {
 
   return (
     <Tabs value={tab} onValueChange={(val) => setTab(val as TabKey)} className="space-y-4">
-      <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-10">
-        <TabsTrigger value="confirmar">Confirmar salidas</TabsTrigger>
-        <TabsTrigger value="registrar">Cierre diario instalaciones</TabsTrigger>
-        <TabsTrigger value="crear">Crear trabajo diario</TabsTrigger>
+      <TabsList className="w-full h-auto p-1 overflow-x-auto">
+        <div className="flex min-w-max gap-1">
+          <TabsTrigger value="confirmar" className="whitespace-nowrap">
+            Confirmar salidas
+          </TabsTrigger>
+          <TabsTrigger value="registrar" className="whitespace-nowrap">
+            Cierre diario instalaciones
+          </TabsTrigger>
+          <TabsTrigger value="crear" className="whitespace-nowrap">
+            Crear trabajo diario
+          </TabsTrigger>
+        </div>
       </TabsList>
 
       <TabsContent value="confirmar" className="space-y-4">

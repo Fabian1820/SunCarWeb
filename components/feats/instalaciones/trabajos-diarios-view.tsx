@@ -371,18 +371,19 @@ export function TrabajosDiariosView() {
         <CardHeader>
           <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <span>Fecha de trabajo</span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
               <Input
                 type="date"
                 value={fechaTrabajo}
                 onChange={(e) => setFechaTrabajo(e.target.value)}
-                className="w-[190px]"
+                className="w-full sm:w-[190px]"
               />
               <Button
                 type="button"
                 variant="outline"
                 onClick={cargarDatos}
                 disabled={loading}
+                className="w-full sm:w-auto"
               >
                 {loading ? "Cargando..." : "Recargar"}
               </Button>
@@ -453,7 +454,7 @@ export function TrabajosDiariosView() {
                 return (
                   <div
                     key={vale.vale_id}
-                    className="border rounded-lg p-4 bg-white space-y-3"
+                    className="border rounded-lg p-3 sm:p-4 bg-white space-y-3"
                   >
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
                       <div className="min-w-0">
@@ -555,7 +556,7 @@ export function TrabajosDiariosView() {
                           {Array.isArray(vale.items) &&
                           vale.items.length > 0 ? (
                             <div className="overflow-x-auto">
-                              <table className="w-full text-sm">
+                              <table className="w-full min-w-[560px] text-sm">
                                 <thead>
                                   <tr className="border-b border-slate-200">
                                     <th className="text-left py-1.5 pr-2">
@@ -634,7 +635,7 @@ export function TrabajosDiariosView() {
                                       {safeText(b.nombre, "Trabajador")}
                                     </span>
                                     {ci ? (
-                                      <span className="text-slate-500 ml-2">
+                                      <span className="text-slate-500 ml-0 sm:ml-2 block sm:inline">
                                         ({ci})
                                       </span>
                                     ) : null}

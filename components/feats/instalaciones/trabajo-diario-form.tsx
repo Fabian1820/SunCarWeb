@@ -513,7 +513,7 @@ export function TrabajoDiarioForm({
                   </p>
                 ) : (
                   <div className="overflow-x-auto rounded-md border bg-white">
-                    <table className="min-w-[920px] w-full text-xs">
+                    <table className="min-w-[760px] sm:min-w-[920px] w-full text-xs">
                       <thead className="bg-slate-100 text-slate-600">
                         <tr>
                           <th className="text-left px-2 py-2">Código</th>
@@ -670,7 +670,7 @@ export function TrabajoDiarioForm({
                         [momento]: [...prev[momento], ...additions],
                       }));
                     }}
-                    className="max-w-[260px]"
+                    className="w-full sm:max-w-[260px]"
                   />
                   <Button
                     type="button"
@@ -828,7 +828,7 @@ export function TrabajoDiarioForm({
         <CardContent className="space-y-3">
           {materialesResumen.length > 0 ? (
             <div className="overflow-x-auto rounded-md border">
-              <table className="min-w-full text-xs">
+              <table className="min-w-[760px] w-full text-xs">
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
                     <th className="text-left px-2 py-2">Material</th>
