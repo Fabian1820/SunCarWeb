@@ -488,8 +488,19 @@ const normalizeMaterialResumen = (
   const row = item as Record<string, unknown>;
   const materialId = pickFirstString(row.material_id, row.id_material, row.id);
   if (!materialId) return null;
+  const codigoMaterialRaw = pickFirstString(
+    row.codigo_material,
+    row.material_codigo,
+    row.codigo,
+    row.materialCode,
+    row.codigoMaterial,
+  );
+  const codigoMaterial = codigoMaterialRaw
+    ? String(codigoMaterialRaw).trim()
+    : undefined;
   return {
     material_id: materialId,
+    codigo_material: codigoMaterial || undefined,
     nombre: pickFirstString(row.nombre) || "Material",
     cantidad_total_vales: asNumber(row.cantidad_total_vales) || 0,
     cantidad_usada_hasta_ayer: asNumber(row.cantidad_usada_hasta_ayer) || 0,

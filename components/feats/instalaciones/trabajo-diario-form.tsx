@@ -53,6 +53,24 @@ const TIPOS_TRABAJO: TrabajoDiarioTipo[] = [
 
 const nowIso = () => new Date().toISOString();
 
+const parseCantidadInput = (raw: string): number => {
+  const normalized = String(raw ?? "")
+    .trim()
+    .replace(",", ".")
+    .replace(/[^0-9.-]/g, "");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const formatCantidadInput = (value: number): string => {
+  const safe = Number.isFinite(Number(value)) ? Number(value) : 0;
+  if (Number.isInteger(safe)) return String(safe);
+  return String(safe).replace(".", ",");
+};
+
+const isMongoObjectId = (value: unknown) =>
+  /^[a-f0-9]{24}$/i.test(String(value ?? "").trim());
+
 const normalizeText = (value: unknown) =>
   String(value ?? "")
     .toLowerCase()
@@ -720,11 +738,18 @@ export function TrabajoDiarioForm({
                 <thead className="bg-slate-50 text-slate-600">
                   <tr>
                     <th className="text-left px-2 py-2">Material</th>
-                    <th className="text-right px-2 py-2">Total vales</th>
-                    <th className="text-right px-2 py-2">Usada ayer</th>
-                    <th className="text-right px-2 py-2">Usada hoy</th>
-                    <th className="text-right px-2 py-2">Disponible hoy</th>
-                    <th className="text-right px-2 py-2">Saldo después</th>
+                    <th className="text-right px-2 py-2">
+                      Cantidad total en vales
+                    </th>
+                    <th className="text-right px-2 py-2">
+                      Cantidad utilizada hasta ahora
+                    </th>
+                    <th className="text-right px-2 py-2">
+                      Cantidad utilizada hoy
+                    </th>
+                    <th className="text-right px-2 py-2">
+                      Queda disponible
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -738,7 +763,11 @@ export function TrabajoDiarioForm({
                           {material.nombre}
                         </p>
                         <p className="text-[11px] text-slate-500">
-                          {material.material_id}
+                          {material.codigo_material
+                            ? material.codigo_material
+                            : isMongoObjectId(material.material_id)
+                              ? "Sin código"
+                              : material.material_id}
                         </p>
                       </td>
                       <td className="px-2 py-2 text-right">
@@ -748,23 +777,50 @@ export function TrabajoDiarioForm({
                         {Number(material.cantidad_usada_hasta_ayer || 0)}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        <Input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          max={Math.max(0, Number(material.disponible_hoy || 0))}
-                          value={Number(material.cantidad_usada_hoy || 0)}
-                          onChange={(e) =>
-                            updateMaterialesResumen(
-                              idx,
-                              Number(e.target.value || 0),
-                            )
-                          }
-                          className="h-8 w-24 ml-auto text-right"
-                        />
-                      </td>
-                      <td className="px-2 py-2 text-right">
-                        {Number(material.disponible_hoy || 0)}
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              updateMaterialesResumen(
+                                idx,
+                                Number(material.cantidad_usada_hoy || 0) - 1,
+                              )
+                            }
+                          >
+                            -
+                          </Button>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={formatCantidadInput(
+                              Number(material.cantidad_usada_hoy || 0),
+                            )}
+                            onChange={(e) =>
+                              updateMaterialesResumen(
+                                idx,
+                                parseCantidadInput(e.target.value),
+                              )
+                            }
+                            className="h-8 w-24 text-right"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() =>
+                              updateMaterialesResumen(
+                                idx,
+                                Number(material.cantidad_usada_hoy || 0) + 1,
+                              )
+                            }
+                          >
+                            +
+                          </Button>
+                        </div>
                       </td>
                       <td className="px-2 py-2 text-right font-medium">
                         {Number(material.saldo_despues_de_hoy || 0)}

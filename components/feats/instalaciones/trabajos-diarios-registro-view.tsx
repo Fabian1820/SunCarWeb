@@ -89,6 +89,20 @@ export function TrabajosDiariosRegistroView({
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
 
+  const hydrateMaterialesResumen = useCallback(
+    (rows: TrabajoDiarioMaterialResumen[]): TrabajoDiarioMaterialResumen[] =>
+      (rows || []).map((row) => {
+        const disponible = Math.max(0, Number(row.disponible_hoy || 0));
+        const cantidadHoy = disponible;
+        return {
+          ...row,
+          cantidad_usada_hoy: cantidadHoy,
+          saldo_despues_de_hoy: disponible - cantidadHoy,
+        };
+      }),
+    [],
+  );
+
   const workersOptions = useMemo(
     () =>
       (workers || [])
@@ -301,7 +315,7 @@ export function TrabajosDiariosRegistroView({
           const resumen = await TrabajosDiariosService.getMaterialesResumen(
             detalleId,
           );
-          setMaterialesResumen(resumen);
+          setMaterialesResumen(hydrateMaterialesResumen(resumen));
         } catch {
           // El resumen no debe bloquear la edición del trabajo
           setMaterialesResumen([]);
@@ -323,7 +337,7 @@ export function TrabajosDiariosRegistroView({
         setLoadingMateriales(false);
       }
     },
-    [toast],
+    [hydrateMaterialesResumen, toast],
   );
 
   const handleSave = async () => {
@@ -363,7 +377,7 @@ export function TrabajosDiariosRegistroView({
           const resumen = await TrabajosDiariosService.getMaterialesResumen(
             savedId,
           );
-          setMaterialesResumen(resumen);
+          setMaterialesResumen(hydrateMaterialesResumen(resumen));
         } catch {
           // noop
         }

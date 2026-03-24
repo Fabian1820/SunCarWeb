@@ -32,6 +32,7 @@ export interface TrabajoDiarioMaterialUtilizado {
 
 export interface TrabajoDiarioMaterialResumen {
   material_id: string;
+  codigo_material?: string;
   nombre: string;
   cantidad_total_vales: number;
   cantidad_usada_hasta_ayer: number;
