@@ -82,6 +82,9 @@ export function TrabajosDiariosRegistroView({
   const [materialesResumen, setMaterialesResumen] = useState<
     TrabajoDiarioMaterialResumen[]
   >([]);
+  const [draftsById, setDraftsById] = useState<
+    Record<string, TrabajoDiarioRegistro>
+  >({});
   const [selectedId, setSelectedId] = useState("");
   const [selectedTrabajo, setSelectedTrabajo] =
     useState<TrabajoDiarioRegistro | null>(null);
@@ -90,16 +93,73 @@ export function TrabajosDiariosRegistroView({
   const [loadingClientes, setLoadingClientes] = useState(false);
 
   const hydrateMaterialesResumen = useCallback(
-    (rows: TrabajoDiarioMaterialResumen[]): TrabajoDiarioMaterialResumen[] =>
-      (rows || []).map((row) => {
+    (
+      rows: TrabajoDiarioMaterialResumen[],
+      materialesActuales: TrabajoDiarioRegistro["materiales_utilizados"] = [],
+    ): TrabajoDiarioMaterialResumen[] => {
+      const materialesById = new Map(
+        (materialesActuales || []).map((material) => [
+          safeText(material.id_material),
+          material,
+        ]),
+      );
+      return (rows || []).map((row) => {
         const disponible = Math.max(0, Number(row.disponible_hoy || 0));
-        const cantidadHoy = disponible;
+        const materialActual = materialesById.get(safeText(row.material_id));
+        const desdeResumen = Number(row.cantidad_usada_hoy);
+        const desdeTrabajo = Number(materialActual?.cantidad_utilizada);
+        const cantidadHoy = Number.isFinite(desdeResumen)
+          ? Math.max(0, Math.min(disponible, desdeResumen))
+          : Number.isFinite(desdeTrabajo)
+            ? Math.max(0, Math.min(disponible, desdeTrabajo))
+            : disponible;
+        const cantidadServicioRaw = Number(
+          row.cantidad_en_servicio ?? materialActual?.cantidad_en_servicio ?? 0,
+        );
+        const cantidadServicio = Math.max(
+          0,
+          Math.min(cantidadHoy, Number.isFinite(cantidadServicioRaw) ? cantidadServicioRaw : 0),
+        );
+        const enServicio =
+          (row.en_servicio === true || materialActual?.en_servicio === true) &&
+          cantidadServicio > 0;
         return {
           ...row,
+          categoria: row.categoria || materialActual?.categoria,
           cantidad_usada_hoy: cantidadHoy,
           saldo_despues_de_hoy: disponible - cantidadHoy,
+          en_servicio: enServicio,
+          cantidad_en_servicio: cantidadServicio,
         };
-      }),
+      });
+    },
+    [],
+  );
+
+  const mapResumenToMaterialesUtilizados = useCallback(
+    (rows: TrabajoDiarioMaterialResumen[]) =>
+      (rows || [])
+        .filter((m) => {
+          const usada = Number(m.cantidad_usada_hoy || 0);
+          const servicio = Number(m.cantidad_en_servicio || 0);
+          return usada > 0 || servicio > 0 || m.en_servicio === true;
+        })
+        .map((m) => ({
+          id_material: m.material_id,
+          codigo_material: m.codigo_material,
+          material_codigo: m.material_codigo || m.codigo_material,
+          categoria: m.categoria,
+          nombre: m.nombre,
+          cantidad_utilizada: Math.max(0, Number(m.cantidad_usada_hoy || 0)),
+          en_servicio: m.en_servicio === true,
+          cantidad_en_servicio: Math.max(
+            0,
+            Math.min(
+              Number(m.cantidad_usada_hoy || 0),
+              Number(m.cantidad_en_servicio || 0),
+            ),
+          ),
+        })),
     [],
   );
 
@@ -273,7 +333,18 @@ export function TrabajosDiariosRegistroView({
 
   useEffect(() => {
     void loadTrabajos();
-  }, [loadTrabajos]);
+    // Dependencias explícitas para evitar errores de tamaño del array en useEffect
+    // durante hot reload/refresh de Next.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    fecha,
+    selectedClient?.id,
+    selectedClient?.numero,
+    selectedId,
+    toast,
+    trabajadoresFiltroBackend,
+    clienteFiltro,
+  ]);
 
   const trabajosFiltrados = useMemo(() => trabajos, [trabajos]);
 
@@ -302,20 +373,35 @@ export function TrabajosDiariosRegistroView({
         });
         return;
       }
+      if (rowId === selectedId && selectedTrabajo) {
+        return;
+      }
 
+      const previousTrabajo = selectedTrabajo;
       setSelectedId(rowId);
-      setSelectedTrabajo(null);
       setLoadingDetalle(true);
       setLoadingMateriales(true);
       try {
         const detalle = await TrabajosDiariosService.getTrabajoById(rowId);
-        setSelectedTrabajo(detalle);
+        const nextTrabajo = { ...detalle, id: safeText(detalle.id, rowId) };
+        setSelectedTrabajo(nextTrabajo);
+        setDraftsById((prev) => ({ ...prev, [rowId]: nextTrabajo }));
         const detalleId = safeText(detalle.id, rowId);
         try {
           const resumen = await TrabajosDiariosService.getMaterialesResumen(
             detalleId,
           );
-          setMaterialesResumen(hydrateMaterialesResumen(resumen));
+          const hydratedResumen = hydrateMaterialesResumen(
+            resumen,
+            nextTrabajo.materiales_utilizados,
+          );
+          setMaterialesResumen(hydratedResumen);
+          const nextTrabajoWithMateriales: TrabajoDiarioRegistro = {
+            ...nextTrabajo,
+            materiales_utilizados: mapResumenToMaterialesUtilizados(hydratedResumen),
+          };
+          setSelectedTrabajo(nextTrabajoWithMateriales);
+          setDraftsById((prev) => ({ ...prev, [rowId]: nextTrabajoWithMateriales }));
         } catch {
           // El resumen no debe bloquear la edición del trabajo
           setMaterialesResumen([]);
@@ -330,19 +416,42 @@ export function TrabajosDiariosRegistroView({
           description: message,
           variant: "destructive",
         });
-        setSelectedTrabajo(null);
+        const fallback = draftsById[rowId] || previousTrabajo;
+        if (fallback) {
+          setSelectedTrabajo(fallback);
+        } else {
+          setSelectedTrabajo(null);
+        }
         setMaterialesResumen([]);
       } finally {
         setLoadingDetalle(false);
         setLoadingMateriales(false);
       }
     },
-    [hydrateMaterialesResumen, toast],
+    [
+      draftsById,
+      hydrateMaterialesResumen,
+      mapResumenToMaterialesUtilizados,
+      selectedId,
+      selectedTrabajo,
+      toast,
+    ],
+  );
+
+  const handleTrabajoChange = useCallback(
+    (next: TrabajoDiarioRegistro) => {
+      setSelectedTrabajo(next);
+      const id = safeText(next.id || selectedId);
+      if (!id) return;
+      setDraftsById((prev) => ({ ...prev, [id]: { ...next, id } }));
+    },
+    [selectedId],
   );
 
   const handleSave = async () => {
     if (!selectedTrabajo) return;
-    if (!safeText(selectedTrabajo.id)) {
+    const trabajoId = safeText(selectedTrabajo.id || selectedId);
+    if (!trabajoId) {
       toast({
         title: "No editable",
         description:
@@ -354,13 +463,18 @@ export function TrabajosDiariosRegistroView({
 
     setSaving(true);
     try {
+      console.log("📤 [RegistrarDatos.handleSave] Payload local previo a PATCH", {
+        trabajoId,
+        selectedId,
+        selectedTrabajo,
+      });
       const saved = await TrabajosDiariosService.updateTrabajo(
-        selectedTrabajo.id as string,
+        trabajoId,
         selectedTrabajo,
       );
 
       const savedId = safeText(
-        saved.id || selectedTrabajo.id,
+        saved.id || trabajoId,
       );
       const nextRows = [...trabajos];
       const index = nextRows.findIndex(
@@ -371,13 +485,20 @@ export function TrabajosDiariosRegistroView({
 
       setTrabajos(nextRows);
       setSelectedId(savedId || selectedId);
-      setSelectedTrabajo({ ...selectedTrabajo, ...saved });
+      const merged = { ...selectedTrabajo, ...saved, id: savedId || trabajoId };
+      setSelectedTrabajo(merged);
+      setDraftsById((prev) => ({
+        ...prev,
+        [safeText(savedId || trabajoId)]: merged,
+      }));
       if (savedId) {
         try {
           const resumen = await TrabajosDiariosService.getMaterialesResumen(
             savedId,
           );
-          setMaterialesResumen(hydrateMaterialesResumen(resumen));
+          setMaterialesResumen(
+            hydrateMaterialesResumen(resumen, merged.materiales_utilizados),
+          );
         } catch {
           // noop
         }
@@ -387,6 +508,12 @@ export function TrabajosDiariosRegistroView({
         description: "Trabajo diario actualizado correctamente.",
       });
     } catch (error) {
+      console.error("❌ [RegistrarDatos.handleSave] Error al guardar", {
+        trabajoId,
+        selectedId,
+        selectedTrabajo,
+        error,
+      });
       const message =
         error instanceof Error
           ? error.message
@@ -401,29 +528,50 @@ export function TrabajosDiariosRegistroView({
       );
       if (index >= 0) nextRows[index] = selectedTrabajo;
       setTrabajos(nextRows);
+      setSelectedTrabajo(selectedTrabajo);
+      setDraftsById((prev) => ({ ...prev, [trabajoId]: selectedTrabajo }));
     } finally {
       setSaving(false);
     }
   };
 
   const handleCloseDay = async () => {
-    if (!selectedTrabajo || !safeText(selectedTrabajo.id)) return;
+    if (!selectedTrabajo) return;
+    const trabajoId = safeText(selectedTrabajo.id || selectedId);
+    if (!trabajoId) return;
     setClosingDay(true);
     try {
       const payload: TrabajoDiarioRegistro = {
         ...selectedTrabajo,
+        id: trabajoId,
         cierre_diario_confirmado: true,
       };
+      console.log("📤 [RegistrarDatos.handleCloseDay] Payload local previo a PATCH", {
+        trabajoId,
+        selectedId,
+        payload,
+      });
       const saved = await TrabajosDiariosService.updateTrabajo(
-        selectedTrabajo.id as string,
+        trabajoId,
         payload,
       );
-      setSelectedTrabajo({ ...payload, ...saved, cierre_diario_confirmado: true });
+      setSelectedTrabajo({
+        ...payload,
+        ...saved,
+        id: safeText(saved.id, trabajoId),
+        cierre_diario_confirmado: true,
+      });
       toast({
         title: "Día cerrado",
         description: "El trabajo diario quedó cerrado para edición.",
       });
     } catch (error) {
+      console.error("❌ [RegistrarDatos.handleCloseDay] Error al cerrar día", {
+        trabajoId,
+        selectedId,
+        selectedTrabajo,
+        error,
+      });
       const message =
         error instanceof Error
           ? error.message
@@ -433,10 +581,10 @@ export function TrabajosDiariosRegistroView({
         description: message,
         variant: "destructive",
       });
-      if (safeText(selectedTrabajo.id)) {
+      if (trabajoId) {
         try {
           const detalle = await TrabajosDiariosService.getTrabajoById(
-            selectedTrabajo.id as string,
+            trabajoId,
           );
           setSelectedTrabajo(detalle);
         } catch {
@@ -609,7 +757,7 @@ export function TrabajosDiariosRegistroView({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-visible xl:overflow-y-auto px-0 pb-0">
-            {loading ? (
+            {loading && trabajosFiltrados.length === 0 ? (
               <p className="text-sm text-muted-foreground px-6 py-4">Cargando...</p>
             ) : trabajosFiltrados.length === 0 ? (
               <p className="text-sm text-muted-foreground px-6 py-4">
@@ -617,6 +765,9 @@ export function TrabajosDiariosRegistroView({
               </p>
             ) : (
               <div className="space-y-3 p-3">
+                {loading ? (
+                  <p className="text-xs text-slate-500 px-1">Actualizando resultados...</p>
+                ) : null}
                 {trabajosFiltrados.map((trabajo) => {
                   const rowId = safeText(trabajo.id);
                   const active = rowId === selectedId;
@@ -680,7 +831,7 @@ export function TrabajosDiariosRegistroView({
 
         <Card className="xl:col-span-2 h-auto xl:h-[72vh] min-h-0 xl:min-h-[560px] flex flex-col">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Registrar datos de trabajo</CardTitle>
+            <CardTitle className="text-base">Cierre diario instalaciones</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-visible xl:overflow-y-auto pr-0 xl:pr-2">
             {loadingDetalle ? (
@@ -692,12 +843,13 @@ export function TrabajosDiariosRegistroView({
             ) : (
               <TrabajoDiarioForm
                 value={selectedTrabajo}
-                onChange={setSelectedTrabajo}
+                onChange={handleTrabajoChange}
                 materialesResumen={materialesResumen}
                 onMaterialesResumenChange={setMaterialesResumen}
                 onSubmit={() => void handleSave()}
                 onCloseDay={() => void handleCloseDay()}
                 submitLabel="Guardar datos del trabajo"
+                showSubmitButton={false}
                 isSaving={saving || loadingMateriales}
                 isClosing={closingDay}
               />

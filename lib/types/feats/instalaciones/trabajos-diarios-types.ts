@@ -24,6 +24,8 @@ export interface TrabajoDiarioMomento {
 export interface TrabajoDiarioMaterialUtilizado {
   id_material: string;
   codigo_material?: string;
+  material_codigo?: string;
+  categoria?: string;
   nombre: string;
   cantidad_utilizada: number;
   en_servicio?: boolean;
@@ -33,12 +35,20 @@ export interface TrabajoDiarioMaterialUtilizado {
 export interface TrabajoDiarioMaterialResumen {
   material_id: string;
   codigo_material?: string;
+  material_codigo?: string;
+  categoria?: string;
+  es_equipo_principal?: boolean;
   nombre: string;
   cantidad_total_vales: number;
-  cantidad_usada_hasta_ayer: number;
+  cantidad_usada_hasta_el_momento?: number;
+  cantidad_usada_hasta_ayer?: number;
   cantidad_usada_hoy: number;
   disponible_hoy: number;
   saldo_despues_de_hoy: number;
+  en_servicio?: boolean;
+  cantidad_en_servicio?: number;
+  en_servicio_actual_oferta?: boolean;
+  cantidad_en_servicio_actual_oferta?: number;
 }
 
 export interface TrabajoDiarioRegistro {

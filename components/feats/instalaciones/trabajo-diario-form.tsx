@@ -21,7 +21,7 @@ import {
   CardTitle,
 } from "@/components/shared/molecule/card";
 import { useToast } from "@/hooks/use-toast";
-import { ClienteService } from "@/lib/api-services";
+import { TrabajosDiariosService } from "@/lib/api-services";
 import type {
   TrabajoDiarioArchivo,
   TrabajoDiarioMaterialResumen,
@@ -31,7 +31,7 @@ import type {
 import { Loader2, Plus, Trash2, Upload } from "lucide-react";
 
 type MomentoKey = "inicio" | "fin";
-type ServicioCategoria = "inversor" | "panel" | "bateria";
+type PendingPreview = { file: File; url: string };
 
 interface TrabajoDiarioFormProps {
   value: TrabajoDiarioRegistro;
@@ -41,6 +41,7 @@ interface TrabajoDiarioFormProps {
   onSubmit: () => void;
   onCloseDay?: () => void;
   submitLabel: string;
+  showSubmitButton?: boolean;
   isSaving?: boolean;
   isClosing?: boolean;
 }
@@ -78,32 +79,39 @@ const normalizeText = (value: unknown) =>
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
 
-const getServicioCategoria = (
-  material: TrabajoDiarioRegistro["materiales_utilizados"][number],
-): ServicioCategoria | null => {
-  const nombre = normalizeText(material?.nombre);
-  const codigo = normalizeText(material?.codigo_material || material?.id_material);
+const isCategoriaServicio = (categoriaRaw: unknown): boolean => {
+  const categoria = normalizeText(categoriaRaw);
+  return (
+    categoria.includes("inversor") ||
+    categoria.includes("panel") ||
+    categoria.includes("bateria")
+  );
+};
+
+const isMaterialServicioByNameCode = (nombreRaw: unknown, codigoRaw: unknown): boolean => {
+  const nombre = normalizeText(nombreRaw);
+  const codigo = normalizeText(codigoRaw);
 
   if (
     nombre.includes("inversor") ||
     codigo.includes("inv")
   ) {
-    return "inversor";
+    return true;
   }
   if (
     nombre.includes("panel") ||
     codigo.includes("pan")
   ) {
-    return "panel";
+    return true;
   }
   if (
     nombre.includes("bateria") ||
     codigo.includes("bat")
   ) {
-    return "bateria";
+    return true;
   }
 
-  return null;
+  return false;
 };
 
 export function TrabajoDiarioForm({
@@ -114,15 +122,16 @@ export function TrabajoDiarioForm({
   onSubmit,
   onCloseDay,
   submitLabel,
+  showSubmitButton = true,
   isSaving = false,
   isClosing = false,
 }: TrabajoDiarioFormProps) {
   const { toast } = useToast();
   const [pendingFiles, setPendingFiles] = useState<
-    Record<MomentoKey, File | null>
+    Record<MomentoKey, PendingPreview[]>
   >({
-    inicio: null,
-    fin: null,
+    inicio: [],
+    fin: [],
   });
   const [fileInputVersion, setFileInputVersion] = useState<
     Record<MomentoKey, number>
@@ -136,6 +145,16 @@ export function TrabajoDiarioForm({
     inicio: false,
     fin: false,
   });
+  useEffect(
+    () => () => {
+      (["inicio", "fin"] as MomentoKey[]).forEach((key) => {
+        pendingFiles[key].forEach((entry) => {
+          if (entry.url) URL.revokeObjectURL(entry.url);
+        });
+      });
+    },
+    [pendingFiles],
+  );
 
   useEffect(() => {
     const fechaTrabajo = value.fecha_trabajo || "";
@@ -176,10 +195,11 @@ export function TrabajoDiarioForm({
   };
 
   const inferArchivoTipo = (file: File): TrabajoDiarioArchivo["tipo"] =>
-    file.type.startsWith("video/") ? "video" : "imagen";
-
-  const uploadTipoCliente =
-    value.tipo_trabajo === "AVERIA" ? "averia" : "instalacion";
+    file.type.startsWith("video/")
+      ? "video"
+      : file.type.startsWith("audio/")
+        ? "audio"
+        : "imagen";
 
   const removeArchivo = (key: MomentoKey, index: number) => {
     const current = value[key] || { archivos: [], comentario: "", fecha: "" };
@@ -193,84 +213,59 @@ export function TrabajoDiarioForm({
   };
 
   const handleUploadArchivo = async (key: MomentoKey) => {
-    const file = pendingFiles[key];
-    if (!file) return;
-    if (!value.cliente_numero) {
-      toast({
-        title: "Falta cliente",
-        description:
-          "Para subir archivos como en Clientes, el trabajo debe tener cliente número.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const isImageOrVideo =
-      file.type.startsWith("image/") || file.type.startsWith("video/");
-    if (!isImageOrVideo) {
-      toast({
-        title: "Archivo no válido",
-        description: "Solo se permiten imágenes o videos.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const entries = pendingFiles[key] || [];
+    if (entries.length === 0) return;
 
     setUploadingFiles((prev) => ({ ...prev, [key]: true }));
     try {
-      await ClienteService.uploadFotoCliente(value.cliente_numero, {
-        file,
-        tipo: uploadTipoCliente,
-      });
-
-      let uploadedUrl = "";
-      const currentUrls = new Set(
-        (value[key]?.archivos || []).map((a) => a.url),
-      );
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const fotos = await ClienteService.getFotosCliente(
-          value.cliente_numero,
-        );
-        const candidates = [...(fotos || [])]
-          .filter(
-            (foto) => foto.tipo === uploadTipoCliente && Boolean(foto.url),
-          )
-          .sort((a, b) => {
-            const aTime = new Date(a.fecha || 0).getTime();
-            const bTime = new Date(b.fecha || 0).getTime();
-            return bTime - aTime;
-          });
-        uploadedUrl =
-          candidates.find((foto) => !currentUrls.has(foto.url))?.url ||
-          candidates[0]?.url ||
-          "";
-        if (uploadedUrl) break;
-        await new Promise((resolve) => setTimeout(resolve, 350));
-      }
-
-      if (!uploadedUrl) {
-        throw new Error("No se pudo obtener la URL del archivo subido.");
-      }
-
       const current = value[key] || { archivos: [], comentario: "", fecha: "" };
-      const nextArchivo: TrabajoDiarioArchivo = {
-        id: `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        url: uploadedUrl,
-        tipo: inferArchivoTipo(file),
-        nombre: file.name,
-        tamano: file.size,
-        mime_type: file.type || "application/octet-stream",
-        created_at: nowIso(),
-      };
+      const uploadedArchivos: TrabajoDiarioArchivo[] = [];
+      let invalidCount = 0;
+
+      for (const entry of entries) {
+        const file = entry.file;
+        const isAllowed =
+          file.type.startsWith("image/") ||
+          file.type.startsWith("video/") ||
+          file.type.startsWith("audio/");
+        if (!isAllowed) {
+          invalidCount += 1;
+          continue;
+        }
+        const uploaded = await TrabajosDiariosService.uploadArchivo(file);
+        uploadedArchivos.push({
+          id:
+            uploaded.id ||
+            `tmp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          url: uploaded.url,
+          tipo: uploaded.tipo || inferArchivoTipo(file),
+          nombre: uploaded.nombre || file.name,
+          tamano: Number.isFinite(uploaded.tamano) ? uploaded.tamano : file.size,
+          mime_type:
+            uploaded.mime_type || file.type || "application/octet-stream",
+          created_at: uploaded.created_at || nowIso(),
+        });
+      }
+
+      if (uploadedArchivos.length === 0) {
+        throw new Error(
+          invalidCount > 0
+            ? "No se subieron archivos válidos (solo imagen, video o audio)."
+            : "No se pudo subir ningún archivo.",
+        );
+      }
 
       updateMomento(key, {
-        archivos: [...(current.archivos || []), nextArchivo],
+        archivos: [...(current.archivos || []), ...uploadedArchivos],
       });
-      setPendingFiles((prev) => ({ ...prev, [key]: null }));
+      entries.forEach((entry) => {
+        if (entry.url) URL.revokeObjectURL(entry.url);
+      });
+      setPendingFiles((prev) => ({ ...prev, [key]: [] }));
       setFileInputVersion((prev) => ({ ...prev, [key]: prev[key] + 1 }));
       toast({
         title: "Archivo agregado",
-        description: `Se subió correctamente al ${key}.`,
+        description: `Se subieron ${uploadedArchivos.length} archivo(s) al ${key}.`,
       });
     } catch (error) {
       const message =
@@ -325,13 +320,49 @@ export function TrabajoDiarioForm({
     value.tipo_trabajo === "INSTALACION NUEVA" ||
     value.tipo_trabajo === "INSTALACION EN PROCESO";
   const instalacionTerminada = Boolean(value.instalacion_terminada);
-  const materialesServicio = (value.materiales_utilizados || [])
-    .map((material, index) => ({
-      material,
-      index,
-      categoria: getServicioCategoria(material),
-    }))
-    .filter((item) => item.categoria !== null);
+
+  const syncMaterialesUtilizadosFromResumen = (
+    rows: TrabajoDiarioMaterialResumen[],
+  ) => {
+    update({
+      materiales_utilizados: rows
+        .filter((m) => {
+          const usada = Number(m.cantidad_usada_hoy || 0);
+          const servicio = Number(m.cantidad_en_servicio || 0);
+          return usada > 0 || servicio > 0 || m.en_servicio === true;
+        })
+        .map((m) => ({
+          id_material: m.material_id,
+          codigo_material: m.codigo_material,
+          material_codigo: m.material_codigo || m.codigo_material,
+          categoria: m.categoria,
+          nombre: m.nombre,
+          cantidad_utilizada: Math.max(0, Number(m.cantidad_usada_hoy || 0)),
+          en_servicio: m.en_servicio === true,
+          cantidad_en_servicio: Math.max(
+            0,
+            Math.min(
+              Number(m.cantidad_usada_hoy || 0),
+              Number(m.cantidad_en_servicio || 0),
+            ),
+          ),
+        })),
+    });
+  };
+
+  const equiposPrincipales = (materialesResumen || [])
+    .map((material, index) => ({ material, index }))
+    .filter(({ material }) => {
+      if (material.es_equipo_principal === true) return true;
+      if (isCategoriaServicio(material.categoria)) return true;
+      return isMaterialServicioByNameCode(
+        material.nombre,
+        material.material_codigo || material.codigo_material || material.material_id,
+      );
+    });
+  const materialesNoPrincipales = (materialesResumen || [])
+    .map((material, index) => ({ material, index }))
+    .filter(({ index }) => !equiposPrincipales.some((item) => item.index === index));
 
   const updateMaterialesResumen = (
     index: number,
@@ -346,21 +377,56 @@ export function TrabajoDiarioForm({
       0,
       Math.min(max, Number.isFinite(cantidadUsadaHoy) ? cantidadUsadaHoy : 0),
     );
+    const enServicioRaw = row.en_servicio === true;
+    const cantidadEnServicioRaw = Math.max(
+      0,
+      Number(row.cantidad_en_servicio || 0),
+    );
+    const cantidadEnServicio = Math.min(safeCantidad, cantidadEnServicioRaw);
     next[index] = {
       ...row,
       cantidad_usada_hoy: safeCantidad,
       saldo_despues_de_hoy: max - safeCantidad,
+      en_servicio: safeCantidad > 0 ? enServicioRaw : false,
+      cantidad_en_servicio: safeCantidad > 0 ? cantidadEnServicio : 0,
     };
     onMaterialesResumenChange(next);
-    update({
-      materiales_utilizados: next
-        .filter((m) => Number(m.cantidad_usada_hoy || 0) > 0)
-        .map((m) => ({
-          id_material: m.material_id,
-          nombre: m.nombre,
-          cantidad_utilizada: Number(m.cantidad_usada_hoy || 0),
-        })),
-    });
+    syncMaterialesUtilizadosFromResumen(next);
+  };
+
+  const updateServicioMaterial = (
+    index: number,
+    patch: Partial<TrabajoDiarioMaterialResumen>,
+  ) => {
+    if (!onMaterialesResumenChange) return;
+    const next = [...materialesResumen];
+    const row = next[index];
+    if (!row) return;
+    const cantidadUsadaHoy = Math.max(
+      0,
+      Number(patch.cantidad_usada_hoy ?? row.cantidad_usada_hoy ?? 0),
+    );
+    const merged = { ...row, ...patch };
+    const cantidadServicio = Math.max(
+      0,
+      Math.min(
+        cantidadUsadaHoy,
+        Number(merged.cantidad_en_servicio || 0),
+      ),
+    );
+    next[index] = {
+      ...merged,
+      cantidad_usada_hoy: cantidadUsadaHoy,
+      saldo_despues_de_hoy: Math.max(
+        0,
+        Number(merged.disponible_hoy || 0) - cantidadUsadaHoy,
+      ),
+      en_servicio:
+        merged.en_servicio === true && cantidadUsadaHoy > 0 && cantidadServicio > 0,
+      cantidad_en_servicio: cantidadServicio,
+    };
+    onMaterialesResumenChange(next);
+    syncMaterialesUtilizadosFromResumen(next);
   };
 
   return (
@@ -368,7 +434,9 @@ export function TrabajoDiarioForm({
       className="space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
-        onSubmit();
+        if (showSubmitButton) {
+          onSubmit();
+        }
       }}
     >
       {isLocked ? (
@@ -387,7 +455,7 @@ export function TrabajoDiarioForm({
           <CardTitle className="text-sm">Datos del trabajo</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label>Tipo de trabajo</Label>
               <Select
@@ -407,34 +475,6 @@ export function TrabajoDiarioForm({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Fecha de trabajo</Label>
-              <Input
-                type="date"
-                value={(value.fecha_trabajo || "").slice(0, 10)}
-                onChange={(e) =>
-                  update({
-                    fecha_trabajo: e.target.value,
-                    inicio: {
-                      ...(value.inicio || {
-                        archivos: [],
-                        comentario: "",
-                        fecha: "",
-                      }),
-                      fecha: e.target.value,
-                    },
-                    fin: {
-                      ...(value.fin || {
-                        archivos: [],
-                        comentario: "",
-                        fecha: "",
-                      }),
-                      fecha: e.target.value,
-                    },
-                  })
-                }
-              />
             </div>
           </div>
 
@@ -463,110 +503,115 @@ export function TrabajoDiarioForm({
                 </div>
               ) : null}
 
-              {!instalacionTerminada ? (
-                <div className="space-y-2 rounded-md border border-slate-200 p-3 bg-slate-50">
-                  <p className="text-sm font-medium text-slate-800">
-                    Equipos en servicio
+              <div className="space-y-2 rounded-md border border-slate-200 p-3 bg-slate-50">
+                <p className="text-sm font-medium text-slate-800">
+                  Equipos principales en servicio
+                </p>
+                {equiposPrincipales.length === 0 ? (
+                  <p className="text-xs text-slate-500">
+                    No hay inversores, paneles o baterías en los materiales de este trabajo.
                   </p>
-                  {materialesServicio.length === 0 ? (
-                    <p className="text-xs text-slate-500">
-                      No hay inversores, paneles o baterías en los materiales de este trabajo.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {materialesServicio.map(({ material, index, categoria }) => {
-                        const totalMaterial = Math.max(
-                          0,
-                          Number(material.cantidad_utilizada || 0),
-                        );
-                        const enServicio = material.en_servicio === true;
-                        const cantidadEnServicio = Number(
-                          material.cantidad_en_servicio || 0,
-                        );
-                        const categoriaLabel =
-                          categoria === "inversor"
-                            ? "Inversor"
-                            : categoria === "panel"
-                              ? "Panel"
-                              : "Batería";
-
-                        return (
-                          <div
-                            key={`${material.id_material || material.codigo_material || material.nombre}-${index}`}
-                            className="rounded-md border bg-white p-2.5 space-y-2"
-                          >
-                            <div className="flex flex-col gap-1">
-                              <p className="text-sm font-medium text-slate-900">
-                                {material.nombre || material.codigo_material || "Material"}
-                              </p>
-                              <p className="text-xs text-slate-500">
-                                {categoriaLabel} • Total: {totalMaterial}
-                              </p>
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                              <label className="flex items-center gap-2 text-sm">
-                                <Checkbox
-                                  checked={enServicio}
-                                  onCheckedChange={(checked) => {
-                                    const marcado = checked === true;
-                                    updateMaterial(index, {
-                                      en_servicio: marcado,
-                                      cantidad_en_servicio: marcado
-                                        ? Math.max(
-                                            1,
-                                            Math.min(
-                                              totalMaterial,
-                                              cantidadEnServicio > 0
-                                                ? cantidadEnServicio
-                                                : 1,
-                                            ),
-                                          )
-                                        : 0,
+                ) : (
+                  <div className="overflow-x-auto rounded-md border bg-white">
+                    <table className="min-w-[920px] w-full text-xs">
+                      <thead className="bg-slate-100 text-slate-600">
+                        <tr>
+                          <th className="text-left px-2 py-2">Código</th>
+                          <th className="text-left px-2 py-2">Material</th>
+                          <th className="text-right px-2 py-2">Cantidad total</th>
+                          <th className="text-right px-2 py-2">Ya en servicio</th>
+                          <th className="text-right px-2 py-2">En servicio hoy</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {equiposPrincipales.map(({ material, index }) => {
+                          const limiteHoy = Math.max(
+                            0,
+                            Number(
+                              material.disponible_hoy ??
+                                material.cantidad_total_vales ??
+                                material.cantidad_usada_hoy ??
+                                0,
+                            ),
+                          );
+                          const cantidadEnServicio = Math.max(
+                            0,
+                            Math.min(
+                              limiteHoy,
+                              Number(material.cantidad_en_servicio || 0),
+                            ),
+                          );
+                          const yaEnServicioOferta = Math.max(
+                            0,
+                            Number(material.cantidad_en_servicio_actual_oferta || 0),
+                          );
+                          const codigo = material.material_codigo || material.codigo_material;
+                          return (
+                            <tr
+                              key={`${material.material_id || codigo || material.nombre}-${index}`}
+                              className="border-t align-middle"
+                            >
+                              <td className="px-2 py-2 text-slate-700">
+                                {codigo || (isMongoObjectId(material.material_id) ? "Sin código" : material.material_id)}
+                              </td>
+                              <td className="px-2 py-2">
+                                <p className="font-medium text-slate-800">{material.nombre}</p>
+                                <p className="text-[11px] text-slate-500">
+                                  {material.categoria || "Equipo principal"}
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  Código:{" "}
+                                  {codigo || (isMongoObjectId(material.material_id) ? "Sin código" : material.material_id)}
+                                </p>
+                              </td>
+                              <td className="px-2 py-2 text-right">
+                                {Number(material.cantidad_total_vales || 0)}
+                              </td>
+                              <td className="px-2 py-2 text-right">
+                                {yaEnServicioOferta}
+                              </td>
+                              <td className="px-2 py-2 text-right">
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  max={limiteHoy}
+                                  value={cantidadEnServicio}
+                                  onChange={(e) => {
+                                    const parsed = Number(e.target.value || 0);
+                                    const safeCantidad = Math.max(
+                                      0,
+                                      Math.min(
+                                        limiteHoy,
+                                        Number.isFinite(parsed) ? parsed : 0,
+                                      ),
+                                    );
+                                    updateServicioMaterial(index, {
+                                      en_servicio: safeCantidad > 0,
+                                      cantidad_usada_hoy: safeCantidad,
+                                      cantidad_en_servicio: safeCantidad,
                                     });
                                   }}
+                                  className="h-8 w-24 ml-auto text-right"
                                 />
-                                Marcado en servicio
-                              </label>
-
-                              {enServicio ? (
-                                <div className="flex items-center gap-2 sm:ml-auto">
-                                  <Label className="text-xs whitespace-nowrap">
-                                    Cantidad en servicio
-                                  </Label>
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    max={Math.max(1, totalMaterial)}
-                                    value={
-                                      cantidadEnServicio > 0 ? cantidadEnServicio : 1
-                                    }
-                                    onChange={(e) => {
-                                      const parsed = Number(e.target.value || 1);
-                                      const safeCantidad = Math.max(
-                                        1,
-                                        Math.min(
-                                          Math.max(1, totalMaterial),
-                                          Number.isFinite(parsed) ? parsed : 1,
-                                        ),
-                                      );
-                                      updateMaterial(index, {
-                                        en_servicio: true,
-                                        cantidad_en_servicio: safeCantidad,
-                                      });
-                                    }}
-                                    className="w-24"
-                                  />
-                                </div>
-                              ) : null}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : null}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                {!instalacionTerminada ? (
+                  <p className="text-xs text-slate-500">
+                    Si la instalación queda pendiente, marca solo los equipos realmente en servicio hoy.
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-500">
+                    Si la instalación terminó, al cerrar día el backend marcará equipos principales en servicio y estado del cliente automáticamente.
+                  </p>
+                )}
+              </div>
             </div>
           ) : null}
         </CardContent>
@@ -610,11 +655,20 @@ export function TrabajoDiarioForm({
                   <Input
                     key={`${momento}-${fileInputVersion[momento]}`}
                     type="file"
-                    accept="image/*,video/*"
+                    multiple
+                    accept="image/*,video/*,audio/*"
                     disabled={uploadingFiles[momento]}
                     onChange={(event) => {
-                      const file = event.target.files?.[0] || null;
-                      setPendingFiles((prev) => ({ ...prev, [momento]: file }));
+                      const files = Array.from(event.target.files || []);
+                      if (files.length === 0) return;
+                      const additions: PendingPreview[] = files.map((file) => ({
+                        file,
+                        url: URL.createObjectURL(file),
+                      }));
+                      setPendingFiles((prev) => ({
+                        ...prev,
+                        [momento]: [...prev[momento], ...additions],
+                      }));
                     }}
                     className="max-w-[260px]"
                   />
@@ -622,7 +676,7 @@ export function TrabajoDiarioForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!pendingFiles[momento] || uploadingFiles[momento]}
+                    disabled={pendingFiles[momento].length === 0 || uploadingFiles[momento]}
                     onClick={() => void handleUploadArchivo(momento)}
                   >
                     {uploadingFiles[momento] ? (
@@ -633,13 +687,47 @@ export function TrabajoDiarioForm({
                     ) : (
                       <>
                         <Upload className="h-4 w-4 mr-1" />
-                        Subir archivo
+                        Subir {pendingFiles[momento].length > 0
+                          ? `(${pendingFiles[momento].length})`
+                          : "archivo"}
                       </>
                     )}
                   </Button>
                 </div>
               </div>
-              <p className="text-xs text-gray-500">Acepta imágenes y videos.</p>
+              <p className="text-xs text-gray-500">Acepta imágenes, videos y audios.</p>
+              {pendingFiles[momento].length > 0 ? (
+                <div className="rounded-md border p-3 bg-slate-50 space-y-2">
+                  <p className="text-xs text-slate-600">
+                    Seleccionados: {pendingFiles[momento].length}
+                  </p>
+                  <div className="space-y-2 max-h-56 overflow-auto pr-1">
+                    {pendingFiles[momento].map((entry, idx) => (
+                      <div key={`${entry.file.name}-${idx}`} className="rounded border bg-white p-2 space-y-1">
+                        <p className="text-xs text-slate-700 truncate">{entry.file.name}</p>
+                        {entry.file.type.startsWith("image/") ? (
+                          <Image
+                            src={entry.url}
+                            alt="previsualización"
+                            width={960}
+                            height={540}
+                            unoptimized
+                            className="w-full max-h-36 object-contain rounded"
+                          />
+                        ) : entry.file.type.startsWith("video/") ? (
+                          <video
+                            controls
+                            src={entry.url}
+                            className="w-full max-h-36 object-contain rounded bg-black"
+                          />
+                        ) : entry.file.type.startsWith("audio/") ? (
+                          <audio controls src={entry.url} className="w-full" />
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {(value[momento]?.archivos || []).length === 0 ? (
                 <p className="text-xs text-muted-foreground">
                   Sin archivos añadidos.
@@ -679,6 +767,12 @@ export function TrabajoDiarioForm({
                             controls
                             src={archivo.url}
                             className="w-full max-h-64 object-contain bg-black"
+                          />
+                        ) : archivo.tipo === "audio" ? (
+                          <audio
+                            controls
+                            src={archivo.url}
+                            className="w-full p-4"
                           />
                         ) : (
                           <Image
@@ -729,7 +823,7 @@ export function TrabajoDiarioForm({
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Materiales utilizados</CardTitle>
+          <CardTitle className="text-sm">Resto de materiales</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {materialesResumen.length > 0 ? (
@@ -753,7 +847,17 @@ export function TrabajoDiarioForm({
                   </tr>
                 </thead>
                 <tbody>
-                  {materialesResumen.map((material, idx) => (
+                  {materialesNoPrincipales.length === 0 ? (
+                    <tr className="border-t">
+                      <td
+                        className="px-2 py-3 text-center text-slate-500"
+                        colSpan={5}
+                      >
+                        No hay materiales no principales para este trabajo.
+                      </td>
+                    </tr>
+                  ) : (
+                    materialesNoPrincipales.map(({ material, index: idx }) => (
                     <tr
                       key={`${material.material_id}-${idx}`}
                       className="border-t align-middle"
@@ -763,8 +867,8 @@ export function TrabajoDiarioForm({
                           {material.nombre}
                         </p>
                         <p className="text-[11px] text-slate-500">
-                          {material.codigo_material
-                            ? material.codigo_material
+                          {material.material_codigo || material.codigo_material
+                            ? material.material_codigo || material.codigo_material
                             : isMongoObjectId(material.material_id)
                               ? "Sin código"
                               : material.material_id}
@@ -774,7 +878,11 @@ export function TrabajoDiarioForm({
                         {Number(material.cantidad_total_vales || 0)}
                       </td>
                       <td className="px-2 py-2 text-right">
-                        {Number(material.cantidad_usada_hasta_ayer || 0)}
+                        {Number(
+                          material.cantidad_usada_hasta_el_momento ??
+                            material.cantidad_usada_hasta_ayer ??
+                            0,
+                        )}
                       </td>
                       <td className="px-2 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -826,7 +934,8 @@ export function TrabajoDiarioForm({
                         {Number(material.saldo_despues_de_hoy || 0)}
                       </td>
                     </tr>
-                  ))}
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -922,9 +1031,11 @@ export function TrabajoDiarioForm({
             {isClosing ? "Cerrando..." : "Cerrar día"}
           </Button>
         ) : null}
-        <Button type="submit" disabled={isLocked || isSaving || isClosing}>
-          {isSaving ? "Guardando..." : submitLabel}
-        </Button>
+        {showSubmitButton ? (
+          <Button type="submit" disabled={isLocked || isSaving || isClosing}>
+            {isSaving ? "Guardando..." : submitLabel}
+          </Button>
+        ) : null}
       </div>
     </form>
   );

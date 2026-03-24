@@ -1,6 +1,7 @@
 import { apiRequest } from "@/lib/api-config";
 import type { TrabajoDiarioVale } from "./instalaciones-service";
 import type {
+  TrabajoDiarioArchivo,
   TrabajoDiarioFiltro,
   TrabajoDiarioMaterialResumen,
   TrabajoDiarioRegistro,
@@ -182,6 +183,10 @@ const normalizeMateriales = (value: unknown) => {
         id_material: idMaterial,
         codigo_material:
           pickFirstString(material.codigo_material) || idMaterial,
+        material_codigo:
+          pickFirstString(material.material_codigo, material.codigo_material) ||
+          idMaterial,
+        categoria: pickFirstString(material.categoria),
         nombre: pickFirstString(material.nombre) || "Material",
         cantidad_utilizada: asNumber(material.cantidad_utilizada) || 0,
         en_servicio: asBoolean(material.en_servicio),
@@ -393,11 +398,19 @@ const serializeTrabajoPayload = (
     ? payload.materiales_utilizados.map((material) => {
         const serialized: Record<string, unknown> = {
           id_material: material.id_material,
+          material_id: material.id_material,
           nombre: material.nombre,
           cantidad_utilizada: material.cantidad_utilizada,
         };
         if (material.codigo_material) {
           serialized.codigo_material = material.codigo_material;
+          serialized.material_codigo = material.codigo_material;
+        }
+        if (material.material_codigo) {
+          serialized.material_codigo = material.material_codigo;
+        }
+        if (material.categoria) {
+          serialized.categoria = material.categoria;
         }
         if (typeof material.en_servicio === "boolean") {
           serialized.en_servicio = material.en_servicio;
@@ -421,22 +434,19 @@ const serializeTrabajoPayload = (
     body.instaladores = Array.from(new Set(instaladores));
   if (payload.tipo_trabajo) body.tipo_trabajo = payload.tipo_trabajo;
 
-  if (payload.tipo_trabajo === "AVERIA") {
-    if (payload.problema_encontrado) {
-      body.problema_encontrado = payload.problema_encontrado;
-    }
-    if (payload.solucion) {
-      body.solucion = payload.solucion;
-    }
-  } else if (
-    payload.tipo_trabajo === "INSTALACION NUEVA" ||
-    payload.tipo_trabajo === "INSTALACION EN PROCESO"
-  ) {
-    if (typeof payload.instalacion_terminada === "boolean") {
-      body.instalacion_terminada = payload.instalacion_terminada;
-    }
-    if (payload.instalacion_terminada === false && payload.queda_pendiente) {
-      body.queda_pendiente = payload.queda_pendiente;
+  if (payload.problema_encontrado) {
+    body.problema_encontrado = payload.problema_encontrado;
+  }
+  if (payload.solucion) {
+    body.solucion = payload.solucion;
+  }
+  if (typeof payload.instalacion_terminada === "boolean") {
+    body.instalacion_terminada = payload.instalacion_terminada;
+  }
+  if (typeof payload.queda_pendiente === "string") {
+    body.queda_pendiente = payload.queda_pendiente;
+    if (payload.queda_pendiente.trim().length > 0) {
+      body.instalacion_terminada = false;
     }
   }
 
@@ -501,12 +511,28 @@ const normalizeMaterialResumen = (
   return {
     material_id: materialId,
     codigo_material: codigoMaterial || undefined,
+    material_codigo: codigoMaterial || undefined,
+    categoria: pickFirstString(row.categoria),
+    es_equipo_principal: asBoolean(row.es_equipo_principal),
     nombre: pickFirstString(row.nombre) || "Material",
     cantidad_total_vales: asNumber(row.cantidad_total_vales) || 0,
-    cantidad_usada_hasta_ayer: asNumber(row.cantidad_usada_hasta_ayer) || 0,
+    cantidad_usada_hasta_el_momento:
+      asNumber(
+        row.cantidad_usada_hasta_el_momento,
+      ) ?? asNumber(row.cantidad_usada_hasta_ayer) ?? 0,
+    cantidad_usada_hasta_ayer:
+      asNumber(row.cantidad_usada_hasta_ayer) ??
+      asNumber(row.cantidad_usada_hasta_el_momento) ??
+      0,
     cantidad_usada_hoy: asNumber(row.cantidad_usada_hoy) || 0,
     disponible_hoy: asNumber(row.disponible_hoy) || 0,
     saldo_despues_de_hoy: asNumber(row.saldo_despues_de_hoy) || 0,
+    en_servicio: asBoolean(row.en_servicio),
+    cantidad_en_servicio: asNumber(row.cantidad_en_servicio),
+    en_servicio_actual_oferta: asBoolean(row.en_servicio_actual_oferta),
+    cantidad_en_servicio_actual_oferta: asNumber(
+      row.cantidad_en_servicio_actual_oferta,
+    ),
   };
 };
 
@@ -548,6 +574,12 @@ const isNotFoundError = (error: unknown): boolean => {
     message.includes("not found") ||
     message.includes("no encontrado")
   );
+};
+
+const isMethodNotAllowedError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return message.includes("405") || message.includes("method not allowed");
 };
 
 export class TrabajosDiariosService {
@@ -671,6 +703,72 @@ export class TrabajosDiariosService {
     return [];
   }
 
+  static async uploadArchivo(file: File): Promise<TrabajoDiarioArchivo> {
+    const formData = new FormData();
+    formData.append("archivo", file);
+    const endpoints = [
+      `${BASE_ENDPOINT}/upload-archivo`,
+      `${BASE_ENDPOINT}/upload-archivo/`,
+      `/operaciones/trabajos-diarios/upload-archivo`,
+      `/operaciones/trabajos-diarios/upload-archivo/`,
+    ];
+
+    let lastError: unknown = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log("📤 [TrabajosDiariosService.uploadArchivo] Request", {
+          endpoint,
+          file: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+          },
+        });
+        const raw = await apiRequest<unknown>(endpoint, {
+          method: "POST",
+          body: formData,
+        });
+        const errorMessage = extractResponseError(raw);
+        if (errorMessage) {
+          throw new Error(errorMessage);
+        }
+
+        const root =
+          raw && typeof raw === "object"
+            ? (raw as Record<string, unknown>)
+            : null;
+        const payload =
+          root?.data && typeof root.data === "object"
+            ? (root.data as Record<string, unknown>)
+            : root;
+        const archivos = normalizeArchivos(payload ? [payload] : []);
+        const first = archivos[0];
+        if (!first) {
+          throw new Error("El backend no devolvió datos de archivo válidos.");
+        }
+        console.log("📥 [TrabajosDiariosService.uploadArchivo] Response", {
+          endpoint,
+          archivo: first,
+        });
+        return first;
+      } catch (error) {
+        lastError = error;
+        console.error("❌ [TrabajosDiariosService.uploadArchivo] Error", {
+          endpoint,
+          error,
+        });
+        if (!isNotFoundError(error) && !isMethodNotAllowedError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError instanceof Error
+      ? lastError
+      : new Error("No se pudo subir el archivo");
+  }
+
   static async createTrabajo(
     payload: TrabajoDiarioRegistro,
   ): Promise<TrabajoDiarioRegistro> {
@@ -713,15 +811,30 @@ export class TrabajosDiariosService {
     payload: Partial<TrabajoDiarioRegistro>,
   ): Promise<TrabajoDiarioRegistro> {
     const body = serializeTrabajoPayload(payload);
+    const endpoint = `${BASE_ENDPOINT}/${encodeURIComponent(trabajoId)}`;
+    console.log("📤 [TrabajosDiariosService.updateTrabajo] Request", {
+      endpoint,
+      trabajoId,
+      body,
+    });
     const raw = await apiRequest<unknown>(
-      `${BASE_ENDPOINT}/${encodeURIComponent(trabajoId)}`,
+      endpoint,
       {
         method: "PATCH",
         body: JSON.stringify(body),
       },
     );
+    console.log("📥 [TrabajosDiariosService.updateTrabajo] Raw response", {
+      endpoint,
+      raw,
+    });
     const errorMessage = extractResponseError(raw);
     if (errorMessage) {
+      console.error("❌ [TrabajosDiariosService.updateTrabajo] Backend error", {
+        endpoint,
+        errorMessage,
+        raw,
+      });
       throw new Error(errorMessage);
     }
     const parsed = normalizeTrabajo(raw);

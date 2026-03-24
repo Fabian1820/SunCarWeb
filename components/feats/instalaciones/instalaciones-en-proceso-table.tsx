@@ -2675,7 +2675,7 @@ export function InstalacionesEnProcesoTable({
               </p>
 
               {servicioItems.length > 0 ? (
-                <div className="space-y-2 sm:space-y-3 max-h-[58vh] sm:max-h-[400px] overflow-y-auto pr-0 sm:pr-2">
+                <div className="space-y-2 sm:space-y-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-0 sm:pr-2">
                   {/* Inversores */}
                   {inversoresServicioItems.map((item) => {
                     const checked = equiposEnServicio.inversores.includes(

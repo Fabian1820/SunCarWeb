@@ -20,7 +20,7 @@ export function TrabajosDiariosModule() {
     <Tabs value={tab} onValueChange={(val) => setTab(val as TabKey)} className="space-y-4">
       <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-10">
         <TabsTrigger value="confirmar">Confirmar salidas</TabsTrigger>
-        <TabsTrigger value="registrar">Registrar datos</TabsTrigger>
+        <TabsTrigger value="registrar">Cierre diario instalaciones</TabsTrigger>
         <TabsTrigger value="crear">Crear trabajo diario</TabsTrigger>
       </TabsList>
 

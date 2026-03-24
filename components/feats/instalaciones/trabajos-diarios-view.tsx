@@ -78,6 +78,8 @@ export function TrabajosDiariosView() {
   const [loading, setLoading] = useState(false);
   const [vales, setVales] = useState<TrabajoDiarioVale[]>([]);
   const [brigadistas, setBrigadistas] = useState<Brigadista[]>([]);
+  const [responsableFiltro, setResponsableFiltro] = useState("");
+  const [clienteFiltro, setClienteFiltro] = useState("");
 
   // valeId -> set of CI
   const [seleccionPorVale, setSeleccionPorVale] = useState<
@@ -94,7 +96,27 @@ export function TrabajosDiariosView() {
     Record<string, boolean>
   >({});
 
-  const valesFiltrados = useMemo(() => vales || [], [vales]);
+  const valesFiltrados = useMemo(() => {
+    const normalizar = (value: unknown) =>
+      safeText(value).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const responsableQ = normalizar(responsableFiltro);
+    const clienteQ = normalizar(clienteFiltro);
+
+    return (vales || []).filter((vale) => {
+      const responsableTexto = normalizar(vale.responsable_recogida);
+      const clienteTexto = [
+        vale.cliente_nombre,
+        vale.cliente_numero,
+        vale.cliente_direccion,
+      ]
+        .map((v) => normalizar(v))
+        .join(" ");
+
+      const matchResponsable = !responsableQ || responsableTexto.includes(responsableQ);
+      const matchCliente = !clienteQ || clienteTexto.includes(clienteQ);
+      return matchResponsable && matchCliente;
+    });
+  }, [clienteFiltro, responsableFiltro, vales]);
 
   const cargarDatos = useCallback(async () => {
     setLoading(true);
@@ -378,7 +400,7 @@ export function TrabajosDiariosView() {
 
       <Card className="border-l-4 border-l-indigo-600">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between gap-3">
+          <CardTitle className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <span>Vales del día ({valesFiltrados.length})</span>
             <span className="text-sm text-gray-500 flex items-center gap-2">
               <Users className="h-4 w-4" /> Brigadistas: {brigadistas.length}
@@ -386,6 +408,18 @@ export function TrabajosDiariosView() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+            <Input
+              value={responsableFiltro}
+              onChange={(e) => setResponsableFiltro(e.target.value)}
+              placeholder="Buscar por responsable de recogida"
+            />
+            <Input
+              value={clienteFiltro}
+              onChange={(e) => setClienteFiltro(e.target.value)}
+              placeholder="Buscar por cliente (nombre, número o dirección)"
+            />
+          </div>
           {loading ? (
             <div className="py-10 text-center text-gray-600">
               Cargando vales...
