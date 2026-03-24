@@ -2,6 +2,7 @@ import { apiRequest } from "@/lib/api-config";
 import type { TrabajoDiarioVale } from "./instalaciones-service";
 import type {
   TrabajoDiarioFiltro,
+  TrabajoDiarioMaterialResumen,
   TrabajoDiarioRegistro,
 } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { createEmptyTrabajoDiario } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
@@ -282,6 +283,11 @@ const normalizeTrabajo = (item: unknown): TrabajoDiarioRegistro | null => {
     solucion: pickFirstString(row.solucion),
     instalacion_terminada: asBoolean(row.instalacion_terminada),
     queda_pendiente: pickFirstString(row.queda_pendiente),
+    cierre_diario_confirmado: asBoolean(row.cierre_diario_confirmado),
+    cierre_diario_usuario_ci:
+      pickFirstString(row.cierre_diario_usuario_ci) || null,
+    cierre_diario_usuario_nombre:
+      pickFirstString(row.cierre_diario_usuario_nombre) || null,
     created_at: pickFirstString(row.created_at),
     updated_at: pickFirstString(row.updated_at),
     inicio: {
@@ -450,9 +456,87 @@ const serializeTrabajoPayload = (
   if (responsableSolicitud) {
     body.responsable_solicitud_materiales = responsableSolicitud;
   }
+  if (typeof payload.cierre_diario_confirmado === "boolean") {
+    body.cierre_diario_confirmado = payload.cierre_diario_confirmado;
+  }
 
   body.materiales_utilizados = materiales;
   return body;
+};
+
+const extractResponseError = (raw: unknown): string | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const row = raw as Record<string, unknown>;
+  const success = row.success;
+  const httpStatus = asNumber(row._httpStatus);
+  if (success !== false && (!httpStatus || httpStatus < 400)) {
+    return null;
+  }
+  return (
+    pickFirstString(
+      row.detail,
+      row.message,
+      (row.error as Record<string, unknown> | undefined)?.message,
+    ) || "Error en la operación de trabajo diario"
+  );
+};
+
+const normalizeMaterialResumen = (
+  item: unknown,
+): TrabajoDiarioMaterialResumen | null => {
+  if (!item || typeof item !== "object") return null;
+  const row = item as Record<string, unknown>;
+  const materialId = pickFirstString(row.material_id, row.id_material, row.id);
+  if (!materialId) return null;
+  return {
+    material_id: materialId,
+    nombre: pickFirstString(row.nombre) || "Material",
+    cantidad_total_vales: asNumber(row.cantidad_total_vales) || 0,
+    cantidad_usada_hasta_ayer: asNumber(row.cantidad_usada_hasta_ayer) || 0,
+    cantidad_usada_hoy: asNumber(row.cantidad_usada_hoy) || 0,
+    disponible_hoy: asNumber(row.disponible_hoy) || 0,
+    saldo_despues_de_hoy: asNumber(row.saldo_despues_de_hoy) || 0,
+  };
+};
+
+const extractMaterialesResumenArray = (raw: unknown): unknown[] => {
+  if (Array.isArray(raw)) return raw;
+  if (!raw || typeof raw !== "object") return [];
+
+  const root = raw as Record<string, unknown>;
+  const data =
+    root.data && typeof root.data === "object"
+      ? (root.data as Record<string, unknown>)
+      : null;
+
+  const candidates: unknown[] = [
+    root.data,
+    root.items,
+    root.resultados,
+    root.materiales,
+    root.materiales_resumen,
+    data?.data,
+    data?.items,
+    data?.resultados,
+    data?.materiales,
+    data?.materiales_resumen,
+  ];
+
+  for (const candidate of candidates) {
+    if (Array.isArray(candidate)) return candidate;
+  }
+
+  return [];
+};
+
+const isNotFoundError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) return false;
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("404") ||
+    message.includes("not found") ||
+    message.includes("no encontrado")
+  );
 };
 
 export class TrabajosDiariosService {
@@ -500,6 +584,80 @@ export class TrabajosDiariosService {
     return rows
       .map(normalizeTrabajo)
       .filter(Boolean) as TrabajoDiarioRegistro[];
+  }
+
+  static async getTrabajoById(id: string): Promise<TrabajoDiarioRegistro> {
+    const trabajoId = asString(id);
+    if (!trabajoId) {
+      throw new Error("ID de trabajo diario inválido");
+    }
+
+    const raw = await apiRequest<unknown>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(trabajoId)}`,
+      {
+        method: "GET",
+      },
+    );
+    const errorMessage = extractResponseError(raw);
+    if (errorMessage) {
+      throw new Error(errorMessage);
+    }
+
+    const rows = toArray(raw);
+    if (rows.length > 0) {
+      const first = normalizeTrabajo(rows[0]);
+      if (first) return first;
+    }
+
+    const parsed = normalizeTrabajo(raw);
+    if (parsed) return parsed;
+
+    throw new Error("No se pudo interpretar el detalle del trabajo diario");
+  }
+
+  static async getMaterialesResumen(
+    trabajoId: string,
+  ): Promise<TrabajoDiarioMaterialResumen[]> {
+    const id = asString(trabajoId);
+    if (!id) return [];
+
+    const idEncoded = encodeURIComponent(id);
+    const endpoints = [
+      `${BASE_ENDPOINT}/${idEncoded}/materiales-resumen`,
+      `${BASE_ENDPOINT}/${idEncoded}/materiales_resumen`,
+      `${BASE_ENDPOINT}/${idEncoded}/resumen-materiales`,
+      `/operaciones/trabajos-diarios/${idEncoded}/materiales-resumen`,
+      `/operaciones/trabajos-diarios/${idEncoded}/materiales_resumen`,
+      `/operaciones/trabajos-diarios/${idEncoded}/resumen-materiales`,
+    ];
+
+    let lastError: unknown = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const raw = await apiRequest<unknown>(endpoint, { method: "GET" });
+        const errorMessage = extractResponseError(raw);
+        if (errorMessage) {
+          throw new Error(errorMessage);
+        }
+        const rows = extractMaterialesResumenArray(raw);
+        return rows
+          .map(normalizeMaterialResumen)
+          .filter(Boolean) as TrabajoDiarioMaterialResumen[];
+      } catch (error) {
+        lastError = error;
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+      }
+    }
+
+    if (lastError) {
+      throw lastError instanceof Error
+        ? lastError
+        : new Error("No se pudo cargar el resumen de materiales");
+    }
+    return [];
   }
 
   static async createTrabajo(
@@ -551,6 +709,10 @@ export class TrabajosDiariosService {
         body: JSON.stringify(body),
       },
     );
+    const errorMessage = extractResponseError(raw);
+    if (errorMessage) {
+      throw new Error(errorMessage);
+    }
     const parsed = normalizeTrabajo(raw);
     if (parsed) return parsed;
     return {

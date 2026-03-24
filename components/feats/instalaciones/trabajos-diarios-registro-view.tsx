@@ -27,7 +27,10 @@ import { SearchableSelect } from "@/components/shared/molecule/searchable-select
 import { useToast } from "@/hooks/use-toast";
 import { ClienteService, TrabajadorService, TrabajosDiariosService } from "@/lib/api-services";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
-import type { TrabajoDiarioRegistro } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
+import type {
+  TrabajoDiarioMaterialResumen,
+  TrabajoDiarioRegistro,
+} from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { TrabajoDiarioForm } from "./trabajo-diario-form";
@@ -71,8 +74,14 @@ export function TrabajosDiariosRegistroView({
   const [trabajadoresSeleccionados, setTrabajadoresSeleccionados] = useState<string[]>([]);
   const [clienteFiltro, setClienteFiltro] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const [loadingMateriales, setLoadingMateriales] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [closingDay, setClosingDay] = useState(false);
   const [trabajos, setTrabajos] = useState<TrabajoDiarioRegistro[]>([]);
+  const [materialesResumen, setMaterialesResumen] = useState<
+    TrabajoDiarioMaterialResumen[]
+  >([]);
   const [selectedId, setSelectedId] = useState("");
   const [selectedTrabajo, setSelectedTrabajo] =
     useState<TrabajoDiarioRegistro | null>(null);
@@ -183,6 +192,7 @@ export function TrabajosDiariosRegistroView({
       setTrabajos([]);
       setSelectedId("");
       setSelectedTrabajo(null);
+      setMaterialesResumen([]);
       return;
     }
 
@@ -208,18 +218,17 @@ export function TrabajosDiariosRegistroView({
       if (!rows || rows.length === 0) {
         setSelectedId("");
         setSelectedTrabajo(null);
+        setMaterialesResumen([]);
         return;
       }
 
       const keepSelected = rows.find(
-        (t) => safeText(t.id || t.vale_id) === selectedId,
+        (t) => safeText(t.id) === selectedId,
       );
-      if (keepSelected) {
-        setSelectedTrabajo(keepSelected);
-      } else {
-        const firstId = safeText(rows[0].id || rows[0].vale_id);
-        setSelectedId(firstId);
-        setSelectedTrabajo(rows[0]);
+      if (!keepSelected) {
+        setSelectedId("");
+        setSelectedTrabajo(null);
+        setMaterialesResumen([]);
       }
     } catch (error) {
       const message =
@@ -230,6 +239,7 @@ export function TrabajosDiariosRegistroView({
       setTrabajos([]);
       setSelectedId("");
       setSelectedTrabajo(null);
+      setMaterialesResumen([]);
     } finally {
       setLoading(false);
     }
@@ -256,24 +266,65 @@ export function TrabajosDiariosRegistroView({
   useEffect(() => {
     if (!selectedId) return;
     const found = trabajosFiltrados.find(
-      (t) => safeText(t.id || t.vale_id) === selectedId,
+      (t) => safeText(t.id) === selectedId,
     );
     if (found) {
-      setSelectedTrabajo(found);
-      return;
-    }
-
-    if (trabajosFiltrados.length > 0) {
-      const first = trabajosFiltrados[0];
-      const firstId = safeText(first.id || first.vale_id);
-      setSelectedId(firstId);
-      setSelectedTrabajo(first);
       return;
     }
 
     setSelectedId("");
     setSelectedTrabajo(null);
+    setMaterialesResumen([]);
   }, [selectedId, trabajosFiltrados]);
+
+  const handleSelectTrabajo = useCallback(
+    async (trabajoResumen: TrabajoDiarioRegistro) => {
+      const rowId = safeText(trabajoResumen.id);
+      if (!rowId) {
+        toast({
+          title: "ID inválido",
+          description: "La tarjeta no tiene un ID de trabajo diario válido.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSelectedId(rowId);
+      setSelectedTrabajo(null);
+      setLoadingDetalle(true);
+      setLoadingMateriales(true);
+      try {
+        const detalle = await TrabajosDiariosService.getTrabajoById(rowId);
+        setSelectedTrabajo(detalle);
+        const detalleId = safeText(detalle.id, rowId);
+        try {
+          const resumen = await TrabajosDiariosService.getMaterialesResumen(
+            detalleId,
+          );
+          setMaterialesResumen(resumen);
+        } catch {
+          // El resumen no debe bloquear la edición del trabajo
+          setMaterialesResumen([]);
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el detalle del trabajo";
+        toast({
+          title: "Error",
+          description: message,
+          variant: "destructive",
+        });
+        setSelectedTrabajo(null);
+        setMaterialesResumen([]);
+      } finally {
+        setLoadingDetalle(false);
+        setLoadingMateriales(false);
+      }
+    },
+    [toast],
+  );
 
   const handleSave = async () => {
     if (!selectedTrabajo) return;
@@ -295,14 +346,11 @@ export function TrabajosDiariosRegistroView({
       );
 
       const savedId = safeText(
-        saved.id ||
-          saved.vale_id ||
-          selectedTrabajo.id ||
-          selectedTrabajo.vale_id,
+        saved.id || selectedTrabajo.id,
       );
       const nextRows = [...trabajos];
       const index = nextRows.findIndex(
-        (item) => safeText(item.id || item.vale_id) === selectedId,
+        (item) => safeText(item.id) === selectedId,
       );
       if (index >= 0) nextRows[index] = { ...selectedTrabajo, ...saved };
       else nextRows.unshift({ ...selectedTrabajo, ...saved });
@@ -310,6 +358,16 @@ export function TrabajosDiariosRegistroView({
       setTrabajos(nextRows);
       setSelectedId(savedId || selectedId);
       setSelectedTrabajo({ ...selectedTrabajo, ...saved });
+      if (savedId) {
+        try {
+          const resumen = await TrabajosDiariosService.getMaterialesResumen(
+            savedId,
+          );
+          setMaterialesResumen(resumen);
+        } catch {
+          // noop
+        }
+      }
       toast({
         title: "Guardado",
         description: "Trabajo diario actualizado correctamente.",
@@ -325,12 +383,54 @@ export function TrabajosDiariosRegistroView({
       });
       const nextRows = [...trabajos];
       const index = nextRows.findIndex(
-        (item) => safeText(item.id || item.vale_id) === selectedId,
+        (item) => safeText(item.id) === selectedId,
       );
       if (index >= 0) nextRows[index] = selectedTrabajo;
       setTrabajos(nextRows);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleCloseDay = async () => {
+    if (!selectedTrabajo || !safeText(selectedTrabajo.id)) return;
+    setClosingDay(true);
+    try {
+      const payload: TrabajoDiarioRegistro = {
+        ...selectedTrabajo,
+        cierre_diario_confirmado: true,
+      };
+      const saved = await TrabajosDiariosService.updateTrabajo(
+        selectedTrabajo.id as string,
+        payload,
+      );
+      setSelectedTrabajo({ ...payload, ...saved, cierre_diario_confirmado: true });
+      toast({
+        title: "Día cerrado",
+        description: "El trabajo diario quedó cerrado para edición.",
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo cerrar el trabajo diario";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+      if (safeText(selectedTrabajo.id)) {
+        try {
+          const detalle = await TrabajosDiariosService.getTrabajoById(
+            selectedTrabajo.id as string,
+          );
+          setSelectedTrabajo(detalle);
+        } catch {
+          // noop
+        }
+      }
+    } finally {
+      setClosingDay(false);
     }
   };
 
@@ -504,7 +604,7 @@ export function TrabajosDiariosRegistroView({
             ) : (
               <div className="space-y-3 p-3">
                 {trabajosFiltrados.map((trabajo) => {
-                  const rowId = safeText(trabajo.id || trabajo.vale_id);
+                  const rowId = safeText(trabajo.id);
                   const active = rowId === selectedId;
                   const instaladores = (trabajo.instaladores || []).filter(Boolean);
                   const instaladoresTexto =
@@ -524,8 +624,7 @@ export function TrabajosDiariosRegistroView({
                           : "border-slate-200 bg-white hover:bg-slate-50",
                       )}
                       onClick={() => {
-                        setSelectedId(rowId);
-                        setSelectedTrabajo(trabajo);
+                        void handleSelectTrabajo(trabajo);
                       }}
                     >
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
@@ -570,7 +669,9 @@ export function TrabajosDiariosRegistroView({
             <CardTitle className="text-base">Registrar datos de trabajo</CardTitle>
           </CardHeader>
           <CardContent className="flex-1 overflow-visible xl:overflow-y-auto pr-0 xl:pr-2">
-            {!selectedTrabajo ? (
+            {loadingDetalle ? (
+              <p className="text-sm text-muted-foreground">Cargando detalle...</p>
+            ) : !selectedTrabajo ? (
               <p className="text-sm text-muted-foreground">
                 Selecciona un trabajo de la lista para introducir inicio, fin y materiales.
               </p>
@@ -578,9 +679,13 @@ export function TrabajosDiariosRegistroView({
               <TrabajoDiarioForm
                 value={selectedTrabajo}
                 onChange={setSelectedTrabajo}
+                materialesResumen={materialesResumen}
+                onMaterialesResumenChange={setMaterialesResumen}
                 onSubmit={() => void handleSave()}
+                onCloseDay={() => void handleCloseDay()}
                 submitLabel="Guardar datos del trabajo"
-                isSaving={saving}
+                isSaving={saving || loadingMateriales}
+                isClosing={closingDay}
               />
             )}
           </CardContent>

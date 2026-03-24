@@ -30,6 +30,16 @@ export interface TrabajoDiarioMaterialUtilizado {
   cantidad_en_servicio?: number;
 }
 
+export interface TrabajoDiarioMaterialResumen {
+  material_id: string;
+  nombre: string;
+  cantidad_total_vales: number;
+  cantidad_usada_hasta_ayer: number;
+  cantidad_usada_hoy: number;
+  disponible_hoy: number;
+  saldo_despues_de_hoy: number;
+}
+
 export interface TrabajoDiarioRegistro {
   id?: string;
   fecha?: string;
@@ -57,6 +67,9 @@ export interface TrabajoDiarioRegistro {
   solucion?: string;
   instalacion_terminada?: boolean;
   queda_pendiente?: string;
+  cierre_diario_confirmado?: boolean;
+  cierre_diario_usuario_ci?: string | null;
+  cierre_diario_usuario_nombre?: string | null;
   materiales_utilizados: TrabajoDiarioMaterialUtilizado[];
   created_at?: string;
   updated_at?: string;

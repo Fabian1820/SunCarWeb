@@ -24,6 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ClienteService } from "@/lib/api-services";
 import type {
   TrabajoDiarioArchivo,
+  TrabajoDiarioMaterialResumen,
   TrabajoDiarioRegistro,
   TrabajoDiarioTipo,
 } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
@@ -35,9 +36,13 @@ type ServicioCategoria = "inversor" | "panel" | "bateria";
 interface TrabajoDiarioFormProps {
   value: TrabajoDiarioRegistro;
   onChange: (next: TrabajoDiarioRegistro) => void;
+  materialesResumen?: TrabajoDiarioMaterialResumen[];
+  onMaterialesResumenChange?: (next: TrabajoDiarioMaterialResumen[]) => void;
   onSubmit: () => void;
+  onCloseDay?: () => void;
   submitLabel: string;
   isSaving?: boolean;
+  isClosing?: boolean;
 }
 
 const TIPOS_TRABAJO: TrabajoDiarioTipo[] = [
@@ -86,9 +91,13 @@ const getServicioCategoria = (
 export function TrabajoDiarioForm({
   value,
   onChange,
+  materialesResumen = [],
+  onMaterialesResumenChange,
   onSubmit,
+  onCloseDay,
   submitLabel,
   isSaving = false,
+  isClosing = false,
 }: TrabajoDiarioFormProps) {
   const { toast } = useToast();
   const [pendingFiles, setPendingFiles] = useState<
@@ -290,6 +299,10 @@ export function TrabajoDiarioForm({
   };
 
   const isAveria = value.tipo_trabajo === "AVERIA";
+  const isLocked = value.cierre_diario_confirmado === true;
+  const lockLabel = value.cierre_diario_usuario_nombre
+    ? `Cerrado por ${value.cierre_diario_usuario_nombre}`
+    : "Trabajo diario cerrado";
   const isInstalacion =
     value.tipo_trabajo === "INSTALACION NUEVA" ||
     value.tipo_trabajo === "INSTALACION EN PROCESO";
@@ -302,6 +315,36 @@ export function TrabajoDiarioForm({
     }))
     .filter((item) => item.categoria !== null);
 
+  const updateMaterialesResumen = (
+    index: number,
+    cantidadUsadaHoy: number,
+  ) => {
+    if (!onMaterialesResumenChange) return;
+    const next = [...materialesResumen];
+    const row = next[index];
+    if (!row) return;
+    const max = Math.max(0, Number(row.disponible_hoy || 0));
+    const safeCantidad = Math.max(
+      0,
+      Math.min(max, Number.isFinite(cantidadUsadaHoy) ? cantidadUsadaHoy : 0),
+    );
+    next[index] = {
+      ...row,
+      cantidad_usada_hoy: safeCantidad,
+      saldo_despues_de_hoy: max - safeCantidad,
+    };
+    onMaterialesResumenChange(next);
+    update({
+      materiales_utilizados: next
+        .filter((m) => Number(m.cantidad_usada_hoy || 0) > 0)
+        .map((m) => ({
+          id_material: m.material_id,
+          nombre: m.nombre,
+          cantidad_utilizada: Number(m.cantidad_usada_hoy || 0),
+        })),
+    });
+  };
+
   return (
     <form
       className="space-y-3"
@@ -310,6 +353,17 @@ export function TrabajoDiarioForm({
         onSubmit();
       }}
     >
+      {isLocked ? (
+        <Card className="border-emerald-300 bg-emerald-50">
+          <CardContent className="pt-4">
+            <p className="text-sm font-medium text-emerald-800">{lockLabel}</p>
+          </CardContent>
+        </Card>
+      ) : null}
+      <fieldset
+        disabled={isLocked || isClosing}
+        className="space-y-3 disabled:opacity-75"
+      >
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Datos del trabajo</CardTitle>
@@ -660,84 +714,159 @@ export function TrabajoDiarioForm({
           <CardTitle className="text-sm">Materiales utilizados</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addMaterial}
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              Agregar material
-            </Button>
-          </div>
-          {(value.materiales_utilizados || []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Sin materiales registrados.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {(value.materiales_utilizados || []).map((material, idx) => (
-                <div
-                  key={`${material.id_material}-${idx}`}
-                  className="grid grid-cols-1 md:grid-cols-12 gap-2 border rounded-md p-2"
-                >
-                  <Input
-                    className="md:col-span-3"
-                    placeholder="Código material"
-                    value={
-                      material.codigo_material || material.id_material || ""
-                    }
-                    onChange={(e) =>
-                      updateMaterial(idx, {
-                        codigo_material: e.target.value,
-                        id_material: material.id_material || e.target.value,
-                      })
-                    }
-                  />
-                  <Input
-                    className="md:col-span-5"
-                    placeholder="Nombre"
-                    value={material.nombre || ""}
-                    onChange={(e) =>
-                      updateMaterial(idx, { nombre: e.target.value })
-                    }
-                  />
-                  <Input
-                    className="md:col-span-2"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Cantidad"
-                    value={
-                      Number.isFinite(material.cantidad_utilizada)
-                        ? material.cantidad_utilizada
-                        : 0
-                    }
-                    onChange={(e) =>
-                      updateMaterial(idx, {
-                        cantidad_utilizada: Number(e.target.value || 0),
-                      })
-                    }
-                  />
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="md:col-span-2"
-                    onClick={() => removeMaterial(idx)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Quitar
-                  </Button>
-                </div>
-              ))}
+          {materialesResumen.length > 0 ? (
+            <div className="overflow-x-auto rounded-md border">
+              <table className="min-w-full text-xs">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="text-left px-2 py-2">Material</th>
+                    <th className="text-right px-2 py-2">Total vales</th>
+                    <th className="text-right px-2 py-2">Usada ayer</th>
+                    <th className="text-right px-2 py-2">Usada hoy</th>
+                    <th className="text-right px-2 py-2">Disponible hoy</th>
+                    <th className="text-right px-2 py-2">Saldo después</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {materialesResumen.map((material, idx) => (
+                    <tr
+                      key={`${material.material_id}-${idx}`}
+                      className="border-t align-middle"
+                    >
+                      <td className="px-2 py-2">
+                        <p className="font-medium text-slate-800">
+                          {material.nombre}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          {material.material_id}
+                        </p>
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        {Number(material.cantidad_total_vales || 0)}
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        {Number(material.cantidad_usada_hasta_ayer || 0)}
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        <Input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          max={Math.max(0, Number(material.disponible_hoy || 0))}
+                          value={Number(material.cantidad_usada_hoy || 0)}
+                          onChange={(e) =>
+                            updateMaterialesResumen(
+                              idx,
+                              Number(e.target.value || 0),
+                            )
+                          }
+                          className="h-8 w-24 ml-auto text-right"
+                        />
+                      </td>
+                      <td className="px-2 py-2 text-right">
+                        {Number(material.disponible_hoy || 0)}
+                      </td>
+                      <td className="px-2 py-2 text-right font-medium">
+                        {Number(material.saldo_despues_de_hoy || 0)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+          ) : (
+            <>
+              <div className="flex justify-end">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addMaterial}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Agregar material
+                </Button>
+              </div>
+              {(value.materiales_utilizados || []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Sin materiales registrados.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {(value.materiales_utilizados || []).map((material, idx) => (
+                    <div
+                      key={`${material.id_material}-${idx}`}
+                      className="grid grid-cols-1 md:grid-cols-12 gap-2 border rounded-md p-2"
+                    >
+                      <Input
+                        className="md:col-span-3"
+                        placeholder="Código material"
+                        value={
+                          material.codigo_material || material.id_material || ""
+                        }
+                        onChange={(e) =>
+                          updateMaterial(idx, {
+                            codigo_material: e.target.value,
+                            id_material: material.id_material || e.target.value,
+                          })
+                        }
+                      />
+                      <Input
+                        className="md:col-span-5"
+                        placeholder="Nombre"
+                        value={material.nombre || ""}
+                        onChange={(e) =>
+                          updateMaterial(idx, { nombre: e.target.value })
+                        }
+                      />
+                      <Input
+                        className="md:col-span-2"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="Cantidad"
+                        value={
+                          Number.isFinite(material.cantidad_utilizada)
+                            ? material.cantidad_utilizada
+                            : 0
+                        }
+                        onChange={(e) =>
+                          updateMaterial(idx, {
+                            cantidad_utilizada: Number(e.target.value || 0),
+                          })
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="md:col-span-2"
+                        onClick={() => removeMaterial(idx)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Quitar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
+      </fieldset>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSaving}>
+      <div className="flex flex-wrap justify-end gap-2">
+        {onCloseDay ? (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isLocked || isSaving || isClosing}
+            onClick={onCloseDay}
+          >
+            {isClosing ? "Cerrando..." : "Cerrar día"}
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={isLocked || isSaving || isClosing}>
           {isSaving ? "Guardando..." : submitLabel}
         </Button>
       </div>
