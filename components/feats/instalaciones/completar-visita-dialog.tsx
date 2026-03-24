@@ -119,12 +119,17 @@ export function CompletarVisitaDialog({
 
     setVerificandoOferta(true);
     try {
-      const clienteIdentificador = pendiente.id || pendiente.numero;
+      const clienteIdentificador = pendiente.numero || pendiente.id;
+      if (pendiente.tipo === "cliente" && !clienteIdentificador) {
+        setTieneOferta(false);
+        setOfertaAsignada(null);
+        return;
+      }
       // Usar fetch directamente para evitar logs de error en consola para 404 esperados
       const endpoint =
         pendiente.tipo === "lead"
-          ? `/ofertas/confeccion/lead/${pendiente.id}`
-          : `/ofertas/confeccion/cliente/${clienteIdentificador}`;
+          ? `/ofertas/confeccion/lead/${encodeURIComponent(pendiente.id)}`
+          : `/ofertas/confeccion/cliente/${encodeURIComponent(String(clienteIdentificador))}`;
 
       // Usar la misma base que usa apiRequest (incluye /api)
       const token = localStorage.getItem("auth_token");

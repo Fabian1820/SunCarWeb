@@ -314,6 +314,25 @@ const normalizeTrabajo = (item: unknown): TrabajoDiarioRegistro | null => {
   return normalized;
 };
 
+const looksLikeTrabajoDiario = (item: unknown): boolean => {
+  if (!item || typeof item !== "object") return false;
+  const row = item as Record<string, unknown>;
+
+  return Boolean(
+    row.inicio ||
+      row.fin ||
+      row.fecha ||
+      row.fecha_trabajo ||
+      row.tipo_trabajo ||
+      row.cliente_numero ||
+      row.id_vale_salida ||
+      row.vale_id ||
+      row.trabajo_diario_id ||
+      row.id ||
+      row._id,
+  );
+};
+
 const serializeArchivos = (
   value: TrabajoDiarioRegistro["inicio"]["archivos"] | undefined,
 ) => {
@@ -449,6 +468,12 @@ export class TrabajosDiariosService {
     instaladores.forEach((instalador) =>
       query.append("instalador", instalador),
     );
+    const clienteNumero = asString(filters.cliente_numero);
+    const clienteId = asString(filters.cliente_id);
+    const qCliente = asString(filters.q_cliente);
+    if (clienteNumero) query.append("cliente_numero", clienteNumero);
+    if (clienteId) query.append("cliente_id", clienteId);
+    if (qCliente) query.append("q_cliente", qCliente);
     if (filters.skip != null) query.append("skip", String(filters.skip));
     if (filters.limit != null) query.append("limit", String(filters.limit));
 
@@ -457,6 +482,18 @@ export class TrabajosDiariosService {
     const raw = await apiRequest<unknown>(endpoint, { method: "GET" });
     const rows = toArray(raw);
     if (rows.length === 0) {
+      if (raw && typeof raw === "object") {
+        const rawObj = raw as Record<string, unknown>;
+        if (
+          "success" in rawObj ||
+          "message" in rawObj ||
+          "error" in rawObj ||
+          "data" in rawObj
+        ) {
+          return [];
+        }
+      }
+      if (!looksLikeTrabajoDiario(raw)) return [];
       const parsed = normalizeTrabajo(raw);
       return parsed ? [parsed] : [];
     }

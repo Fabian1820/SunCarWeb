@@ -116,7 +116,6 @@ export function OfertasGridView() {
             <SelectItem value="enviada_a_cliente">Enviada</SelectItem>
             <SelectItem value="confirmada_por_cliente">Confirmada</SelectItem>
             <SelectItem value="reservada">Reservada</SelectItem>
-            <SelectItem value="agotada">Agotada</SelectItem>
           </SelectContent>
         </Select>
       </div>

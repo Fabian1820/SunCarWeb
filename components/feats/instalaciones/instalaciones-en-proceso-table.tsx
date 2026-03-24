@@ -100,6 +100,12 @@ const getClienteKeys = (cliente: Cliente) =>
 
 const getTodayDateInput = () => new Date().toISOString().split("T")[0];
 
+const normalizeClienteNumero = (value: string | null | undefined) =>
+  String(value ?? "")
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
 const createEntregaDraft = (): EntregaDraft => ({
   rowId: `entrega-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   itemKey: "",
@@ -1135,12 +1141,41 @@ export function InstalacionesEnProcesoTable({
   };
 
   const loadOfertasParaEntrega = async (client: Cliente) => {
-    const endpoint = `/ofertas/confeccion/cliente/${client.numero || client.id}`;
-    const response = await apiRequest<any>(endpoint, { method: "GET" });
-    if (response?.success === false && !response?.data && !response?.ofertas) {
+    const numeroOriginal = String(client.numero || "").trim();
+    const numeroNormalizado = normalizeClienteNumero(client.numero);
+    const candidatos = Array.from(
+      new Set([numeroOriginal, numeroNormalizado].filter(Boolean)),
+    );
+
+    if (candidatos.length === 0) {
       return [];
     }
-    return extractOfertasConfeccion(response);
+
+    let ultimoError: unknown = null;
+    for (const candidato of candidatos) {
+      try {
+        const endpoint = `/ofertas/confeccion/cliente/${encodeURIComponent(candidato)}`;
+        const response = await apiRequest<any>(endpoint, { method: "GET" });
+        if (
+          response?.success === false &&
+          !response?.data &&
+          !response?.ofertas
+        ) {
+          continue;
+        }
+        const ofertas = extractOfertasConfeccion(response);
+        if (ofertas.length > 0) {
+          return ofertas;
+        }
+      } catch (error) {
+        ultimoError = error;
+      }
+    }
+
+    if (ultimoError) {
+      throw ultimoError;
+    }
+    return [];
   };
 
   const handleOpenEntregaEquipo = async (client: Cliente) => {

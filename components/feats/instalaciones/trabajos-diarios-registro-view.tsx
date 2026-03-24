@@ -50,6 +50,14 @@ const safeText = (value: unknown, fallback = "") => {
   return text || fallback;
 };
 
+const formatFechaTrabajo = (value?: string) => {
+  const text = safeText(value);
+  if (!text) return "Sin fecha";
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text.slice(0, 10);
+  return parsed.toLocaleDateString("es-ES");
+};
+
 interface TrabajosDiariosRegistroViewProps {
   onCreateRequested: () => void;
 }
@@ -118,6 +126,28 @@ export function TrabajosDiariosRegistroView({
     [trabajadoresSeleccionados, workerMap],
   );
 
+  const trabajadoresFiltroBackend = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          trabajadoresSeleccionados
+            .map((selected) => {
+              const selectedValue = safeText(selected);
+              if (!selectedValue) return "";
+              const worker = workersOptions.find(
+                (w) =>
+                  safeText(w.CI) === selectedValue ||
+                  safeText(w.nombre) === selectedValue,
+              );
+              // El backend normalmente guarda/filtra por nombre de instalador.
+              return safeText(worker?.nombre, selectedValue);
+            })
+            .filter(Boolean),
+        ),
+      ),
+    [trabajadoresSeleccionados, workersOptions],
+  );
+
   const selectedClient = useMemo(() => {
     if (!clienteFiltro) return null;
     return clientes.find((cliente) => {
@@ -158,9 +188,21 @@ export function TrabajosDiariosRegistroView({
 
     setLoading(true);
     try {
+      const clienteNumeroFiltro = safeText(selectedClient?.numero);
+      const clienteIdFiltro = safeText(selectedClient?.id);
+      const qClienteFiltro =
+        !clienteNumeroFiltro && !clienteIdFiltro ? safeText(clienteFiltro) : "";
+
       const rows = await TrabajosDiariosService.getTrabajos({
         fecha,
-        instaladores: trabajadoresSeleccionados,
+        instaladores: trabajadoresFiltroBackend,
+        cliente_numero: clienteNumeroFiltro || undefined,
+        cliente_id:
+          !clienteNumeroFiltro && clienteIdFiltro ? clienteIdFiltro : undefined,
+        q_cliente:
+          !clienteNumeroFiltro && !clienteIdFiltro && qClienteFiltro
+            ? qClienteFiltro
+            : undefined,
       });
       setTrabajos(rows || []);
       if (!rows || rows.length === 0) {
@@ -191,7 +233,15 @@ export function TrabajosDiariosRegistroView({
     } finally {
       setLoading(false);
     }
-  }, [fecha, selectedId, toast, trabajadoresSeleccionados]);
+  }, [
+    fecha,
+    selectedClient?.id,
+    selectedClient?.numero,
+    selectedId,
+    toast,
+    trabajadoresFiltroBackend,
+    clienteFiltro,
+  ]);
 
   useEffect(() => {
     void Promise.all([loadWorkers(), loadClientes()]);
@@ -201,21 +251,7 @@ export function TrabajosDiariosRegistroView({
     void loadTrabajos();
   }, [loadTrabajos]);
 
-  const trabajosFiltrados = useMemo(() => {
-    if (!clienteFiltro) return trabajos;
-
-    return trabajos.filter((trabajo) => {
-      const numero = safeText(trabajo.cliente_numero);
-      const clienteId = safeText(trabajo.cliente_id);
-      const nombre = safeText(trabajo.cliente_nombre).toLowerCase();
-      const selectedName = safeText(selectedClient?.nombre).toLowerCase();
-      return (
-        numero === clienteFiltro ||
-        clienteId === clienteFiltro ||
-        (selectedName && nombre.includes(selectedName))
-      );
-    });
-  }, [trabajos, clienteFiltro, selectedClient?.nombre]);
+  const trabajosFiltrados = useMemo(() => trabajos, [trabajos]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -311,8 +347,8 @@ export function TrabajosDiariosRegistroView({
     <div className="space-y-4">
       <Card>
         <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 items-start">
+            <div className="lg:col-span-3">
               <Input
                 type="date"
                 value={fecha}
@@ -321,7 +357,7 @@ export function TrabajosDiariosRegistroView({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="lg:col-span-3">
               <Popover open={workerFilterOpen} onOpenChange={setWorkerFilterOpen}>
                 <PopoverTrigger asChild>
                   <Button
@@ -372,29 +408,9 @@ export function TrabajosDiariosRegistroView({
                   </Command>
                 </PopoverContent>
               </Popover>
-              {selectedWorkerLabels.length > 0 ? (
-                <div className="flex flex-wrap gap-1">
-                  {selectedWorkerLabels.map((label, index) => (
-                    <Badge key={`${label}-${index}`} variant="outline" className="gap-1">
-                      <span className="max-w-[210px] truncate">{label}</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const value = trabajadoresSeleccionados[index];
-                          if (value) toggleTrabajador(value);
-                        }}
-                        className="text-slate-500 hover:text-slate-800"
-                        aria-label={`Quitar ${label}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
             </div>
 
-            <div>
+            <div className="lg:col-span-4">
               <div className="flex items-center gap-2">
                 <SearchableSelect
                   options={clienteOptions}
@@ -407,46 +423,78 @@ export function TrabajosDiariosRegistroView({
                   truncateSelected={false}
                   truncateOptions={false}
                 />
-                {clienteFiltro ? (
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 lg:pl-2">
+              <div className="overflow-x-auto">
+                <div className="flex items-center gap-2 flex-nowrap whitespace-nowrap justify-start lg:justify-end min-w-max">
                   <Button
                     type="button"
                     variant="outline"
                     size="icon"
                     onClick={() => setClienteFiltro("")}
                     aria-label="Limpiar cliente"
+                    disabled={!clienteFiltro}
+                    className="shrink-0 ml-1"
                   >
                     <X className="h-4 w-4" />
                   </Button>
-                ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => void loadTrabajos()}
+                    disabled={loading}
+                    className="shrink-0"
+                  >
+                    {loading ? "Actualizando..." : "Actualizar"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={onCreateRequested}
+                    className="shrink-0"
+                    size="icon"
+                    aria-label="Crear trabajo diario"
+                    title="Crear trabajo diario"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
-
-            <div className="flex items-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void loadTrabajos()}
-                disabled={loading}
-              >
-                {loading ? "Actualizando..." : "Actualizar"}
-              </Button>
-              <Button type="button" onClick={onCreateRequested}>
-                <Plus className="h-4 w-4 mr-1" />
-                Crear trabajo diario
-              </Button>
-            </div>
           </div>
+
+          {selectedWorkerLabels.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {selectedWorkerLabels.map((label, index) => (
+                <Badge key={`${label}-${index}`} variant="outline" className="gap-1">
+                  <span className="max-w-[210px] truncate">{label}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const value = trabajadoresSeleccionados[index];
+                      if (value) toggleTrabajador(value);
+                    }}
+                    className="text-slate-500 hover:text-slate-800"
+                    aria-label={`Quitar ${label}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch">
-        <Card className="xl:col-span-1 h-[72vh] min-h-[560px] flex flex-col">
+        <Card className="xl:col-span-1 h-auto xl:h-[72vh] min-h-0 xl:min-h-[560px] flex flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">
               Resultados ({trabajosFiltrados.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto px-0 pb-0">
+          <CardContent className="flex-1 overflow-visible xl:overflow-y-auto px-0 pb-0">
             {loading ? (
               <p className="text-sm text-muted-foreground px-6 py-4">Cargando...</p>
             ) : trabajosFiltrados.length === 0 ? (
@@ -454,67 +502,74 @@ export function TrabajosDiariosRegistroView({
                 No hay trabajos para estos filtros.
               </p>
             ) : (
-              <>
-                <div className="hidden md:grid grid-cols-12 gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 border-b bg-slate-50">
-                  <span className="col-span-5">Cliente</span>
-                  <span className="col-span-7">Instaladores</span>
-                </div>
+              <div className="space-y-3 p-3">
+                {trabajosFiltrados.map((trabajo) => {
+                  const rowId = safeText(trabajo.id || trabajo.vale_id);
+                  const active = rowId === selectedId;
+                  const instaladores = (trabajo.instaladores || []).filter(Boolean);
+                  const instaladoresTexto =
+                    instaladores.length > 0 ? instaladores.join(", ") : "Sin instaladores";
+                  const fechaTrabajo = formatFechaTrabajo(
+                    safeText(trabajo.fecha_trabajo || trabajo.fecha || trabajo.created_at),
+                  );
 
-                <div className="divide-y">
-                  {trabajosFiltrados.map((trabajo) => {
-                    const rowId = safeText(trabajo.id || trabajo.vale_id);
-                    const active = rowId === selectedId;
-                    const instaladores = (trabajo.instaladores || []).filter(Boolean);
-                    const instaladoresTexto =
-                      instaladores.length > 0 ? instaladores.join(", ") : "Sin instaladores";
+                  return (
+                    <button
+                      key={rowId}
+                      type="button"
+                      className={cn(
+                        "w-full text-left rounded-xl border p-3.5 transition shadow-sm",
+                        active
+                          ? "border-blue-300 bg-blue-50 ring-1 ring-blue-100"
+                          : "border-slate-200 bg-white hover:bg-slate-50",
+                      )}
+                      onClick={() => {
+                        setSelectedId(rowId);
+                        setSelectedTrabajo(trabajo);
+                      }}
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        Cliente
+                      </p>
+                      <p className="text-sm font-semibold text-slate-900 truncate mt-0.5">
+                        {safeText(trabajo.cliente_nombre, "Sin cliente")}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {safeText(trabajo.cliente_numero, "Sin código")}
+                      </p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {safeText(trabajo.cliente_direccion, "Sin dirección")}
+                      </p>
 
-                    return (
-                      <button
-                        key={rowId}
-                        type="button"
-                        className={cn(
-                          "w-full text-left px-4 py-3 transition",
-                          active ? "bg-blue-50" : "hover:bg-slate-50",
-                        )}
-                        onClick={() => {
-                          setSelectedId(rowId);
-                          setSelectedTrabajo(trabajo);
-                        }}
-                      >
-                        <div className="hidden md:grid grid-cols-12 gap-2 items-center">
-                          <div className="col-span-5 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">
-                              {safeText(trabajo.cliente_nombre, "Sin cliente")}
-                            </p>
-                            <p className="text-xs text-slate-500 truncate">
-                              {safeText(trabajo.cliente_numero, "Sin código")}
-                            </p>
-                          </div>
-                          <p className="col-span-7 text-xs text-slate-600 line-clamp-2">
+                      <div className="mt-3 grid grid-cols-1 gap-2">
+                        <div className="rounded-md bg-slate-50 border border-slate-200 px-2.5 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Fecha
+                          </p>
+                          <p className="text-xs text-slate-700">{fechaTrabajo}</p>
+                        </div>
+                        <div className="rounded-md bg-slate-50 border border-slate-200 px-2.5 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Instaladores
+                          </p>
+                          <p className="text-xs text-slate-700 line-clamp-2">
                             {instaladoresTexto}
                           </p>
                         </div>
-
-                        <div className="md:hidden space-y-1">
-                          <p className="text-sm font-medium text-slate-900 truncate">
-                            {safeText(trabajo.cliente_nombre, "Sin cliente")}
-                          </p>
-                          <p className="text-xs text-slate-600">Instaladores: {instaladoresTexto}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-2 h-[72vh] min-h-[560px] flex flex-col">
+        <Card className="xl:col-span-2 h-auto xl:h-[72vh] min-h-0 xl:min-h-[560px] flex flex-col">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Registrar datos de trabajo</CardTitle>
           </CardHeader>
-          <CardContent className="flex-1 overflow-y-auto pr-2">
+          <CardContent className="flex-1 overflow-visible xl:overflow-y-auto pr-0 xl:pr-2">
             {!selectedTrabajo ? (
               <p className="text-sm text-muted-foreground">
                 Selecciona un trabajo de la lista para introducir inicio, fin y materiales.

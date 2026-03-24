@@ -2208,9 +2208,6 @@ export function OfertasConfeccionadasView() {
                     Confirmada
                   </SelectItem>
                   <SelectItem value="reservada">Reservada</SelectItem>
-                  <SelectItem value="rechazada">Rechazada</SelectItem>
-                  <SelectItem value="cancelada">Cancelada</SelectItem>
-                  <SelectItem value="agotada">Agotada</SelectItem>
                 </SelectContent>
               </Select>
 

@@ -4179,7 +4179,6 @@ export function ConfeccionOfertasView({
       return [
         { value: "en_revision", label: "En Revisión" },
         { value: "aprobada_para_enviar", label: "Aprobada para Enviar" },
-        { value: "agotada", label: "Agotada" },
       ];
     } else {
       return [
@@ -4735,6 +4734,28 @@ export function ConfeccionOfertasView({
     setCreandoOferta(true);
 
     try {
+      const estadosBloqueados = new Set([
+        "rechazada",
+        "cancelada",
+        "agotada",
+      ]);
+      const estadosPermitidos = new Set(
+        estadosDisponibles.map((estado) => estado.value),
+      );
+      if (
+        estadosBloqueados.has(estadoOferta) ||
+        !estadosPermitidos.has(estadoOferta)
+      ) {
+        toast({
+          title: "Estado no permitido",
+          description:
+            "El estado seleccionado no está disponible para crear, editar o duplicar ofertas.",
+          variant: "destructive",
+        });
+        setCreandoOferta(false);
+        return;
+      }
+
       // En creación y edición construimos el payload completo para mantener
       // compatibilidad con el contrato de PUT/PATCH del backend.
       const ofertaData: any = {

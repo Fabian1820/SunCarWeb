@@ -86,6 +86,12 @@ const getInstalacionKey = (instalacion: InstalacionNueva) =>
 
 const getTodayDateInput = () => new Date().toISOString().split("T")[0];
 
+const normalizeClienteNumero = (value: string | null | undefined) =>
+  String(value ?? "")
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
 const createEntregaDraft = (): EntregaDraft => ({
   rowId: `entrega-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   itemKey: "",
@@ -468,16 +474,57 @@ export function InstalacionesNuevasTable({
   };
 
   const loadOfertasParaEntrega = async (instalacion: InstalacionNueva) => {
-    const endpoint =
-      instalacion.tipo === "lead"
-        ? `/ofertas/confeccion/lead/${instalacion.id}`
-        : `/ofertas/confeccion/cliente/${instalacion.numero || instalacion.id}`;
+    if (instalacion.tipo === "lead") {
+      const response = await apiRequest<any>(
+        `/ofertas/confeccion/lead/${encodeURIComponent(instalacion.id)}`,
+        { method: "GET" },
+      );
+      if (
+        response?.success === false &&
+        !response?.data &&
+        !response?.ofertas
+      ) {
+        return [];
+      }
+      return extractOfertasConfeccion(response);
+    }
 
-    const response = await apiRequest<any>(endpoint, { method: "GET" });
-    if (response?.success === false && !response?.data && !response?.ofertas) {
+    const numeroOriginal = String(instalacion.numero || "").trim();
+    const numeroNormalizado = normalizeClienteNumero(instalacion.numero);
+    const candidatos = Array.from(
+      new Set([numeroOriginal, numeroNormalizado].filter(Boolean)),
+    );
+    if (candidatos.length === 0) {
       return [];
     }
-    return extractOfertasConfeccion(response);
+
+    let ultimoError: unknown = null;
+    for (const candidato of candidatos) {
+      try {
+        const response = await apiRequest<any>(
+          `/ofertas/confeccion/cliente/${encodeURIComponent(candidato)}`,
+          { method: "GET" },
+        );
+        if (
+          response?.success === false &&
+          !response?.data &&
+          !response?.ofertas
+        ) {
+          continue;
+        }
+        const ofertas = extractOfertasConfeccion(response);
+        if (ofertas.length > 0) {
+          return ofertas;
+        }
+      } catch (error) {
+        ultimoError = error;
+      }
+    }
+
+    if (ultimoError) {
+      throw ultimoError;
+    }
+    return [];
   };
 
   const handleOpenEntregaEquipo = async (instalacion: InstalacionNueva) => {

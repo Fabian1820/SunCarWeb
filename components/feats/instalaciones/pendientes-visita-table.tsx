@@ -504,12 +504,20 @@ export function PendientesVisitaTable({
       let response;
       if (pendiente.tipo === "lead") {
         response = await apiRequest<any>(
-          `/ofertas/confeccion/lead/${pendiente.id}`,
+          `/ofertas/confeccion/lead/${encodeURIComponent(pendiente.id)}`,
         );
       } else {
         const clienteId = pendiente.numero || pendiente.id;
+        if (!clienteId) {
+          toast({
+            title: "Datos incompletos",
+            description: "El cliente no tiene identificador válido.",
+            variant: "destructive",
+          });
+          return;
+        }
         response = await apiRequest<any>(
-          `/ofertas/confeccion/cliente/${clienteId}`,
+          `/ofertas/confeccion/cliente/${encodeURIComponent(clienteId)}`,
         );
       }
 

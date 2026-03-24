@@ -67,6 +67,9 @@ export interface TrabajoDiarioFiltro {
   instalador?: string;
   instaladores?: string[];
   trabajador?: string;
+  cliente_numero?: string;
+  cliente_id?: string;
+  q_cliente?: string;
   skip?: number;
   limit?: number;
 }
