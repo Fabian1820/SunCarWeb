@@ -363,61 +363,72 @@ export function TrabajosDiariosTodosView() {
               No hay trabajos diarios para los filtros seleccionados.
             </p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-              {trabajos.map((trabajo) => {
-                const instaladores = (trabajo.instaladores || []).filter(Boolean);
-                const tipo = safeText(trabajo.tipo_trabajo, "Sin tipo");
-                const fechaTrabajo = formatFechaTrabajo(
-                  safeText(trabajo.fecha_trabajo || trabajo.fecha || trabajo.created_at),
-                );
-                return (
-                  <div
-                    key={safeText(trabajo.id, `${trabajo.cliente_numero}-${fechaTrabajo}`)}
-                    className="rounded-xl border border-slate-200 bg-white p-3.5 space-y-2"
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                      Cliente
-                    </p>
-                    <p className="text-sm font-semibold text-slate-900 truncate">
-                      {safeText(trabajo.cliente_nombre, "Sin cliente")}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {safeText(trabajo.cliente_numero, "Sin código")}
-                    </p>
-                    <p className="text-xs text-slate-500 truncate">
-                      {safeText(trabajo.cliente_direccion, "Sin dirección")}
-                    </p>
-                    <div className="rounded-md bg-slate-50 border border-slate-200 px-2.5 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Fecha
-                      </p>
-                      <p className="text-xs text-slate-700">{fechaTrabajo}</p>
-                    </div>
-                    <div className="rounded-md bg-slate-50 border border-slate-200 px-2.5 py-2">
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        Instaladores
-                      </p>
-                      <p className="text-xs text-slate-700 line-clamp-2">
-                        {instaladores.length > 0 ? instaladores.join(", ") : "Sin instaladores"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[11px]">
-                        {tipo}
-                      </Badge>
-                      {trabajo.instalacion_terminada ? (
-                        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[11px]">
-                          Terminada
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[11px]">
-                          Pendiente
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto rounded-md border">
+              <table className="w-full min-w-[980px] text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="text-left px-3 py-2 font-semibold">Fecha</th>
+                    <th className="text-left px-3 py-2 font-semibold">Cliente</th>
+                    <th className="text-left px-3 py-2 font-semibold">Dirección</th>
+                    <th className="text-left px-3 py-2 font-semibold">Instaladores</th>
+                    <th className="text-left px-3 py-2 font-semibold">Tipo</th>
+                    <th className="text-left px-3 py-2 font-semibold">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trabajos.map((trabajo) => {
+                    const instaladores = (trabajo.instaladores || []).filter(Boolean);
+                    const tipo = safeText(trabajo.tipo_trabajo, "Sin tipo");
+                    const fechaTrabajo = formatFechaTrabajo(
+                      safeText(trabajo.fecha_trabajo || trabajo.fecha || trabajo.created_at),
+                    );
+                    return (
+                      <tr
+                        key={safeText(trabajo.id, `${trabajo.cliente_numero}-${fechaTrabajo}`)}
+                        className="border-t align-top"
+                      >
+                        <td className="px-3 py-2 whitespace-nowrap">{fechaTrabajo}</td>
+                        <td className="px-3 py-2 min-w-[220px]">
+                          <p className="font-medium text-slate-900">
+                            {safeText(trabajo.cliente_nombre, "Sin cliente")}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {safeText(trabajo.cliente_numero, "Sin código")}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2 text-slate-700 max-w-[320px]">
+                          <p className="line-clamp-2">
+                            {safeText(trabajo.cliente_direccion, "Sin dirección")}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2 text-slate-700 min-w-[220px]">
+                          <p className="line-clamp-2">
+                            {instaladores.length > 0
+                              ? instaladores.join(", ")
+                              : "Sin instaladores"}
+                          </p>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          <Badge variant="outline" className="text-[11px]">
+                            {tipo}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 whitespace-nowrap">
+                          {trabajo.instalacion_terminada ? (
+                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100 text-[11px]">
+                              Terminada
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100 text-[11px]">
+                              Pendiente
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
