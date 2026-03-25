@@ -115,12 +115,11 @@ function ExistenciasContabilidadPageContent() {
 
   // Configuración de exportación
   const exportColumns: ExportColumn[] = [
-    { header: "Código Contabilidad", key: "codigoContabilidad", width: 20 },
-    { header: "Nombre", key: "nombre", width: 25 },
-    { header: "Descripción", key: "descripcion", width: 40 },
+    { header: "Código", key: "codigoContabilidad", width: 20 },
+    { header: "Descripción", key: "descripcion", width: 50 },
     { header: "U/M", key: "um", width: 10 },
     { header: "Cantidad", key: "cantidadContabilidad", width: 15 },
-    { header: "Precio (CUP)", key: "precioContabilidad", width: 20 },
+    { header: "Precio", key: "precioContabilidad", width: 15 },
   ]
 
   if (loading && materiales.length === 0) {
