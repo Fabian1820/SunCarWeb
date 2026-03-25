@@ -44,6 +44,9 @@ export interface LeadPendienteInstalacion {
   comprobante_pago_url: string | null;
   metodo_pago: string | null;
   moneda: string | null;
+  provincia?: string | null;
+  municipio?: string | null;
+  potencia_inversor_principal_kw?: number | null;
 }
 
 export interface ClientePendienteInstalacion {
@@ -72,6 +75,10 @@ export interface ClientePendienteInstalacion {
   comprobante_pago_url: string | null;
   metodo_pago: string | null;
   moneda: string | null;
+  provincia?: string | null;
+  municipio?: string | null;
+  potencia_inversor_principal_kw?: number | null;
+  fecha_primer_pago_oferta?: string | null;
 }
 
 export interface PendientesInstalacionResponse {

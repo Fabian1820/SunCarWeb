@@ -42,6 +42,7 @@ import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
 
 interface InstalacionesNuevasTableProps {
   instalaciones: InstalacionNueva[];
+  instalacionesSource?: InstalacionNueva[];
   loading: boolean;
   onFiltersChange: (filters: any) => void;
   onRefresh: () => void;
@@ -101,13 +102,26 @@ const createEntregaDraft = (): EntregaDraft => ({
 
 const formatFecha = (value?: string) => {
   if (!value) return "--";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("es-ES", {
+  const trimmed = String(value).trim();
+  let date: Date | null = null;
+
+  // Si viene en formato dd/mm/yyyy, parsearlo explícitamente para evitar ambigüedad.
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split("/").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    date = Number.isNaN(parsed.getTime()) ? null : parsed;
+  } else {
+    const parsed = new Date(trimmed);
+    date = Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (!date) return "--";
+
+  return new Intl.DateTimeFormat("es-ES", {
     day: "2-digit",
-    month: "2-digit",
+    month: "long",
     year: "numeric",
-  });
+  }).format(date);
 };
 
 const parseNumber = (value: unknown) => {
@@ -291,6 +305,7 @@ const instalacionTieneEntregas = (instalacion: InstalacionNueva) =>
 
 export function InstalacionesNuevasTable({
   instalaciones,
+  instalacionesSource,
   loading,
   onFiltersChange,
   onRefresh,
@@ -299,8 +314,10 @@ export function InstalacionesNuevasTable({
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [tipo, setTipo] = useState<"todos" | "leads" | "clientes">("todos");
-  const [fechaDesde, setFechaDesde] = useState("");
-  const [fechaHasta, setFechaHasta] = useState("");
+  const [fechaPagoHasta, setFechaPagoHasta] = useState("");
+  const [provincia, setProvincia] = useState("todos");
+  const [municipio, setMunicipio] = useState("todos");
+  const [potenciaInversor, setPotenciaInversor] = useState("todos");
   const [materialesEntregadosFilter, setMaterialesEntregadosFilter] = useState<
     "todos" | "con_entregas" | "sin_entregas"
   >("todos");
@@ -335,18 +352,61 @@ export function InstalacionesNuevasTable({
     onFiltersChange({
       searchTerm,
       tipo,
-      fechaDesde,
-      fechaHasta,
+      fechaDesde: "",
+      fechaHasta: fechaPagoHasta,
       materialesEntregados: materialesEntregadosFilter,
+      provincia,
+      municipio,
+      potenciaInversor,
     });
   }, [
     searchTerm,
     tipo,
-    fechaDesde,
-    fechaHasta,
+    fechaPagoHasta,
     materialesEntregadosFilter,
+    provincia,
+    municipio,
+    potenciaInversor,
     onFiltersChange,
   ]);
+
+  const optionsSource = instalacionesSource ?? instalaciones;
+
+  const provinciasOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        optionsSource
+          .map((item) => String(item.provincia || "").trim())
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "es"));
+    return values;
+  }, [optionsSource]);
+
+  const municipiosOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        optionsSource
+          .map((item) => String(item.municipio || "").trim())
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => a.localeCompare(b, "es"));
+    return values;
+  }, [optionsSource]);
+
+  const potenciasInversorOptions = useMemo(() => {
+    const values = Array.from(
+      new Set(
+        optionsSource
+          .map((item) => {
+            const potencia = Number(item.potencia_inversor_principal_kw);
+            return Number.isFinite(potencia) && potencia > 0 ? potencia : null;
+          })
+          .filter((value): value is number => value !== null),
+      ),
+    ).sort((a, b) => a - b);
+    return values;
+  }, [optionsSource]);
 
   // Mover a instalación en proceso
   const handleMoverAProceso = async (instalacion: InstalacionNueva) => {
@@ -999,7 +1059,7 @@ export function InstalacionesNuevasTable({
           <CardTitle>Filtros de Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
             <div>
               <Label htmlFor="search">Buscar</Label>
               <div className="relative">
@@ -1046,22 +1106,67 @@ export function InstalacionesNuevasTable({
               </select>
             </div>
             <div>
-              <Label htmlFor="fecha-desde">Fecha Desde</Label>
-              <Input
-                id="fecha-desde"
-                type="date"
-                value={fechaDesde}
-                onChange={(e) => setFechaDesde(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="fecha-hasta">Fecha Hasta</Label>
+              <Label htmlFor="fecha-hasta">Pagados Hasta</Label>
               <Input
                 id="fecha-hasta"
                 type="date"
-                value={fechaHasta}
-                onChange={(e) => setFechaHasta(e.target.value)}
+                value={fechaPagoHasta}
+                onChange={(e) => setFechaPagoHasta(e.target.value)}
               />
+            </div>
+            <div>
+              <Label htmlFor="provincia">Provincia</Label>
+              <select
+                id="provincia"
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={provincia}
+                onChange={(e) => {
+                  const nextProvincia = e.target.value;
+                  setProvincia(nextProvincia);
+                  if (nextProvincia === "todos") {
+                    setMunicipio("todos");
+                  }
+                }}
+              >
+                <option value="todos">Todas</option>
+                {provinciasOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="municipio">Municipio</Label>
+              <select
+                id="municipio"
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={municipio}
+                onChange={(e) => setMunicipio(e.target.value)}
+              >
+                <option value="todos">Todos</option>
+                {municipiosOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="potencia-inversor">Potencia Inversor</Label>
+              <select
+                id="potencia-inversor"
+                className="w-full border rounded px-3 py-2 bg-white"
+                value={potenciaInversor}
+                onChange={(e) => setPotenciaInversor(e.target.value)}
+              >
+                <option value="todos">Todas</option>
+                {potenciasInversorOptions.map((potencia) => (
+                  <option key={potencia} value={String(potencia)}>
+                    {potencia} kW
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </CardContent>
@@ -1195,13 +1300,19 @@ export function InstalacionesNuevasTable({
                         Tipo
                       </th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">
-                        Nombre
-                      </th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
-                        Teléfono
+                        Cliente
                       </th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">
                         Dirección
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Provincia
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Municipio
+                      </th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">
+                        Primer Pago
                       </th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">
                         Oferta
@@ -1245,13 +1356,24 @@ export function InstalacionesNuevasTable({
                         </td>
                         <td className="py-4 px-4">
                           <p className="text-sm text-gray-700">
-                            {instalacion.telefono}
-                          </p>
-                        </td>
-                        <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">
+                            <span className="font-medium text-gray-900">Dir:</span>{" "}
                             {instalacion.direccion}
                           </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            <span className="font-medium text-gray-800">Tel:</span>{" "}
+                            {instalacion.telefono || "-"}
+                          </p>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-700">
+                          {instalacion.provincia || "-"}
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-700">
+                          {instalacion.municipio || "-"}
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-700">
+                          {instalacion.fecha_primer_pago_oferta
+                            ? formatFecha(instalacion.fecha_primer_pago_oferta)
+                            : "-"}
                         </td>
                         <td className="py-4 px-4">
                           <p className="text-sm text-gray-700">

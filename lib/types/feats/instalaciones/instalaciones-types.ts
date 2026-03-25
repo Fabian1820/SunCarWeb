@@ -51,6 +51,10 @@ export interface InstalacionNueva {
   nombre: string;
   telefono: string;
   direccion: string;
+  provincia?: string | null;
+  municipio?: string | null;
+  potencia_inversor_principal_kw?: number | null;
+  fecha_primer_pago_oferta?: string | null;
   ofertas?: OfertaInstalacion[];
   estado: string;
   fecha_contacto?: string;

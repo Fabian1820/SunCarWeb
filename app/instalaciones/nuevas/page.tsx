@@ -13,6 +13,54 @@ import {
   extractOfertaIdsFromEntity,
 } from "@/lib/utils/oferta-id";
 
+const SPANISH_MONTHS: Record<string, number> = {
+  enero: 0,
+  febrero: 1,
+  marzo: 2,
+  abril: 3,
+  mayo: 4,
+  junio: 5,
+  julio: 6,
+  agosto: 7,
+  septiembre: 8,
+  setiembre: 8,
+  octubre: 9,
+  noviembre: 10,
+  diciembre: 11,
+};
+
+const parseFlexibleDate = (value?: string | null): Date | null => {
+  if (!value) return null;
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const [day, month, year] = raw.split("/").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const spanishMatch = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .match(/^(\d{1,2})\s+de\s+([a-z]+)\s+de\s+(\d{4})$/);
+
+  if (spanishMatch) {
+    const day = Number(spanishMatch[1]);
+    const monthName = spanishMatch[2];
+    const year = Number(spanishMatch[3]);
+    const monthIndex = SPANISH_MONTHS[monthName];
+    if (monthIndex !== undefined) {
+      const parsed = new Date(year, monthIndex, day);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 export default function InstalacionesNuevasPage() {
   const [instalaciones, setInstalaciones] = useState<InstalacionNueva[]>([]);
   const [loading, setLoading] = useState(false);
@@ -26,6 +74,9 @@ export default function InstalacionesNuevasPage() {
     fechaDesde: "",
     fechaHasta: "",
     materialesEntregados: "todos" as "todos" | "con_entregas" | "sin_entregas",
+    provincia: "todos",
+    municipio: "todos",
+    potenciaInversor: "todos",
   });
   const [ofertasConEntregasIds, setOfertasConEntregasIds] = useState<
     Set<string>
@@ -71,6 +122,12 @@ export default function InstalacionesNuevasPage() {
           nombre: lead.nombre,
           telefono: lead.telefono,
           direccion: lead.direccion || "No especificada",
+          provincia: lead.provincia ?? lead.provincia_montaje ?? null,
+          municipio: lead.municipio ?? null,
+          potencia_inversor_principal_kw:
+            typeof lead.potencia_inversor_principal_kw === "number"
+              ? lead.potencia_inversor_principal_kw
+              : null,
           ofertas: lead.ofertas || [],
           estado: lead.estado,
           fecha_contacto: lead.fecha_contacto,
@@ -90,6 +147,14 @@ export default function InstalacionesNuevasPage() {
           nombre: cliente.nombre,
           telefono: cliente.telefono || "No especificado",
           direccion: cliente.direccion,
+          provincia: cliente.provincia ?? cliente.provincia_montaje ?? null,
+          municipio: cliente.municipio ?? null,
+          potencia_inversor_principal_kw:
+            typeof cliente.potencia_inversor_principal_kw === "number"
+              ? cliente.potencia_inversor_principal_kw
+              : null,
+          fecha_primer_pago_oferta:
+            cliente.fecha_primer_pago_oferta || null,
           ofertas: cliente.ofertas || [],
           estado: cliente.estado || "Pendiente de Instalación",
           fecha_contacto: cliente.fecha_contacto || undefined,
@@ -101,19 +166,37 @@ export default function InstalacionesNuevasPage() {
         }),
       );
 
-      // Combinar y ordenar por fecha (más recientes primero)
+      const parseTimestamp = (value?: string | null) => {
+        const parsed = parseFlexibleDate(value);
+        if (!parsed) return Number.POSITIVE_INFINITY;
+        return parsed.getTime();
+      };
+
+      const clientesConPago = clientesUnificados
+        .filter((cliente) => Boolean(cliente.fecha_primer_pago_oferta))
+        .sort(
+          (a, b) =>
+            parseTimestamp(a.fecha_primer_pago_oferta) -
+            parseTimestamp(b.fecha_primer_pago_oferta),
+        );
+
+      const clientesSinPago = clientesUnificados.filter(
+        (cliente) => !cliente.fecha_primer_pago_oferta,
+      );
+
+      const leadsOrdenados = leadsUnificados.sort(
+        (a, b) => parseTimestamp(a.fecha_contacto) - parseTimestamp(b.fecha_contacto),
+      );
+
+      // Orden requerido:
+      // 1) clientes con pago (asc fecha_primer_pago_oferta)
+      // 2) clientes sin pago
+      // 3) leads (asc fecha_contacto)
       const todasInstalaciones = [
-        ...leadsUnificados,
-        ...clientesUnificados,
-      ].sort((a, b) => {
-        const fechaA = a.fecha_contacto
-          ? new Date(a.fecha_contacto).getTime()
-          : 0;
-        const fechaB = b.fecha_contacto
-          ? new Date(b.fecha_contacto).getTime()
-          : 0;
-        return fechaB - fechaA;
-      });
+        ...clientesConPago,
+        ...clientesSinPago,
+        ...leadsOrdenados,
+      ];
 
       console.log(
         `✅ Total instalaciones procesadas: ${todasInstalaciones.length}`,
@@ -177,16 +260,7 @@ export default function InstalacionesNuevasPage() {
   }, []);
 
   // Función para parsear fechas
-  const parseDateValue = (value?: string) => {
-    if (!value) return null;
-    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-      const [day, month, year] = value.split("/").map(Number);
-      const parsed = new Date(year, month - 1, day);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  };
+  const parseDateValue = (value?: string) => parseFlexibleDate(value);
 
   // Función para construir texto de búsqueda
   const buildSearchText = (instalacion: InstalacionNueva) => {
@@ -194,6 +268,8 @@ export default function InstalacionesNuevasPage() {
     parts.push(instalacion.nombre);
     parts.push(instalacion.telefono);
     parts.push(instalacion.direccion);
+    parts.push(instalacion.provincia || "");
+    parts.push(instalacion.municipio || "");
     parts.push(instalacion.estado);
     if (instalacion.numero) parts.push(instalacion.numero);
     return parts.join(" ").toLowerCase();
@@ -265,10 +341,8 @@ export default function InstalacionesNuevasPage() {
   // Instalaciones filtradas
   const filteredInstalaciones = useMemo(() => {
     const search = appliedFilters.searchTerm.trim().toLowerCase();
-    const fechaDesde = parseDateValue(appliedFilters.fechaDesde);
     const fechaHasta = parseDateValue(appliedFilters.fechaHasta);
 
-    if (fechaDesde) fechaDesde.setHours(0, 0, 0, 0);
     if (fechaHasta) fechaHasta.setHours(23, 59, 59, 999);
 
     return instalaciones.filter((instalacion) => {
@@ -291,12 +365,47 @@ export default function InstalacionesNuevasPage() {
         }
       }
 
-      // Filtro por fecha
-      if (fechaDesde || fechaHasta) {
-        const fecha = parseDateValue(instalacion.fecha_contacto);
+      // Filtro por fecha de pago (fecha tope): solo registros con pago <= fecha seleccionada
+      if (fechaHasta) {
+        const fecha = parseDateValue(
+          instalacion.fecha_primer_pago_oferta || "",
+        );
         if (!fecha) return false;
-        if (fechaDesde && fecha < fechaDesde) return false;
         if (fechaHasta && fecha > fechaHasta) return false;
+      }
+
+      if (appliedFilters.provincia !== "todos") {
+        const provinciaInstalacion = String(instalacion.provincia || "")
+          .trim()
+          .toLowerCase();
+        if (provinciaInstalacion !== appliedFilters.provincia.toLowerCase()) {
+          return false;
+        }
+      }
+
+      if (appliedFilters.municipio !== "todos") {
+        const municipioInstalacion = String(instalacion.municipio || "")
+          .trim()
+          .toLowerCase();
+        if (municipioInstalacion !== appliedFilters.municipio.toLowerCase()) {
+          return false;
+        }
+      }
+
+      if (appliedFilters.potenciaInversor !== "todos") {
+        const potenciaRaw = instalacion.potencia_inversor_principal_kw;
+        const potenciaInstalacion =
+          typeof potenciaRaw === "number" && Number.isFinite(potenciaRaw)
+            ? potenciaRaw
+            : null;
+        const potenciaFiltro = Number(appliedFilters.potenciaInversor);
+        if (
+          potenciaInstalacion === null ||
+          !Number.isFinite(potenciaFiltro) ||
+          potenciaInstalacion !== potenciaFiltro
+        ) {
+          return false;
+        }
       }
 
       if (appliedFilters.materialesEntregados !== "todos") {
@@ -355,9 +464,10 @@ export default function InstalacionesNuevasPage() {
         backLabel="Volver a Instalaciones"
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <InstalacionesNuevasTable
           instalaciones={filteredInstalaciones}
+          instalacionesSource={instalaciones}
           loading={loading}
           onFiltersChange={setAppliedFilters}
           onRefresh={fetchInstalaciones}
