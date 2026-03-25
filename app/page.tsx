@@ -273,6 +273,15 @@ export default function Dashboard() {
       description: "Gestión de imágenes para el sitio web.",
       iconClass: "text-pink-600",
     },
+    {
+      id: "existencias-contabilidad",
+      permission: "existencias-contabilidad",
+      href: "/existencias-contabilidad",
+      icon: PackageSearch,
+      title: "Existencias Contabilidad",
+      description: "Gestión de inventario contable y tickets de salida",
+      iconClass: "text-purple-600",
+    },
     // Comentados temporalmente por no uso u obsolescencia visual:
     // { id: "articulos-tienda", href: "/articulos-tienda", icon: ShoppingBag, title: "Artículos Tienda", description: "Administrar catálogo de artículos de tienda.", iconClass: "text-blue-600" },
     // { id: "estadisticas", href: "/estadisticas", icon: BarChart3, title: "Estadísticas", description: "Análisis de crecimiento mensual y métricas clave.", iconClass: "text-purple-600" },
@@ -322,6 +331,7 @@ export default function Dashboard() {
         "wallet",
         "almacenes-suncar",
         "inventario",
+        "existencias-contabilidad",
         "tiendas-suncarventas",
         "recursos-humanos",
         "sedes",

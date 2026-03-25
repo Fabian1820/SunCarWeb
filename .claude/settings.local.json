@@ -19,7 +19,8 @@
       "Bash(node -e \"const { Trophy } = require\\(''lucide-react''\\); console.log\\(''Trophy exists:'', !!Trophy\\)\")",
       "Bash(node -e \"const m = require\\(''lucide-react''\\); console.log\\(''Trophy:'', typeof m.Trophy\\)\")",
       "Bash(ls \"D:/SunCar/SunCarWeb/lib/export-service\"*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
