@@ -26,10 +26,11 @@ import {
   CalendarDays,
   FolderOpen,
   Camera,
+  Eye,
 } from "lucide-react";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/api-config";
+import { API_BASE_URL, apiRequest } from "@/lib/api-config";
 import { VerOfertaClienteDialog } from "@/components/feats/ofertas/ver-oferta-cliente-dialog";
 import { CompletarVisitaDialog } from "@/components/feats/instalaciones/completar-visita-dialog";
 import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
@@ -48,6 +49,7 @@ interface ArchivoVisita {
   nombre: string;
   url: string;
   categoria?: string;
+  visitaId?: string;
 }
 
 interface VisitaRegistro extends PendienteVisita {
@@ -233,6 +235,61 @@ const formatFecha = (fecha?: string) => {
 
 const normalizeEstado = (estado?: string) => String(estado || "").toLowerCase();
 
+const normalizeClienteNumero = (value: string | null | undefined) =>
+  String(value ?? "")
+    .normalize("NFKC")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+
+const normalizeOfertaConfeccion = (
+  oferta: any,
+  index: number,
+): OfertaConfeccion => ({
+  ...oferta,
+  _uid: String(
+    oferta?.id ||
+      oferta?._id ||
+      oferta?.oferta_id ||
+      oferta?.numero_oferta ||
+      `oferta-${index}`,
+  ),
+});
+
+const extractOfertasConfeccion = (response: any): OfertaConfeccion[] => {
+  const payload = response?.data ?? response;
+
+  const ofertasFromPayload = Array.isArray(payload?.ofertas)
+    ? payload.ofertas
+    : [];
+  const ofertasFromRoot = Array.isArray(response?.ofertas)
+    ? response.ofertas
+    : [];
+  const ofertasRaw =
+    ofertasFromPayload.length > 0 ? ofertasFromPayload : ofertasFromRoot;
+
+  if (ofertasRaw.length > 0) {
+    return ofertasRaw.map((oferta: any, index: number) =>
+      normalizeOfertaConfeccion(oferta, index),
+    );
+  }
+
+  const singleOferta = payload?.oferta ?? payload?.data ?? payload;
+  const isSingleOferta =
+    singleOferta &&
+    typeof singleOferta === "object" &&
+    (singleOferta.id ||
+      singleOferta._id ||
+      singleOferta.oferta_id ||
+      singleOferta.numero_oferta ||
+      Array.isArray(singleOferta.items));
+
+  if (isSingleOferta) {
+    return [normalizeOfertaConfeccion(singleOferta, 0)];
+  }
+
+  return [];
+};
+
 const getResultadoLabel = (resultado?: string) => {
   const value = String(resultado || "").toLowerCase();
   if (!value) return "Sin resultado";
@@ -272,11 +329,17 @@ export function PendientesVisitaTable({
   const [ofertaCargada, setOfertaCargada] = useState<OfertaConfeccion | null>(
     null,
   );
+  const [ofertasCargadas, setOfertasCargadas] = useState<OfertaConfeccion[]>(
+    [],
+  );
   const [archivosDialogOpen, setArchivosDialogOpen] = useState(false);
   const [visitaSeleccionada, setVisitaSeleccionada] =
     useState<VisitaRegistro | null>(null);
   const [archivosVisita, setArchivosVisita] = useState<ArchivoVisita[]>([]);
   const [loadingArchivos, setLoadingArchivos] = useState(false);
+  const [detalleVisitaDialogOpen, setDetalleVisitaDialogOpen] = useState(false);
+  const [detalleVisitaSeleccionada, setDetalleVisitaSeleccionada] =
+    useState<VisitaRegistro | null>(null);
   const [fotosDialogData, setFotosDialogData] = useState<{
     nombre: string;
     codigo?: string;
@@ -499,16 +562,23 @@ export function PendientesVisitaTable({
     try {
       setPendienteSeleccionado(pendiente);
       setOfertaCargada(null);
+      setOfertasCargadas([]);
       setOfertaDialogOpen(false);
 
-      let response;
+      let ofertas: OfertaConfeccion[] = [];
       if (pendiente.tipo === "lead") {
-        response = await apiRequest<any>(
+        const response = await apiRequest<any>(
           `/ofertas/confeccion/lead/${encodeURIComponent(pendiente.id)}`,
         );
+        ofertas = extractOfertasConfeccion(response);
       } else {
-        const clienteId = pendiente.numero || pendiente.id;
-        if (!clienteId) {
+        const numeroOriginal = String(pendiente.numero || "").trim();
+        const numeroNormalizado = normalizeClienteNumero(pendiente.numero);
+        const candidatos = Array.from(
+          new Set([numeroOriginal, numeroNormalizado, pendiente.id].filter(Boolean)),
+        );
+
+        if (candidatos.length === 0) {
           toast({
             title: "Datos incompletos",
             description: "El cliente no tiene identificador válido.",
@@ -516,12 +586,26 @@ export function PendientesVisitaTable({
           });
           return;
         }
-        response = await apiRequest<any>(
-          `/ofertas/confeccion/cliente/${encodeURIComponent(clienteId)}`,
-        );
+
+        let ultimoError: unknown = null;
+        for (const candidato of candidatos) {
+          try {
+            const response = await apiRequest<any>(
+              `/ofertas/confeccion/cliente/${encodeURIComponent(candidato)}`,
+            );
+            ofertas = extractOfertasConfeccion(response);
+            if (ofertas.length > 0) break;
+          } catch (error) {
+            ultimoError = error;
+          }
+        }
+
+        if (ofertas.length === 0 && ultimoError) {
+          throw ultimoError;
+        }
       }
 
-      if (!response?.success || !response.data) {
+      if (ofertas.length === 0) {
         toast({
           title: "Sin oferta",
           description: `Este ${pendiente.tipo === "lead" ? "lead" : "cliente"} no tiene oferta asignada.`,
@@ -530,31 +614,13 @@ export function PendientesVisitaTable({
         return;
       }
 
-      let ofertaEncontrada: OfertaConfeccion | null = null;
-      if (
-        pendiente.tipo === "lead" &&
-        response.data.ofertas &&
-        response.data.ofertas.length > 0
-      ) {
-        ofertaEncontrada = response.data.ofertas[0];
-      } else if (pendiente.tipo === "cliente") {
-        ofertaEncontrada = response.data;
-      }
-
-      if (!ofertaEncontrada) {
-        toast({
-          title: "Sin oferta",
-          description: `Este ${pendiente.tipo === "lead" ? "lead" : "cliente"} no tiene oferta asignada.`,
-          variant: "default",
-        });
-        return;
-      }
-
-      setOfertaCargada(ofertaEncontrada);
+      setOfertaCargada(ofertas[0]);
+      setOfertasCargadas(ofertas);
       setOfertaDialogOpen(true);
     } catch (error: any) {
       console.error("Error al cargar oferta:", error);
       setOfertaCargada(null);
+      setOfertasCargadas([]);
       setOfertaDialogOpen(false);
       toast({
         title: "Sin oferta",
@@ -564,7 +630,10 @@ export function PendientesVisitaTable({
     }
   };
 
-  const parseArchivosResponse = (payload: any): ArchivoVisita[] => {
+  const parseArchivosResponse = (
+    payload: any,
+    visitaId?: string,
+  ): ArchivoVisita[] => {
     const data = payload?.data ?? payload;
     const parsed: ArchivoVisita[] = [];
 
@@ -575,15 +644,26 @@ export function PendientesVisitaTable({
           nombre: item.split("/").pop() || "Archivo",
           url: item,
           categoria,
+          visitaId,
         });
         return;
       }
 
-      if (item.url) {
+      const fileUrl =
+        item.url ||
+        item.signed_url ||
+        item.presigned_url ||
+        item.download_url ||
+        item.file_url ||
+        item.ruta ||
+        item.path;
+
+      if (fileUrl) {
         parsed.push({
           nombre: item.nombre || item.filename || item.name || "Archivo",
-          url: String(item.url),
+          url: String(fileUrl),
           categoria: categoria || item.categoria,
+          visitaId,
         });
       }
     };
@@ -631,7 +711,7 @@ export function PendientesVisitaTable({
       const response = await apiRequest<any>(
         `/visitas/${visita.visitaId}/archivos`,
       );
-      const parsed = parseArchivosResponse(response);
+      const parsed = parseArchivosResponse(response, visita.visitaId);
       setArchivosVisita(parsed);
     } catch {
       setArchivosVisita([]);
@@ -659,12 +739,136 @@ export function PendientesVisitaTable({
     });
   };
 
-  const handleOpenArchivo = (archivo: ArchivoVisita) => {
+  const resolveArchivoUrl = (url: string) => {
+    if (!url) return "";
+    if (/^https?:\/\//i.test(url)) return url;
+    const normalizedPath = url.startsWith("/") ? url : `/${url}`;
+    const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+    return `${apiOrigin}${normalizedPath}`;
+  };
+
+  const getArchivoUrlCandidates = (archivo: ArchivoVisita) => {
+    const raw = String(archivo.url || "").trim();
+    if (!raw) return [];
+
+    const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
+    const apiBase = API_BASE_URL.replace(/\/+$/, "");
+    const fileName = raw.split("?")[0].split("/").pop() || archivo.nombre;
+    const candidates: string[] = [];
+
+    const push = (value: string) => {
+      if (!value) return;
+      if (!candidates.includes(value)) candidates.push(value);
+    };
+
+    if (/^https?:\/\//i.test(raw)) {
+      push(raw);
+    } else if (raw.startsWith("/")) {
+      push(`${apiOrigin}${raw}`);
+      if (!raw.startsWith("/api/")) {
+        push(`${apiBase}${raw}`);
+      }
+    } else {
+      // nombre de archivo suelto o ruta relativa
+      push(`${apiOrigin}/${raw}`);
+      push(`${apiBase}/${raw}`);
+      if (archivo.visitaId) {
+        push(
+          `${apiBase}/visitas/${encodeURIComponent(archivo.visitaId)}/archivos/${encodeURIComponent(raw)}`,
+        );
+        push(
+          `${apiBase}/visitas/${encodeURIComponent(archivo.visitaId)}/archivos/download?nombre=${encodeURIComponent(raw)}`,
+        );
+      }
+      push(`${apiBase}/visitas/archivos/${encodeURIComponent(raw)}`);
+      push(`${apiOrigin}/uploads/${encodeURIComponent(fileName)}`);
+      push(`${apiOrigin}/uploads/estudios/${encodeURIComponent(fileName)}`);
+      push(`${apiOrigin}/uploads/evidencias/${encodeURIComponent(fileName)}`);
+    }
+
+    return candidates;
+  };
+
+  const openBlobFromResponse = async (
+    response: Response,
+    archivo: ArchivoVisita,
+  ) => {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("text/html")) {
+      throw new Error("El servidor devolvió HTML en lugar del archivo.");
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = archivo.url;
+    link.href = blobUrl;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
+    link.download = archivo.nombre || "archivo";
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  };
+
+  const handleOpenArchivo = async (archivo: ArchivoVisita) => {
+    try {
+      const candidates = getArchivoUrlCandidates(archivo);
+      if (candidates.length === 0) {
+        throw new Error("No hay URL disponible para este archivo.");
+      }
+
+      const token = localStorage.getItem("auth_token") || "";
+      const attemptErrors: string[] = [];
+
+      for (const candidate of candidates) {
+        // Intento 1: con token
+        try {
+          const response = await fetch(candidate, {
+            method: "GET",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (response.ok) {
+            await openBlobFromResponse(response, archivo);
+            return;
+          }
+          attemptErrors.push(`${candidate} -> ${response.status}`);
+        } catch {
+          attemptErrors.push(`${candidate} -> error con token`);
+        }
+
+        // Intento 2: sin token
+        try {
+          const response = await fetch(candidate, { method: "GET" });
+          if (response.ok) {
+            await openBlobFromResponse(response, archivo);
+            return;
+          }
+          attemptErrors.push(`${candidate} -> ${response.status} (sin token)`);
+        } catch {
+          attemptErrors.push(`${candidate} -> error sin token`);
+        }
+      }
+
+      // Fallback final: abrir URL original en pestaña
+      const fallbackUrl = resolveArchivoUrl(archivo.url);
+      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+      throw new Error(
+        `No se pudo descargar de forma autenticada. Intentos: ${attemptErrors.slice(0, 3).join(" | ")}`,
+      );
+    } catch (error: any) {
+      toast({
+        title: "No se pudo abrir el archivo",
+        description:
+          error?.message ||
+          "Intenta nuevamente. Si persiste, verifica permisos del archivo.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVerDetalleVisita = (visita: VisitaRegistro) => {
+    setDetalleVisitaSeleccionada(visita);
+    setDetalleVisitaDialogOpen(true);
   };
 
   return (
@@ -712,7 +916,7 @@ export function PendientesVisitaTable({
 
       <Card className="mb-6 border-l-4 border-l-orange-600">
         <CardHeader>
-          <CardTitle>Filtros de Búsqueda</CardTitle>
+          <CardTitle className="text-xl">Filtros de Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -764,7 +968,7 @@ export function PendientesVisitaTable({
 
       <Card className="border-l-4 border-l-orange-600">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
+          <CardTitle className="flex items-center justify-between text-xl">
             <span>
               {viewMode === "pendientes"
                 ? "Visitas Pendientes"
@@ -801,7 +1005,7 @@ export function PendientesVisitaTable({
             </div>
           ) : (
             <>
-              <div className="md:hidden space-y-3">
+              <div className="md:hidden space-y-3 text-base">
                 {registrosFiltrados.map((registro) => {
                   const esRealizada = normalizeEstado(
                     registro.estadoVisita || registro.estado,
@@ -815,14 +1019,14 @@ export function PendientesVisitaTable({
                       <CardContent className="p-4 space-y-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className="font-semibold text-gray-900">
+                            <p className="font-semibold text-gray-900 text-lg">
                               {registro.nombre}
                             </p>
-                            <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                            <div className="flex items-center gap-2 text-base text-gray-600 mt-1">
                               <Phone className="h-3 w-3" />
                               <span>{registro.telefono || "N/A"}</span>
                             </div>
-                            <div className="flex items-start gap-2 text-sm text-gray-600 mt-1">
+                            <div className="flex items-start gap-2 text-base text-gray-600 mt-1">
                               <MapPin className="h-3 w-3 mt-0.5" />
                               <span>{registro.direccion || "N/A"}</span>
                             </div>
@@ -841,7 +1045,7 @@ export function PendientesVisitaTable({
                           </Badge>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="grid grid-cols-2 gap-2 text-base">
                           <div>
                             <p className="text-xs text-gray-500">Provincia:</p>
                             <p className="text-gray-700">
@@ -873,10 +1077,19 @@ export function PendientesVisitaTable({
                         {esRealizada ? (
                           <div className="grid grid-cols-2 gap-2">
                             <Button
+                              onClick={() => handleVerDetalleVisita(registro)}
+                              size="sm"
+                              variant="outline"
+                              className="text-sm h-9 col-span-2"
+                            >
+                              <Eye className="h-3 w-3 mr-1" />
+                              Ver detalles
+                            </Button>
+                            <Button
                               onClick={() => handleVerArchivos(registro)}
                               size="sm"
                               variant="outline"
-                              className="text-xs h-8 col-span-2"
+                              className="text-sm h-9 col-span-2"
                             >
                               <FolderOpen className="h-3 w-3 mr-1" />
                               Ver Archivos
@@ -885,7 +1098,7 @@ export function PendientesVisitaTable({
                               onClick={() => handleVerFotosCliente(registro)}
                               size="sm"
                               variant="outline"
-                              className="text-xs h-8 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                              className="text-sm h-9 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
                             >
                               <Camera className="h-3 w-3 mr-1" />
                               Ver Fotos
@@ -897,14 +1110,14 @@ export function PendientesVisitaTable({
                               onClick={() => handleVerOferta(registro)}
                               size="sm"
                               variant="outline"
-                              className="text-xs h-8"
+                              className="text-sm h-9"
                             >
                               Ver Oferta
                             </Button>
                             <Button
                               onClick={() => handleCompletarVisita(registro)}
                               size="sm"
-                              className="bg-orange-600 hover:bg-orange-700 text-xs h-8"
+                              className="bg-orange-600 hover:bg-orange-700 text-sm h-9"
                             >
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Completar
@@ -913,7 +1126,7 @@ export function PendientesVisitaTable({
                               onClick={() => handleVerFotosCliente(registro)}
                               size="sm"
                               variant="outline"
-                              className="text-xs h-8 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                              className="text-sm h-9 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
                             >
                               <Camera className="h-3 w-3 mr-1" />
                               Ver Fotos
@@ -927,42 +1140,42 @@ export function PendientesVisitaTable({
               </div>
 
               <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-base">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-16">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-16">
                         Tipo
                       </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-36">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-40">
                         Nombre
                       </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-28">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-32">
                         Teléfono
                       </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-52">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-56">
                         Dirección
                       </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-28">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-32">
                         Ubicación
                       </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-40">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-44">
                         Comentario
                       </th>
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-40">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-44">
                         Motivo
                       </th>
                       {viewMode !== "pendientes" && (
-                        <th className="text-left py-2 px-2 font-semibold text-gray-900 w-24">
+                        <th className="text-left py-3 px-2 font-semibold text-gray-900 w-28">
                           Fecha visita
                         </th>
                       )}
-                      <th className="text-left py-2 px-2 font-semibold text-gray-900 w-16">
+                      <th className="text-left py-3 px-2 font-semibold text-gray-900 w-16">
                         Com.
                       </th>
-                      <th className="text-center py-2 px-2 font-semibold text-gray-900 w-10">
+                      <th className="text-center py-3 px-2 font-semibold text-gray-900 w-10">
                         P
                       </th>
-                      <th className="text-center py-2 px-2 font-semibold text-gray-900 w-52">
+                      <th className="text-center py-3 px-2 font-semibold text-gray-900 w-56">
                         Acciones
                       </th>
                     </tr>
@@ -978,7 +1191,7 @@ export function PendientesVisitaTable({
                           key={`${registro.id}-${registro.visitaId || "p"}`}
                           className="border-b border-gray-100 hover:bg-gray-50"
                         >
-                          <td className="py-2 px-2">
+                          <td className="py-3 px-2">
                             <Badge
                               variant={
                                 registro.tipo === "lead"
@@ -994,7 +1207,7 @@ export function PendientesVisitaTable({
                               {registro.tipo === "lead" ? "L" : "C"}
                             </Badge>
                           </td>
-                          <td className="py-2 px-2">
+                          <td className="py-3 px-2">
                             <p className="font-semibold text-gray-900">
                               {registro.nombre}
                             </p>
@@ -1004,17 +1217,17 @@ export function PendientesVisitaTable({
                               </p>
                             )}
                           </td>
-                          <td className="py-2 px-2">
+                          <td className="py-3 px-2">
                             <p className="text-gray-700">
                               {registro.telefono || "N/A"}
                             </p>
                           </td>
-                          <td className="py-2 px-2">
+                          <td className="py-3 px-2">
                             <p className="text-gray-700">
                               {registro.direccion || "N/A"}
                             </p>
                           </td>
-                          <td className="py-2 px-2">
+                          <td className="py-3 px-2">
                             <p className="text-gray-900 font-medium">
                               {registro.provincia}
                             </p>
@@ -1022,31 +1235,31 @@ export function PendientesVisitaTable({
                               {registro.municipio || "N/A"}
                             </p>
                           </td>
-                          <td className="py-2 px-2">
-                            <p className="text-xs text-gray-700 whitespace-normal break-words">
+                          <td className="py-3 px-2">
+                            <p className="text-sm text-gray-700 whitespace-normal break-words">
                               {registro.comentario || "N/A"}
                             </p>
                           </td>
-                          <td className="py-2 px-2">
-                            <p className="text-xs text-gray-700 whitespace-normal break-words">
+                          <td className="py-3 px-2">
+                            <p className="text-sm text-gray-700 whitespace-normal break-words">
                               {registro.motivoVisita || "N/A"}
                             </p>
                           </td>
                           {viewMode !== "pendientes" && (
-                            <td className="py-2 px-2">
-                              <p className="text-xs text-gray-700">
+                            <td className="py-3 px-2">
+                              <p className="text-sm text-gray-700">
                                 {formatFecha(registro.fechaVisita)}
                               </p>
                             </td>
                           )}
-                          <td className="py-2 px-2">
-                            <p className="text-xs text-gray-700 truncate">
+                          <td className="py-3 px-2">
+                            <p className="text-sm text-gray-700 truncate">
                               {registro.comercial
                                 ? registro.comercial.split(" ")[0]
                                 : "N/A"}
                             </p>
                           </td>
-                          <td className="py-2 px-2 text-center">
+                          <td className="py-3 px-2 text-center">
                             <div className="flex items-center h-7 w-7 justify-center mx-auto">
                               <PriorityDot
                                 prioridad={
@@ -1066,15 +1279,24 @@ export function PendientesVisitaTable({
                               />
                             </div>
                           </td>
-                          <td className="py-2 px-2">
+                          <td className="py-3 px-2">
                             <div className="flex items-center justify-center gap-2">
                               {esRealizada ? (
                                 <>
                                   <Button
+                                    onClick={() => handleVerDetalleVisita(registro)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-sm h-8 px-3"
+                                  >
+                                    <Eye className="h-3 w-3 mr-1" />
+                                    Ver detalles
+                                  </Button>
+                                  <Button
                                     onClick={() => handleVerArchivos(registro)}
                                     size="sm"
                                     variant="outline"
-                                    className="text-xs h-7 px-2"
+                                    className="text-sm h-8 px-3"
                                   >
                                     <FolderOpen className="h-3 w-3 mr-1" />
                                     Ver Archivos
@@ -1085,7 +1307,7 @@ export function PendientesVisitaTable({
                                     }
                                     size="sm"
                                     variant="outline"
-                                    className="text-xs h-7 px-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                                    className="text-sm h-8 px-3 border-sky-300 text-sky-700 hover:bg-sky-50"
                                   >
                                     <Camera className="h-3 w-3 mr-1" />
                                     Ver Fotos
@@ -1097,7 +1319,7 @@ export function PendientesVisitaTable({
                                     onClick={() => handleVerOferta(registro)}
                                     size="sm"
                                     variant="outline"
-                                    className="text-xs h-7 px-2"
+                                    className="text-sm h-8 px-3"
                                   >
                                     Ver Oferta
                                   </Button>
@@ -1106,7 +1328,7 @@ export function PendientesVisitaTable({
                                       handleCompletarVisita(registro)
                                     }
                                     size="sm"
-                                    className="bg-orange-600 hover:bg-orange-700 text-xs h-7 px-2"
+                                    className="bg-orange-600 hover:bg-orange-700 text-sm h-8 px-3"
                                   >
                                     <CheckCircle2 className="h-3 w-3 mr-1" />
                                     Completar
@@ -1117,7 +1339,7 @@ export function PendientesVisitaTable({
                                     }
                                     size="sm"
                                     variant="outline"
-                                    className="text-xs h-7 px-2 border-sky-300 text-sky-700 hover:bg-sky-50"
+                                    className="text-sm h-8 px-3 border-sky-300 text-sky-700 hover:bg-sky-50"
                                   >
                                     <Camera className="h-3 w-3 mr-1" />
                                     Ver Fotos
@@ -1141,7 +1363,7 @@ export function PendientesVisitaTable({
         open={ofertaDialogOpen}
         onOpenChange={setOfertaDialogOpen}
         oferta={ofertaCargada}
-        ofertas={[]}
+        ofertas={ofertasCargadas}
       />
 
       <CompletarVisitaDialog
@@ -1160,6 +1382,104 @@ export function PendientesVisitaTable({
         clienteCodigo={fotosDialogData?.codigo}
         fotos={fotosDialogData?.fotos || []}
       />
+
+      <Dialog
+        open={detalleVisitaDialogOpen}
+        onOpenChange={setDetalleVisitaDialogOpen}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalle completo de visita</DialogTitle>
+          </DialogHeader>
+          {detalleVisitaSeleccionada ? (
+            <div className="space-y-4 text-sm">
+              <div className="rounded-md bg-orange-50 border border-orange-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-orange-700 font-semibold">
+                  Visita
+                </p>
+                <p className="text-base font-semibold text-orange-900">
+                  {detalleVisitaSeleccionada.visitaId || "Sin ID de visita"}
+                </p>
+              </div>
+
+              <div className="rounded-md bg-slate-50 border border-slate-200 p-3 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-slate-500">Estado de visita</p>
+                  <p className="font-medium text-slate-900">
+                    {detalleVisitaSeleccionada.estadoVisita || "N/A"}
+                  </p>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-slate-500">Fecha visita</p>
+                  <p className="font-medium text-slate-900">
+                    {formatFecha(detalleVisitaSeleccionada.fechaVisita)}
+                  </p>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-slate-500">Resultado</p>
+                  <p className="font-medium text-slate-900 text-right">
+                    {getResultadoLabel(detalleVisitaSeleccionada.resultadoVisita)}
+                  </p>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-slate-500">Prioridad registrada</p>
+                  <p className="font-medium text-slate-900">
+                    {detalleVisitaSeleccionada.prioridad || "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-blue-700 font-semibold mb-1">
+                  Motivo de la visita
+                </p>
+                <p className="text-blue-900">
+                  {detalleVisitaSeleccionada.motivoVisita || "N/A"}
+                </p>
+              </div>
+
+              <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-emerald-700 font-semibold mb-1">
+                  Evidencia / Comentario
+                </p>
+                <p className="text-emerald-900 whitespace-pre-wrap">
+                  {detalleVisitaSeleccionada.evidenciaTexto ||
+                    detalleVisitaSeleccionada.comentario ||
+                    "N/A"}
+                </p>
+              </div>
+
+              <div className="rounded-md bg-violet-50 border border-violet-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-violet-700 font-semibold mb-1">
+                  Materiales extra registrados
+                </p>
+                {Array.isArray(detalleVisitaSeleccionada.materialesExtra) &&
+                detalleVisitaSeleccionada.materialesExtra.length > 0 ? (
+                  <pre className="text-xs whitespace-pre-wrap text-violet-900">
+                    {JSON.stringify(detalleVisitaSeleccionada.materialesExtra, null, 2)}
+                  </pre>
+                ) : (
+                  <p className="text-violet-900">N/A</p>
+                )}
+              </div>
+
+              <div className="rounded-md bg-slate-50 border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-600 font-semibold mb-1">
+                  Archivos vinculados
+                </p>
+                <p className="text-slate-900">
+                  {Array.isArray(detalleVisitaSeleccionada.archivos)
+                    ? detalleVisitaSeleccionada.archivos.length
+                    : 0}{" "}
+                  archivo(s)
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">Sin datos de visita seleccionada.</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={archivosDialogOpen} onOpenChange={setArchivosDialogOpen}>
         <DialogContent className="max-w-xl">

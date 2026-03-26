@@ -84,22 +84,18 @@ export default function PendientesVisitaPage() {
         })),
       ];
 
-      // Ordenar: La Habana primero, luego otras provincias
-      // Dentro de cada grupo: Clientes primero, luego Leads
+      // Ordenar: Clientes primero, luego Leads.
+      // Leads ordenados por fecha_contacto ascendente.
       const sorted = pendientesData.sort((a, b) => {
-        // 1. Por provincia (La Habana primero)
-        const aEsHabana = a.provincia.toLowerCase().includes("habana");
-        const bEsHabana = b.provincia.toLowerCase().includes("habana");
-
-        if (aEsHabana && !bEsHabana) return -1;
-        if (!aEsHabana && bEsHabana) return 1;
-
-        if (a.provincia !== b.provincia)
-          return a.provincia.localeCompare(b.provincia);
-
-        // 2. Por tipo (Clientes primero, luego Leads)
         if (a.tipo === "cliente" && b.tipo === "lead") return -1;
         if (a.tipo === "lead" && b.tipo === "cliente") return 1;
+
+        // Entre leads: por fecha_contacto ascendente
+        if (a.tipo === "lead" && b.tipo === "lead") {
+          const aTime = new Date(a.fecha_contacto || 0).getTime();
+          const bTime = new Date(b.fecha_contacto || 0).getTime();
+          return aTime - bTime;
+        }
 
         return 0;
       });
@@ -144,7 +140,7 @@ export default function PendientesVisitaPage() {
         }}
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header w-full max-w-[98vw] mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-8 pb-8">
         <PendientesVisitaTable
           pendientes={pendientes}
           loading={loading}
