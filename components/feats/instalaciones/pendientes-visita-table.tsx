@@ -695,16 +695,10 @@ export function PendientesVisitaTable({
   const handleVerArchivos = async (visita: VisitaRegistro) => {
     setVisitaSeleccionada(visita);
     setArchivosDialogOpen(true);
+    const localArchivos = Array.isArray(visita.archivos) ? visita.archivos : [];
+    setArchivosVisita(localArchivos);
 
-    if (Array.isArray(visita.archivos) && visita.archivos.length > 0) {
-      setArchivosVisita(visita.archivos);
-      return;
-    }
-
-    if (!visita.visitaId) {
-      setArchivosVisita([]);
-      return;
-    }
+    if (!visita.visitaId) return;
 
     setLoadingArchivos(true);
     try {
@@ -712,14 +706,20 @@ export function PendientesVisitaTable({
         `/visitas/${visita.visitaId}/archivos`,
       );
       const parsed = parseArchivosResponse(response, visita.visitaId);
-      setArchivosVisita(parsed);
+      if (parsed.length > 0) {
+        setArchivosVisita(parsed);
+      } else if (localArchivos.length === 0) {
+        setArchivosVisita([]);
+      }
     } catch {
-      setArchivosVisita([]);
-      toast({
-        title: "Sin archivos",
-        description: "No se pudieron cargar los archivos de esta visita",
-        variant: "default",
-      });
+      if (localArchivos.length === 0) {
+        setArchivosVisita([]);
+        toast({
+          title: "Sin archivos",
+          description: "No se pudieron cargar los archivos de esta visita",
+          variant: "default",
+        });
+      }
     } finally {
       setLoadingArchivos(false);
     }
@@ -737,14 +737,6 @@ export function PendientesVisitaTable({
       codigo: registro.numero,
       fotos: getRegistroFotos(registro),
     });
-  };
-
-  const resolveArchivoUrl = (url: string) => {
-    if (!url) return "";
-    if (/^https?:\/\//i.test(url)) return url;
-    const normalizedPath = url.startsWith("/") ? url : `/${url}`;
-    const apiOrigin = API_BASE_URL.replace(/\/api\/?$/, "");
-    return `${apiOrigin}${normalizedPath}`;
   };
 
   const getArchivoUrlCandidates = (archivo: ArchivoVisita) => {
@@ -810,9 +802,132 @@ export function PendientesVisitaTable({
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   };
 
+  const openBlobFromApiRequest = async (blob: Blob, archivo: ArchivoVisita) => {
+    if (!blob || blob.size === 0) {
+      throw new Error("El archivo llegó vacío.");
+    }
+    if (blob.type.includes("text/html")) {
+      throw new Error("El backend devolvió HTML en lugar del archivo.");
+    }
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.download = archivo.nombre || "archivo";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  };
+
+  const tryDownloadViaBackend = async (archivo: ArchivoVisita) => {
+    if (!archivo.visitaId) return false;
+
+    const raw = String(archivo.url || "").trim();
+    const fileName = raw.split("?")[0].split("/").pop() || archivo.nombre || "";
+    const encodedRaw = encodeURIComponent(raw);
+    const encodedName = encodeURIComponent(fileName);
+    const visitIdEncoded = encodeURIComponent(archivo.visitaId);
+
+    const endpointCandidates = [
+      `/visitas/${visitIdEncoded}/archivos/download?url=${encodedRaw}`,
+      `/visitas/${visitIdEncoded}/archivos/download?file_url=${encodedRaw}`,
+      `/visitas/${visitIdEncoded}/archivos/download?path=${encodedRaw}`,
+      `/visitas/${visitIdEncoded}/archivos/download?nombre=${encodedName}`,
+      `/visitas/${visitIdEncoded}/archivos/download?filename=${encodedName}`,
+      `/visitas/${visitIdEncoded}/archivos/${encodedName}/download`,
+      `/visitas/${visitIdEncoded}/archivos/${encodedName}`,
+    ];
+
+    for (const endpoint of endpointCandidates) {
+      try {
+        const blob = await apiRequest<Blob>(endpoint, {
+          method: "GET",
+          responseType: "blob",
+        });
+        await openBlobFromApiRequest(blob, archivo);
+        return true;
+      } catch {
+        // Probar siguiente endpoint candidato
+      }
+    }
+
+    return false;
+  };
+
+  const getSignedUrlCandidatesFromBackend = async (
+    visitaId: string,
+    fileName: string,
+  ): Promise<string[]> => {
+    const candidates: string[] = [];
+    const push = (value?: string) => {
+      if (!value) return;
+      const normalized = String(value).trim();
+      if (!normalized) return;
+      if (!candidates.includes(normalized)) candidates.push(normalized);
+    };
+
+    const endpoints = [
+      `/visitas/${encodeURIComponent(visitaId)}/archivos?signed=true`,
+      `/visitas/${encodeURIComponent(visitaId)}/archivos?presigned=true`,
+      `/visitas/${encodeURIComponent(visitaId)}/archivos?include_signed_urls=true`,
+      `/visitas/${encodeURIComponent(visitaId)}/archivos`,
+    ];
+
+    const lowerName = fileName.toLowerCase();
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await apiRequest<any>(endpoint, { method: "GET" });
+        const data = response?.data ?? response;
+        const archivosArray = Array.isArray(data?.archivos)
+          ? data.archivos
+          : Array.isArray(data)
+            ? data
+            : [];
+
+        archivosArray.forEach((item: any) => {
+          const name = String(
+            item?.nombre || item?.filename || item?.name || item?.key || "",
+          ).toLowerCase();
+          const fileUrl =
+            item?.signed_url ||
+            item?.presigned_url ||
+            item?.download_url ||
+            item?.file_url ||
+            item?.url;
+
+          if (
+            fileUrl &&
+            (name.includes(lowerName) || String(fileUrl).toLowerCase().includes(lowerName))
+          ) {
+            push(String(fileUrl));
+          }
+        });
+      } catch {
+        // Probar siguiente endpoint de firmado
+      }
+    }
+
+    return candidates;
+  };
+
   const handleOpenArchivo = async (archivo: ArchivoVisita) => {
     try {
-      const candidates = getArchivoUrlCandidates(archivo);
+      // 1) Primero intentar descarga autenticada vía backend (si existe endpoint)
+      const downloadedViaBackend = await tryDownloadViaBackend(archivo);
+      if (downloadedViaBackend) return;
+
+      // 2) Intentar obtener URL firmada fresca desde backend
+      const raw = String(archivo.url || "").trim();
+      const fileName = raw.split("?")[0].split("/").pop() || archivo.nombre || "";
+      const signedCandidates = archivo.visitaId
+        ? await getSignedUrlCandidatesFromBackend(archivo.visitaId, fileName)
+        : [];
+
+      // 3) Fallback controlado: intentar URL(s) directa(s)
+      const candidates = [...signedCandidates, ...getArchivoUrlCandidates(archivo)];
       if (candidates.length === 0) {
         throw new Error("No hay URL disponible para este archivo.");
       }
@@ -849,9 +964,6 @@ export function PendientesVisitaTable({
         }
       }
 
-      // Fallback final: abrir URL original en pestaña
-      const fallbackUrl = resolveArchivoUrl(archivo.url);
-      window.open(fallbackUrl, "_blank", "noopener,noreferrer");
       throw new Error(
         `No se pudo descargar de forma autenticada. Intentos: ${attemptErrors.slice(0, 3).join(" | ")}`,
       );
