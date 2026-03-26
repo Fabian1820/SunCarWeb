@@ -18,6 +18,8 @@ import { RouteGuard } from "@/components/auth/route-guard"
 import { ExportButtons } from "@/components/shared/molecule/export-buttons"
 import type { ExportColumn } from "@/lib/export-service"
 import type { Material } from "@/lib/api-types"
+import type { CrearTicketSalidaData } from "@/components/feats/contabilidad/crear-ticket-dialog"
+import { ReciboService } from "@/lib/services/feats/caja/recibo-service"
 
 export default function ExistenciasContabilidadPage() {
   return (
@@ -52,7 +54,7 @@ function ExistenciasContabilidadPageContent() {
           description: `Se agregaron ${cantidad.toFixed(2)} unidades al stock`,
         })
       }
-    } catch (err) {
+    } catch {
       toast({
         title: "Error",
         description: "No se pudo registrar la entrada",
@@ -61,18 +63,24 @@ function ExistenciasContabilidadPageContent() {
     }
   }
 
-  const handleCrearTicket = async (
-    materiales: { material_id: string; cantidad: number }[]
-  ) => {
+  const handleCrearTicket = async (data: CrearTicketSalidaData) => {
     try {
-      const success = await crearTicket(materiales)
+      const success = await crearTicket(data.materiales)
       if (success) {
+        const total = data.items.reduce((acc, item) => acc + item.subtotal, 0)
+        ReciboService.descargarReciboSalidaContabilidad({
+          nombreAlmacen: "Almacén Chull",
+          fecha: new Date(),
+          items: data.items,
+          total,
+        })
+
         toast({
           title: "Ticket creado",
-          description: "El ticket de salida se creó exitosamente y se rebajó el inventario",
+          description: "El ticket de salida se creó y el PDF se descargó automáticamente",
         })
       }
-    } catch (err) {
+    } catch {
       toast({
         title: "Error",
         description: "No se pudo crear el ticket",
@@ -104,7 +112,7 @@ function ExistenciasContabilidadPageContent() {
         })
         setMaterialSeleccionado(null)
       }
-    } catch (err) {
+    } catch {
       toast({
         title: "Error",
         description: "No se pudieron actualizar los datos de contabilidad",

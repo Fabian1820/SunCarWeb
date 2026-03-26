@@ -20,13 +20,25 @@ interface MaterialRow {
   descripcion: string
   um: string
   stockDisponible: number
+  precioUnitario: number
+}
+
+export interface CrearTicketSalidaData {
+  materiales: { material_id: string; cantidad: number }[]
+  items: {
+    codigo_contabilidad: string
+    descripcion: string
+    cantidad: number
+    precio_unitario: number
+    subtotal: number
+  }[]
 }
 
 interface CrearTicketDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   materiales: MaterialContabilidad[]
-  onSubmit: (materiales: { material_id: string; cantidad: number }[]) => Promise<void>
+  onSubmit: (data: CrearTicketSalidaData) => Promise<void>
   loading?: boolean
 }
 
@@ -65,6 +77,7 @@ export function CrearTicketDialog({
         descripcion: material.descripcion,
         um: material.um,
         stockDisponible: material.cantidadContabilidad,
+        precioUnitario: material.precioContabilidad || 0,
       },
     ])
     setMaterialSearch("")
@@ -109,12 +122,19 @@ export function CrearTicketDialog({
     }
 
     try {
-      await onSubmit(
-        validMaterials.map((m) => ({
+      await onSubmit({
+        materiales: validMaterials.map((m) => ({
           material_id: m.material_id,
           cantidad: m.cantidad,
-        }))
-      )
+        })),
+        items: validMaterials.map((m) => ({
+          codigo_contabilidad: m.codigoContabilidad,
+          descripcion: m.descripcion,
+          cantidad: m.cantidad,
+          precio_unitario: m.precioUnitario || 0,
+          subtotal: m.cantidad * (m.precioUnitario || 0),
+        })),
+      })
       // Limpiar y cerrar
       setMaterialRows([])
       setMaterialSearch("")

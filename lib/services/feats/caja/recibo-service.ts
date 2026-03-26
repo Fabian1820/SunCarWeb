@@ -10,6 +10,19 @@ interface ReciboData {
   nitTienda?: string;
 }
 
+interface ReciboSalidaContabilidadData {
+  nombreAlmacen?: string;
+  fecha?: Date;
+  items: {
+    codigo_contabilidad?: string;
+    descripcion: string;
+    cantidad: number;
+    precio_unitario: number;
+    subtotal: number;
+  }[];
+  total: number;
+}
+
 // Variable global para almacenar el directorio seleccionado
 let directorioRecibos: FileSystemDirectoryHandle | null = null;
 
@@ -97,10 +110,10 @@ export class ReciboService {
     const contentRightX = pageWidth - marginRight + horizontalNudgeMm;
     const centerX = (contentLeftX + contentRightX) / 2;
     const tableColWidths = {
-      producto: 32,
-      cantidad: 5.8,
-      precioUnit: 13.2,
-      total: 13.2,
+      producto: 28,
+      cantidad: 5.5,
+      precioUnit: 15.5,
+      total: 15.5,
     };
     const tableWidth =
       tableColWidths.producto +
@@ -112,7 +125,11 @@ export class ReciboService {
     // Alinear los totales generales exactamente con la columna "Total" de la tabla de productos.
     const productsTotalRightX = tableRightX;
     const amountRightX = productsTotalRightX - 0.5; // compensación por padding derecho de la celda
-    const formatMoney = (value: number) => value.toFixed(2);
+    const formatMoney = (value: number) => {
+      const [entero, decimal] = value.toFixed(2).split('.');
+      const enteroAgrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+      return `${enteroAgrupado},${decimal}`;
+    };
 
     // ============ ENCABEZADO ============
     doc.setFontSize(11);
@@ -398,6 +415,124 @@ export class ReciboService {
   static descargarRecibo(data: ReciboData): void {
     const doc = this.generarRecibo(data);
     const nombreArchivo = `recibo_${data.orden.numero_orden}_${Date.now()}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  /**
+   * Genera y descarga recibo simplificado para salidas de Existencias-Contabilidad
+   */
+  static descargarReciboSalidaContabilidad(data: ReciboSalidaContabilidadData): void {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [72, 297],
+    });
+
+    const fecha = data.fecha || new Date();
+    const formatMoney = (value: number) => {
+      const [entero, decimal] = value.toFixed(2).split('.');
+      const enteroAgrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+      return `${enteroAgrupado}.${decimal}`;
+    };
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginLeft = 2.6;
+    const marginRight = 2.6;
+    const horizontalNudgeMm = -0.5;
+    const contentLeftX = marginLeft + horizontalNudgeMm;
+    const contentRightX = pageWidth - marginRight + horizontalNudgeMm;
+    const centerX = (contentLeftX + contentRightX) / 2;
+    const tableLeftX = contentLeftX;
+    const tableRightX = contentRightX;
+    const amountRightX = tableRightX - 0.5;
+    let yPos = 10;
+
+    doc.setFontSize(11.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RECIBO DE VENTA', centerX, yPos, { align: 'center' });
+    yPos += 6;
+
+    doc.setFontSize(9.2);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha:', contentLeftX, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(fecha.toLocaleDateString('es-ES'), contentLeftX + 15, yPos);
+    yPos += 4;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hora:', contentLeftX, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), contentLeftX + 15, yPos);
+    yPos += 4;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Emitido desde:', contentLeftX, yPos);
+    const emitidoDesdeLabelWidth = doc.getTextWidth('Emitido desde:');
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.nombreAlmacen || 'Almacén Chull', contentLeftX + emitidoDesdeLabelWidth + 1.8, yPos);
+    yPos += 5;
+
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
+    yPos += 4;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('PRODUCTOS', centerX, yPos, { align: 'center' });
+    yPos += 5;
+
+    const detailsLeftX = tableLeftX + 1;
+    const detailsWidth = tableRightX - tableLeftX - 2;
+    const drawLabelValueLine = (label: string, value: string) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.1);
+      doc.text(label, detailsLeftX, yPos);
+      const labelWidth = doc.getTextWidth(label);
+      doc.text(value, detailsLeftX + labelWidth + 0.6, yPos);
+      yPos += 3.7;
+    };
+
+    data.items.forEach((item, index) => {
+      const descripcion = item.descripcion || '-';
+      const nombreConCodigo = `${index + 1}. ${descripcion}`;
+      const codigoLinea = `Código: ${item.codigo_contabilidad || '-'}`;
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.7);
+      const nombreLines = doc.splitTextToSize(nombreConCodigo, detailsWidth);
+      doc.text(nombreLines, detailsLeftX, yPos);
+      yPos += nombreLines.length * 4;
+
+      const codigoLines = doc.splitTextToSize(codigoLinea, detailsWidth);
+      doc.text(codigoLines, detailsLeftX, yPos);
+      yPos += codigoLines.length * 3.8;
+
+      drawLabelValueLine('Precio unitario:', formatMoney(item.precio_unitario));
+      drawLabelValueLine('Cantidad:', String(item.cantidad));
+      drawLabelValueLine('Total producto:', formatMoney(item.subtotal));
+      yPos += 1.8;
+    });
+
+    yPos += 1;
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
+    yPos += 5;
+
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL:', tableLeftX, yPos);
+    doc.text(formatMoney(data.total), amountRightX, yPos, { align: 'right' });
+    yPos += 7;
+
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
+    yPos += 6;
+
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('¡Gracias por su compra!', centerX, yPos, { align: 'center' });
+    yPos += 4;
+    doc.setFontSize(6);
+    doc.text('Este documento es un comprobante de pago', centerX, yPos, { align: 'center' });
+    yPos += 3;
+    doc.text('Conserve este recibo', centerX, yPos, { align: 'center' });
+
+    const nombreArchivo = `recibo_salida_contabilidad_${Date.now()}.pdf`;
     doc.save(nombreArchivo);
   }
 
