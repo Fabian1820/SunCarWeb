@@ -79,218 +79,238 @@ export class ReciboService {
   static generarRecibo(data: ReciboData): jsPDF {
     const { orden, nombreTienda, direccionTienda, telefonoTienda, nitTienda } = data;
     
-    // Crear documento PDF en formato ticket (80mm de ancho)
+    // Crear documento PDF en formato ticket térmico de 80mm
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: [80, 297], // Ancho de ticket térmico estándar
+      format: [72, 297], // Ancho efectivo de impresión térmica
     });
 
     let yPos = 10;
-    const pageWidth = 80;
-    const margin = 5;
-    const contentWidth = pageWidth - (margin * 2);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginLeft = 2.6;
+    const marginRight = 2.6;
+    // Calibración para esta impresora: mover todo el contenido ligeramente a la izquierda.
+    const horizontalNudgeMm = -0.5;
+    const contentWidth = pageWidth - (marginLeft + marginRight);
+    const contentLeftX = marginLeft + horizontalNudgeMm;
+    const contentRightX = pageWidth - marginRight + horizontalNudgeMm;
+    const centerX = (contentLeftX + contentRightX) / 2;
+    const tableColWidths = {
+      producto: 32,
+      cantidad: 5.8,
+      precioUnit: 13.2,
+      total: 13.2,
+    };
+    const tableWidth =
+      tableColWidths.producto +
+      tableColWidths.cantidad +
+      tableColWidths.precioUnit +
+      tableColWidths.total;
+    const tableLeftX = centerX - tableWidth / 2;
+    const tableRightX = tableLeftX + tableWidth;
+    // Alinear los totales generales exactamente con la columna "Total" de la tabla de productos.
+    const productsTotalRightX = tableRightX;
+    const amountRightX = productsTotalRightX - 0.5; // compensación por padding derecho de la celda
+    const formatMoney = (value: number) => value.toFixed(2);
 
     // ============ ENCABEZADO ============
-    doc.setFontSize(14);
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     const nombreEmpresa = nombreTienda || 'SUNCAR BOLIVIA';
-    doc.text(nombreEmpresa, pageWidth / 2, yPos, { align: 'center' });
+    doc.text(nombreEmpresa, centerX, yPos, { align: 'center', maxWidth: contentWidth - 12 });
     yPos += 6;
 
     // Información de la tienda
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
     if (nitTienda) {
-      doc.text(`NIT: ${nitTienda}`, pageWidth / 2, yPos, { align: 'center' });
+      doc.text(`NIT: ${nitTienda}`, centerX, yPos, { align: 'center' });
       yPos += 4;
     }
     if (direccionTienda) {
       const direccionLines = doc.splitTextToSize(direccionTienda, contentWidth);
-      doc.text(direccionLines, pageWidth / 2, yPos, { align: 'center' });
+      doc.text(direccionLines, centerX, yPos, { align: 'center' });
       yPos += direccionLines.length * 4;
     }
     if (telefonoTienda) {
-      doc.text(`Tel: ${telefonoTienda}`, pageWidth / 2, yPos, { align: 'center' });
+      doc.text(`Tel: ${telefonoTienda}`, centerX, yPos, { align: 'center' });
       yPos += 4;
     }
 
     // Línea separadora
     yPos += 2;
     doc.setLineWidth(0.3);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
     yPos += 4;
 
     // ============ INFORMACIÓN DE LA ORDEN ============
-    doc.setFontSize(10);
+    doc.setFontSize(10.5);
     doc.setFont('helvetica', 'bold');
-    doc.text('RECIBO DE VENTA', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('RECIBO DE VENTA', centerX, yPos, { align: 'center' });
     yPos += 6;
 
-    doc.setFontSize(8);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
     
     // Número de orden
     doc.setFont('helvetica', 'bold');
-    doc.text('Orden:', margin, yPos);
+    doc.text('Orden:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(`#${orden.numero_orden}`, margin + 15, yPos);
+    doc.text(`#${orden.numero_orden}`, contentLeftX + 15, yPos);
     yPos += 4;
 
     // ID de pago (si existe)
     if (orden.id) {
       doc.setFont('helvetica', 'bold');
-      doc.text('ID Pago:', margin, yPos);
+      doc.text('ID Pago:', contentLeftX, yPos);
       doc.setFont('helvetica', 'normal');
       const idCorto = orden.id.substring(0, 8).toUpperCase();
-      doc.text(idCorto, margin + 15, yPos);
+      doc.text(idCorto, contentLeftX + 15, yPos);
       yPos += 4;
     }
 
     // Fecha y hora
     const fechaEmision = new Date(orden.fecha_pago || orden.fecha_creacion);
     doc.setFont('helvetica', 'bold');
-    doc.text('Fecha:', margin, yPos);
+    doc.text('Fecha:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(fechaEmision.toLocaleDateString('es-ES'), margin + 15, yPos);
+    doc.text(fechaEmision.toLocaleDateString('es-ES'), contentLeftX + 15, yPos);
     yPos += 4;
 
     doc.setFont('helvetica', 'bold');
-    doc.text('Hora:', margin, yPos);
+    doc.text('Hora:', contentLeftX, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(fechaEmision.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), margin + 15, yPos);
+    doc.text(fechaEmision.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }), contentLeftX + 15, yPos);
     yPos += 5;
 
     // ============ DATOS DEL CLIENTE ============
     if (orden.cliente_nombre || orden.cliente_id) {
-      doc.line(margin, yPos, pageWidth - margin, yPos);
+      doc.line(contentLeftX, yPos, contentRightX, yPos);
       yPos += 4;
 
       doc.setFont('helvetica', 'bold');
-      doc.text('CLIENTE', pageWidth / 2, yPos, { align: 'center' });
+      doc.text('CLIENTE', centerX, yPos, { align: 'center' });
       yPos += 4;
 
       // Si es cliente de instaladora, mostrar "Cliente de Instaladora" primero
       if (orden.cliente_id) {
         doc.setFont('helvetica', 'bold');
-        doc.text('Cliente de Instaladora', pageWidth / 2, yPos, { align: 'center' });
+        doc.text('Cliente de Instaladora', centerX, yPos, { align: 'center' });
         yPos += 5;
       }
 
       doc.setFont('helvetica', 'normal');
       if (orden.cliente_nombre) {
         const nombreLines = doc.splitTextToSize(orden.cliente_nombre, contentWidth);
-        doc.text(nombreLines, margin, yPos);
+        doc.text(nombreLines, contentLeftX, yPos);
         yPos += nombreLines.length * 4;
       }
 
       if (orden.cliente_ci) {
-        doc.text(`CI: ${orden.cliente_ci}`, margin, yPos);
+        doc.text(`CI: ${orden.cliente_ci}`, contentLeftX, yPos);
         yPos += 4;
       }
       if (orden.cliente_telefono) {
-        doc.text(`Tel: ${orden.cliente_telefono}`, margin, yPos);
+        doc.text(`Tel: ${orden.cliente_telefono}`, contentLeftX, yPos);
         yPos += 4;
       }
       yPos += 1;
     }
 
     // Línea separadora
-    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
     yPos += 4;
 
     // ============ PRODUCTOS ============
     doc.setFont('helvetica', 'bold');
-    doc.text('PRODUCTOS', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('PRODUCTOS', centerX, yPos, { align: 'center' });
     yPos += 5;
 
-    // Tabla de productos
-    const productosData = orden.items.map(item => {
-      const descripcion = item.descripcion.length > 25 
-        ? item.descripcion.substring(0, 25) + '...' 
-        : item.descripcion;
-      
-      return [
-        descripcion,
-        item.cantidad.toString(),
-        `$${item.precio_unitario.toFixed(2)}`,
-        `$${item.subtotal.toFixed(2)}`
-      ];
-    });
+    // Tabla de productos: no truncar descripción, permitir salto de línea
+    const productosData = orden.items.map(item => [
+      item.descripcion || '-',
+      item.cantidad.toString(),
+      formatMoney(item.precio_unitario),
+      formatMoney(item.subtotal),
+    ]);
 
     autoTable(doc, {
       startY: yPos,
-      head: [['Producto', 'Cant', 'P.Unit', 'Total']],
+      head: [['Producto', 'Cant.', 'P.Unit', 'Total']],
       body: productosData,
       theme: 'plain',
       styles: {
-        fontSize: 7,
-        cellPadding: 1,
+        fontSize: 7.7,
+        cellPadding: { top: 0.8, right: 0.9, bottom: 0.8, left: 0.9 },
         overflow: 'linebreak',
+        valign: 'top',
       },
       headStyles: {
+        fontSize: 7.9,
         fontStyle: 'bold',
         fillColor: [240, 240, 240],
         textColor: [0, 0, 0],
       },
       columnStyles: {
-        0: { cellWidth: 35 }, // Producto
-        1: { cellWidth: 10, halign: 'center' }, // Cantidad
-        2: { cellWidth: 15, halign: 'right' }, // Precio unitario
-        3: { cellWidth: 15, halign: 'right' }, // Total
+        0: { cellWidth: tableColWidths.producto, fontStyle: 'bold', fontSize: 8.2 }, // Producto (wrap)
+        1: { cellWidth: tableColWidths.cantidad, halign: 'center', fontStyle: 'bold', fontSize: 8.4 }, // Cantidad
+        2: { cellWidth: tableColWidths.precioUnit, halign: 'right', fontStyle: 'bold', fontSize: 8.4 }, // Precio unitario
+        3: { cellWidth: tableColWidths.total, halign: 'right', fontStyle: 'bold', fontSize: 8.4 }, // Total
       },
-      margin: { left: margin, right: margin },
+      margin: { left: tableLeftX, right: pageWidth - tableRightX },
     });
 
     // @ts-ignore - autoTable agrega la propiedad lastAutoTable
     yPos = doc.lastAutoTable.finalY + 4;
 
     // Línea separadora
-    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
     yPos += 4;
 
     // ============ TOTALES ============
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
 
     // Subtotal
-    doc.text('Subtotal:', margin, yPos);
-    doc.text(`$${orden.subtotal.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.text('Subtotal:', tableLeftX, yPos);
+    doc.text(formatMoney(orden.subtotal), amountRightX, yPos, { align: 'right' });
     yPos += 4;
 
     // Descuento (si aplica)
     if (orden.descuento_monto > 0) {
-      doc.text(`Descuento (${orden.descuento_porcentaje}%):`, margin, yPos);
-      doc.text(`-$${orden.descuento_monto.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+      doc.text(`Descuento (${orden.descuento_porcentaje}%):`, tableLeftX, yPos);
+      doc.text(`-${formatMoney(orden.descuento_monto)}`, amountRightX, yPos, { align: 'right' });
       yPos += 4;
     }
 
     // Impuestos
-    doc.text(`Impuestos (${orden.impuesto_porcentaje}%):`, margin, yPos);
-    doc.text(`$${orden.impuesto_monto.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+    doc.text(`Impuestos (${orden.impuesto_porcentaje}%):`, tableLeftX, yPos);
+    doc.text(formatMoney(orden.impuesto_monto), amountRightX, yPos, { align: 'right' });
     yPos += 5;
 
     // Total (destacado)
-    doc.setFontSize(11);
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
-    doc.text('TOTAL:', margin, yPos);
-    doc.text(`$${orden.total.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+    doc.text('TOTAL:', tableLeftX, yPos);
+    doc.text(formatMoney(orden.total), amountRightX, yPos, { align: 'right' });
     yPos += 6;
 
     // Línea separadora
     doc.setLineWidth(0.5);
-    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
     yPos += 4;
 
     // ============ MÉTODO DE PAGO ============
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.text('MÉTODO DE PAGO', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('MÉTODO DE PAGO', centerX, yPos, { align: 'center' });
     yPos += 4;
 
     doc.setFont('helvetica', 'normal');
     const metodoPago = orden.metodo_pago?.toUpperCase() || 'NO ESPECIFICADO';
-    doc.text(metodoPago, pageWidth / 2, yPos, { align: 'center' });
+    doc.text(metodoPago, centerX, yPos, { align: 'center' });
     yPos += 5;
 
     // Detalles según método de pago
@@ -298,22 +318,23 @@ export class ReciboService {
       const pago = orden.pagos[0];
 
       if (pago.metodo === 'efectivo' && pago.monto_recibido) {
-        doc.text('Recibido:', margin, yPos);
-        doc.text(`$${pago.monto_recibido.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+        doc.setFont('helvetica', 'bold');
+        doc.text('Recibido:', tableLeftX, yPos);
+        doc.text(formatMoney(pago.monto_recibido), amountRightX, yPos, { align: 'right' });
         yPos += 4;
 
         const cambio = pago.cambio || (pago.monto_recibido - orden.total);
         if (cambio > 0) {
           doc.setFont('helvetica', 'bold');
-          doc.text('Cambio:', margin, yPos);
-          doc.text(`$${cambio.toFixed(2)}`, pageWidth - margin, yPos, { align: 'right' });
+          doc.text('Cambio:', tableLeftX, yPos);
+          doc.text(formatMoney(cambio), amountRightX, yPos, { align: 'right' });
           doc.setFont('helvetica', 'normal');
           yPos += 4;
         }
       } else if ((pago.metodo === 'tarjeta' || pago.metodo === 'transferencia') && pago.referencia) {
-        doc.text('Referencia:', margin, yPos);
+        doc.text('Referencia:', contentLeftX, yPos);
         const refLines = doc.splitTextToSize(pago.referencia, contentWidth - 20);
-        doc.text(refLines, margin + 20, yPos);
+        doc.text(refLines, contentLeftX + 20, yPos);
         yPos += refLines.length * 4;
       }
     }
@@ -321,19 +342,19 @@ export class ReciboService {
     yPos += 2;
 
     // Línea separadora
-    doc.line(margin, yPos, pageWidth - margin, yPos);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
     yPos += 5;
 
     // ============ PIE DE PÁGINA ============
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.text('¡Gracias por su compra!', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('¡Gracias por su compra!', centerX, yPos, { align: 'center' });
     yPos += 4;
 
     doc.setFontSize(6);
-    doc.text('Este documento es un comprobante de pago', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('Este documento es un comprobante de pago', centerX, yPos, { align: 'center' });
     yPos += 3;
-    doc.text('Conserve este recibo', pageWidth / 2, yPos, { align: 'center' });
+    doc.text('Conserve este recibo', centerX, yPos, { align: 'center' });
 
     return doc;
   }
