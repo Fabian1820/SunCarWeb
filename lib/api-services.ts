@@ -37,3 +37,4 @@ export { DepartamentoService } from "./services/feats/departamentos/departamento
 export { InstalacionesService } from "./services/feats/instalaciones/instalaciones-service";
 export { TrabajosDiariosService } from "./services/feats/instalaciones/trabajos-diarios-service";
 export { ContabilidadService } from "./services/feats/contabilidad/contabilidad-service";
+export { TasaCambioService } from "./services/feats/tasa-cambio/tasa-cambio-service";

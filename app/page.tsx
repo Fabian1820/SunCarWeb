@@ -29,6 +29,7 @@ import {
   Wallet,
   Building2,
   Building,
+  Coins,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -202,6 +203,14 @@ export default function Dashboard() {
       iconClass: "text-amber-700",
     },
     {
+      id: "tasa-cambio-diaria",
+      href: "/tasa-cambio-diaria",
+      icon: Coins,
+      title: "Tasa de Cambio diaria",
+      description: "Registro diario de 1 USD en EUR y CUP para contabilidad.",
+      iconClass: "text-amber-600",
+    },
+    {
       id: "almacenes-suncar",
       href: "/almacenes-suncar",
       icon: Package,
@@ -329,6 +338,7 @@ export default function Dashboard() {
         "materiales",
         "facturas",
         "wallet",
+        "tasa-cambio-diaria",
         "almacenes-suncar",
         "inventario",
         "existencias-contabilidad",
