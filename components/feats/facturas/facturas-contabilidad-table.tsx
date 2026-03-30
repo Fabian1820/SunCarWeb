@@ -13,11 +13,15 @@ import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { Loader2, FileText } from "lucide-react";
 import type { FacturaContabilidad } from "@/lib/services/feats/facturas/factura-contabilidad-service";
-import { ExportFacturaContabilidadService } from "@/lib/services/feats/facturas/export-factura-contabilidad-service";
+import {
+  ExportFacturaContabilidadService,
+  type FacturaContabilidadExportContext,
+} from "@/lib/services/feats/facturas/export-factura-contabilidad-service";
 
 interface FacturasContabilidadTableProps {
   facturas: FacturaContabilidad[];
   loading: boolean;
+  exportContextByOferta?: Record<string, FacturaContabilidadExportContext>;
 }
 
 const formatDate = (value: string) =>
@@ -30,13 +34,16 @@ const formatDate = (value: string) =>
 export function FacturasContabilidadTable({
   facturas,
   loading,
+  exportContextByOferta = {},
 }: FacturasContabilidadTableProps) {
   const [exportingId, setExportingId] = useState<string | null>(null);
 
-  const handleExportPdf = (factura: FacturaContabilidad) => {
+  const handleExportPdf = async (factura: FacturaContabilidad) => {
     setExportingId(factura.id);
     try {
-      ExportFacturaContabilidadService.generarPDF(factura);
+      const contextKey = (factura.id_oferta_confeccion || "").trim();
+      const context = exportContextByOferta[contextKey];
+      await ExportFacturaContabilidadService.generarPDF(factura, context);
     } finally {
       setExportingId(null);
     }
@@ -88,7 +95,11 @@ export function FacturasContabilidadTable({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleExportPdf(factura)}
+                onClick={() => {
+                  handleExportPdf(factura).catch((error) => {
+                    console.error("Error exportando factura emitida:", error);
+                  });
+                }}
                 disabled={exportingId === factura.id}
               >
                 {exportingId === factura.id ? (

@@ -41,6 +41,7 @@ import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pen
 import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table";
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table";
 import { FacturasContabilidadTable } from "@/components/feats/facturas/facturas-contabilidad-table";
+import type { FacturaContabilidadExportContext } from "@/lib/services/feats/facturas/export-factura-contabilidad-service";
 import { RegistrarPagoDialog } from "@/components/feats/pagos/registrar-pago-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service";
@@ -286,6 +287,37 @@ export default function PagosClientesPage() {
       );
     });
   }, [facturasEmitidas, searchTerm]);
+
+  const exportContextByOferta = useMemo<
+    Record<string, FacturaContabilidadExportContext>
+  >(() => {
+    const contextMap: Record<string, FacturaContabilidadExportContext> = {};
+
+    ofertasConPagos.forEach((oferta) => {
+      const contexto: FacturaContabilidadExportContext = {
+        ofertaNombreCompleto:
+          (oferta.nombre_completo || "").trim() || oferta.numero_oferta,
+        clienteNombre: (oferta.contacto?.nombre || "").trim() || null,
+        clienteDocumento:
+          (oferta.contacto?.carnet || oferta.cliente_numero || "").trim() ||
+          null,
+        clienteDireccion: (oferta.contacto?.direccion || "").trim() || null,
+        importe: Number(oferta.precio_final || 0),
+        moneda: "CUP",
+      };
+
+      const keys = [
+        (oferta.oferta_id || "").trim(),
+        (oferta.numero_oferta || "").trim(),
+      ].filter(Boolean);
+
+      keys.forEach((key) => {
+        contextMap[key] = contexto;
+      });
+    });
+
+    return contextMap;
+  }, [ofertasConPagos]);
 
   const filteredOfertasConPagosPorFecha = useMemo(() => {
     const desdeTs = fechaCobroDesde
@@ -714,7 +746,12 @@ export default function PagosClientesPage() {
       await refetchOfertasConPagos();
       setLoadingPagos(false);
     } else if (mode === "facturas-emitidas") {
-      await loadFacturasEmitidas();
+      await Promise.all([
+        loadFacturasEmitidas(),
+        ofertasConPagos.length === 0
+          ? refetchOfertasConPagos()
+          : Promise.resolve(),
+      ]);
     }
   };
 
@@ -1477,6 +1514,7 @@ export default function PagosClientesPage() {
                 <FacturasContabilidadTable
                   facturas={filteredFacturasEmitidas}
                   loading={loadingFacturasEmitidas}
+                  exportContextByOferta={exportContextByOferta}
                 />
               ) : viewMode === "pagos-por-ofertas" ? (
                 <TodosPagosTable
