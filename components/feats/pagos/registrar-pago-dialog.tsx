@@ -11,6 +11,8 @@ import { Loader2 } from "lucide-react"
 import type { OfertaConfirmadaSinPago } from "@/lib/services/feats/pagos/pagos-service"
 import { PagoService, type PagoCreateData } from "@/lib/services/feats/pagos/pago-service"
 import { API_BASE_URL } from "@/lib/api-config"
+import { TasaCambioService } from "@/lib/api-services"
+import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types"
 
 interface RegistrarPagoDialogProps {
     open: boolean
@@ -70,6 +72,27 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return fallback
 }
 
+const getUsdPerCurrencyFromDailyRate = (
+    moneda: 'USD' | 'EUR' | 'CUP',
+    tasaDiaria: TasaCambio | null,
+): number | null => {
+    if (!tasaDiaria) return null
+    if (moneda === 'USD') return 1
+
+    if (moneda === 'EUR') {
+        const usdToEur = Number(tasaDiaria.usd_a_eur || 0)
+        if (usdToEur <= 0) return null
+        return 1 / usdToEur
+    }
+
+    const usdToCup = Number(tasaDiaria.usd_a_cup || 0)
+    if (usdToCup <= 0) return null
+    return 1 / usdToCup
+}
+
+const roundTo4Decimals = (value: number): number =>
+    Math.round(value * 10000) / 10000
+
 export function RegistrarPagoDialog({
     open,
     onOpenChange,
@@ -80,6 +103,9 @@ export function RegistrarPagoDialog({
     const [loading, setLoading] = useState(false)
     const [uploadingFile, setUploadingFile] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [tasaDiaria, setTasaDiaria] = useState<TasaCambio | null>(null)
+    const [loadingTasaDiaria, setLoadingTasaDiaria] = useState(false)
+    const [errorTasaDiaria, setErrorTasaDiaria] = useState<string | null>(null)
     
     const [formData, setFormData] = useState(getDefaultFormData)
 
@@ -110,18 +136,65 @@ export function RegistrarPagoDialog({
         }
     }, [open, initialData])
 
-    // Actualizar tasa de cambio cuando cambia la moneda
+    // Cargar tasa diaria por fecha seleccionada
     useEffect(() => {
-        const tasasSugeridas = {
-            USD: 1.0,
-            EUR: 1.10,  // 1 EUR ≈ 1.10 USD (aproximado)
-            CUP: 0.0083  // 1 CUP ≈ 0.0083 USD (120 CUP = 1 USD)
+        if (!open || !formData.fecha) {
+            setTasaDiaria(null)
+            setErrorTasaDiaria(null)
+            setLoadingTasaDiaria(false)
+            return
         }
-        setFormData(prev => ({
-            ...prev,
-            tasa_cambio: tasasSugeridas[prev.moneda]
-        }))
-        // Limpiar desglose al cambiar moneda
+
+        let cancelled = false
+        setLoadingTasaDiaria(true)
+        setErrorTasaDiaria(null)
+
+        TasaCambioService.getTasaCambioByFecha(formData.fecha)
+            .then((data) => {
+                if (cancelled) return
+                setTasaDiaria(data)
+            })
+            .catch((err: unknown) => {
+                if (cancelled) return
+                setTasaDiaria(null)
+                setErrorTasaDiaria(
+                    getErrorMessage(err, "No se pudo consultar la tasa diaria."),
+                )
+            })
+            .finally(() => {
+                if (cancelled) return
+                setLoadingTasaDiaria(false)
+            })
+
+        return () => {
+            cancelled = true
+        }
+    }, [formData.fecha, open])
+
+    // Actualizar tasa cuando cambia moneda o fecha/tasa diaria
+    useEffect(() => {
+        if (formData.moneda === "USD") {
+            setFormData((prev) => (prev.tasa_cambio === 1 ? prev : { ...prev, tasa_cambio: 1 }))
+            return
+        }
+
+        if (loadingTasaDiaria) return
+
+        const tasaRegistrada = getUsdPerCurrencyFromDailyRate(formData.moneda, tasaDiaria)
+        if (tasaRegistrada && Number.isFinite(tasaRegistrada) && tasaRegistrada > 0) {
+            const tasaNormalizada = roundTo4Decimals(tasaRegistrada)
+            setFormData((prev) =>
+                prev.tasa_cambio === tasaNormalizada ? prev : { ...prev, tasa_cambio: tasaNormalizada },
+            )
+            return
+        }
+
+        // Sin tasa registrada para esa fecha: pedir entrada manual
+        setFormData((prev) => (prev.tasa_cambio === 0 ? prev : { ...prev, tasa_cambio: 0 }))
+    }, [formData.moneda, loadingTasaDiaria, tasaDiaria])
+
+    // Limpiar desglose al cambiar moneda
+    useEffect(() => {
         setDesgloseBilletes({})
     }, [formData.moneda])
 
@@ -161,6 +234,14 @@ export function RegistrarPagoDialog({
             minimumFractionDigits: 2,
         }).format(value)
     }
+
+    const tasaRegistradaMoneda =
+        formData.moneda === "USD"
+            ? 1
+            : getUsdPerCurrencyFromDailyRate(formData.moneda, tasaDiaria)
+    const tasaBloqueadaPorFecha =
+        formData.moneda !== "USD" &&
+        Boolean(tasaRegistradaMoneda && Number.isFinite(tasaRegistradaMoneda))
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
@@ -423,15 +504,42 @@ export function RegistrarPagoDialog({
                                 step="0.0001"
                                 min="0.0001"
                                 value={formData.tasa_cambio}
-                                onChange={(e) => setFormData({ ...formData, tasa_cambio: parseFloat(e.target.value) || 1.0 })}
-                                disabled={formData.moneda === 'USD'}
+                                onChange={(e) => {
+                                    const raw = e.target.value.replace(",", ".")
+                                    if (raw && !/^\d*(\.\d{0,4})?$/.test(raw)) return
+                                    const parsed = raw === "" ? 0 : Number(raw)
+                                    setFormData({
+                                        ...formData,
+                                        tasa_cambio: roundTo4Decimals(
+                                            Number.isFinite(parsed) ? parsed : 0,
+                                        ),
+                                    })
+                                }}
+                                disabled={formData.moneda === 'USD' || tasaBloqueadaPorFecha}
                                 required
                             />
                             {formData.moneda === 'USD' ? (
                                 <p className="text-xs text-gray-500">
                                     La tasa de cambio es 1.0 para USD
                                 </p>
+                            ) : loadingTasaDiaria ? (
+                                <p className="text-xs text-gray-500">
+                                    Consultando tasa diaria registrada...
+                                </p>
+                            ) : tasaBloqueadaPorFecha ? (
+                                <p className="text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-200">
+                                    Tasa cargada automáticamente desde el registro diario de {formData.fecha}. No se puede editar.
+                                </p>
+                            ) : errorTasaDiaria ? (
+                                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+                                    {errorTasaDiaria} Ingrese la tasa manualmente.
+                                </p>
                             ) : (
+                                <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded border border-amber-200">
+                                    No hay tasa de cambio registrada para {formData.fecha}. Ingrese la tasa manualmente.
+                                </p>
+                            )}
+                            {formData.moneda !== 'USD' && formData.tasa_cambio > 0 && (
                                 <p className="text-xs text-gray-600 bg-gray-50 p-2 rounded border border-gray-200">
                                     💡 Ejemplo: Si 1 {formData.moneda} = {formData.tasa_cambio.toFixed(4)} USD, entonces {formData.monto || '100'} {formData.moneda} = {((parseFloat(formData.monto) || 100) * formData.tasa_cambio).toFixed(2)} USD
                                 </p>

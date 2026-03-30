@@ -35,23 +35,29 @@ import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import FormViewer from "@/components/feats/reports/FormViewerNoSSR";
-import { ReporteService, ClienteService } from "@/lib/api-services";
+import { ReporteService, ClienteService, TasaCambioService } from "@/lib/api-services";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
 import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker";
+import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 
 export default function Dashboard() {
   const { hasPermission, user, loadModulosPermitidos } = useAuth();
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
+  const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
+  const [tasaCambioHoy, setTasaCambioHoy] = useState<TasaCambio | null>(null);
+  const [loadingTasaCambio, setLoadingTasaCambio] = useState(false);
+  const [errorTasaCambio, setErrorTasaCambio] = useState<string | null>(null);
   const [recentReports, setRecentReports] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
@@ -445,6 +451,33 @@ export default function Dashboard() {
   const getClienteByNumero = (numero: string | number) =>
     clients.find((c) => String(c.numero) === String(numero));
 
+  const formatExchangeRate = (value: number) => Number(value || 0).toFixed(4);
+  const formatInverseExchangeRate = (value: number) => {
+    const parsed = Number(value || 0);
+    if (!Number.isFinite(parsed) || parsed <= 0) return "-";
+    return (1 / parsed).toFixed(4);
+  };
+
+  const handleOpenTasaCambioDialog = async () => {
+    setIsTasaCambioDialogOpen(true);
+    setLoadingTasaCambio(true);
+    setErrorTasaCambio(null);
+
+    try {
+      const tasa = await TasaCambioService.getTasaCambioHoy();
+      setTasaCambioHoy(tasa);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar la tasa de cambio de hoy.";
+      setErrorTasaCambio(message);
+      setTasaCambioHoy(null);
+    } finally {
+      setLoadingTasaCambio(false);
+    }
+  };
+
   useLayoutEffect(() => {
     if (!headerRef.current) return;
 
@@ -521,6 +554,19 @@ export default function Dashboard() {
                   <span className="sr-only">Calculadora</span>
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  handleOpenTasaCambioDialog().catch(() => null);
+                }}
+                aria-label="Ver tasa de cambio diaria"
+                className="flex items-center justify-center bg-white hover:bg-emerald-50 border-orange-200 hover:border-emerald-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+              >
+                <Coins className="h-4 w-4 text-emerald-600 sm:mr-2" />
+                <span className="hidden sm:inline">Tasa de cambio</span>
+                <span className="sr-only">Tasa de cambio</span>
+              </Button>
               {/* Radar comentado temporalmente en el topbar principal */}
               <Button
                 variant="outline"
@@ -640,6 +686,52 @@ export default function Dashboard() {
             </DialogTitle>
           </DialogHeader>
           <ContactosDashboard />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isTasaCambioDialogOpen}
+        onOpenChange={setIsTasaCambioDialogOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <Coins className="h-5 w-5 text-emerald-600" />
+              <span>Tasa de Cambio diaria</span>
+            </DialogTitle>
+            <DialogDescription>
+              Tasa registrada para 1 USD en el día de hoy.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingTasaCambio ? (
+            <p className="text-sm text-gray-600">Cargando tasa de cambio...</p>
+          ) : errorTasaCambio ? (
+            <p className="text-sm text-red-600">{errorTasaCambio}</p>
+          ) : tasaCambioHoy ? (
+            <div className="space-y-2 rounded-md border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold">Fecha:</span>{" "}
+                {tasaCambioHoy.fecha || "Hoy"}
+              </p>
+              <p className="text-base text-gray-800">
+                <span className="font-semibold">1 USD = </span>
+                {formatExchangeRate(tasaCambioHoy.usd_a_eur)} EUR
+              </p>
+              <p className="text-base text-gray-800">
+                <span className="font-semibold">1 EUR = </span>
+                {formatInverseExchangeRate(tasaCambioHoy.usd_a_eur)} USD
+              </p>
+              <p className="text-base text-gray-800">
+                <span className="font-semibold">1 USD = </span>
+                {formatExchangeRate(tasaCambioHoy.usd_a_cup)} CUP
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">
+              No hay tasa de cambio registrada para hoy.
+            </p>
+          )}
         </DialogContent>
       </Dialog>
 

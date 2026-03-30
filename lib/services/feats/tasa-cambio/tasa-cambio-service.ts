@@ -92,6 +92,27 @@ export class TasaCambioService {
     return mapTasaCambio(payload);
   }
 
+  static async getTasaCambioByFecha(fecha: string): Promise<TasaCambio | null> {
+    const fechaNormalizada = normalizeFecha(fecha);
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(fechaNormalizada)}`,
+    );
+    const error = extractApiError(raw);
+
+    if (error) {
+      const lowered = error.toLowerCase();
+      if (lowered.includes("no encontrado") || lowered.includes("not found")) {
+        return null;
+      }
+      throw new Error(error);
+    }
+
+    const payload = unwrapPayload(raw);
+    if (!payload || typeof payload !== "object") return null;
+
+    return mapTasaCambio(payload);
+  }
+
   static async createTasaCambio(
     request: TasaCambioCreateRequest,
   ): Promise<TasaCambio> {

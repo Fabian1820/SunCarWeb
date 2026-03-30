@@ -35,6 +35,7 @@ import {
   ChevronRight,
   Volume2,
   VolumeX,
+  Coins,
 } from "lucide-react";
 import { usePagos } from "@/hooks/use-pagos";
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table";
@@ -57,6 +58,8 @@ import {
   type FacturaContabilidad,
 } from "@/lib/services/feats/facturas/factura-contabilidad-service";
 import { useToast } from "@/hooks/use-toast";
+import { TasaCambioService } from "@/lib/api-services";
+import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 
 type ViewMode =
   | "anticipos-pendientes"
@@ -146,6 +149,12 @@ export default function PagosClientesPage() {
   >({});
   const [stripeModalOpen, setStripeModalOpen] = useState(false);
   const [showPresentesDialog, setShowPresentesDialog] = useState(false);
+  const [showTasaCambioDialog, setShowTasaCambioDialog] = useState(false);
+  const [tasaCambioDia, setTasaCambioDia] = useState<TasaCambio | null>(null);
+  const [loadingTasaCambioDia, setLoadingTasaCambioDia] = useState(false);
+  const [errorTasaCambioDia, setErrorTasaCambioDia] = useState<string | null>(
+    null,
+  );
   const [highlightNotification, setHighlightNotification] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const previousPresentesCount = useRef(0);
@@ -158,6 +167,13 @@ export default function PagosClientesPage() {
       currency: "USD",
       minimumFractionDigits: 2,
     }).format(value);
+
+  const formatExchangeRate = (value: number) => Number(value || 0).toFixed(4);
+  const formatInverseExchangeRate = (value: number) => {
+    const parsed = Number(value || 0);
+    if (!Number.isFinite(parsed) || parsed <= 0) return "-";
+    return (1 / parsed).toFixed(4);
+  };
 
   const isClientePresenteParaPagar = (oferta: OfertaConfirmadaSinPago) =>
     Boolean(
@@ -1026,6 +1042,26 @@ export default function PagosClientesPage() {
 
   const hasPresentes = clientesPresentes.length > 0;
 
+  const handleOpenTasaCambioDialog = async () => {
+    setShowTasaCambioDialog(true);
+    setLoadingTasaCambioDia(true);
+    setErrorTasaCambioDia(null);
+
+    try {
+      const tasa = await TasaCambioService.getTasaCambioHoy();
+      setTasaCambioDia(tasa);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo cargar la tasa de cambio de hoy.";
+      setErrorTasaCambioDia(message);
+      setTasaCambioDia(null);
+    } finally {
+      setLoadingTasaCambioDia(false);
+    }
+  };
+
   // Alarma continua: mientras haya clientes presentes, reproducir sonido en bucle.
   useEffect(() => {
     if (!hasPresentes || !soundEnabled) return;
@@ -1084,6 +1120,17 @@ export default function PagosClientesPage() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleOpenTasaCambioDialog().catch(() => null);
+                }}
+                className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              >
+                <Coins className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Tasa de cambio</span>
+                <span className="sr-only">Ver tasa de cambio del día</span>
+              </Button>
               {viewMode === "facturas-emitidas" ? (
                 <Button
                   variant="outline"
@@ -1609,6 +1656,49 @@ export default function PagosClientesPage() {
                 </div>
               ))}
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={showTasaCambioDialog}
+        onOpenChange={setShowTasaCambioDialog}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Tasa de cambio del día</DialogTitle>
+            <DialogDescription>
+              Valor registrado para 1 USD.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingTasaCambioDia ? (
+            <p className="text-sm text-slate-600">Cargando tasa de cambio...</p>
+          ) : errorTasaCambioDia ? (
+            <p className="text-sm text-red-600">{errorTasaCambioDia}</p>
+          ) : tasaCambioDia ? (
+            <div className="space-y-2 rounded-md border border-emerald-100 bg-emerald-50 p-4">
+              <p className="text-sm text-slate-700">
+                <span className="font-semibold">Fecha:</span>{" "}
+                {tasaCambioDia.fecha || "Hoy"}
+              </p>
+              <p className="text-base text-slate-800">
+                <span className="font-semibold">1 USD = </span>
+                {formatExchangeRate(tasaCambioDia.usd_a_eur)} EUR
+              </p>
+              <p className="text-base text-slate-800">
+                <span className="font-semibold">1 EUR = </span>
+                {formatInverseExchangeRate(tasaCambioDia.usd_a_eur)} USD
+              </p>
+              <p className="text-base text-slate-800">
+                <span className="font-semibold">1 USD = </span>
+                {formatExchangeRate(tasaCambioDia.usd_a_cup)} CUP
+              </p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-600">
+              No hay tasa de cambio registrada para hoy.
+            </p>
           )}
         </DialogContent>
       </Dialog>

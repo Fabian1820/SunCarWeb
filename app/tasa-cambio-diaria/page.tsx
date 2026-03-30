@@ -84,6 +84,7 @@ function TasaCambioDiariaPageContent() {
   const [rates, setRates] = useState<TasaCambio[]>([]);
   const [dateInput, setDateInput] = useState(() => toLocalDateKey(new Date()));
   const [eurInput, setEurInput] = useState("");
+  const [eurToUsdInput, setEurToUsdInput] = useState("");
   const [cupInput, setCupInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -114,6 +115,48 @@ function TasaCambioDiariaPageContent() {
     () => rates.find((item) => item.fecha === dateInput) ?? null,
     [rates, dateInput],
   );
+
+  const sanitizeRateInput = (value: string): string | null => {
+    const normalized = value.replace(",", ".");
+    if (normalized === "") return "";
+    if (!/^\d*(\.\d{0,4})?$/.test(normalized)) return null;
+    return normalized;
+  };
+
+  const formatLinkedRate = (value: number): string =>
+    value.toFixed(4).replace(/\.?0+$/, "");
+
+  const handleUsdEurChange = (value: string) => {
+    const sanitized = sanitizeRateInput(value);
+    if (sanitized === null) return;
+
+    setEurInput(sanitized);
+    const parsed = Number(sanitized);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setEurToUsdInput("");
+      return;
+    }
+    setEurToUsdInput(formatLinkedRate(1 / parsed));
+  };
+
+  const handleEurUsdChange = (value: string) => {
+    const sanitized = sanitizeRateInput(value);
+    if (sanitized === null) return;
+
+    setEurToUsdInput(sanitized);
+    const parsed = Number(sanitized);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setEurInput("");
+      return;
+    }
+    setEurInput(formatLinkedRate(1 / parsed));
+  };
+
+  const handleUsdCupChange = (value: string) => {
+    const sanitized = sanitizeRateInput(value);
+    if (sanitized === null) return;
+    setCupInput(sanitized);
+  };
 
   const validateInputs = (): { usdToEur: number; usdToCup: number } | null => {
     if (!dateInput) {
@@ -178,6 +221,7 @@ function TasaCambioDiariaPageContent() {
         description: `${formatDate(dateInput)} | 1 USD = ${values.usdToEur.toFixed(4)} EUR | ${values.usdToCup.toFixed(4)} CUP`,
       });
 
+      setEurToUsdInput(formatLinkedRate(1 / values.usdToEur));
       await loadData();
     } catch (error: unknown) {
       toast({
@@ -207,13 +251,14 @@ function TasaCambioDiariaPageContent() {
 
       setIsConfirmOpen(false);
       setPendingUpdate(null);
+      setEurToUsdInput(formatLinkedRate(1 / pendingUpdate.nuevoUsdEur));
       await loadData();
     } catch (error: unknown) {
       toast({
         title: "No se pudo actualizar la tasa",
         description: getErrorMessage(
           error,
-          "Verifica que el backend tenga habilitado PUT /tasas-cambio/{fecha}.",
+          "Verifica que el backend tenga habilitado PATCH /tasas-cambio/{fecha}.",
         ),
         variant: "destructive",
       });
@@ -252,7 +297,7 @@ function TasaCambioDiariaPageContent() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
                 <Label htmlFor="fecha-tasa">Fecha</Label>
                 <Input
@@ -272,8 +317,22 @@ function TasaCambioDiariaPageContent() {
                   step="0.0001"
                   min="0"
                   value={eurInput}
-                  onChange={(event) => setEurInput(event.target.value)}
+                  onChange={(event) => handleUsdEurChange(event.target.value)}
                   placeholder="0.9200"
+                  disabled={submitting}
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="eur-usd">1 EUR equivale a (USD)</Label>
+                <Input
+                  id="eur-usd"
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  value={eurToUsdInput}
+                  onChange={(event) => handleEurUsdChange(event.target.value)}
+                  placeholder="1.0870"
                   disabled={submitting}
                 />
               </div>
@@ -286,7 +345,7 @@ function TasaCambioDiariaPageContent() {
                   step="0.0001"
                   min="0"
                   value={cupInput}
-                  onChange={(event) => setCupInput(event.target.value)}
+                  onChange={(event) => handleUsdCupChange(event.target.value)}
                   placeholder="300.0000"
                   disabled={submitting}
                 />
