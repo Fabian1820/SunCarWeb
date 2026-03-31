@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { ArrowLeft, FileText, CreditCard } from "lucide-react"
+import { ArrowLeft, FileText, CreditCard, Receipt } from "lucide-react"
 
 export default function FacturacionPage() {
     const submodules = [
@@ -22,6 +22,14 @@ export default function FacturacionPage() {
             title: 'Vales y Facturas de Instaladora',
             description: 'Control de facturación y vales de venta de la instaladora',
             color: 'orange-600',
+        },
+        {
+            id: 'facturas-solar-carros',
+            href: '/facturas/facturas-solar-carros',
+            icon: Receipt,
+            title: 'Facturas Solar Carros',
+            description: 'Facturación Solar Carros para Instaladora y Ventas',
+            color: 'sky-600',
         },
     ]
 

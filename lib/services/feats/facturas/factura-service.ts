@@ -121,6 +121,41 @@ export class FacturaService {
   }
 
   /**
+   * Extrae un mensaje de error útil desde la respuesta HTTP.
+   */
+  private async extractErrorMessage(
+    response: Response,
+    fallback: string,
+  ): Promise<string> {
+    try {
+      const raw = await response.text();
+      if (!raw) return `${fallback} (HTTP ${response.status})`;
+
+      const parsed = JSON.parse(raw) as
+        | { detail?: string; message?: string; error?: string }
+        | string;
+
+      if (typeof parsed === "string" && parsed.trim()) {
+        return parsed;
+      }
+
+      const detail =
+        (typeof parsed === "object" && parsed?.detail) ||
+        (typeof parsed === "object" && parsed?.message) ||
+        (typeof parsed === "object" && parsed?.error) ||
+        "";
+
+      if (detail && String(detail).trim()) {
+        return String(detail);
+      }
+
+      return `${fallback} (HTTP ${response.status})`;
+    } catch {
+      return `${fallback} (HTTP ${response.status})`;
+    }
+  }
+
+  /**
    * Obtiene un número de factura sugerido
    */
   async obtenerNumeroSugerido(): Promise<NumeroFacturaSugerido> {
@@ -149,8 +184,7 @@ export class FacturaService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || "Error creando factura");
+      throw new Error(await this.extractErrorMessage(response, "Error creando factura"));
     }
 
     return response.json();
@@ -189,15 +223,7 @@ export class FacturaService {
     console.log("📨 Response status:", response.status);
 
     if (!response.ok) {
-      let errorDetail = "Error listando facturas";
-      try {
-        const errorData = await response.json();
-        console.error("❌ Error data:", errorData);
-        errorDetail = errorData.detail || errorData.message || errorDetail;
-      } catch (e) {
-        console.error("❌ No se pudo parsear el error:", e);
-      }
-      throw new Error(errorDetail);
+      throw new Error(await this.extractErrorMessage(response, "Error listando facturas"));
     }
 
     const data = await response.json();
@@ -514,15 +540,9 @@ export class FacturaService {
     console.log("📨 Response status:", response.status);
 
     if (!response.ok) {
-      let errorDetail = "Error obteniendo estadísticas";
-      try {
-        const errorData = await response.json();
-        console.error("❌ Error data:", errorData);
-        errorDetail = errorData.detail || errorData.message || errorDetail;
-      } catch (e) {
-        console.error("❌ No se pudo parsear el error:", e);
-      }
-      throw new Error(errorDetail);
+      throw new Error(
+        await this.extractErrorMessage(response, "Error obteniendo estadísticas"),
+      );
     }
 
     const data = await response.json();
