@@ -66,6 +66,21 @@ export function ClienteDetallesDialog({
     return dateString
   }
 
+  const formatTipoPersona = (tipoPersona?: string) => {
+    if (!tipoPersona) return null
+    const normalized = tipoPersona.trim().toLowerCase()
+    if (normalized === "natural") return "Natural"
+    if (normalized === "juridica" || normalized === "jurídica") {
+      return "Jurídica"
+    }
+    return tipoPersona
+  }
+
+  const tipoPersonaLabel = formatTipoPersona(cliente.tipo_persona)
+  const documentoLabel = tipoPersonaLabel === "Jurídica"
+    ? "NIT Empresa"
+    : "Carnet de Identidad"
+
   const handleDownloadComprobante = async () => {
     if (!cliente.comprobante_pago_url) return
 
@@ -131,7 +146,7 @@ export function ClienteDetallesDialog({
                 )}
               </div>
 
-              {/* Fila 2: Código y Carnet */}
+              {/* Fila 2: Código y Documento */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label className="text-gray-700">Código de Cliente</Label>
@@ -139,7 +154,7 @@ export function ClienteDetallesDialog({
                 </div>
                 {cliente.carnet_identidad && (
                   <div>
-                    <Label className="text-gray-700">Carnet de Identidad</Label>
+                    <Label className="text-gray-700">{documentoLabel}</Label>
                     <p className="text-gray-900 flex items-center gap-2 mt-1">
                       <CreditCard className="h-4 w-4 text-gray-400" />
                       {cliente.carnet_identidad}
@@ -168,8 +183,8 @@ export function ClienteDetallesDialog({
                 )}
               </div>
 
-              {/* Fila 4: Estado, Fuente y Fecha de Contacto */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Fila 4: Estado, Fuente, Tipo de Persona y Fecha de Contacto */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {cliente.estado && (
                   <div>
                     <Label className="text-gray-700">Estado</Label>
@@ -184,6 +199,14 @@ export function ClienteDetallesDialog({
                   <div>
                     <Label className="text-gray-700">Fuente</Label>
                     <p className="text-gray-900 mt-1">{cliente.fuente}</p>
+                  </div>
+                )}
+                {formatTipoPersona(cliente.tipo_persona) && (
+                  <div>
+                    <Label className="text-gray-700">Tipo de Persona</Label>
+                    <p className="text-gray-900 mt-1">
+                      {formatTipoPersona(cliente.tipo_persona)}
+                    </p>
                   </div>
                 )}
                 {cliente.fecha_contacto && (

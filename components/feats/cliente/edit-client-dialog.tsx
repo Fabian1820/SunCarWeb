@@ -226,6 +226,16 @@ export function EditClientDialog({
     return estadosMap[estado] || estado;
   };
 
+  const normalizeTipoPersona = (tipoPersona: string): string => {
+    if (!tipoPersona) return "";
+    const normalized = tipoPersona.trim().toLowerCase();
+    if (normalized === "natural") return "Natural";
+    if (normalized === "juridica" || normalized === "jurídica") {
+      return "Jurídica";
+    }
+    return tipoPersona;
+  };
+
   const [formData, setFormData] = useState({
     numero: client.numero || "",
     fecha_contacto: convertToDateInput(client.fecha_contacto || ""),
@@ -249,6 +259,7 @@ export function EditClientDialog({
     falta_instalacion: client.falta_instalacion || "",
     prioridad: client.prioridad || "Baja",
     motivo_visita: client.motivo_visita || "",
+    tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -304,6 +315,7 @@ export function EditClientDialog({
         falta_instalacion: client.falta_instalacion || "",
         prioridad: client.prioridad || "Baja",
         motivo_visita: client.motivo_visita || "",
+        tipo_persona: normalizeTipoPersona(client.tipo_persona || ""),
       });
 
       // Actualizar el estado de fuente personalizada
@@ -856,7 +868,9 @@ export function EditClientDialog({
                   </div>
                   <div>
                     <Label htmlFor="carnet_identidad">
-                      Carnet de identidad
+                      {formData.tipo_persona === "Jurídica"
+                        ? "NIT Empresa"
+                        : "Carnet de identidad"}
                     </Label>
                     <Input
                       id="carnet_identidad"
@@ -869,7 +883,7 @@ export function EditClientDialog({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="estado">Estado</Label>
                     <Select
@@ -903,7 +917,7 @@ export function EditClientDialog({
                     </Select>
                   </div>
                   {formData.estado === "Pendiente de visita" && (
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-3">
                       <Label htmlFor="motivo_visita">Motivo de Visita</Label>
                       <Textarea
                         id="motivo_visita"
@@ -1023,6 +1037,26 @@ export function EditClientDialog({
                         </Button>
                       </div>
                     )}
+                  </div>
+                  <div>
+                    <Label htmlFor="tipo_persona">Tipo de Persona</Label>
+                    <Select
+                      value={formData.tipo_persona || ""}
+                      onValueChange={(value) =>
+                        handleInputChange("tipo_persona", value)
+                      }
+                    >
+                      <SelectTrigger
+                        id="tipo_persona"
+                        className="text-gray-900"
+                      >
+                        <SelectValue placeholder="Seleccionar tipo de persona" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Natural">Natural</SelectItem>
+                        <SelectItem value="Jurídica">Jurídica</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

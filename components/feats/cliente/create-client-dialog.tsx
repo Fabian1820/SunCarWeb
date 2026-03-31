@@ -221,6 +221,7 @@ export function CreateClientDialog({
     falta_instalacion: "",
     prioridad: "Baja", // Valor por defecto según documentación
     motivo_visita: "",
+    tipo_persona: "",
   });
 
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
@@ -1128,7 +1129,11 @@ export function CreateClientDialog({
                 )}
               </div>
               <div>
-                <Label htmlFor="carnet_identidad">Carnet de identidad</Label>
+                <Label htmlFor="carnet_identidad">
+                  {formData.tipo_persona === "Jurídica"
+                    ? "NIT Empresa"
+                    : "Carnet de identidad"}
+                </Label>
                 <Input
                   id="carnet_identidad"
                   value={formData.carnet_identidad || ""}
@@ -1181,7 +1186,7 @@ export function CreateClientDialog({
             )}
 
             {/* 3. Estado y Fuente */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <Label htmlFor="estado">Estado</Label>
                 <Select
@@ -1211,7 +1216,7 @@ export function CreateClientDialog({
                 </Select>
               </div>
               {formData.estado === "Pendiente de visita" && (
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                   <Label htmlFor="motivo_visita">Motivo de Visita</Label>
                   <Textarea
                     id="motivo_visita"
@@ -1328,6 +1333,23 @@ export function CreateClientDialog({
                     </Button>
                   </div>
                 )}
+              </div>
+              <div>
+                <Label htmlFor="tipo_persona">Tipo de Persona</Label>
+                <Select
+                  value={formData.tipo_persona || ""}
+                  onValueChange={(value) =>
+                    handleInputChange("tipo_persona", value)
+                  }
+                >
+                  <SelectTrigger id="tipo_persona" className="text-gray-900">
+                    <SelectValue placeholder="Seleccionar tipo de persona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Natural">Natural</SelectItem>
+                    <SelectItem value="Jurídica">Jurídica</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

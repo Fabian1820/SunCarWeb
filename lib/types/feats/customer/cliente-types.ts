@@ -44,6 +44,7 @@ export interface Cliente {
   fotos?: ClienteFoto[]; // Evidencias (fotos/videos) del cliente
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
+  tipo_persona?: string;
 }
 
 export interface ClienteResponse {
@@ -85,6 +86,7 @@ export interface ClienteCreateData {
   equipo_propio?: boolean; // Si el equipo es propio del cliente (código con P)
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
+  tipo_persona?: string;
 }
 
 export interface ClienteSimpleCreateData {

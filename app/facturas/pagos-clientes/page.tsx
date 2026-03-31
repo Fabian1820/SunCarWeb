@@ -318,8 +318,8 @@ export default function PagosClientesPage() {
           (oferta.contacto?.carnet || oferta.cliente_numero || "").trim() ||
           null,
         clienteDireccion: (oferta.contacto?.direccion || "").trim() || null,
-        importe: Number(oferta.precio_final || 0),
-        moneda: "CUP",
+        clienteTelefono: (oferta.contacto?.telefono || "").trim() || null,
+        precioFinalUsd: Number(oferta.precio_final || 0),
       };
 
       const keys = [
