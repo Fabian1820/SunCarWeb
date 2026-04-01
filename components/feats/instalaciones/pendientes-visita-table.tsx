@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
+import { Textarea } from "@/components/shared/molecule/textarea";
 import { Label } from "@/components/shared/atom/label";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
@@ -27,6 +28,9 @@ import {
   FolderOpen,
   Camera,
   Eye,
+  Download,
+  PlayCircle,
+  Pencil,
 } from "lucide-react";
 import type { PendienteVisita } from "@/lib/types/feats/instalaciones/instalaciones-types";
 import { useToast } from "@/hooks/use-toast";
@@ -50,6 +54,7 @@ interface ArchivoVisita {
   url: string;
   categoria?: string;
   visitaId?: string;
+  contentType?: string;
 }
 
 interface VisitaRegistro extends PendienteVisita {
@@ -98,6 +103,7 @@ const extractArchivosFromVisita = (visita: any): ArchivoVisita[] => {
           nombre: u.nombre || u.filename || u.name || "Archivo",
           url: String(u.url),
           categoria: categoria || u.categoria,
+          contentType: u.content_type || u.mime_type || u.tipo_mime,
         });
       }
     });
@@ -113,6 +119,7 @@ const extractArchivosFromVisita = (visita: any): ArchivoVisita[] => {
           nombre: a.nombre || a.filename || a.name || "Archivo",
           url: String(a.url),
           categoria: a.categoria,
+          contentType: a.content_type || a.mime_type || a.tipo_mime,
         });
       }
     });
@@ -304,6 +311,45 @@ const getResultadoLabel = (resultado?: string) => {
   return resultado || "Sin resultado";
 };
 
+const getArchivoName = (archivo: ArchivoVisita) => {
+  const fromUrl = String(archivo.url || "")
+    .split("?")[0]
+    .split("/")
+    .pop();
+  return archivo.nombre || fromUrl || "archivo";
+};
+
+const getArchivoExtension = (archivo: ArchivoVisita) => {
+  const fileName = getArchivoName(archivo).toLowerCase();
+  const parts = fileName.split(".");
+  return parts.length > 1 ? parts.pop() || "" : "";
+};
+
+const isImageArchivo = (archivo: ArchivoVisita) => {
+  const type = String(archivo.contentType || "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+  const ext = getArchivoExtension(archivo);
+  return ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg", "heic"].includes(
+    ext,
+  );
+};
+
+const isVideoArchivo = (archivo: ArchivoVisita) => {
+  const type = String(archivo.contentType || "").toLowerCase();
+  if (type.startsWith("video/")) return true;
+  const ext = getArchivoExtension(archivo);
+  return ["mp4", "mov", "avi", "mkv", "webm", "m4v", "3gp"].includes(ext);
+};
+
+const toDatetimeLocalValue = (fecha?: string) => {
+  if (!fecha) return "";
+  const parsed = new Date(fecha);
+  if (Number.isNaN(parsed.getTime())) return "";
+  const tzOffset = parsed.getTimezoneOffset() * 60_000;
+  const localDate = new Date(parsed.getTime() - tzOffset);
+  return localDate.toISOString().slice(0, 16);
+};
+
 export function PendientesVisitaTable({
   pendientes,
   loading,
@@ -345,6 +391,15 @@ export function PendientesVisitaTable({
     codigo?: string;
     fotos: ClienteFoto[];
   } | null>(null);
+  const [editarVisitaDialogOpen, setEditarVisitaDialogOpen] = useState(false);
+  const [visitaEdicion, setVisitaEdicion] = useState<VisitaRegistro | null>(
+    null,
+  );
+  const [editarComentario, setEditarComentario] = useState("");
+  const [editarFecha, setEditarFecha] = useState("");
+  const [editarEstudioFiles, setEditarEstudioFiles] = useState<File[]>([]);
+  const [editarEvidenciaFiles, setEditarEvidenciaFiles] = useState<File[]>([]);
+  const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const { toast } = useToast();
 
   const fetchVisitas = useCallback(async () => {
@@ -394,6 +449,7 @@ export function PendientesVisitaTable({
   const fetchVisitasRealizadas = useCallback(async () => {
     setLoadingRealizadas(true);
     try {
+      const pageSize = 200;
       let skip = 0;
       let safety = 0;
       let total = Number.POSITIVE_INFINITY;
@@ -401,11 +457,17 @@ export function PendientesVisitaTable({
 
       while (skip < total && safety < 50) {
         const response = await apiRequest<any>(
-          `/visitas/realizadas?skip=${skip}`,
+          `/visitas/realizadas?skip=${skip}&limit=${pageSize}`,
         );
         const pageData = getArrayFromPayload(response);
         const responseCount = Number(
-          response?.count ?? response?.data?.count ?? pageData.length,
+          response?.count ??
+            response?.total ??
+            response?.total_count ??
+            response?.data?.count ??
+            response?.data?.total ??
+            response?.data?.total_count ??
+            Number.NaN,
         );
 
         if (Number.isFinite(responseCount) && responseCount >= 0) {
@@ -418,6 +480,10 @@ export function PendientesVisitaTable({
           break;
         }
 
+        if (Number.isFinite(total) && acumuladas.length >= total) {
+          break;
+        }
+
         skip += pageData.length;
         safety += 1;
       }
@@ -425,7 +491,14 @@ export function PendientesVisitaTable({
       const mapped = acumuladas.map((visita, idx) =>
         mapVisitaToRegistro(visita, idx),
       );
-      setVisitasRealizadasEndpoint(mapped);
+      const seen = new Set<string>();
+      const deduped = mapped.filter((item) => {
+        const key = String(item.visitaId || `${item.tipo}-${item.id}`);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      setVisitasRealizadasEndpoint(deduped);
     } catch (error: any) {
       console.warn("No se pudieron cargar visitas realizadas:", error?.message);
       setVisitasRealizadasEndpoint([]);
@@ -437,6 +510,10 @@ export function PendientesVisitaTable({
   useEffect(() => {
     fetchVisitas();
   }, [fetchVisitas]);
+
+  useEffect(() => {
+    fetchVisitasRealizadas();
+  }, [fetchVisitasRealizadas]);
 
   useEffect(() => {
     if (viewMode === "realizadas") {
@@ -556,6 +633,115 @@ export function PendientesVisitaTable({
   const handleVisitaCompletada = () => {
     onRefresh();
     fetchVisitas();
+    fetchVisitasRealizadas();
+  };
+
+  const handleOpenEditarVisita = (visita: VisitaRegistro) => {
+    if (!visita.visitaId) {
+      toast({
+        title: "Sin ID de visita",
+        description: "No se puede editar porque la visita no tiene identificador.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVisitaEdicion(visita);
+    setEditarComentario(visita.evidenciaTexto || visita.comentario || "");
+    setEditarFecha(toDatetimeLocalValue(visita.fechaVisita));
+    setEditarEstudioFiles([]);
+    setEditarEvidenciaFiles([]);
+    setEditarVisitaDialogOpen(true);
+  };
+
+  const uploadEditFiles = async (
+    visitaId: string,
+    categoria: "estudio_energetico" | "evidencia",
+    files: File[],
+  ) => {
+    if (files.length === 0) return;
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("files", file, file.name);
+    });
+    await apiRequest(
+      `/visitas/${encodeURIComponent(visitaId)}/archivos/upload?categoria=${encodeURIComponent(categoria)}`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+  };
+
+  const handleGuardarEdicionVisita = async () => {
+    if (!visitaEdicion?.visitaId) return;
+
+    setGuardandoEdicion(true);
+    try {
+      const fechaIso = editarFecha
+        ? new Date(editarFecha).toISOString()
+        : visitaEdicion.fechaVisita || new Date().toISOString();
+
+      const updatePayload: Record<string, unknown> = {
+        estado: "completada",
+        fecha_completada: fechaIso,
+        evidencia_texto: editarComentario.trim(),
+        notas: editarComentario.trim(),
+        comentario: editarComentario.trim(),
+      };
+
+      if (visitaEdicion.resultadoVisita) {
+        updatePayload.resultado = visitaEdicion.resultadoVisita;
+      }
+      if (visitaEdicion.motivoVisita) {
+        updatePayload.motivo = visitaEdicion.motivoVisita;
+      }
+      if (
+        Array.isArray(visitaEdicion.materialesExtra) &&
+        visitaEdicion.materialesExtra.length > 0
+      ) {
+        updatePayload.materiales_extra = visitaEdicion.materialesExtra;
+      }
+
+      await apiRequest(`/visitas/${encodeURIComponent(visitaEdicion.visitaId)}`, {
+        method: "PUT",
+        body: JSON.stringify(updatePayload),
+      });
+
+      await Promise.all([
+        uploadEditFiles(
+          visitaEdicion.visitaId,
+          "estudio_energetico",
+          editarEstudioFiles,
+        ),
+        uploadEditFiles(
+          visitaEdicion.visitaId,
+          "evidencia",
+          editarEvidenciaFiles,
+        ),
+      ]);
+
+      toast({
+        title: "Visita actualizada",
+        description: "Se actualizó comentario, fecha y archivos correctamente.",
+      });
+
+      setEditarVisitaDialogOpen(false);
+      setVisitaEdicion(null);
+      setEditarEstudioFiles([]);
+      setEditarEvidenciaFiles([]);
+      fetchVisitas();
+      fetchVisitasRealizadas();
+    } catch (error: any) {
+      toast({
+        title: "Error al editar visita",
+        description:
+          error?.message || "No se pudo actualizar la visita seleccionada.",
+        variant: "destructive",
+      });
+    } finally {
+      setGuardandoEdicion(false);
+    }
   };
 
   const handleVerOferta = async (pendiente: PendienteVisita) => {
@@ -664,6 +850,7 @@ export function PendientesVisitaTable({
           url: String(fileUrl),
           categoria: categoria || item.categoria,
           visitaId,
+          contentType: item.content_type || item.mime_type || item.tipo_mime,
         });
       }
     };
@@ -784,6 +971,7 @@ export function PendientesVisitaTable({
   const openBlobFromResponse = async (
     response: Response,
     archivo: ArchivoVisita,
+    mode: "view" | "download",
   ) => {
     const contentType = response.headers.get("content-type") || "";
     if (contentType.includes("text/html")) {
@@ -791,18 +979,24 @@ export function PendientesVisitaTable({
     }
     const blob = await response.blob();
     const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.download = archivo.nombre || "archivo";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (mode === "view") {
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+    } else {
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = getArchivoName(archivo);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   };
 
-  const openBlobFromApiRequest = async (blob: Blob, archivo: ArchivoVisita) => {
+  const openBlobFromApiRequest = async (
+    blob: Blob,
+    archivo: ArchivoVisita,
+    mode: "view" | "download",
+  ) => {
     if (!blob || blob.size === 0) {
       throw new Error("El archivo llegó vacío.");
     }
@@ -810,22 +1004,27 @@ export function PendientesVisitaTable({
       throw new Error("El backend devolvió HTML en lugar del archivo.");
     }
     const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = blobUrl;
-    link.target = "_blank";
-    link.rel = "noopener noreferrer";
-    link.download = archivo.nombre || "archivo";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    if (mode === "view") {
+      window.open(blobUrl, "_blank", "noopener,noreferrer");
+    } else {
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = getArchivoName(archivo);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
     setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
   };
 
-  const tryDownloadViaBackend = async (archivo: ArchivoVisita) => {
+  const tryDownloadViaBackend = async (
+    archivo: ArchivoVisita,
+    mode: "view" | "download",
+  ) => {
     if (!archivo.visitaId) return false;
 
     const raw = String(archivo.url || "").trim();
-    const fileName = raw.split("?")[0].split("/").pop() || archivo.nombre || "";
+    const fileName = raw.split("?")[0].split("/").pop() || getArchivoName(archivo);
     const encodedRaw = encodeURIComponent(raw);
     const encodedName = encodeURIComponent(fileName);
     const visitIdEncoded = encodeURIComponent(archivo.visitaId);
@@ -846,7 +1045,7 @@ export function PendientesVisitaTable({
           method: "GET",
           responseType: "blob",
         });
-        await openBlobFromApiRequest(blob, archivo);
+        await openBlobFromApiRequest(blob, archivo, mode);
         return true;
       } catch {
         // Probar siguiente endpoint candidato
@@ -914,14 +1113,30 @@ export function PendientesVisitaTable({
   };
 
   const handleOpenArchivo = async (archivo: ArchivoVisita) => {
+    return handleArchivoAction(archivo, "view");
+  };
+
+  const handleDownloadArchivo = async (archivo: ArchivoVisita) => {
+    return handleArchivoAction(archivo, "download");
+  };
+
+  const getArchivoPreviewUrl = (archivo: ArchivoVisita) => {
+    const candidates = getArchivoUrlCandidates(archivo);
+    return candidates.find((candidate) => /^https?:\/\//i.test(candidate)) || "";
+  };
+
+  const handleArchivoAction = async (
+    archivo: ArchivoVisita,
+    mode: "view" | "download",
+  ) => {
     try {
       // 1) Primero intentar descarga autenticada vía backend (si existe endpoint)
-      const downloadedViaBackend = await tryDownloadViaBackend(archivo);
+      const downloadedViaBackend = await tryDownloadViaBackend(archivo, mode);
       if (downloadedViaBackend) return;
 
       // 2) Intentar obtener URL firmada fresca desde backend
       const raw = String(archivo.url || "").trim();
-      const fileName = raw.split("?")[0].split("/").pop() || archivo.nombre || "";
+      const fileName = raw.split("?")[0].split("/").pop() || getArchivoName(archivo);
       const signedCandidates = archivo.visitaId
         ? await getSignedUrlCandidatesFromBackend(archivo.visitaId, fileName)
         : [];
@@ -943,7 +1158,7 @@ export function PendientesVisitaTable({
             headers: token ? { Authorization: `Bearer ${token}` } : {},
           });
           if (response.ok) {
-            await openBlobFromResponse(response, archivo);
+            await openBlobFromResponse(response, archivo, mode);
             return;
           }
           attemptErrors.push(`${candidate} -> ${response.status}`);
@@ -955,7 +1170,7 @@ export function PendientesVisitaTable({
         try {
           const response = await fetch(candidate, { method: "GET" });
           if (response.ok) {
-            await openBlobFromResponse(response, archivo);
+            await openBlobFromResponse(response, archivo, mode);
             return;
           }
           attemptErrors.push(`${candidate} -> ${response.status} (sin token)`);
@@ -969,7 +1184,10 @@ export function PendientesVisitaTable({
       );
     } catch (error: any) {
       toast({
-        title: "No se pudo abrir el archivo",
+        title:
+          mode === "download"
+            ? "No se pudo descargar el archivo"
+            : "No se pudo abrir el archivo",
         description:
           error?.message ||
           "Intenta nuevamente. Si persiste, verifica permisos del archivo.",
@@ -1207,6 +1425,15 @@ export function PendientesVisitaTable({
                               Ver Archivos
                             </Button>
                             <Button
+                              onClick={() => handleOpenEditarVisita(registro)}
+                              size="sm"
+                              variant="outline"
+                              className="text-sm h-9 col-span-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+                            >
+                              <Pencil className="h-3 w-3 mr-1" />
+                              Editar visita
+                            </Button>
+                            <Button
                               onClick={() => handleVerFotosCliente(registro)}
                               size="sm"
                               variant="outline"
@@ -1414,6 +1641,15 @@ export function PendientesVisitaTable({
                                     Ver Archivos
                                   </Button>
                                   <Button
+                                    onClick={() => handleOpenEditarVisita(registro)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-sm h-8 px-3 border-amber-300 text-amber-700 hover:bg-amber-50"
+                                  >
+                                    <Pencil className="h-3 w-3 mr-1" />
+                                    Editar
+                                  </Button>
+                                  <Button
                                     onClick={() =>
                                       handleVerFotosCliente(registro)
                                     }
@@ -1494,6 +1730,118 @@ export function PendientesVisitaTable({
         clienteCodigo={fotosDialogData?.codigo}
         fotos={fotosDialogData?.fotos || []}
       />
+
+      <Dialog
+        open={editarVisitaDialogOpen}
+        onOpenChange={(open) => {
+          setEditarVisitaDialogOpen(open);
+          if (!open) {
+            setVisitaEdicion(null);
+            setEditarEstudioFiles([]);
+            setEditarEvidenciaFiles([]);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar visita realizada</DialogTitle>
+          </DialogHeader>
+          {visitaEdicion ? (
+            <div className="space-y-4">
+              <div className="rounded-md border bg-slate-50 p-3">
+                <p className="text-sm font-semibold text-slate-900">
+                  {visitaEdicion.nombre}
+                </p>
+                <p className="text-xs text-slate-600">
+                  ID visita: {visitaEdicion.visitaId}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editar-fecha-visita">Fecha de visita</Label>
+                <Input
+                  id="editar-fecha-visita"
+                  type="datetime-local"
+                  value={editarFecha}
+                  onChange={(e) => setEditarFecha(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editar-comentario-visita">Comentario</Label>
+                <Textarea
+                  id="editar-comentario-visita"
+                  value={editarComentario}
+                  onChange={(e) => setEditarComentario(e.target.value)}
+                  rows={4}
+                  placeholder="Escribe el comentario actualizado de la visita"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editar-estudio-files">
+                  Agregar archivos de estudio energético
+                </Label>
+                <Input
+                  id="editar-estudio-files"
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,image/*,video/*,audio/*"
+                  onChange={(e) =>
+                    setEditarEstudioFiles(Array.from(e.target.files || []))
+                  }
+                />
+                {editarEstudioFiles.length > 0 && (
+                  <p className="text-xs text-slate-600">
+                    {editarEstudioFiles.length} archivo(s) seleccionados
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="editar-evidencia-files">
+                  Agregar archivos de evidencia
+                </Label>
+                <Input
+                  id="editar-evidencia-files"
+                  type="file"
+                  multiple
+                  accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  onChange={(e) =>
+                    setEditarEvidenciaFiles(Array.from(e.target.files || []))
+                  }
+                />
+                {editarEvidenciaFiles.length > 0 && (
+                  <p className="text-xs text-slate-600">
+                    {editarEvidenciaFiles.length} archivo(s) seleccionados
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditarVisitaDialogOpen(false)}
+                  disabled={guardandoEdicion}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleGuardarEdicionVisita}
+                  disabled={guardandoEdicion}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  {guardandoEdicion ? "Guardando..." : "Guardar cambios"}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">Sin visita seleccionada.</p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog
         open={detalleVisitaDialogOpen}
@@ -1632,18 +1980,53 @@ export function PendientesVisitaTable({
                     .map((archivo, index) => (
                       <div
                         key={`estudio-${archivo.url}-${index}`}
-                        className="flex items-center justify-between border rounded p-2"
+                        className="border rounded p-3 bg-white space-y-3"
                       >
-                        <p className="text-sm font-medium truncate pr-3">
-                          {archivo.nombre}
+                        <div className="rounded-md border bg-slate-50 overflow-hidden aspect-video flex items-center justify-center">
+                          {isVideoArchivo(archivo) ? (
+                            <video
+                              src={getArchivoPreviewUrl(archivo)}
+                              controls
+                              preload="metadata"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : isImageArchivo(archivo) ? (
+                            <img
+                              src={getArchivoPreviewUrl(archivo)}
+                              alt={getArchivoName(archivo)}
+                              className="w-full h-full object-contain bg-white"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-slate-500">
+                              <FileText className="h-8 w-8" />
+                              <p className="text-xs">Sin vista previa</p>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium truncate">
+                          {getArchivoName(archivo)}
                         </p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenArchivo(archivo)}
-                        >
-                          Abrir
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenArchivo(archivo)}
+                            className="flex-1"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Ver
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownloadArchivo(archivo)}
+                            className="flex-1"
+                          >
+                            <Download className="h-3.5 w-3.5 mr-1" />
+                            Descargar
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   {archivosVisita.filter((a) =>
@@ -1663,18 +2046,58 @@ export function PendientesVisitaTable({
                     .map((archivo, index) => (
                       <div
                         key={`evidencia-${archivo.url}-${index}`}
-                        className="flex items-center justify-between border rounded p-2"
+                        className="border rounded p-3 bg-white space-y-3"
                       >
-                        <p className="text-sm font-medium truncate pr-3">
-                          {archivo.nombre}
+                        <div className="rounded-md border bg-slate-50 overflow-hidden aspect-video flex items-center justify-center">
+                          {isVideoArchivo(archivo) ? (
+                            <div className="relative w-full h-full">
+                              <video
+                                src={getArchivoPreviewUrl(archivo)}
+                                controls
+                                preload="metadata"
+                                className="w-full h-full object-cover"
+                              />
+                              <span className="absolute top-2 right-2 rounded-full bg-black/70 p-1 text-white">
+                                <PlayCircle className="h-3.5 w-3.5" />
+                              </span>
+                            </div>
+                          ) : isImageArchivo(archivo) ? (
+                            <img
+                              src={getArchivoPreviewUrl(archivo)}
+                              alt={getArchivoName(archivo)}
+                              className="w-full h-full object-contain bg-white"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2 text-slate-500">
+                              <FileText className="h-8 w-8" />
+                              <p className="text-xs">Sin vista previa</p>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium truncate">
+                          {getArchivoName(archivo)}
                         </p>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleOpenArchivo(archivo)}
-                        >
-                          Abrir
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenArchivo(archivo)}
+                            className="flex-1"
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            Ver
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDownloadArchivo(archivo)}
+                            className="flex-1"
+                          >
+                            <Download className="h-3.5 w-3.5 mr-1" />
+                            Descargar
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   {archivosVisita.filter((a) =>

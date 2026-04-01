@@ -65,6 +65,14 @@ type ResultadoType =
   | "necesita_oferta_nueva"
   | "";
 
+const getTodayLocalDateValue = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export function CompletarVisitaDialog({
   open,
   onOpenChange,
@@ -96,10 +104,14 @@ export function CompletarVisitaDialog({
   const [materialesSeleccionados, setMaterialesSeleccionados] = useState<
     MaterialSeleccionado[]
   >([]);
+  const [fechaVisitaCompletada, setFechaVisitaCompletada] = useState<string>(
+    getTodayLocalDateValue(),
+  );
 
   // Verificar si tiene oferta asignada cuando se abre el diálogo
   useEffect(() => {
     if (open && pendiente) {
+      setFechaVisitaCompletada(getTodayLocalDateValue());
       verificarOferta();
     }
   }, [open, pendiente]);
@@ -233,6 +245,7 @@ export function CompletarVisitaDialog({
     setMaterialesSeleccionados([]);
     setTieneOferta(null);
     setOfertaAsignada(null);
+    setFechaVisitaCompletada(getTodayLocalDateValue());
   };
 
   const handleFileUpload = (
@@ -438,6 +451,15 @@ export function CompletarVisitaDialog({
       return;
     }
 
+    if (!fechaVisitaCompletada) {
+      toast({
+        title: "Campo requerido",
+        description: "Debe seleccionar la fecha de la visita realizada.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validaciones
     if (estudioEnergetico.length === 0) {
       toast({
@@ -498,6 +520,9 @@ export function CompletarVisitaDialog({
     setLoading(true);
     try {
       const nuevoEstado = determinarNuevoEstado();
+      const fechaCompletadaIso = new Date(
+        `${fechaVisitaCompletada}T12:00:00`,
+      ).toISOString();
       const token = localStorage.getItem("auth_token");
       const parseVisitas = (visitasResponse: any): any[] => {
         const data = visitasResponse?.data ?? visitasResponse;
@@ -641,7 +666,7 @@ export function CompletarVisitaDialog({
 
         const updatePayload: Record<string, unknown> = {
           estado: "completada",
-          fecha_completada: new Date().toISOString(),
+          fecha_completada: fechaCompletadaIso,
           nuevo_estado: nuevoEstado,
           tiene_oferta: Boolean(tieneOferta),
         };
@@ -769,6 +794,22 @@ export function CompletarVisitaDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          <div>
+            <Label htmlFor="fecha-visita-completada" className="text-base font-semibold mb-2">
+              Fecha de la visita realizada
+              <span className="text-red-500 ml-1">*</span>
+            </Label>
+            <p className="text-sm text-gray-500 mb-3">
+              Puedes seleccionar hoy, un día anterior o el día siguiente.
+            </p>
+            <Input
+              id="fecha-visita-completada"
+              type="date"
+              value={fechaVisitaCompletada}
+              onChange={(e) => setFechaVisitaCompletada(e.target.value)}
+            />
+          </div>
+
           {/* Estado de Verificación de Oferta */}
           {verificandoOferta && (
             <Card className="border-blue-200 bg-blue-50">
