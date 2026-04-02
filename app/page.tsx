@@ -376,10 +376,25 @@ export default function Dashboard() {
       ]
     : [];
 
+  const normalizeComparableText = (value: string | undefined | null) =>
+    String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+  const canViewTrabajadoresCard =
+    user?.is_superAdmin === true ||
+    normalizeComparableText(user?.nombre) ===
+      normalizeComparableText("Ilina Gómez Martínez");
+
   const availableModules = [
-    ...allModules.filter((module) =>
-      hasPermission(module.permission ?? module.id),
-    ),
+    ...allModules.filter((module) => {
+      if (module.id === "trabajadores" && !canViewTrabajadoresCard) {
+        return false;
+      }
+      return hasPermission(module.permission ?? module.id);
+    }),
     ...superAdminModules,
   ];
 
