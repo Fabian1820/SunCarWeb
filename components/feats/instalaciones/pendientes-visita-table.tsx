@@ -1433,15 +1433,6 @@ export function PendientesVisitaTable({
                               <Pencil className="h-3 w-3 mr-1" />
                               Editar visita
                             </Button>
-                            <Button
-                              onClick={() => handleVerFotosCliente(registro)}
-                              size="sm"
-                              variant="outline"
-                              className="text-sm h-9 col-span-2 border-sky-300 text-sky-700 hover:bg-sky-50"
-                            >
-                              <Camera className="h-3 w-3 mr-1" />
-                              Ver Fotos
-                            </Button>
                           </div>
                         ) : (
                           <div className="grid grid-cols-2 gap-2">
@@ -1640,26 +1631,15 @@ export function PendientesVisitaTable({
                                     <FolderOpen className="h-3 w-3 mr-1" />
                                     Ver Archivos
                                   </Button>
-                                  <Button
-                                    onClick={() => handleOpenEditarVisita(registro)}
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-sm h-8 px-3 border-amber-300 text-amber-700 hover:bg-amber-50"
-                                  >
-                                    <Pencil className="h-3 w-3 mr-1" />
-                                    Editar
-                                  </Button>
-                                  <Button
-                                    onClick={() =>
-                                      handleVerFotosCliente(registro)
-                                    }
-                                    size="sm"
-                                    variant="outline"
-                                    className="text-sm h-8 px-3 border-sky-300 text-sky-700 hover:bg-sky-50"
-                                  >
-                                    <Camera className="h-3 w-3 mr-1" />
-                                    Ver Fotos
-                                  </Button>
+                              <Button
+                                onClick={() => handleOpenEditarVisita(registro)}
+                                size="sm"
+                                variant="outline"
+                                className="text-sm h-8 px-3 border-amber-300 text-amber-700 hover:bg-amber-50"
+                              >
+                                <Pencil className="h-3 w-3 mr-1" />
+                                Editar
+                              </Button>
                                 </>
                               ) : (
                                 <>

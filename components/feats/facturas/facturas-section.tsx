@@ -65,6 +65,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { ValeSalidaService } from "@/lib/services/feats/vales-salida/vale-salida-service";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import { DevolucionValeService } from "@/lib/api-services";
 import type { Cliente, ValeSalida } from "@/lib/api-types";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
@@ -227,6 +228,68 @@ const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
   })),
 });
 
+const toSafeNumber = (value: unknown): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeMaterialId = (value: unknown): string =>
+  String(value ?? "").trim();
+
+const ajustarValeConDevoluciones = async (
+  vale: ValeSalida,
+): Promise<ValeSalida> => {
+  const valeId = String(vale.id || "").trim();
+  if (!valeId || !Array.isArray(vale.materiales) || vale.materiales.length === 0) {
+    return vale;
+  }
+
+  try {
+    const resumen = await DevolucionValeService.getResumenPorVale(valeId);
+    const restantesPorMaterial = new Map<string, number>();
+
+    (resumen?.materiales || []).forEach((material) => {
+      const materialId = normalizeMaterialId(material.material_id);
+      if (!materialId) return;
+      restantesPorMaterial.set(materialId, toSafeNumber(material.cantidad_devuelta));
+    });
+
+    if (restantesPorMaterial.size === 0) return vale;
+
+    const materialesAjustados = vale.materiales.map((material) => {
+      const materialId = normalizeMaterialId(material.material_id);
+      const cantidadOriginal = toSafeNumber(material.cantidad);
+      if (!materialId || cantidadOriginal <= 0) {
+        return material;
+      }
+
+      const restanteDevuelto = toSafeNumber(restantesPorMaterial.get(materialId));
+      if (restanteDevuelto <= 0) {
+        return material;
+      }
+
+      const descuento = Math.min(cantidadOriginal, restanteDevuelto);
+      restantesPorMaterial.set(materialId, restanteDevuelto - descuento);
+
+      return {
+        ...material,
+        cantidad: Math.max(0, cantidadOriginal - descuento),
+      };
+    });
+
+    return {
+      ...vale,
+      materiales: materialesAjustados,
+    };
+  } catch (error) {
+    console.warn("No se pudo ajustar vale con devoluciones:", {
+      valeId,
+      error,
+    });
+    return vale;
+  }
+};
+
 export function FacturasSection() {
   const {
     facturas,
@@ -285,6 +348,8 @@ export function FacturasSection() {
     items: [],
   });
   const [valesNoFacturados, setValesNoFacturados] = useState<ValeSalida[]>([]);
+  const [valesNoFacturadosOriginales, setValesNoFacturadosOriginales] =
+    useState<Record<string, ValeSalida>>({});
   const [loadingValesNoFacturados, setLoadingValesNoFacturados] =
     useState(false);
   const [valesNoFacturadosError, setValesNoFacturadosError] = useState<
@@ -756,7 +821,8 @@ export function FacturasSection() {
     try {
       // Convertir cada vale de salida al formato de Vale de factura
       for (const valeSalida of vales) {
-        const valeParaFactura = mapValeSalidaToFacturaVale(valeSalida);
+        const valeAjustado = await ajustarValeConDevoluciones(valeSalida);
+        const valeParaFactura = mapValeSalidaToFacturaVale(valeAjustado);
 
         await agregarVale(facturaForVale.id, valeParaFactura);
       }
@@ -1067,13 +1133,21 @@ export function FacturasSection() {
         q: searchValesNoFacturados.trim() || undefined,
       });
       const disponibles = allVales.filter(isValeNoFacturadoDisponible);
-      setValesNoFacturados(disponibles);
+      const originalesById = Object.fromEntries(
+        disponibles.map((vale) => [vale.id, vale]),
+      );
+      const ajustados = await Promise.all(
+        disponibles.map((vale) => ajustarValeConDevoluciones(vale)),
+      );
+      setValesNoFacturadosOriginales(originalesById);
+      setValesNoFacturados(ajustados);
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
           : "No se pudieron cargar los vales no facturados.";
       setValesNoFacturadosError(message);
+      setValesNoFacturadosOriginales({});
       toast({
         title: "Error cargando vales",
         description: message,
@@ -1300,10 +1374,30 @@ export function FacturasSection() {
       return;
     }
 
-    setSelectedFactura(null);
-    setPrefillNuevaFacturaClienteId(selectedClienteRaw);
-    setPrefillNuevaFacturaVales(valesNoFacturadosSeleccionadosLista);
-    setFormDialogOpen(true);
+    setProcessingValesNoFacturados(true);
+    try {
+      const valesAjustados = await Promise.all(
+        valesNoFacturadosSeleccionadosLista.map((vale) =>
+          ajustarValeConDevoluciones(vale),
+        ),
+      );
+
+      setSelectedFactura(null);
+      setPrefillNuevaFacturaClienteId(selectedClienteRaw);
+      setPrefillNuevaFacturaVales(valesAjustados);
+      setFormDialogOpen(true);
+    } catch (error) {
+      toast({
+        title: "Error preparando vales",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudieron preparar los vales seleccionados.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessingValesNoFacturados(false);
+    }
   };
 
   const handleAgregarValesNoFacturadosAFactura = async () => {
@@ -1346,9 +1440,10 @@ export function FacturasSection() {
     setProcessingValesNoFacturados(true);
     try {
       for (const vale of valesNoFacturadosSeleccionadosLista) {
+        const valeAjustado = await ajustarValeConDevoluciones(vale);
         await agregarVale(
           selectedFacturaDestinoId,
-          mapValeSalidaToFacturaVale(vale),
+          mapValeSalidaToFacturaVale(valeAjustado),
         );
       }
       toast({
@@ -1898,11 +1993,22 @@ export function FacturasSection() {
             ) : (
               <div className="space-y-3">
                 {valesNoFacturadosFiltrados.map((vale) => {
+                  const valeOriginal = valesNoFacturadosOriginales[vale.id] || vale;
                   const total = vale.materiales.reduce((sum, material) => {
                     const precio = material.material?.precio || 0;
                     const cantidad = material.cantidad || 0;
                     return sum + precio * cantidad;
                   }, 0);
+                  const totalDevuelto = vale.materiales.reduce(
+                    (sum, material, index) => {
+                      const originalCantidad = toSafeNumber(
+                        valeOriginal.materiales?.[index]?.cantidad,
+                      );
+                      const facturableCantidad = toSafeNumber(material.cantidad);
+                      return sum + Math.max(0, originalCantidad - facturableCantidad);
+                    },
+                    0,
+                  );
                   const solicitud = getSolicitudFromVale(vale);
                   const cliente = getClienteFromVale(vale);
                   const isSelected = selectedValesNoFacturados.has(vale.id);
@@ -1966,9 +2072,16 @@ export function FacturasSection() {
                             </div>
 
                             <div className="flex items-center justify-between">
-                              <span className="text-xs text-gray-500">
-                                Materiales ({vale.materiales.length})
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500">
+                                  Materiales ({vale.materiales.length})
+                                </span>
+                                {totalDevuelto > 0 ? (
+                                  <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                                    Devuelto: {totalDevuelto}
+                                  </span>
+                                ) : null}
+                              </div>
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -1997,38 +2110,57 @@ export function FacturasSection() {
                       {isExpanded && (
                         <div className="border-t border-gray-200 bg-gray-50 p-4">
                           <div className="space-y-2">
-                            {vale.materiales.map((material, idx) => (
-                              <div
-                                key={idx}
-                                className="flex justify-between items-start text-sm bg-white p-2 rounded border border-gray-200"
-                              >
-                                <div className="flex-1">
-                                  <p className="font-medium text-gray-900">
-                                    {material.material_codigo ||
-                                      material.codigo ||
-                                      "Sin código"}
-                                  </p>
-                                  <p className="text-gray-600 text-xs">
-                                    {material.material_descripcion ||
-                                      material.descripcion ||
-                                      material.material?.descripcion ||
-                                      material.material?.nombre ||
-                                      "Sin descripción"}
-                                  </p>
+                            {vale.materiales.map((material, idx) => {
+                              const originalCantidad = toSafeNumber(
+                                valeOriginal.materiales?.[idx]?.cantidad,
+                              );
+                              const facturableCantidad = toSafeNumber(
+                                material.cantidad,
+                              );
+                              const devueltaCantidad = Math.max(
+                                0,
+                                originalCantidad - facturableCantidad,
+                              );
+
+                              return (
+                                <div
+                                  key={idx}
+                                  className="flex justify-between items-start text-sm bg-white p-2 rounded border border-gray-200"
+                                >
+                                  <div className="flex-1">
+                                    <p className="font-medium text-gray-900">
+                                      {material.material_codigo ||
+                                        material.codigo ||
+                                        "Sin código"}
+                                    </p>
+                                    <p className="text-gray-600 text-xs">
+                                      {material.material_descripcion ||
+                                        material.descripcion ||
+                                        material.material?.descripcion ||
+                                        material.material?.nombre ||
+                                        "Sin descripción"}
+                                    </p>
+                                    {devueltaCantidad > 0 ? (
+                                      <p className="text-[11px] text-amber-700 mt-1">
+                                        Devuelto: {devueltaCantidad} • Original:{" "}
+                                        {originalCantidad}
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-gray-900">
+                                      x{facturableCantidad}
+                                    </p>
+                                    <p className="text-xs text-gray-500">
+                                      {formatCurrency(
+                                        (material.material?.precio || 0) *
+                                          facturableCantidad,
+                                      )}
+                                    </p>
+                                  </div>
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-gray-900">
-                                    x{material.cantidad}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {formatCurrency(
-                                      (material.material?.precio || 0) *
-                                        material.cantidad,
-                                    )}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}

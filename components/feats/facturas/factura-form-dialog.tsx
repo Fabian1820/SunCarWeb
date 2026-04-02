@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { TrabajadorService } from "@/lib/services/feats/worker/trabajador-service";
 import { facturaService } from "@/lib/services/feats/facturas/factura-service";
+import { DevolucionValeService } from "@/lib/api-services";
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
 import { TrabajadorSearchSelector } from "@/components/feats/worker/trabajador-search-selector";
 import type {
@@ -156,6 +157,64 @@ const applyDiscount = (price: number, discountPercentage: number) => {
   if (discountPercentage <= 0) return price;
   const discounted = price * ((100 - discountPercentage) / 100);
   return Math.round(discounted * 100) / 100;
+};
+
+const toSafeNumber = (value: unknown): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeMaterialId = (value: unknown): string =>
+  String(value ?? "").trim();
+
+const ajustarValeConDevoluciones = async (
+  vale: ValeSalida,
+): Promise<ValeSalida> => {
+  const valeId = String(vale.id || "").trim();
+  if (!valeId || !Array.isArray(vale.materiales) || vale.materiales.length === 0) {
+    return vale;
+  }
+
+  try {
+    const resumen = await DevolucionValeService.getResumenPorVale(valeId);
+    const restantesPorMaterial = new Map<string, number>();
+
+    (resumen?.materiales || []).forEach((material) => {
+      const materialId = normalizeMaterialId(material.material_id);
+      if (!materialId) return;
+      restantesPorMaterial.set(materialId, toSafeNumber(material.cantidad_devuelta));
+    });
+
+    if (restantesPorMaterial.size === 0) return vale;
+
+    const materialesAjustados = vale.materiales.map((material) => {
+      const materialId = normalizeMaterialId(material.material_id);
+      const cantidadOriginal = toSafeNumber(material.cantidad);
+      if (!materialId || cantidadOriginal <= 0) return material;
+
+      const restanteDevuelto = toSafeNumber(restantesPorMaterial.get(materialId));
+      if (restanteDevuelto <= 0) return material;
+
+      const descuento = Math.min(cantidadOriginal, restanteDevuelto);
+      restantesPorMaterial.set(materialId, restanteDevuelto - descuento);
+
+      return {
+        ...material,
+        cantidad: Math.max(0, cantidadOriginal - descuento),
+      };
+    });
+
+    return {
+      ...vale,
+      materiales: materialesAjustados,
+    };
+  } catch (error) {
+    console.warn("No se pudo ajustar vale con devoluciones:", {
+      valeId,
+      error,
+    });
+    return vale;
+  }
 };
 
 const mapValeToFacturaVale = (
@@ -389,25 +448,38 @@ export function FacturaFormDialog({
       setSelectedValeIds([]);
       setValesDisponibles([]);
     } else if (!factura && open) {
-      const valesPrefill = prefillVales || [];
-      const mappedPrefillVales = valesPrefill.map((vale) =>
-        mapValeToFacturaVale(vale, materials, "instaladora"),
-      );
+      let cancelled = false;
+      const loadPrefill = async () => {
+        const valesPrefill = prefillVales || [];
+        const valesAjustados = await Promise.all(
+          valesPrefill.map((vale) => ajustarValeConDevoluciones(vale)),
+        );
+        if (cancelled) return;
 
-      // Reset form para nueva factura
-      setFormData({
-        numero_factura: "",
-        tipo: "instaladora",
-        subtipo: "cliente",
-        cliente_id: prefillClienteId || null,
-        trabajador_ci: null,
-        nombre_responsable: null,
-        vales: mappedPrefillVales,
-        pagada: false,
-        terminada: false,
-      });
-      setSelectedValeIds(valesPrefill.map((vale) => vale.id));
-      setValesDisponibles(valesPrefill);
+        const mappedPrefillVales = valesAjustados.map((vale) =>
+          mapValeToFacturaVale(vale, materials, "instaladora"),
+        );
+
+        // Reset form para nueva factura
+        setFormData({
+          numero_factura: "",
+          tipo: "instaladora",
+          subtipo: "cliente",
+          cliente_id: prefillClienteId || null,
+          trabajador_ci: null,
+          nombre_responsable: null,
+          vales: mappedPrefillVales,
+          pagada: false,
+          terminada: false,
+        });
+        setSelectedValeIds(valesAjustados.map((vale) => vale.id));
+        setValesDisponibles(valesAjustados);
+      };
+
+      void loadPrefill();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [factura, open, prefillClienteId, prefillVales, materials]);
 
@@ -447,12 +519,15 @@ export function FacturaFormDialog({
           skip: 0,
           limit: 200,
         });
+        const valesAjustados = await Promise.all(
+          allVales.map((vale) => ajustarValeConDevoluciones(vale)),
+        );
         if (cancelled) return;
 
         // Debug: verificar vales cargados
         console.log(
           "📥 Vales cargados del backend:",
-          allVales.map((v) => ({
+          valesAjustados.map((v) => ({
             id: v.id,
             tipo_id: typeof v.id,
             codigo: v.codigo,
@@ -460,7 +535,7 @@ export function FacturaFormDialog({
           })),
         );
 
-        setValesDisponibles(allVales);
+        setValesDisponibles(valesAjustados);
       } catch (error) {
         if (cancelled) return;
         setValesDisponibles([]);
