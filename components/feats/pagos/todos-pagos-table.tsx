@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import type { OfertaConPagos } from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
+import { ExportComprobanteDevolucionService } from "@/lib/services/feats/pagos/export-comprobante-devolucion-service";
 import { FacturaContabilidadService } from "@/lib/services/feats/facturas/factura-contabilidad-service";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
@@ -114,6 +115,9 @@ const getEstadoClienteBadgeClass = (estado: string) => {
   );
 };
 
+const isOfertaCancelada = (estado: string) =>
+  estado.trim().toLowerCase() === "cancelada";
+
 const parseNullableNumber = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string") {
@@ -136,6 +140,30 @@ const roundToCents = (value: number): number =>
 const getMontoAplicadoUsd = (pago: OfertaConPagos["pagos"][number]): number => {
   const diferencia = pago.diferencia?.monto ?? 0;
   return Math.max(0, pago.monto_usd - diferencia);
+};
+
+const getTotalDevueltoOferta = (oferta: OfertaConPagos): number => {
+  if (typeof oferta.total_devuelto === "number") return oferta.total_devuelto;
+  if (Array.isArray(oferta.devoluciones)) {
+    return oferta.devoluciones.reduce(
+      (sum, item) => sum + Number(item.monto_devuelto || 0),
+      0,
+    );
+  }
+  return 0;
+};
+
+const getTotalDevueltoPago = (
+  pago: OfertaConPagos["pagos"][number],
+): number => {
+  if (typeof pago.total_devuelto === "number") return pago.total_devuelto;
+  if (Array.isArray(pago.devoluciones)) {
+    return pago.devoluciones.reduce(
+      (sum, item) => sum + Number(item.monto_devuelto || 0),
+      0,
+    );
+  }
+  return 0;
 };
 
 const ordenarPagosCronologicamente = (
@@ -271,6 +299,13 @@ export function TodosPagosTable({
     oferta: OfertaConPagos,
     pagoId: string,
   ): { totalPagadoAnteriormente: number; pendienteDespuesPago: number } => {
+    if (isOfertaCancelada(oferta.estado || "")) {
+      return {
+        totalPagadoAnteriormente: 0,
+        pendienteDespuesPago: 0,
+      };
+    }
+
     const pagosOrdenados = ordenarPagosCronologicamente(oferta.pagos);
     const indicePago = pagosOrdenados.findIndex((p) => p.id === pagoId);
 
@@ -508,6 +543,9 @@ export function TodosPagosTable({
             <TableHead className="text-right w-[110px]">
               Total Cobrado
             </TableHead>
+            <TableHead className="text-right w-[110px]">
+              Monto devuelto
+            </TableHead>
             <TableHead className="text-right w-[110px]">Pendiente</TableHead>
             <TableHead className="w-[80px] text-center">Cobros</TableHead>
             <TableHead className="w-[140px]">Almacén</TableHead>
@@ -521,7 +559,11 @@ export function TodosPagosTable({
               <React.Fragment key={oferta.oferta_id}>
                 {/* Fila principal de la oferta */}
                 <TableRow
-                  className="cursor-pointer hover:bg-gray-50"
+                  className={
+                    isOfertaCancelada(oferta.estado || "")
+                      ? "cursor-pointer bg-red-50 hover:bg-red-100 border-red-200"
+                      : "cursor-pointer hover:bg-gray-50"
+                  }
                   onClick={() => toggleOferta(oferta.oferta_id)}
                 >
                   <TableCell className="py-3">
@@ -533,6 +575,13 @@ export function TodosPagosTable({
                   </TableCell>
                   <TableCell className="font-medium text-sm py-3">
                     <div className="break-words">{oferta.numero_oferta}</div>
+                    {isOfertaCancelada(oferta.estado || "") && (
+                      <div className="mt-1">
+                        <Badge className="bg-red-100 text-red-700">
+                          Devolucion
+                        </Badge>
+                      </div>
+                    )}
                   </TableCell>
                   <TableCell className="py-3">
                     <div className="flex flex-col max-w-[160px] gap-0.5">
@@ -605,8 +654,23 @@ export function TodosPagosTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-right font-semibold text-sm py-3">
-                    <div className="break-words text-orange-700">
-                      {formatCurrency(oferta.monto_pendiente)}
+                    <div className="break-words text-red-700">
+                      {formatCurrency(getTotalDevueltoOferta(oferta))}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-sm py-3">
+                    <div
+                      className={
+                        isOfertaCancelada(oferta.estado || "")
+                          ? "break-words text-red-700"
+                          : "break-words text-orange-700"
+                      }
+                    >
+                      {formatCurrency(
+                        isOfertaCancelada(oferta.estado || "")
+                          ? 0
+                          : oferta.monto_pendiente,
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-center py-3">
@@ -643,10 +707,35 @@ export function TodosPagosTable({
                 {/* Filas expandidas con los pagos */}
                 {isExpanded && (
                   <TableRow>
-                    <TableCell colSpan={13} className="bg-gray-50 p-0">
-                      <div className="p-3 border-t border-gray-200">
-                        <h4 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                          <span className="h-1 w-1 rounded-full bg-blue-600"></span>
+                    <TableCell
+                      colSpan={14}
+                      className={
+                        isOfertaCancelada(oferta.estado || "")
+                          ? "bg-red-50 p-0"
+                          : "bg-gray-50 p-0"
+                      }
+                    >
+                      <div
+                        className={
+                          isOfertaCancelada(oferta.estado || "")
+                            ? "p-3 border-t border-red-200"
+                            : "p-3 border-t border-gray-200"
+                        }
+                      >
+                        <h4
+                          className={
+                            isOfertaCancelada(oferta.estado || "")
+                              ? "text-xs font-semibold text-red-700 mb-2 flex items-center gap-2"
+                              : "text-xs font-semibold text-gray-700 mb-2 flex items-center gap-2"
+                          }
+                        >
+                          <span
+                            className={
+                              isOfertaCancelada(oferta.estado || "")
+                                ? "h-1 w-1 rounded-full bg-red-600"
+                                : "h-1 w-1 rounded-full bg-blue-600"
+                            }
+                          ></span>
                           Detalle de Cobros ({oferta.cantidad_pagos})
                         </h4>
                         <div className="space-y-2">
@@ -659,7 +748,11 @@ export function TodosPagosTable({
                               return (
                                 <div
                                   key={pago.id}
-                                  className="bg-white rounded border border-gray-200 p-2 shadow-sm"
+                                  className={
+                                    isOfertaCancelada(oferta.estado || "")
+                                      ? "bg-red-50 rounded border border-red-200 p-2 shadow-sm"
+                                      : "bg-white rounded border border-gray-200 p-2 shadow-sm"
+                                  }
                                 >
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                                     {/* Columna 1: Información del Pago */}
@@ -698,6 +791,17 @@ export function TodosPagosTable({
                                             USD
                                           </div>
                                         )}
+                                      </div>
+                                      <div>
+                                        <span className="text-xs text-gray-500 block">
+                                          Monto devuelto
+                                        </span>
+                                        <span className="text-sm font-semibold text-red-700">
+                                          {formatCurrency(
+                                            getTotalDevueltoPago(pago),
+                                          )}{" "}
+                                          USD
+                                        </span>
                                       </div>
                                       {pago.diferencia && (
                                         <div className="mt-1">
@@ -751,7 +855,13 @@ export function TodosPagosTable({
                                           Pendiente después
                                         </span>
                                         <span className="text-sm font-semibold text-orange-700">
-                                          {formatCurrency(pendienteDespuesPago)}{" "}
+                                          {formatCurrency(
+                                            isOfertaCancelada(
+                                              oferta.estado || "",
+                                            )
+                                              ? 0
+                                              : pendienteDespuesPago,
+                                          )}{" "}
                                           USD
                                         </span>
                                       </div>
@@ -922,6 +1032,44 @@ export function TodosPagosTable({
                                           Comprobante
                                         </Button>
                                       </div>
+                                      {Array.isArray(pago.devoluciones) &&
+                                        pago.devoluciones.length > 0 && (
+                                          <div className="pt-1 space-y-1">
+                                            <span className="text-xs font-semibold text-red-700 block">
+                                              Devoluciones ({pago.devoluciones.length})
+                                            </span>
+                                            {pago.devoluciones.map((dev) => (
+                                              <div
+                                                key={dev.id}
+                                                className="rounded border border-red-200 bg-red-50 p-1.5"
+                                              >
+                                                <div className="text-[11px] text-red-700">
+                                                  {formatDate(dev.fecha)} •{" "}
+                                                  {formatCurrency(
+                                                    Number(dev.monto_devuelto || 0),
+                                                  )}
+                                                </div>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="mt-1 h-6 text-[11px] w-full border-red-300 text-red-700 hover:bg-red-100"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    ExportComprobanteDevolucionService.generarComprobantePDF(
+                                                      {
+                                                        oferta,
+                                                        devolucion: dev,
+                                                      },
+                                                    );
+                                                  }}
+                                                >
+                                                  <FileText className="h-3 w-3 mr-1" />
+                                                  Comprobante de devolución
+                                                </Button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                     </div>
                                   </div>
                                 </div>

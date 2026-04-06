@@ -12,13 +12,14 @@ import {
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
-import { Loader2, FileText, Pencil, Search } from "lucide-react";
+import { Loader2, FileText, Pencil, RotateCcw, Search } from "lucide-react";
 import type {
   OfertaConPagos,
   Pago,
 } from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
 import { EditarPagoDialog } from "./editar-pago-dialog";
+import { RegistrarDevolucionPagoDialog } from "./registrar-devolucion-pago-dialog";
 
 interface TodosPagosPlanosTableProps {
   ofertasConPagos: OfertaConPagos[];
@@ -33,6 +34,7 @@ interface PagoConOferta extends Pago {
     nombre_completo: string;
     precio_final: number;
     monto_pendiente: number;
+    estado: string;
   };
   contacto: {
     nombre: string | null;
@@ -70,6 +72,9 @@ const ordenarPagosCronologicamente = (pagos: Pago[]): Pago[] =>
     return a.id.localeCompare(b.id);
   });
 
+const isOfertaCancelada = (estado: string) =>
+  estado.trim().toLowerCase() === "cancelada";
+
 export function TodosPagosPlanosTable({
   ofertasConPagos,
   loading,
@@ -78,6 +83,9 @@ export function TodosPagosPlanosTable({
 }: TodosPagosPlanosTableProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedPago, setSelectedPago] = useState<PagoConOferta | null>(null);
+  const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
+  const [pagoParaDevolucion, setPagoParaDevolucion] =
+    useState<PagoConOferta | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   console.log(
@@ -97,6 +105,7 @@ export function TodosPagosPlanosTable({
         nombre_completo: oferta.nombre_completo,
         precio_final: oferta.precio_final,
         monto_pendiente: oferta.monto_pendiente,
+        estado: oferta.estado,
       },
       contacto: {
         ...oferta.contacto,
@@ -121,6 +130,13 @@ export function TodosPagosPlanosTable({
     oferta: OfertaConPagos,
     pagoId: string,
   ): { totalPagadoAnteriormente: number; pendienteDespuesPago: number } => {
+    if (isOfertaCancelada(oferta.estado || "")) {
+      return {
+        totalPagadoAnteriormente: 0,
+        pendienteDespuesPago: 0,
+      };
+    }
+
     const pagosOrdenadosOferta = ordenarPagosCronologicamente(oferta.pagos);
     const indicePago = pagosOrdenadosOferta.findIndex((p) => p.id === pagoId);
 
@@ -307,6 +323,19 @@ export function TodosPagosPlanosTable({
     }
   };
 
+  const handleOpenDevolucionDialog = (pago: PagoConOferta) => {
+    setPagoParaDevolucion(pago);
+    setDevolucionDialogOpen(true);
+  };
+
+  const handleDevolucionSuccess = async () => {
+    setDevolucionDialogOpen(false);
+    setPagoParaDevolucion(null);
+    if (onPagoUpdated) {
+      await onPagoUpdated();
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -359,12 +388,19 @@ export function TodosPagosPlanosTable({
             <TableHead className="w-[120px]">Tipo/Método</TableHead>
             <TableHead className="w-[130px]">Cliente/Pagador</TableHead>
             <TableHead className="w-[70px]">Recibido</TableHead>
-            <TableHead className="w-[120px] text-center">Acciones</TableHead>
+            <TableHead className="w-[170px] text-center">Acciones</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filteredPagos.map((pago) => (
-            <TableRow key={pago.id} className="hover:bg-gray-50">
+            <TableRow
+              key={pago.id}
+              className={
+                isOfertaCancelada(pago.oferta.estado)
+                  ? "bg-red-50 hover:bg-red-100 border-red-200"
+                  : "hover:bg-gray-50"
+              }
+            >
               <TableCell className="font-mono text-xs py-3">
                 {pago.id.slice(-8)}
               </TableCell>
@@ -373,6 +409,13 @@ export function TodosPagosPlanosTable({
               </TableCell>
               <TableCell className="font-medium text-sm py-3">
                 {pago.oferta.numero_oferta}
+                {isOfertaCancelada(pago.oferta.estado) && (
+                  <div className="mt-1">
+                    <Badge className="bg-red-100 text-red-700">
+                      Devolucion
+                    </Badge>
+                  </div>
+                )}
               </TableCell>
               <TableCell className="py-3">
                 <div className="text-sm text-gray-700">
@@ -407,7 +450,11 @@ export function TodosPagosPlanosTable({
               </TableCell>
               <TableCell className="text-right py-3">
                 <div className="font-semibold text-sm text-orange-700">
-                  {formatCurrency(pago.pendienteDespuesPago ?? 0)}
+                  {formatCurrency(
+                    isOfertaCancelada(pago.oferta.estado)
+                      ? 0
+                      : (pago.pendienteDespuesPago ?? 0),
+                  )}
                 </div>
               </TableCell>
               <TableCell className="py-3">
@@ -528,6 +575,15 @@ export function TodosPagosPlanosTable({
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => handleOpenDevolucionDialog(pago)}
+                    className="h-8 w-8 p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
+                    title="Registrar devolucion"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => handleExportarComprobante(pago)}
                     className="h-8 w-8 p-0"
                     title="Exportar comprobante"
@@ -549,6 +605,16 @@ export function TodosPagosPlanosTable({
           pago={selectedPago}
           oferta={selectedPago.oferta}
           onSuccess={handlePagoEditSuccess}
+        />
+      )}
+
+      {pagoParaDevolucion && (
+        <RegistrarDevolucionPagoDialog
+          open={devolucionDialogOpen}
+          onOpenChange={setDevolucionDialogOpen}
+          pago={pagoParaDevolucion}
+          codigoCliente={pagoParaDevolucion.contacto?.codigo || null}
+          onSuccess={handleDevolucionSuccess}
         />
       )}
     </div>

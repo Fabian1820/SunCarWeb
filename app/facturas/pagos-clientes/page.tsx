@@ -68,6 +68,8 @@ type ViewMode =
   | "todos-pagos"
   | "facturas-emitidas";
 
+type DevolucionesFilter = "todos" | "con_devoluciones" | "sin_devoluciones";
+
 const AUTO_REFRESH_MS = 20000;
 
 const normalizeEstadoClienteKey = (estado: string) =>
@@ -76,6 +78,38 @@ const normalizeEstadoClienteKey = (estado: string) =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .trim();
+
+const isOfertaCancelada = (estado?: string | null) =>
+  String(estado || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim() === "cancelada";
+
+const hasDevolucionesOferta = (oferta: OfertaConPagos) => {
+  const totalDevuelto = Number(oferta.total_devuelto || 0);
+  const cantidadDevoluciones = Number(oferta.cantidad_devoluciones || 0);
+  const devoluciones = Array.isArray(oferta.devoluciones)
+    ? oferta.devoluciones
+    : [];
+
+  if (totalDevuelto > 0 || cantidadDevoluciones > 0 || devoluciones.length > 0) {
+    return true;
+  }
+
+  return oferta.pagos.some((pago) => {
+    const totalPagoDevuelto = Number(pago.total_devuelto || 0);
+    const cantidadPagoDevoluciones = Number(pago.cantidad_devoluciones || 0);
+    const devolucionesPago = Array.isArray(pago.devoluciones)
+      ? pago.devoluciones
+      : [];
+    return (
+      totalPagoDevuelto > 0 ||
+      cantidadPagoDevoluciones > 0 ||
+      devolucionesPago.length > 0
+    );
+  });
+};
 
 const ESTADO_CLIENTE_LABELS: Record<string, string> = {
   "equipo instalado con exito": "Equipo instalado con éxito",
@@ -127,6 +161,8 @@ export default function PagosClientesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [fechaCobroDesde, setFechaCobroDesde] = useState("");
   const [fechaCobroHasta, setFechaCobroHasta] = useState("");
+  const [devolucionesFilter, setDevolucionesFilter] =
+    useState<DevolucionesFilter>("todos");
   const [estadoOfertaPendienteFilter, setEstadoOfertaPendienteFilter] =
     useState<"todos" | "con_pendiente" | "sin_pendiente">("todos");
   const [estadoClienteFilter, setEstadoClienteFilter] = useState("todos");
@@ -598,35 +634,52 @@ export default function PagosClientesPage() {
   }, [estadoClienteFilter, estadoClienteFilterOptions]);
 
   const filteredPagosPorOfertasConEstadoClienteFiltrado = useMemo(() => {
-    if (estadoClienteFilter === "todos") {
-      return filteredPagosPorOfertasConEstadoCliente;
-    }
+    const byEstadoCliente =
+      estadoClienteFilter === "todos"
+        ? filteredPagosPorOfertasConEstadoCliente
+        : filteredPagosPorOfertasConEstadoCliente.filter((oferta) => {
+            const estado = resolveEstadoClienteOferta(oferta);
+            return normalizeEstadoClienteKey(estado) === estadoClienteFilter;
+          });
 
-    return filteredPagosPorOfertasConEstadoCliente.filter((oferta) => {
-      const estado = resolveEstadoClienteOferta(oferta);
-      return normalizeEstadoClienteKey(estado) === estadoClienteFilter;
-    });
+    if (devolucionesFilter === "todos") return byEstadoCliente;
+
+    return byEstadoCliente.filter((oferta) =>
+      devolucionesFilter === "con_devoluciones"
+        ? hasDevolucionesOferta(oferta)
+        : !hasDevolucionesOferta(oferta),
+    );
   }, [
+    devolucionesFilter,
     estadoClienteFilter,
     filteredPagosPorOfertasConEstadoCliente,
     resolveEstadoClienteOferta,
   ]);
 
-  const filteredTodosPagosOfertas = filteredOfertasConPagosPorFecha;
+  const filteredTodosPagosOfertas = useMemo(() => {
+    if (devolucionesFilter === "todos") return filteredOfertasConPagosPorFecha;
+
+    return filteredOfertasConPagosPorFecha.filter((oferta) =>
+      devolucionesFilter === "con_devoluciones"
+        ? hasDevolucionesOferta(oferta)
+        : !hasDevolucionesOferta(oferta),
+    );
+  }, [devolucionesFilter, filteredOfertasConPagosPorFecha]);
 
   const totalesPagosPorOfertas = useMemo(() => {
-    const pagosFiltrados =
-      filteredPagosPorOfertasConEstadoClienteFiltrado.flatMap(
-        (oferta) => oferta.pagos,
+    const ofertasNoCanceladas =
+      filteredPagosPorOfertasConEstadoClienteFiltrado.filter(
+        (oferta) => !isOfertaCancelada(oferta.estado),
       );
+
+    const pagosFiltrados = ofertasNoCanceladas.flatMap((oferta) => oferta.pagos);
 
     const totalCobrado = pagosFiltrados.reduce(
       (acc, pago) => acc + Number(pago.monto_usd || 0),
       0,
     );
 
-    const totalPendientePorCobrar =
-      filteredPagosPorOfertasConEstadoClienteFiltrado.reduce(
+    const totalPendientePorCobrar = ofertasNoCanceladas.reduce(
         (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
         0,
       );
@@ -640,16 +693,18 @@ export default function PagosClientesPage() {
   }, [filteredPagosPorOfertasConEstadoClienteFiltrado]);
 
   const totalesTodosPagos = useMemo(() => {
-    const pagosFiltrados = filteredTodosPagosOfertas.flatMap(
-      (oferta) => oferta.pagos,
+    const ofertasNoCanceladas = filteredTodosPagosOfertas.filter(
+      (oferta) => !isOfertaCancelada(oferta.estado),
     );
+
+    const pagosFiltrados = ofertasNoCanceladas.flatMap((oferta) => oferta.pagos);
 
     const totalCobrado = pagosFiltrados.reduce(
       (acc, pago) => acc + Number(pago.monto_usd || 0),
       0,
     );
 
-    const totalPendientePorCobrar = filteredTodosPagosOfertas.reduce(
+    const totalPendientePorCobrar = ofertasNoCanceladas.reduce(
       (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
       0,
     );
@@ -672,6 +727,7 @@ export default function PagosClientesPage() {
   const shouldUseResumenEndpoint =
     showCobrosConPagosFilters &&
     searchTerm.trim() === "" &&
+    devolucionesFilter === "todos" &&
     (viewMode !== "pagos-por-ofertas" ||
       (estadoOfertaPendienteFilter === "todos" &&
         estadoClienteFilter === "todos"));
@@ -1434,6 +1490,28 @@ export default function PagosClientesPage() {
                         onChange={(e) => setFechaCobroHasta(e.target.value)}
                       />
                     </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                        Devoluciones
+                      </Label>
+                      <select
+                        value={devolucionesFilter}
+                        onChange={(e) =>
+                          setDevolucionesFilter(
+                            e.target.value as DevolucionesFilter,
+                          )
+                        }
+                        className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="todos">Todos</option>
+                        <option value="con_devoluciones">
+                          Con devoluciones
+                        </option>
+                        <option value="sin_devoluciones">
+                          Sin devoluciones
+                        </option>
+                      </select>
+                    </div>
                     {viewMode === "pagos-por-ofertas" && (
                       <>
                         <div>
@@ -1492,6 +1570,7 @@ export default function PagosClientesPage() {
                     onClick={() => {
                       setFechaCobroDesde("");
                       setFechaCobroHasta("");
+                      setDevolucionesFilter("todos");
                       setEstadoOfertaPendienteFilter("todos");
                       setEstadoClienteFilter("todos");
                     }}
@@ -1581,7 +1660,13 @@ export default function PagosClientesPage() {
                 <TodosPagosPlanosTable
                   ofertasConPagos={filteredTodosPagosOfertas}
                   loading={loadingPagos}
-                  onPagoUpdated={refetchOfertasConPagos}
+                  onPagoUpdated={async () => {
+                    await Promise.all([
+                      refetchOfertasConPagos(),
+                      refetchOfertasSinPago({ silent: true }),
+                      refetchOfertasConSaldoPendiente({ silent: true }),
+                    ]);
+                  }}
                   showSearch={false}
                 />
               ) : (

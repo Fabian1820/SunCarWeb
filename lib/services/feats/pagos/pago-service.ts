@@ -45,6 +45,24 @@ export interface Pago {
     monto: number;
     justificacion: string;
   };
+  devoluciones?: DevolucionPago[];
+  cantidad_devoluciones?: number;
+  total_devuelto?: number;
+}
+
+export interface DevolucionPago {
+  id: string;
+  pago_id?: string;
+  oferta_id?: string;
+  codigo_cliente?: string;
+  monto_devuelto: number;
+  fecha: string;
+  registrado_por?: string;
+  motivo_devolucion?: string;
+  devolucion_por_transferencia?: boolean;
+  cuenta_transferencia?: string | null;
+  titular_transferencia?: string | null;
+  desglose_billetes?: Record<string, number> | null;
 }
 
 export interface PagoConDetalles extends Pago {
@@ -71,6 +89,31 @@ export interface PagoCreateResponse {
   pago_id: string;
   pago: Pago;
   monto_pendiente_actualizado: number;
+}
+
+export interface PagoDevolucionData {
+  pago_id: string;
+  codigo_cliente: string;
+  oferta_id: string;
+  monto_devuelto: number;
+  fecha: string;
+  registrado_por: string;
+  motivo_devolucion: string;
+  devolucion_por_transferencia: boolean;
+  cuenta_transferencia?: string;
+  titular_transferencia?: string;
+  desglose_billetes?: Record<string, number> | null;
+}
+
+export interface PagoDevolucionResponse {
+  success: boolean;
+  message: string;
+  pago_id?: string;
+  monto_pendiente_actualizado?: number;
+  data?: {
+    pago_id?: string;
+    monto_pendiente_actualizado?: number;
+  };
 }
 
 export interface PagosResponse {
@@ -115,6 +158,9 @@ export interface OfertaConPagos {
   pagos: Pago[];
   total_pagado: number;
   cantidad_pagos: number;
+  devoluciones?: DevolucionPago[];
+  cantidad_devoluciones?: number;
+  total_devuelto?: number;
   contacto: Contacto;
   estado_cliente?: string | null;
   cliente_estado?: string | null;
@@ -354,6 +400,31 @@ export class PagoService {
       console.error("[PagoService] Error al eliminar pago:", error);
       throw new Error(
         error.response?.data?.message || "Error al eliminar pago",
+      );
+    }
+  }
+
+  /**
+   * Registrar una devolucion parcial o total sobre un pago.
+   */
+  static async registrarDevolucionPago(
+    data: PagoDevolucionData,
+  ): Promise<PagoDevolucionResponse> {
+    try {
+      const response = await apiRequest<PagoDevolucionResponse>(
+        "/devoluciones-pagos/",
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        },
+      );
+      return response;
+    } catch (error: any) {
+      console.error("[PagoService] Error al registrar devolucion:", error);
+      throw new Error(
+        error.response?.data?.message ||
+          error.response?.data?.detail ||
+          "Error al registrar devolucion del pago",
       );
     }
   }
