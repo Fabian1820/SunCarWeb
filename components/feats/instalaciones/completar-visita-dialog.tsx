@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   AlertCircle,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
@@ -64,6 +65,38 @@ type ResultadoType =
   | "necesita_material_extra"
   | "necesita_oferta_nueva"
   | "";
+
+type SubmitStep =
+  | "idle"
+  | "preparando"
+  | "buscando_visita"
+  | "actualizando_visita"
+  | "optimizando"
+  | "subiendo"
+  | "finalizando"
+  | "error";
+
+interface SubmitProgress {
+  step: SubmitStep;
+  message: string;
+  totalFiles: number;
+  optimizedFiles: number;
+  uploadedFiles: number;
+  totalBatches: number;
+  uploadedBatches: number;
+  currentCategory: "estudio_energetico" | "evidencia" | null;
+}
+
+const INITIAL_SUBMIT_PROGRESS: SubmitProgress = {
+  step: "idle",
+  message: "",
+  totalFiles: 0,
+  optimizedFiles: 0,
+  uploadedFiles: 0,
+  totalBatches: 0,
+  uploadedBatches: 0,
+  currentCategory: null,
+};
 
 const getTodayLocalDateValue = (): string => {
   const now = new Date();
@@ -106,6 +139,9 @@ export function CompletarVisitaDialog({
   >([]);
   const [fechaVisitaCompletada, setFechaVisitaCompletada] = useState<string>(
     getTodayLocalDateValue(),
+  );
+  const [submitProgress, setSubmitProgress] = useState<SubmitProgress>(
+    INITIAL_SUBMIT_PROGRESS,
   );
 
   // Verificar si tiene oferta asignada cuando se abre el diálogo
@@ -238,6 +274,16 @@ export function CompletarVisitaDialog({
   };
 
   const resetForm = () => {
+    estudioEnergetico.forEach((archivo) => {
+      if (archivo.url.startsWith("blob:")) {
+        URL.revokeObjectURL(archivo.url);
+      }
+    });
+    evidenciaArchivos.forEach((archivo) => {
+      if (archivo.url.startsWith("blob:")) {
+        URL.revokeObjectURL(archivo.url);
+      }
+    });
     setEstudioEnergetico([]);
     setEvidenciaArchivos([]);
     setEvidenciaTexto("");
@@ -246,6 +292,7 @@ export function CompletarVisitaDialog({
     setTieneOferta(null);
     setOfertaAsignada(null);
     setFechaVisitaCompletada(getTodayLocalDateValue());
+    setSubmitProgress(INITIAL_SUBMIT_PROGRESS);
   };
 
   const handleFileUpload = (
@@ -293,9 +340,21 @@ export function CompletarVisitaDialog({
 
   const removeArchivo = (index: number, tipo: "estudio" | "evidencia") => {
     if (tipo === "estudio") {
-      setEstudioEnergetico((prev) => prev.filter((_, i) => i !== index));
+      setEstudioEnergetico((prev) => {
+        const removed = prev[index];
+        if (removed?.url?.startsWith("blob:")) {
+          URL.revokeObjectURL(removed.url);
+        }
+        return prev.filter((_, i) => i !== index);
+      });
     } else {
-      setEvidenciaArchivos((prev) => prev.filter((_, i) => i !== index));
+      setEvidenciaArchivos((prev) => {
+        const removed = prev[index];
+        if (removed?.url?.startsWith("blob:")) {
+          URL.revokeObjectURL(removed.url);
+        }
+        return prev.filter((_, i) => i !== index);
+      });
     }
   };
 
@@ -357,7 +416,10 @@ export function CompletarVisitaDialog({
     }
   };
 
-  const optimizeFiles = async (files: ArchivoSubido[]): Promise<File[]> => {
+  const optimizeFiles = async (
+    files: ArchivoSubido[],
+    onFileOptimized?: () => void,
+  ): Promise<File[]> => {
     const optimizedFiles: File[] = new Array(files.length);
     const workerCount = Math.min(IMAGE_COMPRESSION_CONCURRENCY, files.length);
     let nextIndex = 0;
@@ -369,6 +431,7 @@ export function CompletarVisitaDialog({
         optimizedFiles[currentIndex] = await optimizeFile(
           files[currentIndex].file,
         );
+        onFileOptimized?.();
       }
     });
 
@@ -383,7 +446,33 @@ export function CompletarVisitaDialog({
   ) => {
     if (archivos.length === 0) return;
 
-    const optimizedFiles = await optimizeFiles(archivos);
+    const categoriaLabel =
+      categoria === "estudio_energetico" ? "estudio energético" : "evidencias";
+
+    setSubmitProgress((prev) => ({
+      ...prev,
+      step: "optimizando",
+      currentCategory: categoria,
+      message: `Optimizando ${categoriaLabel}...`,
+    }));
+
+    const optimizedFiles = await optimizeFiles(archivos, () => {
+      setSubmitProgress((prev) => {
+        const optimizedFilesCount = Math.min(
+          prev.totalFiles,
+          prev.optimizedFiles + 1,
+        );
+
+        return {
+          ...prev,
+          step: "optimizando",
+          currentCategory: categoria,
+          optimizedFiles: optimizedFilesCount,
+          message: `Optimizando archivos (${optimizedFilesCount}/${prev.totalFiles})`,
+        };
+      });
+    });
+
     const batches: File[][] = [];
     for (let i = 0; i < optimizedFiles.length; i += FILES_PER_UPLOAD_REQUEST) {
       batches.push(optimizedFiles.slice(i, i + FILES_PER_UPLOAD_REQUEST));
@@ -397,6 +486,13 @@ export function CompletarVisitaDialog({
         const filesBatch = batches[nextIndex];
         nextIndex += 1;
 
+        setSubmitProgress((prev) => ({
+          ...prev,
+          step: "subiendo",
+          currentCategory: categoria,
+          message: `Subiendo ${categoriaLabel} (${prev.uploadedFiles}/${prev.totalFiles})`,
+        }));
+
         const formData = new FormData();
         filesBatch.forEach((file) => {
           formData.append("files", file, file.name);
@@ -409,10 +505,52 @@ export function CompletarVisitaDialog({
             body: formData,
           },
         );
+
+        setSubmitProgress((prev) => {
+          const uploadedFilesCount = Math.min(
+            prev.totalFiles,
+            prev.uploadedFiles + filesBatch.length,
+          );
+          const uploadedBatchesCount = Math.min(
+            prev.totalBatches,
+            prev.uploadedBatches + 1,
+          );
+
+          return {
+            ...prev,
+            step: "subiendo",
+            currentCategory: categoria,
+            uploadedFiles: uploadedFilesCount,
+            uploadedBatches: uploadedBatchesCount,
+            message: `Subiendo archivos (${uploadedFilesCount}/${prev.totalFiles})`,
+          };
+        });
       }
     });
 
     await Promise.all(workers);
+  };
+
+  const getProgressPercent = (): number => {
+    if (submitProgress.step === "idle") return 0;
+    if (submitProgress.step === "preparando") return 3;
+    if (submitProgress.step === "buscando_visita") return 8;
+    if (submitProgress.step === "actualizando_visita") return 15;
+
+    if (submitProgress.step === "optimizando") {
+      if (submitProgress.totalFiles === 0) return 50;
+      const ratio = submitProgress.optimizedFiles / submitProgress.totalFiles;
+      return Math.min(50, Math.round(15 + ratio * 35));
+    }
+
+    if (submitProgress.step === "subiendo") {
+      if (submitProgress.totalFiles === 0) return 95;
+      const ratio = submitProgress.uploadedFiles / submitProgress.totalFiles;
+      return Math.min(95, Math.round(50 + ratio * 45));
+    }
+
+    if (submitProgress.step === "finalizando") return 98;
+    return 0;
   };
 
   const determinarNuevoEstado = (): string => {
@@ -519,6 +657,22 @@ export function CompletarVisitaDialog({
 
     setLoading(true);
     try {
+      const totalFiles = estudioEnergetico.length + evidenciaArchivos.length;
+      const totalBatches =
+        Math.ceil(estudioEnergetico.length / FILES_PER_UPLOAD_REQUEST) +
+        Math.ceil(evidenciaArchivos.length / FILES_PER_UPLOAD_REQUEST);
+
+      setSubmitProgress({
+        step: "preparando",
+        message: "Preparando datos de la visita...",
+        totalFiles,
+        optimizedFiles: 0,
+        uploadedFiles: 0,
+        totalBatches,
+        uploadedBatches: 0,
+        currentCategory: null,
+      });
+
       const nuevoEstado = determinarNuevoEstado();
       const fechaCompletadaIso = new Date(
         `${fechaVisitaCompletada}T12:00:00`,
@@ -541,6 +695,12 @@ export function CompletarVisitaDialog({
 
       let visitas: any[] = [];
       let crearYCompletarDirecto = false;
+
+      setSubmitProgress((prev) => ({
+        ...prev,
+        step: "buscando_visita",
+        message: "Buscando o creando la visita...",
+      }));
 
       if (pendiente.tipo === "lead") {
         const response = await fetch(`${API_BASE_URL}/visitas/lead/${leadId}`, {
@@ -622,6 +782,12 @@ export function CompletarVisitaDialog({
       };
 
       if (crearYCompletarDirecto && pendiente.tipo === "lead") {
+        setSubmitProgress((prev) => ({
+          ...prev,
+          step: "actualizando_visita",
+          message: "Creando visita...",
+        }));
+
         const createPayload: Record<string, unknown> = {
           lead_id: String(leadId),
           motivo: (pendiente.comentario?.trim() || "Visita técnica").toString(),
@@ -663,6 +829,12 @@ export function CompletarVisitaDialog({
         if (!visitaId) {
           throw new Error("La visita encontrada no tiene identificador válido");
         }
+
+        setSubmitProgress((prev) => ({
+          ...prev,
+          step: "actualizando_visita",
+          message: "Actualizando visita...",
+        }));
 
         const updatePayload: Record<string, unknown> = {
           estado: "completada",
@@ -709,18 +881,22 @@ export function CompletarVisitaDialog({
         );
       }
 
-      await Promise.all([
-        uploadCategoryFiles(
-          visitaIdParaArchivos,
-          "estudio_energetico",
-          estudioEnergetico,
-        ),
-        uploadCategoryFiles(
-          visitaIdParaArchivos,
-          "evidencia",
-          evidenciaArchivos,
-        ),
-      ]);
+      await uploadCategoryFiles(
+        visitaIdParaArchivos,
+        "estudio_energetico",
+        estudioEnergetico,
+      );
+      await uploadCategoryFiles(
+        visitaIdParaArchivos,
+        "evidencia",
+        evidenciaArchivos,
+      );
+
+      setSubmitProgress((prev) => ({
+        ...prev,
+        step: "finalizando",
+        message: "Finalizando proceso...",
+      }));
 
       toast({
         title: "Visita completada",
@@ -732,6 +908,11 @@ export function CompletarVisitaDialog({
       onSuccess();
     } catch (error: any) {
       console.error("Error al completar visita:", error);
+      setSubmitProgress((prev) => ({
+        ...prev,
+        step: "error",
+        message: "Ocurrió un error durante el guardado.",
+      }));
       toast({
         title: "Error",
         description: error.message || "No se pudo completar la visita",
@@ -794,6 +975,45 @@ export function CompletarVisitaDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {loading && (
+            <Card className="border-orange-200 bg-orange-50">
+              <CardContent className="p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-orange-700" />
+                  <p className="text-sm font-medium text-orange-900">
+                    {submitProgress.message || "Procesando visita..."}
+                  </p>
+                </div>
+
+                <div className="h-2 w-full rounded-full bg-orange-100 overflow-hidden">
+                  <div
+                    className="h-full bg-orange-600 transition-all duration-300"
+                    style={{ width: `${getProgressPercent()}%` }}
+                  />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-orange-800">
+                  <span>
+                    Archivos subidos: {submitProgress.uploadedFiles}/
+                    {submitProgress.totalFiles}
+                  </span>
+                  <span>
+                    Lotes: {submitProgress.uploadedBatches}/
+                    {submitProgress.totalBatches}
+                  </span>
+                  {submitProgress.currentCategory && (
+                    <span>
+                      Categoría:{" "}
+                      {submitProgress.currentCategory === "estudio_energetico"
+                        ? "Estudio energético"
+                        : "Evidencia"}
+                    </span>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div>
             <Label htmlFor="fecha-visita-completada" className="text-base font-semibold mb-2">
               Fecha de la visita realizada
@@ -1212,7 +1432,7 @@ export function CompletarVisitaDialog({
             disabled={loading || verificandoOferta}
             className="bg-orange-600 hover:bg-orange-700"
           >
-            {loading ? "Guardando..." : "Completar Visita"}
+            {loading ? submitProgress.message || "Guardando..." : "Completar Visita"}
           </Button>
         </DialogFooter>
       </DialogContent>
