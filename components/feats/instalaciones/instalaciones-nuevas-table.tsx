@@ -139,6 +139,11 @@ const normalizeMaterialDescription = (value: unknown) =>
     .trim()
     .toLowerCase();
 
+const normalizeLocationValue = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
 const normalizeEntrega = (entrega: any): EntregaOferta => ({
   cantidad: parseNumber(entrega?.cantidad),
   fecha: typeof entrega?.fecha === "string" ? entrega.fecha : "",
@@ -384,15 +389,24 @@ export function InstalacionesNuevasTable({
   }, [optionsSource]);
 
   const municipiosOptions = useMemo(() => {
+    const selectedProvincia = normalizeLocationValue(provincia);
+    const sourceForMunicipios =
+      selectedProvincia === "todos"
+        ? optionsSource
+        : optionsSource.filter(
+            (item) =>
+              normalizeLocationValue(item.provincia) === selectedProvincia,
+          );
+
     const values = Array.from(
       new Set(
-        optionsSource
+        sourceForMunicipios
           .map((item) => String(item.municipio || "").trim())
           .filter(Boolean),
       ),
     ).sort((a, b) => a.localeCompare(b, "es"));
     return values;
-  }, [optionsSource]);
+  }, [optionsSource, provincia]);
 
   const potenciasInversorOptions = useMemo(() => {
     const values = Array.from(
@@ -1123,9 +1137,7 @@ export function InstalacionesNuevasTable({
                 onChange={(e) => {
                   const nextProvincia = e.target.value;
                   setProvincia(nextProvincia);
-                  if (nextProvincia === "todos") {
-                    setMunicipio("todos");
-                  }
+                  setMunicipio("todos");
                 }}
               >
                 <option value="todos">Todas</option>
