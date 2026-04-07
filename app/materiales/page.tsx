@@ -37,6 +37,7 @@ import {
   List,
   Globe,
   AlertTriangle,
+  FileSpreadsheet,
 } from "lucide-react";
 import { MaterialsTable } from "@/components/feats/materials/materials-table";
 import { CategoriesTable } from "@/components/feats/materials/categories-table";
@@ -53,6 +54,7 @@ import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 export default function MaterialesPage() {
   const {
@@ -100,6 +102,7 @@ export default function MaterialesPage() {
   const [editingMarca, setEditingMarca] = useState<any>(null);
   const [deletingMarca, setDeletingMarca] = useState<any>(null);
   const [deleteMarcaLoading, setDeleteMarcaLoading] = useState(false);
+  const [exportingMaterials, setExportingMaterials] = useState(false);
 
   const addMaterial = async (material: Omit<Material, "id">) => {
     const categoria = (material as any).categoria;
@@ -580,6 +583,97 @@ export default function MaterialesPage() {
     setIsDeleteMarcaDialogOpen(true);
   };
 
+  const handleExportAllMaterialsExcel = async () => {
+    setExportingMaterials(true);
+    try {
+      const marcaPorId = new Map<string, string>();
+      marcas.forEach((marca) => {
+        if (marca?.id) {
+          marcaPorId.set(marca.id, marca.nombre || marca.id);
+        }
+      });
+
+      const normalizeValue = (value: unknown): string | number => {
+        if (typeof value === "number") return value;
+        if (typeof value === "boolean") return value ? "Sí" : "No";
+        if (value === null || value === undefined || value === "") return "-";
+        return String(value);
+      };
+
+      const normalizeJson = (value: unknown): string => {
+        if (!value) return "-";
+        try {
+          return JSON.stringify(value);
+        } catch {
+          return String(value);
+        }
+      };
+
+      await exportToExcel({
+        title: "Suncar SRL - Catálogo Completo de Materiales",
+        subtitle: `Total de materiales: ${materials.length}`,
+        filename: generateFilename("materiales_completos"),
+        columns: [
+          { header: "Código", key: "codigo", width: 18 },
+          { header: "Categoría", key: "categoria", width: 18 },
+          { header: "Nombre", key: "nombre", width: 32 },
+          { header: "Descripción", key: "descripcion", width: 42 },
+          { header: "UM", key: "um", width: 10 },
+          { header: "Precio", key: "precio", width: 14 },
+          { header: "Marca ID", key: "marca_id", width: 20 },
+          { header: "Marca", key: "marca_nombre", width: 22 },
+          { header: "Potencia (kW)", key: "potenciaKW", width: 16 },
+          { header: "Venta Web", key: "habilitar_venta_web", width: 14 },
+          {
+            header: "Código Contabilidad",
+            key: "codigo_contabilidad",
+            width: 20,
+          },
+          {
+            header: "Cantidad Contabilidad",
+            key: "cantidad_contabilidad",
+            width: 20,
+          },
+          {
+            header: "Precio Contabilidad",
+            key: "precio_contabilidad",
+            width: 18,
+          },
+        ],
+        data: materials.map((material) => ({
+          codigo: normalizeValue(material.codigo),
+          categoria: normalizeValue(material.categoria),
+          nombre: normalizeValue(material.nombre),
+          descripcion: normalizeValue(material.descripcion),
+          um: normalizeValue(material.um),
+          precio: material.precio ?? "-",
+          marca_id: normalizeValue(material.marca_id),
+          marca_nombre: material.marca_id
+            ? normalizeValue(marcaPorId.get(material.marca_id) || material.marca_id)
+            : "-",
+          potenciaKW: material.potenciaKW ?? "-",
+          habilitar_venta_web: normalizeValue(material.habilitar_venta_web),
+          codigo_contabilidad: normalizeValue(material.codigo_contabilidad),
+          cantidad_contabilidad: material.cantidad_contabilidad ?? "-",
+          precio_contabilidad: material.precio_contabilidad ?? "-",
+        })),
+      });
+
+      toast({
+        title: "Exportación exitosa",
+        description: "Se exportaron todos los materiales a Excel.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error al exportar",
+        description: err?.message || "No se pudo exportar el catálogo de materiales.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingMaterials(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageLoader
@@ -626,32 +720,52 @@ export default function MaterialesPage() {
         className="bg-white shadow-sm border-b border-orange-100"
         actions={
           viewMode === "materials" ? (
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogTrigger asChild>
-                <Button
-                  size="icon"
-                  className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 touch-manipulation"
-                  aria-label="Agregar material"
-                  title="Agregar material"
-                >
-                  <Plus className="h-4 w-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Agregar Material</span>
-                  <span className="sr-only">Agregar material</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Agregar Nuevo Material</DialogTitle>
-                </DialogHeader>
-                <MaterialForm
-                  onSubmit={addMaterial}
-                  onCancel={handleCloseModal}
-                  onClose={handleCloseModal}
-                  existingCategories={categories}
-                  existingUnits={units}
-                />
-              </DialogContent>
-            </Dialog>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleExportAllMaterialsExcel}
+                disabled={exportingMaterials || materials.length === 0}
+                className="border-green-300 text-green-700 hover:bg-green-50"
+              >
+                {exportingMaterials ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <span className="hidden sm:inline">Exportando...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Exportar Excel</span>
+                  </>
+                )}
+              </Button>
+              <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="icon"
+                    className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 touch-manipulation"
+                    aria-label="Agregar material"
+                    title="Agregar material"
+                  >
+                    <Plus className="h-4 w-4 sm:mr-2" />
+                    <span className="hidden sm:inline">Agregar Material</span>
+                    <span className="sr-only">Agregar material</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>Agregar Nuevo Material</DialogTitle>
+                  </DialogHeader>
+                  <MaterialForm
+                    onSubmit={addMaterial}
+                    onCancel={handleCloseModal}
+                    onClose={handleCloseModal}
+                    existingCategories={categories}
+                    existingUnits={units}
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
           ) : viewMode === "marcas" ? (
             <Dialog
               open={isAddMarcaDialogOpen}

@@ -17,6 +17,8 @@ import {
   PackageMinus,
   PackagePlus,
   Search,
+  FileSpreadsheet,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -60,6 +62,7 @@ import {
 } from "@/components/shared/molecule/tabs";
 import { EditarStockForm } from "@/components/feats/inventario/editar-stock-form";
 import { SalidaLoteForm } from "@/components/feats/inventario/salida-lote-form";
+import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 export default function AlmacenDetallePage() {
   const params = useParams();
@@ -93,6 +96,7 @@ export default function AlmacenDetallePage() {
   const [ultimoTipoLote, setUltimoTipoLote] = useState<
     "entrada" | "salida" | null
   >(null);
+  const [exportingStock, setExportingStock] = useState(false);
 
   const loadDetalle = async () => {
     setLoading(true);
@@ -418,6 +422,86 @@ export default function AlmacenDetallePage() {
     await refreshStock();
   };
 
+  const handleExportStockExcel = async () => {
+    setExportingStock(true);
+    try {
+      const normalizeValue = (value: unknown): string | number => {
+        if (typeof value === "number") return value;
+        if (typeof value === "boolean") return value ? "Sí" : "No";
+        if (value === null || value === undefined || value === "") return "-";
+        return String(value);
+      };
+
+      await exportToExcel({
+        title: "Suncar SRL - Stock de Almacén",
+        subtitle: `${almacen.nombre} | Registros: ${stock.length}`,
+        filename: generateFilename(
+          `stock_${String(almacen.nombre || almacen.id || "almacen")
+            .trim()
+            .replace(/\s+/g, "_")
+            .toLowerCase()}`,
+        ),
+        columns: [
+          { header: "Almacén", key: "almacen_nombre", width: 24 },
+          { header: "Código", key: "material_codigo", width: 18 },
+          { header: "Nombre", key: "material_nombre", width: 32 },
+          { header: "Descripción", key: "material_descripcion", width: 42 },
+          { header: "Categoría", key: "categoria", width: 18 },
+          { header: "Marca ID", key: "marca_id", width: 20 },
+          { header: "Marca", key: "marca_nombre", width: 24 },
+          { header: "UM", key: "um", width: 10 },
+          { header: "Potencia (kW)", key: "potenciaKW", width: 16 },
+          { header: "Stock", key: "stock", width: 12 },
+          { header: "Ubicación", key: "ubicacion_en_almacen", width: 30 },
+          { header: "Precio", key: "precio", width: 14 },
+          { header: "Venta Web", key: "habilitar_venta_web", width: 14 },
+        ],
+        data: stock.map((item) => {
+          const codigo = String(item.material_codigo || "")
+            .trim()
+            .toLowerCase();
+          const material = materialPorCodigo.get(codigo);
+          const marcaId = String(material?.marca_id || "").trim();
+
+          return {
+            almacen_nombre: normalizeValue(
+              item.almacen_nombre || almacen.nombre || item.almacen_id,
+            ),
+            material_codigo: normalizeValue(item.material_codigo),
+            material_nombre: normalizeValue(material?.nombre),
+            material_descripcion: normalizeValue(
+              material?.descripcion || item.material_descripcion,
+            ),
+            categoria: normalizeValue(material?.categoria || item.categoria),
+            marca_id: normalizeValue(marcaId),
+            marca_nombre: normalizeValue(
+              marcaId ? marcaNombrePorId.get(marcaId) || marcaId : null,
+            ),
+            um: normalizeValue(material?.um || item.um),
+            potenciaKW: material?.potenciaKW ?? "-",
+            stock: item.cantidad,
+            ubicacion_en_almacen: normalizeValue(item.ubicacion_en_almacen),
+            precio: material?.precio ?? "-",
+            habilitar_venta_web: normalizeValue(material?.habilitar_venta_web),
+          };
+        }),
+      });
+
+      toast({
+        title: "Exportación exitosa",
+        description: "Se exportó el stock del almacén a Excel.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Error al exportar",
+        description: err?.message || "No se pudo exportar el stock a Excel.",
+        variant: "destructive",
+      });
+    } finally {
+      setExportingStock(false);
+    }
+  };
+
   if (loading) {
     return <PageLoader moduleName="Almacén" text="Cargando detalles..." />;
   }
@@ -652,14 +736,30 @@ export default function AlmacenDetallePage() {
                       </div>
                     </div>
                   </div>
-                  <Button variant="outline" size="sm" onClick={refreshStock}>
-                    {loadingStock ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
-                    <span className="ml-2">Refrescar</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportStockExcel}
+                      disabled={exportingStock || stock.length === 0}
+                      className="border-green-300 text-green-700 hover:bg-green-50"
+                    >
+                      {exportingStock ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-4 w-4" />
+                      )}
+                      <span className="ml-2">Exportar Excel</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={refreshStock}>
+                      {loadingStock ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4" />
+                      )}
+                      <span className="ml-2">Refrescar</span>
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <StockTable
