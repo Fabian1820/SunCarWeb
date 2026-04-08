@@ -70,6 +70,7 @@ export default function InstalacionesEnProcesoPage() {
     materialesEntregados: "todos" as "todos" | "con_entregas" | "sin_entregas",
     equiposEnServicio: "todos" as "todos" | "con_servicio" | "sin_servicio",
     tiposEquipoEnServicio: [] as ServicioComponente[],
+    potenciaInversor: "todos" as "todos" | "lte_10" | "gt_10",
   });
   const [ofertasConEntregasIds, setOfertasConEntregasIds] = useState<
     Set<string>
@@ -215,6 +216,66 @@ export default function InstalacionesEnProcesoPage() {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) return 0;
     return Math.max(0, Math.trunc(parsed));
+  };
+
+  const parsePositiveNumber = (value: unknown): number | null => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
+
+  const parsePowerFromTextKw = (value: unknown): number | null => {
+    const text = String(value || "").trim();
+    if (!text) return null;
+    const match = text.match(/(\d+(?:[.,]\d+)?)\s*k\s*w/i);
+    if (!match?.[1]) return null;
+    return parsePositiveNumber(match[1].replace(",", "."));
+  };
+
+  const getCantidadTotalInversores = (client: Cliente): number => {
+    const ofertasRaw = (client as { ofertas?: unknown }).ofertas;
+    if (!Array.isArray(ofertasRaw)) return 0;
+
+    return ofertasRaw.reduce((sum, ofertaRaw) => {
+      if (!ofertaRaw || typeof ofertaRaw !== "object") return sum;
+      const oferta = ofertaRaw as Record<string, unknown>;
+      const cantidad = Number(oferta.inversor_cantidad);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) return sum;
+      return sum + cantidad;
+    }, 0);
+  };
+
+  const getPotenciaUnitarioInversorKw = (client: Cliente): number | null => {
+    const potenciaPrincipal = parsePositiveNumber(
+      getClientExtraField(client, "potencia_inversor_principal_kw"),
+    );
+    if (potenciaPrincipal) return potenciaPrincipal;
+
+    const ofertasRaw = (client as { ofertas?: unknown }).ofertas;
+    if (!Array.isArray(ofertasRaw)) return null;
+
+    for (const ofertaRaw of ofertasRaw) {
+      if (!ofertaRaw || typeof ofertaRaw !== "object") continue;
+      const oferta = ofertaRaw as Record<string, unknown>;
+      const potenciaDirecta =
+        parsePositiveNumber(oferta.inversor_potencia_kw) ??
+        parsePositiveNumber(oferta.potencia_inversor_kw) ??
+        parsePositiveNumber(oferta.potencia_inversor);
+      if (potenciaDirecta) return potenciaDirecta;
+
+      const potenciaDesdeNombre = parsePowerFromTextKw(oferta.inversor_nombre);
+      if (potenciaDesdeNombre) return potenciaDesdeNombre;
+    }
+
+    return null;
+  };
+
+  const getPotenciaTotalInversorKw = (client: Cliente): number | null => {
+    const cantidadTotal = getCantidadTotalInversores(client);
+    if (cantidadTotal <= 0) return null;
+    const potenciaUnitario = getPotenciaUnitarioInversorKw(client);
+    if (!potenciaUnitario) return null;
+    return potenciaUnitario * cantidadTotal;
   };
 
   // Función para construir texto de búsqueda
@@ -469,6 +530,25 @@ export default function InstalacionesEnProcesoPage() {
         }
       }
 
+      if (appliedFilters.potenciaInversor !== "todos") {
+        const potenciaTotalInversor = getPotenciaTotalInversorKw(client);
+        if (potenciaTotalInversor === null) {
+          return false;
+        }
+        if (
+          appliedFilters.potenciaInversor === "lte_10" &&
+          potenciaTotalInversor > 10
+        ) {
+          return false;
+        }
+        if (
+          appliedFilters.potenciaInversor === "gt_10" &&
+          potenciaTotalInversor <= 10
+        ) {
+          return false;
+        }
+      }
+
       return true;
     });
 
@@ -514,6 +594,7 @@ export default function InstalacionesEnProcesoPage() {
       <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <InstalacionesEnProcesoTable
           clients={filteredClients}
+          clientsSource={clients}
           loading={loading}
           onFiltersChange={setAppliedFilters}
           onRefresh={fetchClients}

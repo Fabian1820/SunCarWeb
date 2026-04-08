@@ -129,6 +129,26 @@ const parseNumber = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const parsePositiveNumber = (value: unknown): number | null => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const parsePowerFromTextKw = (value: unknown): number | null => {
+  const text = String(value || "").trim();
+  if (!text) return null;
+  const match = text.match(/(\d+(?:[.,]\d+)?)\s*k\s*w/i);
+  if (!match?.[1]) return null;
+  return parsePositiveNumber(match[1].replace(",", "."));
+};
+
+const formatPowerKw = (value: number) => {
+  if (!Number.isFinite(value)) return "0";
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(2).replace(/\.?0+$/, "");
+};
+
 const normalizeMaterialCode = (value: unknown) =>
   String(value ?? "")
     .trim()
@@ -322,10 +342,14 @@ export function InstalacionesNuevasTable({
   const [fechaPagoHasta, setFechaPagoHasta] = useState("");
   const [provincia, setProvincia] = useState("todos");
   const [municipio, setMunicipio] = useState("todos");
-  const [potenciaInversor, setPotenciaInversor] = useState("todos");
+  const [potenciaInversor, setPotenciaInversor] = useState<
+    "todos" | "lte_10" | "gt_10"
+  >("todos");
   const [materialesEntregadosFilter, setMaterialesEntregadosFilter] = useState<
     "todos" | "con_entregas" | "sin_entregas"
   >("todos");
+  const [isResumenPotenciaDialogOpen, setIsResumenPotenciaDialogOpen] =
+    useState(false);
 
   const [isUpdating, setIsUpdating] = useState(false);
   const [fotosDialogData, setFotosDialogData] = useState<{
@@ -377,6 +401,110 @@ export function InstalacionesNuevasTable({
 
   const optionsSource = instalacionesSource ?? instalaciones;
 
+  const resumenEquiposMenorIgual10Kw = useMemo(() => {
+    type OfertaDetalle = {
+      instalacionNombre: string;
+      instalacionCodigo: string;
+      faltaInstalacion: string;
+      ofertaNombre: string;
+      inversorTipo: string;
+      inversorCantidad: number;
+      bateriaTipo: string | null;
+      bateriaCantidad: number;
+      panelTipo: string | null;
+      panelCantidad: number;
+      potenciaUnitKw: number;
+      potenciaTotalOfertaKw: number;
+    };
+
+    type GrupoResumen = {
+      potenciaUnitKw: number;
+      totalInversores: number;
+      ofertas: OfertaDetalle[];
+    };
+
+    const grupos = new Map<string, GrupoResumen>();
+
+    optionsSource.forEach((instalacion) => {
+      const ofertas = Array.isArray(instalacion.ofertas) ? instalacion.ofertas : [];
+      if (ofertas.length === 0) return;
+
+      const potenciaPrincipal = parsePositiveNumber(
+        instalacion.potencia_inversor_principal_kw,
+      );
+
+      const detallesInstalacion: OfertaDetalle[] = [];
+      let potenciaTotalInstalacionKw = 0;
+
+      ofertas.forEach((ofertaRaw, index) => {
+        if (!ofertaRaw || typeof ofertaRaw !== "object") return;
+        const oferta = ofertaRaw as Record<string, unknown>;
+        const inversorCantidad = Math.max(0, parseNumber(oferta.inversor_cantidad));
+        if (inversorCantidad <= 0) return;
+
+        const potenciaUnit =
+          parsePositiveNumber(oferta.inversor_potencia_kw) ??
+          parsePositiveNumber(oferta.potencia_inversor_kw) ??
+          parsePositiveNumber(oferta.potencia_inversor) ??
+          parsePowerFromTextKw(oferta.inversor_nombre) ??
+          potenciaPrincipal;
+        if (!potenciaUnit) return;
+
+        const bateriaCantidad = Math.max(0, parseNumber(oferta.bateria_cantidad));
+        const panelCantidad = Math.max(0, parseNumber(oferta.panel_cantidad));
+        const potenciaTotalOfertaKw = potenciaUnit * inversorCantidad;
+        potenciaTotalInstalacionKw += potenciaTotalOfertaKw;
+
+        detallesInstalacion.push({
+          instalacionNombre: instalacion.nombre,
+          instalacionCodigo: String(instalacion.numero || instalacion.id || "-"),
+          faltaInstalacion: String(instalacion.falta_instalacion || "").trim(),
+          ofertaNombre: String(
+            oferta.nombre ||
+              oferta.nombre_automatico ||
+              oferta.numero_oferta ||
+              `Oferta ${index + 1}`,
+          ),
+          inversorTipo: String(
+            oferta.inversor_nombre || oferta.inversor_codigo || "Sin tipo",
+          ),
+          inversorCantidad,
+          bateriaTipo: oferta.bateria_cantidad
+            ? String(oferta.bateria_nombre || oferta.bateria_codigo || "Sin tipo")
+            : null,
+          bateriaCantidad,
+          panelTipo: oferta.panel_cantidad
+            ? String(oferta.panel_nombre || oferta.panel_codigo || "Sin tipo")
+            : null,
+          panelCantidad,
+          potenciaUnitKw: potenciaUnit,
+          potenciaTotalOfertaKw,
+        });
+      });
+
+      if (potenciaTotalInstalacionKw <= 0 || potenciaTotalInstalacionKw > 10) return;
+
+      detallesInstalacion.forEach((detalle) => {
+        const key = formatPowerKw(detalle.potenciaUnitKw);
+        const existing = grupos.get(key);
+        if (existing) {
+          existing.totalInversores += detalle.inversorCantidad;
+          existing.ofertas.push(detalle);
+          return;
+        }
+        grupos.set(key, {
+          potenciaUnitKw: detalle.potenciaUnitKw,
+          totalInversores: detalle.inversorCantidad,
+          ofertas: [detalle],
+        });
+      });
+    });
+
+    return Array.from(grupos.values()).sort(
+      (a, b) => a.potenciaUnitKw - b.potenciaUnitKw,
+    );
+  }, [optionsSource]);
+
   const provinciasOptions = useMemo(() => {
     const values = Array.from(
       new Set(
@@ -407,20 +535,6 @@ export function InstalacionesNuevasTable({
     ).sort((a, b) => a.localeCompare(b, "es"));
     return values;
   }, [optionsSource, provincia]);
-
-  const potenciasInversorOptions = useMemo(() => {
-    const values = Array.from(
-      new Set(
-        optionsSource
-          .map((item) => {
-            const potencia = Number(item.potencia_inversor_principal_kw);
-            return Number.isFinite(potencia) && potencia > 0 ? potencia : null;
-          })
-          .filter((value): value is number => value !== null),
-      ),
-    ).sort((a, b) => a - b);
-    return values;
-  }, [optionsSource]);
 
   // Mover a instalación en proceso
   const handleMoverAProceso = async (instalacion: InstalacionNueva) => {
@@ -1165,19 +1279,20 @@ export function InstalacionesNuevasTable({
               </select>
             </div>
             <div>
-              <Label htmlFor="potencia-inversor">Potencia Inversor</Label>
+              <Label htmlFor="potencia-inversor">Potencia Total Inversor</Label>
               <select
                 id="potencia-inversor"
                 className="w-full border rounded px-3 py-2 bg-white"
                 value={potenciaInversor}
-                onChange={(e) => setPotenciaInversor(e.target.value)}
+                onChange={(e) =>
+                  setPotenciaInversor(
+                    e.target.value as "todos" | "lte_10" | "gt_10",
+                  )
+                }
               >
                 <option value="todos">Todas</option>
-                {potenciasInversorOptions.map((potencia) => (
-                  <option key={potencia} value={String(potencia)}>
-                    {potencia} kW
-                  </option>
-                ))}
+                <option value="lte_10">Menor o igual a 10 kW</option>
+                <option value="gt_10">Mayor que 10 kW</option>
               </select>
             </div>
           </div>
@@ -1445,8 +1560,124 @@ export function InstalacionesNuevasTable({
               </div>
             </>
           )}
+          <div className="mt-4 border-t border-gray-200 pt-4 flex justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-green-300 text-green-700 hover:bg-green-50"
+              onClick={() => setIsResumenPotenciaDialogOpen(true)}
+            >
+              Ver totales por equipos ≤10kW de inversor
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={isResumenPotenciaDialogOpen}
+        onOpenChange={setIsResumenPotenciaDialogOpen}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Resumen de equipos ≤10kW de inversor</DialogTitle>
+          </DialogHeader>
+          {resumenEquiposMenorIgual10Kw.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-600">
+              No hay registros con potencia total de inversor menor o igual a 10kW.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {resumenEquiposMenorIgual10Kw.map((grupo) => (
+                <details
+                  key={formatPowerKw(grupo.potenciaUnitKw)}
+                  className="rounded-lg border border-green-200 bg-green-50/40"
+                >
+                  <summary className="cursor-pointer px-4 py-3 font-semibold text-green-900">
+                    Inversores de {formatPowerKw(grupo.potenciaUnitKw)}kW:{" "}
+                    {grupo.totalInversores} unidades ({grupo.ofertas.length} ofertas)
+                  </summary>
+                  <div className="px-4 pb-3 space-y-2">
+                    {(() => {
+                      const bateriasPorMaterial = new Map<string, number>();
+                      const panelesPorMaterial = new Map<string, number>();
+
+                      grupo.ofertas.forEach((detalle) => {
+                        if (detalle.bateriaTipo && detalle.bateriaCantidad > 0) {
+                          bateriasPorMaterial.set(
+                            detalle.bateriaTipo,
+                            (bateriasPorMaterial.get(detalle.bateriaTipo) || 0) +
+                              detalle.bateriaCantidad,
+                          );
+                        }
+                        if (detalle.panelTipo && detalle.panelCantidad > 0) {
+                          panelesPorMaterial.set(
+                            detalle.panelTipo,
+                            (panelesPorMaterial.get(detalle.panelTipo) || 0) +
+                              detalle.panelCantidad,
+                          );
+                        }
+                      });
+
+                      const bateriasList = Array.from(bateriasPorMaterial.entries()).sort(
+                        (a, b) => b[1] - a[1],
+                      );
+                      const panelesList = Array.from(panelesPorMaterial.entries()).sort(
+                        (a, b) => b[1] - a[1],
+                      );
+
+                      return (
+                        <div className="rounded-md border border-green-100 bg-white px-3 py-2 text-sm">
+                          <p className="font-semibold text-green-900 mb-1">
+                            Totales por material (en este tipo de inversor)
+                          </p>
+                          <p className="text-gray-700">
+                            <span className="font-medium">Baterías:</span>{" "}
+                            {bateriasList.length > 0
+                              ? bateriasList
+                                  .map(([tipo, total]) => `${tipo}: ${total}`)
+                                  .join(" | ")
+                              : "Sin baterías"}
+                          </p>
+                          <p className="text-gray-700">
+                            <span className="font-medium">Paneles:</span>{" "}
+                            {panelesList.length > 0
+                              ? panelesList
+                                  .map(([tipo, total]) => `${tipo}: ${total}`)
+                                  .join(" | ")
+                              : "Sin paneles"}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                    {grupo.ofertas.map((detalle, idx) => (
+                      <div
+                        key={`${detalle.instalacionCodigo}-${detalle.ofertaNombre}-${idx}`}
+                        className="rounded-md border border-green-100 bg-white px-3 py-2 text-sm text-gray-700"
+                      >
+                        <p className="font-semibold text-gray-900">
+                          {detalle.instalacionNombre} ({detalle.instalacionCodigo})
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Qué falta: {detalle.faltaInstalacion || "No especificado"}
+                        </p>
+                        <p className="text-xs text-gray-500 mb-1">
+                          {detalle.ofertaNombre}
+                        </p>
+                        <p>
+                          {detalle.inversorCantidad} inversor(es) de{" "}
+                          {formatPowerKw(detalle.potenciaUnitKw)}kW ({detalle.inversorTipo}),
+                          {" "}{detalle.bateriaCantidad} batería(s) y{" "}
+                          {detalle.panelCantidad} panel(es).
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={entregaDialogOpen} onOpenChange={handleCloseEntregaDialog}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto gap-3 p-4 sm:p-5">

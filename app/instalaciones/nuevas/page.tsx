@@ -262,6 +262,63 @@ export default function InstalacionesNuevasPage() {
   // Función para parsear fechas
   const parseDateValue = (value?: string) => parseFlexibleDate(value);
 
+  const parsePositiveNumber = (value: unknown): number | null => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return null;
+    return parsed;
+  };
+
+  const parsePowerFromTextKw = (value: unknown): number | null => {
+    const text = String(value || "").trim();
+    if (!text) return null;
+    const match = text.match(/(\d+(?:[.,]\d+)?)\s*k\s*w/i);
+    if (!match?.[1]) return null;
+    return parsePositiveNumber(match[1].replace(",", "."));
+  };
+
+  const getCantidadTotalInversores = (instalacion: InstalacionNueva): number => {
+    const ofertas = Array.isArray(instalacion.ofertas) ? instalacion.ofertas : [];
+    return ofertas.reduce((sum, oferta) => {
+      const cantidad = Number((oferta as Record<string, unknown>).inversor_cantidad);
+      if (!Number.isFinite(cantidad) || cantidad <= 0) return sum;
+      return sum + cantidad;
+    }, 0);
+  };
+
+  const getPotenciaUnitarioInversorKw = (
+    instalacion: InstalacionNueva,
+  ): number | null => {
+    const potenciaPrincipal = parsePositiveNumber(
+      instalacion.potencia_inversor_principal_kw,
+    );
+    if (potenciaPrincipal) return potenciaPrincipal;
+
+    const ofertas = Array.isArray(instalacion.ofertas) ? instalacion.ofertas : [];
+    for (const oferta of ofertas) {
+      const raw = oferta as Record<string, unknown>;
+      const potenciaDirecta =
+        parsePositiveNumber(raw.inversor_potencia_kw) ??
+        parsePositiveNumber(raw.potencia_inversor_kw) ??
+        parsePositiveNumber(raw.potencia_inversor);
+      if (potenciaDirecta) return potenciaDirecta;
+
+      const potenciaDesdeNombre = parsePowerFromTextKw(raw.inversor_nombre);
+      if (potenciaDesdeNombre) return potenciaDesdeNombre;
+    }
+
+    return null;
+  };
+
+  const getPotenciaTotalInversorKw = (
+    instalacion: InstalacionNueva,
+  ): number | null => {
+    const cantidadTotal = getCantidadTotalInversores(instalacion);
+    if (cantidadTotal <= 0) return null;
+    const potenciaUnitario = getPotenciaUnitarioInversorKw(instalacion);
+    if (!potenciaUnitario) return null;
+    return potenciaUnitario * cantidadTotal;
+  };
+
   // Función para construir texto de búsqueda
   const buildSearchText = (instalacion: InstalacionNueva) => {
     const parts: string[] = [];
@@ -393,16 +450,19 @@ export default function InstalacionesNuevasPage() {
       }
 
       if (appliedFilters.potenciaInversor !== "todos") {
-        const potenciaRaw = instalacion.potencia_inversor_principal_kw;
-        const potenciaInstalacion =
-          typeof potenciaRaw === "number" && Number.isFinite(potenciaRaw)
-            ? potenciaRaw
-            : null;
-        const potenciaFiltro = Number(appliedFilters.potenciaInversor);
+        const potenciaTotalInversor = getPotenciaTotalInversorKw(instalacion);
+        if (potenciaTotalInversor === null) {
+          return false;
+        }
         if (
-          potenciaInstalacion === null ||
-          !Number.isFinite(potenciaFiltro) ||
-          potenciaInstalacion !== potenciaFiltro
+          appliedFilters.potenciaInversor === "lte_10" &&
+          potenciaTotalInversor > 10
+        ) {
+          return false;
+        }
+        if (
+          appliedFilters.potenciaInversor === "gt_10" &&
+          potenciaTotalInversor <= 10
         ) {
           return false;
         }
