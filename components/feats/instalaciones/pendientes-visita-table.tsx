@@ -47,7 +47,7 @@ import {
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type { ClienteFoto } from "@/lib/api-types";
 
-type ViewMode = "pendientes" | "realizadas" | "todas";
+type ViewMode = "pendientes" | "realizadas";
 
 interface ArchivoVisita {
   nombre: string;
@@ -360,6 +360,9 @@ export function PendientesVisitaTable({
     "todos",
   );
   const [provinciaFilter, setProvinciaFilter] = useState("todas");
+  const [municipioFilter, setMunicipioFilter] = useState("todos");
+  const [comercialFilter, setComercialFilter] = useState("todos");
+  const [prioridadFilter, setPrioridadFilter] = useState("todos");
   const [viewMode, setViewMode] = useState<ViewMode>("pendientes");
   const [visitas, setVisitas] = useState<VisitaRegistro[]>([]);
   const [visitasRealizadasEndpoint, setVisitasRealizadasEndpoint] = useState<
@@ -491,14 +494,16 @@ export function PendientesVisitaTable({
       const mapped = acumuladas.map((visita, idx) =>
         mapVisitaToRegistro(visita, idx),
       );
-      const seen = new Set<string>();
-      const deduped = mapped.filter((item) => {
-        const key = String(item.visitaId || `${item.tipo}-${item.id}`);
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
+      const organized = [...mapped].sort((a, b) => {
+        const aEntidad = `${a.tipo}:${a.numero || a.id || ""}`;
+        const bEntidad = `${b.tipo}:${b.numero || b.id || ""}`;
+        if (aEntidad !== bEntidad) return aEntidad.localeCompare(bEntidad);
+
+        const aFecha = new Date(a.fechaVisita || 0).getTime();
+        const bFecha = new Date(b.fechaVisita || 0).getTime();
+        return bFecha - aFecha;
       });
-      setVisitasRealizadasEndpoint(deduped);
+      setVisitasRealizadasEndpoint(organized);
     } catch (error: any) {
       console.warn("No se pudieron cargar visitas realizadas:", error?.message);
       setVisitasRealizadasEndpoint([]);
@@ -570,16 +575,21 @@ export function PendientesVisitaTable({
     if (viewMode === "pendientes") {
       return pendientesConCamposVisita;
     }
-
-    if (viewMode === "realizadas") {
-      return visitasRealizadasEndpoint;
-    }
-
-    return visitas;
+    return visitasRealizadasEndpoint;
   }, [viewMode, pendientesConCamposVisita, visitas, visitasRealizadasEndpoint]);
 
   const registrosFiltrados = useMemo(() => {
     return registrosBase.filter((registro) => {
+      const municipio = String(registro.municipio || "")
+        .trim()
+        .toLowerCase();
+      const comercial = String(registro.comercial || "")
+        .trim()
+        .toLowerCase();
+      const prioridad = String(registro.prioridad || "")
+        .trim()
+        .toLowerCase();
+
       if (searchTerm) {
         const search = searchTerm.toLowerCase();
         const matchesSearch =
@@ -603,9 +613,38 @@ export function PendientesVisitaTable({
         return false;
       }
 
+      if (
+        municipioFilter !== "todos" &&
+        municipio !== municipioFilter.toLowerCase()
+      ) {
+        return false;
+      }
+
+      if (
+        comercialFilter !== "todos" &&
+        comercial !== comercialFilter.toLowerCase()
+      ) {
+        return false;
+      }
+
+      if (
+        prioridadFilter !== "todos" &&
+        prioridad !== prioridadFilter.toLowerCase()
+      ) {
+        return false;
+      }
+
       return true;
     });
-  }, [registrosBase, searchTerm, tipoFilter, provinciaFilter]);
+  }, [
+    registrosBase,
+    searchTerm,
+    tipoFilter,
+    provinciaFilter,
+    municipioFilter,
+    comercialFilter,
+    prioridadFilter,
+  ]);
 
   const provincias = useMemo(() => {
     const uniqueProvincias = new Set(registrosBase.map((p) => p.provincia));
@@ -616,6 +655,43 @@ export function PendientesVisitaTable({
     });
   }, [registrosBase]);
 
+  const municipios = useMemo(() => {
+    const source =
+      provinciaFilter === "todas"
+        ? registrosBase
+        : registrosBase.filter((r) => r.provincia === provinciaFilter);
+    const unique = new Set(
+      source.map((r) => String(r.municipio || "").trim()).filter(Boolean),
+    );
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "es"));
+  }, [registrosBase, provinciaFilter]);
+
+  const comerciales = useMemo(() => {
+    const unique = new Set(
+      registrosBase
+        .map((r) => String(r.comercial || "").trim())
+        .filter(Boolean),
+    );
+    return Array.from(unique).sort((a, b) => a.localeCompare(b, "es"));
+  }, [registrosBase]);
+
+  const prioridades = useMemo(() => {
+    const knownOrder = ["alta", "media", "baja"];
+    const unique = new Set(
+      registrosBase
+        .map((r) => String(r.prioridad || "").trim())
+        .filter(Boolean),
+    );
+    return Array.from(unique).sort((a, b) => {
+      const ai = knownOrder.indexOf(a.toLowerCase());
+      const bi = knownOrder.indexOf(b.toLowerCase());
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.localeCompare(b, "es");
+    });
+  }, [registrosBase]);
+
   const countLeads = registrosFiltrados.filter((p) => p.tipo === "lead").length;
   const countClientes = registrosFiltrados.filter(
     (p) => p.tipo === "cliente",
@@ -623,7 +699,6 @@ export function PendientesVisitaTable({
 
   const pendingCount = pendientesConCamposVisita.length;
   const realizadasCount = visitasRealizadasEndpoint.length;
-  const todasCount = visitas.length;
 
   const handleCompletarVisita = (pendiente: PendienteVisita) => {
     setPendienteSeleccionado(pendiente);
@@ -1230,16 +1305,6 @@ export function PendientesVisitaTable({
               <ClipboardCheck className="h-4 w-4 mr-2" />
               Visitas Realizadas ({realizadasCount})
             </Button>
-            <Button
-              variant={viewMode === "todas" ? "default" : "outline"}
-              onClick={() => setViewMode("todas")}
-              className={
-                viewMode === "todas" ? "bg-orange-600 hover:bg-orange-700" : ""
-              }
-            >
-              <CalendarDays className="h-4 w-4 mr-2" />
-              Todas las visitas ({todasCount})
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -1249,7 +1314,7 @@ export function PendientesVisitaTable({
           <CardTitle className="text-xl">Filtros de Búsqueda</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
             <div>
               <Label htmlFor="search">Buscar</Label>
               <div className="relative">
@@ -1282,10 +1347,61 @@ export function PendientesVisitaTable({
                 id="provincia"
                 className="w-full border rounded px-3 py-2"
                 value={provinciaFilter}
-                onChange={(e) => setProvinciaFilter(e.target.value)}
+                onChange={(e) => {
+                  setProvinciaFilter(e.target.value);
+                  setMunicipioFilter("todos");
+                }}
               >
                 <option value="todas">Todas</option>
                 {provincias.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="municipio">Municipio</Label>
+              <select
+                id="municipio"
+                className="w-full border rounded px-3 py-2"
+                value={municipioFilter}
+                onChange={(e) => setMunicipioFilter(e.target.value)}
+              >
+                <option value="todos">Todos</option>
+                {municipios.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="comercial">Comercial</Label>
+              <select
+                id="comercial"
+                className="w-full border rounded px-3 py-2"
+                value={comercialFilter}
+                onChange={(e) => setComercialFilter(e.target.value)}
+              >
+                <option value="todos">Todos</option>
+                {comerciales.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <Label htmlFor="prioridad">Prioridad</Label>
+              <select
+                id="prioridad"
+                className="w-full border rounded px-3 py-2"
+                value={prioridadFilter}
+                onChange={(e) => setPrioridadFilter(e.target.value)}
+              >
+                <option value="todos">Todas</option>
+                {prioridades.map((p) => (
                   <option key={p} value={p}>
                     {p}
                   </option>
@@ -1302,9 +1418,7 @@ export function PendientesVisitaTable({
             <span>
               {viewMode === "pendientes"
                 ? "Visitas Pendientes"
-                : viewMode === "realizadas"
-                  ? "Visitas Realizadas"
-                  : "Todas las Visitas"}{" "}
+                : "Visitas Realizadas"}{" "}
               ({registrosFiltrados.length})
             </span>
             <div className="flex gap-2 text-sm font-normal">
