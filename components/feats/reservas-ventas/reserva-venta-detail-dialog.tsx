@@ -168,54 +168,76 @@ export function ReservaVentaDetailDialog({
 
             {reserva.materiales && reserva.materiales.length > 0 ? (
               <div className="border rounded-md divide-y">
-                <div className="grid grid-cols-12 px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-600">
-                  <span className="col-span-1">Código</span>
-                  <span className="col-span-5">Material</span>
-                  <span className="col-span-2 text-center">Reservado</span>
-                  <span className="col-span-2 text-center">Consumido</span>
-                  <span className="col-span-2 text-center">Estado</span>
-                </div>
                 {reserva.materiales.map((m, i) => {
+                  const consumido = m.cantidad_consumida ?? 0;
                   const pct = m.cantidad_reservada > 0
-                    ? Math.round((m.cantidad_consumida / m.cantidad_reservada) * 100)
+                    ? Math.round((consumido / m.cantidad_reservada) * 100)
                     : 0;
-                  const consumidoTotal = (m.cantidad_consumida ?? 0) >= m.cantidad_reservada;
+                  const consumidoTotal = consumido >= m.cantidad_reservada;
+                  const nombreCompleto = [m.nombre, m.descripcion]
+                    .filter(Boolean)
+                    .join(" — ");
+
                   return (
                     <div
                       key={i}
-                      className="grid grid-cols-12 px-3 py-2.5 text-sm items-center hover:bg-gray-50"
+                      className="flex items-center gap-3 px-3 py-3 hover:bg-gray-50"
                     >
-                      <span className="col-span-1 font-mono text-xs text-gray-500">
-                        {m.codigo ?? "-"}
-                      </span>
-                      <div className="col-span-5 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
+                      {/* Icono */}
+                      <Package className="h-4 w-4 text-gray-300 shrink-0" />
+
+                      {/* Info material */}
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-medium text-gray-900 truncate"
+                          title={nombreCompleto || undefined}
+                        >
                           {m.nombre ?? "-"}
                         </p>
-                        {m.descripcion && (
-                          <p className="text-xs text-gray-400 truncate">{m.descripcion}</p>
-                        )}
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {m.codigo && (
+                            <span className="font-mono text-xs text-gray-400 bg-gray-100 px-1 rounded">
+                              {m.codigo}
+                            </span>
+                          )}
+                          {m.descripcion && (
+                            <span
+                              className="text-xs text-gray-400 truncate max-w-[200px]"
+                              title={m.descripcion}
+                            >
+                              {m.descripcion}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="col-span-2 text-center font-medium">
-                        {m.cantidad_reservada}
-                      </span>
-                      <span className="col-span-2 text-center">
-                        <span className={consumidoTotal ? "text-green-600 font-medium" : "text-gray-700"}>
-                          {m.cantidad_consumida ?? 0}
-                        </span>
-                        <span className="text-xs text-gray-400 ml-1">({pct}%)</span>
-                      </span>
-                      <span className="col-span-2 text-center">
-                        {consumidoTotal ? (
-                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                            Completo
-                          </Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                            Parcial
-                          </Badge>
-                        )}
-                      </span>
+
+                      {/* Cantidades */}
+                      <div className="shrink-0 flex items-center gap-3 text-sm">
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400 leading-none mb-0.5">Reservado</p>
+                          <p className="font-medium text-gray-800">{m.cantidad_reservada}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400 leading-none mb-0.5">Consumido</p>
+                          <p className={`font-medium ${consumidoTotal ? "text-green-600" : "text-gray-700"}`}>
+                            {consumido}
+                            <span className="text-xs font-normal text-gray-400 ml-1">
+                              ({pct}%)
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          {consumidoTotal ? (
+                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 whitespace-nowrap">
+                              Completo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">
+                              Parcial
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })}

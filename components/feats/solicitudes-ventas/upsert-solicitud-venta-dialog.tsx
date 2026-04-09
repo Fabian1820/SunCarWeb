@@ -411,18 +411,21 @@ export function UpsertSolicitudVentaDialog({
     // Pre-fill almacen
     setSelectedAlmacenId(reserva.almacen_id);
 
-    // Pre-fill materiales (quantity = reservada - consumida, min 1)
+    // Pre-fill materiales — cruza con el catálogo ya cargado para obtener um y foto
     const rows: MaterialRow[] = (reserva.materiales || [])
       .filter((m) => m.nombre || m.material_id)
-      .map((m) => ({
-        material_id: m.material_id,
-        cantidad: Math.max(1, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
-        codigo: m.codigo ?? "",
-        nombre: m.nombre ?? m.material_id,
-        descripcion: m.descripcion,
-        um: undefined,
-        foto: undefined,
-      }));
+      .map((m) => {
+        const cat = materialesVendibles.find((mv) => mv.id === m.material_id);
+        return {
+          material_id: m.material_id,
+          cantidad: Math.max(1, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
+          codigo: m.codigo ?? cat?.codigo ?? "",
+          nombre: m.nombre ?? cat?.nombre ?? m.material_id,
+          descripcion: m.descripcion ?? cat?.descripcion,
+          um: cat?.um,
+          foto: cat?.foto,
+        };
+      });
     setMaterialRows(rows);
 
     setReservaAplicada(reserva);
