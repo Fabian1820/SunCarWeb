@@ -13,6 +13,7 @@ import {
   Package,
   User,
   Warehouse,
+  Zap,
 } from "lucide-react";
 import type { Reserva, ReservaEstado } from "@/lib/api-types";
 
@@ -59,9 +60,7 @@ export function ReservaVentaDetailDialog({
 }: ReservaVentaDetailDialogProps) {
   if (!reserva) return null;
 
-  const { className: badgeClass, label: badgeLabel } = estadoBadgeProps(
-    reserva.estado,
-  );
+  const { className: badgeClass, label: badgeLabel } = estadoBadgeProps(reserva.estado);
 
   const totalReservado = reserva.materiales?.reduce(
     (sum, m) => sum + m.cantidad_reservada,
@@ -83,8 +82,8 @@ export function ReservaVentaDetailDialog({
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
-          {/* Header info */}
-          <div className="flex flex-wrap items-center gap-3">
+          {/* Badges */}
+          <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
               className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono"
@@ -102,63 +101,55 @@ export function ReservaVentaDetailDialog({
           {/* Info grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Cliente
-              </p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Cliente</p>
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-900">
-                  {reserva.cliente_nombre ||
-                    reserva.cliente_id.slice(-6).toUpperCase()}
-                </span>
+                <p className="text-sm text-gray-900">
+                  {reserva.cliente_nombre || "-"}
+                </p>
               </div>
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Almacén
-              </p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Almacén</p>
               <div className="flex items-center gap-2">
                 <Warehouse className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-900">
-                  {reserva.almacen_nombre ||
-                    reserva.almacen_id.slice(-6).toUpperCase()}
-                </span>
+                <p className="text-sm text-gray-900">
+                  {reserva.almacen_nombre || "-"}
+                </p>
+              </div>
+            </div>
+
+            {reserva.oferta_nombre && (
+              <div className="space-y-1 col-span-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Oferta</p>
+                <div className="flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm text-gray-900">{reserva.oferta_nombre}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha Reserva</p>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-700">{formatDate(reserva.fecha_reserva)}</span>
               </div>
             </div>
 
             <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Fecha Reserva
-              </p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Expiración</p>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
-                  {formatDate(reserva.fecha_reserva)}
-                </span>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                Expiración
-              </p>
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-gray-400" />
-                <span className="text-sm text-gray-700">
-                  {formatDate(reserva.fecha_expiracion)}
-                </span>
+                <span className="text-sm text-gray-700">{formatDate(reserva.fecha_expiracion)}</span>
               </div>
             </div>
 
             {reserva.fecha_cierre && (
               <div className="space-y-1 col-span-2">
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                  Fecha Cierre
-                </p>
-                <span className="text-sm text-gray-700">
-                  {formatDate(reserva.fecha_cierre)}
-                </span>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Fecha Cierre</p>
+                <span className="text-sm text-gray-700">{formatDate(reserva.fecha_cierre)}</span>
               </div>
             )}
           </div>
@@ -174,48 +165,90 @@ export function ReservaVentaDetailDialog({
                 Consumido: {totalConsumido} / {totalReservado}
               </span>
             </div>
+
             {reserva.materiales && reserva.materiales.length > 0 ? (
               <div className="border rounded-md divide-y">
-                <div className="grid grid-cols-3 px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-600">
-                  <span>Material ID</span>
-                  <span className="text-center">Reservado</span>
-                  <span className="text-center">Consumido</span>
-                </div>
-                {reserva.materiales.map((m, i) => (
-                  <div
-                    key={i}
-                    className="grid grid-cols-3 px-3 py-2 text-sm items-center"
-                  >
-                    <span className="font-mono text-xs text-gray-600 truncate">
-                      {m.material_id.slice(-8).toUpperCase()}
-                    </span>
-                    <span className="text-center font-medium">
-                      {m.cantidad_reservada}
-                    </span>
-                    <span className="text-center">
-                      <span
-                        className={
-                          m.cantidad_consumida >= m.cantidad_reservada
-                            ? "text-green-600 font-medium"
-                            : "text-gray-700"
-                        }
-                      >
-                        {m.cantidad_consumida ?? 0}
-                      </span>
-                    </span>
-                  </div>
-                ))}
+                {reserva.materiales.map((m, i) => {
+                  const consumido = m.cantidad_consumida ?? 0;
+                  const pct = m.cantidad_reservada > 0
+                    ? Math.round((consumido / m.cantidad_reservada) * 100)
+                    : 0;
+                  const consumidoTotal = consumido >= m.cantidad_reservada;
+                  const nombreCompleto = [m.nombre, m.descripcion]
+                    .filter(Boolean)
+                    .join(" — ");
+
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-center gap-3 px-3 py-3 hover:bg-gray-50"
+                    >
+                      {/* Icono */}
+                      <Package className="h-4 w-4 text-gray-300 shrink-0" />
+
+                      {/* Info material */}
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className="text-sm font-medium text-gray-900 truncate"
+                          title={nombreCompleto || undefined}
+                        >
+                          {m.nombre ?? "-"}
+                        </p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          {m.codigo && (
+                            <span className="font-mono text-xs text-gray-400 bg-gray-100 px-1 rounded">
+                              {m.codigo}
+                            </span>
+                          )}
+                          {m.descripcion && (
+                            <span
+                              className="text-xs text-gray-400 truncate max-w-[200px]"
+                              title={m.descripcion}
+                            >
+                              {m.descripcion}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Cantidades */}
+                      <div className="shrink-0 flex items-center gap-3 text-sm">
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400 leading-none mb-0.5">Reservado</p>
+                          <p className="font-medium text-gray-800">{m.cantidad_reservada}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-gray-400 leading-none mb-0.5">Consumido</p>
+                          <p className={`font-medium ${consumidoTotal ? "text-green-600" : "text-gray-700"}`}>
+                            {consumido}
+                            <span className="text-xs font-normal text-gray-400 ml-1">
+                              ({pct}%)
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          {consumidoTotal ? (
+                            <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 whitespace-nowrap">
+                              Completo
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">
+                              Parcial
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
-              <p className="text-sm text-gray-500 text-center py-4">
-                Sin materiales
-              </p>
+              <p className="text-sm text-gray-500 text-center py-4">Sin materiales</p>
             )}
           </div>
 
           {/* Footer meta */}
           <div className="pt-2 border-t text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
-            <span>ID: {reserva.id}</span>
             <span>Creado: {formatDate(reserva.fecha_creacion)}</span>
             <span>Actualizado: {formatDate(reserva.fecha_actualizacion)}</span>
           </div>

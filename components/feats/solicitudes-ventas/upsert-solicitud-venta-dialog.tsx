@@ -27,16 +27,23 @@ import {
   ClipboardList,
   UserRoundPlus,
   X,
+  BookmarkCheck,
+  ChevronDown,
+  ChevronUp,
+  Warehouse,
+  User,
 } from "lucide-react";
 import {
   ClienteVentaService,
   InventarioService,
+  ReservaVentaService,
   SolicitudVentaService,
 } from "@/lib/api-services";
 import type {
   Almacen,
   ClienteVenta,
   MaterialVentaWeb,
+  Reserva,
   SolicitudVenta,
   SolicitudVentaCreateData,
   SolicitudVentaUpdateData,
@@ -104,6 +111,12 @@ export function UpsertSolicitudVentaDialog({
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Reserva shortcut
+  const [showReservaPanel, setShowReservaPanel] = useState(false);
+  const [reservasActivas, setReservasActivas] = useState<Reserva[]>([]);
+  const [loadingReservas, setLoadingReservas] = useState(false);
+  const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
 
   const isEdit = Boolean(solicitud?.id);
 
@@ -182,6 +195,9 @@ export function UpsertSolicitudVentaDialog({
     setMaterialRows(initialRows);
     setMaterialSearch("");
     setShowMaterialDropdown(false);
+    setShowReservaPanel(false);
+    setReservasActivas([]);
+    setReservaAplicada(null);
 
     if (!clienteSolicitud && solicitud?.cliente_venta_id) {
       void ClienteVentaService.getClienteById(solicitud.cliente_venta_id)
@@ -359,6 +375,63 @@ export function UpsertSolicitudVentaDialog({
     setMaterialRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
   };
 
+  const handleToggleReservaPanel = async () => {
+    if (showReservaPanel) {
+      setShowReservaPanel(false);
+      return;
+    }
+    setShowReservaPanel(true);
+    if (reservasActivas.length > 0) return; // already loaded
+    setLoadingReservas(true);
+    try {
+      const { data } = await ReservaVentaService.getReservas({
+        origen: "ventas",
+        estado: "activa",
+        limit: 50,
+      });
+      setReservasActivas(data);
+    } catch {
+      setReservasActivas([]);
+    } finally {
+      setLoadingReservas(false);
+    }
+  };
+
+  const applyReserva = (reserva: Reserva) => {
+    // Pre-fill cliente (minimal object, sufficient for the form payload)
+    const cliente: ClienteVenta = {
+      id: reserva.cliente_id,
+      nombre: reserva.cliente_nombre || reserva.cliente_id,
+    };
+    setSelectedClienteVenta(cliente);
+    setClienteSearch(reserva.cliente_nombre || reserva.cliente_id);
+    setClienteSearchResults([]);
+    setShowClienteDropdown(false);
+
+    // Pre-fill almacen
+    setSelectedAlmacenId(reserva.almacen_id);
+
+    // Pre-fill materiales — cruza con el catálogo ya cargado para obtener um y foto
+    const rows: MaterialRow[] = (reserva.materiales || [])
+      .filter((m) => m.nombre || m.material_id)
+      .map((m) => {
+        const cat = materialesVendibles.find((mv) => mv.id === m.material_id);
+        return {
+          material_id: m.material_id,
+          cantidad: Math.max(1, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
+          codigo: m.codigo ?? cat?.codigo ?? "",
+          nombre: m.nombre ?? cat?.nombre ?? m.material_id,
+          descripcion: m.descripcion ?? cat?.descripcion,
+          um: cat?.um,
+          foto: cat?.foto,
+        };
+      });
+    setMaterialRows(rows);
+
+    setReservaAplicada(reserva);
+    setShowReservaPanel(false);
+  };
+
   const handleSubmit = async () => {
     if (!canSubmit || !selectedClienteVenta) return;
 
@@ -403,6 +476,111 @@ export function UpsertSolicitudVentaDialog({
           {loadError ? (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
               {loadError}
+            </div>
+          ) : null}
+
+          {/* Reserva shortcut — solo en modo crear */}
+          {!isEdit ? (
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:border-indigo-300"
+                onClick={handleToggleReservaPanel}
+              >
+                <span className="flex items-center gap-2">
+                  <BookmarkCheck className="h-4 w-4" />
+                  Seleccionar reserva activa
+                  {reservaAplicada && (
+                    <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 font-normal">
+                      {reservaAplicada.reserva_id || reservaAplicada.id.slice(-8).toUpperCase()}
+                    </Badge>
+                  )}
+                </span>
+                {showReservaPanel ? (
+                  <ChevronUp className="h-4 w-4 opacity-60" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 opacity-60" />
+                )}
+              </Button>
+
+              {showReservaPanel ? (
+                <div className="border border-indigo-100 rounded-md bg-indigo-50/40 overflow-hidden">
+                  {loadingReservas ? (
+                    <div className="flex items-center gap-2 p-4 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cargando reservas activas...
+                    </div>
+                  ) : reservasActivas.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center p-4">
+                      No hay reservas de ventas activas disponibles.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-indigo-100 max-h-64 overflow-y-auto">
+                      {reservasActivas.map((reserva) => {
+                        const totalMats = reserva.materiales?.length ?? 0;
+                        const totalUnidades = reserva.materiales?.reduce(
+                          (s, m) => s + Math.max(0, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
+                          0,
+                        ) ?? 0;
+                        return (
+                          <button
+                            key={reserva.id}
+                            type="button"
+                            onClick={() => applyReserva(reserva)}
+                            className="w-full text-left px-4 py-3 hover:bg-indigo-100/60 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-indigo-800 font-mono">
+                                  {reserva.reserva_id || reserva.id.slice(-8).toUpperCase()}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                  <span className="flex items-center gap-1 text-xs text-gray-600">
+                                    <User className="h-3 w-3" />
+                                    {reserva.cliente_nombre || reserva.cliente_id.slice(-6)}
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs text-gray-600">
+                                    <Warehouse className="h-3 w-3" />
+                                    {reserva.almacen_nombre || reserva.almacen_id.slice(-6)}
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs text-gray-600">
+                                    <Package className="h-3 w-3" />
+                                    {totalMats} tipo{totalMats !== 1 ? "s" : ""} · {totalUnidades} ud.
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 shrink-0 text-xs">
+                                Activa
+                              </Badge>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {reservaAplicada ? (
+                <div className="flex items-center justify-between rounded-md bg-indigo-50 border border-indigo-200 px-3 py-2 text-xs text-indigo-700">
+                  <span>
+                    Datos prellenados desde reserva{" "}
+                    <span className="font-mono font-semibold">
+                      {reservaAplicada.reserva_id || reservaAplicada.id.slice(-8).toUpperCase()}
+                    </span>
+                    . Puedes editar los campos antes de crear.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setReservaAplicada(null)}
+                    className="ml-3 hover:text-indigo-900 shrink-0"
+                    title="Quitar indicador"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

@@ -27,34 +27,15 @@ const estadoBadgeProps = (
 ): { className: string; label: string } => {
   switch (estado) {
     case "activa":
-      return {
-        className:
-          "bg-green-50 text-green-700 border-green-200",
-        label: "Activa",
-      };
+      return { className: "bg-green-50 text-green-700 border-green-200", label: "Activa" };
     case "cancelada":
-      return {
-        className:
-          "bg-red-50 text-red-700 border-red-200",
-        label: "Cancelada",
-      };
+      return { className: "bg-red-50 text-red-700 border-red-200", label: "Cancelada" };
     case "expirada":
-      return {
-        className:
-          "bg-gray-50 text-gray-600 border-gray-200",
-        label: "Expirada",
-      };
+      return { className: "bg-gray-50 text-gray-600 border-gray-200", label: "Expirada" };
     case "consumida":
-      return {
-        className:
-          "bg-blue-50 text-blue-700 border-blue-200",
-        label: "Consumida",
-      };
+      return { className: "bg-blue-50 text-blue-700 border-blue-200", label: "Consumida" };
     default:
-      return {
-        className: "bg-gray-50 text-gray-600 border-gray-200",
-        label: estado,
-      };
+      return { className: "bg-gray-50 text-gray-600 border-gray-200", label: estado };
   }
 };
 
@@ -118,8 +99,7 @@ export function ReservasVentasTable({
             const { className: badgeClass, label: badgeLabel } =
               estadoBadgeProps(reserva.estado);
             const isActiva = reserva.estado === "activa";
-            const expiringSoon =
-              isActiva && isExpiringSoon(reserva.fecha_expiracion);
+            const expiringSoon = isActiva && isExpiringSoon(reserva.fecha_expiracion);
             const totalMateriales = reserva.materiales?.length ?? 0;
             const totalConsumido = reserva.materiales?.reduce(
               (sum, m) => sum + (m.cantidad_consumida ?? 0),
@@ -157,8 +137,7 @@ export function ReservasVentasTable({
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-900">
-                      {reserva.cliente_nombre ||
-                        reserva.cliente_id.slice(-6).toUpperCase()}
+                      {reserva.cliente_nombre || reserva.cliente_id.slice(-6).toUpperCase()}
                     </span>
                   </div>
                 </td>
@@ -168,8 +147,7 @@ export function ReservasVentasTable({
                   <div className="flex items-center gap-2">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     <span className="text-sm text-gray-900">
-                      {reserva.almacen_nombre ||
-                        reserva.almacen_id.slice(-6).toUpperCase()}
+                      {reserva.almacen_nombre || reserva.almacen_id.slice(-6).toUpperCase()}
                     </span>
                   </div>
                 </td>
@@ -178,14 +156,16 @@ export function ReservasVentasTable({
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span className="text-sm text-gray-700">
-                      {totalMateriales} tipo{totalMateriales !== 1 ? "s" : ""}
-                    </span>
-                    {totalReservado > 0 && (
-                      <span className="text-xs text-gray-500">
-                        ({totalConsumido}/{totalReservado})
+                    <div className="text-sm">
+                      <span className="text-gray-700">
+                        {totalMateriales} tipo{totalMateriales !== 1 ? "s" : ""}
                       </span>
-                    )}
+                      {totalReservado > 0 && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({totalConsumido}/{totalReservado})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </td>
 
@@ -203,16 +183,12 @@ export function ReservasVentasTable({
                 <td className="py-4 px-4">
                   <span
                     className={`text-sm ${
-                      expiringSoon
-                        ? "text-amber-600 font-medium"
-                        : "text-gray-700"
+                      expiringSoon ? "text-amber-600 font-medium" : "text-gray-700"
                     }`}
                   >
                     {formatDate(reserva.fecha_expiracion)}
                     {expiringSoon && (
-                      <span className="ml-1 text-xs text-amber-500">
-                        ¡Pronto!
-                      </span>
+                      <span className="ml-1 text-xs text-amber-500">¡Pronto!</span>
                     )}
                   </span>
                 </td>
@@ -236,6 +212,7 @@ export function ReservasVentasTable({
                         size="sm"
                         onClick={() => onEdit(reserva)}
                         title="Editar reserva"
+                        className="text-indigo-600 hover:text-indigo-700"
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
