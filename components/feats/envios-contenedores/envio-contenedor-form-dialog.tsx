@@ -19,7 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { Badge } from "@/components/shared/atom/badge";
 import { Loader2, Package, Plus, Trash2 } from "lucide-react";
 import type { Material } from "@/lib/material-types";
 import type { EnvioContenedorCreateData } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
@@ -28,8 +27,6 @@ interface MaterialSeleccionado {
   material_id: string;
   material_codigo: string;
   material_nombre: string;
-  material_descripcion?: string;
-  um?: string;
   cantidad: number;
 }
 
@@ -130,8 +127,6 @@ export function EnvioContenedorFormDialog({
           material_id: material.id,
           material_codigo: material.codigo,
           material_nombre: material.nombre || material.descripcion,
-          material_descripcion: material.descripcion,
-          um: material.um,
           cantidad,
         },
       ];
@@ -324,9 +319,6 @@ export function EnvioContenedorFormDialog({
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {item.material_codigo} - {item.material_nombre}
                       </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {item.material_descripcion || "Sin descripción"}
-                      </p>
                     </div>
 
                     <Input
@@ -336,10 +328,6 @@ export function EnvioContenedorFormDialog({
                       value={item.cantidad}
                       onChange={(e) => updateCantidad(item.material_id, e.target.value)}
                     />
-
-                    <Badge variant="outline" className="text-xs">
-                      {item.um || "u"}
-                    </Badge>
 
                     <Button
                       type="button"

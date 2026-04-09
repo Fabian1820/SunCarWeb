@@ -11,8 +11,6 @@ export interface EnvioContenedorMaterial {
   material_id: string;
   material_codigo: string;
   material_nombre: string;
-  material_descripcion?: string;
-  um?: string;
   cantidad: number;
 }
 

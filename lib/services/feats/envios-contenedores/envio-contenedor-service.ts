@@ -49,13 +49,6 @@ const mapMaterial = (raw: any): EnvioContenedorMaterial => ({
   material_nombre: String(
     raw?.material_nombre ?? raw?.nombre ?? raw?.descripcion ?? "",
   ),
-  material_descripcion:
-    typeof raw?.material_descripcion === "string"
-      ? raw.material_descripcion
-      : typeof raw?.descripcion === "string"
-        ? raw.descripcion
-        : undefined,
-  um: typeof raw?.um === "string" ? raw.um : undefined,
   cantidad: Number(raw?.cantidad ?? 0),
 });
 
@@ -112,8 +105,6 @@ const sanitizeCreatePayload = (
       material_id: item.material_id,
       material_codigo: item.material_codigo,
       material_nombre: item.material_nombre,
-      material_descripcion: item.material_descripcion,
-      um: item.um,
       cantidad: Number(item.cantidad),
     }))
     .filter((item) => item.material_id && item.cantidad > 0),

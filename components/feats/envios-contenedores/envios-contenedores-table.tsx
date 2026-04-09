@@ -159,7 +159,7 @@ export function EnviosContenedoresTable({ envios }: EnviosContenedoresTableProps
                                   {material.material_nombre}
                                 </td>
                                 <td className="py-2 px-3 text-sm text-gray-700">
-                                  {material.cantidad} {material.um || "u"}
+                                  {material.cantidad}
                                 </td>
                               </tr>
                             ))}
