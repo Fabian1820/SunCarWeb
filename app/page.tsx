@@ -31,6 +31,7 @@ import {
   Building,
   Coins,
   BookmarkCheck,
+  Ship,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -202,6 +203,14 @@ export default function Dashboard() {
       iconClass: "text-emerald-600",
     },
     {
+      id: "envio-contenedores",
+      href: "/envio-contenedores",
+      icon: Ship,
+      title: "Envío de Contenedores",
+      description: "Registrar y monitorear envíos de contenedores.",
+      iconClass: "text-cyan-700",
+    },
+    {
       id: "facturas",
       href: "/facturas",
       icon: Receipt,
@@ -352,6 +361,7 @@ export default function Dashboard() {
         "Materiales, facturación, almacenes, inventario, tiendas, RH y costos.",
       moduleIds: [
         "materiales",
+        "envio-contenedores",
         "facturas",
         "wallet",
         "tasa-cambio-diaria",
