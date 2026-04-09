@@ -6,6 +6,10 @@ export interface MaterialReserva {
   material_id: string;
   cantidad_reservada: number;
   cantidad_consumida: number;
+  // Campos populados por el backend en GET
+  codigo?: string;
+  nombre?: string;
+  descripcion?: string;
 }
 
 export interface MaterialReservaConsumir {
@@ -29,9 +33,10 @@ export interface Reserva {
   creado_por: string;
   fecha_creacion: string;
   fecha_actualizacion: string;
-  // Campos populados opcionales (si el backend los incluye)
+  // Campos populados por el backend en GET
   almacen_nombre?: string;
   cliente_nombre?: string;
+  oferta_nombre?: string | null;
   creado_por_nombre?: string;
 }
 

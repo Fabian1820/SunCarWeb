@@ -26,8 +26,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useReservasVentas } from "@/hooks/use-reservas-ventas";
 import { ReservasVentasTable } from "@/components/feats/reservas-ventas/reservas-ventas-table";
 import { CreateReservaVentaDialog } from "@/components/feats/reservas-ventas/create-reserva-venta-dialog";
+import { EditReservaVentaDialog } from "@/components/feats/reservas-ventas/edit-reserva-venta-dialog";
 import { ReservaVentaDetailDialog } from "@/components/feats/reservas-ventas/reserva-venta-detail-dialog";
-import type { Reserva, ReservaCreateData, ReservaEstado } from "@/lib/api-types";
+import type { Reserva, ReservaCreateData, ReservaEstado, ReservaUpdateData } from "@/lib/api-types";
 
 export default function ReservasVentasPage() {
   const { toast } = useToast();
@@ -41,15 +42,19 @@ export default function ReservasVentasPage() {
     total,
     loadReservas,
     createReserva,
+    updateReserva,
     cancelarReserva,
   } = useReservasVentas();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
   const [selectedReserva, setSelectedReserva] = useState<Reserva | null>(null);
+  const [reservaToEdit, setReservaToEdit] = useState<Reserva | null>(null);
   const [reservaToCancel, setReservaToCancel] = useState<Reserva | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
 
   if (loading && filteredReservas.length === 0) {
@@ -88,6 +93,36 @@ export default function ReservasVentasPage() {
   const handleView = (reserva: Reserva) => {
     setSelectedReserva(reserva);
     setIsDetailDialogOpen(true);
+  };
+
+  const handleEditClick = (reserva: Reserva) => {
+    setReservaToEdit(reserva);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleEdit = async (id: string, data: ReservaUpdateData) => {
+    setEditLoading(true);
+    try {
+      await updateReserva(id, data);
+      toast({
+        title: "Éxito",
+        description: "Reserva actualizada correctamente",
+      });
+      setIsEditDialogOpen(false);
+      setReservaToEdit(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar la reserva",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setEditLoading(false);
+    }
   };
 
   const handleCancelarClick = (reserva: Reserva) => {
@@ -213,6 +248,7 @@ export default function ReservasVentasPage() {
               <ReservasVentasTable
                 reservas={filteredReservas}
                 onView={handleView}
+                onEdit={handleEditClick}
                 onCancelar={handleCancelarClick}
               />
 
@@ -233,6 +269,15 @@ export default function ReservasVentasPage() {
         onOpenChange={setIsCreateDialogOpen}
         onSubmit={handleCreate}
         isLoading={createLoading}
+      />
+
+      {/* Edit Dialog */}
+      <EditReservaVentaDialog
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        reserva={reservaToEdit}
+        onSubmit={handleEdit}
+        isLoading={editLoading}
       />
 
       {/* Detail Dialog */}
