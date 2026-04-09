@@ -166,3 +166,17 @@ export type {
   Departamento,
   DepartamentoUpsertRequest,
 } from "./types/feats/departamentos/departamento-types";
+
+export type {
+  Reserva,
+  MaterialReserva,
+  MaterialReservaConsumir,
+  ReservaCreateData,
+  ReservaUpdateData,
+  ReservaConsumirData,
+  ReservaListParams,
+  ReservaListResponse,
+  ReservaEstado,
+  ReservaOrigen,
+  ReservaClienteTipo,
+} from "./types/feats/reservas-ventas/reserva-venta-types";

@@ -1,0 +1,226 @@
+"use client";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
+import { Badge } from "@/components/shared/atom/badge";
+import {
+  BookmarkCheck,
+  Calendar,
+  Package,
+  User,
+  Warehouse,
+} from "lucide-react";
+import type { Reserva, ReservaEstado } from "@/lib/api-types";
+
+interface ReservaVentaDetailDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  reserva: Reserva | null;
+}
+
+const estadoBadgeProps = (
+  estado: ReservaEstado,
+): { className: string; label: string } => {
+  switch (estado) {
+    case "activa":
+      return { className: "bg-green-50 text-green-700 border-green-200", label: "Activa" };
+    case "cancelada":
+      return { className: "bg-red-50 text-red-700 border-red-200", label: "Cancelada" };
+    case "expirada":
+      return { className: "bg-gray-50 text-gray-600 border-gray-200", label: "Expirada" };
+    case "consumida":
+      return { className: "bg-blue-50 text-blue-700 border-blue-200", label: "Consumida" };
+    default:
+      return { className: "bg-gray-50 text-gray-600 border-gray-200", label: estado };
+  }
+};
+
+const formatDate = (value?: string | null) => {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "-";
+  return parsed.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+export function ReservaVentaDetailDialog({
+  open,
+  onOpenChange,
+  reserva,
+}: ReservaVentaDetailDialogProps) {
+  if (!reserva) return null;
+
+  const { className: badgeClass, label: badgeLabel } = estadoBadgeProps(
+    reserva.estado,
+  );
+
+  const totalReservado = reserva.materiales?.reduce(
+    (sum, m) => sum + m.cantidad_reservada,
+    0,
+  ) ?? 0;
+  const totalConsumido = reserva.materiales?.reduce(
+    (sum, m) => sum + (m.cantidad_consumida ?? 0),
+    0,
+  ) ?? 0;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <BookmarkCheck className="h-5 w-5 text-indigo-600" />
+            Detalle de Reserva
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-5 pt-2">
+          {/* Header info */}
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge
+              variant="outline"
+              className="bg-indigo-50 text-indigo-700 border-indigo-200 font-mono"
+            >
+              {reserva.reserva_id || reserva.id.slice(-8).toUpperCase()}
+            </Badge>
+            <Badge variant="outline" className={badgeClass}>
+              {badgeLabel}
+            </Badge>
+            <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-200">
+              Origen: ventas
+            </Badge>
+          </div>
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Cliente
+              </p>
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-900">
+                  {reserva.cliente_nombre ||
+                    reserva.cliente_id.slice(-6).toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Almacén
+              </p>
+              <div className="flex items-center gap-2">
+                <Warehouse className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-900">
+                  {reserva.almacen_nombre ||
+                    reserva.almacen_id.slice(-6).toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Fecha Reserva
+              </p>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-700">
+                  {formatDate(reserva.fecha_reserva)}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Expiración
+              </p>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-gray-400" />
+                <span className="text-sm text-gray-700">
+                  {formatDate(reserva.fecha_expiracion)}
+                </span>
+              </div>
+            </div>
+
+            {reserva.fecha_cierre && (
+              <div className="space-y-1 col-span-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Fecha Cierre
+                </p>
+                <span className="text-sm text-gray-700">
+                  {formatDate(reserva.fecha_cierre)}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Materiales */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Package className="h-4 w-4 text-gray-500" />
+                Materiales ({reserva.materiales?.length ?? 0})
+              </p>
+              <span className="text-xs text-gray-500">
+                Consumido: {totalConsumido} / {totalReservado}
+              </span>
+            </div>
+            {reserva.materiales && reserva.materiales.length > 0 ? (
+              <div className="border rounded-md divide-y">
+                <div className="grid grid-cols-3 px-3 py-2 bg-gray-50 text-xs font-semibold text-gray-600">
+                  <span>Material ID</span>
+                  <span className="text-center">Reservado</span>
+                  <span className="text-center">Consumido</span>
+                </div>
+                {reserva.materiales.map((m, i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-3 px-3 py-2 text-sm items-center"
+                  >
+                    <span className="font-mono text-xs text-gray-600 truncate">
+                      {m.material_id.slice(-8).toUpperCase()}
+                    </span>
+                    <span className="text-center font-medium">
+                      {m.cantidad_reservada}
+                    </span>
+                    <span className="text-center">
+                      <span
+                        className={
+                          m.cantidad_consumida >= m.cantidad_reservada
+                            ? "text-green-600 font-medium"
+                            : "text-gray-700"
+                        }
+                      >
+                        {m.cantidad_consumida ?? 0}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">
+                Sin materiales
+              </p>
+            )}
+          </div>
+
+          {/* Footer meta */}
+          <div className="pt-2 border-t text-xs text-gray-400 flex flex-wrap gap-x-4 gap-y-1">
+            <span>ID: {reserva.id}</span>
+            <span>Creado: {formatDate(reserva.fecha_creacion)}</span>
+            <span>Actualizado: {formatDate(reserva.fecha_actualizacion)}</span>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

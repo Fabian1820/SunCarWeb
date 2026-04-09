@@ -30,6 +30,7 @@ import {
   Building2,
   Building,
   Coins,
+  BookmarkCheck,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -119,6 +120,14 @@ export default function Dashboard() {
       title: "Solicitudes Ventas",
       description: "Crear y administrar solicitudes de ventas web.",
       iconClass: "text-indigo-600",
+    },
+    {
+      id: "reservas-ventas",
+      href: "/reservas-ventas",
+      icon: BookmarkCheck,
+      title: "Reservas Ventas",
+      description: "Gestionar reservas de materiales para ventas.",
+      iconClass: "text-indigo-700",
     },
     {
       id: "ofertas-gestion",
@@ -318,6 +327,7 @@ export default function Dashboard() {
         "clientes",
         "clientes-ventas",
         "solicitudes-ventas",
+        "reservas-ventas",
         "ofertas-gestion",
         "reportes-comercial",
         "resultados",

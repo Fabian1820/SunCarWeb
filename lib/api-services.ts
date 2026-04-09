@@ -38,3 +38,4 @@ export { InstalacionesService } from "./services/feats/instalaciones/instalacion
 export { TrabajosDiariosService } from "./services/feats/instalaciones/trabajos-diarios-service";
 export { ContabilidadService } from "./services/feats/contabilidad/contabilidad-service";
 export { TasaCambioService } from "./services/feats/tasa-cambio/tasa-cambio-service";
+export { ReservaVentaService } from "./services/feats/reservas-ventas/reserva-venta-service";
