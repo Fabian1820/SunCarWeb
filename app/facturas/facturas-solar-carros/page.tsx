@@ -117,6 +117,16 @@ interface FacturaSolarCarroApi {
       }
     | string
     | null;
+  totales?:
+    | {
+        total_cup?: number;
+        total_usd?: number;
+        moneda_final?: string;
+      }
+    | null;
+  total?: number;
+  monto_total?: number;
+  moneda?: string;
   materiales?: FacturaSolarCarroMaterialApi[];
 }
 
@@ -133,6 +143,8 @@ interface FacturaSolarCarroView {
     documentoValor: string;
   };
   concepto: string;
+  totalRegistrado: number;
+  monedaTotal: "CUP" | "USD";
   materiales: Array<{ codigo: string; descripcion: string; cantidad: number }>;
 }
 
@@ -725,6 +737,27 @@ export default function FacturasSolarCarrosPage() {
                   factura.configuracion?.concepto_manual ||
                   "",
               );
+        const totalCup = parseNumero(factura.totales?.total_cup);
+        const totalUsd = parseNumero(factura.totales?.total_usd);
+        const totalFallback = parseNumero(factura.total ?? factura.monto_total);
+        const monedaRaw = String(factura.totales?.moneda_final || factura.moneda || "").toUpperCase();
+        const monedaTotal: "CUP" | "USD" =
+          monedaRaw === "USD"
+            ? "USD"
+            : totalCup > 0
+              ? "CUP"
+              : totalUsd > 0
+                ? "USD"
+                : "CUP";
+        const totalRegistrado =
+          monedaTotal === "USD"
+            ? totalUsd > 0
+              ? totalUsd
+              : totalFallback
+            : totalCup > 0
+              ? totalCup
+              : totalFallback;
+
         const materiales = (Array.isArray(factura.materiales) ? factura.materiales : []).map(
           (m, idx) => ({
             codigo: String(m.codigo || `MAT-${idx + 1}`),
@@ -745,6 +778,8 @@ export default function FacturasSolarCarrosPage() {
             documentoValor: String(factura.cliente?.documento_valor || "-"),
           },
           concepto: String(concepto || ""),
+          totalRegistrado,
+          monedaTotal,
           materiales,
         } satisfies FacturaSolarCarroView;
       });
@@ -1946,7 +1981,11 @@ export default function FacturasSolarCarrosPage() {
     doc.setFont("helvetica", "bold");
     doc.text("Monto total", marginX, y);
     doc.setFont("helvetica", "normal");
-    doc.text("Consultar factura registrada", rightX, y, { align: "right" });
+    const totalRegistradoTexto =
+      Number.isFinite(factura.totalRegistrado) && factura.totalRegistrado > 0
+        ? formatMoney(factura.totalRegistrado, factura.monedaTotal)
+        : "Consultar factura registrada";
+    doc.text(totalRegistradoTexto, rightX, y, { align: "right" });
 
     y += 22;
     const lineW = 52;
