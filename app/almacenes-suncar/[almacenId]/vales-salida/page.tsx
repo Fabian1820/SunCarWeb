@@ -84,6 +84,7 @@ export default function ValesSalidaPage() {
     hasMore, // Flag para saber si hay más registros
     anularVale,
     total, // Total de registros
+    setAlmacenId, // ← Nueva función para configurar almacén
   } = useValesSalida();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -104,6 +105,11 @@ export default function ValesSalidaPage() {
   const [loadingPendientes, setLoadingPendientes] = useState(false);
   const [showSolicitudesPendientes, setShowSolicitudesPendientes] =
     useState(true);
+
+  // ← Configurar el almacén en el hook cuando cambie el almacenId
+  useEffect(() => {
+    setAlmacenId(almacenId);
+  }, [almacenId, setAlmacenId]);
 
   const loadSolicitudesPendientes = useCallback(async () => {
     setLoadingPendientes(true);
@@ -131,15 +137,8 @@ export default function ValesSalidaPage() {
     void loadSolicitudesPendientes();
   }, [loadSolicitudesPendientes]);
 
-  const valesAlmacen = useMemo(() => {
-    return filteredVales.filter((vale) => {
-      const solicitud =
-        vale.solicitud_material || vale.solicitud_venta || vale.solicitud;
-      const solicitudAlmacenId = solicitud?.almacen?.id;
-      if (!solicitudAlmacenId) return true;
-      return solicitudAlmacenId === almacenId;
-    });
-  }, [filteredVales, almacenId]);
+  // ← Ya no necesitamos filtrar en el frontend, el backend lo hace
+  const valesAlmacen = filteredVales;
 
   if (loading && vales.length === 0) {
     return <PageLoader moduleName="Vales de Salida" text="Cargando vales..." />;

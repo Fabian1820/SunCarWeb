@@ -16,13 +16,14 @@ interface UseValesSalidaReturn {
   setSearchTerm: (term: string) => void;
   estadoFilter: "todos" | "usado" | "anulado";
   setEstadoFilter: (estado: "todos" | "usado" | "anulado") => void;
-  loadVales: () => Promise<void>;
+  loadVales: (almacenId?: string) => Promise<void>; // ← Agregar parámetro opcional
   loadMore: () => Promise<void>; // Nueva función para cargar más
   hasMore: boolean; // Indica si hay más registros por cargar
   createVale: (data: ValeSalidaCreateData) => Promise<ValeSalida>;
   anularVale: (id: string, motivoAnulacion: string) => Promise<boolean>;
   clearError: () => void;
   total: number;
+  setAlmacenId: (id: string | undefined) => void; // ← Nueva función para configurar almacén
 }
 
 export function useValesSalida(): UseValesSalidaReturn {
@@ -37,17 +38,19 @@ export function useValesSalida(): UseValesSalidaReturn {
   const [estadoFilter, setEstadoFilter] = useState<
     "todos" | "usado" | "anulado"
   >("todos");
+  const [almacenId, setAlmacenId] = useState<string | undefined>(undefined); // ← Nuevo estado para almacén
 
   // Ref para evitar recrear loadVales en cada render
   const isFirstRender = useRef(true);
 
-  const loadVales = useCallback(async () => {
+  const loadVales = useCallback(async (filterAlmacenId?: string) => {
     setLoading(true);
     setError(null);
     try {
       const params: {
         estado?: string;
         q?: string;
+        almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
         limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
@@ -59,6 +62,12 @@ export function useValesSalida(): UseValesSalidaReturn {
       // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
         params.q = searchTerm.trim();
+      }
+
+      // Si hay un almacén especificado, agregarlo al filtro
+      const currentAlmacenId = filterAlmacenId ?? almacenId;
+      if (currentAlmacenId) {
+        params.almacen_id = currentAlmacenId;
       }
 
       const response = await ValeSalidaService.getValesSummary(params);
@@ -81,7 +90,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter, searchTerm]);
+  }, [estadoFilter, searchTerm, almacenId]);
 
   // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
   const filteredVales = vales;
@@ -95,6 +104,7 @@ export function useValesSalida(): UseValesSalidaReturn {
       const params: {
         estado?: string;
         q?: string;
+        almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
         limit?: number;
       } = estadoFilter === "todos" ? {} : { estado: estadoFilter };
@@ -106,6 +116,11 @@ export function useValesSalida(): UseValesSalidaReturn {
       // Si hay búsqueda, mantenerla
       if (searchTerm.trim()) {
         params.q = searchTerm.trim();
+      }
+
+      // Si hay almacén, mantenerlo
+      if (almacenId) {
+        params.almacen_id = almacenId;
       }
 
       const response = await ValeSalidaService.getValesSummary(params);
@@ -126,7 +141,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     } finally {
       setLoading(false);
     }
-  }, [loading, hasMore, skip, estadoFilter, searchTerm, vales.length]);
+  }, [loading, hasMore, skip, estadoFilter, searchTerm, almacenId, vales.length]);
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -134,7 +149,7 @@ export function useValesSalida(): UseValesSalidaReturn {
       setError(null);
       try {
         const response = await ValeSalidaService.createVale(data);
-        await loadVales();
+        await loadVales(almacenId); // ← Pasar almacenId al recargar
         return response;
       } catch (err) {
         const msg =
@@ -147,7 +162,7 @@ export function useValesSalida(): UseValesSalidaReturn {
         setLoading(false);
       }
     },
-    [loadVales],
+    [loadVales, almacenId],
   );
 
   const anularVale = useCallback(
@@ -158,7 +173,7 @@ export function useValesSalida(): UseValesSalidaReturn {
         await ValeSalidaService.anularVale(id, {
           motivo_anulacion: motivoAnulacion,
         });
-        await loadVales();
+        await loadVales(almacenId); // ← Pasar almacenId al recargar
         return true;
       } catch (err) {
         const msg =
@@ -169,7 +184,7 @@ export function useValesSalida(): UseValesSalidaReturn {
         setLoading(false);
       }
     },
-    [loadVales],
+    [loadVales, almacenId],
   );
 
   const clearError = useCallback(() => setError(null), []);
@@ -179,7 +194,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     // Saltar el primer render
     if (isFirstRender.current) {
       isFirstRender.current = false;
-      void loadVales(); // Cargar inmediatamente en el primer render
+      void loadVales(almacenId); // Cargar inmediatamente en el primer render con almacenId
       return;
     }
 
@@ -187,7 +202,7 @@ export function useValesSalida(): UseValesSalidaReturn {
     setIsSearching(true);
 
     const timer = setTimeout(() => {
-      void loadVales().finally(() => {
+      void loadVales(almacenId).finally(() => {
         setIsSearching(false); // Desactivar indicador cuando termine
       });
     }, 500);
@@ -197,7 +212,7 @@ export function useValesSalida(): UseValesSalidaReturn {
       setIsSearching(false); // Limpiar indicador si se cancela
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoFilter, searchTerm]); // Solo depende de filtros y búsqueda, NO de loadVales
+  }, [estadoFilter, searchTerm, almacenId]); // ← Agregar almacenId como dependencia
 
   return {
     vales,
@@ -216,5 +231,6 @@ export function useValesSalida(): UseValesSalidaReturn {
     anularVale,
     clearError,
     total,
+    setAlmacenId, // ← Nueva función exportada
   };
 }
