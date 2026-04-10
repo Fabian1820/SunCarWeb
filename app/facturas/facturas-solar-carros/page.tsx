@@ -663,6 +663,8 @@ export default function FacturasSolarCarrosPage() {
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
   const [searchInstaladora, setSearchInstaladora] = useState("");
   const [searchVentas, setSearchVentas] = useState("");
+  const [fechaValeDesde, setFechaValeDesde] = useState("");
+  const [fechaValeHasta, setFechaValeHasta] = useState("");
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSaving, setPreviewSaving] = useState(false);
@@ -1622,9 +1624,24 @@ export default function FacturasSolarCarrosPage() {
 
   const instaladoraRowsFiltradas = useMemo(() => {
     const term = normalizeKey(searchInstaladora);
-    if (!term) return instaladoraRows;
+    const fromTime = fechaValeDesde
+      ? new Date(`${fechaValeDesde}T00:00:00`).getTime()
+      : null;
+    const toTime = fechaValeHasta
+      ? new Date(`${fechaValeHasta}T23:59:59.999`).getTime()
+      : null;
 
     return instaladoraRows.filter((row) => {
+      if (fromTime !== null || toTime !== null) {
+        if (!row.ultimaFechaValeSalida) return false;
+        const valeTime = new Date(row.ultimaFechaValeSalida).getTime();
+        if (Number.isNaN(valeTime)) return false;
+        if (fromTime !== null && valeTime < fromTime) return false;
+        if (toTime !== null && valeTime > toTime) return false;
+      }
+
+      if (!term) return true;
+
       const haystack = [
         row.cliente.nombre,
         row.cliente.direccion,
@@ -1639,7 +1656,7 @@ export default function FacturasSolarCarrosPage() {
 
       return haystack.includes(term);
     });
-  }, [instaladoraRows, searchInstaladora]);
+  }, [instaladoraRows, searchInstaladora, fechaValeDesde, fechaValeHasta]);
 
   const rowsVentasConComprasFiltradas = useMemo(() => {
     const term = normalizeKey(searchVentas);
@@ -1880,14 +1897,34 @@ export default function FacturasSolarCarrosPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="max-w-md">
-                      <Label htmlFor="search-instaladora">Buscar en Instaladora</Label>
-                      <Input
-                        id="search-instaladora"
-                        placeholder="Nombre, teléfono, carnet, componente..."
-                        value={searchInstaladora}
-                        onChange={(e) => setSearchInstaladora(e.target.value)}
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <Label htmlFor="search-instaladora">Buscar en Instaladora</Label>
+                        <Input
+                          id="search-instaladora"
+                          placeholder="Nombre, teléfono, carnet, componente..."
+                          value={searchInstaladora}
+                          onChange={(e) => setSearchInstaladora(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fecha-vale-desde">Último vale desde</Label>
+                        <Input
+                          id="fecha-vale-desde"
+                          type="date"
+                          value={fechaValeDesde}
+                          onChange={(e) => setFechaValeDesde(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="fecha-vale-hasta">Último vale hasta</Label>
+                        <Input
+                          id="fecha-vale-hasta"
+                          type="date"
+                          value={fechaValeHasta}
+                          onChange={(e) => setFechaValeHasta(e.target.value)}
+                        />
+                      </div>
                     </div>
                     <div className="overflow-x-auto">
                     <table className="w-full text-sm">
