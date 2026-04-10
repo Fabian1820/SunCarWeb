@@ -1,10 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { ArrowLeft, PackageSearch, ClipboardList, Edit } from "lucide-react"
+import { Label } from "@/components/shared/atom/label"
+import { Input } from "@/components/shared/molecule/input"
+import { ArrowLeft, PackageSearch, ClipboardList, Edit, Search } from "lucide-react"
 import { ContabilidadTable } from "@/components/feats/contabilidad/contabilidad-table"
 import { EntradaManualDialog } from "@/components/feats/contabilidad/entrada-manual-dialog"
 import { CrearTicketDialog } from "@/components/feats/contabilidad/crear-ticket-dialog"
@@ -39,6 +41,7 @@ function ExistenciasContabilidadPageContent() {
   const [seleccionarMaterialDialogOpen, setSeleccionarMaterialDialogOpen] = useState(false)
   const [editarContabilidadDialogOpen, setEditarContabilidadDialogOpen] = useState(false)
   const [materialSeleccionado, setMaterialSeleccionado] = useState<Material | null>(null)
+  const [searchCodigoContabilidad, setSearchCodigoContabilidad] = useState("")
 
   // Cargar todos los materiales al montar el componente
   useEffect(() => {
@@ -130,6 +133,25 @@ function ExistenciasContabilidadPageContent() {
     { header: "Precio", key: "precioContabilidad", width: 15 },
   ]
 
+  const materialesFiltrados = useMemo(() => {
+    const term = searchCodigoContabilidad.trim().toLowerCase()
+    const base = !term
+      ? materiales
+      : materiales.filter((material) =>
+          String(material.codigoContabilidad || "")
+            .toLowerCase()
+            .includes(term),
+        )
+
+    return [...base].sort((a, b) =>
+      String(a.codigoContabilidad || "").localeCompare(
+        String(b.codigoContabilidad || ""),
+        "es",
+        { numeric: true, sensitivity: "base" },
+      ),
+    )
+  }, [materiales, searchCodigoContabilidad])
+
   if (loading && materiales.length === 0) {
     return <PageLoader moduleName="Existencias Contabilidad" text="Cargando..." />
   }
@@ -192,7 +214,7 @@ function ExistenciasContabilidadPageContent() {
                     title: "Existencias en almacén",
                     subtitle: "Inventario Contable",
                     columns: exportColumns,
-                    data: materiales,
+                    data: materialesFiltrados,
                   }}
                   baseFilename="existencias-contabilidad"
                   variant="compact"
@@ -228,7 +250,20 @@ function ExistenciasContabilidadPageContent() {
             <CardTitle>Inventario Contable</CardTitle>
           </CardHeader>
           <CardContent>
-            <ContabilidadTable materiales={materiales} loading={loading} />
+            <div className="mb-4 max-w-md">
+              <Label htmlFor="search-codigo-contabilidad">Buscar por código contabilidad</Label>
+              <div className="relative mt-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  id="search-codigo-contabilidad"
+                  placeholder="Ej: 2301-INV-001"
+                  value={searchCodigoContabilidad}
+                  onChange={(e) => setSearchCodigoContabilidad(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <ContabilidadTable materiales={materialesFiltrados} loading={loading} />
           </CardContent>
         </Card>
       </main>
