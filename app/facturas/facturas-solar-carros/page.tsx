@@ -107,6 +107,16 @@ interface FacturaSolarCarroApi {
     documento_valor?: string;
     nombre?: string;
   } | null;
+  configuracion?: {
+    concepto_manual?: string | null;
+  } | null;
+  concepto?:
+    | {
+        texto_final?: string;
+        lineas_generadas?: string[];
+      }
+    | string
+    | null;
   materiales?: FacturaSolarCarroMaterialApi[];
 }
 
@@ -122,6 +132,7 @@ interface FacturaSolarCarroView {
     documentoLabel: string;
     documentoValor: string;
   };
+  concepto: string;
   materiales: Array<{ codigo: string; descripcion: string; cantidad: number }>;
 }
 
@@ -652,6 +663,14 @@ const buildNumeroFacturaSolar = (
   return `${String(nextSeq).padStart(5, "0")}${year2}`;
 };
 
+const formatNumeroFacturaExport = (value?: string) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  if (raw.includes("-")) return raw;
+  if (raw.length <= 2) return raw;
+  return `${raw.slice(0, -2)}-${raw.slice(-2)}`;
+};
+
 export default function FacturasSolarCarrosPage() {
   const { toast } = useToast();
 
@@ -698,6 +717,14 @@ export default function FacturasSolarCarrosPage() {
         const origen = normalizeKey(factura.origen).includes("instaladora")
           ? "instaladora"
           : "ventas";
+        const concepto =
+          typeof factura.concepto === "string"
+            ? factura.concepto
+            : String(
+                factura.concepto?.texto_final ||
+                  factura.configuracion?.concepto_manual ||
+                  "",
+              );
         const materiales = (Array.isArray(factura.materiales) ? factura.materiales : []).map(
           (m, idx) => ({
             codigo: String(m.codigo || `MAT-${idx + 1}`),
@@ -717,6 +744,7 @@ export default function FacturasSolarCarrosPage() {
             documentoLabel: String(factura.cliente?.documento_label || "Documento"),
             documentoValor: String(factura.cliente?.documento_valor || "-"),
           },
+          concepto: String(concepto || ""),
           materiales,
         } satisfies FacturaSolarCarroView;
       });
@@ -1261,7 +1289,7 @@ export default function FacturasSolarCarrosPage() {
               <div><span class="label">NIT:</span> ${EMPRESA.nit}</div>
             </div>
             <div class="box">
-              <div><span class="label">No factura:</span> ${previewDraft.numero_factura}</div>
+              <div><span class="label">No factura:</span> ${formatNumeroFacturaExport(previewDraft.numero_factura)}</div>
               <div><span class="label">Fecha:</span> ${formatDate(previewDraft.fecha)}</div>
             </div>
           </div>
@@ -1341,7 +1369,7 @@ export default function FacturasSolarCarrosPage() {
     const rightColX = pageW * 0.62;
     let yRight = headerStartY;
     doc.setFont("helvetica", "bold");
-    doc.text(`No factura: ${previewDraft.numero_factura}`, rightColX, yRight);
+    doc.text(`No factura: ${formatNumeroFacturaExport(previewDraft.numero_factura)}`, rightColX, yRight);
     yRight += 5;
     doc.text(`Fecha: ${formatDate(previewDraft.fecha)}`, rightColX, yRight);
 
@@ -1864,7 +1892,7 @@ export default function FacturasSolarCarrosPage() {
     const rightColX = pageW * 0.62;
     let yRight = headerStartY;
     doc.setFont("helvetica", "bold");
-    doc.text(`No factura: ${factura.noFactura}`, rightColX, yRight);
+    doc.text(`No factura: ${formatNumeroFacturaExport(factura.noFactura)}`, rightColX, yRight);
     yRight += 5;
     doc.text(`Fecha: ${formatDate(factura.fecha)}`, rightColX, yRight);
 
@@ -1898,18 +1926,19 @@ export default function FacturasSolarCarrosPage() {
     y += 8;
 
     doc.setFont("helvetica", "bold");
-    doc.text("Materiales facturados:", marginX, y);
+    doc.text("Concepto:", marginX, y);
     y += 5;
     doc.setFont("helvetica", "normal");
-    const materialesLines =
+    const conceptoTexto = String(factura.concepto || "").trim();
+    const conceptoFallback =
       factura.materiales.length > 0
-        ? factura.materiales.map(
-            (m) => `${formatQty(parseNumero(m.cantidad))}x ${m.descripcion || m.codigo}`,
-          )
-        : ["Sin materiales"];
-    const matLines = doc.splitTextToSize(materialesLines.join("\n"), 180);
-    doc.text(matLines, marginX, y);
-    y += matLines.length * 4.5 + 4;
+        ? factura.materiales
+            .map((m) => `${formatQty(parseNumero(m.cantidad))}x ${m.descripcion || m.codigo}`)
+            .join("\n")
+        : "Sin concepto";
+    const conceptoLines = doc.splitTextToSize(conceptoTexto || conceptoFallback, 180);
+    doc.text(conceptoLines, marginX, y);
+    y += conceptoLines.length * 4.5 + 4;
 
     doc.line(marginX, y, rightX, y);
     y += 7;
