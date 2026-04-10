@@ -15,6 +15,7 @@ import {
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Textarea } from "@/components/shared/molecule/textarea";
+import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
 import {
   Dialog,
   DialogContent,
@@ -673,6 +674,8 @@ export default function FacturasSolarCarrosPage() {
   const [catalogMateriales, setCatalogMateriales] = useState<Material[]>([]);
   const [loadingCatalog, setLoadingCatalog] = useState(false);
   const [editableConceptItems, setEditableConceptItems] = useState<EditableConceptMaterial[]>([]);
+  const [replaceSelectionByRow, setReplaceSelectionByRow] = useState<Record<string, string>>({});
+  const [nuevoMaterialContabilidadId, setNuevoMaterialContabilidadId] = useState("");
 
   const [loadingTasa, setLoadingTasa] = useState(false);
   const [tasaError, setTasaError] = useState<string | null>(null);
@@ -1705,6 +1708,31 @@ export default function FacturasSolarCarrosPage() {
     return out;
   }, [catalogMateriales]);
 
+  const materialOptionsPorCategoria = useMemo(() => {
+    const build = (materiales: Material[]) =>
+      materiales.map((m) => ({
+        value: String(m.id || ""),
+        label: `[${String(m.codigo_contabilidad || "SIN-COD")}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
+      }));
+
+    return {
+      inversor: build(materialesCatalogPorCategoria.inversor),
+      bateria: build(materialesCatalogPorCategoria.bateria),
+      panel: build(materialesCatalogPorCategoria.panel),
+    };
+  }, [materialesCatalogPorCategoria]);
+
+  const materialesContabilidadOptions = useMemo(
+    () =>
+      (catalogMateriales || [])
+        .filter((m) => String(m.codigo_contabilidad || "").trim().length > 0)
+        .map((m) => ({
+          value: String(m.id || ""),
+          label: `[${String(m.codigo_contabilidad)}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
+        })),
+    [catalogMateriales],
+  );
+
   const updateEditableCantidad = (rowId: string, cantidad: number) => {
     setEditableConceptItems((prev) =>
       prev.map((item) =>
@@ -1742,6 +1770,46 @@ export default function FacturasSolarCarrosPage() {
         };
       }),
     );
+  };
+
+  const handleAgregarOtroMaterialContabilidad = () => {
+    if (!nuevoMaterialContabilidadId) return;
+
+    const found = catalogMateriales.find((m) => String(m.id) === nuevoMaterialContabilidadId);
+    if (!found) return;
+
+    const categoriaDetectada = detectCategoryFromMaterial(found);
+    const categoriaKey = categoriaDetectada === "otro" ? "panel" : categoriaDetectada;
+
+    setEditableConceptItems((prev) => {
+      const existing = prev.find((item) => String(item.material_id) === String(found.id));
+      if (existing) {
+        return prev.map((item) =>
+          item.rowId === existing.rowId
+            ? { ...item, cantidad: Math.max(0, Math.round(parseNumero(item.cantidad) + 1)) }
+            : item,
+        );
+      }
+
+      return [
+        ...prev,
+        {
+          rowId: `extra-${Date.now()}-${String(found.id || Math.random())}`,
+          categoriaKey,
+          material_id: String(found.id || ""),
+          codigo: String(found.codigo || ""),
+          descripcion: String(found.nombre || found.descripcion || "Material"),
+          precio: parseNumero(found.precio),
+          cantidad: 1,
+          codigoContabilidad: String(found.codigo_contabilidad || ""),
+          cantidadExistente: parseNumero(found.cantidad_contabilidad),
+          precioContabilidad: parseNumero(found.precio_contabilidad),
+          sinVinculo: !isLikelyPersistentId(String(found.id || "")),
+        },
+      ];
+    });
+
+    setNuevoMaterialContabilidadId("");
   };
 
   const handleDownloadFacturaCreadaPDF = async (
@@ -2407,24 +2475,19 @@ export default function FacturasSolarCarrosPage() {
                               )}
                             </td>
                             <td className="px-2 py-1.5 space-y-1">
-                              <select
-                                className="w-full border rounded px-2 py-1"
-                                defaultValue=""
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  if (value) replaceEditableItem(item.rowId, value);
-                                  e.currentTarget.value = "";
+                              <SearchableSelect
+                                options={materialOptionsPorCategoria[item.categoriaKey] || []}
+                                value={replaceSelectionByRow[item.rowId] || ""}
+                                onValueChange={(value) => {
+                                  setReplaceSelectionByRow((prev) => ({ ...prev, [item.rowId]: value }));
+                                  replaceEditableItem(item.rowId, value);
+                                  setReplaceSelectionByRow((prev) => ({ ...prev, [item.rowId]: "" }));
                                 }}
-                              >
-                                <option value="" disabled>
-                                  Cambiar por...
-                                </option>
-                                {(materialesCatalogPorCategoria[item.categoriaKey] || []).map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.codigo} - {m.nombre || m.descripcion}
-                                  </option>
-                                ))}
-                              </select>
+                                placeholder="Cambiar por..."
+                                searchPlaceholder="Buscar por código contabilidad..."
+                                truncateSelected={false}
+                                truncateOptions={false}
+                              />
                               <Button
                                 type="button"
                                 variant="outline"
@@ -2446,6 +2509,29 @@ export default function FacturasSolarCarrosPage() {
                         )}
                       </tbody>
                     </table>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end">
+                    <div>
+                      <Label>Agregar otro material (contabilidad)</Label>
+                      <SearchableSelect
+                        options={materialesContabilidadOptions}
+                        value={nuevoMaterialContabilidadId}
+                        onValueChange={setNuevoMaterialContabilidadId}
+                        placeholder="Seleccionar material por código contabilidad..."
+                        searchPlaceholder="Buscar por código contabilidad..."
+                        truncateSelected={false}
+                        truncateOptions={false}
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleAgregarOtroMaterialContabilidad}
+                      disabled={!nuevoMaterialContabilidadId}
+                      className="h-10"
+                    >
+                      Agregar otro material
+                    </Button>
                   </div>
                   <Textarea
                     className="mt-2"
