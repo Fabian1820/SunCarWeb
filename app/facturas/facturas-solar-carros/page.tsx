@@ -661,6 +661,8 @@ export default function FacturasSolarCarrosPage() {
   const [instaladoraRows, setInstaladoraRows] = useState<InstaladoraRow[]>([]);
   const [ventasRows, setVentasRows] = useState<VentasRow[]>([]);
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
+  const [searchInstaladora, setSearchInstaladora] = useState("");
+  const [searchVentas, setSearchVentas] = useState("");
 
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewSaving, setPreviewSaving] = useState(false);
@@ -1618,6 +1620,50 @@ export default function FacturasSolarCarrosPage() {
     [ventasRows],
   );
 
+  const instaladoraRowsFiltradas = useMemo(() => {
+    const term = normalizeKey(searchInstaladora);
+    if (!term) return instaladoraRows;
+
+    return instaladoraRows.filter((row) => {
+      const haystack = [
+        row.cliente.nombre,
+        row.cliente.direccion,
+        row.cliente.telefono,
+        row.cliente.tipo_persona,
+        row.cliente.carnet_identidad,
+        row.ultimaFechaValeSalida || "",
+        ...row.componentesPrincipales,
+      ]
+        .map((value) => normalizeKey(value))
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [instaladoraRows, searchInstaladora]);
+
+  const rowsVentasConComprasFiltradas = useMemo(() => {
+    const term = normalizeKey(searchVentas);
+    if (!term) return rowsVentasConCompras;
+
+    return rowsVentasConCompras.filter((row) => {
+      const comprasTexto = row.compras
+        .map((compra) => `${compra.codigo} ${compra.descripcion} ${compra.cantidad}`)
+        .join(" ");
+
+      const haystack = [
+        row.cliente.nombre,
+        row.cliente.direccion,
+        row.cliente.telefono,
+        row.cliente.ci,
+        comprasTexto,
+      ]
+        .map((value) => normalizeKey(value))
+        .join(" ");
+
+      return haystack.includes(term);
+    });
+  }, [rowsVentasConCompras, searchVentas]);
+
   const getExistenciaClass = (existencia: number) => {
     const value = parseNumero(existencia);
     if (value <= 0) return "text-red-600 font-semibold";
@@ -1833,7 +1879,17 @@ export default function FacturasSolarCarrosPage() {
                     Cargando clientes de instaladora...
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="space-y-3">
+                    <div className="max-w-md">
+                      <Label htmlFor="search-instaladora">Buscar en Instaladora</Label>
+                      <Input
+                        id="search-instaladora"
+                        placeholder="Nombre, teléfono, carnet, componente..."
+                        value={searchInstaladora}
+                        onChange={(e) => setSearchInstaladora(e.target.value)}
+                      />
+                    </div>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-slate-50">
@@ -1848,7 +1904,7 @@ export default function FacturasSolarCarrosPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {instaladoraRows.map((row) => {
+                        {instaladoraRowsFiltradas.map((row) => {
                           const rowKey = row.cliente.numero || row.cliente.id || row.cliente.nombre;
                           const creating = creatingClienteKey === rowKey;
                           return (
@@ -1886,15 +1942,18 @@ export default function FacturasSolarCarrosPage() {
                             </tr>
                           );
                         })}
-                        {instaladoraRows.length === 0 && (
+                        {instaladoraRowsFiltradas.length === 0 && (
                           <tr>
                             <td colSpan={8} className="text-center py-6 text-gray-500">
-                              No hay clientes con estado &quot;Equipo instalado con éxito&quot;.
+                              {searchInstaladora.trim()
+                                ? "No hay resultados para la búsqueda en Instaladora."
+                                : 'No hay clientes con estado "Equipo instalado con éxito".'}
                             </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </TabsContent>
@@ -1905,7 +1964,17 @@ export default function FacturasSolarCarrosPage() {
                     Cargando clientes de ventas...
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="space-y-3">
+                    <div className="max-w-md">
+                      <Label htmlFor="search-ventas">Buscar en Ventas</Label>
+                      <Input
+                        id="search-ventas"
+                        placeholder="Nombre, CI/NIT, teléfono, material..."
+                        value={searchVentas}
+                        onChange={(e) => setSearchVentas(e.target.value)}
+                      />
+                    </div>
+                    <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b bg-slate-50">
@@ -1918,7 +1987,7 @@ export default function FacturasSolarCarrosPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {rowsVentasConCompras.map((row) => {
+                        {rowsVentasConComprasFiltradas.map((row) => {
                           const rowKey = row.cliente.id || row.cliente.numero || row.cliente.nombre;
                           const creating = creatingVentaKey === rowKey;
                           return (
@@ -1956,15 +2025,18 @@ export default function FacturasSolarCarrosPage() {
                             </tr>
                           );
                         })}
-                        {rowsVentasConCompras.length === 0 && (
+                        {rowsVentasConComprasFiltradas.length === 0 && (
                           <tr>
                             <td colSpan={6} className="text-center py-6 text-gray-500">
-                              No hay clientes de ventas con compras registradas.
+                              {searchVentas.trim()
+                                ? "No hay resultados para la búsqueda en Ventas."
+                                : "No hay clientes de ventas con compras registradas."}
                             </td>
                           </tr>
                         )}
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
               </TabsContent>
