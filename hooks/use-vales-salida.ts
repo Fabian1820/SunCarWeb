@@ -26,7 +26,7 @@ interface UseValesSalidaReturn {
   setAlmacenId: (id: string | undefined) => void; // ← Nueva función para configurar almacén
 }
 
-export function useValesSalida(): UseValesSalidaReturn {
+export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn {
   const [vales, setVales] = useState<ValeSalidaSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0); // Contador de registros cargados
@@ -38,7 +38,7 @@ export function useValesSalida(): UseValesSalidaReturn {
   const [estadoFilter, setEstadoFilter] = useState<
     "todos" | "usado" | "anulado"
   >("todos");
-  const [almacenId, setAlmacenId] = useState<string | undefined>(undefined); // ← Nuevo estado para almacén
+  const [almacenId, setAlmacenId] = useState<string | undefined>(initialAlmacenId); // ← Inicializado con el valor correcto
 
   // Ref para evitar recrear loadVales en cada render
   const isFirstRender = useRef(true);

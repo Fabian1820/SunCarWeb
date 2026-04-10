@@ -84,8 +84,7 @@ export default function ValesSalidaPage() {
     hasMore, // Flag para saber si hay más registros
     anularVale,
     total, // Total de registros
-    setAlmacenId, // ← Nueva función para configurar almacén
-  } = useValesSalida();
+  } = useValesSalida(almacenId);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
@@ -105,11 +104,6 @@ export default function ValesSalidaPage() {
   const [loadingPendientes, setLoadingPendientes] = useState(false);
   const [showSolicitudesPendientes, setShowSolicitudesPendientes] =
     useState(true);
-
-  // ← Configurar el almacén en el hook cuando cambie el almacenId
-  useEffect(() => {
-    setAlmacenId(almacenId);
-  }, [almacenId, setAlmacenId]);
 
   const loadSolicitudesPendientes = useCallback(async () => {
     setLoadingPendientes(true);
