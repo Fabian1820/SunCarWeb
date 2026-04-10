@@ -1710,10 +1710,19 @@ export default function FacturasSolarCarrosPage() {
 
   const materialOptionsPorCategoria = useMemo(() => {
     const build = (materiales: Material[]) =>
-      materiales.map((m) => ({
-        value: String(m.id || ""),
-        label: `[${String(m.codigo_contabilidad || "SIN-COD")}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
-      }));
+      materiales
+        .filter((m) => String(m.codigo_contabilidad || "").trim().length > 0)
+        .sort((a, b) =>
+          String(a.codigo_contabilidad || "").localeCompare(
+            String(b.codigo_contabilidad || ""),
+            "es",
+            { numeric: true, sensitivity: "base" },
+          ),
+        )
+        .map((m) => ({
+          value: String(m.id || ""),
+          label: `[${String(m.codigo_contabilidad)}] ${String(m.codigo || "-")} - ${String(m.nombre || m.descripcion || "Material")}`,
+        }));
 
     return {
       inversor: build(materialesCatalogPorCategoria.inversor),
@@ -2220,7 +2229,7 @@ export default function FacturasSolarCarrosPage() {
       </main>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+        <DialogContent className="w-[96vw] max-w-[1500px] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vista previa y edición de factura</DialogTitle>
           </DialogHeader>
@@ -2424,7 +2433,7 @@ export default function FacturasSolarCarrosPage() {
 
                 <div>
                   <Label>Concepto</Label>
-                  <div className="mt-2 rounded-md border overflow-auto">
+                  <div className="mt-2 rounded-md border overflow-x-auto overflow-y-visible">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="bg-slate-50 border-b">
@@ -2474,7 +2483,7 @@ export default function FacturasSolarCarrosPage() {
                                 </span>
                               )}
                             </td>
-                            <td className="px-2 py-1.5 space-y-1">
+                            <td className="px-2 py-1.5 space-y-1 min-w-[330px]">
                               <SearchableSelect
                                 options={materialOptionsPorCategoria[item.categoriaKey] || []}
                                 value={replaceSelectionByRow[item.rowId] || ""}
@@ -2485,6 +2494,9 @@ export default function FacturasSolarCarrosPage() {
                                 }}
                                 placeholder="Cambiar por..."
                                 searchPlaceholder="Buscar por código contabilidad..."
+                                disablePortal
+                                className="min-w-[300px]"
+                                listClassName="max-h-[240px]"
                                 truncateSelected={false}
                                 truncateOptions={false}
                               />
@@ -2519,6 +2531,9 @@ export default function FacturasSolarCarrosPage() {
                         onValueChange={setNuevoMaterialContabilidadId}
                         placeholder="Seleccionar material por código contabilidad..."
                         searchPlaceholder="Buscar por código contabilidad..."
+                        disablePortal
+                        className="min-w-[320px]"
+                        listClassName="max-h-[260px]"
                         truncateSelected={false}
                         truncateOptions={false}
                       />
