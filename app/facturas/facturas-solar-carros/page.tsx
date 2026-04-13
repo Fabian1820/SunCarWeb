@@ -191,6 +191,8 @@ interface SolarFacturaDraft {
   porcentaje_natural: number;
   tasa_cambio_cup: number;
   base_total_usd: number;
+  precio_final_cup: number;
+  precio_final_editado_manual: boolean;
   moneda: "CUP";
 }
 
@@ -1010,6 +1012,8 @@ export default function FacturasSolarCarrosPage() {
           porcentaje_natural: 15,
           tasa_cambio_cup: 0,
           base_total_usd: baseFromItems,
+          precio_final_cup: 0,
+          precio_final_editado_manual: false,
           moneda: "CUP",
         },
       );
@@ -1061,6 +1065,8 @@ export default function FacturasSolarCarrosPage() {
           porcentaje_natural: 15,
           tasa_cambio_cup: 0,
           base_total_usd: baseUsd,
+          precio_final_cup: 0,
+          precio_final_editado_manual: false,
           moneda: "CUP",
         },
       );
@@ -1254,7 +1260,7 @@ export default function FacturasSolarCarrosPage() {
       );
   }, [editableConceptItems]);
 
-  const totalFacturarUsd = useMemo(() => {
+  const totalFacturarUsdCalculado = useMemo(() => {
     if (!previewDraft) return 0;
 
     if (previewDraft.persona_tipo === "juridica") {
@@ -1266,13 +1272,39 @@ export default function FacturasSolarCarrosPage() {
     return tasa > 0 ? totalCup / tasa : 0;
   }, [baseNaturalCup, baseParaCalculoUsd, previewDraft]);
 
-  const totalFacturarCup = useMemo(() => {
+  const totalFacturarCupCalculado = useMemo(() => {
     if (!previewDraft) return 0;
     if (previewDraft.persona_tipo === "juridica") {
-      return totalFacturarUsd * parseNumero(previewDraft.tasa_cambio_cup);
+      return totalFacturarUsdCalculado * parseNumero(previewDraft.tasa_cambio_cup);
     }
     return baseNaturalCup * (1 + parseNumero(previewDraft.porcentaje_natural) / 100);
-  }, [baseNaturalCup, previewDraft, totalFacturarUsd]);
+  }, [baseNaturalCup, previewDraft, totalFacturarUsdCalculado]);
+
+  useEffect(() => {
+    if (!previewDraft || previewDraft.precio_final_editado_manual) return;
+    const nextPrecioFinal = Math.max(0, totalFacturarCupCalculado);
+    if (
+      Math.abs(parseNumero(previewDraft.precio_final_cup) - nextPrecioFinal) <= 0.0001
+    ) {
+      return;
+    }
+    setPreviewDraft((prev) =>
+      prev && !prev.precio_final_editado_manual
+        ? { ...prev, precio_final_cup: nextPrecioFinal }
+        : prev,
+    );
+  }, [previewDraft, totalFacturarCupCalculado]);
+
+  const totalFacturarCup = useMemo(() => {
+    if (!previewDraft) return 0;
+    return Math.max(0, parseNumero(previewDraft.precio_final_cup));
+  }, [previewDraft]);
+
+  const totalFacturarUsd = useMemo(() => {
+    if (!previewDraft) return 0;
+    const tasa = parseNumero(previewDraft.tasa_cambio_cup);
+    return tasa > 0 ? totalFacturarCup / tasa : totalFacturarUsdCalculado;
+  }, [previewDraft, totalFacturarCup, totalFacturarUsdCalculado]);
 
   const aumentoNaturalUsd = useMemo(() => {
     if (!previewDraft || previewDraft.persona_tipo === "juridica") return 0;
@@ -2042,7 +2074,7 @@ export default function FacturasSolarCarrosPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+	                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                       <div>
                         <Label htmlFor="search-instaladora">Buscar en Instaladora</Label>
                         <Input
@@ -2478,11 +2510,11 @@ export default function FacturasSolarCarrosPage() {
                     <Label>Aumento por % (CUP)</Label>
                     <Input disabled value={formatMoney(aumentoNaturalCup, "CUP")} />
                   </div>
-                  <div>
-                    <Label>Total CUP con aumento</Label>
-                    <Input disabled value={formatMoney(totalFacturarCup, "CUP")} />
-                  </div>
-                </div>
+	                  <div>
+	                    <Label>Total CUP calculado</Label>
+	                    <Input disabled value={formatMoney(totalFacturarCupCalculado, "CUP")} />
+	                  </div>
+	                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
@@ -2655,10 +2687,46 @@ export default function FacturasSolarCarrosPage() {
                   )}
                 </div>
 
-                <div>
-                  <Label>Importe total en CUP</Label>
-                  <Input disabled value={formatMoney(totalFacturarCup, "CUP")} />
-                </div>
+	                <div>
+	                  <Label>Precio final editable (CUP)</Label>
+	                  <Input
+	                    type="number"
+	                    min={0}
+	                    step="0.01"
+	                    value={previewDraft.precio_final_cup}
+	                    onChange={(e) =>
+	                      setPreviewDraft((prev) =>
+	                        prev
+	                          ? {
+	                              ...prev,
+	                              precio_final_cup: Math.max(0, parseNumero(e.target.value)),
+	                              precio_final_editado_manual: true,
+	                            }
+	                          : prev,
+	                      )
+	                    }
+	                  />
+	                  {previewDraft.precio_final_editado_manual && (
+	                    <Button
+	                      type="button"
+	                      variant="link"
+	                      className="h-auto px-0 mt-1 text-xs"
+	                      onClick={() =>
+	                        setPreviewDraft((prev) =>
+	                          prev
+	                            ? {
+	                                ...prev,
+	                                precio_final_editado_manual: false,
+	                                precio_final_cup: Math.max(0, totalFacturarCupCalculado),
+	                              }
+	                            : prev,
+	                        )
+	                      }
+	                    >
+	                      Restaurar valor calculado
+	                    </Button>
+	                  )}
+	                </div>
 
                 <div className="flex flex-wrap gap-2 pt-2">
                   <Button variant="outline" onClick={handlePrintPreview}>
