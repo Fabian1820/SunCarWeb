@@ -218,6 +218,7 @@ export class InventarioService {
       categoria: asString(row?.categoria) || asString(materialObj?.categoria),
       um: asString(row?.um) || asString(materialObj?.um),
       cantidad: asNumber(row?.cantidad) ?? 0,
+      cantidad_reservada: asNumber(row?.cantidad_reservada) ?? 0,
       ubicacion_en_almacen: asString(row?.ubicacion_en_almacen) ?? null,
       actualizado_en:
         asString(row?.actualizado_en) || asString(row?.updated_at),

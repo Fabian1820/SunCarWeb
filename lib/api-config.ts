@@ -255,6 +255,11 @@ export async function apiRequest<T>(
 
     const response = await fetch(url, config);
 
+    // Notificar que el backend responde (aunque sea con error HTTP)
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("backend-status", { detail: { online: true } }));
+    }
+
     // Intentar parsear la respuesta priorizando JSON, con fallback seguro para cuerpo vacÃ­o/no-JSON.
     let data: unknown;
     if (responseType === "blob") {
@@ -398,6 +403,10 @@ export async function apiRequest<T>(
       error instanceof TypeError &&
       /failed to fetch|load failed/i.test(error.message)
     ) {
+      // Notificar que el backend no responde
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("backend-status", { detail: { online: false } }));
+      }
       throw new Error(
         `No se pudo conectar con el backend (${url}). Revisa CORS, SSL y disponibilidad del endpoint.`,
       );

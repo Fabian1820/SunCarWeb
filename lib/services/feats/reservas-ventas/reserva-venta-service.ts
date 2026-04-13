@@ -124,4 +124,21 @@ export class ReservaVentaService {
     if (error) throw new Error(error);
     return { expiradas: raw?.expiradas ?? 0 };
   }
+
+  static async getReservasPorMaterial(
+    almacen_id: string,
+    material_id: string,
+  ): Promise<{ data: Reserva[]; total: number }> {
+    const search = new URLSearchParams({ almacen_id, material_id });
+    const raw = await apiRequest<any>(`${BASE_ENDPOINT}/por-material?${search.toString()}`);
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const data: Reserva[] = Array.isArray(raw?.data)
+      ? raw.data
+      : Array.isArray(raw)
+        ? raw
+        : [];
+    const total: number = raw?.total ?? data.length;
+    return { data, total };
+  }
 }
