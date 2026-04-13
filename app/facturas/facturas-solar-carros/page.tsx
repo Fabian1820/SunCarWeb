@@ -1312,6 +1312,7 @@ export default function FacturasSolarCarrosPage() {
           <style>
             body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
             .title { text-align: center; font-weight: 700; font-size: 22px; margin-bottom: 24px; }
+            .empresa { text-align: center; font-weight: 600; font-size: 14px; margin-top: -16px; margin-bottom: 20px; }
             .top { display: flex; justify-content: space-between; gap: 24px; }
             .box { width: 48%; font-size: 14px; line-height: 1.45; }
             .line { border-top: 1px solid #cfcfcf; margin: 18px 0; }
@@ -1323,9 +1324,9 @@ export default function FacturasSolarCarrosPage() {
         </head>
         <body>
           <div class="title">FACTURA</div>
+          <div class="empresa">${EMPRESA.nombre}</div>
           <div class="top">
             <div class="box">
-              <div><span class="label">Empresa instaladora:</span> ${EMPRESA.nombre}</div>
               <div><span class="label">Dirección:</span> ${EMPRESA.direccion}</div>
               <div><span class="label">NIT:</span> ${EMPRESA.nit}</div>
             </div>
@@ -1380,17 +1381,30 @@ export default function FacturasSolarCarrosPage() {
     doc.setFontSize(14);
     doc.text("FACTURA", pageW / 2, y, { align: "center" });
 
+    y += 6;
+    doc.setFontSize(11);
+    doc.text(EMPRESA.nombre, pageW / 2, y, { align: "center" });
+
     y += 8;
     const headerStartY = y;
     doc.setFontSize(10);
+
     doc.setFont("helvetica", "bold");
-    doc.text(`Empresa instaladora: ${EMPRESA.nombre}`, marginX, y);
-    y += 5;
-    const dirLines = doc.splitTextToSize(`Dirección: ${EMPRESA.direccion}`, 112);
+    const direccionLabel = "Dirección:";
+    doc.text(direccionLabel, marginX, y);
     doc.setFont("helvetica", "normal");
-    doc.text(dirLines, marginX, y);
+    const dirLines = doc.splitTextToSize(
+      EMPRESA.direccion,
+      112 - doc.getTextWidth(direccionLabel) - 2,
+    );
+    doc.text(dirLines, marginX + doc.getTextWidth(direccionLabel) + 2, y);
     y += dirLines.length * 4.5;
-    doc.text(`NIT: ${EMPRESA.nit}`, marginX, y);
+
+    doc.setFont("helvetica", "bold");
+    const nitLabel = "NIT:";
+    doc.text(nitLabel, marginX, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(EMPRESA.nit, marginX + doc.getTextWidth(nitLabel) + 2, y);
 
     const rightColX = pageW * 0.62;
     let yRight = headerStartY;
@@ -1887,18 +1901,30 @@ export default function FacturasSolarCarrosPage() {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
     doc.text("FACTURA", pageW / 2, y, { align: "center" });
+    y += 6;
+    doc.setFontSize(11);
+    doc.text(EMPRESA.nombre, pageW / 2, y, { align: "center" });
     y += 8;
 
     const headerStartY = y;
     doc.setFontSize(10);
+
     doc.setFont("helvetica", "bold");
-    doc.text(`Empresa instaladora: ${EMPRESA.nombre}`, marginX, y);
-    y += 5;
-    const dirLines = doc.splitTextToSize(`Dirección: ${EMPRESA.direccion}`, 112);
+    const direccionLabel = "Dirección:";
+    doc.text(direccionLabel, marginX, y);
     doc.setFont("helvetica", "normal");
-    doc.text(dirLines, marginX, y);
+    const dirLines = doc.splitTextToSize(
+      EMPRESA.direccion,
+      112 - doc.getTextWidth(direccionLabel) - 2,
+    );
+    doc.text(dirLines, marginX + doc.getTextWidth(direccionLabel) + 2, y);
     y += dirLines.length * 4.5;
-    doc.text(`NIT: ${EMPRESA.nit}`, marginX, y);
+
+    doc.setFont("helvetica", "bold");
+    const nitLabel = "NIT:";
+    doc.text(nitLabel, marginX, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(EMPRESA.nit, marginX + doc.getTextWidth(nitLabel) + 2, y);
 
     const rightColX = pageW * 0.62;
     let yRight = headerStartY;
