@@ -132,29 +132,29 @@ export function StockTable({
             <table className="w-full table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[80px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[60px]">
                 Foto
               </th>
               <th className="text-left py-3 px-2 font-semibold text-gray-900">
                 Nombre
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">
                 Código
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">
                 Potencia
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[130px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">
                 Marca
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">
                 Categoría
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[150px]">
-                Cantidad en stock
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
+                En stock
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[150px]">
-                Cant. reservada
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
+                Reservada
               </th>
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">
                 Ubicación
