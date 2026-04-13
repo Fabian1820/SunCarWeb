@@ -46,6 +46,7 @@ export interface StockItem {
   categoria?: string;
   um?: string;
   cantidad: number;
+  cantidad_reservada?: number;
   ubicacion_en_almacen?: string | null;
   actualizado_en?: string;
 }

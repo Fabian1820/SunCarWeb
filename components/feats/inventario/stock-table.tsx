@@ -20,6 +20,7 @@ import {
 } from "@/components/shared/molecule/dialog";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
+import { ReservasPorMaterialDialog } from "@/components/feats/inventario/reservas-por-material-dialog";
 
 interface MarcaItem {
   id: string;
@@ -52,6 +53,23 @@ export function StockTable({
   const [ubicacionInput, setUbicacionInput] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [reservasDialog, setReservasDialog] = useState<{
+    open: boolean;
+    almacenId: string;
+    materialId: string;
+    materialNombre?: string;
+  }>({ open: false, almacenId: "", materialId: "" });
+
+  const handleOpenReservasDialog = (item: StockItem, nombreMaterial: string) => {
+    if (!item.material_id) return;
+    setReservasDialog({
+      open: true,
+      almacenId: item.almacen_id,
+      materialId: item.material_id,
+      materialNombre: nombreMaterial,
+    });
+  };
 
   const handleOpenUbicacionDialog = (item: StockItem) => {
     setSelectedItem(item);
@@ -134,6 +152,9 @@ export function StockTable({
               </th>
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[150px]">
                 Cantidad en stock
+              </th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[150px]">
+                Cant. reservada
               </th>
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">
                 Ubicación
@@ -220,6 +241,29 @@ export function StockTable({
                       {item.cantidad}
                       {item.um ? ` ${item.um}` : ""}
                     </span>
+                  </td>
+                  <td className="py-3 px-2">
+                    {(item.cantidad_reservada ?? 0) > 0 && item.material_id ? (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReservasDialog(item, nombreMaterial)}
+                            className="inline-flex rounded-full bg-amber-50 text-amber-700 border border-amber-200 px-2 py-1 text-sm font-semibold hover:bg-amber-100 transition-colors cursor-pointer"
+                          >
+                            {item.cantidad_reservada}
+                            {item.um ? ` ${item.um}` : ""}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Ver reservas activas</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    ) : (
+                      <span className="inline-flex rounded-full bg-gray-50 text-gray-400 border border-gray-200 px-2 py-1 text-sm font-semibold">
+                        0{item.um ? ` ${item.um}` : ""}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-2">
                     <span className="text-sm text-gray-700">
@@ -329,6 +373,14 @@ export function StockTable({
           </div>
         </DialogContent>
       </Dialog>
+
+      <ReservasPorMaterialDialog
+        open={reservasDialog.open}
+        onOpenChange={(open) => setReservasDialog((prev) => ({ ...prev, open }))}
+        almacenId={reservasDialog.almacenId}
+        materialId={reservasDialog.materialId}
+        materialNombre={reservasDialog.materialNombre}
+      />
         </>
       </TooltipProvider>
     );
