@@ -271,27 +271,6 @@ const toDateInput = (value: Date) => {
   return `${y}-${m}-${d}`;
 };
 
-const loadImageAsDataUrl = async (src: string): Promise<string> => {
-  const response = await fetch(src, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`No se pudo cargar imagen: ${response.status}`);
-  }
-  const blob = await response.blob();
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result;
-      if (typeof result === "string" && result.startsWith("data:")) {
-        resolve(result);
-        return;
-      }
-      reject(new Error("No se pudo convertir logo a base64"));
-    };
-    reader.onerror = () => reject(new Error("Error leyendo logo"));
-    reader.readAsDataURL(blob);
-  });
-};
-
 const detectCategory = (item: FacturaValeItem) => {
   const text = `${item.codigo} ${item.descripcion}`.toLowerCase();
   if (text.includes("inversor")) return "inversor";
@@ -1340,14 +1319,9 @@ export default function FacturasSolarCarrosPage() {
             .sign { margin-top: 70px; display: flex; justify-content: space-between; }
             .sign-item { width: 45%; text-align: center; }
             .sign-line { border-top: 1px solid #666; margin-bottom: 8px; }
-            .logo-wrap { text-align: center; margin-bottom: 10px; }
-            .logo { max-width: 92px; max-height: 92px; object-fit: contain; }
           </style>
         </head>
         <body>
-          <div class="logo-wrap">
-            <img class="logo" src="/logo.png" alt="Logo empresa" />
-          </div>
           <div class="title">FACTURA</div>
           <div class="top">
             <div class="box">
@@ -1401,21 +1375,6 @@ export default function FacturasSolarCarrosPage() {
     const pageW = doc.internal.pageSize.getWidth();
     const rightX = pageW - marginX;
     let y = 16;
-
-    try {
-      let logoDataUrl = "";
-      try {
-        logoDataUrl = await loadImageAsDataUrl("/logo.png");
-      } catch {
-        logoDataUrl = await loadImageAsDataUrl(`${window.location.origin}/logo.png`);
-      }
-      const logoW = 24;
-      const logoH = 24;
-      doc.addImage(logoDataUrl, "PNG", pageW / 2 - logoW / 2, y, logoW, logoH);
-      y += logoH + 5;
-    } catch {
-      // Si falla el logo, continuar sin bloquear la descarga del PDF.
-    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
@@ -1924,21 +1883,6 @@ export default function FacturasSolarCarrosPage() {
     const pageW = doc.internal.pageSize.getWidth();
     const rightX = pageW - marginX;
     let y = 16;
-
-    try {
-      let logoDataUrl = "";
-      try {
-        logoDataUrl = await loadImageAsDataUrl("/logo.png");
-      } catch {
-        logoDataUrl = await loadImageAsDataUrl(`${window.location.origin}/logo.png`);
-      }
-      const logoW = 24;
-      const logoH = 24;
-      doc.addImage(logoDataUrl, "PNG", pageW / 2 - logoW / 2, y, logoW, logoH);
-      y += logoH + 5;
-    } catch {
-      // continuar sin logo
-    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(14);
