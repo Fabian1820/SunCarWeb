@@ -39,6 +39,7 @@ import { useMaterials } from "@/hooks/use-materials";
 import { useInventario } from "@/hooks/use-inventario";
 import { useMarcas } from "@/hooks/use-marcas";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search-selector";
 import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selector";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
@@ -130,6 +131,18 @@ interface ConfeccionOfertasViewProps {
   ofertaGenericaInicial?: boolean;
 }
 
+type ReservaOfertaEstado = "activa" | "cancelada" | "expirada" | "consumida";
+
+interface ReservaMaterialDraft {
+  key: string;
+  materialId: string;
+  materialCodigo: string;
+  descripcion: string;
+  categoria: string;
+  cantidadOferta: number;
+  esPrincipal: boolean;
+}
+
 export function ConfeccionOfertasView({
   modoEdicion = false,
   ofertaParaEditar = null,
@@ -150,6 +163,7 @@ export function ConfeccionOfertasView({
   } = useInventario();
   const { marcas, loading: loadingMarcas } = useMarcas();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   // Clave única para localStorage basada en el modo
   const localStorageKey = useMemo(() => {
@@ -310,6 +324,26 @@ export function ConfeccionOfertasView({
   const [diasReserva, setDiasReserva] = useState(7);
   const [fechaExpiracionReserva, setFechaExpiracionReserva] =
     useState<Date | null>(null);
+  const [hacerReservaAntesGuardar, setHacerReservaAntesGuardar] = useState(false);
+  const [mostrarTodosMaterialesReserva, setMostrarTodosMaterialesReserva] = useState(false);
+  const [reservaEstado, setReservaEstado] = useState<ReservaOfertaEstado>("activa");
+  const [reservaMotivoCancelacion, setReservaMotivoCancelacion] = useState("");
+  const [reservaFechaExpiracion, setReservaFechaExpiracion] = useState(() => {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() + 2);
+    return fecha.toISOString().slice(0, 10);
+  });
+  const [reservaCantidadesPorMaterial, setReservaCantidadesPorMaterial] = useState<
+    Record<string, number>
+  >({});
+  const [reservandoEnGuardado, setReservandoEnGuardado] = useState(false);
+  const codigoReservaReferencia = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `RES-${y}${m}${d}-0001`;
+  }, []);
   const [fotoPortada, setFotoPortada] = useState<string>(
     estadoInicial?.fotoPortada || "",
   );
@@ -1100,6 +1134,85 @@ export function ConfeccionOfertasView({
 
     return filtered;
   }, [materialesConStock, activeStep, searchQuery]);
+
+  const esCategoriaPrincipalReserva = (categoria: string) => {
+    const normalized = normalizeText(categoria);
+    return (
+      normalized.includes("inversor") ||
+      normalized.includes("bateria") ||
+      normalized.includes("panel") ||
+      normalized.includes("mppt") ||
+      normalized.includes("estructura")
+    );
+  };
+
+  const materialesReservaBase = useMemo<ReservaMaterialDraft[]>(() => {
+    const agregados = new Map<
+      string,
+      Omit<ReservaMaterialDraft, "key"> & { key: string }
+    >();
+
+    items.forEach((item) => {
+      const codigo = String(item.materialCodigo || "").trim();
+      if (!codigo) return;
+
+      const material = materials.find(
+        (m) => String(m.codigo || "").trim() === codigo,
+      );
+      const categoria = String(item.categoria || material?.categoria || "otros");
+      const key = `${codigo}::${categoria}`;
+      const cantidad = Math.max(0, Math.round(Number(item.cantidad) || 0));
+
+      const actual = agregados.get(key);
+      if (actual) {
+        actual.cantidadOferta += cantidad;
+      } else {
+        agregados.set(key, {
+          key,
+          materialId: String(material?.id || codigo),
+          materialCodigo: codigo,
+          descripcion: String(item.descripcion || material?.descripcion || codigo),
+          categoria,
+          cantidadOferta: cantidad,
+          esPrincipal: esCategoriaPrincipalReserva(categoria),
+        });
+      }
+    });
+
+    return Array.from(agregados.values()).sort((a, b) => {
+      if (a.esPrincipal !== b.esPrincipal) return a.esPrincipal ? -1 : 1;
+      return a.materialCodigo.localeCompare(b.materialCodigo, "es", {
+        numeric: true,
+        sensitivity: "base",
+      });
+    });
+  }, [items, materials]);
+
+  const materialesReservaVisibles = useMemo(
+    () =>
+      mostrarTodosMaterialesReserva
+        ? materialesReservaBase
+        : materialesReservaBase.filter((item) => item.esPrincipal),
+    [materialesReservaBase, mostrarTodosMaterialesReserva],
+  );
+
+  useEffect(() => {
+    setReservaCantidadesPorMaterial((prev) => {
+      const next: Record<string, number> = {};
+      materialesReservaBase.forEach((item) => {
+        const prevValue = prev[item.key];
+        if (typeof prevValue === "number" && Number.isFinite(prevValue)) {
+          next[item.key] = Math.min(
+            item.cantidadOferta,
+            Math.max(0, Math.round(prevValue)),
+          );
+        } else {
+          next[item.key] = item.cantidadOferta;
+        }
+      });
+      return next;
+    });
+  }, [materialesReservaBase]);
 
   const cantidadesPorMaterial = useMemo(() => {
     const map = new Map<string, number>();
@@ -4559,6 +4672,98 @@ export function ConfeccionOfertasView({
     });
   };
 
+  const actualizarCantidadReservaMaterial = (key: string, cantidad: number) => {
+    const material = materialesReservaBase.find((item) => item.key === key);
+    if (!material) return;
+
+    const cantidadNormalizada = Math.max(
+      0,
+      Math.min(material.cantidadOferta, Math.round(Number(cantidad) || 0)),
+    );
+
+    setReservaCantidadesPorMaterial((prev) => ({
+      ...prev,
+      [key]: cantidadNormalizada,
+    }));
+  };
+
+  const crearReservaDesdeEdicion = async (ofertaIdReserva: string) => {
+    if (!almacenId) {
+      throw new Error("Debes seleccionar un almacén para crear la reserva.");
+    }
+
+    if (!selectedCliente?.id) {
+      throw new Error(
+        "Para crear reserva desde edición la oferta debe estar asociada a un cliente válido.",
+      );
+    }
+    if (!user?.ci) {
+      throw new Error(
+        "No se pudo identificar el usuario actual para creado_por_ci.",
+      );
+    }
+
+    const fechaExp = new Date(`${reservaFechaExpiracion}T23:59:59`);
+    if (!reservaFechaExpiracion || Number.isNaN(fechaExp.getTime())) {
+      throw new Error("Debes indicar una fecha de expiración válida para la reserva.");
+    }
+    if (fechaExp.getTime() <= Date.now()) {
+      throw new Error("La fecha de expiración de la reserva debe ser futura.");
+    }
+
+    const materialesPayload = materialesReservaBase
+      .map((material) => ({
+        material_id: material.materialId,
+        cantidad_reservada: Math.max(
+          0,
+          Math.min(
+            material.cantidadOferta,
+            Math.round(Number(reservaCantidadesPorMaterial[material.key] ?? 0)),
+          ),
+        ),
+        cantidad_consumida: 0,
+      }))
+      .filter((item) => item.cantidad_reservada > 0);
+
+    if (materialesPayload.length === 0) {
+      throw new Error("Debes reservar al menos un material con cantidad mayor que 0.");
+    }
+
+    if (
+      reservaEstado === "cancelada" &&
+      !String(reservaMotivoCancelacion || "").trim()
+    ) {
+      throw new Error("Debes escribir el motivo cuando el estado es cancelada.");
+    }
+
+    const fechaReserva = new Date().toISOString();
+    const payload: Record<string, unknown> = {
+      almacen_id: almacenId,
+      materiales: materialesPayload,
+      oferta_id: ofertaIdReserva,
+      cliente_id: String(selectedCliente.id),
+      cliente_tipo: "cliente",
+      fecha_reserva: fechaReserva,
+      fecha_expiracion: fechaExp.toISOString(),
+      estado: reservaEstado,
+      creado_por_ci: user.ci,
+    };
+
+    if (reservaEstado !== "activa") {
+      payload.fecha_cierre = new Date().toISOString();
+    }
+
+    if (reservaEstado === "cancelada") {
+      payload.motivo_cancelacion = reservaMotivoCancelacion.trim();
+    }
+
+    const { apiRequest } = await import("@/lib/api-config");
+    await apiRequest("/reservas/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  };
+
   const handleCrearOferta = async () => {
     // Validaciones
     if (!almacenId) {
@@ -4725,6 +4930,26 @@ export function ConfeccionOfertasView({
         toast({
           title: "Suma de pagos inválida",
           description: `La suma de pagos acordados (${formatCurrency(sumaPagosAcordados)}) no puede superar el precio final (${formatCurrency(precioFinal)}).`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (modoEdicion && hacerReservaAntesGuardar) {
+      if (tipoContacto !== "cliente") {
+        toast({
+          title: "Reserva no disponible",
+          description:
+            "La reserva desde edición requiere que la oferta esté asociada a un cliente.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!almacenId) {
+        toast({
+          title: "Almacén requerido",
+          description: "Debes seleccionar un almacén para crear la reserva.",
           variant: "destructive",
         });
         return;
@@ -5266,6 +5491,22 @@ export function ConfeccionOfertasView({
         setOfertaId(ofertaIdCreada);
         setOfertaCreada(true);
 
+        if (modoEdicion && hacerReservaAntesGuardar) {
+          const ofertaIdReserva = String(
+            responseData.id || ofertaParaEditar?.id || ofertaIdCreada || "",
+          ).trim();
+
+          if (!ofertaIdReserva) {
+            throw new Error(
+              "No se pudo obtener el id de la oferta para crear la reserva.",
+            );
+          }
+
+          setReservandoEnGuardado(true);
+          await crearReservaDesdeEdicion(ofertaIdReserva);
+          setReservandoEnGuardado(false);
+        }
+
         // Guardar el nombre completo del backend para usar en exportaciones
         if (responseData.nombre_completo) {
           setNombreCompletoBackend(
@@ -5365,6 +5606,7 @@ export function ConfeccionOfertasView({
       });
     } finally {
       setCreandoOferta(false);
+      setReservandoEnGuardado(false);
     }
   };
 
@@ -5381,6 +5623,17 @@ export function ConfeccionOfertasView({
     setClienteId("");
     setEstadoOferta("en_revision");
     setMaterialesReservados(false);
+    setHacerReservaAntesGuardar(false);
+    setMostrarTodosMaterialesReserva(false);
+    setReservaEstado("activa");
+    setReservaMotivoCancelacion("");
+    {
+      const fecha = new Date();
+      fecha.setDate(fecha.getDate() + 2);
+      setReservaFechaExpiracion(fecha.toISOString().slice(0, 10));
+    }
+    setReservaCantidadesPorMaterial({});
+    setReservandoEnGuardado(false);
     setOfertaCreada(false);
     setOfertaId("");
     setInversorSeleccionado("");
@@ -7820,12 +8073,163 @@ export function ConfeccionOfertasView({
                   </div>
                 </div>
 
+                {modoEdicion && (
+                  <div className="rounded-md border border-amber-300 bg-amber-50 p-4 space-y-3">
+                    <label className="flex items-center gap-2 text-sm font-medium text-amber-900">
+                      <input
+                        type="checkbox"
+                        checked={hacerReservaAntesGuardar}
+                        onChange={(e) => setHacerReservaAntesGuardar(e.target.checked)}
+                      />
+                      Hacer reserva de materiales antes de guardar
+                    </label>
+
+                    {hacerReservaAntesGuardar && (
+                      <div className="space-y-3">
+                        <div className="rounded border border-amber-200 bg-white p-3 text-xs text-slate-700 space-y-1">
+                          <p>
+                            <span className="font-semibold">Código referencia:</span>{" "}
+                            {codigoReservaReferencia}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Almacén seleccionado:</span>{" "}
+                            {almacenes.find((a) => a.id === almacenId)?.nombre || "N/A"}
+                          </p>
+                          <p>
+                            <span className="font-semibold">almacen_id:</span> {almacenId || "N/A"}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Origen:</span> instaladora
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <Label>Estado de la reserva</Label>
+                            <Select
+                              value={reservaEstado}
+                              onValueChange={(value) =>
+                                setReservaEstado(value as ReservaOfertaEstado)
+                              }
+                            >
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Seleccionar estado" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="activa">Activa</SelectItem>
+                                <SelectItem value="cancelada">Cancelada</SelectItem>
+                                <SelectItem value="expirada">Expirada</SelectItem>
+                                <SelectItem value="consumida">Consumida</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label>Fecha de expiración</Label>
+                            <Input
+                              type="date"
+                              value={reservaFechaExpiracion}
+                              onChange={(e) => setReservaFechaExpiracion(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+
+                        {reservaEstado === "cancelada" && (
+                          <div>
+                            <Label>Motivo de cancelación</Label>
+                            <Textarea
+                              value={reservaMotivoCancelacion}
+                              onChange={(e) => setReservaMotivoCancelacion(e.target.value)}
+                              placeholder="Escribe el motivo de la cancelación..."
+                              className="min-h-[70px]"
+                            />
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-slate-700">
+                            Materiales principales: inversores, baterías, paneles, MPPT y estructuras.
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setMostrarTodosMaterialesReserva((prev) => !prev)
+                            }
+                          >
+                            {mostrarTodosMaterialesReserva
+                              ? "Ver solo principales"
+                              : "Ver otros materiales"}
+                          </Button>
+                        </div>
+
+                        <div className="rounded border bg-white overflow-x-auto">
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="border-b bg-slate-50">
+                                <th className="text-left px-2 py-2">Código</th>
+                                <th className="text-left px-2 py-2">Descripción</th>
+                                <th className="text-left px-2 py-2">Categoría</th>
+                                <th className="text-right px-2 py-2">Cantidad oferta</th>
+                                <th className="text-right px-2 py-2">Cantidad a reservar</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {materialesReservaVisibles.map((material) => (
+                                <tr key={material.key} className="border-b last:border-b-0">
+                                  <td className="px-2 py-1.5 font-medium">
+                                    {material.materialCodigo}
+                                  </td>
+                                  <td className="px-2 py-1.5">{material.descripcion}</td>
+                                  <td className="px-2 py-1.5">{material.categoria}</td>
+                                  <td className="px-2 py-1.5 text-right">
+                                    {material.cantidadOferta}
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      max={material.cantidadOferta}
+                                      className="h-8 text-right"
+                                      value={String(
+                                        reservaCantidadesPorMaterial[material.key] ?? 0,
+                                      )}
+                                      onChange={(e) =>
+                                        actualizarCantidadReservaMaterial(
+                                          material.key,
+                                          Number(e.target.value),
+                                        )
+                                      }
+                                    />
+                                  </td>
+                                </tr>
+                              ))}
+                              {materialesReservaVisibles.length === 0 && (
+                                <tr>
+                                  <td
+                                    colSpan={5}
+                                    className="text-center px-2 py-3 text-slate-500"
+                                  >
+                                    No hay materiales de la oferta para reservar.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Botón de Crear/Guardar Oferta */}
                 {!ofertaCreada || modoEdicion ? (
                   <Button
                     onClick={handleCrearOferta}
                     disabled={
                       creandoOferta ||
+                      reservandoEnGuardado ||
                       items.length === 0 ||
                       !almacenId ||
                       (!ofertaGenerica &&
@@ -7838,12 +8242,14 @@ export function ConfeccionOfertasView({
                     }
                     className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base font-semibold"
                   >
-                    {creandoOferta ? (
+                    {creandoOferta || reservandoEnGuardado ? (
                       <>
                         <span className="animate-spin mr-2">⏳</span>
-                        {modoEdicion
-                          ? "Guardando Oferta..."
-                          : "Creando Oferta..."}
+                        {reservandoEnGuardado
+                          ? "Creando reserva..."
+                          : modoEdicion
+                            ? "Guardando Oferta..."
+                            : "Creando Oferta..."}
                       </>
                     ) : (
                       <>
