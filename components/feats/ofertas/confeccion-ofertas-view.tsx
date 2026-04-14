@@ -44,6 +44,7 @@ import { ClienteSearchSelector } from "@/components/feats/cliente/cliente-search
 import { LeadSearchSelector } from "@/components/feats/leads/lead-search-selector";
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { LeadService } from "@/lib/services/feats/leads/lead-service";
+import { ReservaVentaService } from "@/lib/api-services";
 import type { Material } from "@/lib/material-types";
 import type { Cliente } from "@/lib/types/feats/customer/cliente-types";
 import {
@@ -334,6 +335,13 @@ export function ConfeccionOfertasView({
     return fecha.toISOString().slice(0, 10);
   });
   const [reservaCantidadesPorMaterial, setReservaCantidadesPorMaterial] = useState<
+    Record<string, number>
+  >({});
+  const [cargandoReservasOferta, setCargandoReservasOferta] = useState(false);
+  const [reservasOfertaPorMaterialId, setReservasOfertaPorMaterialId] = useState<
+    Record<string, number>
+  >({});
+  const [reservasOfertaPorCodigo, setReservasOfertaPorCodigo] = useState<
     Record<string, number>
   >({});
   const [reservandoEnGuardado, setReservandoEnGuardado] = useState(false);
@@ -1138,11 +1146,11 @@ export function ConfeccionOfertasView({
   const esCategoriaPrincipalReserva = (categoria: string) => {
     const normalized = normalizeText(categoria);
     return (
-      normalized.includes("inversor") ||
-      normalized.includes("bateria") ||
-      normalized.includes("panel") ||
-      normalized.includes("mppt") ||
-      normalized.includes("estructura")
+      normalized.includes("INVERSOR") ||
+      normalized.includes("BATERIA") ||
+      normalized.includes("PANEL") ||
+      normalized.includes("MPPT") ||
+      normalized.includes("ESTRUCTURA")
     );
   };
 
@@ -1197,6 +1205,103 @@ export function ConfeccionOfertasView({
   );
 
   useEffect(() => {
+    const ofertaIdReserva = String(
+      ofertaParaEditar?.id || ofertaParaEditar?.numero_oferta || "",
+    ).trim();
+
+    if (!modoEdicion || !ofertaIdReserva) {
+      setReservasOfertaPorMaterialId({});
+      setReservasOfertaPorCodigo({});
+      setCargandoReservasOferta(false);
+      return;
+    }
+
+    let isMounted = true;
+    setCargandoReservasOferta(true);
+
+    const cargarReservasExistentes = async () => {
+      try {
+        const { data } = await ReservaVentaService.getReservas({
+          oferta_id: ofertaIdReserva,
+          limit: 200,
+        });
+
+        if (!isMounted) return;
+
+        const porMaterialId: Record<string, number> = {};
+        const porCodigo: Record<string, number> = {};
+
+        data
+          .filter((reserva) => reserva.estado === "activa")
+          .forEach((reserva) => {
+            (reserva.materiales || []).forEach((material) => {
+              const cantidad = Math.max(
+                0,
+                Math.round(Number(material.cantidad_reservada) || 0),
+              );
+              if (cantidad <= 0) return;
+
+              const materialId = String(material.material_id || "").trim();
+              if (materialId) {
+                porMaterialId[materialId] =
+                  (porMaterialId[materialId] || 0) + cantidad;
+              }
+
+              const codigo = String(material.codigo || "").trim();
+              if (codigo) {
+                porCodigo[codigo] = (porCodigo[codigo] || 0) + cantidad;
+              }
+            });
+          });
+
+        setReservasOfertaPorMaterialId(porMaterialId);
+        setReservasOfertaPorCodigo(porCodigo);
+      } catch (error) {
+        if (isMounted) {
+          console.error("Error cargando reservas de la oferta:", error);
+          setReservasOfertaPorMaterialId({});
+          setReservasOfertaPorCodigo({});
+        }
+      } finally {
+        if (isMounted) {
+          setCargandoReservasOferta(false);
+        }
+      }
+    };
+
+    cargarReservasExistentes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [modoEdicion, ofertaParaEditar?.id, ofertaParaEditar?.numero_oferta]);
+
+  const reservasExistentesPorKey = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    materialesReservaBase.forEach((item) => {
+      const cantidadPorId = reservasOfertaPorMaterialId[item.materialId];
+      const cantidadPorCodigo = reservasOfertaPorCodigo[item.materialCodigo];
+      const cantidad =
+        typeof cantidadPorId === "number" && Number.isFinite(cantidadPorId)
+          ? cantidadPorId
+          : typeof cantidadPorCodigo === "number" &&
+              Number.isFinite(cantidadPorCodigo)
+            ? cantidadPorCodigo
+            : 0;
+
+      if (cantidad > 0) {
+        map[item.key] = Math.min(
+          item.cantidadOferta,
+          Math.max(0, Math.round(cantidad)),
+        );
+      }
+    });
+
+    return map;
+  }, [materialesReservaBase, reservasOfertaPorMaterialId, reservasOfertaPorCodigo]);
+
+  useEffect(() => {
     setReservaCantidadesPorMaterial((prev) => {
       const next: Record<string, number> = {};
       materialesReservaBase.forEach((item) => {
@@ -1207,12 +1312,25 @@ export function ConfeccionOfertasView({
             Math.max(0, Math.round(prevValue)),
           );
         } else {
-          next[item.key] = item.cantidadOferta;
+          next[item.key] = 0;
         }
       });
       return next;
     });
   }, [materialesReservaBase]);
+
+  useEffect(() => {
+    if (!modoEdicion) return;
+    if (Object.keys(reservasExistentesPorKey).length === 0) return;
+
+    setReservaCantidadesPorMaterial((prev) => {
+      const next: Record<string, number> = { ...prev };
+      Object.entries(reservasExistentesPorKey).forEach(([key, cantidad]) => {
+        next[key] = cantidad;
+      });
+      return next;
+    });
+  }, [modoEdicion, reservasExistentesPorKey]);
 
   const cantidadesPorMaterial = useMemo(() => {
     const map = new Map<string, number>();
@@ -4687,6 +4805,28 @@ export function ConfeccionOfertasView({
     }));
   };
 
+  const alternarSeleccionReservaMaterial = (
+    key: string,
+    seleccionado: boolean,
+  ) => {
+    const material = materialesReservaBase.find((item) => item.key === key);
+    if (!material) return;
+    setReservaCantidadesPorMaterial((prev) => ({
+      ...prev,
+      [key]: seleccionado ? material.cantidadOferta : 0,
+    }));
+  };
+
+  const seleccionarTodosMaterialesReserva = (seleccionar: boolean) => {
+    setReservaCantidadesPorMaterial((prev) => {
+      const next: Record<string, number> = { ...prev };
+      materialesReservaBase.forEach((item) => {
+        next[item.key] = seleccionar ? item.cantidadOferta : 0;
+      });
+      return next;
+    });
+  };
+
   const crearReservaDesdeEdicion = async (ofertaIdReserva: string) => {
     if (!almacenId) {
       throw new Error("Debes seleccionar un almacén para crear la reserva.");
@@ -4936,7 +5076,9 @@ export function ConfeccionOfertasView({
       }
     }
 
-    if (modoEdicion && hacerReservaAntesGuardar) {
+    const debeReservarEnEdicion = modoEdicion && hacerReservaAntesGuardar;
+
+    if (debeReservarEnEdicion) {
       if (tipoContacto !== "cliente") {
         toast({
           title: "Reserva no disponible",
@@ -5491,7 +5633,7 @@ export function ConfeccionOfertasView({
         setOfertaId(ofertaIdCreada);
         setOfertaCreada(true);
 
-        if (modoEdicion && hacerReservaAntesGuardar) {
+        if (debeReservarEnEdicion) {
           const ofertaIdReserva = String(
             responseData.id || ofertaParaEditar?.id || ofertaIdCreada || "",
           ).trim();
@@ -8146,28 +8288,56 @@ export function ConfeccionOfertasView({
                           </div>
                         )}
 
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-slate-700">
-                            Materiales principales: inversores, baterías, paneles, MPPT y estructuras.
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setMostrarTodosMaterialesReserva((prev) => !prev)
-                            }
-                          >
-                            {mostrarTodosMaterialesReserva
-                              ? "Ver solo principales"
-                              : "Ver otros materiales"}
-                          </Button>
-                        </div>
+	                        <div className="flex items-center justify-between">
+	                          <p className="text-xs text-slate-700">
+	                            Materiales principales: inversores, baterías, paneles, MPPT y estructuras.
+	                          </p>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                seleccionarTodosMaterialesReserva(true)
+                              }
+                            >
+                              Seleccionar todos
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                seleccionarTodosMaterialesReserva(false)
+                              }
+                            >
+                              Limpiar selección
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setMostrarTodosMaterialesReserva((prev) => !prev)
+                              }
+                            >
+                              {mostrarTodosMaterialesReserva
+                                ? "Ver solo principales"
+                                : "Ver otros materiales"}
+                            </Button>
+	                          </div>
+	                        </div>
+	                        {cargandoReservasOferta && (
+	                          <p className="text-xs text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-1">
+	                            Cargando materiales reservados previamente para esta oferta...
+	                          </p>
+	                        )}
 
-                        <div className="rounded border bg-white overflow-x-auto">
-                          <table className="w-full text-xs">
+	                        <div className="rounded border bg-white overflow-x-auto">
+	                          <table className="w-full text-xs">
                             <thead>
                               <tr className="border-b bg-slate-50">
+                                <th className="text-center px-2 py-2">Reservar</th>
                                 <th className="text-left px-2 py-2">Código</th>
                                 <th className="text-left px-2 py-2">Descripción</th>
                                 <th className="text-left px-2 py-2">Categoría</th>
@@ -8176,13 +8346,46 @@ export function ConfeccionOfertasView({
                               </tr>
                             </thead>
                             <tbody>
-                              {materialesReservaVisibles.map((material) => (
-                                <tr key={material.key} className="border-b last:border-b-0">
-                                  <td className="px-2 py-1.5 font-medium">
-                                    {material.materialCodigo}
+	                              {materialesReservaVisibles.map((material) => {
+	                                const cantidadReservadaPrevia =
+	                                  reservasExistentesPorKey[material.key] ?? 0;
+	                                const filaConReservaPrevia = cantidadReservadaPrevia > 0;
+
+	                                return (
+	                                <tr
+	                                  key={material.key}
+	                                  className={`border-b last:border-b-0 ${
+	                                    filaConReservaPrevia ? "bg-emerald-50/70" : ""
+	                                  }`}
+	                                >
+	                                  <td className="px-2 py-1.5 text-center">
+	                                    <input
+	                                      type="checkbox"
+                                      checked={
+                                        (reservaCantidadesPorMaterial[material.key] ?? 0) > 0
+                                      }
+                                      onChange={(e) =>
+                                        alternarSeleccionReservaMaterial(
+                                          material.key,
+                                          e.target.checked,
+                                        )
+                                      }
+                                    />
                                   </td>
-                                  <td className="px-2 py-1.5">{material.descripcion}</td>
-                                  <td className="px-2 py-1.5">{material.categoria}</td>
+	                                  <td className="px-2 py-1.5 font-medium">
+	                                    {material.materialCodigo}
+	                                  </td>
+	                                  <td className="px-2 py-1.5">
+	                                    <div className="flex flex-wrap items-center gap-2">
+	                                      <span>{material.descripcion}</span>
+	                                      {filaConReservaPrevia && (
+	                                        <span className="inline-flex items-center rounded-full border border-emerald-300 bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+	                                          Ya reservado: {cantidadReservadaPrevia}
+	                                        </span>
+	                                      )}
+	                                    </div>
+	                                  </td>
+	                                  <td className="px-2 py-1.5">{material.categoria}</td>
                                   <td className="px-2 py-1.5 text-right">
                                     {material.cantidadOferta}
                                   </td>
@@ -8195,6 +8398,9 @@ export function ConfeccionOfertasView({
                                       value={String(
                                         reservaCantidadesPorMaterial[material.key] ?? 0,
                                       )}
+                                      disabled={
+                                        (reservaCantidadesPorMaterial[material.key] ?? 0) <= 0
+                                      }
                                       onChange={(e) =>
                                         actualizarCantidadReservaMaterial(
                                           material.key,
@@ -8202,13 +8408,14 @@ export function ConfeccionOfertasView({
                                         )
                                       }
                                     />
-                                  </td>
-                                </tr>
-                              ))}
+	                                  </td>
+	                                </tr>
+	                                );
+	                              })}
                               {materialesReservaVisibles.length === 0 && (
                                 <tr>
                                   <td
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="text-center px-2 py-3 text-slate-500"
                                   >
                                     No hay materiales de la oferta para reservar.
