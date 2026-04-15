@@ -59,11 +59,28 @@ const safeText = (value: unknown, fallback = "") => {
   return text || fallback;
 };
 
+const parseDateForDisplay = (value: string): Date | null => {
+  const text = safeText(value);
+  if (!text) return null;
+
+  const onlyDateMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (onlyDateMatch) {
+    const year = Number(onlyDateMatch[1]);
+    const month = Number(onlyDateMatch[2]);
+    const day = Number(onlyDateMatch[3]);
+    const local = new Date(year, month - 1, day);
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const formatFechaTrabajo = (value?: string) => {
   const text = safeText(value);
   if (!text) return "Sin fecha";
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime())) return text.slice(0, 10);
+  const parsed = parseDateForDisplay(text);
+  if (!parsed) return text.slice(0, 10);
   return parsed.toLocaleDateString("es-ES");
 };
 
@@ -117,6 +134,7 @@ export function TrabajosDiariosTodosView() {
     null,
   );
   const [archivosDialogOpen, setArchivosDialogOpen] = useState(false);
+  const [materialesDialogOpen, setMaterialesDialogOpen] = useState(false);
 
   const workersOptions = useMemo(
     () =>
@@ -132,11 +150,20 @@ export function TrabajosDiariosTodosView() {
       const ci = safeText(worker.CI);
       const nombre = safeText(worker.nombre) || "Trabajador";
       const value = ci || nombre;
-      const label = ci ? `${nombre} (${ci})` : nombre;
-      if (value) next.set(value, label);
+      if (value) next.set(value, nombre);
+      if (ci) next.set(ci, nombre);
     });
     return next;
   }, [workersOptions]);
+
+  const formatInstaladorNombre = useCallback(
+    (value: string) => {
+      const text = safeText(value);
+      if (!text) return "Sin instalador";
+      return workerMap.get(text) || text;
+    },
+    [workerMap],
+  );
 
   const selectedWorkerLabels = useMemo(
     () =>
@@ -298,6 +325,16 @@ export function TrabajosDiariosTodosView() {
     return [...inicio, ...fin];
   }, [trabajoDetalle]);
 
+  const archivosInicio = useMemo(
+    () => archivosTrabajo.filter((archivo) => archivo.etapa === "inicio"),
+    [archivosTrabajo],
+  );
+
+  const archivosFin = useMemo(
+    () => archivosTrabajo.filter((archivo) => archivo.etapa === "fin"),
+    [archivosTrabajo],
+  );
+
   const getArchivoUrlCandidates = (archivo: TrabajoArchivoItem) => {
     const raw = safeText(archivo.url);
     if (!raw) return [];
@@ -417,6 +454,78 @@ export function TrabajosDiariosTodosView() {
         variant: "destructive",
       });
     }
+  };
+
+  const renderArchivosEtapa = (archivos: TrabajoArchivoItem[]) => {
+    if (archivos.length === 0) {
+      return (
+        <p className="text-xs text-slate-500 mt-2">
+          No hay fotos/videos/archivos en esta etapa.
+        </p>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+        {archivos.map((archivo) => {
+          const previewUrl = getArchivoPreviewUrl(archivo);
+          const mime = inferArchivoMime(archivo);
+          const isImage = mime.startsWith("image/") || archivo.tipo === "imagen";
+          const isVideo = mime.startsWith("video/") || archivo.tipo === "video";
+
+          return (
+            <div
+              key={`${archivo.etapa}-${archivo.id}`}
+              className="rounded-md border bg-slate-50 p-2 space-y-2"
+            >
+              <p className="text-xs font-medium text-slate-700 truncate">
+                {getArchivoName(archivo)}
+              </p>
+              <div className="rounded border bg-white p-2 min-h-[120px] flex items-center justify-center">
+                {previewUrl ? (
+                  isImage ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={previewUrl}
+                      alt={getArchivoName(archivo)}
+                      className="max-h-40 w-auto object-contain rounded"
+                    />
+                  ) : isVideo ? (
+                    <video
+                      src={previewUrl}
+                      controls
+                      className="w-full max-h-40 rounded"
+                    />
+                  ) : (
+                    <p className="text-xs text-slate-500">Archivo sin vista previa</p>
+                  )
+                ) : (
+                  <p className="text-xs text-slate-500">URL no disponible</p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleArchivoAction(archivo, "view")}
+                >
+                  Ver
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleArchivoAction(archivo, "download")}
+                >
+                  Descargar
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const trabajosNormalizados = useMemo(() => {
@@ -549,7 +658,7 @@ export function TrabajosDiariosTodosView() {
                           const ci = safeText(worker.CI);
                           const nombre = safeText(worker.nombre) || "Trabajador";
                           const value = ci || nombre;
-                          const label = ci ? `${nombre} (${ci})` : nombre;
+                          const label = nombre;
                           const selected = trabajadoresSeleccionados.includes(value);
 
                           return (
@@ -719,7 +828,7 @@ export function TrabajosDiariosTodosView() {
                         <td className="px-3 py-2 text-slate-700 min-w-[220px]">
                           <p className="line-clamp-2">
                             {instaladores.length > 0
-                              ? instaladores.join(", ")
+                              ? instaladores.map((item) => formatInstaladorNombre(item)).join(", ")
                               : "Sin instaladores"}
                           </p>
                         </td>
@@ -784,7 +893,9 @@ export function TrabajosDiariosTodosView() {
                         <p className="text-xs text-slate-600 mt-1">
                           Instaladores:{" "}
                           {row.instaladores.length > 0
-                            ? row.instaladores.join(", ")
+                            ? row.instaladores
+                                .map((item) => formatInstaladorNombre(item))
+                                .join(", ")
                             : "Sin instaladores"}
                         </p>
                         <p className="text-xs text-slate-600 mt-1">
@@ -853,7 +964,9 @@ export function TrabajosDiariosTodosView() {
                               <p className="text-xs text-slate-600 mt-1">
                                 Instaladores:{" "}
                                 {row.instaladores.length > 0
-                                  ? row.instaladores.join(", ")
+                                  ? row.instaladores
+                                      .map((item) => formatInstaladorNombre(item))
+                                      .join(", ")
                                   : "Sin instaladores"}
                               </p>
                               <p className="text-xs text-slate-600 mt-1">
@@ -911,7 +1024,12 @@ export function TrabajosDiariosTodosView() {
                     Tipo: {safeText(trabajoDetalle.tipo_trabajo, "Sin tipo")}
                   </p>
                   <p className="text-slate-700">
-                    ID trabajo: {safeText(trabajoDetalle.id, "Sin ID")}
+                    Instaladores:{" "}
+                    {(trabajoDetalle.instaladores || []).length > 0
+                      ? (trabajoDetalle.instaladores || [])
+                          .map((item) => formatInstaladorNombre(item))
+                          .join(", ")
+                      : "Sin instaladores"}
                   </p>
                 </div>
 
@@ -933,72 +1051,50 @@ export function TrabajosDiariosTodosView() {
               </div>
 
               <div className="rounded-md border p-3">
-                <p className="font-semibold text-slate-900">Referencias</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-slate-900">Inicio</p>
+                  <Badge variant="outline">Inicio</Badge>
+                </div>
                 <p className="mt-1 text-slate-700">
-                  Vale ID:{" "}
-                  {safeText(
-                    trabajoDetalle.id_vale_salida || trabajoDetalle.vale_id,
-                    "Sin vale",
-                  )}
+                  Fecha/hora: {formatDateTime(trabajoDetalle.inicio?.fecha)}
                 </p>
                 <p className="text-slate-700">
-                  Vale código: {safeText(trabajoDetalle.vale_codigo, "Sin código")}
+                  Comentario:{" "}
+                  {safeText(trabajoDetalle.inicio?.comentario, "Sin comentario")}
                 </p>
-                <p className="text-slate-700">
-                  Solicitud ID:{" "}
-                  {safeText(
-                    trabajoDetalle.id_solicitud_materiales || trabajoDetalle.solicitud_id,
-                    "Sin solicitud",
-                  )}
-                </p>
-                <p className="text-slate-700">
-                  Solicitud código:{" "}
-                  {safeText(trabajoDetalle.solicitud_codigo, "Sin código")}
-                </p>
+                {renderArchivosEtapa(archivosInicio)}
               </div>
 
               <div className="rounded-md border p-3">
-                <p className="font-semibold text-slate-900">Brigada</p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-semibold text-slate-900">Fin</p>
+                  <Badge variant="outline">Fin</Badge>
+                </div>
                 <p className="mt-1 text-slate-700">
-                  Instaladores:{" "}
-                  {(trabajoDetalle.instaladores || []).length > 0
-                    ? (trabajoDetalle.instaladores || []).join(", ")
-                    : "Sin instaladores"}
+                  Fecha/hora: {formatDateTime(trabajoDetalle.fin?.fecha)}
                 </p>
                 <p className="text-slate-700">
-                  Responsable recogida:{" "}
-                  {safeText(
-                    trabajoDetalle.responsable_recogida ||
-                      trabajoDetalle.responsable_solicitud_materiales,
-                    "Sin responsable",
-                  )}
+                  Comentario: {safeText(trabajoDetalle.fin?.comentario, "Sin comentario")}
                 </p>
+                {renderArchivosEtapa(archivosFin)}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="rounded-md border p-3">
-                  <p className="font-semibold text-slate-900">Inicio</p>
-                  <p className="mt-1 text-slate-700">
-                    Fecha/hora: {formatDateTime(trabajoDetalle.inicio?.fecha)}
-                  </p>
-                  <p className="text-slate-700">
-                    Comentario: {safeText(trabajoDetalle.inicio?.comentario, "Sin comentario")}
-                  </p>
-                  <p className="text-slate-700">
-                    Archivos: {(trabajoDetalle.inicio?.archivos || []).length}
-                  </p>
-                </div>
-                <div className="rounded-md border p-3">
-                  <p className="font-semibold text-slate-900">Fin</p>
-                  <p className="mt-1 text-slate-700">
-                    Fecha/hora: {formatDateTime(trabajoDetalle.fin?.fecha)}
-                  </p>
-                  <p className="text-slate-700">
-                    Comentario: {safeText(trabajoDetalle.fin?.comentario, "Sin comentario")}
-                  </p>
-                  <p className="text-slate-700">
-                    Archivos: {(trabajoDetalle.fin?.archivos || []).length}
-                  </p>
+              <div className="rounded-md border p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">Materiales utilizados</p>
+                    <p className="text-slate-700 mt-1">
+                      Total: {(trabajoDetalle.materiales_utilizados || []).length}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setMaterialesDialogOpen(true)}
+                    disabled={(trabajoDetalle.materiales_utilizados || []).length === 0}
+                  >
+                    Ver
+                  </Button>
                 </div>
               </div>
 
@@ -1020,70 +1116,51 @@ export function TrabajosDiariosTodosView() {
                   {trabajoDetalle.cierre_diario_confirmado ? "Sí" : "No"}
                 </p>
               </div>
-
-              <div className="rounded-md border p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-slate-900">Archivos subidos</p>
-                    <p className="text-slate-700 mt-1">
-                      Total: {archivosTrabajo.length} (inicio:{" "}
-                      {(trabajoDetalle.inicio?.archivos || []).length}, fin:{" "}
-                      {(trabajoDetalle.fin?.archivos || []).length})
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setArchivosDialogOpen(true)}
-                    disabled={archivosTrabajo.length === 0}
-                  >
-                    Ver archivos subidos
-                  </Button>
-                </div>
-              </div>
-
-              <div className="rounded-md border p-3">
-                <p className="font-semibold text-slate-900 mb-2">
-                  Materiales utilizados ({(trabajoDetalle.materiales_utilizados || []).length})
-                </p>
-                {(trabajoDetalle.materiales_utilizados || []).length === 0 ? (
-                  <p className="text-slate-600">Sin materiales registrados.</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[640px] text-sm">
-                      <thead className="bg-slate-50 text-slate-600">
-                        <tr>
-                          <th className="text-left px-2 py-1 font-semibold">Código</th>
-                          <th className="text-left px-2 py-1 font-semibold">Nombre</th>
-                          <th className="text-right px-2 py-1 font-semibold">Cantidad</th>
-                          <th className="text-center px-2 py-1 font-semibold">En servicio</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(trabajoDetalle.materiales_utilizados || []).map((material, idx) => (
-                          <tr key={`${material.id_material}-${idx}`} className="border-t">
-                            <td className="px-2 py-1">
-                              {safeText(
-                                material.codigo_material || material.material_codigo,
-                                safeText(material.id_material),
-                              )}
-                            </td>
-                            <td className="px-2 py-1">{safeText(material.nombre, "Material")}</td>
-                            <td className="px-2 py-1 text-right">
-                              {Number(material.cantidad_utilizada || 0)}
-                            </td>
-                            <td className="px-2 py-1 text-center">
-                              {material.en_servicio ? "Sí" : "No"}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
             </div>
           ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={materialesDialogOpen} onOpenChange={setMaterialesDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Materiales utilizados</DialogTitle>
+          </DialogHeader>
+          {!trabajoDetalle || (trabajoDetalle.materiales_utilizados || []).length === 0 ? (
+            <p className="text-sm text-slate-600">Sin materiales registrados.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-sm">
+                <thead className="bg-slate-50 text-slate-600">
+                  <tr>
+                    <th className="text-left px-2 py-1 font-semibold">Código</th>
+                    <th className="text-left px-2 py-1 font-semibold">Nombre</th>
+                    <th className="text-right px-2 py-1 font-semibold">Cantidad</th>
+                    <th className="text-center px-2 py-1 font-semibold">En servicio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(trabajoDetalle.materiales_utilizados || []).map((material, idx) => (
+                    <tr key={`${material.id_material}-${idx}`} className="border-t">
+                      <td className="px-2 py-1">
+                        {safeText(
+                          material.codigo_material || material.material_codigo,
+                          safeText(material.id_material),
+                        )}
+                      </td>
+                      <td className="px-2 py-1">{safeText(material.nombre, "Material")}</td>
+                      <td className="px-2 py-1 text-right">
+                        {Number(material.cantidad_utilizada || 0)}
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        {material.en_servicio ? "Sí" : "No"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

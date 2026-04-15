@@ -38,6 +38,17 @@ interface VisitaPendienteEnriquecida {
   comentario?: string;
 }
 
+interface VisitaResumenEnriquecido {
+  total: number;
+  realizadas: number;
+  media: unknown[];
+}
+
+interface VisitasMetadata {
+  pendientes: Map<string, VisitaPendienteEnriquecida>;
+  resumen: Map<string, VisitaResumenEnriquecido>;
+}
+
 const EMPTY_PENDIENTES: PendientesInstalacionResponse = {
   leads: [],
   clientes: [],
@@ -49,6 +60,180 @@ const EMPTY_PENDIENTES: PendientesInstalacionResponse = {
 const safeText = (value: unknown, fallback = "") => {
   const text = String(value ?? "").trim();
   return text || fallback;
+};
+
+const parsePositiveNumber = (value: unknown): number | null => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const parsePowerFromTextKw = (value: unknown): number | null => {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const match = value
+    .replace(",", ".")
+    .match(/(\d+(?:\.\d+)?)\s*k(?:w|W)\b/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+};
+
+const parseDateValue = (value: unknown): number => {
+  if (!value) return 0;
+  const parsed = new Date(String(value));
+  const time = parsed.getTime();
+  return Number.isFinite(time) ? time : 0;
+};
+
+const isOfertaConfirmadaPorCliente = (ofertaRaw: unknown): boolean => {
+  if (!ofertaRaw || typeof ofertaRaw !== "object") return false;
+  const oferta = ofertaRaw as Record<string, unknown>;
+  if (oferta.confirmada_por_cliente === true) return true;
+  if (oferta.confirmada === true) return true;
+
+  const estado = safeText(oferta.estado || oferta.status).toLowerCase();
+  return (
+    estado.includes("confirm") ||
+    estado.includes("aceptad") ||
+    estado.includes("aprob")
+  );
+};
+
+const getOfertaTexto = (ofertaRaw: unknown): string => {
+  if (!ofertaRaw || typeof ofertaRaw !== "object") return "";
+  const oferta = ofertaRaw as Record<string, unknown>;
+  return (
+    safeText(oferta.nombre_completo) ||
+    safeText(oferta.nombre_oferta) ||
+    safeText(oferta.descripcion) ||
+    safeText(oferta.nombre) ||
+    ""
+  );
+};
+
+const getOfertaResumen = (entityRaw: unknown): string | undefined => {
+  if (!entityRaw || typeof entityRaw !== "object") return undefined;
+  const entity = entityRaw as Record<string, unknown>;
+
+  const ofertasRaw = Array.isArray(entity.ofertas) ? entity.ofertas : [];
+  if (ofertasRaw.length > 0) {
+    const confirmadas = ofertasRaw.filter(isOfertaConfirmadaPorCliente);
+    const candidatas = (confirmadas.length > 0 ? confirmadas : ofertasRaw).slice();
+
+    candidatas.sort((a, b) => {
+      const aRecord = (a as Record<string, unknown>) || {};
+      const bRecord = (b as Record<string, unknown>) || {};
+      const aDate =
+        parseDateValue(aRecord.fecha_confirmacion) ||
+        parseDateValue(aRecord.updated_at) ||
+        parseDateValue(aRecord.created_at) ||
+        parseDateValue(aRecord.fecha);
+      const bDate =
+        parseDateValue(bRecord.fecha_confirmacion) ||
+        parseDateValue(bRecord.updated_at) ||
+        parseDateValue(bRecord.created_at) ||
+        parseDateValue(bRecord.fecha);
+      return bDate - aDate;
+    });
+
+    const texto = getOfertaTexto(candidatas[0]);
+    if (texto) return texto;
+  }
+
+  // Fallback solicitado: usar campo "oferta" del cliente/lead si existe
+  const ofertaFallback = entity.oferta;
+  if (typeof ofertaFallback === "string") {
+    const text = ofertaFallback.trim();
+    if (text) return text;
+  }
+  if (ofertaFallback && typeof ofertaFallback === "object") {
+    const text = getOfertaTexto(ofertaFallback);
+    if (text) return text;
+  }
+
+  return undefined;
+};
+
+const extractInverterPowerKw = (
+  entityRaw: unknown,
+): number | undefined => {
+  if (!entityRaw || typeof entityRaw !== "object") return undefined;
+  const entity = entityRaw as Record<string, unknown>;
+
+  const directPower =
+    parsePositiveNumber(entity.potencia_inversor_principal_kw) ??
+    parsePositiveNumber(entity.inversor_potencia_kw) ??
+    parsePositiveNumber(entity.potencia_inversor_kw) ??
+    parsePositiveNumber(entity.potencia_inversor);
+  if (directPower) return directPower;
+
+  const ofertasRaw = entity.ofertas;
+  if (!Array.isArray(ofertasRaw)) return undefined;
+
+  for (const ofertaRaw of ofertasRaw) {
+    if (!ofertaRaw || typeof ofertaRaw !== "object") continue;
+    const oferta = ofertaRaw as Record<string, unknown>;
+    const inversorCantidad = Number(oferta.inversor_cantidad || 0);
+    if (!Number.isFinite(inversorCantidad) || inversorCantidad <= 0) continue;
+
+    const potencia =
+      parsePositiveNumber(oferta.inversor_potencia_kw) ??
+      parsePositiveNumber(oferta.potencia_inversor_kw) ??
+      parsePositiveNumber(oferta.potencia_inversor) ??
+      parsePowerFromTextKw(oferta.inversor_nombre);
+
+    if (potencia) return potencia;
+  }
+
+  return undefined;
+};
+
+const isVisitaRealizada = (estadoRaw: unknown) => {
+  const estado = safeText(estadoRaw).toLowerCase();
+  return (
+    estado.includes("complet") ||
+    estado.includes("realiz") ||
+    estado.includes("finaliz") ||
+    estado.includes("cerrad")
+  );
+};
+
+const extractVisitaMedia = (visita: Record<string, unknown>): unknown[] => {
+  const media: unknown[] = [];
+  const seen = new Set<string>();
+
+  const push = (item: unknown) => {
+    if (!item) return;
+    if (typeof item === "string") {
+      const url = item.trim();
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      media.push(url);
+      return;
+    }
+    if (typeof item === "object") {
+      const record = item as Record<string, unknown>;
+      const url = String(record.url || record.path || "").trim();
+      if (!url || seen.has(url)) return;
+      seen.add(url);
+      media.push(item);
+    }
+  };
+
+  const pushMany = (raw: unknown) => {
+    if (!Array.isArray(raw)) return;
+    raw.forEach((item) => push(item));
+  };
+
+  pushMany(visita.fotos);
+  pushMany(visita.archivos);
+  pushMany((visita.archivos_guardados as Record<string, unknown> | undefined)?.estudio_energetico);
+  pushMany((visita.archivos_guardados as Record<string, unknown> | undefined)?.evidencia);
+  pushMany((visita.visita_completada as Record<string, unknown> | undefined)?.estudio_energetico);
+  pushMany((visita.visita_completada as Record<string, unknown> | undefined)?.evidencia_archivos);
+
+  return media;
 };
 
 const getArrayFromPayload = (
@@ -71,10 +256,9 @@ const getArrayFromPayload = (
   return [];
 };
 
-const fetchVisitasPendientesMap = async (): Promise<
-  Map<string, VisitaPendienteEnriquecida>
-> => {
-  const map = new Map<string, VisitaPendienteEnriquecida>();
+const fetchVisitasMetadata = async (): Promise<VisitasMetadata> => {
+  const pendientes = new Map<string, VisitaPendienteEnriquecida>();
+  const resumen = new Map<string, VisitaResumenEnriquecido>();
   const pageSize = 200;
   let skip = 0;
   let total = Number.POSITIVE_INFINITY;
@@ -112,9 +296,6 @@ const fetchVisitasPendientesMap = async (): Promise<
       );
       if (!entidadId) return;
 
-      const estado = safeText(visita.estado).toLowerCase();
-      if (estado.includes("complet") || estado.includes("cancel")) return;
-
       const motivo =
         safeText(visita.motivo) ||
         safeText(visita.motivo_visita) ||
@@ -130,9 +311,23 @@ const fetchVisitasPendientesMap = async (): Promise<
         undefined;
 
       const key = `${tipo}:${entidadId}`;
-      if (!map.has(key)) {
-        map.set(key, { motivo, comentario });
+      const current = resumen.get(key) || {
+        total: 0,
+        realizadas: 0,
+        media: [],
+      };
+      current.total += 1;
+
+      if (isVisitaRealizada(visita.estado)) {
+        current.realizadas += 1;
+        current.media.push(...extractVisitaMedia(visita));
+      } else {
+        const estado = safeText(visita.estado).toLowerCase();
+        if (!estado.includes("cancel") && !pendientes.has(key)) {
+          pendientes.set(key, { motivo, comentario });
+        }
       }
+      resumen.set(key, current);
     });
 
     if (pageData.length < pageSize) break;
@@ -140,7 +335,7 @@ const fetchVisitasPendientesMap = async (): Promise<
     safety += 1;
   }
 
-  return map;
+  return { pendientes, resumen };
 };
 
 const isAveriaPendiente = (averia: Averia) =>
@@ -172,6 +367,7 @@ const getTecnicoOption = (
 const buildVisitas = (
   response: PendientesVisitaRawResponse,
   visitasPendientesMap: Map<string, VisitaPendienteEnriquecida>,
+  visitasResumenMap: Map<string, VisitaResumenEnriquecido>,
 ): TrabajoPlanificable[] => {
   const visitas: TrabajoPlanificable[] = [];
   const clientes = Array.isArray(response.clientes) ? response.clientes : [];
@@ -188,6 +384,13 @@ const buildVisitas = (
       .filter(Boolean)
       .map((key) => visitasPendientesMap.get(key))
       .find(Boolean);
+    const visitasResumen = [
+      numero ? `cliente:${numero}` : "",
+      `cliente:${contactoId}`,
+    ]
+      .filter(Boolean)
+      .map((key) => visitasResumenMap.get(key))
+      .find(Boolean);
 
     visitas.push({
       uid: `visita:cliente:${contactoId}`,
@@ -200,6 +403,7 @@ const buildVisitas = (
       direccion: safeText(cliente.direccion, "Sin dirección"),
       provincia: safeText(cliente.provincia_montaje) || undefined,
       municipio: safeText(cliente.municipio) || undefined,
+      potenciaInversorKw: extractInverterPowerKw(cliente),
       estado: safeText(cliente.estado) || undefined,
       prioridad: safeText(cliente.prioridad) || undefined,
       descripcionTrabajo: "Visita técnica pendiente",
@@ -220,9 +424,17 @@ const buildVisitas = (
       ofertas: Array.isArray(cliente.ofertas)
         ? (cliente.ofertas as unknown[])
         : undefined,
+      ofertaResumen: getOfertaResumen(cliente),
       fotos: Array.isArray(cliente.fotos)
         ? (cliente.fotos as unknown[])
         : undefined,
+      fotosVisitas:
+        visitasResumen && visitasResumen.media.length > 0
+          ? visitasResumen.media
+          : undefined,
+      tieneVisitasRealizadas:
+        !!visitasResumen && visitasResumen.realizadas > 0,
+      totalVisitasRealizadas: visitasResumen?.realizadas || 0,
     });
   });
 
@@ -230,6 +442,7 @@ const buildVisitas = (
     const contactoId = safeText(lead.id || lead._id);
     if (!contactoId) return;
     const visitaAsociada = visitasPendientesMap.get(`lead:${contactoId}`);
+    const visitasResumen = visitasResumenMap.get(`lead:${contactoId}`);
 
     visitas.push({
       uid: `visita:lead:${contactoId}`,
@@ -241,6 +454,7 @@ const buildVisitas = (
       direccion: safeText(lead.direccion, "Sin dirección"),
       provincia: safeText(lead.provincia_montaje) || undefined,
       municipio: safeText(lead.municipio) || undefined,
+      potenciaInversorKw: extractInverterPowerKw(lead),
       estado: safeText(lead.estado) || undefined,
       prioridad: safeText(lead.prioridad) || undefined,
       descripcionTrabajo: "Visita a lead pendiente",
@@ -261,7 +475,15 @@ const buildVisitas = (
       ofertas: Array.isArray(lead.ofertas)
         ? (lead.ofertas as unknown[])
         : undefined,
+      ofertaResumen: getOfertaResumen(lead),
       fotos: Array.isArray(lead.fotos) ? (lead.fotos as unknown[]) : undefined,
+      fotosVisitas:
+        visitasResumen && visitasResumen.media.length > 0
+          ? visitasResumen.media
+          : undefined,
+      tieneVisitasRealizadas:
+        !!visitasResumen && visitasResumen.realizadas > 0,
+      totalVisitasRealizadas: visitasResumen?.realizadas || 0,
     });
   });
 
@@ -270,6 +492,7 @@ const buildVisitas = (
 
 const buildInstalacionesNuevas = (
   response: PendientesInstalacionResponse,
+  visitasResumenMap: Map<string, VisitaResumenEnriquecido>,
 ): TrabajoPlanificable[] => {
   const trabajos: TrabajoPlanificable[] = [];
 
@@ -277,6 +500,14 @@ const buildInstalacionesNuevas = (
     const numero = safeText(cliente.numero);
     const contactoId = numero || safeText(cliente.id);
     if (!contactoId) return;
+
+    const visitasResumen = [
+      numero ? `cliente:${numero}` : "",
+      `cliente:${contactoId}`,
+    ]
+      .filter(Boolean)
+      .map((key) => visitasResumenMap.get(key))
+      .find(Boolean);
 
     trabajos.push({
       uid: `instalacion_nueva:cliente:${contactoId}`,
@@ -289,21 +520,31 @@ const buildInstalacionesNuevas = (
       direccion: safeText(cliente.direccion, "Sin dirección"),
       provincia: safeText(cliente.provincia_montaje) || undefined,
       municipio: safeText(cliente.municipio) || undefined,
+      potenciaInversorKw: extractInverterPowerKw(cliente),
       estado: safeText(cliente.estado) || undefined,
       descripcionTrabajo: "Instalación nueva programable",
       fechaReferencia: safeText(cliente.fecha_contacto) || undefined,
       ofertas: Array.isArray(cliente.ofertas)
         ? (cliente.ofertas as unknown[])
         : undefined,
+      ofertaResumen: getOfertaResumen(cliente),
       fotos: Array.isArray(cliente.fotos)
         ? (cliente.fotos as unknown[])
         : undefined,
+      fotosVisitas:
+        visitasResumen && visitasResumen.media.length > 0
+          ? visitasResumen.media
+          : undefined,
+      tieneVisitasRealizadas:
+        !!visitasResumen && visitasResumen.realizadas > 0,
+      totalVisitasRealizadas: visitasResumen?.realizadas || 0,
     });
   });
 
   (response.leads || []).forEach((lead) => {
     const contactoId = safeText(lead.id);
     if (!contactoId) return;
+    const visitasResumen = visitasResumenMap.get(`lead:${contactoId}`);
 
     trabajos.push({
       uid: `instalacion_nueva:lead:${contactoId}`,
@@ -315,13 +556,22 @@ const buildInstalacionesNuevas = (
       direccion: safeText(lead.direccion, "Sin dirección"),
       provincia: safeText(lead.provincia_montaje) || undefined,
       municipio: safeText(lead.municipio) || undefined,
+      potenciaInversorKw: extractInverterPowerKw(lead),
       estado: safeText(lead.estado) || undefined,
       descripcionTrabajo: "Instalación nueva de lead",
       fechaReferencia: safeText(lead.fecha_contacto) || undefined,
       ofertas: Array.isArray(lead.ofertas)
         ? (lead.ofertas as unknown[])
         : undefined,
+      ofertaResumen: getOfertaResumen(lead),
       fotos: Array.isArray(lead.fotos) ? (lead.fotos as unknown[]) : undefined,
+      fotosVisitas:
+        visitasResumen && visitasResumen.media.length > 0
+          ? visitasResumen.media
+          : undefined,
+      tieneVisitasRealizadas:
+        !!visitasResumen && visitasResumen.realizadas > 0,
+      totalVisitasRealizadas: visitasResumen?.realizadas || 0,
     });
   });
 
@@ -330,12 +580,20 @@ const buildInstalacionesNuevas = (
 
 const buildInstalacionesEnProceso = (
   clientes: Cliente[],
+  visitasResumenMap: Map<string, VisitaResumenEnriquecido>,
 ): TrabajoPlanificable[] =>
   clientes
     .filter((cliente) => safeText(cliente.estado) === "Instalación en Proceso")
     .map((cliente) => {
       const numero = safeText(cliente.numero);
       const contactoId = numero || safeText(cliente.id);
+      const visitasResumen = [
+        numero ? `cliente:${numero}` : "",
+        `cliente:${contactoId}`,
+      ]
+        .filter(Boolean)
+        .map((key) => visitasResumenMap.get(key))
+        .find(Boolean);
       return {
         uid: `instalacion_en_proceso:cliente:${contactoId}`,
         tipo: "instalacion_en_proceso" as const,
@@ -347,6 +605,7 @@ const buildInstalacionesEnProceso = (
         direccion: safeText(cliente.direccion, "Sin dirección"),
         provincia: safeText(cliente.provincia_montaje) || undefined,
         municipio: safeText(cliente.municipio) || undefined,
+        potenciaInversorKw: extractInverterPowerKw(cliente),
         estado: safeText(cliente.estado) || undefined,
         descripcionTrabajo: safeText(cliente.falta_instalacion)
           ? `Instalación en proceso: ${safeText(cliente.falta_instalacion)}`
@@ -356,20 +615,39 @@ const buildInstalacionesEnProceso = (
         ofertas: Array.isArray(cliente.ofertas)
           ? (cliente.ofertas as unknown[])
           : undefined,
+        ofertaResumen: getOfertaResumen(cliente),
         fotos: Array.isArray(cliente.fotos)
           ? (cliente.fotos as unknown[])
           : undefined,
+        fotosVisitas:
+          visitasResumen && visitasResumen.media.length > 0
+            ? visitasResumen.media
+            : undefined,
+        tieneVisitasRealizadas:
+          !!visitasResumen && visitasResumen.realizadas > 0,
+        totalVisitasRealizadas: visitasResumen?.realizadas || 0,
       };
     })
     .filter((item) => Boolean(item.contactoId));
 
-const buildAverias = (clientes: Cliente[]): TrabajoPlanificable[] => {
+const buildAverias = (
+  clientes: Cliente[],
+  visitasResumenMap: Map<string, VisitaResumenEnriquecido>,
+): TrabajoPlanificable[] => {
   const trabajos: TrabajoPlanificable[] = [];
 
   clientes.forEach((cliente) => {
     const numero = safeText(cliente.numero);
     const contactoId = numero || safeText(cliente.id);
     if (!contactoId) return;
+
+    const visitasResumen = [
+      numero ? `cliente:${numero}` : "",
+      `cliente:${contactoId}`,
+    ]
+      .filter(Boolean)
+      .map((key) => visitasResumenMap.get(key))
+      .find(Boolean);
 
     const averiasRaw = Array.isArray(cliente.averias) ? cliente.averias : [];
     const averiasPendientes = averiasRaw.filter(isAveriaPendiente);
@@ -386,6 +664,7 @@ const buildAverias = (clientes: Cliente[]): TrabajoPlanificable[] => {
         direccion: safeText(cliente.direccion, "Sin dirección"),
         provincia: safeText(cliente.provincia_montaje) || undefined,
         municipio: safeText(cliente.municipio) || undefined,
+        potenciaInversorKw: extractInverterPowerKw(cliente),
         estado: safeText(averia.estado) || undefined,
         descripcionTrabajo: safeText(
           averia.descripcion,
@@ -393,6 +672,17 @@ const buildAverias = (clientes: Cliente[]): TrabajoPlanificable[] => {
         ),
         fechaReferencia:
           safeText(averia.fecha_reporte || averia.created_at) || undefined,
+        fotos: Array.isArray(cliente.fotos)
+          ? (cliente.fotos as unknown[])
+          : undefined,
+        ofertaResumen: getOfertaResumen(cliente),
+        fotosVisitas:
+          visitasResumen && visitasResumen.media.length > 0
+            ? visitasResumen.media
+            : undefined,
+        tieneVisitasRealizadas:
+          !!visitasResumen && visitasResumen.realizadas > 0,
+        totalVisitasRealizadas: visitasResumen?.realizadas || 0,
       });
     });
   });
@@ -429,13 +719,15 @@ export default function PlanificacionDiariaTrabajosPage() {
   const [modo, setModo] = useState<"lista" | "crear">("lista");
   const [planificaciones, setPlanificaciones] = useState<PlanificacionDiaria[]>([]);
   const [planificacionSeleccionada, setPlanificacionSeleccionada] = useState<PlanificacionDiaria | null>(null);
+  const [planificacionAEditar, setPlanificacionAEditar] =
+    useState<PlanificacionDiaria | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const results = await Promise.allSettled([
         apiRequest<PendientesVisitaRawResponse>("/pendientes-visita/"),
-        fetchVisitasPendientesMap(),
+        fetchVisitasMetadata(),
         InstalacionesService.getPendientesInstalacion(),
         ClienteService.getClientes({}),
         ClienteService.getClientesConAverias(),
@@ -455,10 +747,13 @@ export default function PlanificacionDiariaTrabajosPage() {
 
       const visitasRaw =
         visitasResult.status === "fulfilled" ? visitasResult.value : {};
-      const visitasPendientesMap =
+      const visitasMetadata =
         visitasPendientesMapResult.status === "fulfilled"
           ? visitasPendientesMapResult.value
-          : new Map<string, VisitaPendienteEnriquecida>();
+          : ({
+              pendientes: new Map<string, VisitaPendienteEnriquecida>(),
+              resumen: new Map<string, VisitaResumenEnriquecido>(),
+            } as VisitasMetadata);
       const pendientesInstalacion =
         pendientesInstalacionResult.status === "fulfilled"
           ? pendientesInstalacionResult.value
@@ -481,13 +776,18 @@ export default function PlanificacionDiariaTrabajosPage() {
         (cliente) => safeText(cliente.estado) === "Instalación en Proceso",
       );
 
-      const visitas = buildVisitas(visitasRaw, visitasPendientesMap);
+      const visitas = buildVisitas(
+        visitasRaw,
+        visitasMetadata.pendientes,
+        visitasMetadata.resumen,
+      );
       const instalacionesNuevas = buildInstalacionesNuevas(
         pendientesInstalacion,
+        visitasMetadata.resumen,
       );
       const instalacionesEnProceso =
-        buildInstalacionesEnProceso(clientesEnProceso);
-      const averias = buildAverias(clientesAverias);
+        buildInstalacionesEnProceso(clientesEnProceso, visitasMetadata.resumen);
+      const averias = buildAverias(clientesAverias, visitasMetadata.resumen);
       const entregasMateriales =
         buildEntregasEquipamientoDesdeNuevas(instalacionesNuevas);
 
@@ -608,7 +908,14 @@ export default function PlanificacionDiariaTrabajosPage() {
             onVerPlanificacion={(planificacion) => {
               setPlanificacionSeleccionada(planificacion);
             }}
-            onCrearNueva={() => setModo("crear")}
+            onEditarPlanificacion={(planificacion) => {
+              setPlanificacionAEditar(planificacion);
+              setModo("crear");
+            }}
+            onCrearNueva={() => {
+              setPlanificacionAEditar(null);
+              setModo("crear");
+            }}
             onRecargar={recargarPlanificaciones}
           />
         ) : (
@@ -617,15 +924,20 @@ export default function PlanificacionDiariaTrabajosPage() {
             brigadas={brigadas}
             tecnicos={tecnicos}
             loading={loading}
+            initialPlanificacion={planificacionAEditar}
             onGuardadoExitoso={async () => {
               // Recargar lista y volver al modo lista
               const response = await PlanificacionDiariaService.obtenerTodasPlanificaciones();
               if (response.success && response.data) {
                 setPlanificaciones(response.data);
               }
+              setPlanificacionAEditar(null);
               setModo("lista");
             }}
-            onCancelar={() => setModo("lista")}
+            onCancelar={() => {
+              setPlanificacionAEditar(null);
+              setModo("lista");
+            }}
           />
         )}
       </main>

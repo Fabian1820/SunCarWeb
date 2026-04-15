@@ -24,7 +24,12 @@ export interface TrabajoPlanificable {
   motivo?: string;
   comercial?: string;
   ofertas?: unknown[];
+  ofertaResumen?: string;
   fotos?: unknown[];
+  fotosVisitas?: unknown[];
+  potenciaInversorKw?: number;
+  tieneVisitasRealizadas?: boolean;
+  totalVisitasRealizadas?: number;
   faltaInstalacion?: string;
 }
 

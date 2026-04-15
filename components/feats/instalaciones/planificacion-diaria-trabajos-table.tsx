@@ -28,7 +28,6 @@ import {
   Truck,
   Zap,
 } from "lucide-react";
-import type { ClienteFoto } from "@/lib/api-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import type {
   BrigadaPlanificacionOption,
@@ -37,7 +36,10 @@ import type {
   TipoTrabajoPlanificado,
   TrabajoPlanificable,
 } from "@/lib/types/feats/instalaciones/planificacion-trabajos-types";
-import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
+import {
+  PlanificacionDiariaService,
+  type PlanificacionDiaria,
+} from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 
 // Imports de módulos locales
 import {
@@ -67,6 +69,7 @@ interface PlanificacionDiariaTrabajosTableProps {
   brigadas: BrigadaPlanificacionOption[];
   tecnicos: TecnicoPlanificacionOption[];
   loading: boolean;
+  initialPlanificacion?: PlanificacionDiaria | null;
   onGuardadoExitoso?: () => void;
   onCancelar?: () => void;
 }
@@ -76,6 +79,7 @@ export function PlanificacionDiariaTrabajosTable({
   brigadas,
   tecnicos,
   loading,
+  initialPlanificacion = null,
   onGuardadoExitoso,
   onCancelar,
 }: PlanificacionDiariaTrabajosTableProps) {
@@ -86,6 +90,11 @@ export function PlanificacionDiariaTrabajosTable({
   const [tipoTrabajoActivo, setTipoTrabajoActivo] =
     useState<TipoTrabajoPlanificado>("visita");
   const [busqueda, setBusqueda] = useState("");
+  const [filtroProvincia, setFiltroProvincia] = useState("todos");
+  const [filtroMunicipio, setFiltroMunicipio] = useState("todos");
+  const [filtroPotenciaInversor, setFiltroPotenciaInversor] = useState("todos");
+  const [filtroVisitasRealizadas, setFiltroVisitasRealizadas] =
+    useState<"todos" | "con_visitas" | "sin_visitas">("todos");
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set());
   const [asignacionPorTrabajo, setAsignacionPorTrabajo] = useState<
     Record<string, string>
@@ -96,6 +105,9 @@ export function PlanificacionDiariaTrabajosTable({
   const [planEnCurso, setPlanEnCurso] = useState<PlanTrabajoItem[]>([]);
   const [actualizadoEn, setActualizadoEn] = useState<string | null>(null);
   const [planificacionId, setPlanificacionId] = useState<string | null>(null);
+  const [trabajoIdPorUid, setTrabajoIdPorUid] = useState<Record<string, string>>(
+    {},
+  );
   const [guardando, setGuardando] = useState(false);
   const [verPlanificacionDialog, setVerPlanificacionDialog] = useState(false);
   const [ofertaDialogOpen, setOfertaDialogOpen] = useState(false);
@@ -108,7 +120,7 @@ export function PlanificacionDiariaTrabajosTable({
   const [fotosDialogData, setFotosDialogData] = useState<{
     nombre: string;
     codigo?: string;
-    fotos: ClienteFoto[];
+    fotos: unknown[];
   } | null>(null);
   const [materialesDialogData, setMaterialesDialogData] = useState<{
     trabajoNombre: string;
@@ -244,22 +256,103 @@ export function PlanificacionDiariaTrabajosTable({
     [tipoTrabajoActivo, trabajos],
   );
 
+  const provinciasDisponibles = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          trabajosDelTipoActivo
+            .map((trabajo) => String(trabajo.provincia || "").trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "es")),
+    [trabajosDelTipoActivo],
+  );
+
+  const municipiosDisponibles = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          trabajosDelTipoActivo
+            .map((trabajo) => String(trabajo.municipio || "").trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "es")),
+    [trabajosDelTipoActivo],
+  );
+
+  const potenciasDisponibles = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          trabajosDelTipoActivo
+            .map((trabajo) => {
+              const potencia = Number(trabajo.potenciaInversorKw);
+              return Number.isFinite(potencia) && potencia > 0
+                ? potencia.toFixed(2)
+                : "";
+            })
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => Number(a) - Number(b)),
+    [trabajosDelTipoActivo],
+  );
+
   // Filtrar trabajos por búsqueda
   const trabajosFiltrados = useMemo(() => {
-    if (!busqueda.trim()) return trabajosDelTipoActivo;
-    
     const busquedaLower = busqueda.toLowerCase().trim();
     return trabajosDelTipoActivo.filter((trabajo) => {
       const nombre = (trabajo.nombre || "").toLowerCase();
       const direccion = (trabajo.direccion || "").toLowerCase();
-      return nombre.includes(busquedaLower) || direccion.includes(busquedaLower);
+      const provincia = String(trabajo.provincia || "").trim();
+      const municipio = String(trabajo.municipio || "").trim();
+      const potencia = Number(trabajo.potenciaInversorKw);
+      const potenciaTexto =
+        Number.isFinite(potencia) && potencia > 0 ? potencia.toFixed(2) : "";
+      const tieneVisitas = Boolean(trabajo.tieneVisitasRealizadas);
+
+      const pasaBusqueda =
+        !busquedaLower ||
+        nombre.includes(busquedaLower) ||
+        direccion.includes(busquedaLower);
+      const pasaProvincia =
+        filtroProvincia === "todos" || provincia === filtroProvincia;
+      const pasaMunicipio =
+        filtroMunicipio === "todos" || municipio === filtroMunicipio;
+      const pasaPotencia =
+        filtroPotenciaInversor === "todos" ||
+        (filtroPotenciaInversor === "sin_dato"
+          ? !potenciaTexto
+          : potenciaTexto === filtroPotenciaInversor);
+      const pasaVisitas =
+        filtroVisitasRealizadas === "todos" ||
+        (filtroVisitasRealizadas === "con_visitas" && tieneVisitas) ||
+        (filtroVisitasRealizadas === "sin_visitas" && !tieneVisitas);
+
+      return (
+        pasaBusqueda &&
+        pasaProvincia &&
+        pasaMunicipio &&
+        pasaPotencia &&
+        pasaVisitas
+      );
     });
-  }, [trabajosDelTipoActivo, busqueda]);
+  }, [
+    trabajosDelTipoActivo,
+    busqueda,
+    filtroProvincia,
+    filtroMunicipio,
+    filtroPotenciaInversor,
+    filtroVisitasRealizadas,
+  ]);
 
   // Cargar resumen de servicio cuando cambia el tipo de trabajo activo
   useEffect(() => {
     // Limpiar búsqueda al cambiar de tipo de trabajo
     setBusqueda("");
+    setFiltroProvincia("todos");
+    setFiltroMunicipio("todos");
+    setFiltroPotenciaInversor("todos");
+    setFiltroVisitasRealizadas("todos");
     
     if (
       tipoTrabajoActivo === "entrega_equipamiento" ||
@@ -269,6 +362,34 @@ export function PlanificacionDiariaTrabajosTable({
       void cargarResumenServicioEnSegundoPlano(trabajosDelTipoActivo);
     }
   }, [tipoTrabajoActivo, trabajosDelTipoActivo, cargarResumenServicioEnSegundoPlano]);
+
+  useEffect(() => {
+    if (
+      filtroProvincia !== "todos" &&
+      !provinciasDisponibles.includes(filtroProvincia)
+    ) {
+      setFiltroProvincia("todos");
+    }
+  }, [filtroProvincia, provinciasDisponibles]);
+
+  useEffect(() => {
+    if (
+      filtroMunicipio !== "todos" &&
+      !municipiosDisponibles.includes(filtroMunicipio)
+    ) {
+      setFiltroMunicipio("todos");
+    }
+  }, [filtroMunicipio, municipiosDisponibles]);
+
+  useEffect(() => {
+    if (
+      filtroPotenciaInversor !== "todos" &&
+      filtroPotenciaInversor !== "sin_dato" &&
+      !potenciasDisponibles.includes(filtroPotenciaInversor)
+    ) {
+      setFiltroPotenciaInversor("todos");
+    }
+  }, [filtroPotenciaInversor, potenciasDisponibles]);
 
   const planificadosIds = useMemo(
     () => new Set(planEnCurso.map((item) => item.uid)),
@@ -318,56 +439,101 @@ export function PlanificacionDiariaTrabajosTable({
     };
   };
 
+  const resolveTrabajoUid = useCallback(
+    (tipoTrabajo: string, contactoTipo: "cliente" | "lead", contactoId: string) => {
+      const baseUid = `${tipoTrabajo}:${contactoTipo}:${contactoId}`;
+      if (trabajosByUid.has(baseUid)) return baseUid;
+
+      const prefix = `${baseUid}:`;
+      const found = Array.from(trabajosByUid.keys()).find((uid) =>
+        uid.startsWith(prefix),
+      );
+      return found || baseUid;
+    },
+    [trabajosByUid],
+  );
+
+  const hydratePlanificacion = useCallback(
+    (planificacion: PlanificacionDiaria) => {
+      setPlanificacionId(planificacion.id || null);
+      setActualizadoEn(planificacion.updated_at || planificacion.created_at || null);
+
+      const items: PlanTrabajoItem[] = [];
+      const seleccionadosSet = new Set<string>();
+      const asignaciones: Record<string, string> = {};
+      const comentarios: Record<string, string> = {};
+      const idsByUid: Record<string, string> = {};
+
+      (planificacion.trabajos || []).forEach((trabajo) => {
+        const resolvedUid = resolveTrabajoUid(
+          trabajo.tipo_trabajo,
+          trabajo.contacto_tipo,
+          trabajo.contacto_id,
+        );
+        const trabajoLocal = trabajosByUid.get(resolvedUid);
+
+        const normalizedId = normalizeAsignacionId(
+          trabajo.brigada_id || "",
+          trabajo.tipo_trabajo as TipoTrabajoPlanificado,
+        );
+
+        items.push({
+          uid: resolvedUid,
+          tipo: trabajo.tipo_trabajo as TipoTrabajoPlanificado,
+          nombre: trabajoLocal?.nombre || "Trabajo",
+          telefono: trabajoLocal?.telefono || "",
+          direccion: trabajoLocal?.direccion || "",
+          descripcionTrabajo:
+            trabajoLocal?.descripcionTrabajo || trabajo.tipo_trabajo,
+          brigadaId: normalizedId,
+          brigadaNombre: getNombreAsignacion(normalizedId),
+          comentario: trabajo.comentario,
+          fechaReferencia: trabajoLocal?.fechaReferencia,
+        });
+
+        seleccionadosSet.add(resolvedUid);
+        if (normalizedId) asignaciones[resolvedUid] = normalizedId;
+        if (trabajo.comentario) comentarios[resolvedUid] = trabajo.comentario;
+        if (trabajo.id) idsByUid[resolvedUid] = trabajo.id;
+      });
+
+      setPlanEnCurso(items);
+      setSeleccionados(seleccionadosSet);
+      setAsignacionPorTrabajo(asignaciones);
+      setComentarioPorTrabajo(comentarios);
+      setTrabajoIdPorUid(idsByUid);
+    },
+    [getNombreAsignacion, normalizeAsignacionId, resolveTrabajoUid, trabajosByUid],
+  );
+
+  useEffect(() => {
+    if (!initialPlanificacion?.fecha) return;
+    const fecha = String(initialPlanificacion.fecha).slice(0, 10);
+    if (!fecha) return;
+    setFechaPlanificacion(fecha);
+  }, [initialPlanificacion?.id, initialPlanificacion?.fecha]);
+
   useEffect(() => {
     const cargarPlanificacion = async () => {
       try {
+        if (initialPlanificacion?.id) {
+          const response =
+            await PlanificacionDiariaService.obtenerPlanificacionDiaria(
+              initialPlanificacion.id,
+            );
+          if (response.success && response.data) {
+            hydratePlanificacion(response.data);
+            return;
+          }
+          hydratePlanificacion(initialPlanificacion);
+          return;
+        }
+
         // Intentar cargar desde el backend
         const response = await PlanificacionDiariaService.obtenerPlanificacionPorFecha(fechaPlanificacion);
         
         if (response.success && response.data) {
-          const planificacion = response.data;
-          setPlanificacionId(planificacion.id || null);
-          setActualizadoEn(planificacion.updated_at || planificacion.created_at || null);
-          
-          // Convertir trabajos del backend a items del plan
-          const items: PlanTrabajoItem[] = planificacion.trabajos.map((trabajo) => {
-            const trabajoLocal = trabajosByUid.get(
-              `${trabajo.tipo_trabajo}:${trabajo.contacto_tipo}:${trabajo.contacto_id}`
-            );
-            
-            const normalizedId = normalizeAsignacionId(
-              trabajo.brigada_id || "",
-              trabajo.tipo_trabajo as TipoTrabajoPlanificado,
-            );
-            
-            return {
-              uid: `${trabajo.tipo_trabajo}:${trabajo.contacto_tipo}:${trabajo.contacto_id}`,
-              tipo: trabajo.tipo_trabajo as TipoTrabajoPlanificado,
-              nombre: trabajoLocal?.nombre || "Trabajo",
-              telefono: trabajoLocal?.telefono || "",
-              direccion: trabajoLocal?.direccion || "",
-              descripcionTrabajo: trabajo.tipo_trabajo,
-              brigadaId: normalizedId,
-              brigadaNombre: getNombreAsignacion(normalizedId),
-              comentario: trabajo.comentario,
-              fechaReferencia: trabajoLocal?.fechaReferencia,
-            };
-          });
-          
-          const seleccionadosSet = new Set<string>();
-          const asignaciones: Record<string, string> = {};
-          const comentarios: Record<string, string> = {};
-
-          items.forEach((item) => {
-            seleccionadosSet.add(item.uid);
-            if (item.brigadaId) asignaciones[item.uid] = item.brigadaId;
-            if (item.comentario) comentarios[item.uid] = item.comentario;
-          });
-
-          setPlanEnCurso(items);
-          setSeleccionados(seleccionadosSet);
-          setAsignacionPorTrabajo(asignaciones);
-          setComentarioPorTrabajo(comentarios);
+          hydratePlanificacion(response.data);
         } else {
           // No hay planificación para esta fecha, intentar cargar desde localStorage como fallback
           const plans = readPlansFromStorage();
@@ -402,6 +568,7 @@ export function PlanificacionDiariaTrabajosTable({
             setAsignacionPorTrabajo(asignaciones);
             setComentarioPorTrabajo(comentarios);
             setPlanificacionId(null);
+            setTrabajoIdPorUid({});
           } else {
             // No hay datos ni en backend ni en localStorage
             setPlanEnCurso([]);
@@ -410,6 +577,7 @@ export function PlanificacionDiariaTrabajosTable({
             setAsignacionPorTrabajo({});
             setComentarioPorTrabajo({});
             setPlanificacionId(null);
+            setTrabajoIdPorUid({});
           }
         }
       } catch (error) {
@@ -446,6 +614,7 @@ export function PlanificacionDiariaTrabajosTable({
           setAsignacionPorTrabajo(asignaciones);
           setComentarioPorTrabajo(comentarios);
           setPlanificacionId(null);
+          setTrabajoIdPorUid({});
         } else {
           setPlanEnCurso([]);
           setActualizadoEn(null);
@@ -453,12 +622,19 @@ export function PlanificacionDiariaTrabajosTable({
           setAsignacionPorTrabajo({});
           setComentarioPorTrabajo({});
           setPlanificacionId(null);
+          setTrabajoIdPorUid({});
         }
       }
     };
 
     void cargarPlanificacion();
-  }, [fechaPlanificacion, getNombreAsignacion, normalizeAsignacionId, trabajosByUid]);
+  }, [
+    fechaPlanificacion,
+    getNombreAsignacion,
+    hydratePlanificacion,
+    initialPlanificacion,
+    normalizeAsignacionId,
+  ]);
 
   const syncPlanItem = (
     uid: string,
@@ -547,9 +723,31 @@ export function PlanificacionDiariaTrabajosTable({
     });
   };
 
-  const getVisitaFotos = (trabajo: TrabajoPlanificable): ClienteFoto[] => {
-    if (!Array.isArray(trabajo.fotos)) return [];
-    return trabajo.fotos as ClienteFoto[];
+  const getVisitaFotos = (trabajo: TrabajoPlanificable): unknown[] => {
+    const base = Array.isArray(trabajo.fotos) ? trabajo.fotos : [];
+    const visitasRealizadas = Array.isArray(trabajo.fotosVisitas)
+      ? trabajo.fotosVisitas
+      : [];
+
+    const merged: unknown[] = [...base, ...visitasRealizadas];
+    const uniqueByUrl = new Map<string, unknown>();
+    merged.forEach((item) => {
+      if (typeof item === "string") {
+        const key = item.trim();
+        if (key && !uniqueByUrl.has(key)) {
+          uniqueByUrl.set(key, item);
+        }
+        return;
+      }
+      if (item && typeof item === "object") {
+        const record = item as Record<string, unknown>;
+        const key = String(record.url || record.path || "").trim();
+        if (key && !uniqueByUrl.has(key)) {
+          uniqueByUrl.set(key, item);
+        }
+      }
+    });
+    return Array.from(uniqueByUrl.values());
   };
 
   const handleVerFotos = (trabajo: TrabajoPlanificable) => {
@@ -726,8 +924,13 @@ export function PlanificacionDiariaTrabajosTable({
             comentario: item.comentario,
           };
 
-          // Crear el trabajo de operación
-          const response = await PlanificacionDiariaService.crearTrabajoOperacion(trabajoData);
+          const trabajoExistenteId = trabajoIdPorUid[item.uid];
+          const response = trabajoExistenteId
+            ? await PlanificacionDiariaService.actualizarTrabajoOperacion(
+                trabajoExistenteId,
+                trabajoData,
+              )
+            : await PlanificacionDiariaService.crearTrabajoOperacion(trabajoData);
           
           if (!response.success || !response.data) {
             throw new Error(`Error al crear trabajo para ${item.nombre}`);
@@ -761,6 +964,14 @@ export function PlanificacionDiariaTrabajosTable({
         const nowIso = response.data.updated_at || response.data.created_at || new Date().toISOString();
         setActualizadoEn(nowIso);
         setPlanificacionId(response.data.id || null);
+        const nextTrabajoIdPorUid: Record<string, string> = {};
+        planEnCurso.forEach((item, index) => {
+          const trabajo = trabajosCreados[index];
+          if (trabajo?.id) {
+            nextTrabajoIdPorUid[item.uid] = trabajo.id;
+          }
+        });
+        setTrabajoIdPorUid(nextTrabajoIdPorUid);
 
         // También guardar en localStorage como backup
         const plans = readPlansFromStorage();
@@ -796,39 +1007,6 @@ export function PlanificacionDiariaTrabajosTable({
       });
     } finally {
       setGuardando(false);
-    }
-  };
-
-  const nuevaPlanificacion = async () => {
-    try {
-      // Si existe una planificación en el backend, eliminarla
-      if (planificacionId) {
-        await PlanificacionDiariaService.eliminarPlanificacionDiaria(planificacionId);
-      }
-
-      // Eliminar del localStorage
-      const plans = readPlansFromStorage();
-      delete plans[fechaPlanificacion];
-      writePlansToStorage(plans);
-
-      setPlanEnCurso([]);
-      setActualizadoEn(null);
-      setSeleccionados(new Set());
-      setAsignacionPorTrabajo({});
-      setComentarioPorTrabajo({});
-      setPlanificacionId(null);
-
-      toast({
-        title: "Nueva planificación",
-        description: "Se limpió el plan del día seleccionado.",
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Error al limpiar la planificación";
-      toast({
-        title: "Error",
-        description: message,
-        variant: "destructive",
-      });
     }
   };
 
@@ -1032,13 +1210,6 @@ export function PlanificacionDiariaTrabajosTable({
                 )}
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={nuevaPlanificacion}
-                >
-                  Nueva planificación
-                </Button>
-                <Button
-                  type="button"
                   className="bg-purple-700 hover:bg-purple-800"
                   onClick={guardarPlan}
                   disabled={guardando}
@@ -1155,20 +1326,84 @@ export function PlanificacionDiariaTrabajosTable({
                   : ""}
                 )
               </CardTitle>
-              <div className="flex items-center gap-2">
-                <Input
-                  type="text"
-                  placeholder="Buscar por nombre o dirección..."
-                  value={busqueda}
-                  onChange={(e) => setBusqueda(e.target.value)}
-                  className="w-full sm:w-[300px]"
-                />
-                {busqueda && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setBusqueda("")}
+	              <div className="flex items-center gap-2">
+	                <Input
+	                  type="text"
+	                  placeholder="Buscar por nombre o dirección..."
+	                  value={busqueda}
+	                  onChange={(e) => setBusqueda(e.target.value)}
+	                  className="w-full sm:w-[300px]"
+	                />
+	                <select
+	                  className="h-10 border rounded-md px-3 bg-white text-sm"
+	                  value={filtroProvincia}
+	                  onChange={(e) => setFiltroProvincia(e.target.value)}
+	                >
+	                  <option value="todos">Provincia: todas</option>
+	                  {provinciasDisponibles.map((provincia) => (
+	                    <option key={provincia} value={provincia}>
+	                      {provincia}
+	                    </option>
+	                  ))}
+	                </select>
+	                <select
+	                  className="h-10 border rounded-md px-3 bg-white text-sm"
+	                  value={filtroMunicipio}
+	                  onChange={(e) => setFiltroMunicipio(e.target.value)}
+	                >
+	                  <option value="todos">Municipio: todos</option>
+	                  {municipiosDisponibles.map((municipio) => (
+	                    <option key={municipio} value={municipio}>
+	                      {municipio}
+	                    </option>
+	                  ))}
+	                </select>
+	                <select
+	                  className="h-10 border rounded-md px-3 bg-white text-sm"
+	                  value={filtroPotenciaInversor}
+	                  onChange={(e) => setFiltroPotenciaInversor(e.target.value)}
+	                >
+	                  <option value="todos">Potencia inversor: todas</option>
+	                  <option value="sin_dato">Sin dato</option>
+	                  {potenciasDisponibles.map((potencia) => (
+	                    <option key={potencia} value={potencia}>
+	                      {Number(potencia)} kW
+	                    </option>
+	                  ))}
+	                </select>
+	                <select
+	                  className="h-10 border rounded-md px-3 bg-white text-sm"
+	                  value={filtroVisitasRealizadas}
+	                  onChange={(e) =>
+	                    setFiltroVisitasRealizadas(
+	                      e.target.value as "todos" | "con_visitas" | "sin_visitas",
+	                    )
+	                  }
+	                >
+	                  <option value="todos">Visitas: todos</option>
+	                  <option value="con_visitas">Con visitas hechas</option>
+	                  <option value="sin_visitas">Sin visitas hechas</option>
+	                </select>
+	                <Button
+	                  type="button"
+	                  variant="outline"
+	                  size="sm"
+	                  onClick={() => {
+	                    setBusqueda("");
+	                    setFiltroProvincia("todos");
+	                    setFiltroMunicipio("todos");
+	                    setFiltroPotenciaInversor("todos");
+	                    setFiltroVisitasRealizadas("todos");
+	                  }}
+	                >
+	                  Limpiar filtros
+	                </Button>
+	                {busqueda && (
+	                  <Button
+	                    type="button"
+	                    variant="ghost"
+	                    size="sm"
+	                    onClick={() => setBusqueda("")}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     Limpiar
@@ -1195,9 +1430,9 @@ export function PlanificacionDiariaTrabajosTable({
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2 px-2 w-10">Sel.</th>
-                        <th className="text-left py-2 px-2">Nombre</th>
-                        <th className="text-left py-2 px-2 w-[10rem]">
-                          Teléfono
+                        <th className="text-left py-2 px-2">Cliente</th>
+                        <th className="text-left py-2 px-2 w-[16rem]">
+                          Oferta
                         </th>
                         <th className="text-left py-2 px-2">Dirección</th>
                         {tipoTrabajoActivo === "visita" ? (
@@ -1254,6 +1489,9 @@ export function PlanificacionDiariaTrabajosTable({
                               <p className="font-medium text-gray-900 break-words">
                                 {trabajo.nombre}
                               </p>
+                              <p className="text-sm text-gray-700 break-words">
+                                {trabajo.telefono || "Sin teléfono"}
+                              </p>
                               <p className="text-sm text-gray-500">
                                 {trabajo.contactoTipo === "cliente"
                                   ? "Cliente"
@@ -1262,9 +1500,23 @@ export function PlanificacionDiariaTrabajosTable({
                                   ? ` • ${trabajo.contactoNumero}`
                                   : ""}
                               </p>
+                              <p className="text-xs text-gray-500">
+                                {trabajo.provincia || "Sin provincia"} ·{" "}
+                                {trabajo.municipio || "Sin municipio"}
+                                {typeof trabajo.potenciaInversorKw === "number" &&
+                                trabajo.potenciaInversorKw > 0
+                                  ? ` · ${trabajo.potenciaInversorKw} kW`
+                                  : ""}
+                                {trabajo.tieneVisitasRealizadas
+                                  ? ` · ${trabajo.totalVisitasRealizadas || 0} visita(s) hecha(s)`
+                                  : " · Sin visitas hechas"}
+                              </p>
                             </td>
-                            <td className="py-2 px-2 align-top text-gray-700 break-words">
-                              {trabajo.telefono || "Sin teléfono"}
+                            <td
+                              className="py-2 px-2 align-top text-gray-700 break-words"
+                              title={trabajo.ofertaResumen || "Sin oferta"}
+                            >
+                              {trabajo.ofertaResumen || "Sin oferta"}
                             </td>
                             <td className="py-2 px-2 align-top text-gray-700 break-words">
                               {trabajo.direccion || "Sin dirección"}
@@ -1345,7 +1597,7 @@ export function PlanificacionDiariaTrabajosTable({
                                     variant="outline"
                                     className="h-8 w-8 border-sky-300 text-sky-700 hover:bg-sky-50"
                                     onClick={() => handleVerFotos(trabajo)}
-                                    title="Ver fotos y videos"
+                                    title="Ver fotos"
                                   >
                                     <Camera className="h-4 w-4" />
                                   </Button>
@@ -1438,6 +1690,20 @@ export function PlanificacionDiariaTrabajosTable({
                             <p className="text-sm text-gray-600 mt-1 break-words">
                               {trabajo.direccion || "Sin dirección"}
                             </p>
+                            <p className="text-sm text-gray-600 mt-1 break-words">
+                              Oferta: {trabajo.ofertaResumen || "Sin oferta"}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1 break-words">
+                              {trabajo.provincia || "Sin provincia"} ·{" "}
+                              {trabajo.municipio || "Sin municipio"}
+                              {typeof trabajo.potenciaInversorKw === "number" &&
+                              trabajo.potenciaInversorKw > 0
+                                ? ` · ${trabajo.potenciaInversorKw} kW`
+                                : ""}
+                              {trabajo.tieneVisitasRealizadas
+                                ? ` · ${trabajo.totalVisitasRealizadas || 0} visita(s) hecha(s)`
+                                : " · Sin visitas hechas"}
+                            </p>
                           </div>
                         </div>
 
@@ -1511,7 +1777,7 @@ export function PlanificacionDiariaTrabajosTable({
                               variant="outline"
                               className="h-8 w-8 border-sky-300 text-sky-700 hover:bg-sky-50"
                               onClick={() => handleVerFotos(trabajo)}
-                              title="Ver fotos y videos"
+                              title="Ver fotos"
                             >
                               <Camera className="h-4 w-4" />
                             </Button>

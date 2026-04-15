@@ -53,11 +53,28 @@ const safeText = (value: unknown, fallback = "") => {
   return text || fallback;
 };
 
+const parseDateForDisplay = (value: string): Date | null => {
+  const text = safeText(value);
+  if (!text) return null;
+
+  const onlyDateMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (onlyDateMatch) {
+    const year = Number(onlyDateMatch[1]);
+    const month = Number(onlyDateMatch[2]);
+    const day = Number(onlyDateMatch[3]);
+    const local = new Date(year, month - 1, day);
+    return Number.isNaN(local.getTime()) ? null : local;
+  }
+
+  const parsed = new Date(text);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
 const formatFechaTrabajo = (value?: string) => {
   const text = safeText(value);
   if (!text) return "Sin fecha";
-  const parsed = new Date(text);
-  if (Number.isNaN(parsed.getTime())) return text.slice(0, 10);
+  const parsed = parseDateForDisplay(text);
+  if (!parsed) return text.slice(0, 10);
   return parsed.toLocaleDateString("es-ES");
 };
 

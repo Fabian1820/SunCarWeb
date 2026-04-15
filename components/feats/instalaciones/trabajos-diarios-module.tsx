@@ -10,8 +10,9 @@ import {
 import { TrabajosDiariosView } from "./trabajos-diarios-view";
 import { TrabajosDiariosRegistroView } from "./trabajos-diarios-registro-view";
 import { TrabajosDiariosTodosView } from "./trabajos-diarios-todos-view";
+import { TrabajosDiariosActualizacionesView } from "./trabajos-diarios-actualizaciones-view";
 
-type TabKey = "confirmar" | "registrar" | "entregas" | "todos";
+type TabKey = "confirmar" | "registrar" | "actualizaciones" | "entregas" | "todos";
 
 export function TrabajosDiariosModule() {
   const [tab, setTab] = useState<TabKey>("confirmar");
@@ -25,6 +26,9 @@ export function TrabajosDiariosModule() {
           </TabsTrigger>
           <TabsTrigger value="registrar" className="whitespace-nowrap">
             Cierre diario instalaciones
+          </TabsTrigger>
+          <TabsTrigger value="actualizaciones" className="whitespace-nowrap">
+            Actualizaciones
           </TabsTrigger>
           <TabsTrigger value="entregas" className="whitespace-nowrap">
             Entregas sin instalar
@@ -41,6 +45,10 @@ export function TrabajosDiariosModule() {
 
       <TabsContent value="registrar" className="space-y-4">
         <TrabajosDiariosRegistroView />
+      </TabsContent>
+
+      <TabsContent value="actualizaciones" className="space-y-4">
+        <TrabajosDiariosActualizacionesView />
       </TabsContent>
 
       <TabsContent value="entregas" className="space-y-4">

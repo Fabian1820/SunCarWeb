@@ -22,6 +22,7 @@ import {
 } from "@/components/shared/molecule/card";
 import { useToast } from "@/hooks/use-toast";
 import { TrabajosDiariosService } from "@/lib/api-services";
+import { cn } from "@/lib/utils";
 import type {
   TrabajoDiarioArchivo,
   TrabajoDiarioMaterialResumen,
@@ -44,12 +45,18 @@ interface TrabajoDiarioFormProps {
   showSubmitButton?: boolean;
   isSaving?: boolean;
   isClosing?: boolean;
+  forcedTipoTrabajo?: TrabajoDiarioTipo;
+  hideTipoSelector?: boolean;
+  showInicioSection?: boolean;
+  showFinSection?: boolean;
+  showMaterialesSection?: boolean;
 }
 
 const TIPOS_TRABAJO: TrabajoDiarioTipo[] = [
   "AVERIA",
   "INSTALACION NUEVA",
   "INSTALACION EN PROCESO",
+  "ACTUALIZACION",
 ];
 
 const nowIso = () => new Date().toISOString();
@@ -125,6 +132,11 @@ export function TrabajoDiarioForm({
   showSubmitButton = true,
   isSaving = false,
   isClosing = false,
+  forcedTipoTrabajo,
+  hideTipoSelector = false,
+  showInicioSection = true,
+  showFinSection = true,
+  showMaterialesSection = true,
 }: TrabajoDiarioFormProps) {
   const { toast } = useToast();
   const [pendingFiles, setPendingFiles] = useState<
@@ -176,6 +188,15 @@ export function TrabajoDiarioForm({
       },
     });
   }, [onChange, value]);
+
+  useEffect(() => {
+    if (!forcedTipoTrabajo) return;
+    if (value.tipo_trabajo === forcedTipoTrabajo) return;
+    onChange({
+      ...value,
+      tipo_trabajo: forcedTipoTrabajo,
+    });
+  }, [forcedTipoTrabajo, onChange, value]);
 
   const update = (patch: Partial<TrabajoDiarioRegistro>) => {
     onChange({ ...value, ...patch });
@@ -311,7 +332,7 @@ export function TrabajoDiarioForm({
     update({ materiales_utilizados: next });
   };
 
-  const isAveria = value.tipo_trabajo === "AVERIA";
+  const isAveria = value.tipo_trabajo === "AVERIA" && forcedTipoTrabajo !== "ACTUALIZACION";
   const isLocked = value.cierre_diario_confirmado === true;
   const lockLabel = value.cierre_diario_usuario_nombre
     ? `Cerrado por ${value.cierre_diario_usuario_nombre}`
@@ -458,23 +479,27 @@ export function TrabajoDiarioForm({
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-2">
               <Label>Tipo de trabajo</Label>
-              <Select
-                value={value.tipo_trabajo || ""}
-                onValueChange={(val) =>
-                  update({ tipo_trabajo: val as TrabajoDiarioTipo })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TIPOS_TRABAJO.map((tipo) => (
-                    <SelectItem key={tipo} value={tipo}>
-                      {tipo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {hideTipoSelector ? (
+                <Input value={forcedTipoTrabajo || value.tipo_trabajo || ""} readOnly />
+              ) : (
+                <Select
+                  value={value.tipo_trabajo || ""}
+                  onValueChange={(val) =>
+                    update({ tipo_trabajo: val as TrabajoDiarioTipo })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIPOS_TRABAJO.map((tipo) => (
+                      <SelectItem key={tipo} value={tipo}>
+                        {tipo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
 
@@ -617,8 +642,18 @@ export function TrabajoDiarioForm({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-        {(["inicio", "fin"] as MomentoKey[]).map((momento) => (
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-3",
+          showInicioSection && showFinSection ? "xl:grid-cols-2" : "",
+        )}
+      >
+        {(
+          [
+            ...(showInicioSection ? (["inicio"] as MomentoKey[]) : []),
+            ...(showFinSection ? (["fin"] as MomentoKey[]) : []),
+          ] as MomentoKey[]
+        ).map((momento) => (
           <Card key={momento}>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm capitalize">{momento}</CardTitle>
@@ -821,6 +856,7 @@ export function TrabajoDiarioForm({
         </Card>
       ) : null}
 
+      {showMaterialesSection ? (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">Resto de materiales</CardTitle>
@@ -1018,6 +1054,7 @@ export function TrabajoDiarioForm({
           )}
         </CardContent>
       </Card>
+      ) : null}
       </fieldset>
 
       <div className="flex flex-wrap justify-end gap-2">

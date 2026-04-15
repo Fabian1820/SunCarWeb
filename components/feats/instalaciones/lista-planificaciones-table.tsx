@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import {
@@ -15,11 +15,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
-import { Calendar, ChevronDown, ChevronUp, Plus, Truck, Zap, Pencil, Trash2 } from "lucide-react";
+import { Calendar, Plus, Truck, Zap, Pencil, Trash2 } from "lucide-react";
 import type { PlanificacionDiaria } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 import { PlanificacionDiariaService } from "@/lib/services/feats/instalaciones/planificacion-diaria-service";
 import { apiRequest } from "@/lib/api-config";
-import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ClienteService, BrigadaService, TrabajadorService } from "@/lib/api-services";
 import { EditarTrabajoDialog } from "./editar-trabajo-dialog";
@@ -28,6 +27,7 @@ interface ListaPlanificacionesTableProps {
   planificaciones: PlanificacionDiaria[];
   loading: boolean;
   onVerPlanificacion: (planificacion: PlanificacionDiaria) => void;
+  onEditarPlanificacion?: (planificacion: PlanificacionDiaria) => void;
   onCrearNueva: () => void;
   onRecargar?: () => Promise<void>;
 }
@@ -63,6 +63,14 @@ interface TrabajoConInfo {
   tieneEnServicio: boolean;
 }
 
+interface FilaPlanificacionTabla {
+  planificacion: PlanificacionDiaria;
+  planificacionId: string;
+  trabajo: PlanificacionDiaria["trabajos"][0];
+  itemInfo: TrabajoConInfo;
+  fechaLabel: string;
+}
+
 const TYPE_LABEL: Record<string, string> = {
   visita: "Visitas",
   entrega_equipamiento: "Entrega de Equipamiento",
@@ -83,17 +91,18 @@ export function ListaPlanificacionesTable({
   planificaciones,
   loading,
   onVerPlanificacion,
+  onEditarPlanificacion,
   onCrearNueva,
   onRecargar,
 }: ListaPlanificacionesTableProps) {
   const { toast } = useToast();
-  const [expandidos, setExpandidos] = useState<Set<string>>(new Set());
   const [trabajosPorPlanificacion, setTrabajosPorPlanificacion] = useState<
     Record<string, TrabajoConInfo[]>
   >({});
   const [cargandoTrabajos, setCargandoTrabajos] = useState<Set<string>>(new Set());
   const [trabajoEditando, setTrabajoEditando] = useState<PlanificacionDiaria["trabajos"][0] | null>(null);
   const [eliminando, setEliminando] = useState<string | null>(null);
+  const [eliminandoPlanificacionId, setEliminandoPlanificacionId] = useState<string | null>(null);
   const [materialesDialogData, setMaterialesDialogData] = useState<{
     trabajoNombre: string;
     oferta: OfertaTrabajo | null;
@@ -103,24 +112,7 @@ export function ListaPlanificacionesTable({
     itemsEnServicio: OfertaItem[];
   } | null>(null);
 
-  const toggleExpanded = async (planificacionId: string) => {
-    const newExpandidos = new Set(expandidos);
-    
-    if (newExpandidos.has(planificacionId)) {
-      newExpandidos.delete(planificacionId);
-    } else {
-      newExpandidos.add(planificacionId);
-      
-      // Si no hemos cargado los trabajos, cargarlos ahora
-      if (!trabajosPorPlanificacion[planificacionId]) {
-        await cargarTrabajosConInfo(planificacionId);
-      }
-    }
-    
-    setExpandidos(newExpandidos);
-  };
-
-  const cargarTrabajosConInfo = async (planificacionId: string) => {
+  const cargarTrabajosConInfo = useCallback(async (planificacionId: string) => {
     const planificacion = planificaciones.find((p) => p.id === planificacionId);
     if (!planificacion) return;
 
@@ -133,7 +125,7 @@ export function ListaPlanificacionesTable({
           let telefono = "";
           let direccion = "";
           let brigadaNombre = trabajo.brigada_id;
-          let materiales: MaterialPrincipal[] = [];
+          const materiales: MaterialPrincipal[] = [];
           let tieneEntregas = false;
           let tieneEnServicio = false;
 
@@ -167,7 +159,8 @@ export function ListaPlanificacionesTable({
                 const items = Array.isArray(oferta.items) ? oferta.items : [];
 
                 // Extraer materiales principales (INVERSORES, BATERÍAS, PANELES)
-                items.forEach((item: any) => {
+                items.forEach((itemRaw) => {
+                  const item = itemRaw as Record<string, unknown>;
                   const categoria = String(item.categoria || "").toUpperCase();
                   if (
                     categoria === "INVERSORES" ||
@@ -309,12 +302,86 @@ export function ListaPlanificacionesTable({
         return next;
       });
     }
-  };
+  }, [planificaciones]);
 
   const toNumber = (value: unknown): number => {
     const num = Number(value);
     return Number.isFinite(num) ? num : 0;
   };
+
+  useEffect(() => {
+    const idsPendientes = planificaciones
+      .map((planificacion) => planificacion.id || "")
+      .filter(
+        (planificacionId) =>
+          planificacionId &&
+          !trabajosPorPlanificacion[planificacionId] &&
+          !cargandoTrabajos.has(planificacionId),
+      );
+
+    idsPendientes.forEach((planificacionId) => {
+      void cargarTrabajosConInfo(planificacionId);
+    });
+  }, [
+    planificaciones,
+    trabajosPorPlanificacion,
+    cargandoTrabajos,
+    cargarTrabajosConInfo,
+  ]);
+
+  const filasTabla = useMemo<FilaPlanificacionTabla[]>(() => {
+    const rows: FilaPlanificacionTabla[] = [];
+
+    planificaciones.forEach((planificacion) => {
+      const planificacionId = planificacion.id || "";
+      if (!planificacionId) return;
+
+      const fechaDate = new Date(planificacion.fecha);
+      const fechaLabel = Number.isNaN(fechaDate.getTime())
+        ? planificacion.fecha
+        : fechaDate.toLocaleDateString("es-ES", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          });
+
+      const trabajosInfo = trabajosPorPlanificacion[planificacionId];
+      if (Array.isArray(trabajosInfo) && trabajosInfo.length > 0) {
+        trabajosInfo.forEach((itemInfo) => {
+          rows.push({
+            planificacion,
+            planificacionId,
+            trabajo: itemInfo.trabajo,
+            itemInfo,
+            fechaLabel,
+          });
+        });
+        return;
+      }
+
+      planificacion.trabajos.forEach((trabajo) => {
+        rows.push({
+          planificacion,
+          planificacionId,
+          trabajo,
+          itemInfo: {
+            trabajo,
+            nombre: trabajo.contacto_id,
+            telefono: "Sin teléfono",
+            direccion: "Sin dirección",
+            brigadaNombre: trabajo.brigada_id,
+            materiales: [],
+            tieneEntregas: false,
+            tieneEnServicio: false,
+          },
+          fechaLabel,
+        });
+      });
+    });
+
+    rows.sort((a, b) => b.planificacion.fecha.localeCompare(a.planificacion.fecha));
+    return rows;
+  }, [planificaciones, trabajosPorPlanificacion]);
 
   const handleVerMaterialesEntregados = async (item: TrabajoConInfo) => {
     try {
@@ -453,6 +520,49 @@ export function ListaPlanificacionesTable({
     await cargarTrabajosConInfo(planificacionId);
   };
 
+  const handleEliminarPlanificacion = async (planificacionId: string) => {
+    if (!confirm("¿Deseas borrar toda esta planificación y todos sus trabajos?")) {
+      return;
+    }
+
+    setEliminandoPlanificacionId(planificacionId);
+    try {
+      const response = await PlanificacionDiariaService.eliminarPlanificacionDiaria(
+        planificacionId,
+      );
+
+      if (!response.success) {
+        throw new Error(response.message || "Error al eliminar la planificación");
+      }
+
+      toast({
+        title: "Planificación eliminada",
+        description: "La planificación se eliminó correctamente.",
+      });
+
+      setTrabajosPorPlanificacion((prev) => {
+        const next = { ...prev };
+        delete next[planificacionId];
+        return next;
+      });
+
+      if (onRecargar) {
+        await onRecargar();
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo eliminar la planificación",
+        variant: "destructive",
+      });
+    } finally {
+      setEliminandoPlanificacionId(null);
+    }
+  };
+
   const materialesEntregadosRows = materialesDialogData?.oferta?.items
     ? materialesDialogData.oferta.items
         .map((item) => {
@@ -516,238 +626,174 @@ export function ListaPlanificacionesTable({
             </Button>
           </div>
         ) : (
-          <div className="space-y-3">
-            {planificaciones.map((planificacion) => {
-              const fecha = new Date(planificacion.fecha);
-              const fechaFormateada = fecha.toLocaleDateString("es-ES", {
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-              });
-              const totalTrabajos = planificacion.trabajos?.length || 0;
-              const isExpanded = expandidos.has(planificacion.id || "");
-              const trabajos = trabajosPorPlanificacion[planificacion.id || ""] || [];
-              const estaCargando = cargandoTrabajos.has(planificacion.id || "");
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1320px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="text-left py-2 px-2">Fecha</th>
+                  <th className="text-left py-2 px-2">Cliente y datos</th>
+                  <th className="text-left py-2 px-2">Tipo de trabajo</th>
+                  <th className="text-left py-2 px-2">Brigada / Técnico</th>
+                  <th className="text-left py-2 px-2">Materiales principales</th>
+                  <th className="text-left py-2 px-2">Estado</th>
+                  <th className="text-left py-2 px-2">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filasTabla.map((fila, index) => {
+                  const estaCargando = cargandoTrabajos.has(fila.planificacionId);
+                  const materialesTexto =
+                    fila.itemInfo.materiales.length > 0
+                      ? fila.itemInfo.materiales
+                          .map((material) => `${material.cantidad}x ${material.descripcion}`)
+                          .join(" · ")
+                      : "Sin materiales principales";
 
-              // Agrupar trabajos por tipo
-              const trabajosPorTipo = trabajos.reduce((acc, item) => {
-                const tipo = item.trabajo.tipo_trabajo;
-                if (!acc[tipo]) {
-                  acc[tipo] = [];
-                }
-                acc[tipo].push(item);
-                return acc;
-              }, {} as Record<string, TrabajoConInfo[]>);
-
-              return (
-                <div
-                  key={planificacion.id}
-                  className="border rounded-lg overflow-hidden"
-                >
-                  <button
-                    type="button"
-                    onClick={() => toggleExpanded(planificacion.id || "")}
-                    className="w-full p-4 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-gray-900 capitalize">
-                          {fechaFormateada}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-2">
-                          <Badge variant="outline" className="bg-purple-50">
-                            {totalTrabajos} trabajo(s)
-                          </Badge>
-                          {planificacion.updated_at && (
-                            <span className="text-sm text-gray-500">
-                              Actualizado:{" "}
-                              {new Date(
-                                planificacion.updated_at
-                              ).toLocaleString("es-ES")}
-                            </span>
+                  return (
+                    <tr
+                      key={`${fila.planificacionId}-${fila.trabajo.id || index}`}
+                      className="border-b border-slate-100 align-top"
+                    >
+                      <td className="py-2 px-2 whitespace-nowrap">
+                        <p className="font-medium text-slate-900">{fila.fechaLabel}</p>
+                        <p className="text-xs text-slate-500">
+                          {fila.planificacion.trabajos.length} trabajo(s)
+                        </p>
+                      </td>
+                      <td className="py-2 px-2">
+                        <p className="font-medium text-slate-900">
+                          {estaCargando ? "Cargando..." : fila.itemInfo.nombre}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {fila.trabajo.contacto_tipo === "cliente" ? "Cliente" : "Lead"} ·{" "}
+                          {fila.trabajo.contacto_id}
+                        </p>
+                        <p className="text-xs text-slate-700">
+                          {estaCargando ? "..." : fila.itemInfo.telefono}
+                        </p>
+                        <p className="text-xs text-slate-700">
+                          {estaCargando ? "..." : fila.itemInfo.direccion}
+                        </p>
+                      </td>
+                      <td className="py-2 px-2">
+                        <Badge className={TYPE_BADGE_CLASS[fila.trabajo.tipo_trabajo] || ""}>
+                          {TYPE_LABEL[fila.trabajo.tipo_trabajo] || fila.trabajo.tipo_trabajo}
+                        </Badge>
+                        {fila.trabajo.comentario ? (
+                          <p className="text-xs text-blue-700 mt-2">
+                            {fila.trabajo.comentario}
+                          </p>
+                        ) : null}
+                      </td>
+                      <td className="py-2 px-2">
+                        <span className="text-sm text-slate-800">
+                          {estaCargando ? "Cargando..." : fila.itemInfo.brigadaNombre}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2 max-w-[320px]">
+                        <span
+                          className="text-xs text-slate-700 break-words"
+                          title={materialesTexto}
+                        >
+                          {materialesTexto}
+                        </span>
+                      </td>
+                      <td className="py-2 px-2">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleVerMaterialesEntregados(fila.itemInfo)}
+                            className={`inline-flex w-fit items-center gap-1 rounded px-2 py-1 text-xs ${
+                              fila.itemInfo.tieneEntregas
+                                ? "bg-green-100 text-green-800 border border-green-300"
+                                : "bg-gray-100 text-gray-500 border border-gray-200"
+                            }`}
+                          >
+                            <Truck className="h-3 w-3" />
+                            {fila.itemInfo.tieneEntregas ? "Con entregas" : "Sin entregas"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleVerEnServicio(fila.itemInfo)}
+                            className={`inline-flex w-fit items-center gap-1 rounded px-2 py-1 text-xs ${
+                              fila.itemInfo.tieneEnServicio
+                                ? "bg-purple-100 text-purple-800 border border-purple-300"
+                                : "bg-gray-100 text-gray-500 border border-gray-200"
+                            }`}
+                          >
+                            <Zap className="h-3 w-3" />
+                            {fila.itemInfo.tieneEnServicio ? "En servicio" : "Sin servicio"}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-2 px-2">
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2"
+                            onClick={() => onVerPlanificacion(fila.planificacion)}
+                          >
+                            Ver
+                          </Button>
+                          {onEditarPlanificacion && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 border-blue-300 text-blue-700 hover:bg-blue-50"
+                              onClick={() => onEditarPlanificacion(fila.planificacion)}
+                            >
+                              Plan
+                            </Button>
                           )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 border-red-400 text-red-700 hover:bg-red-50"
+                            onClick={() =>
+                              handleEliminarPlanificacion(fila.planificacionId)
+                            }
+                            disabled={eliminandoPlanificacionId === fila.planificacionId}
+                          >
+                            {eliminandoPlanificacionId === fila.planificacionId
+                              ? "Eliminando plan..."
+                              : "Borrar plan"}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+                            onClick={() => setTrabajoEditando(fila.trabajo)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Trabajo
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 border-red-300 text-red-600 hover:bg-red-50"
+                            onClick={() => {
+                              if (fila.trabajo.id) {
+                                handleEliminarTrabajo(fila.planificacionId, fila.trabajo.id);
+                              }
+                            }}
+                            disabled={!fila.trabajo.id || eliminando === fila.trabajo.id}
+                          >
+                            <Trash2 className="h-3 w-3 mr-1" />
+                            {eliminando === fila.trabajo.id ? "..." : "Borrar"}
+                          </Button>
                         </div>
-                      </div>
-                      {isExpanded ? (
-                        <ChevronUp className="h-5 w-5 text-gray-500" />
-                      ) : (
-                        <ChevronDown className="h-5 w-5 text-gray-500" />
-                      )}
-                    </div>
-                  </button>
-
-                  {isExpanded && (
-                    <div className="border-t bg-gray-50 p-4">
-                      {estaCargando ? (
-                        <div className="py-6 text-center text-gray-600">
-                          Cargando información de trabajos...
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          {Object.entries(trabajosPorTipo).map(([tipo, items]) => (
-                            <div key={tipo} className="bg-white rounded-lg p-3 border">
-                              <div className="flex items-center justify-between mb-3">
-                                <Badge className={TYPE_BADGE_CLASS[tipo] || ""}>
-                                  {TYPE_LABEL[tipo] || tipo}
-                                </Badge>
-                                <span className="text-sm text-gray-600">
-                                  {items.length} trabajo(s)
-                                </span>
-                              </div>
-
-                              <div className="space-y-3">
-                                {items.map((item, index) => (
-                                  <div
-                                    key={`${item.trabajo.contacto_id}-${index}`}
-                                    className="border border-gray-200 rounded-md p-3 bg-gray-50"
-                                  >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      {/* Columna izquierda: Info del contacto */}
-                                      <div className="space-y-2">
-                                        <div>
-                                          <p className="font-medium text-gray-900">{item.nombre}</p>
-                                          <p className="text-xs text-gray-500">
-                                            {item.trabajo.contacto_tipo === "cliente"
-                                              ? "Cliente"
-                                              : "Lead"}{" "}
-                                            • {item.trabajo.contacto_id}
-                                          </p>
-                                        </div>
-                                        <div className="text-sm text-gray-700">
-                                          <p>📞 {item.telefono}</p>
-                                          <p>📍 {item.direccion}</p>
-                                        </div>
-                                        <div>
-                                          <p className="text-sm">
-                                            <span className="text-gray-600">Brigada:</span>{" "}
-                                            <span className="font-medium text-purple-700">
-                                              {item.brigadaNombre}
-                                            </span>
-                                          </p>
-                                          {item.trabajo.comentario && (
-                                            <p className="text-xs text-blue-600 mt-1 p-2 bg-blue-50 rounded border-l-2 border-blue-400">
-                                              💬 {item.trabajo.comentario}
-                                            </p>
-                                          )}
-                                        </div>
-                                      </div>
-
-                                      {/* Columna derecha: Materiales y acciones */}
-                                      <div className="space-y-2">
-                                        {/* Materiales principales */}
-                                        <div className="bg-white rounded p-2 border">
-                                          <p className="text-xs font-medium text-gray-700 mb-1">
-                                            Materiales principales:
-                                          </p>
-                                          {item.materiales.length > 0 ? (
-                                            <div className="space-y-1">
-                                              {item.materiales.map((material, idx) => (
-                                                <p key={idx} className="text-xs text-gray-600">
-                                                  • <span className="font-medium">{material.cantidad}x</span>{" "}
-                                                  {material.descripcion}
-                                                </p>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <p className="text-xs text-gray-400">Sin materiales</p>
-                                          )}
-                                        </div>
-
-                                        {/* Acciones */}
-                                        <div className="space-y-2">
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-600">Estado:</span>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleVerMaterialesEntregados(item);
-                                              }}
-                                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:opacity-80 transition-opacity ${
-                                                item.tieneEntregas
-                                                  ? "bg-green-100 text-green-800 border border-green-300"
-                                                  : "bg-gray-100 text-gray-400 border border-gray-200"
-                                              }`}
-                                              title={
-                                                item.tieneEntregas
-                                                  ? "Ver entregas registradas"
-                                                  : "Sin entregas"
-                                              }
-                                            >
-                                              <Truck className="h-3 w-3" />
-                                              {item.tieneEntregas ? "Con entregas" : "Sin entregas"}
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleVerEnServicio(item);
-                                              }}
-                                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs hover:opacity-80 transition-opacity ${
-                                                item.tieneEnServicio
-                                                  ? "bg-purple-100 text-purple-800 border border-purple-300"
-                                                  : "bg-gray-100 text-gray-400 border border-gray-200"
-                                              }`}
-                                              title={
-                                                item.tieneEnServicio
-                                                  ? "Ver equipos en servicio"
-                                                  : "Sin equipos en servicio"
-                                              }
-                                            >
-                                              <Zap className="h-3 w-3" />
-                                              {item.tieneEnServicio ? "En servicio" : "Sin servicio"}
-                                            </button>
-                                          </div>
-                                          
-                                          {/* Botones de editar y borrar */}
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs text-gray-600">Acciones:</span>
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-7 px-2 border-blue-300 text-blue-600 hover:bg-blue-50"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                setTrabajoEditando(item.trabajo);
-                                              }}
-                                            >
-                                              <Pencil className="h-3 w-3 mr-1" />
-                                              Editar
-                                            </Button>
-                                            <Button
-                                              type="button"
-                                              size="sm"
-                                              variant="outline"
-                                              className="h-7 px-2 border-red-300 text-red-600 hover:bg-red-50"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (item.trabajo.id && planificacion.id) {
-                                                  handleEliminarTrabajo(planificacion.id, item.trabajo.id);
-                                                }
-                                              }}
-                                              disabled={eliminando === item.trabajo.id}
-                                            >
-                                              <Trash2 className="h-3 w-3 mr-1" />
-                                              {eliminando === item.trabajo.id ? "..." : "Borrar"}
-                                            </Button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </CardContent>

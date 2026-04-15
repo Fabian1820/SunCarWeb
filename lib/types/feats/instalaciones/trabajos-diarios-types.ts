@@ -3,7 +3,8 @@ export type TrabajoDiarioArchivoTipo = "imagen" | "video" | "audio";
 export type TrabajoDiarioTipo =
   | "AVERIA"
   | "INSTALACION NUEVA"
-  | "INSTALACION EN PROCESO";
+  | "INSTALACION EN PROCESO"
+  | "ACTUALIZACION";
 
 export interface TrabajoDiarioArchivo {
   id: string;

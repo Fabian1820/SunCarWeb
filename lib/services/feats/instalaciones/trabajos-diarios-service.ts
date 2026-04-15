@@ -15,6 +15,7 @@ const VALID_TIPOS_TRABAJO = new Set([
   "AVERIA",
   "INSTALACION NUEVA",
   "INSTALACION EN PROCESO",
+  "ACTUALIZACION",
 ]);
 
 const asString = (value: unknown): string | undefined => {
@@ -422,10 +423,16 @@ const serializeTrabajoPayload = (
       })
     : [];
 
+  const isActualizacion = payload.tipo_trabajo === "ACTUALIZACION";
   const body: Record<string, unknown> = {
-    inicio: serializeMomento(payload.inicio, fecha),
     fin: serializeMomento(payload.fin, fecha),
   };
+
+  if (isActualizacion) {
+    body.inicio = null;
+  } else {
+    body.inicio = serializeMomento(payload.inicio, fecha);
+  }
 
   const clienteNumero = pickFirstString(payload.cliente_numero);
   if (clienteNumero) body.cliente_numero = clienteNumero;
