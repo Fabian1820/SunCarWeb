@@ -20,7 +20,12 @@
       "Bash(node -e \"const m = require\\(''lucide-react''\\); console.log\\(''Trophy:'', typeof m.Trophy\\)\")",
       "Bash(ls \"D:/SunCar/SunCarWeb/lib/export-service\"*)",
       "Bash(npx tsc:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(grep -E \"\\\\.\\(tsx|ts\\)$\")",
+      "Bash(mkdir -p /Users/yanyhurtado/MIO/Suncar/SunCarWeb/components/feats/centro-control)",
+      "Bash(mkdir -p /Users/yanyhurtado/MIO/Suncar/SunCarWeb/app/centro-control)",
+      "Bash(cp /Users/yanyhurtado/MIO/Suncar/SunCarWeb/.claude/worktrees/gifted-robinson/components/feats/centro-control/centro-control-view.tsx /Users/yanyhurtado/MIO/Suncar/SunCarWeb/components/feats/centro-control/centro-control-view.tsx)",
+      "Bash(cp /Users/yanyhurtado/MIO/Suncar/SunCarWeb/.claude/worktrees/gifted-robinson/app/centro-control/page.tsx /Users/yanyhurtado/MIO/Suncar/SunCarWeb/app/centro-control/page.tsx)"
     ],
     "deny": [],
     "ask": []

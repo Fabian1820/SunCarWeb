@@ -32,6 +32,7 @@ import {
   Coins,
   BookmarkCheck,
   Ship,
+  Monitor,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -152,6 +153,14 @@ export default function Dashboard() {
       icon: Trophy,
       title: "Resultados",
       description: "Indicadores principales y presencia nacional.",
+      iconClass: "text-amber-600",
+    },
+    {
+      id: "centro-control",
+      href: "/centro-control",
+      icon: Monitor,
+      title: "Centro de Control",
+      description: "Panel operacional en tiempo real con mapa y métricas clave.",
       iconClass: "text-amber-600",
     },
     {
@@ -347,6 +356,7 @@ export default function Dashboard() {
       title: "Operaciones",
       subtitle: "Brigadas, trabajadores, reportes y operaciones.",
       moduleIds: [
+        "centro-control",
         "brigadas",
         "trabajadores",
         "reportes",
