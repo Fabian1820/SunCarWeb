@@ -24,12 +24,7 @@ export interface TrabajoPlanificable {
   motivo?: string;
   comercial?: string;
   ofertas?: unknown[];
-  ofertaResumen?: string;
   fotos?: unknown[];
-  fotosVisitas?: unknown[];
-  potenciaInversorKw?: number;
-  tieneVisitasRealizadas?: boolean;
-  totalVisitasRealizadas?: number;
   faltaInstalacion?: string;
 }
 
@@ -45,6 +40,7 @@ export interface TecnicoPlanificacionOption {
 
 export interface PlanTrabajoItem {
   uid: string;
+  trabajoId?: string;
   tipo: TipoTrabajoPlanificado;
   nombre: string;
   telefono: string;

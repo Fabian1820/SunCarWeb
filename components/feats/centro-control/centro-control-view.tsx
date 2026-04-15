@@ -78,6 +78,15 @@ const ESTADOS_VALIDOS_LEAD = new Set([
   "Proximamente", "Revisando ofertas", "Sin respuesta",
 ])
 
+/** Ordena clientes o leads por fecha_contacto desc (más reciente primero) */
+function sortByFechaDesc<T extends { fecha_contacto?: string }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const da = a.fecha_contacto ? new Date(a.fecha_contacto).getTime() : 0
+    const db = b.fecha_contacto ? new Date(b.fecha_contacto).getTime() : 0
+    return db - da
+  })
+}
+
 function isPendienteInstalacion(estado: string | undefined) {
   return normalizeText(estado ?? "") === "pendiente de instalacion"
 }
@@ -385,15 +394,21 @@ function PendientesInstCard({ municipio, clientes, leads, onClose }: { municipio
               </button>
               {expanded === "clientes" && (
                 <div className="bg-slate-950/40 divide-y divide-slate-700/20">
-                  {clientes.map(c => (
-                    <div key={c.numero ?? c.id} className="px-4 py-2">
+                  {sortByFechaDesc(clientes).map(c => (
+                    <div key={c.numero ?? c.id} className="px-4 py-2 space-y-0.5">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-[12px] font-semibold text-white truncate">{c.nombre}</p>
                         {c.numero && <span className="text-[10px] text-slate-500 shrink-0">#{c.numero}</span>}
                       </div>
-                      {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
-                      {c.direccion && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{c.direccion}</p>}
-                      {c.comercial && <p className="text-[10px] text-slate-600 mt-0.5">Comercial: {c.comercial}</p>}
+                      {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5 shrink-0" />{c.telefono}</p>}
+                      {c.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
+                      {(c.fecha_contacto || (c as unknown as Record<string, unknown>).created_at as string | undefined) && (
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                          <Calendar className="h-2.5 w-2.5 shrink-0" />
+                          Alta: {new Date(String(c.fecha_contacto ?? (c as unknown as Record<string, unknown>).created_at as string | undefined)).toLocaleDateString("es-CU")}
+                        </p>
+                      )}
+                      {c.comercial && <p className="text-[10px] text-slate-600">Comercial: {c.comercial}</p>}
                     </div>
                   ))}
                 </div>
@@ -413,12 +428,18 @@ function PendientesInstCard({ municipio, clientes, leads, onClose }: { municipio
               </button>
               {expanded === "leads" && (
                 <div className="bg-slate-950/40 divide-y divide-slate-700/20">
-                  {leads.map((l, i) => (
-                    <div key={l.id ?? i} className="px-4 py-2">
+                  {sortByFechaDesc(leads).map((l, i) => (
+                    <div key={l.id ?? i} className="px-4 py-2 space-y-0.5">
                       <p className="text-[12px] font-semibold text-white truncate">{l.nombre}</p>
-                      {l.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5"><Phone className="h-2.5 w-2.5" />{l.telefono}</p>}
-                      {l.direccion && <p className="text-[11px] text-slate-500 mt-0.5 truncate">{l.direccion}</p>}
-                      {l.comercial && <p className="text-[10px] text-slate-600 mt-0.5">Comercial: {l.comercial}</p>}
+                      {l.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5 shrink-0" />{l.telefono}</p>}
+                      {l.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{l.direccion}</span></p>}
+                      {l.fecha_contacto && (
+                        <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                          <Calendar className="h-2.5 w-2.5 shrink-0" />
+                          Contacto: {new Date(l.fecha_contacto).toLocaleDateString("es-CU")}
+                        </p>
+                      )}
+                      {l.comercial && <p className="text-[10px] text-slate-600">Comercial: {l.comercial}</p>}
                     </div>
                   ))}
                 </div>
@@ -444,10 +465,10 @@ function EnProcesoCard({ municipio, clientes, onClose }: { municipio: string; cl
           <span className="text-xs text-slate-300"><span className="font-bold text-blue-300 text-sm">{clientes.length}</span> en proceso</span>
         </div>
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
-          {clientes.map(c => {
+          {sortByFechaDesc(clientes).map(c => {
             const key = c.numero ?? c.id ?? ""
             const isOpen = expanded === key
-            const falta = (c as Record<string, unknown>).falta_instalacion as string | undefined
+            const falta = (c as unknown as Record<string, unknown>).falta_instalacion as string | undefined
             return (
               <div key={key}>
                 <button onClick={() => setExpanded(e => e === key ? null : key)}
@@ -461,7 +482,14 @@ function EnProcesoCard({ municipio, clientes, onClose }: { municipio: string; cl
                 {isOpen && (
                   <div className="bg-slate-950/40 px-4 py-2.5 space-y-1">
                     {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
+                    {c.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
                     {c.comercial && <p className="text-[11px] text-slate-400">Comercial: {c.comercial}</p>}
+                    {(c.fecha_contacto || (c as unknown as Record<string, unknown>).created_at as string | undefined) && (
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Calendar className="h-2.5 w-2.5 shrink-0" />
+                        Alta: {new Date(String(c.fecha_contacto ?? (c as unknown as Record<string, unknown>).created_at as string | undefined)).toLocaleDateString("es-CU")}
+                      </p>
+                    )}
                     {falta ? (
                       <div className="mt-1.5 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
                         <p className="text-[10px] text-amber-400 font-semibold uppercase tracking-wider mb-0.5">Falta</p>
@@ -485,7 +513,7 @@ function AveriasCard({ municipio, clientes, onClose }: { municipio: string; clie
   const [expanded, setExpanded] = useState<string | null>(null)
   const totalAverias = useMemo(() =>
     clientes.reduce((sum, c) => {
-      const avs = (c as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
+      const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
       return sum + (avs?.filter(a => a.estado === "Pendiente").length ?? 0)
     }, 0), [clientes])
   return (
@@ -497,9 +525,9 @@ function AveriasCard({ municipio, clientes, onClose }: { municipio: string; clie
           <span className="text-slate-300"><span className="font-bold text-red-400 text-sm">{totalAverias}</span> averías pendientes</span>
         </div>
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
-          {clientes.map(c => {
+          {sortByFechaDesc(clientes).map(c => {
             const key = c.numero ?? c.id ?? ""
-            const avs = ((c as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined)
+            const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined)
               ?.filter(a => a.estado === "Pendiente") ?? []
             const isOpen = expanded === key
             return (
@@ -514,11 +542,18 @@ function AveriasCard({ municipio, clientes, onClose }: { municipio: string; clie
                 </button>
                 {isOpen && (
                   <div className="bg-slate-950/40 px-4 py-2 space-y-1.5">
-                    {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1 mb-1"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
+                    {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
+                    {c.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
+                    {(c.fecha_contacto || (c as unknown as Record<string, unknown>).created_at as string | undefined) && (
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Calendar className="h-2.5 w-2.5 shrink-0" />
+                        Alta: {new Date(String(c.fecha_contacto ?? (c as unknown as Record<string, unknown>).created_at as string | undefined)).toLocaleDateString("es-CU")}
+                      </p>
+                    )}
                     {avs.map((a, i) => (
                       <div key={String(a.id ?? i)} className="p-2 rounded-md bg-red-500/10 border border-red-500/20">
                         <p className="text-[11px] text-red-200">{String(a.descripcion ?? "Sin descripción")}</p>
-                        {a.fecha_reporte && <p className="text-[10px] text-slate-500 mt-0.5">Reportada: {new Date(String(a.fecha_reporte)).toLocaleDateString("es-CU")}</p>}
+                        {a.fecha_reporte != null && <p className="text-[10px] text-slate-500 mt-0.5">Reportada: {new Date(String(a.fecha_reporte)).toLocaleDateString("es-CU")}</p>}
                       </div>
                     ))}
                   </div>
@@ -546,8 +581,8 @@ function VisitasCard({ municipio, clientes, leads, onClose }: { municipio: strin
         </div>
         <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
           {[
-            { grupo: "clientes" as const, items: clientes, color: "text-purple-300", bg: "bg-purple-500/10", dot: "bg-purple-400" },
-            { grupo: "leads" as const, items: leads, color: "text-purple-300", bg: "bg-purple-500/10", dot: "bg-purple-300" },
+            { grupo: "clientes" as const, items: sortByFechaDesc(clientes), color: "text-purple-300", bg: "bg-purple-500/10", dot: "bg-purple-400" },
+            { grupo: "leads" as const, items: sortByFechaDesc(leads), color: "text-purple-300", bg: "bg-purple-500/10", dot: "bg-purple-300" },
           ].map(({ grupo, items, color, bg, dot }) => items.length > 0 && (
             <div key={grupo}>
               <button onClick={() => setExpanded(e => e === grupo ? null : grupo)}
@@ -563,11 +598,22 @@ function VisitasCard({ municipio, clientes, leads, onClose }: { municipio: strin
                 <div className="bg-slate-950/40 divide-y divide-slate-700/20">
                   {items.map((item, i) => {
                     const c = item as Cliente & Lead
+                    const isCliente = grupo === "clientes"
+                    const fechaAlta = isCliente
+                      ? (c.fecha_contacto ?? (c as unknown as Record<string, unknown>).created_at as string | undefined as string | undefined)
+                      : c.fecha_contacto
                     return (
-                      <div key={(c as Cliente).numero ?? c.id ?? i} className="px-4 py-2">
+                      <div key={(c as Cliente).numero ?? c.id ?? i} className="px-4 py-2 space-y-0.5">
                         <p className="text-[12px] font-semibold text-white truncate">{c.nombre}</p>
-                        {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
-                        {c.comercial && <p className="text-[10px] text-slate-600 mt-0.5">Comercial: {c.comercial}</p>}
+                        {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5 shrink-0" />{c.telefono}</p>}
+                        {c.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
+                        {fechaAlta && (
+                          <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                            <Calendar className="h-2.5 w-2.5 shrink-0" />
+                            {isCliente ? "Alta" : "Contacto"}: {new Date(String(fechaAlta)).toLocaleDateString("es-CU")}
+                          </p>
+                        )}
+                        {c.comercial && <p className="text-[10px] text-slate-600">Comercial: {c.comercial}</p>}
                       </div>
                     )
                   })}
@@ -1454,100 +1500,135 @@ export default function CentroControlView() {
   // ── Data Fetch ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true)
-    try {
-      const { start: weekStart, end: weekEnd } = getWeekRange()
-      const weekStartStr = toISODate(weekStart), weekEndStr = toISODate(weekEnd)
 
-      const [dashboardResult, pendientesResult, pendientesVisitaResult,
-        allClientsResult, clientesConAveriasResult, leadsThisWeekResult,
-        allLeadsResult, brigadasResult, ofertasConfeccionResult,
-      ] = await Promise.allSettled([
-        ResultadosService.getDashboardPrincipal(),
-        InstalacionesService.getPendientesInstalacion(),
-        apiRequest<{ total_general?: number; clientes?: unknown[]; leads?: unknown[] }>("/pendientes-visita/"),
-        fetchAllClientes(),
-        ClienteService.getClientesConAverias(),
-        LeadService.getLeads({ fechaDesde: weekStartStr, fechaHasta: weekEndStr, limit: 1000 }),
-        fetchAllLeads(),
-        BrigadaService.getAllBrigadas(),
-        apiRequest<{ data?: unknown[] } | unknown[]>("/ofertas/confeccion/"),
-      ])
-
-      let visitasRealizadas = 0
+    const getVisitasRealizadas = async (weekStartStr: string, weekEndStr: string) => {
       try {
         const visitasRes = await apiRequest<Record<string, unknown>>(`/visitas/?estado=completada&fecha_desde=${weekStartStr}&fecha_hasta=${weekEndStr}`)
         const inner = (visitasRes?.data ?? visitasRes) as Record<string, unknown> | null
         const visitas = Array.isArray(inner?.visitas) ? inner.visitas : []
-        visitasRealizadas = typeof inner?.total === "number" ? inner.total : visitas.length
-      } catch { visitasRealizadas = 0 }
+        return typeof inner?.total === "number" ? inner.total : visitas.length
+      } catch {
+        return 0
+      }
+    }
+
+    const parseOfertasConfeccion = (payload: unknown): unknown[] => {
+      if (Array.isArray(payload)) return payload
+      if (payload && typeof payload === "object" && Array.isArray((payload as { data?: unknown[] }).data)) {
+        return (payload as { data?: unknown[] }).data ?? []
+      }
+      return []
+    }
+
+    try {
+      const { start: weekStart, end: weekEnd } = getWeekRange()
+      const weekStartStr = toISODate(weekStart), weekEndStr = toISODate(weekEnd)
+
+      // Fase 1 (rápida): tarjetas y métricas principales
+      const [dashboardResult, pendientesResult, pendientesVisitaResult,
+        leadsThisWeekResult, visitasRealizadasResult,
+      ] = await Promise.allSettled([
+        ResultadosService.getDashboardPrincipal(),
+        InstalacionesService.getPendientesInstalacion(),
+        apiRequest<{ total_general?: number; clientes?: unknown[]; leads?: unknown[] }>("/pendientes-visita/"),
+        LeadService.getLeads({ fechaDesde: weekStartStr, fechaHasta: weekEndStr, limit: 1000 }),
+        getVisitasRealizadas(weekStartStr, weekEndStr),
+      ])
 
       const dashboard = dashboardResult.status === "fulfilled" ? dashboardResult.value : null
       const pendientes = pendientesResult.status === "fulfilled" ? pendientesResult.value : null
       const pendientesInstalacion = pendientes ? (pendientes.total_leads ?? 0) + (pendientes.total_clientes ?? 0) : 0
       const pendientesVisita = pendientesVisitaResult.status === "fulfilled" ? pendientesVisitaResult.value : null
       const visitasPendientes = pendientesVisita?.total_general ?? ((pendientesVisita?.clientes?.length ?? 0) + (pendientesVisita?.leads?.length ?? 0))
-
-      const clients: Cliente[] = allClientsResult.status === "fulfilled" ? allClientsResult.value : []
-      setAllClients(clients)
-      const conAverias: Cliente[] = clientesConAveriasResult.status === "fulfilled" ? clientesConAveriasResult.value : []
-      setClientesConAverias(conAverias)
-      const leads: Lead[] = allLeadsResult.status === "fulfilled" ? allLeadsResult.value : []
-      setAllLeads(leads)
-      const brigList = brigadasResult.status === "fulfilled" ? brigadasResult.value : []
-      setBrigadas(brigList as Brigada[])
-
-      const enProceso = clients.filter(c => isEnProceso(c.estado)).length
-      const instalacionesTerminadas = clients.filter(c => {
-        const n = normalizeText(c.estado ?? "")
-        return (n === "instalacion terminada" || n === "instalado" || n.includes("equipo instalado")) && isInRange(c.fecha_montaje ?? c.fecha_instalacion, weekStart, weekEnd)
-      }).length
-      const instalacionesComenzadas = clients.filter(c => isEnProceso(c.estado) && isInRange(c.fecha_instalacion ?? c.fecha_montaje, weekStart, weekEnd)).length
-      const nuevosClientes = clients.filter(c => isInRange(c.fecha_contacto, weekStart, weekEnd)).length
-
-      let averiasPendientes = 0, averiasSolucionadas = 0
-      conAverias.forEach(c => {
-        const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
-        avs.forEach(a => {
-          if (a.estado === "Pendiente") averiasPendientes++
-          else if (a.estado === "Solucionada" && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
-        })
-      })
-
       const leadsData = leadsThisWeekResult.status === "fulfilled" ? leadsThisWeekResult.value : { leads: [], total: 0 }
       const nuevosLeads = leadsData.total > 0 ? leadsData.total : leadsData.leads.length
-      const ofertasRaw: unknown[] =
-        ofertasConfeccionResult.status === "fulfilled"
-          ? (
-            Array.isArray(ofertasConfeccionResult.value)
-              ? ofertasConfeccionResult.value
-              : Array.isArray((ofertasConfeccionResult.value as { data?: unknown[] })?.data)
-                ? (ofertasConfeccionResult.value as { data?: unknown[] }).data!
-                : []
-          )
-          : []
+      const visitasRealizadas = visitasRealizadasResult.status === "fulfilled" ? visitasRealizadasResult.value : 0
 
-      const resumenComercial = ofertasRaw.reduce<ComercialResumen>((acc, item) => {
-        const record = item as Record<string, unknown>
-        const estado = String(record.estado ?? record.status ?? "").toLowerCase().trim()
-        if (estado.includes("confirmada_por_cliente") || estado.includes("confirmada por cliente")) acc.confirmadas += 1
-        else if (estado.includes("cancelada")) acc.canceladas += 1
-        else if (estado.includes("reservada")) acc.reservadas += 1
-        return acc
-      }, { confirmadas: 0, canceladas: 0, reservadas: 0 })
-      setComercialResumen(resumenComercial)
-      setAllConfeccionOfertas(ofertasRaw as RawConfeccionOferta[])
-
-      setControlData({
-        totalClientes: dashboard?.cantidad_clientes ?? clients.length,
+      setControlData(prev => ({
+        totalClientes: dashboard?.cantidad_clientes ?? prev?.totalClientes ?? 0,
         totalMunicipios: dashboard?.cantidad_municipios_instalados ?? 0,
         totalKwPaneles: dashboard?.total_kw_paneles ?? 0,
         totalKwInversores: dashboard?.total_kw_inversores ?? 0,
         totalKwhBaterias: dashboard?.total_kw_baterias ?? 0,
-        pendientesInstalacion, enProceso, averiasPendientes, visitasPendientes,
-        instalacionesTerminadas, instalacionesComenzadas, nuevosLeads, nuevosClientes,
-        averiasSolucionadas, visitasRealizadas,
-      })
+        pendientesInstalacion,
+        enProceso: prev?.enProceso ?? 0,
+        averiasPendientes: prev?.averiasPendientes ?? 0,
+        visitasPendientes,
+        instalacionesTerminadas: prev?.instalacionesTerminadas ?? 0,
+        instalacionesComenzadas: prev?.instalacionesComenzadas ?? 0,
+        nuevosLeads,
+        nuevosClientes: prev?.nuevosClientes ?? 0,
+        averiasSolucionadas: prev?.averiasSolucionadas ?? 0,
+        visitasRealizadas,
+      }))
       setLastUpdate(new Date())
+
+      // Fase 2 (pesada): datasets completos para mapa/paneles
+      void (async () => {
+        try {
+          const [allClientsResult, clientesConAveriasResult, allLeadsResult, brigadasResult, ofertasConfeccionResult] = await Promise.allSettled([
+            fetchAllClientes(),
+            ClienteService.getClientesConAverias(),
+            fetchAllLeads(),
+            BrigadaService.getAllBrigadas(),
+            apiRequest<{ data?: unknown[] } | unknown[]>("/ofertas/confeccion/"),
+          ])
+
+          const clients: Cliente[] = allClientsResult.status === "fulfilled" ? allClientsResult.value : []
+          setAllClients(clients)
+          const conAverias: Cliente[] = clientesConAveriasResult.status === "fulfilled" ? clientesConAveriasResult.value : []
+          setClientesConAverias(conAverias)
+          const leads: Lead[] = allLeadsResult.status === "fulfilled" ? allLeadsResult.value : []
+          setAllLeads(leads)
+          const brigList = brigadasResult.status === "fulfilled" ? brigadasResult.value : []
+          setBrigadas(brigList as Brigada[])
+
+          const enProceso = clients.filter(c => isEnProceso(c.estado)).length
+          const instalacionesTerminadas = clients.filter(c => {
+            const n = normalizeText(c.estado ?? "")
+            return (n === "instalacion terminada" || n === "instalado" || n.includes("equipo instalado")) && isInRange(c.fecha_montaje ?? c.fecha_instalacion, weekStart, weekEnd)
+          }).length
+          const instalacionesComenzadas = clients.filter(c => isEnProceso(c.estado) && isInRange(c.fecha_instalacion ?? c.fecha_montaje, weekStart, weekEnd)).length
+          const nuevosClientes = clients.filter(c => isInRange(c.fecha_contacto, weekStart, weekEnd)).length
+
+          let averiasPendientes = 0, averiasSolucionadas = 0
+          conAverias.forEach(c => {
+            const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
+            avs.forEach(a => {
+              if (a.estado === "Pendiente") averiasPendientes++
+              else if (a.estado === "Solucionada" && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
+            })
+          })
+
+          const ofertasRaw = ofertasConfeccionResult.status === "fulfilled"
+            ? parseOfertasConfeccion(ofertasConfeccionResult.value)
+            : []
+          const resumenComercial = ofertasRaw.reduce<ComercialResumen>((acc, item) => {
+            const record = item as Record<string, unknown>
+            const estado = String(record.estado ?? record.status ?? "").toLowerCase().trim()
+            if (estado.includes("confirmada_por_cliente") || estado.includes("confirmada por cliente")) acc.confirmadas += 1
+            else if (estado.includes("cancelada")) acc.canceladas += 1
+            else if (estado.includes("reservada")) acc.reservadas += 1
+            return acc
+          }, { confirmadas: 0, canceladas: 0, reservadas: 0 })
+          setComercialResumen(resumenComercial)
+          setAllConfeccionOfertas(ofertasRaw as RawConfeccionOferta[])
+
+          setControlData(prev => prev ? {
+            ...prev,
+            totalClientes: dashboard?.cantidad_clientes ?? clients.length,
+            enProceso,
+            averiasPendientes,
+            instalacionesTerminadas,
+            instalacionesComenzadas,
+            nuevosClientes,
+            averiasSolucionadas,
+          } : prev)
+          setLastUpdate(new Date())
+        } catch (err) {
+          console.error("Error cargando datasets completos de Centro de Control:", err)
+        }
+      })()
     } catch (err) {
       console.error("Error cargando datos:", err)
     } finally {

@@ -44,6 +44,11 @@ export interface PlanificacionDiariaListResponse {
   data?: PlanificacionDiaria[];
 }
 
+export interface PlanificacionDiariaCreatePayload {
+  fecha: string;
+  trabajos: Array<string | TrabajoOperacion>;
+}
+
 export class PlanificacionDiariaService {
   // ========== Trabajos de Operación ==========
 
@@ -139,7 +144,7 @@ export class PlanificacionDiariaService {
    * Crea una nueva planificación diaria
    */
   static async crearPlanificacionDiaria(
-    planificacion: Omit<PlanificacionDiaria, "id" | "created_at" | "updated_at">
+    planificacion: PlanificacionDiariaCreatePayload
   ): Promise<PlanificacionDiariaResponse> {
     return apiRequest<PlanificacionDiariaResponse>(
       "/planificacion-diaria/",
