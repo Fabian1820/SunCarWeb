@@ -3,13 +3,15 @@
 import { useEffect, useMemo, useState, useCallback } from "react"
 import type { Feature, FeatureCollection, GeoJsonObject } from "geojson"
 import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet"
-import { GeoJSON, MapContainer, TileLayer, ZoomControl, useMap } from "react-leaflet"
+import L from "leaflet"
+import { GeoJSON, MapContainer, Marker, TileLayer, ZoomControl, useMap } from "react-leaflet"
 import {
-  Users, Sun, Cpu, Battery, ChevronLeft, ChevronRight, Clock,
-  AlertTriangle, Eye, CheckCircle, UserPlus, Building2, Calendar,
+  Users, Sun, Cpu, Battery, Clock,
+  Eye, CheckCircle, UserPlus, Building2, Calendar,
   Activity, RefreshCw, Wrench, PlayCircle, Phone, Shield, ArrowLeft,
   X, MapPin, Zap, ChevronDown, ChevronUp, TrendingUp, Users2,
   HardHat, TriangleAlert, CalendarClock, ExternalLink, Filter,
+  XCircle, Bookmark, UserCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { ResultadosService, ClienteService, LeadService } from "@/lib/api-services"
@@ -27,6 +29,7 @@ import "leaflet/dist/leaflet.css"
 type ViewMode = "todos" | "pendientes_instalacion" | "en_proceso" | "averias" | "visitas"
 
 interface SimpleBounds { minLat: number; maxLat: number; minLng: number; maxLng: number }
+interface Point2D { lat: number; lng: number }
 
 interface ControlData {
   totalClientes: number; totalMunicipios: number; totalKwPaneles: number
@@ -37,6 +40,7 @@ interface ControlData {
 }
 
 interface TooltipInfo { municipio: string; count: number; label: string; x: number; y: number }
+interface ComercialResumen { confirmadas: number; canceladas: number; reservadas: number }
 
 type SelectedItem =
   | { mode: "todos"; muni: MunicipioDetallado }
@@ -45,7 +49,28 @@ type SelectedItem =
   | { mode: "averias"; municipio: string; clientes: Cliente[] }
   | { mode: "visitas"; municipio: string; clientes: Cliente[]; leads: Lead[] }
 
+interface MaterialAgregado {
+  nombre: string
+  categoria: string
+  cantidad: number
+  entidades: Array<{
+    nombre: string
+    numero: string
+    tipo: "cliente" | "lead"
+    cantidad: number
+    provincia: string
+    municipio: string
+  }>
+}
+
 // ─── Constantes ──────────────────────────────────────────────────────────────
+
+const CUBA_PROVINCIAS_ORDEN = [
+  "Pinar del Río", "Artemisa", "La Habana", "Mayabeque", "Matanzas",
+  "Cienfuegos", "Villa Clara", "Sancti Spíritus", "Ciego de Ávila",
+  "Camagüey", "Las Tunas", "Holguín", "Granma", "Santiago de Cuba",
+  "Guantánamo", "Isla de la Juventud",
+]
 
 const ESTADOS_VALIDOS_LEAD = new Set([
   "Esperando equipo", "No interesado", "Pendiente de instalación",
@@ -133,6 +158,26 @@ function computeGeoJSONBounds(geometry: Feature["geometry"]): SimpleBounds | nul
 
 function mergeBounds(a: SimpleBounds, b: SimpleBounds): SimpleBounds {
   return { minLat: Math.min(a.minLat, b.minLat), maxLat: Math.max(a.maxLat, b.maxLat), minLng: Math.min(a.minLng, b.minLng), maxLng: Math.max(a.maxLng, b.maxLng) }
+}
+
+function computeGeoJSONCenter(geometry: Feature["geometry"]): Point2D | null {
+  const points: Point2D[] = []
+  function walk(coords: unknown): void {
+    if (!Array.isArray(coords)) return
+    if (typeof coords[0] === "number") {
+      points.push({ lng: Number(coords[0]), lat: Number(coords[1]) })
+      return
+    }
+    coords.forEach(walk)
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = geometry as any
+  if (!g?.coordinates) return null
+  walk(g.coordinates)
+  if (!points.length) return null
+  const avgLat = points.reduce((s, p) => s + p.lat, 0) / points.length
+  const avgLng = points.reduce((s, p) => s + p.lng, 0) / points.length
+  return { lat: avgLat, lng: avgLng }
 }
 
 // ─── Paginadores ─────────────────────────────────────────────────────────────
@@ -536,6 +581,797 @@ function VisitasCard({ municipio, clientes, leads, onClose }: { municipio: strin
   )
 }
 
+// ─── agregarMateriales helpers ────────────────────────────────────────────────
+
+function catPeso(cat: string): number {
+  const n = normalizeText(cat)
+  if (n.includes("inversor")) return 0
+  if (n.includes("bateria") || n.includes("batería")) return 1
+  if (n.includes("estructura") || n.includes("soporte")) return 2
+  if (n.includes("panel")) return 3
+  if (n.includes("mppt")) return 4
+  return 10
+}
+
+function catStyle(cat: string): { icon: React.ComponentType<{ className?: string }>; color: string; bg: string; border: string } {
+  const n = normalizeText(cat)
+  if (n.includes("inversor"))                             return { icon: Zap,     color: "text-yellow-400",  bg: "bg-yellow-400/10",  border: "border-yellow-400/25" }
+  if (n.includes("bateria") || n.includes("batería"))     return { icon: Battery, color: "text-blue-400",    bg: "bg-blue-400/10",    border: "border-blue-400/25" }
+  if (n.includes("panel"))                                return { icon: Sun,     color: "text-orange-400",  bg: "bg-orange-400/10",  border: "border-orange-400/25" }
+  if (n.includes("cable"))                                return { icon: Zap,     color: "text-cyan-400",    bg: "bg-cyan-400/10",    border: "border-cyan-400/25" }
+  if (n.includes("soporte") || n.includes("estructura"))  return { icon: HardHat, color: "text-amber-400",   bg: "bg-amber-400/10",   border: "border-amber-400/25" }
+  return { icon: Wrench, color: "text-slate-300", bg: "bg-slate-400/10", border: "border-slate-400/25" }
+}
+
+type RawConfeccionOferta = {
+  id?: string
+  _id?: string
+  cliente_numero?: string
+  lead_id?: string
+  estado?: string
+  created_at?: string
+  updated_at?: string
+  fecha_creacion?: string
+  fecha_actualizacion?: string
+  fecha?: string
+  items?: Array<{ material_codigo: string; descripcion: string; cantidad: number; categoria: string }>
+  elementos_personalizados?: Array<{ descripcion: string; cantidad: number; categoria?: string }>
+}
+
+function isOfertaConfirmadaPorCliente(estado: string | undefined): boolean {
+  const n = normalizeText(estado ?? "")
+  return n.includes("confirmada por cliente") || n.includes("confirmada_por_cliente")
+}
+
+function ofertaTimestamp(oferta: RawConfeccionOferta): number {
+  const candidates = [
+    oferta.updated_at,
+    oferta.fecha_actualizacion,
+    oferta.created_at,
+    oferta.fecha_creacion,
+    oferta.fecha,
+  ]
+  for (const c of candidates) {
+    if (!c) continue
+    const t = new Date(c).getTime()
+    if (!Number.isNaN(t)) return t
+  }
+  return 0
+}
+
+function agregarMaterialesDeOfertas(
+  clientes: Cliente[],
+  leads: Lead[],
+  confeccionOfertas: RawConfeccionOferta[],
+): MaterialAgregado[] {
+  const map = new Map<string, MaterialAgregado>()
+  const clienteNums = new Set(clientes.map(c => c.numero ?? "").filter(Boolean))
+  const leadIds     = new Set(leads.map(l => l.id ?? "").filter(Boolean))
+
+  const addItem = (
+    key: string,
+    nombre: string,
+    categoria: string,
+    cantidad: number,
+    entidad: {
+      nombre: string
+      numero: string
+      tipo: "cliente" | "lead"
+      provincia: string
+      municipio: string
+    }
+  ) => {
+    if (!nombre || cantidad <= 0) return
+    const ex = map.get(key) ?? { nombre, categoria: categoria || "Material", cantidad: 0, entidades: [] }
+    ex.cantidad += cantidad
+    const idx = ex.entidades.findIndex(
+      e => e.numero === entidad.numero && e.tipo === entidad.tipo
+    )
+    if (idx >= 0) {
+      ex.entidades[idx].cantidad += cantidad
+    } else {
+      ex.entidades.push({ ...entidad, cantidad })
+    }
+    map.set(key, ex)
+  }
+
+  confeccionOfertas.forEach(oferta => {
+    let entidad: {
+      nombre: string
+      numero: string
+      tipo: "cliente" | "lead"
+      provincia: string
+      municipio: string
+    } | null = null
+    if (oferta.cliente_numero && clienteNums.has(oferta.cliente_numero)) {
+      const c = clientes.find(cl => cl.numero === oferta.cliente_numero)
+      if (c) entidad = {
+        nombre: c.nombre,
+        numero: c.numero ?? c.id ?? "",
+        tipo: "cliente",
+        provincia: c.provincia_montaje ?? "",
+        municipio: c.municipio ?? "",
+      }
+    } else if (oferta.lead_id && leadIds.has(oferta.lead_id)) {
+      const l = leads.find(ld => ld.id === oferta.lead_id)
+      if (l) entidad = {
+        nombre: l.nombre,
+        numero: l.id ?? "",
+        tipo: "lead",
+        provincia: l.provincia_montaje ?? "",
+        municipio: l.municipio ?? "",
+      }
+    }
+    if (!entidad) return
+
+    oferta.items?.forEach(item => {
+      if (item.cantidad > 0)
+        addItem(`${normalizeText(item.categoria)}::${normalizeText(item.descripcion)}`, item.descripcion, item.categoria, item.cantidad, entidad!)
+    })
+    oferta.elementos_personalizados?.forEach(el => {
+      if (el.cantidad > 0)
+        addItem(`elempers::${normalizeText(el.descripcion)}`, el.descripcion, el.categoria || "Elemento personalizado", el.cantidad, entidad!)
+    })
+  })
+
+  return Array.from(map.values()).sort((a, b) => {
+    const pa = catPeso(a.categoria), pb = catPeso(b.categoria)
+    if (pa !== pb) return pa - pb
+    const ca = normalizeText(a.categoria).localeCompare(normalizeText(b.categoria))
+    if (ca !== 0) return ca
+    return b.cantidad - a.cantidad
+  })
+}
+
+// ─── AnalisisRegionalPanel ────────────────────────────────────────────────────
+
+function AnalisisRegionalPanel({
+  allClients, allLeads, viewMode, provinciasDisponibles, confeccionOfertas, selectedProvincias, onSelectedProvinciasChange, onClose,
+}: {
+  allClients: Cliente[]
+  allLeads: Lead[]
+  viewMode: ViewMode
+  provinciasDisponibles: string[]
+  confeccionOfertas: RawConfeccionOferta[]
+  selectedProvincias: string[]
+  onSelectedProvinciasChange: (provincias: string[]) => void
+  onClose: () => void
+}) {
+  const [provinciasSeleccionadas, setProvinciasSeleccionadas] = useState<string[]>(selectedProvincias)
+  const [estadosSeleccionados, setEstadosSeleccionados] = useState<string[]>([])
+  const [modoAnalisis, setModoAnalisis] = useState<ViewMode>(viewMode)
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
+  const [expandedMateriales, setExpandedMateriales] = useState<Set<string>>(new Set())
+  const [vistaDetalle, setVistaDetalle] = useState<"material_cliente" | "cliente_material">("material_cliente")
+  const [exportingXls, setExportingXls] = useState(false)
+
+  useEffect(() => {
+    setProvinciasSeleccionadas(selectedProvincias)
+  }, [selectedProvincias])
+
+  useEffect(() => {
+    onSelectedProvinciasChange(provinciasSeleccionadas)
+  }, [provinciasSeleccionadas, onSelectedProvinciasChange])
+
+  const provinciasOrdenadas = useMemo(() => {
+    const disponibles = new Set(provinciasDisponibles.map(normalizeText))
+    const primeroCuba = CUBA_PROVINCIAS_ORDEN.filter(p => disponibles.has(normalizeText(p)))
+    const extras = provinciasDisponibles
+      .filter(p => !CUBA_PROVINCIAS_ORDEN.some(cp => normalizeText(cp) === normalizeText(p)))
+      .sort((a, b) => normalizeText(a).localeCompare(normalizeText(b)))
+    return [...primeroCuba, ...extras]
+  }, [provinciasDisponibles])
+
+  const provinciasEnRegion = useMemo(() => {
+    if (provinciasSeleccionadas.length === 0) return provinciasDisponibles
+    const selected = new Set(provinciasSeleccionadas.map(normalizeText))
+    return provinciasDisponibles.filter(p => selected.has(normalizeText(p)))
+  }, [provinciasDisponibles, provinciasSeleccionadas])
+
+  const inRegion = useCallback((prov: string | undefined) =>
+    provinciasSeleccionadas.length === 0 || provinciasEnRegion.some(p => normalizeText(p) === normalizeText(prov ?? "")),
+    [provinciasSeleccionadas.length, provinciasEnRegion])
+
+  const estadoKey = useCallback((estado?: string) => normalizeText(estado ?? "Sin estado"), [])
+
+  const estadosDisponibles = useMemo(() => {
+    const map = new Map<string, string>()
+    allClients
+      .filter(c => inRegion(c.provincia_montaje))
+      .forEach(c => {
+        const raw = (c.estado ?? "Sin estado").trim() || "Sin estado"
+        const key = estadoKey(raw)
+        if (!map.has(key)) map.set(key, raw)
+      })
+    allLeads
+      .filter(l => inRegion(l.provincia_montaje))
+      .forEach(l => {
+        const raw = (l.estado ?? "Sin estado").trim() || "Sin estado"
+        const key = estadoKey(raw)
+        if (!map.has(key)) map.set(key, raw)
+      })
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [allClients, allLeads, inRegion, estadoKey])
+
+  const clientesFiltrados = useMemo(() => {
+    const byMode = (c: Cliente) => {
+      if (modoAnalisis === "todos") return true
+      if (modoAnalisis === "pendientes_instalacion") return isPendienteInstalacion(c.estado)
+      if (modoAnalisis === "en_proceso") return isEnProceso(c.estado)
+      if (modoAnalisis === "averias") {
+        const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
+        return avs?.some(a => a.estado === "Pendiente") ?? false
+      }
+      if (modoAnalisis === "visitas") return isPendienteVisita(c.estado)
+      return false
+    }
+    const selectedEstados = new Set(estadosSeleccionados.map(normalizeText))
+    return allClients.filter(c => {
+      if (!byMode(c) || !inRegion(c.provincia_montaje)) return false
+      if (selectedEstados.size === 0) return true
+      return selectedEstados.has(estadoKey(c.estado))
+    })
+  }, [allClients, modoAnalisis, inRegion, estadosSeleccionados, estadoKey])
+
+  const leadsFiltrados = useMemo(() => {
+    const byMode = (l: Lead) => {
+      if (modoAnalisis === "pendientes_instalacion") return isPendienteInstalacion(l.estado)
+      if (modoAnalisis === "visitas") return isPendienteVisita(l.estado)
+      return false
+    }
+    const selectedEstados = new Set(estadosSeleccionados.map(normalizeText))
+    return allLeads.filter(l => {
+      if (!byMode(l) || !inRegion(l.provincia_montaje)) return false
+      if (selectedEstados.size === 0) return true
+      return selectedEstados.has(estadoKey(l.estado))
+    })
+  }, [allLeads, modoAnalisis, inRegion, estadosSeleccionados, estadoKey])
+
+  const ofertasConfirmadasVigentes = useMemo(() => {
+    const latestByEntity = new Map<string, RawConfeccionOferta>()
+    confeccionOfertas.forEach(oferta => {
+      if (!isOfertaConfirmadaPorCliente(oferta.estado)) return
+      const entityKey = oferta.cliente_numero
+        ? `cliente:${oferta.cliente_numero}`
+        : oferta.lead_id
+          ? `lead:${oferta.lead_id}`
+          : null
+      if (!entityKey) return
+      const prev = latestByEntity.get(entityKey)
+      if (!prev || ofertaTimestamp(oferta) >= ofertaTimestamp(prev)) {
+        latestByEntity.set(entityKey, oferta)
+      }
+    })
+    return Array.from(latestByEntity.values())
+  }, [confeccionOfertas])
+
+  const materiales = useMemo(
+    () => agregarMaterialesDeOfertas(clientesFiltrados, leadsFiltrados, ofertasConfirmadasVigentes),
+    [clientesFiltrados, leadsFiltrados, ofertasConfirmadasVigentes]
+  )
+
+  const categorias = useMemo(() => {
+    const cats = [...new Set(materiales.map(m => m.categoria))]
+    return cats.sort((a, b) => {
+      const pa = catPeso(a), pb = catPeso(b)
+      if (pa !== pb) return pa - pb
+      return normalizeText(a).localeCompare(normalizeText(b))
+    })
+  }, [materiales])
+
+  useEffect(() => {
+    if (categorias.length > 0 && expandedCats.size === 0)
+      setExpandedCats(new Set(categorias.slice(0, 3)))
+  }, [categorias]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const byCategory = useMemo(() => {
+    const cats = new Map<string, MaterialAgregado[]>()
+    materiales.forEach(m => { const list = cats.get(m.categoria) ?? []; list.push(m); cats.set(m.categoria, list) })
+    return cats
+  }, [materiales])
+
+  const entidadesConMateriales = useMemo(() => {
+    type Mat = { nombre: string; categoria: string; cantidad: number }
+    type Ent = {
+      id: string
+      tipo: "cliente" | "lead"
+      nombre: string
+      numero: string
+      provincia: string
+      municipio: string
+      estado: string
+      materiales: Mat[]
+    }
+
+    const entidades = new Map<string, Ent>()
+    clientesFiltrados.forEach(c => {
+      const numero = c.numero ?? c.id ?? ""
+      entidades.set(`cliente:${numero}`, {
+        id: `cliente:${numero}`,
+        tipo: "cliente",
+        nombre: c.nombre,
+        numero,
+        provincia: c.provincia_montaje ?? "—",
+        municipio: c.municipio ?? "—",
+        estado: c.estado ?? "Sin estado",
+        materiales: [],
+      })
+    })
+    leadsFiltrados.forEach(l => {
+      const numero = l.id ?? ""
+      entidades.set(`lead:${numero}`, {
+        id: `lead:${numero}`,
+        tipo: "lead",
+        nombre: l.nombre,
+        numero,
+        provincia: l.provincia_montaje ?? "—",
+        municipio: l.municipio ?? "—",
+        estado: l.estado ?? "Sin estado",
+        materiales: [],
+      })
+    })
+
+    const addMaterial = (id: string, material: { nombre: string; categoria: string; cantidad: number }) => {
+      const entidad = entidades.get(id)
+      if (!entidad) return
+      const idx = entidad.materiales.findIndex(
+        m => normalizeText(m.nombre) === normalizeText(material.nombre) &&
+          normalizeText(m.categoria) === normalizeText(material.categoria)
+      )
+      if (idx >= 0) entidad.materiales[idx].cantidad += material.cantidad
+      else entidad.materiales.push(material)
+    }
+
+    ofertasConfirmadasVigentes.forEach(oferta => {
+      let id: string | null = null
+      if (oferta.cliente_numero) id = `cliente:${oferta.cliente_numero}`
+      else if (oferta.lead_id) id = `lead:${oferta.lead_id}`
+      if (!id || !entidades.has(id)) return
+
+      ;(oferta.items ?? []).forEach(item => {
+        if (item.cantidad > 0) {
+          addMaterial(id!, { nombre: item.descripcion, categoria: item.categoria || "Material", cantidad: item.cantidad })
+        }
+      })
+      ;(oferta.elementos_personalizados ?? []).forEach(el => {
+        if (el.cantidad > 0) {
+          addMaterial(id!, { nombre: el.descripcion, categoria: el.categoria || "Elemento personalizado", cantidad: el.cantidad })
+        }
+      })
+    })
+
+    return Array.from(entidades.values())
+      .filter(e => e.materiales.length > 0)
+      .map(e => ({
+        ...e,
+        materiales: e.materiales.sort((a, b) => {
+          const pa = catPeso(a.categoria)
+          const pb = catPeso(b.categoria)
+          if (pa !== pb) return pa - pb
+          return normalizeText(a.nombre).localeCompare(normalizeText(b.nombre))
+        }),
+      }))
+      .sort((a, b) => {
+        const prov = normalizeText(a.provincia).localeCompare(normalizeText(b.provincia))
+        if (prov !== 0) return prov
+        return normalizeText(a.nombre).localeCompare(normalizeText(b.nombre))
+      })
+  }, [clientesFiltrados, leadsFiltrados, ofertasConfirmadasVigentes])
+
+  const entidadesPorProvincia = useMemo(() => {
+    const map = new Map<string, typeof entidadesConMateriales>()
+    entidadesConMateriales.forEach(e => {
+      const key = e.provincia || "—"
+      const list = map.get(key) ?? []
+      list.push(e)
+      map.set(key, list)
+    })
+    return Array.from(map.entries()).sort((a, b) => normalizeText(a[0]).localeCompare(normalizeText(b[0])))
+  }, [entidadesConMateriales])
+
+  const modoLabel: Record<ViewMode, string> = {
+    todos: "Todos", pendientes_instalacion: "Pendientes instalación",
+    en_proceso: "En proceso", averias: "Con averías", visitas: "Pendientes visita",
+  }
+
+  const handleExportExcel = async () => {
+    setExportingXls(true)
+    try {
+      const ExcelJSImport = await import("exceljs")
+      const ExcelJS = ExcelJSImport.default
+      const workbook = new ExcelJS.Workbook()
+      const worksheet = workbook.addWorksheet("Análisis Regional")
+
+      const title = `SunCar · Análisis Regional — ${modoLabel[modoAnalisis]}`
+      const subtitle = `${provinciasSeleccionadas.length > 0 ? `${provinciasSeleccionadas.length} provincia(s) seleccionada(s)` : "Toda Cuba"} · ${clientesFiltrados.length} clientes${leadsFiltrados.length > 0 ? ` · ${leadsFiltrados.length} leads` : ""}${estadosSeleccionados.length > 0 ? ` · ${estadosSeleccionados.length} estado(s)` : ""}`
+      const headers = ["Provincia", "Municipio", "Cliente", "Nº", "Estado", "Categoría", "Material", "Cantidad"]
+
+      worksheet.addRow([title])
+      worksheet.mergeCells(1, 1, 1, headers.length)
+      worksheet.getCell(1, 1).font = { bold: true, size: 14 }
+
+      worksheet.addRow([subtitle])
+      worksheet.mergeCells(2, 1, 2, headers.length)
+      worksheet.getCell(2, 1).font = { size: 11 }
+
+      worksheet.addRow([])
+      const headerRow = worksheet.addRow(headers)
+      headerRow.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: "FFFFFFFF" } }
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEA580C" } }
+        cell.alignment = { horizontal: "center", vertical: "middle" }
+        cell.border = {
+          top: { style: "thin" }, bottom: { style: "thin" },
+          left: { style: "thin" }, right: { style: "thin" },
+        }
+      })
+
+      worksheet.columns = [
+        { width: 20 }, { width: 18 }, { width: 30 }, { width: 12 },
+        { width: 24 }, { width: 20 }, { width: 46 }, { width: 12 },
+      ]
+
+      const dataStartRow = worksheet.rowCount + 1
+      entidadesConMateriales.forEach(entidad => {
+        entidad.materiales.forEach(material => {
+          worksheet.addRow([
+            entidad.provincia ?? "—",
+            entidad.municipio ?? "—",
+            entidad.tipo === "lead" ? `[LEAD] ${entidad.nombre}` : entidad.nombre,
+            entidad.numero || "—",
+            entidad.estado || "—",
+            material.categoria || "Material",
+            material.nombre,
+            material.cantidad,
+          ])
+        })
+      })
+
+      let rowCursor = dataStartRow
+      entidadesConMateriales.forEach(entidad => {
+        const span = entidad.materiales.length
+        if (span > 1) {
+          ;[1, 2, 3, 4, 5].forEach(col => {
+            worksheet.mergeCells(rowCursor, col, rowCursor + span - 1, col)
+            worksheet.getCell(rowCursor, col).alignment = { vertical: "top", horizontal: "left", wrapText: true }
+          })
+        }
+        rowCursor += span
+      })
+
+      const detailsEndRow = worksheet.rowCount
+      for (let r = dataStartRow; r <= detailsEndRow; r++) {
+        const row = worksheet.getRow(r)
+        row.eachCell(cell => {
+          cell.alignment = cell.alignment ?? { vertical: "top", horizontal: "left", wrapText: true }
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFCCCCCC" } },
+            bottom: { style: "thin", color: { argb: "FFCCCCCC" } },
+            left: { style: "thin", color: { argb: "FFCCCCCC" } },
+            right: { style: "thin", color: { argb: "FFCCCCCC" } },
+          }
+          cell.font = { name: "Arial", size: 11 }
+        })
+      }
+
+      worksheet.addRow([])
+      const resumenTitleRow = worksheet.addRow(["RESUMEN POR MATERIAL"])
+      worksheet.mergeCells(resumenTitleRow.number, 1, resumenTitleRow.number, headers.length)
+      resumenTitleRow.getCell(1).font = { bold: true, color: { argb: "FF059669" } }
+      resumenTitleRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE6FFFA" } }
+
+      materiales.forEach(m => {
+        const row = worksheet.addRow(["", "", "", "", "", m.categoria, m.nombre, m.cantidad])
+        row.eachCell(cell => {
+          cell.alignment = { vertical: "top", horizontal: "left", wrapText: true }
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFCCCCCC" } },
+            bottom: { style: "thin", color: { argb: "FFCCCCCC" } },
+            left: { style: "thin", color: { argb: "FFCCCCCC" } },
+            right: { style: "thin", color: { argb: "FFCCCCCC" } },
+          }
+          cell.font = { name: "Arial", size: 11 }
+        })
+      })
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `analisis-regional-${modoAnalisis}-${new Date().toISOString().split("T")[0]}.xlsx`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (err) {
+      console.error("Error exportando:", err)
+    } finally {
+      setExportingXls(false)
+    }
+  }
+
+  const totalMateriales = materiales.reduce((s, m) => s + m.cantidad, 0)
+  const toggleProvincia = (provincia: string) => {
+    setProvinciasSeleccionadas(prev => {
+      const key = normalizeText(provincia)
+      return prev.some(p => normalizeText(p) === key)
+        ? prev.filter(p => normalizeText(p) !== key)
+        : [...prev, provincia]
+    })
+  }
+  const toggleEstado = (estado: string) => {
+    setEstadosSeleccionados(prev => {
+      const key = normalizeText(estado)
+      return prev.some(e => normalizeText(e) === key)
+        ? prev.filter(e => normalizeText(e) !== key)
+        : [...prev, estado]
+    })
+  }
+
+  return (
+    <div className="absolute inset-y-0 right-0 z-[1001] w-[26rem] pointer-events-auto flex flex-col bg-slate-900/98 border-l border-slate-700/80 shadow-2xl backdrop-blur-sm overflow-hidden">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/60 bg-slate-800/60 shrink-0">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-amber-400" />
+          <span className="text-sm font-bold text-amber-400">Análisis Regional</span>
+        </div>
+        <button onClick={onClose} className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="px-4 py-3 space-y-2 border-b border-slate-700/60 bg-slate-800/30 shrink-0">
+        <div>
+          <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Provincias (1 o más)</label>
+          <details className="bg-slate-800 border border-slate-600/60 rounded-md">
+            <summary className="list-none cursor-pointer px-2 py-1.5 text-xs text-slate-300 flex items-center justify-between">
+              <span>{provinciasSeleccionadas.length > 0 ? `${provinciasSeleccionadas.length} seleccionadas` : "🇨🇺 Toda Cuba"}</span>
+              <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+            </summary>
+            <div className="border-t border-slate-700/60 max-h-44 overflow-y-auto p-2 space-y-1">
+              {provinciasOrdenadas.map(prov => {
+                const checked = provinciasSeleccionadas.some(p => normalizeText(p) === normalizeText(prov))
+                return (
+                  <button
+                    key={prov}
+                    onClick={() => toggleProvincia(prov)}
+                    className={`w-full flex items-center justify-between text-left px-2 py-1.5 rounded text-xs transition-colors ${checked ? "bg-emerald-500/20 text-emerald-300" : "hover:bg-white/5 text-slate-300"}`}>
+                    <span>{prov}</span>
+                    {checked && <CheckCircle className="h-3 w-3" />}
+                  </button>
+                )
+              })}
+            </div>
+          </details>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Operación</label>
+            <select value={modoAnalisis} onChange={e => setModoAnalisis(e.target.value as ViewMode)}
+              className="w-full bg-slate-800 border border-slate-600/60 rounded-md px-2 py-1.5 text-xs text-slate-300 outline-none cursor-pointer">
+              <option value="todos" className="bg-slate-900">Todos los clientes</option>
+              <option value="pendientes_instalacion" className="bg-slate-900">Pendientes instalación</option>
+              <option value="en_proceso" className="bg-slate-900">En proceso</option>
+              <option value="averias" className="bg-slate-900">Con averías</option>
+              <option value="visitas" className="bg-slate-900">Pendientes visita</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Estados (1 o más)</label>
+            <details className="bg-slate-800 border border-slate-600/60 rounded-md">
+              <summary className="list-none cursor-pointer px-2 py-1.5 text-xs text-slate-300 flex items-center justify-between">
+                <span>{estadosSeleccionados.length > 0 ? `${estadosSeleccionados.length} seleccionados` : "Todos"}</span>
+                <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+              </summary>
+              <div className="border-t border-slate-700/60 max-h-44 overflow-y-auto p-2 space-y-1">
+                {estadosDisponibles.map(estado => {
+                  const checked = estadosSeleccionados.some(e => normalizeText(e) === estado.key)
+                  return (
+                    <button
+                      key={estado.key}
+                      onClick={() => toggleEstado(estado.label)}
+                      className={`w-full flex items-center justify-between text-left px-2 py-1.5 rounded text-xs transition-colors ${checked ? "bg-blue-500/20 text-blue-300" : "hover:bg-white/5 text-slate-300"}`}>
+                      <span>{estado.label}</span>
+                      {checked && <CheckCircle className="h-3 w-3" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </details>
+          </div>
+        </div>
+        {(provinciasSeleccionadas.length > 0 || estadosSeleccionados.length > 0) && (
+          <button
+            onClick={() => { setProvinciasSeleccionadas([]); setEstadosSeleccionados([]) }}
+            className="text-[11px] text-slate-400 hover:text-white underline">
+            Limpiar filtros múltiples
+          </button>
+        )}
+        <div className="flex items-center gap-2 text-xs flex-wrap">
+          <span className="text-slate-500">{provinciasEnRegion.length} prov. ·</span>
+          <span className="font-bold text-white">{clientesFiltrados.length} clientes</span>
+          {leadsFiltrados.length > 0 && <><span className="text-slate-500">·</span><span className="font-bold text-amber-400">{leadsFiltrados.length} leads</span></>}
+          {totalMateriales > 0 && <><span className="text-slate-500">·</span><span className="font-bold text-emerald-400">{totalMateriales} materiales</span></>}
+        </div>
+      </div>
+
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* Materiales por categoría */}
+        <div className="px-4 py-3 border-b border-slate-700/40">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+              Materiales · {categorias.length} categoría{categorias.length !== 1 ? "s" : ""}
+            </span>
+            <button onClick={handleExportExcel} disabled={exportingXls || (clientesFiltrados.length === 0 && leadsFiltrados.length === 0)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 text-[11px] font-semibold hover:bg-emerald-600/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              {exportingXls ? <RefreshCw className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />}
+              Excel
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            <button
+              onClick={() => setVistaDetalle("material_cliente")}
+              className={`px-2 py-1.5 rounded-md text-[11px] font-semibold border transition-colors ${vistaDetalle === "material_cliente" ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/60"}`}>
+              Material → Cliente
+            </button>
+            <button
+              onClick={() => setVistaDetalle("cliente_material")}
+              className={`px-2 py-1.5 rounded-md text-[11px] font-semibold border transition-colors ${vistaDetalle === "cliente_material" ? "bg-blue-500/20 border-blue-500/40 text-blue-300" : "bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700/60"}`}>
+              Cliente → Material
+            </button>
+          </div>
+
+          {categorias.length === 0 ? (
+            <div className="py-6 text-center">
+              <p className="text-xs text-slate-500 italic">
+                {clientesFiltrados.length === 0
+                  ? "Sin clientes en esta región / modo"
+                  : "Los clientes no tienen ofertas confirmadas por cliente"}
+              </p>
+            </div>
+          ) : vistaDetalle === "material_cliente" ? (
+            <div className="space-y-2">
+              {categorias.map(cat => {
+                const items = byCategory.get(cat) ?? []
+                const { icon: CatIcon, color, bg, border } = catStyle(cat)
+                const isOpen = expandedCats.has(cat)
+                const total = items.reduce((s, m) => s + m.cantidad, 0)
+                return (
+                  <div key={cat} className={`rounded-xl border ${border} overflow-hidden`}>
+                    <button
+                      onClick={() => setExpandedCats(prev => { const s = new Set(prev); s.has(cat) ? s.delete(cat) : s.add(cat); return s })}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 ${bg} text-left hover:opacity-90 transition-opacity`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CatIcon className={`h-4 w-4 ${color} shrink-0`} />
+                        <span className={`text-[12px] font-bold ${color} truncate`}>{cat}</span>
+                        <span className={`text-[10px] ${color} opacity-60 shrink-0`}>({items.length})</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 ml-2">
+                        <span className={`text-sm font-bold ${color}`}>{total} u.</span>
+                        {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+                      </div>
+                    </button>
+                    {isOpen && (
+                      <div className="bg-slate-950/60 divide-y divide-slate-800/50">
+                        {items.sort((a, b) => b.cantidad - a.cantidad).map(m => {
+                          const matKey = `${cat}::${m.nombre}`
+                          const openMaterial = expandedMateriales.has(matKey)
+                          return (
+                            <div key={m.nombre} className="px-3 py-1.5">
+                              <button
+                                onClick={() => setExpandedMateriales(prev => {
+                                  const s = new Set(prev)
+                                  s.has(matKey) ? s.delete(matKey) : s.add(matKey)
+                                  return s
+                                })}
+                                className="w-full flex items-center justify-between py-1.5">
+                                <div className="min-w-0 text-left">
+                                  <p className="text-[12px] text-slate-200 leading-snug truncate">{m.nombre}</p>
+                                  <p className="text-[10px] text-slate-500">{m.entidades.length} entidad{m.entidades.length !== 1 ? "es" : ""}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                                  <span className={`text-sm font-bold ${color}`}>×{m.cantidad}</span>
+                                  {openMaterial ? <ChevronUp className="h-3.5 w-3.5 text-slate-400" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400" />}
+                                </div>
+                              </button>
+                              {openMaterial && (
+                                <div className="mt-1 mb-1 rounded-lg border border-slate-700/60 overflow-hidden">
+                                  <div className="grid grid-cols-[1fr_auto] gap-2 px-2.5 py-1.5 bg-slate-900 text-[10px] uppercase tracking-wider text-slate-500">
+                                    <span>Cliente/Lead</span>
+                                    <span>Cant.</span>
+                                  </div>
+                                  <div className="divide-y divide-slate-800/70 bg-slate-950/50">
+                                    {m.entidades
+                                      .sort((a, b) => b.cantidad - a.cantidad)
+                                      .map(entidad => (
+                                        <div key={`${entidad.tipo}:${entidad.numero}`} className="grid grid-cols-[1fr_auto] gap-2 px-2.5 py-1.5">
+                                          <div className="min-w-0">
+                                            <p className="text-[11px] text-slate-200 truncate">
+                                              {entidad.tipo === "lead" ? "[LEAD] " : ""}{entidad.nombre}
+                                            </p>
+                                            <p className="text-[10px] text-slate-500 truncate">
+                                              {[entidad.municipio, entidad.provincia].filter(Boolean).join(", ")}
+                                            </p>
+                                          </div>
+                                          <span className="text-[11px] font-bold text-emerald-300">{entidad.cantidad}</span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {entidadesPorProvincia.map(([provincia, entidades]) => (
+                <div key={provincia} className="rounded-xl border border-slate-700/60 overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-800/70 border-b border-slate-700/60">
+                    <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">{provincia}</p>
+                  </div>
+                  <div className="divide-y divide-slate-800/60 bg-slate-950/40">
+                    {entidades.map(entidad => (
+                      <div key={entidad.id} className="px-3 py-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[12px] text-white font-semibold truncate">
+                              {entidad.tipo === "lead" ? "[LEAD] " : ""}{entidad.nombre}
+                            </p>
+                            <p className="text-[10px] text-slate-500">{entidad.municipio} · {entidad.estado}</p>
+                          </div>
+                          <span className="text-[10px] text-slate-500 shrink-0">{entidad.materiales.length} mat.</span>
+                        </div>
+                        <div className="mt-1.5 space-y-1">
+                          {entidad.materiales.map(m => (
+                            <div key={`${m.categoria}::${m.nombre}`} className="grid grid-cols-[auto_1fr_auto] gap-2 text-[11px]">
+                              <span className="text-slate-500">{m.categoria}:</span>
+                              <span className="text-slate-200 truncate">{m.nombre}</span>
+                              <span className="text-emerald-300 font-bold">×{m.cantidad}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="rounded-xl border border-emerald-500/25 overflow-hidden">
+                <div className="px-3 py-2 bg-emerald-500/10 border-b border-emerald-500/25">
+                  <p className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Resumen por material (final)</p>
+                </div>
+                <div className="divide-y divide-slate-800/60 bg-slate-950/40">
+                  {materiales.map(m => (
+                    <div key={`${m.categoria}::${m.nombre}`} className="px-3 py-1.5 grid grid-cols-[auto_1fr_auto] gap-2 text-[11px]">
+                      <span className="text-slate-500">{m.categoria}</span>
+                      <span className="text-slate-200 truncate">{m.nombre}</span>
+                      <span className="text-emerald-300 font-bold">{m.cantidad}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── BrigadasPanel ────────────────────────────────────────────────────────────
 
 function BrigadasPanel({ brigadas, onClose }: { brigadas: Brigada[]; onClose: () => void }) {
@@ -598,18 +1434,22 @@ export default function CentroControlView() {
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>("todos")
   const [showBrigadas, setShowBrigadas] = useState(false)
-  const [leftOpen, setLeftOpen] = useState(true)
-  const [rightOpen, setRightOpen] = useState(true)
+  const [showAnalisisRegional, setShowAnalisisRegional] = useState(false)
+  const [allConfeccionOfertas, setAllConfeccionOfertas] = useState<RawConfeccionOferta[]>([])
+  const [showLeadStates, setShowLeadStates] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [comercialResumen, setComercialResumen] = useState<ComercialResumen>({ confirmadas: 0, canceladas: 0, reservadas: 0 })
 
   // Filtros de provincia / municipio
   const [filterProvincia, setFilterProvincia] = useState("")
   const [filterMunicipio, setFilterMunicipio] = useState("")
+  const [analisisProvinciasSeleccionadas, setAnalisisProvinciasSeleccionadas] = useState<string[]>([])
 
   // Bounds calculados desde el GeoJSON
   const [geoMuniBoundsMap, setGeoMuniBoundsMap] = useState<Map<string, SimpleBounds>>(new Map())
   const [geoProvBoundsMap, setGeoProvBoundsMap] = useState<Map<string, SimpleBounds>>(new Map())
+  const [geoProvCenterMap, setGeoProvCenterMap] = useState<Map<string, [number, number]>>(new Map())
 
   // ── Data Fetch ──────────────────────────────────────────────────────────────
   const fetchData = useCallback(async (isRefresh = false) => {
@@ -620,7 +1460,7 @@ export default function CentroControlView() {
 
       const [dashboardResult, pendientesResult, pendientesVisitaResult,
         allClientsResult, clientesConAveriasResult, leadsThisWeekResult,
-        allLeadsResult, brigadasResult,
+        allLeadsResult, brigadasResult, ofertasConfeccionResult,
       ] = await Promise.allSettled([
         ResultadosService.getDashboardPrincipal(),
         InstalacionesService.getPendientesInstalacion(),
@@ -630,6 +1470,7 @@ export default function CentroControlView() {
         LeadService.getLeads({ fechaDesde: weekStartStr, fechaHasta: weekEndStr, limit: 1000 }),
         fetchAllLeads(),
         BrigadaService.getAllBrigadas(),
+        apiRequest<{ data?: unknown[] } | unknown[]>("/ofertas/confeccion/"),
       ])
 
       let visitasRealizadas = 0
@@ -674,6 +1515,27 @@ export default function CentroControlView() {
 
       const leadsData = leadsThisWeekResult.status === "fulfilled" ? leadsThisWeekResult.value : { leads: [], total: 0 }
       const nuevosLeads = leadsData.total > 0 ? leadsData.total : leadsData.leads.length
+      const ofertasRaw: unknown[] =
+        ofertasConfeccionResult.status === "fulfilled"
+          ? (
+            Array.isArray(ofertasConfeccionResult.value)
+              ? ofertasConfeccionResult.value
+              : Array.isArray((ofertasConfeccionResult.value as { data?: unknown[] })?.data)
+                ? (ofertasConfeccionResult.value as { data?: unknown[] }).data!
+                : []
+          )
+          : []
+
+      const resumenComercial = ofertasRaw.reduce<ComercialResumen>((acc, item) => {
+        const record = item as Record<string, unknown>
+        const estado = String(record.estado ?? record.status ?? "").toLowerCase().trim()
+        if (estado.includes("confirmada_por_cliente") || estado.includes("confirmada por cliente")) acc.confirmadas += 1
+        else if (estado.includes("cancelada")) acc.canceladas += 1
+        else if (estado.includes("reservada")) acc.reservadas += 1
+        return acc
+      }, { confirmadas: 0, canceladas: 0, reservadas: 0 })
+      setComercialResumen(resumenComercial)
+      setAllConfeccionOfertas(ofertasRaw as RawConfeccionOferta[])
 
       setControlData({
         totalClientes: dashboard?.cantidad_clientes ?? clients.length,
@@ -731,11 +1593,13 @@ export default function CentroControlView() {
 
     const muniBounds = new Map<string, SimpleBounds>()
     const provBounds = new Map<string, SimpleBounds>()
+    const provCenters = new Map<string, Point2D[]>()
 
     fc.features.forEach(f => {
       const shapeName = f.properties?.shapeName as string | undefined
       if (!shapeName || !f.geometry) return
       const bounds = computeGeoJSONBounds(f.geometry)
+      const center = computeGeoJSONCenter(f.geometry)
       if (!bounds) return
       const key = normalizeText(shapeName)
       muniBounds.set(key, bounds)
@@ -745,11 +1609,25 @@ export default function CentroControlView() {
         const provKey = normalizeText(provincia)
         const prev = provBounds.get(provKey)
         provBounds.set(provKey, prev ? mergeBounds(prev, bounds) : bounds)
+        if (center) {
+          const list = provCenters.get(provKey) ?? []
+          list.push(center)
+          provCenters.set(provKey, list)
+        }
       }
+    })
+
+    const provCenterMap = new Map<string, [number, number]>()
+    provCenters.forEach((centers, provKey) => {
+      if (!centers.length) return
+      const lat = centers.reduce((s, c) => s + c.lat, 0) / centers.length
+      const lng = centers.reduce((s, c) => s + c.lng, 0) / centers.length
+      provCenterMap.set(provKey, [lat, lng])
     })
 
     setGeoMuniBoundsMap(muniBounds)
     setGeoProvBoundsMap(provBounds)
+    setGeoProvCenterMap(provCenterMap)
   }, [geoJsonData, municipios])
 
   // ── Municipio maps ──────────────────────────────────────────────────────────
@@ -827,11 +1705,68 @@ export default function CentroControlView() {
     municipios.filter(m => m.provincia === filterProvincia).map(m => m.municipio).sort(),
     [municipios, filterProvincia])
 
+  const municipioToProvinciaMap = useMemo(() => {
+    const map = new Map<string, string>()
+    municipios.forEach(m => {
+      const muniKey = normalizeText(m.municipio)
+      const provKey = normalizeText(m.provincia)
+      if (muniKey && provKey) map.set(muniKey, provKey)
+    })
+    return map
+  }, [municipios])
+
+  const provinceDisplayNameByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    municipios.forEach(m => {
+      const provKey = normalizeText(m.provincia)
+      if (provKey && !map.has(provKey)) map.set(provKey, m.provincia)
+    })
+    return map
+  }, [municipios])
+
+  const selectedProvinciaKeys = useMemo(() => {
+    if (analisisProvinciasSeleccionadas.length > 0) {
+      return new Set(analisisProvinciasSeleccionadas.map(normalizeText))
+    }
+    if (filterProvincia) return new Set([normalizeText(filterProvincia)])
+    return new Set<string>()
+  }, [analisisProvinciasSeleccionadas, filterProvincia])
+
+  const selectedProvinciaKey = useMemo(() => {
+    if (analisisProvinciasSeleccionadas.length === 0 && filterProvincia) return normalizeText(filterProvincia)
+    return ""
+  }, [analisisProvinciasSeleccionadas, filterProvincia])
+  const selectedMunicipioKey = useMemo(() => normalizeText(filterMunicipio), [filterMunicipio])
+
   const currentBounds = useMemo<SimpleBounds | null>(() => {
     if (filterMunicipio) return geoMuniBoundsMap.get(normalizeText(filterMunicipio)) ?? null
+    if (analisisProvinciasSeleccionadas.length > 0) {
+      const selected = analisisProvinciasSeleccionadas
+        .map(p => geoProvBoundsMap.get(normalizeText(p)))
+        .filter((b): b is SimpleBounds => Boolean(b))
+      if (selected.length === 0) return null
+      return selected.reduce((acc, b) => mergeBounds(acc, b))
+    }
     if (filterProvincia) return geoProvBoundsMap.get(normalizeText(filterProvincia)) ?? null
     return null
-  }, [filterProvincia, filterMunicipio, geoMuniBoundsMap, geoProvBoundsMap])
+  }, [analisisProvinciasSeleccionadas, filterProvincia, filterMunicipio, geoMuniBoundsMap, geoProvBoundsMap])
+
+  const provinceLabels = useMemo(() => {
+    if (filterProvincia || analisisProvinciasSeleccionadas.length > 0) return []
+    return Array.from(geoProvBoundsMap.entries()).map(([provKey, b]) => {
+      const provincia = provinceDisplayNameByKey.get(provKey) ?? provKey
+      return {
+        key: provKey,
+        provincia,
+        center: geoProvCenterMap.get(provKey) ?? ([(b.minLat + b.maxLat) / 2, (b.minLng + b.maxLng) / 2] as [number, number]),
+        icon: L.divIcon({
+          className: "province-label-icon",
+          html: `<span class="province-label-inner">${provincia}</span>`,
+          iconSize: [0, 0],
+        }),
+      }
+    })
+  }, [geoProvBoundsMap, geoProvCenterMap, provinceDisplayNameByKey, filterProvincia, analisisProvinciasSeleccionadas.length])
 
   // ── Estadísticas comerciales ────────────────────────────────────────────────
   const leadsByEstado = useMemo(() => {
@@ -853,16 +1788,40 @@ export default function CentroControlView() {
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
     const shapeName = String((feature?.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
     const key = normalizeText(shapeName)
+    const featureProvinciaKey = municipioToProvinciaMap.get(key) ?? ""
+    const isProvinciaFilterActive = selectedProvinciaKeys.size > 0
+    const isMunicipioFilterActive = Boolean(selectedMunicipioKey)
+    const inSelectedProvincia = !isProvinciaFilterActive || selectedProvinciaKeys.has(featureProvinciaKey)
+    const isSelectedMunicipio = !isMunicipioFilterActive || key === selectedMunicipioKey
+    const isInsideFilter = inSelectedProvincia && isSelectedMunicipio
+
     let count = 0
     if (viewMode === "todos") count = municipioMap.get(key)?.cantidad_clientes ?? 0
     else if (viewMode === "pendientes_instalacion") { const e = pendientesInstMap.get(key); count = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0) }
     else if (viewMode === "en_proceso") count = enProcesoMap.get(key)?.length ?? 0
     else if (viewMode === "averias") count = averiasMap.get(key)?.length ?? 0
     else if (viewMode === "visitas") { const e = visitasMap.get(key); count = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0) }
-    if (!count) return { color: "#1e293b", weight: 0.4, fillColor: "#0f172a", fillOpacity: 0.5 }
+
+    if (!isInsideFilter) {
+      return { color: "#0b1220", weight: 0.5, fillColor: "#020617", fillOpacity: 0.15 }
+    }
+
+    if (!count) {
+      return {
+        color: isMunicipioFilterActive ? "#fde68a" : isProvinciaFilterActive ? "#fbbf24" : "#1e293b",
+        weight: isMunicipioFilterActive ? 2.4 : isProvinciaFilterActive ? 1.6 : 0.4,
+        fillColor: "#0f172a",
+        fillOpacity: isMunicipioFilterActive ? 0.75 : isProvinciaFilterActive ? 0.6 : 0.5,
+      }
+    }
     const ratio = Math.min(count / maxByMode, 1)
-    return { color: borderColor(viewMode), weight: 1.5, fillColor: densityColor(ratio, viewMode), fillOpacity: 0.9 }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, maxByMode])
+    return {
+      color: isMunicipioFilterActive ? "#fde68a" : isProvinciaFilterActive ? "#fbbf24" : borderColor(viewMode),
+      weight: isMunicipioFilterActive ? 2.8 : isProvinciaFilterActive ? 2 : 1.5,
+      fillColor: densityColor(ratio, viewMode),
+      fillOpacity: isMunicipioFilterActive ? 1 : 0.9,
+    }
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String((feature.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
@@ -877,13 +1836,21 @@ export default function CentroControlView() {
     else if (viewMode === "averias") { modeCount = averiasMap.get(key)?.length ?? 0; modeLabel = "con avería" }
     else if (viewMode === "visitas") { const e = visitasMap.get(key); modeCount = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0); modeLabel = "visita pendiente" }
 
-    // Etiqueta permanente solo en municipios con datos
-    if (modeCount > 0 && "bindTooltip" in layer) {
+    const featureProvinciaKey = municipioToProvinciaMap.get(key) ?? ""
+    const shouldShowMunicipioLabels = selectedProvinciaKeys.size > 0
+    const isInsideProvincia = selectedProvinciaKeys.size === 0 || selectedProvinciaKeys.has(featureProvinciaKey)
+    const isFocusedMunicipio = Boolean(selectedMunicipioKey) && key === selectedMunicipioKey
+    const shouldBindMuniLabel =
+      shouldShowMunicipioLabels &&
+      isInsideProvincia &&
+      (!selectedMunicipioKey || isFocusedMunicipio)
+
+    if (shouldBindMuniLabel && "bindTooltip" in layer) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(layer as any).bindTooltip(shapeName, {
         permanent: true,
         direction: "center",
-        className: "muni-label",
+        className: `muni-label${isFocusedMunicipio ? " muni-label--focus" : ""}`,
       })
     }
 
@@ -923,7 +1890,7 @@ export default function CentroControlView() {
         },
       })
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, getFeatureStyle])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
 
   const weekLabel = useMemo(() => {
     const { start, end } = getWeekRange()
@@ -931,7 +1898,7 @@ export default function CentroControlView() {
     return `${fmt(start)} – ${fmt(end)}`
   }, [])
 
-  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}`
+  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -946,13 +1913,46 @@ export default function CentroControlView() {
           padding: 0 !important;
           font-size: 9px !important;
           font-weight: 800 !important;
-          color: rgba(255,255,255,0.95) !important;
+          color: rgba(255,255,255,0.9) !important;
           text-shadow: 0 0 3px #000, 0 0 6px #000, 0 1px 2px #000 !important;
           white-space: nowrap !important;
           pointer-events: none !important;
         }
+        .muni-label--focus {
+          font-size: 13px !important;
+          font-weight: 900 !important;
+          color: #fde68a !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.02em !important;
+          text-shadow: 0 0 4px #000, 0 0 12px rgba(251, 191, 36, 0.65), 0 0 18px rgba(251, 191, 36, 0.5) !important;
+        }
         .muni-label::before { display: none !important; }
         .leaflet-tooltip.muni-label { margin: 0 !important; }
+        .province-label-icon {
+          background: transparent !important;
+          border: 0 !important;
+        }
+        .province-label-inner {
+          display: inline-block;
+          font-size: 12px;
+          font-weight: 900;
+          line-height: 1;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          color: rgba(255, 255, 255, 0.96);
+          text-shadow: 0 0 4px #000, 0 0 9px rgba(2, 6, 23, 0.95), 0 0 14px rgba(15, 23, 42, 0.9);
+          white-space: nowrap;
+          transform: translate(-50%, -50%);
+          pointer-events: auto;
+          cursor: pointer;
+          padding: 3px 5px;
+          border-radius: 3px;
+          transition: color 0.15s, text-shadow 0.15s;
+        }
+        .province-label-inner:hover {
+          color: #fde68a;
+          text-shadow: 0 0 4px #000, 0 0 10px rgba(251, 191, 36, 0.7), 0 0 18px rgba(251, 191, 36, 0.4);
+        }
       `}</style>
 
       {/* ── Header ── */}
@@ -979,37 +1979,12 @@ export default function CentroControlView() {
         </div>
       </div>
 
-      {/* ── KPI Bar ── */}
-      <div className="grid grid-cols-5 gap-2 px-3 py-2 bg-slate-900/60 border-b border-slate-800 shrink-0">
-        {[
-          { label: "Clientes",      value: controlData?.totalClientes ?? 0,     icon: Users,    color: "text-orange-400",  bg: "bg-orange-400/10",  dec: 0 },
-          { label: "Municipios",    value: controlData?.totalMunicipios ?? 0,   icon: Building2,color: "text-amber-400",   bg: "bg-amber-400/10",   dec: 0 },
-          { label: "kW Paneles",    value: controlData?.totalKwPaneles ?? 0,    icon: Sun,      color: "text-yellow-400",  bg: "bg-yellow-400/10",  dec: 1 },
-          { label: "kW Inversores", value: controlData?.totalKwInversores ?? 0, icon: Cpu,      color: "text-emerald-400", bg: "bg-emerald-400/10", dec: 1 },
-          { label: "kWh Baterías",  value: controlData?.totalKwhBaterias ?? 0,  icon: Battery,  color: "text-blue-400",    bg: "bg-blue-400/10",    dec: 1 },
-        ].map(kpi => (
-          <div key={kpi.label} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${kpi.bg} border border-white/5`}>
-            <kpi.icon className={`h-4 w-4 ${kpi.color} shrink-0`} />
-            <div className="min-w-0">
-              <div className={`text-sm font-bold ${kpi.color} truncate`}>{loading ? "—" : formatNum(kpi.value, kpi.dec)}</div>
-              <div className="text-[10px] text-slate-400 truncate">{kpi.label}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* ── Main Content ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
 
         {/* ── Left Panel ── */}
-        <div className={`flex flex-col transition-all duration-300 shrink-0 border-r border-slate-800 bg-slate-900/50 ${leftOpen ? "w-64" : "w-8"}`}>
-          <button onClick={() => setLeftOpen(p => !p)}
-            className="flex items-center justify-center h-8 border-b border-slate-800 hover:bg-slate-800/60 transition-colors shrink-0">
-            {leftOpen ? <ChevronLeft className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
-          </button>
-
-          {leftOpen && (
-            <div className="flex-1 overflow-y-auto p-3 space-y-4">
+        <div className="flex flex-col shrink-0 border-r border-slate-800 bg-slate-900/50 w-64">
+          <div className="flex-1 overflow-y-auto p-3 space-y-4">
 
               {/* ── OPERACIONES ── */}
               <div>
@@ -1040,6 +2015,15 @@ export default function CentroControlView() {
                     {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
                       : <span className="text-sm font-bold text-amber-400 shrink-0">{brigadas.length}</span>}
                   </button>
+                  <button onClick={() => setShowAnalisisRegional(b => !b)}
+                    className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all gap-2 text-left
+                      ${showAnalisisRegional ? "bg-emerald-500/20 ring-1 ring-inset ring-white/20" : "bg-white/5 hover:bg-white/10"}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <MapPin className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 truncate">Análisis regional</span>
+                    </div>
+                    <Filter className="h-3 w-3 text-emerald-400/60 shrink-0" />
+                  </button>
                 </div>
                 {viewMode !== "todos" && (
                   <div className="mt-2 px-2 py-1.5 rounded-md bg-white/5 border border-white/10">
@@ -1063,57 +2047,124 @@ export default function CentroControlView() {
                   <TrendingUp className="h-3.5 w-3.5 text-emerald-400 mt-1" />
                   <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mt-1">Comercial</span>
                 </div>
-                <div className="bg-white/5 rounded-lg px-3 py-2 mb-1.5">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5"><Users2 className="h-3 w-3 text-amber-400" />Leads totales</span>
-                    <span className="text-sm font-bold text-amber-400">{loading ? "—" : allLeads.length}</span>
-                  </div>
-                  {!loading && leadsByEstado.map(([estado, count]) => (
-                    <div key={estado} className="flex items-center justify-between py-0.5">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${getEstadoStyle(estado).dot}`} />
-                        <span className="text-[10px] text-slate-400 truncate">{estado}</span>
-                      </div>
-                      <span className="text-[11px] font-semibold text-slate-300 shrink-0 ml-1">{count}</span>
+                <div className="space-y-1">
+
+                  {/* Leads — expandable */}
+                  <button onClick={() => setShowLeadStates(prev => !prev)}
+                    className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all gap-2 text-left
+                      ${showLeadStates ? "bg-amber-500/20 ring-1 ring-inset ring-white/20" : "bg-white/5 hover:bg-white/10"}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Users2 className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Leads totales</span>
                     </div>
-                  ))}
-                </div>
-                <div className="bg-white/5 rounded-lg px-3 py-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[11px] text-slate-400 flex items-center gap-1.5"><CheckCircle className="h-3 w-3 text-emerald-400" />Conversión lead → cliente</span>
-                    <span className="text-sm font-bold text-emerald-400">{loading ? "—" : `${conversionPct}%`}</span>
-                  </div>
-                  {!loading && (
-                    <div className="w-full bg-slate-800 rounded-full h-1.5 mt-1">
-                      <div className="bg-emerald-400 h-1.5 rounded-full transition-all" style={{ width: `${Math.min(conversionPct, 100)}%` }} />
+                    <div className="flex items-center gap-1 shrink-0">
+                      {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
+                        : <span className="text-sm font-bold text-amber-400">{allLeads.length}</span>}
+                      {showLeadStates ? <ChevronUp className="h-3 w-3 text-slate-500" /> : <ChevronDown className="h-3 w-3 text-slate-500" />}
+                    </div>
+                  </button>
+                  {showLeadStates && !loading && (
+                    <div className="ml-2 mr-1 bg-slate-800/60 rounded-lg px-2.5 py-2 space-y-1 border border-slate-700/40">
+                      {leadsByEstado.map(([estado, count]) => (
+                        <div key={estado} className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${getEstadoStyle(estado).dot}`} />
+                            <span className="text-[10px] text-slate-400 truncate">{estado}</span>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-300 shrink-0 ml-1">{count}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
-                </div>
-                <div className="mt-3 space-y-0.5">
-                  <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Accesos rápidos</p>
-                  {[
-                    { href: "/leads", label: "Ver leads", color: "hover:text-amber-400" },
-                    { href: "/clientes", label: "Ver clientes", color: "hover:text-orange-400" },
-                    { href: "/instalaciones", label: "Instalaciones", color: "hover:text-blue-400" },
-                    { href: "/resultados", label: "Resultados", color: "hover:text-emerald-400" },
-                    { href: "/brigadas", label: "Brigadas", color: "hover:text-amber-400" },
-                  ].map(link => (
-                    <Link key={link.href} href={link.href}
-                      className={`flex items-center gap-1 text-[10px] text-slate-500 ${link.color} transition-colors py-0.5`}>
-                      <ExternalLink className="h-2.5 w-2.5 shrink-0" />{link.label}
-                    </Link>
-                  ))}
+
+                  {/* Clientes */}
+                  <div className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserCheck className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Clientes</span>
+                    </div>
+                    {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className="text-sm font-bold text-orange-400 shrink-0">{allClients.length}</span>}
+                  </div>
+
+                  {/* Ofertas confirmadas */}
+                  <div className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Ofertas confirmadas</span>
+                    </div>
+                    {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className="text-sm font-bold text-emerald-400 shrink-0">{comercialResumen.confirmadas}</span>}
+                  </div>
+
+                  {/* Ofertas canceladas */}
+                  <div className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <XCircle className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Ofertas canceladas</span>
+                    </div>
+                    {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className="text-sm font-bold text-rose-400 shrink-0">{comercialResumen.canceladas}</span>}
+                  </div>
+
+                  {/* Reservas */}
+                  <div className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Bookmark className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Reservas</span>
+                    </div>
+                    {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className="text-sm font-bold text-amber-400 shrink-0">{comercialResumen.reservadas}</span>}
+                  </div>
+
+                  {/* Conversión */}
+                  <div className="w-full flex flex-col py-2 px-3 rounded-lg bg-white/5 gap-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <TrendingUp className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                        <span className="text-[11px] text-slate-300 leading-tight truncate">Conversión lead→cliente</span>
+                      </div>
+                      {loading ? <div className="h-4 w-10 bg-slate-700 rounded animate-pulse shrink-0" />
+                        : <span className="text-sm font-bold text-emerald-400 shrink-0">{conversionPct}%</span>}
+                    </div>
+                    {!loading && (
+                      <div className="w-full bg-slate-800 rounded-full h-1">
+                        <div className="bg-emerald-400 h-1 rounded-full transition-all" style={{ width: `${Math.min(conversionPct, 100)}%` }} />
+                      </div>
+                    )}
+                  </div>
+
                 </div>
               </div>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ── Map ── */}
         <div className="flex-1 relative min-w-0">
 
+          {/* ── KPI Cards centradas entre paneles ── */}
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] w-[min(980px,calc(100%-1.5rem))]">
+            <div className="grid grid-cols-5 gap-2 bg-slate-900/92 border border-slate-700/70 rounded-xl px-2.5 py-2 shadow-xl backdrop-blur-sm">
+              {[
+                { label: "Clientes",      value: controlData?.totalClientes ?? 0,     icon: Users,    color: "text-orange-400",  bg: "bg-orange-400/10",  dec: 0 },
+                { label: "Municipios",    value: controlData?.totalMunicipios ?? 0,   icon: Building2,color: "text-amber-400",   bg: "bg-amber-400/10",   dec: 0 },
+                { label: "kW Paneles",    value: controlData?.totalKwPaneles ?? 0,    icon: Sun,      color: "text-yellow-400",  bg: "bg-yellow-400/10",  dec: 1 },
+                { label: "kW Inversores", value: controlData?.totalKwInversores ?? 0, icon: Cpu,      color: "text-emerald-400", bg: "bg-emerald-400/10", dec: 1 },
+                { label: "kWh Baterías",  value: controlData?.totalKwhBaterias ?? 0,  icon: Battery,  color: "text-blue-400",    bg: "bg-blue-400/10",    dec: 1 },
+              ].map(kpi => (
+                <div key={kpi.label} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${kpi.bg} border border-white/5 min-w-0`}>
+                  <kpi.icon className={`h-4 w-4 ${kpi.color} shrink-0`} />
+                  <div className="min-w-0">
+                    <div className={`text-sm font-bold ${kpi.color} truncate`}>{loading ? "—" : formatNum(kpi.value, kpi.dec)}</div>
+                    <div className="text-[10px] text-slate-400 truncate">{kpi.label}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* ── Filtros provincia / municipio ── */}
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 bg-slate-900/95 border border-slate-700 rounded-lg px-3 py-2 shadow-xl backdrop-blur-sm">
+          <div className="absolute top-[78px] left-1/2 -translate-x-1/2 z-[1000] flex items-center gap-2 bg-slate-900/95 border border-slate-700 rounded-lg px-3 py-2 shadow-xl backdrop-blur-sm">
             <Filter className="h-3.5 w-3.5 text-slate-400 shrink-0" />
             <select
               value={filterProvincia}
@@ -1175,6 +2226,15 @@ export default function CentroControlView() {
               <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="" />
               <ZoomControl position="bottomright" />
               <MapController bounds={currentBounds} />
+              {!filterProvincia && provinceLabels.map(label => (
+                <Marker
+                  key={label.key}
+                  position={label.center}
+                  icon={label.icon}
+                  interactive={true}
+                  eventHandlers={{ click: () => setFilterProvincia(label.provincia) }}
+                />
+              ))}
               {geoJsonData && (
                 <GeoJSON
                   key={geoKey}
@@ -1208,18 +2268,25 @@ export default function CentroControlView() {
           {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} onClose={() => setSelectedItem(null)} />}
           {showBrigadas && <BrigadasPanel brigadas={brigadas} onClose={() => setShowBrigadas(false)} />}
+          {showAnalisisRegional && (
+            <AnalisisRegionalPanel
+              allClients={allClients}
+              allLeads={allLeads}
+              viewMode={viewMode}
+              provinciasDisponibles={provinciasDisponibles}
+              confeccionOfertas={allConfeccionOfertas}
+              selectedProvincias={analisisProvinciasSeleccionadas}
+              onSelectedProvinciasChange={setAnalisisProvinciasSeleccionadas}
+              onClose={() => { setShowAnalisisRegional(false); setAnalisisProvinciasSeleccionadas([]) }}
+            />
+          )}
 
           <div className="absolute inset-0 pointer-events-none z-10 shadow-[inset_0_0_80px_rgba(0,0,0,0.7)]" />
         </div>
 
         {/* ── Right Panel ── */}
-        <div className={`flex flex-col transition-all duration-300 shrink-0 border-l border-slate-800 bg-slate-900/50 ${rightOpen ? "w-64" : "w-8"}`}>
-          <button onClick={() => setRightOpen(p => !p)}
-            className="flex items-center justify-center h-8 border-b border-slate-800 hover:bg-slate-800/60 transition-colors shrink-0">
-            {rightOpen ? <ChevronRight className="h-4 w-4 text-slate-400" /> : <ChevronLeft className="h-4 w-4 text-slate-400" />}
-          </button>
-          {rightOpen && (
-            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+        <div className="flex flex-col shrink-0 border-l border-slate-800 bg-slate-900/50 w-64">
+          <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
               <div className="flex items-center gap-2 mb-1">
                 <Calendar className="h-3.5 w-3.5 text-emerald-400" />
                 <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Esta Semana</span>
@@ -1242,8 +2309,7 @@ export default function CentroControlView() {
                     : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>}
                 </div>
               ))}
-            </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
