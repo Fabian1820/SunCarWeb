@@ -449,6 +449,8 @@ export default function InventarioPage() {
                   <InventarioCruzadoTable
                     stock={stock}
                     almacenes={almacenes}
+                    materials={materiales}
+                    marcas={marcas}
                     search={stockSearch}
                   />
                 )}
