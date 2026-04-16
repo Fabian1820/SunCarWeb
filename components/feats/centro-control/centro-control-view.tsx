@@ -11,22 +11,27 @@ import {
   Activity, RefreshCw, Wrench, PlayCircle, Phone, Shield, ArrowLeft,
   X, MapPin, Zap, ChevronDown, ChevronUp, TrendingUp, Users2,
   HardHat, TriangleAlert, CalendarClock, ExternalLink, Filter,
-  XCircle, Bookmark, UserCheck,
+  XCircle, Bookmark, UserCheck, ShoppingCart, Package, Truck,
 } from "lucide-react"
 import Link from "next/link"
 import { ResultadosService, ClienteService, LeadService } from "@/lib/api-services"
 import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service"
+import { ClienteVentaService } from "@/lib/services/feats/clientes-ventas/cliente-venta-service"
+import { SolicitudVentaService } from "@/lib/services/feats/solicitudes-ventas/solicitud-venta-service"
+import { TrabajosDiariosService } from "@/lib/services/feats/instalaciones/trabajos-diarios-service"
 import { InstalacionesService } from "@/lib/services/feats/instalaciones/instalaciones-service"
 import { apiRequest } from "@/lib/api-config"
 import type { MunicipioDetallado } from "@/lib/types/feats/resultados/resultados-types"
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types"
+import type { ClienteVenta } from "@/lib/types/feats/clientes-ventas/cliente-venta-types"
+import type { SolicitudVenta } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types"
 import "leaflet/dist/leaflet.css"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ViewMode = "todos" | "pendientes_instalacion" | "en_proceso" | "averias" | "visitas"
+type ViewMode = "todos" | "pendientes_instalacion" | "en_proceso" | "averias" | "visitas" | "ventas"
 
 interface SimpleBounds { minLat: number; maxLat: number; minLng: number; maxLng: number }
 interface Point2D { lat: number; lng: number }
@@ -48,6 +53,13 @@ type SelectedItem =
   | { mode: "en_proceso"; municipio: string; clientes: Cliente[] }
   | { mode: "averias"; municipio: string; clientes: Cliente[] }
   | { mode: "visitas"; municipio: string; clientes: Cliente[]; leads: Lead[] }
+  | { mode: "ventas"; municipio: string; clientesVenta: ClienteVenta[] }
+
+interface VentasResumen {
+  totalClientesVentas: number
+  totalSolicitudesDespachadas: number
+  materialesVendidos: Array<{ nombre: string; cantidad: number }>
+}
 
 interface MaterialAgregado {
   nombre: string
@@ -138,6 +150,56 @@ function isInRange(dateStr: string | null | undefined, start: Date, end: Date) {
 
 function toISODate(date: Date) { return date.toISOString().split("T")[0] }
 
+type PeriodoTipo = "hoy" | "semana" | "mes" | "fecha" | "rango"
+
+function getPeriodRange(
+  tipo: PeriodoTipo,
+  fecha: string,
+  desde: string,
+  hasta: string,
+): { start: Date; end: Date } | null {
+  const now = new Date()
+  if (tipo === "hoy") {
+    const start = new Date(now); start.setHours(0, 0, 0, 0)
+    const end   = new Date(now); end.setHours(23, 59, 59, 999)
+    return { start, end }
+  }
+  if (tipo === "semana") return getWeekRange()
+  if (tipo === "mes") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+    const end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+    return { start, end }
+  }
+  if (tipo === "fecha" && fecha) {
+    const start = new Date(fecha + "T00:00:00"); const end = new Date(fecha + "T23:59:59")
+    return { start, end }
+  }
+  if (tipo === "rango" && desde && hasta) {
+    const start = new Date(desde + "T00:00:00"); const end = new Date(hasta + "T23:59:59")
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) return { start, end }
+  }
+  return null
+}
+
+function formatPeriodoLabel(tipo: PeriodoTipo, fecha: string, desde: string, hasta: string): string {
+  const fmtDate = (s: string) => {
+    const d = new Date(s + "T00:00:00")
+    return d.toLocaleDateString("es-CU", { day: "2-digit", month: "short", year: "numeric" })
+  }
+  if (tipo === "hoy") return "Hoy · " + new Date().toLocaleDateString("es-CU", { day: "2-digit", month: "short" })
+  if (tipo === "semana") {
+    const { start, end } = getWeekRange()
+    const fmt = (d: Date) => d.toLocaleDateString("es-CU", { day: "2-digit", month: "short" })
+    return `${fmt(start)} – ${fmt(end)}`
+  }
+  if (tipo === "mes") {
+    return new Date().toLocaleDateString("es-CU", { month: "long", year: "numeric" })
+  }
+  if (tipo === "fecha" && fecha) return fmtDate(fecha)
+  if (tipo === "rango" && desde && hasta) return `${fmtDate(desde)} – ${fmtDate(hasta)}`
+  return "—"
+}
+
 function formatNum(value: number, decimals = 1) {
   return new Intl.NumberFormat("es-CU", { minimumFractionDigits: 0, maximumFractionDigits: decimals }).format(value)
 }
@@ -227,6 +289,7 @@ function densityColor(ratio: number, mode: ViewMode): string {
     en_proceso:             ["#172554", "#1e3a8a", "#1d4ed8", "#60a5fa", "#bfdbfe"],
     averias:                ["#450a0a", "#991b1b", "#dc2626", "#f87171", "#fecaca"],
     visitas:                ["#2e1065", "#5b21b6", "#7c3aed", "#c084fc", "#e9d5ff"],
+    ventas:                 ["#1a0533", "#4a1d96", "#7c3aed", "#a78bfa", "#ddd6fe"],
   }
   const p = palettes[mode]
   if (ratio < 0.2) return p[0]
@@ -241,6 +304,7 @@ function borderColor(mode: ViewMode): string {
   if (mode === "pendientes_instalacion") return "#fb923c"
   if (mode === "en_proceso") return "#60a5fa"
   if (mode === "averias") return "#f87171"
+  if (mode === "ventas") return "#a78bfa"
   return "#c084fc"
 }
 
@@ -297,6 +361,60 @@ function CardHeader({ name, sub, color, onClose }: { name: string; sub?: string;
       <button onClick={onClose} className="ml-2 p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors shrink-0">
         <X className="h-3.5 w-3.5" />
       </button>
+    </div>
+  )
+}
+
+// ─── Equipos helpers ─────────────────────────────────────────────────────────
+
+interface EquipoItem { tipo: "Inversor" | "Batería" | "Panel"; nombre: string; cantidad: number }
+
+/** Devuelve los equipos (Inv/Bat/Pan) de la oferta confeccionada confirmada más reciente del cliente */
+function getEquiposFromOfertaConfeccion(
+  clienteNumero: string | undefined,
+  ofertas: RawConfeccionOferta[],
+): EquipoItem[] {
+  if (!clienteNumero) return []
+  const confirmadas = ofertas.filter(
+    o => o.cliente_numero === clienteNumero && isOfertaConfirmadaPorCliente(o.estado),
+  )
+  if (!confirmadas.length) return []
+  // Más reciente primero
+  const oferta = confirmadas.sort((a, b) => {
+    const da = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0
+    const db = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0
+    return db - da
+  })[0]
+  const result: EquipoItem[] = []
+  ;(oferta.items ?? []).forEach(item => {
+    const cat = normalizeText(item.categoria ?? "")
+    let tipo: "Inversor" | "Batería" | "Panel" | null = null
+    if (cat.includes("inversor")) tipo = "Inversor"
+    else if (cat.includes("bateria") || cat.includes("batería")) tipo = "Batería"
+    else if (cat.includes("panel")) tipo = "Panel"
+    if (tipo && item.cantidad > 0) {
+      result.push({ tipo, nombre: item.descripcion || item.material_codigo, cantidad: item.cantidad })
+    }
+  })
+  return result
+}
+
+function EquiposRow({ equipos }: { equipos: EquipoItem[] }) {
+  if (!equipos.length) return null
+  return (
+    <div className="mt-1.5 pt-1.5 border-t border-slate-700/30 space-y-0.5">
+      {equipos.map((e, i) => {
+        const isInv = e.tipo === "Inversor", isBat = e.tipo === "Batería"
+        const color = isInv ? "text-emerald-400" : isBat ? "text-blue-400" : "text-yellow-400"
+        const Icon = isInv ? Zap : isBat ? Battery : Sun
+        return (
+          <p key={i} className={`text-[10px] flex items-center gap-1.5 ${color}`}>
+            <Icon className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate text-slate-300">{e.nombre}</span>
+            <span className={`shrink-0 font-semibold ${color}`}>×{e.cantidad}</span>
+          </p>
+        )
+      })}
     </div>
   )
 }
@@ -370,7 +488,7 @@ function MunicipioCard({ muni, allClients, onClose }: { muni: MunicipioDetallado
 
 // ─── PendientesInstCard ───────────────────────────────────────────────────────
 
-function PendientesInstCard({ municipio, clientes, leads, onClose }: { municipio: string; clientes: Cliente[]; leads: Lead[]; onClose: () => void }) {
+function PendientesInstCard({ municipio, clientes, leads, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; leads: Lead[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<"clientes" | "leads" | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -409,6 +527,7 @@ function PendientesInstCard({ municipio, clientes, leads, onClose }: { municipio
                         </p>
                       )}
                       {c.comercial && <p className="text-[10px] text-slate-600">Comercial: {c.comercial}</p>}
+                      <EquiposRow equipos={getEquiposFromOfertaConfeccion(c.numero, confeccionOfertas)} />
                     </div>
                   ))}
                 </div>
@@ -454,7 +573,7 @@ function PendientesInstCard({ municipio, clientes, leads, onClose }: { municipio
 
 // ─── EnProcesoCard ────────────────────────────────────────────────────────────
 
-function EnProcesoCard({ municipio, clientes, onClose }: { municipio: string; clientes: Cliente[]; onClose: () => void }) {
+function EnProcesoCard({ municipio, clientes, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -496,6 +615,7 @@ function EnProcesoCard({ municipio, clientes, onClose }: { municipio: string; cl
                         <p className="text-[11px] text-amber-200">{falta}</p>
                       </div>
                     ) : <p className="text-[11px] text-slate-500 italic">Sin pendientes registrados</p>}
+                    <EquiposRow equipos={getEquiposFromOfertaConfeccion(c.numero, confeccionOfertas)} />
                   </div>
                 )}
               </div>
@@ -509,7 +629,7 @@ function EnProcesoCard({ municipio, clientes, onClose }: { municipio: string; cl
 
 // ─── AveriasCard ──────────────────────────────────────────────────────────────
 
-function AveriasCard({ municipio, clientes, onClose }: { municipio: string; clientes: Cliente[]; onClose: () => void }) {
+function AveriasCard({ municipio, clientes, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const totalAverias = useMemo(() =>
     clientes.reduce((sum, c) => {
@@ -556,6 +676,7 @@ function AveriasCard({ municipio, clientes, onClose }: { municipio: string; clie
                         {a.fecha_reporte != null && <p className="text-[10px] text-slate-500 mt-0.5">Reportada: {new Date(String(a.fecha_reporte)).toLocaleDateString("es-CU")}</p>}
                       </div>
                     ))}
+                    <EquiposRow equipos={getEquiposFromOfertaConfeccion(c.numero, confeccionOfertas)} />
                   </div>
                 )}
               </div>
@@ -569,7 +690,7 @@ function AveriasCard({ municipio, clientes, onClose }: { municipio: string; clie
 
 // ─── VisitasCard ──────────────────────────────────────────────────────────────
 
-function VisitasCard({ municipio, clientes, leads, onClose }: { municipio: string; clientes: Cliente[]; leads: Lead[]; onClose: () => void }) {
+function VisitasCard({ municipio, clientes, leads, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; leads: Lead[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<"clientes" | "leads" | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -614,6 +735,7 @@ function VisitasCard({ municipio, clientes, leads, onClose }: { municipio: strin
                           </p>
                         )}
                         {c.comercial && <p className="text-[10px] text-slate-600">Comercial: {c.comercial}</p>}
+                        {isCliente && <EquiposRow equipos={getEquiposFromOfertaConfeccion((c as Cliente).numero, confeccionOfertas)} />}
                       </div>
                     )
                   })}
@@ -767,6 +889,117 @@ function agregarMaterialesDeOfertas(
     if (ca !== 0) return ca
     return b.cantidad - a.cantidad
   })
+}
+
+// ─── VentasClientesCard ───────────────────────────────────────────────────────
+
+function VentasClientesCard({ municipio, clientesVenta, solicitudesUsadas, onClose }: {
+  municipio: string
+  clientesVenta: ClienteVenta[]
+  solicitudesUsadas: SolicitudVenta[]
+  onClose: () => void
+}) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+
+  const sorted = useMemo(() =>
+    [...clientesVenta].sort((a, b) => {
+      const da = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0
+      const db = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0
+      return db - da
+    }), [clientesVenta])
+
+  /** Agrupa materiales de todas las solicitudes usadas de un cliente */
+  const getMaterialesCliente = (clienteId: string) => {
+    const map = new Map<string, { nombre: string; cantidad: number; um?: string }>()
+    solicitudesUsadas
+      .filter(s => s.cliente_venta_id === clienteId)
+      .forEach(s => {
+        ;(s.materiales ?? []).forEach(m => {
+          const nombre = m.material?.nombre || m.material_descripcion || m.descripcion || m.material_codigo || m.codigo || m.material_id || "Material"
+          const key = m.material_id || normalizeText(nombre)
+          const prev = map.get(key) ?? { nombre, cantidad: 0, um: m.um }
+          map.set(key, { ...prev, cantidad: prev.cantidad + (m.cantidad ?? 0) })
+        })
+      })
+    return Array.from(map.values()).filter(m => m.cantidad > 0).sort((a, b) => b.cantidad - a.cantidad)
+  }
+
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
+      <div className="bg-slate-900/95 border border-violet-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-violet-400" onClose={onClose} />
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
+          <ShoppingCart className="h-3.5 w-3.5 text-violet-400 shrink-0" />
+          <span className="text-xs text-slate-300">
+            <span className="font-bold text-violet-300 text-sm">{clientesVenta.length}</span> cliente{clientesVenta.length !== 1 ? "s" : ""} de ventas
+          </span>
+        </div>
+        <div className="max-h-80 overflow-y-auto divide-y divide-slate-700/30">
+          {sorted.map(cv => {
+            const key = cv.id
+            const isOpen = expanded === key
+            const materiales = isOpen ? getMaterialesCliente(cv.id) : []
+            return (
+              <div key={key}>
+                <button
+                  onClick={() => setExpanded(e => e === key ? null : key)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 text-left"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-white truncate">{cv.nombre}</p>
+                    {cv.numero && <p className="text-[10px] text-slate-500">#{cv.numero}</p>}
+                  </div>
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" />}
+                </button>
+                {isOpen && (
+                  <div className="bg-slate-950/40 px-4 py-2.5 space-y-1">
+                    {cv.telefono && (
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Phone className="h-2.5 w-2.5 shrink-0" />{cv.telefono}
+                      </p>
+                    )}
+                    {cv.ci && (
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <Users className="h-2.5 w-2.5 shrink-0" />CI: {cv.ci}
+                      </p>
+                    )}
+                    {cv.direccion && (
+                      <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                        <MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{cv.direccion}</span>
+                      </p>
+                    )}
+                    {cv.fecha_creacion && (
+                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
+                        <Calendar className="h-2.5 w-2.5 shrink-0" />
+                        Alta: {new Date(cv.fecha_creacion).toLocaleDateString("es-CU")}
+                      </p>
+                    )}
+                    {/* Materiales comprados */}
+                    {materiales.length > 0 ? (
+                      <div className="mt-1.5 pt-1.5 border-t border-slate-700/30 space-y-0.5">
+                        <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Materiales comprados</p>
+                        {materiales.map((mat, i) => (
+                          <p key={i} className="text-[10px] flex items-center gap-1.5 text-slate-300">
+                            <Package className="h-2.5 w-2.5 shrink-0 text-violet-400" />
+                            <span className="truncate">{mat.nombre}</span>
+                            <span className="shrink-0 font-semibold text-violet-300">
+                              ×{mat.cantidad}{mat.um ? ` ${mat.um}` : ""}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-slate-600 italic mt-1">Sin compras registradas</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 // ─── AnalisisRegionalPanel ────────────────────────────────────────────────────
@@ -1020,6 +1253,7 @@ function AnalisisRegionalPanel({
   const modoLabel: Record<ViewMode, string> = {
     todos: "Todos", pendientes_instalacion: "Pendientes instalación",
     en_proceso: "En proceso", averias: "Con averías", visitas: "Pendientes visita",
+    ventas: "Clientes de ventas",
   }
 
   const handleExportExcel = async () => {
@@ -1482,6 +1716,20 @@ export default function CentroControlView() {
   const [showBrigadas, setShowBrigadas] = useState(false)
   const [showAnalisisRegional, setShowAnalisisRegional] = useState(false)
   const [allConfeccionOfertas, setAllConfeccionOfertas] = useState<RawConfeccionOferta[]>([])
+  const [ventasResumen, setVentasResumen] = useState<VentasResumen>({ totalClientesVentas: 0, totalSolicitudesDespachadas: 0, materialesVendidos: [] })
+  const [showMaterialesVendidos, setShowMaterialesVendidos] = useState(false)
+  // ── Periodo del panel derecho ──────────────────────────────────────────────
+  const [periodoTipo, setPeriodoTipo] = useState<PeriodoTipo>("semana")
+  const [periodoFecha, setPeriodoFecha] = useState("")   // fecha única
+  const [periodoDesde, setPeriodoDesde] = useState("")   // rango inicio
+  const [periodoHasta, setPeriodoHasta] = useState("")   // rango fin
+  const [visitasRealizadasPeriodo, setVisitasRealizadasPeriodo] = useState(0)
+
+  // Raw datasets (para recomputar stats al cambiar periodo sin re-fetching)
+  const [allClientesVenta, setAllClientesVenta] = useState<ClienteVenta[]>([])
+  const [allSolicitudesVenta, setAllSolicitudesVenta] = useState<SolicitudVenta[]>([])
+  const [allTrabajosDiarios, setAllTrabajosDiarios] = useState<Array<{ fecha_trabajo?: string }>>([])
+  const [showProvinceLabels, setShowProvinceLabels] = useState(true)
   const [showLeadStates, setShowLeadStates] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -1566,12 +1814,15 @@ export default function CentroControlView() {
       // Fase 2 (pesada): datasets completos para mapa/paneles
       void (async () => {
         try {
-          const [allClientsResult, clientesConAveriasResult, allLeadsResult, brigadasResult, ofertasConfeccionResult] = await Promise.allSettled([
+          const [allClientsResult, clientesConAveriasResult, allLeadsResult, brigadasResult, ofertasConfeccionResult, clientesVentaResult, solicitudesVentaResult, trabajosDiariosResult] = await Promise.allSettled([
             fetchAllClientes(),
             ClienteService.getClientesConAverias(),
             fetchAllLeads(),
             BrigadaService.getAllBrigadas(),
             apiRequest<{ data?: unknown[] } | unknown[]>("/ofertas/confeccion/"),
+            ClienteVentaService.getClientes(),
+            SolicitudVentaService.getSolicitudes(), // todas, sin filtro de estado
+            TrabajosDiariosService.getTrabajosTodos(),
           ])
 
           const clients: Cliente[] = allClientsResult.status === "fulfilled" ? allClientsResult.value : []
@@ -1613,6 +1864,33 @@ export default function CentroControlView() {
           }, { confirmadas: 0, canceladas: 0, reservadas: 0 })
           setComercialResumen(resumenComercial)
           setAllConfeccionOfertas(ofertasRaw as RawConfeccionOferta[])
+
+          // Ventas — guardar raw en estado para recomputar al cambiar periodo
+          const clientesVenta = clientesVentaResult.status === "fulfilled" ? clientesVentaResult.value : []
+          const todasSolicitudesVenta = solicitudesVentaResult.status === "fulfilled" ? solicitudesVentaResult.value : []
+          const trabajosDiariosRaw = trabajosDiariosResult.status === "fulfilled" ? trabajosDiariosResult.value : []
+          setAllClientesVenta(clientesVenta)
+          setAllSolicitudesVenta(todasSolicitudesVenta)
+          setAllTrabajosDiarios(trabajosDiariosRaw.map(t => ({ fecha_trabajo: t.fecha_trabajo })))
+          const solicitudesUsadas = todasSolicitudesVenta.filter(s => s.estado === "usada")
+          const matVendidosMap = new Map<string, { nombre: string; cantidad: number }>()
+          solicitudesUsadas.forEach(s => {
+            s.materiales?.forEach(m => {
+              const nombre = m.material_descripcion || m.descripcion || m.material_codigo || m.codigo || m.material_id || "Material"
+              const key = m.material_id || normalizeText(nombre)
+              const ex = matVendidosMap.get(key) ?? { nombre, cantidad: 0 }
+              ex.cantidad += m.cantidad ?? 0
+              matVendidosMap.set(key, ex)
+            })
+          })
+          const materialesVendidos = Array.from(matVendidosMap.values())
+            .filter(m => m.cantidad > 0)
+            .sort((a, b) => b.cantidad - a.cantidad)
+          setVentasResumen({
+            totalClientesVentas: clientesVenta.length,
+            totalSolicitudesDespachadas: solicitudesUsadas.length,
+            materialesVendidos,
+          })
 
           setControlData(prev => prev ? {
             ...prev,
@@ -1770,13 +2048,23 @@ export default function CentroControlView() {
     return map
   }, [allClients, allLeads])
 
+  const ventasMap = useMemo(() => {
+    const map = new Map<string, ClienteVenta[]>()
+    allClientesVenta.forEach(cv => {
+      const key = normalizeText(cv.municipio); if (!key) return
+      const list = map.get(key) ?? []; list.push(cv); map.set(key, list)
+    })
+    return map
+  }, [allClientesVenta])
+
   const maxByMode = useMemo(() => {
     if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()).map(v => v.clientes.length + v.leads.length), 1)
     if (viewMode === "en_proceso") return Math.max(...Array.from(enProcesoMap.values()).map(v => v.length), 1)
     if (viewMode === "averias") return Math.max(...Array.from(averiasMap.values()).map(v => v.length), 1)
     if (viewMode === "visitas") return Math.max(...Array.from(visitasMap.values()).map(v => v.clientes.length + v.leads.length), 1)
+    if (viewMode === "ventas") return Math.max(...Array.from(ventasMap.values()).map(v => v.length), 1)
     return maxClientes
-  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, maxClientes])
+  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, maxClientes])
 
   // ── Filtros provincia / municipio ───────────────────────────────────────────
   const provinciasDisponibles = useMemo(() =>
@@ -1865,6 +2153,71 @@ export default function CentroControlView() {
     return total ? Math.round((allClients.length / total) * 1000) / 10 : 0
   }, [allClients.length, allLeads.length])
 
+  // ── Periodo selector memos ────────────────────────────────────────────────
+  const periodoRange = useMemo(
+    () => getPeriodRange(periodoTipo, periodoFecha, periodoDesde, periodoHasta),
+    [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
+  )
+
+  const periodoLabel = useMemo(
+    () => formatPeriodoLabel(periodoTipo, periodoFecha, periodoDesde, periodoHasta),
+    [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
+  )
+
+  const periodoStats = useMemo(() => {
+    const zero = { instalacionesComenzadas: 0, instalacionesTerminadas: 0, nuevosClientes: 0, nuevosLeads: 0, averiasSolucionadas: 0, ofertasCreadas: 0, ofertasConfirmadas: 0, ofertasCanceladas: 0, reservas: 0, trabajosDiarios: 0, nuevosClientesVentas: 0, solicitudesDespachadas: 0, materialesVendidosUnidades: 0 }
+    if (!periodoRange) return zero
+    const { start, end } = periodoRange
+    const inR = (s: string | null | undefined) => isInRange(s, start, end)
+
+    const instalacionesTerminadas = allClients.filter(c => {
+      const n = normalizeText(c.estado ?? "")
+      return (n === "instalacion terminada" || n === "instalado" || n.includes("equipo instalado")) && inR(c.fecha_montaje ?? c.fecha_instalacion)
+    }).length
+    const instalacionesComenzadas = allClients.filter(c => isEnProceso(c.estado) && inR(c.fecha_instalacion ?? c.fecha_montaje)).length
+    const nuevosClientes = allClients.filter(c => inR(c.fecha_contacto)).length
+    const nuevosLeads = allLeads.filter(l => inR(l.fecha_contacto)).length
+
+    let averiasSolucionadas = 0
+    clientesConAverias.forEach(c => {
+      const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
+      avs.forEach(a => { if (a.estado === "Solucionada" && inR(a.fecha_solucion as string)) averiasSolucionadas++ })
+    })
+
+    const ofertasCreadas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion)).length
+    const ofertasConfirmadas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion) && isOfertaConfirmadaPorCliente(o.estado)).length
+    const ofertasCanceladas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion) && normalizeText(o.estado ?? "").includes("cancelada")).length
+    const reservas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion) && normalizeText(o.estado ?? "").includes("reservada")).length
+
+    const trabajosDiarios = allTrabajosDiarios.filter(t => inR(t.fecha_trabajo)).length
+
+    const solicitudesUsadas = allSolicitudesVenta.filter(s => s.estado === "usada")
+    const nuevosClientesVentas = allClientesVenta.filter(cv => inR(cv.fecha_creacion)).length
+    const solicitudesDespachadas = solicitudesUsadas.filter(s => inR(s.fecha_creacion)).length
+    const materialesVendidosUnidades = solicitudesUsadas
+      .filter(s => inR(s.fecha_creacion))
+      .reduce((sum, s) => sum + (s.materiales?.reduce((ms, m) => ms + (m.cantidad ?? 0), 0) ?? 0), 0)
+
+    return { instalacionesComenzadas, instalacionesTerminadas, nuevosClientes, nuevosLeads, averiasSolucionadas, ofertasCreadas, ofertasConfirmadas, ofertasCanceladas, reservas, trabajosDiarios, nuevosClientesVentas, solicitudesDespachadas, materialesVendidosUnidades }
+  }, [periodoRange, allClients, allLeads, clientesConAverias, allConfeccionOfertas, allTrabajosDiarios, allSolicitudesVenta, allClientesVenta])
+
+  // Re-fetch visitas cuando cambia el periodo (dato que solo viene del backend)
+  useEffect(() => {
+    if (!periodoRange) { setVisitasRealizadasPeriodo(0); return }
+    const startStr = toISODate(periodoRange.start)
+    const endStr   = toISODate(periodoRange.end)
+    let cancelled = false
+    apiRequest<Record<string, unknown>>(`/visitas/?estado=completada&fecha_desde=${startStr}&fecha_hasta=${endStr}`)
+      .then(res => {
+        if (cancelled) return
+        const inner = (res?.data ?? res) as Record<string, unknown> | null
+        const visitas = Array.isArray(inner?.visitas) ? inner.visitas : []
+        setVisitasRealizadasPeriodo(typeof inner?.total === "number" ? inner.total : visitas.length)
+      })
+      .catch(() => { if (!cancelled) setVisitasRealizadasPeriodo(0) })
+    return () => { cancelled = true }
+  }, [periodoRange])
+
   // ── Map styles ──────────────────────────────────────────────────────────────
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
     const shapeName = String((feature?.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
@@ -1882,6 +2235,7 @@ export default function CentroControlView() {
     else if (viewMode === "en_proceso") count = enProcesoMap.get(key)?.length ?? 0
     else if (viewMode === "averias") count = averiasMap.get(key)?.length ?? 0
     else if (viewMode === "visitas") { const e = visitasMap.get(key); count = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0) }
+    else if (viewMode === "ventas") count = ventasMap.get(key)?.length ?? 0
 
     if (!isInsideFilter) {
       return { color: "#0b1220", weight: 0.5, fillColor: "#020617", fillOpacity: 0.15 }
@@ -1902,7 +2256,7 @@ export default function CentroControlView() {
       fillColor: densityColor(ratio, viewMode),
       fillOpacity: isMunicipioFilterActive ? 1 : 0.9,
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String((feature.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
@@ -1916,6 +2270,7 @@ export default function CentroControlView() {
     else if (viewMode === "en_proceso") { modeCount = enProcesoMap.get(key)?.length ?? 0; modeLabel = "en proceso" }
     else if (viewMode === "averias") { modeCount = averiasMap.get(key)?.length ?? 0; modeLabel = "con avería" }
     else if (viewMode === "visitas") { const e = visitasMap.get(key); modeCount = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0); modeLabel = "visita pendiente" }
+    else if (viewMode === "ventas") { modeCount = ventasMap.get(key)?.length ?? 0; modeLabel = "cliente ventas" }
 
     const featureProvinciaKey = municipioToProvinciaMap.get(key) ?? ""
     const shouldShowMunicipioLabels = selectedProvinciaKeys.size > 0
@@ -1967,19 +2322,17 @@ export default function CentroControlView() {
           } else if (viewMode === "visitas") {
             const ev = visitasMap.get(key); if (!ev || (!ev.clientes.length && !ev.leads.length)) return
             setSelectedItem(prev => prev?.mode === "visitas" && prev.municipio === shapeName ? null : { mode: "visitas", municipio: shapeName, clientes: ev.clientes, leads: ev.leads })
+          } else if (viewMode === "ventas") {
+            const cv = ventasMap.get(key); if (!cv?.length) return
+            setSelectedItem(prev => prev?.mode === "ventas" && prev.municipio === shapeName ? null : { mode: "ventas", municipio: shapeName, clientesVenta: cv })
           }
         },
       })
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
 
-  const weekLabel = useMemo(() => {
-    const { start, end } = getWeekRange()
-    const fmt = (d: Date) => d.toLocaleDateString("es-CU", { day: "2-digit", month: "short" })
-    return `${fmt(start)} – ${fmt(end)}`
-  }, [])
 
-  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
+  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -2217,6 +2570,67 @@ export default function CentroControlView() {
 
                 </div>
               </div>
+
+              {/* ── VENTAS ── */}
+              <div>
+                <div className="flex items-center gap-2 mb-2 pt-1 border-t border-slate-800">
+                  <ShoppingCart className="h-3.5 w-3.5 text-violet-400 mt-1" />
+                  <span className="text-[11px] font-bold text-violet-400 uppercase tracking-wider mt-1">Ventas</span>
+                </div>
+                <div className="space-y-1">
+
+                  {/* Clientes de ventas — toggle en el mapa */}
+                  <OperacionesBtn icon={Users2} label="Clientes de ventas"
+                    value={ventasResumen.totalClientesVentas}
+                    color="text-violet-400" activeBg="bg-violet-500/20"
+                    active={viewMode === "ventas"} loading={loading}
+                    onClick={() => setViewMode(v => v === "ventas" ? "todos" : "ventas")} />
+
+                  {/* Solicitudes despachadas */}
+                  <div className="w-full flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Truck className="h-3.5 w-3.5 text-violet-300 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Solicitudes despachadas</span>
+                    </div>
+                    {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className="text-sm font-bold text-violet-300 shrink-0">{ventasResumen.totalSolicitudesDespachadas}</span>}
+                  </div>
+
+                  {/* Materiales vendidos — expandable */}
+                  <button onClick={() => setShowMaterialesVendidos(v => !v)}
+                    className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all gap-2 text-left
+                      ${showMaterialesVendidos ? "bg-violet-500/20 ring-1 ring-inset ring-white/20" : "bg-white/5 hover:bg-white/10"}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Package className="h-3.5 w-3.5 text-violet-300 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">Materiales vendidos</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
+                        : <span className="text-sm font-bold text-violet-300">{ventasResumen.materialesVendidos.length}</span>}
+                      {showMaterialesVendidos ? <ChevronUp className="h-3 w-3 text-slate-500" /> : <ChevronDown className="h-3 w-3 text-slate-500" />}
+                    </div>
+                  </button>
+
+                  {showMaterialesVendidos && !loading && (
+                    <div className="ml-2 mr-1 bg-slate-800/60 rounded-lg border border-slate-700/40 overflow-hidden">
+                      {ventasResumen.materialesVendidos.length === 0 ? (
+                        <p className="text-[11px] text-slate-500 italic px-3 py-2">Sin materiales despachados</p>
+                      ) : (
+                        <div className="divide-y divide-slate-700/30 max-h-52 overflow-y-auto">
+                          {ventasResumen.materialesVendidos.map((m, i) => (
+                            <div key={m.nombre + i} className="flex items-center justify-between px-3 py-1.5 gap-2">
+                              <span className="text-[10px] text-slate-300 truncate leading-tight">{m.nombre}</span>
+                              <span className="text-[11px] font-bold text-violet-300 shrink-0 ml-1">×{m.cantidad}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              </div>
+
           </div>
         </div>
 
@@ -2282,6 +2696,15 @@ export default function CentroControlView() {
                 <X className="h-3 w-3" />
               </button>
             )}
+            <span className="text-slate-700 text-xs">|</span>
+            <button
+              onClick={() => setShowProvinceLabels(v => !v)}
+              title={showProvinceLabels ? "Ocultar nombres de provincias" : "Mostrar nombres de provincias"}
+              className={`flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded transition-colors ${showProvinceLabels ? "text-amber-400 bg-amber-400/10" : "text-slate-500 hover:text-slate-300"}`}
+            >
+              <MapPin className="h-3 w-3" />
+              <span className="hidden sm:inline">{showProvinceLabels ? "Prov." : "Prov."}</span>
+            </button>
           </div>
 
           {/* Loading */}
@@ -2307,7 +2730,7 @@ export default function CentroControlView() {
               <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution="" />
               <ZoomControl position="bottomright" />
               <MapController bounds={currentBounds} />
-              {!filterProvincia && provinceLabels.map(label => (
+              {!filterProvincia && showProvinceLabels && provinceLabels.map(label => (
                 <Marker
                   key={label.key}
                   position={label.center}
@@ -2330,7 +2753,7 @@ export default function CentroControlView() {
           {/* Leyenda densidad */}
           {viewMode !== "todos" && (
             <div className="absolute bottom-16 right-3 z-[1000] bg-slate-900/90 border border-slate-700 rounded-lg px-3 py-2 text-[10px] text-slate-400 space-y-1 backdrop-blur-sm">
-              <p className={`font-semibold mb-1 ${viewMode === "pendientes_instalacion" ? "text-orange-400" : viewMode === "en_proceso" ? "text-blue-400" : viewMode === "averias" ? "text-red-400" : "text-purple-400"}`}>
+              <p className={`font-semibold mb-1 ${viewMode === "pendientes_instalacion" ? "text-orange-400" : viewMode === "en_proceso" ? "text-blue-400" : viewMode === "averias" ? "text-red-400" : viewMode === "ventas" ? "text-violet-400" : "text-purple-400"}`}>
                 Densidad
               </p>
               {([0.9, 0.65, 0.4, 0.15] as const).map((ratio, i) => (
@@ -2344,10 +2767,11 @@ export default function CentroControlView() {
 
           {/* Cards */}
           {selectedItem?.mode === "todos" && <MunicipioCard muni={selectedItem.muni} allClients={allClients} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "pendientes_instalacion" && <PendientesInstCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "en_proceso" && <EnProcesoCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "pendientes_instalacion" && <PendientesInstCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "en_proceso" && <EnProcesoCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "ventas" && <VentasClientesCard municipio={selectedItem.municipio} clientesVenta={selectedItem.clientesVenta} solicitudesUsadas={allSolicitudesVenta.filter(s => s.estado === "usada")} onClose={() => setSelectedItem(null)} />}
           {showBrigadas && <BrigadasPanel brigadas={brigadas} onClose={() => setShowBrigadas(false)} />}
           {showAnalisisRegional && (
             <AnalisisRegionalPanel
@@ -2367,29 +2791,141 @@ export default function CentroControlView() {
 
         {/* ── Right Panel ── */}
         <div className="flex flex-col shrink-0 border-l border-slate-800 bg-slate-900/50 w-64">
-          <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              <div className="flex items-center gap-2 mb-1">
-                <Calendar className="h-3.5 w-3.5 text-emerald-400" />
-                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Esta Semana</span>
-              </div>
-              <div className="text-[10px] text-slate-500 mb-3">{weekLabel}</div>
-              {[
-                { icon: CheckCircle, label: "Instalaciones terminadas", value: controlData?.instalacionesTerminadas ?? 0, color: "text-emerald-400" },
-                { icon: PlayCircle,  label: "Instalaciones comenzadas", value: controlData?.instalacionesComenzadas ?? 0, color: "text-blue-400" },
-                { icon: Phone,       label: "Nuevos leads",             value: controlData?.nuevosLeads ?? 0,             color: "text-amber-400" },
-                { icon: UserPlus,    label: "Nuevos clientes",          value: controlData?.nuevosClientes ?? 0,          color: "text-orange-400" },
-                { icon: Shield,      label: "Averías solucionadas",     value: controlData?.averiasSolucionadas ?? 0,     color: "text-green-400" },
-                { icon: Eye,         label: "Visitas realizadas",       value: controlData?.visitasRealizadas ?? 0,       color: "text-purple-400" },
-              ].map(({ icon: Icon, label, value, color }) => (
-                <div key={label} className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
-                    <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
-                  </div>
-                  {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
-                    : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>}
-                </div>
+
+          {/* ── Selector de periodo ── */}
+          <div className="px-2 py-1.5 border-b border-slate-800">
+            <div className="flex items-center gap-1">
+              <Calendar className="h-3 w-3 text-emerald-400 shrink-0" />
+              {(["hoy", "semana", "mes", "fecha", "rango"] as PeriodoTipo[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setPeriodoTipo(t)}
+                  className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors leading-none ${
+                    periodoTipo === t
+                      ? "bg-emerald-500/20 border-emerald-500 text-emerald-300"
+                      : "border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300"
+                  }`}
+                >
+                  {t === "hoy" ? "Hoy" : t === "semana" ? "Sem" : t === "mes" ? "Mes" : t === "fecha" ? "Fecha" : "Rango"}
+                </button>
               ))}
+            </div>
+            {periodoTipo === "fecha" && (
+              <input type="date" value={periodoFecha} onChange={e => setPeriodoFecha(e.target.value)}
+                className="mt-1 w-full text-[9px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 focus:outline-none focus:border-emerald-500" />
+            )}
+            {periodoTipo === "rango" && (
+              <div className="mt-1 flex gap-1">
+                <input type="date" value={periodoDesde} onChange={e => setPeriodoDesde(e.target.value)}
+                  className="w-1/2 text-[9px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 focus:outline-none focus:border-emerald-500" />
+                <input type="date" value={periodoHasta} onChange={e => setPeriodoHasta(e.target.value)}
+                  className="w-1/2 text-[9px] bg-slate-800 border border-slate-700 rounded px-1.5 py-0.5 text-slate-200 focus:outline-none focus:border-emerald-500" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-4">
+
+            {/* ── OPERACIONES ── */}
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <HardHat className="h-3.5 w-3.5 text-amber-400" />
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Operaciones</span>
+              </div>
+              <div className="space-y-0.5">
+                {[
+                  { icon: PlayCircle,  label: "Instalaciones comenzadas",  value: periodoStats.instalacionesComenzadas, color: "text-blue-400"    },
+                  { icon: CheckCircle, label: "Instalaciones terminadas",   value: periodoStats.instalacionesTerminadas, color: "text-emerald-400" },
+                  { icon: Wrench,      label: "Trabajos diarios registr.",  value: periodoStats.trabajosDiarios,         color: "text-cyan-400"    },
+                  { icon: Shield,      label: "Averías solucionadas",       value: periodoStats.averiasSolucionadas,     color: "text-green-400"   },
+                  { icon: Eye,         label: "Visitas realizadas",         value: visitasRealizadasPeriodo,             color: "text-purple-400"  },
+                ].map(({ icon: Icon, label, value, color }) => (
+                  <div key={label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
+                    </div>
+                    {loading
+                      ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
+                    }
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── COMERCIAL ── */}
+            <div>
+              <div className="flex items-center gap-2 mb-1 pt-1 border-t border-slate-800">
+                <TrendingUp className="h-3.5 w-3.5 text-emerald-400" />
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Comercial</span>
+              </div>
+              <div className="space-y-0.5">
+                {[
+                  { icon: Phone,       label: "Nuevos leads",        value: periodoStats.nuevosLeads,        color: "text-amber-400"  },
+                  { icon: UserPlus,    label: "Nuevos clientes",     value: periodoStats.nuevosClientes,     color: "text-orange-400" },
+                  { icon: Zap,         label: "Ofertas creadas",     value: periodoStats.ofertasCreadas,     color: "text-yellow-400" },
+                  { icon: CheckCircle, label: "Ofertas confirmadas", value: periodoStats.ofertasConfirmadas, color: "text-emerald-400" },
+                  { icon: XCircle,     label: "Ofertas canceladas",  value: periodoStats.ofertasCanceladas,  color: "text-red-400"    },
+                  { icon: Bookmark,    label: "Reservas",            value: periodoStats.reservas,           color: "text-sky-400"    },
+                ].map(({ icon: Icon, label, value, color }) => (
+                  <div key={label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
+                    </div>
+                    {loading
+                      ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
+                    }
+                  </div>
+                ))}
+
+                {/* % Conversión lead → cliente */}
+                <div className="py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <UserCheck className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">% Conversión lead→cliente</span>
+                    </div>
+                    {loading
+                      ? <div className="h-4 w-8 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className="text-sm font-bold text-emerald-400 shrink-0">{conversionPct}%</span>
+                    }
+                  </div>
+                  <div className="w-full bg-slate-700/50 rounded-full h-1 overflow-hidden">
+                    <div className="bg-emerald-400 h-1 rounded-full transition-all" style={{ width: `${Math.min(conversionPct, 100)}%` }} />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── VENTAS ── */}
+            <div>
+              <div className="flex items-center gap-2 mb-1 pt-1 border-t border-slate-800">
+                <ShoppingCart className="h-3.5 w-3.5 text-violet-400" />
+                <span className="text-[11px] font-bold text-violet-400 uppercase tracking-wider">Ventas</span>
+              </div>
+              <div className="space-y-0.5">
+                {[
+                  { icon: Users2,  label: "Nuevos clientes ventas",   value: periodoStats.nuevosClientesVentas,       color: "text-violet-400"  },
+                  { icon: Truck,   label: "Solicitudes despachadas",  value: periodoStats.solicitudesDespachadas,     color: "text-fuchsia-400" },
+                  { icon: Package, label: "Materiales vendidos (u.)", value: periodoStats.materialesVendidosUnidades, color: "text-pink-400"    },
+                ].map(({ icon: Icon, label, value, color }) => (
+                  <div key={label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
+                      <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
+                    </div>
+                    {loading
+                      ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                      : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
+                    }
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         </div>
       </div>
