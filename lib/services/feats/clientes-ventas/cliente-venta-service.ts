@@ -34,6 +34,8 @@ export class ClienteVentaService {
       numero?: string;
       telefono?: string;
       ci?: string;
+      provincia?: string;
+      municipio?: string;
       skip?: number;
       limit?: number;
     } = {},
@@ -43,6 +45,8 @@ export class ClienteVentaService {
     if (params.numero) search.append("numero", params.numero);
     if (params.telefono) search.append("telefono", params.telefono);
     if (params.ci) search.append("ci", params.ci);
+    if (params.provincia) search.append("provincia", params.provincia);
+    if (params.municipio) search.append("municipio", params.municipio);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
 

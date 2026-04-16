@@ -67,6 +67,8 @@ export function ClientesVentasTable({
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Telefono</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">CI</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Provincia</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Municipio</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Direccion</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Creado</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
@@ -109,6 +111,8 @@ export function ClientesVentasTable({
                   </td>
                   <td className="py-4 px-4 text-gray-700">{cliente.telefono || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.ci || "-"}</td>
+                  <td className="py-4 px-4 text-gray-700">{cliente.provincia || "-"}</td>
+                  <td className="py-4 px-4 text-gray-700">{cliente.municipio || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.direccion || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">
                     {formatDate(cliente.fecha_creacion)}

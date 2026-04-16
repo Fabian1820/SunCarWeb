@@ -13,6 +13,10 @@ interface UseClientesVentasReturn {
   error: string | null;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
+  filterProvincia: string;
+  setFilterProvincia: (v: string) => void;
+  filterMunicipio: string;
+  setFilterMunicipio: (v: string) => void;
   loadClientes: () => Promise<void>;
   createCliente: (data: ClienteVentaCreateData) => Promise<ClienteVenta>;
   updateCliente: (
@@ -36,6 +40,8 @@ export function useClientesVentas(): UseClientesVentasReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterProvincia, setFilterProvincia] = useState("");
+  const [filterMunicipio, setFilterMunicipio] = useState("");
 
   const loadClientes = useCallback(async () => {
     setLoading(true);
@@ -57,23 +63,40 @@ export function useClientesVentas(): UseClientesVentasReturn {
   }, []);
 
   const filteredClientes = useMemo(() => {
+    let result = clientes;
+
     const term = normalizeText(searchTerm);
-    if (!term) return clientes;
+    if (term) {
+      result = result.filter((cliente) => {
+        const searchIndex = [
+          cliente.numero,
+          cliente.nombre,
+          cliente.telefono,
+          cliente.ci,
+          cliente.direccion,
+          cliente.provincia,
+          cliente.municipio,
+        ]
+          .map((value) => normalizeText(value))
+          .join(" ");
+        return searchIndex.includes(term);
+      });
+    }
 
-    return clientes.filter((cliente) => {
-      const searchIndex = [
-        cliente.numero,
-        cliente.nombre,
-        cliente.telefono,
-        cliente.ci,
-        cliente.direccion,
-      ]
-        .map((value) => normalizeText(value))
-        .join(" ");
+    if (filterProvincia) {
+      result = result.filter(
+        (c) => normalizeText(c.provincia) === normalizeText(filterProvincia),
+      );
+    }
 
-      return searchIndex.includes(term);
-    });
-  }, [clientes, searchTerm]);
+    if (filterMunicipio) {
+      result = result.filter(
+        (c) => normalizeText(c.municipio) === normalizeText(filterMunicipio),
+      );
+    }
+
+    return result;
+  }, [clientes, searchTerm, filterProvincia, filterMunicipio]);
 
   const createCliente = useCallback(
     async (data: ClienteVentaCreateData): Promise<ClienteVenta> => {
@@ -156,6 +179,10 @@ export function useClientesVentas(): UseClientesVentasReturn {
     error,
     searchTerm,
     setSearchTerm,
+    filterProvincia,
+    setFilterProvincia,
+    filterMunicipio,
+    setFilterMunicipio,
     loadClientes,
     createCliente,
     updateCliente,
