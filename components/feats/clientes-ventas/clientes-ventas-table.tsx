@@ -67,6 +67,8 @@ export function ClientesVentasTable({
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Telefono</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">CI</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Provincia</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Municipio</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Direccion</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Creado</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
@@ -109,6 +111,8 @@ export function ClientesVentasTable({
                   </td>
                   <td className="py-4 px-4 text-gray-700">{cliente.telefono || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.ci || "-"}</td>
+                  <td className="py-4 px-4 text-gray-700">{cliente.provincia || "-"}</td>
+                  <td className="py-4 px-4 text-gray-700">{cliente.municipio || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.direccion || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">
                     {formatDate(cliente.fecha_creacion)}
@@ -120,11 +124,10 @@ export function ClientesVentasTable({
                           variant="outline"
                           size="sm"
                           onClick={() => onEdit(cliente)}
-                          className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
                           title="Editar cliente"
                         >
-                          <Pencil className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline text-xs">Editar</span>
+                          <Pencil className="h-4 w-4" />
                         </Button>
                       )}
                       {onDelete && (

@@ -128,39 +128,39 @@ export function StockTable({
     return (
       <TooltipProvider>
         <>
-          <div className="overflow-x-auto">
-            <table className="w-full table-fixed">
+          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+            <table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[60px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[56px]">
                 Foto
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 min-w-[160px]">
                 Nombre
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">
                 Código
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[85px]">
                 Potencia
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
                 Marca
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
                 Categoría
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">
                 En stock
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">
                 Reservada
               </th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[160px]">
                 Ubicación
               </th>
               {(onEditStock || onUpdateUbicacion) ? (
-                <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[80px]">
+                <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[72px]">
                   Acciones
                 </th>
               ) : null}

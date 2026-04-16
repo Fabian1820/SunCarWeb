@@ -10,12 +10,30 @@ import {
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import { Loader2, UserRoundPlus } from "lucide-react";
+import { apiRequest } from "@/lib/api-config";
 import type {
   ClienteVenta,
   ClienteVentaCreateData,
   ClienteVentaUpdateData,
 } from "@/lib/api-types";
+
+interface Provincia {
+  codigo: string;
+  nombre: string;
+}
+
+interface Municipio {
+  codigo: string;
+  nombre: string;
+}
 
 interface UpsertClienteVentaDialogProps {
   open: boolean;
@@ -38,7 +56,15 @@ export function UpsertClienteVentaDialog({
   const [direccion, setDireccion] = useState("");
   const [telefono, setTelefono] = useState("");
   const [ci, setCi] = useState("");
+  const [provincia, setProvincia] = useState("");
+  const [municipio, setMunicipio] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const [provincias, setProvincias] = useState<Provincia[]>([]);
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [loadingProvincias, setLoadingProvincias] = useState(false);
+  const [loadingMunicipios, setLoadingMunicipios] = useState(false);
+  const [selectedProvinciaCodigo, setSelectedProvinciaCodigo] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +72,53 @@ export function UpsertClienteVentaDialog({
     setDireccion(cliente?.direccion || "");
     setTelefono(cliente?.telefono || "");
     setCi(cliente?.ci || "");
+    setProvincia(cliente?.provincia || "");
+    setMunicipio(cliente?.municipio || "");
+    setSelectedProvinciaCodigo("");
   }, [open, cliente]);
+
+  // Cargar provincias al abrir el dialog
+  useEffect(() => {
+    if (!open) return;
+    setLoadingProvincias(true);
+    apiRequest<{ success: boolean; data: Provincia[] }>("/provincias/")
+      .then((res) => {
+        if (res.success && res.data) setProvincias(res.data);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingProvincias(false));
+  }, [open]);
+
+  // Cuando se carga la lista de provincias y hay una provincia guardada, buscar su código
+  useEffect(() => {
+    if (!provincia || provincias.length === 0) return;
+    const found = provincias.find((p) => p.nombre === provincia);
+    if (found) setSelectedProvinciaCodigo(found.codigo);
+  }, [provincias, provincia]);
+
+  // Cargar municipios cuando cambia el código de provincia
+  useEffect(() => {
+    if (!selectedProvinciaCodigo) {
+      setMunicipios([]);
+      return;
+    }
+    setLoadingMunicipios(true);
+    apiRequest<{ success: boolean; data: Municipio[] }>(
+      `/provincias/provincia/${selectedProvinciaCodigo}/municipios`,
+    )
+      .then((res) => {
+        if (res.success && res.data) setMunicipios(res.data);
+      })
+      .catch(() => setMunicipios([]))
+      .finally(() => setLoadingMunicipios(false));
+  }, [selectedProvinciaCodigo]);
+
+  const handleProvinciaChange = (nombre: string) => {
+    const found = provincias.find((p) => p.nombre === nombre);
+    setProvincia(nombre);
+    setMunicipio("");
+    setSelectedProvinciaCodigo(found?.codigo || "");
+  };
 
   const isEdit = Boolean(cliente?.id);
 
@@ -64,6 +136,8 @@ export function UpsertClienteVentaDialog({
       direccion: direccion.trim() || undefined,
       telefono: telefono.trim() || undefined,
       ci: ci.trim() || undefined,
+      provincia: provincia.trim() || undefined,
+      municipio: municipio.trim() || undefined,
     };
 
     setSubmitting(true);
@@ -110,6 +184,59 @@ export function UpsertClienteVentaDialog({
               placeholder="Direccion del cliente"
               maxLength={200}
             />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="cliente-venta-provincia">Provincia</Label>
+              <Select
+                value={provincia}
+                onValueChange={handleProvinciaChange}
+                disabled={loadingProvincias}
+              >
+                <SelectTrigger id="cliente-venta-provincia">
+                  <SelectValue
+                    placeholder={
+                      loadingProvincias ? "Cargando..." : "Seleccionar provincia"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
+                  {provincias.map((p, i) => (
+                    <SelectItem key={`prov-${p.codigo}-${i}`} value={p.nombre}>
+                      {p.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cliente-venta-municipio">Municipio</Label>
+              <Select
+                value={municipio}
+                onValueChange={setMunicipio}
+                disabled={!selectedProvinciaCodigo || loadingMunicipios}
+              >
+                <SelectTrigger id="cliente-venta-municipio">
+                  <SelectValue
+                    placeholder={
+                      !selectedProvinciaCodigo
+                        ? "Seleccione una provincia primero"
+                        : loadingMunicipios
+                          ? "Cargando..."
+                          : "Seleccionar municipio"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
+                  {municipios.map((m, i) => (
+                    <SelectItem key={`mun-${m.codigo}-${i}`} value={m.nombre}>
+                      {m.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
