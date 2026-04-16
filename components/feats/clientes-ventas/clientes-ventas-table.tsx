@@ -124,11 +124,10 @@ export function ClientesVentasTable({
                           variant="outline"
                           size="sm"
                           onClick={() => onEdit(cliente)}
-                          className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
                           title="Editar cliente"
                         >
-                          <Pencil className="h-4 w-4 sm:mr-1" />
-                          <span className="hidden sm:inline text-xs">Editar</span>
+                          <Pencil className="h-4 w-4" />
                         </Button>
                       )}
                       {onDelete && (

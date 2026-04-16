@@ -21,7 +21,6 @@ interface InventarioCruzadoTableProps {
   almacenes: Almacen[]
   materials?: Material[]
   marcas?: MarcaItem[]
-  search?: string
 }
 
 const normalizarCodigo = (codigo: string) => codigo.trim().toLowerCase()
@@ -31,7 +30,6 @@ export function InventarioCruzadoTable({
   almacenes,
   materials = [],
   marcas = [],
-  search,
 }: InventarioCruzadoTableProps) {
   const materialPorCodigo = useMemo(() => {
     const map = new Map<string, Material>()
@@ -77,21 +75,8 @@ export function InventarioCruzadoTable({
       String(a.codigo).localeCompare(String(b.codigo))
     )
 
-    if (search?.trim()) {
-      const q = search.trim().toLowerCase()
-      rows = rows.filter(r => {
-        const material = materialPorCodigo.get(normalizarCodigo(r.codigo))
-        const nombre = String(material?.nombre || material?.descripcion || r.descripcion).toLowerCase()
-        return (
-          normalizarCodigo(r.codigo).includes(q) ||
-          r.descripcion.toLowerCase().includes(q) ||
-          nombre.includes(q)
-        )
-      })
-    }
-
     return { rows, almacenesConStock }
-  }, [stock, almacenes, search, materialPorCodigo])
+  }, [stock, almacenes, materialPorCodigo])
 
   if (rows.length === 0) {
     return (

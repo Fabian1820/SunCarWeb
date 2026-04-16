@@ -304,19 +304,9 @@ export default function InventarioPage() {
             ? { href: "/almacenes-suncar", label: "Volver a Almacenes" }
             : undefined
         }
-        actions={
-          <Button
-            variant="outline"
-            onClick={refetchAll}
-            className="border-orange-200 text-orange-700 hover:bg-orange-50"
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Actualizar
-          </Button>
-        }
       />
 
-      <div className="container mx-auto px-4 py-8">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="stock">Stock</TabsTrigger>
@@ -379,55 +369,50 @@ export default function InventarioPage() {
                     />
                   </div>
 
-                  {/* Extra filters only for specific almacen */}
-                  {isSpecificAlmacen && (
-                    <>
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Categoría</Label>
-                        <Select value={stockCategoriaFilter} onValueChange={setStockCategoriaFilter}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todas</SelectItem>
-                            {stockFilterOptions.categorias.map(cat => (
-                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Categoría</Label>
+                    <Select value={stockCategoriaFilter} onValueChange={setStockCategoriaFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {stockFilterOptions.categorias.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Marca</Label>
-                        <Select value={stockMarcaFilter} onValueChange={setStockMarcaFilter}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todas</SelectItem>
-                            {stockFilterOptions.marcas.map(marca => (
-                              <SelectItem key={marca.id} value={marca.id}>{marca.nombre}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Marca</Label>
+                    <Select value={stockMarcaFilter} onValueChange={setStockMarcaFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {stockFilterOptions.marcas.map(marca => (
+                          <SelectItem key={marca.id} value={marca.id}>{marca.nombre}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-                      <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Potencia</Label>
-                        <Select value={stockPotenciaFilter} onValueChange={setStockPotenciaFilter}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Todas</SelectItem>
-                            {stockFilterOptions.potencias.map(p => (
-                              <SelectItem key={p} value={p}>{p} KW</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Potencia</Label>
+                    <Select value={stockPotenciaFilter} onValueChange={setStockPotenciaFilter}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        {stockFilterOptions.potencias.map(p => (
+                          <SelectItem key={p} value={p}>{p} KW</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </CardHeader>
 
@@ -447,11 +432,10 @@ export default function InventarioPage() {
                   />
                 ) : (
                   <InventarioCruzadoTable
-                    stock={stock}
+                    stock={filteredStockDetallado}
                     almacenes={almacenes}
                     materials={materiales}
                     marcas={marcas}
-                    search={stockSearch}
                   />
                 )}
               </CardContent>
@@ -645,7 +629,7 @@ export default function InventarioPage() {
             </Card>
           </TabsContent>
         </Tabs>
-      </div>
+      </main>
 
       <Dialog open={isMovimientoDialogOpen} onOpenChange={setIsMovimientoDialogOpen}>
         <DialogContent className="max-w-2xl">
