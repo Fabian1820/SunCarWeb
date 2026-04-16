@@ -90,20 +90,20 @@ export function InventarioCruzadoTable({
 
   return (
     <TooltipProvider>
-      <div className="overflow-x-auto">
-        <table className="w-full table-fixed">
+      <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+        <table className="min-w-[780px] w-full">
           <thead>
             <tr className="border-b border-gray-200">
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[60px]">Foto</th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900">Nombre</th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">Código</th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Potencia</th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">Marca</th>
-              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">Categoría</th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[56px]">Foto</th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 min-w-[160px]">Nombre</th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">Código</th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[85px]">Potencia</th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Marca</th>
+              <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Categoría</th>
               {almacenesConStock.map(almacen => (
                 <th
                   key={almacen.id}
-                  className="text-center py-3 px-2 font-semibold text-gray-900 w-[100px]"
+                  className="text-center py-3 px-2 font-semibold text-gray-900 w-[90px]"
                 >
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -115,7 +115,7 @@ export function InventarioCruzadoTable({
                   </Tooltip>
                 </th>
               ))}
-              <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[80px] bg-amber-50">
+              <th className="text-center py-3 px-2 font-semibold text-gray-900 w-[72px] bg-amber-50">
                 Total
               </th>
             </tr>
