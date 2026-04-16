@@ -98,10 +98,16 @@ const toArray = (raw: unknown): unknown[] => {
       const dataObj = data as Record<string, unknown>;
       if (Array.isArray(dataObj.data)) return dataObj.data;
       if (Array.isArray(dataObj.trabajos)) return dataObj.trabajos;
+      if (Array.isArray(dataObj.trabajos_diarios)) return dataObj.trabajos_diarios;
+      if (Array.isArray(dataObj.registros)) return dataObj.registros;
+      if (Array.isArray(dataObj.actualizaciones)) return dataObj.actualizaciones;
       if (Array.isArray(dataObj.vales)) return dataObj.vales;
     }
 
     if (Array.isArray(rawObj.trabajos)) return rawObj.trabajos;
+    if (Array.isArray(rawObj.trabajos_diarios)) return rawObj.trabajos_diarios;
+    if (Array.isArray(rawObj.registros)) return rawObj.registros;
+    if (Array.isArray(rawObj.actualizaciones)) return rawObj.actualizaciones;
     if (Array.isArray(rawObj.vales)) return rawObj.vales;
     if (Array.isArray(rawObj.resultados)) return rawObj.resultados;
     if (Array.isArray(rawObj.items)) return rawObj.items;
@@ -423,16 +429,10 @@ const serializeTrabajoPayload = (
       })
     : [];
 
-  const isActualizacion = payload.tipo_trabajo === "ACTUALIZACION";
   const body: Record<string, unknown> = {
+    inicio: serializeMomento(payload.inicio, fecha),
     fin: serializeMomento(payload.fin, fecha),
   };
-
-  if (isActualizacion) {
-    body.inicio = null;
-  } else {
-    body.inicio = serializeMomento(payload.inicio, fecha);
-  }
 
   const clienteNumero = pickFirstString(payload.cliente_numero);
   if (clienteNumero) body.cliente_numero = clienteNumero;
@@ -609,13 +609,13 @@ export class TrabajosDiariosService {
     if (clienteId) query.append("cliente_id", clienteId);
     if (qCliente) query.append("q_cliente", qCliente);
     if (typeof filters.incluir_cerrados === "boolean") {
-      query.append(
-        "incluir_cerrados",
-        filters.incluir_cerrados ? "true" : "false",
-      );
+      query.append("incluir_cerrados", filters.incluir_cerrados ? "true" : "false");
+    }
+    if (typeof filters.solo_abiertos === "boolean") {
+      query.append("solo_abiertos", filters.solo_abiertos ? "true" : "false");
     }
     if (filters.skip != null) query.append("skip", String(filters.skip));
-    if (filters.limit != null) query.append("limit", String(filters.limit));
+    query.append("limit", filters.limit != null ? String(filters.limit) : "1000");
 
     const endpoint = `${SEARCH_ENDPOINT}?${query.toString()}`;
 
@@ -648,6 +648,8 @@ export class TrabajosDiariosService {
     const endpoints = [
       `${BASE_ENDPOINT}/sin-materiales`,
       `${BASE_ENDPOINT}/sin-materiales/`,
+      `${BASE_ENDPOINT}`,
+      `${BASE_ENDPOINT}/`,
     ];
 
     let rows: TrabajoDiarioRegistro[] = [];
@@ -660,7 +662,7 @@ export class TrabajosDiariosService {
         const parsed = array
           .map(normalizeTrabajo)
           .filter(Boolean) as TrabajoDiarioRegistro[];
-        if (parsed.length > 0 || array.length === 0) {
+        if (parsed.length > 0) {
           rows = parsed;
           break;
         }
@@ -845,6 +847,60 @@ export class TrabajosDiariosService {
     throw lastError instanceof Error
       ? lastError
       : new Error("No se pudo subir el archivo");
+  }
+
+  static async createTrabajoDiarioSinVale(params: {
+    cliente_numero: string;
+    fecha: string;
+    instaladores: string[];
+    tipo_trabajo: string;
+  }): Promise<TrabajoDiarioRegistro> {
+    const tipo = params.tipo_trabajo;
+    const etapaVacia = { archivos: [], comentario: null };
+
+    // Construir payload compatible con POST /trabajos-diarios/ según el tipo
+    const body: Record<string, unknown> = {
+      cliente_numero: params.cliente_numero,
+      fecha: normalizeDateOnly(params.fecha),
+      instaladores: params.instaladores,
+      tipo_trabajo: tipo,
+      fin: etapaVacia,
+    };
+
+    if (tipo !== "ACTUALIZACION") {
+      body.inicio = etapaVacia;
+    }
+
+    if (tipo === "AVERIA") {
+      body.problema_encontrado = "Pendiente";
+      body.solucion = "Pendiente";
+    } else if (tipo === "INSTALACION NUEVA" || tipo === "INSTALACION EN PROCESO") {
+      body.instalacion_terminada = false;
+      body.queda_pendiente = "Pendiente";
+    }
+
+    const raw = await apiRequest<unknown>(`${BASE_ENDPOINT}/`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+
+    if (raw && typeof raw === "object") {
+      const rawObj = raw as Record<string, unknown>;
+      const createdId = pickFirstString(rawObj.trabajo_diario_id, rawObj.id, rawObj._id);
+      if (createdId) {
+        return {
+          id: createdId,
+          fecha: normalizeDateOnly(params.fecha),
+          fecha_trabajo: normalizeDateOnly(params.fecha),
+          cliente_numero: params.cliente_numero,
+          instaladores: params.instaladores,
+          inicio: { archivos: [], comentario: "", fecha: "" },
+          fin: { archivos: [], comentario: "", fecha: "" },
+          materiales_utilizados: [],
+        } as TrabajoDiarioRegistro;
+      }
+    }
+    throw new Error("No se pudo crear el trabajo diario");
   }
 
   static async createTrabajo(

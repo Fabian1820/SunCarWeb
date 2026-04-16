@@ -222,7 +222,15 @@ export function TrabajosDiariosView({ mode = "vales" }: TrabajosDiariosViewProps
 
       if (response && typeof response === "object") {
         const responseObj = response as Record<string, unknown>;
-        if (responseObj.success === false || responseObj.error) {
+        const httpStatus = typeof responseObj._httpStatus === "number" ? responseObj._httpStatus : 0;
+        const isHttpError = httpStatus >= 400;
+        const hasDetail = typeof responseObj.detail === "string" && responseObj.detail.trim().length > 0;
+        if (
+          responseObj.success === false ||
+          responseObj.error ||
+          isHttpError ||
+          (hasDetail && !responseObj.trabajo_diario_id && !(responseObj.data as Record<string, unknown> | undefined)?.trabajo_diario_id)
+        ) {
           throw new Error(
             extractApiErrorMessage(response) ||
               "No se pudo confirmar la salida de brigada.",

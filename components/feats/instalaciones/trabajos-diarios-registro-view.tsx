@@ -32,7 +32,14 @@ import type {
   TrabajoDiarioRegistro,
 } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, X } from "lucide-react";
+import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
+import type { TrabajoDiarioTipo } from "@/lib/types/feats/instalaciones/trabajos-diarios-types";
 import { TrabajoDiarioForm } from "./trabajo-diario-form";
 
 type Worker = {
@@ -53,28 +60,11 @@ const safeText = (value: unknown, fallback = "") => {
   return text || fallback;
 };
 
-const parseDateForDisplay = (value: string): Date | null => {
-  const text = safeText(value);
-  if (!text) return null;
-
-  const onlyDateMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (onlyDateMatch) {
-    const year = Number(onlyDateMatch[1]);
-    const month = Number(onlyDateMatch[2]);
-    const day = Number(onlyDateMatch[3]);
-    const local = new Date(year, month - 1, day);
-    return Number.isNaN(local.getTime()) ? null : local;
-  }
-
-  const parsed = new Date(text);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
 const formatFechaTrabajo = (value?: string) => {
   const text = safeText(value);
   if (!text) return "Sin fecha";
-  const parsed = parseDateForDisplay(text);
-  if (!parsed) return text.slice(0, 10);
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text.slice(0, 10);
   return parsed.toLocaleDateString("es-ES");
 };
 
@@ -104,6 +94,15 @@ export function TrabajosDiariosRegistroView() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
+
+  // ── Diálogo "Agregar sin vale" ──
+  const [showCrearDialog, setShowCrearDialog] = useState(false);
+  const [creandoSinVale, setCreandoSinVale] = useState(false);
+  const [crearFecha, setCrearFecha] = useState("");
+  const [crearClienteId, setCrearClienteId] = useState("");
+  const [crearInstaladores, setCrearInstaladores] = useState<string[]>([]);
+  const [crearInstaladorOpen, setCrearInstaladorOpen] = useState(false);
+  const [crearTipo, setCrearTipo] = useState<TrabajoDiarioTipo>("INSTALACION NUEVA");
 
   const hydrateMaterialesResumen = useCallback(
     (
@@ -300,6 +299,7 @@ export function TrabajosDiariosRegistroView() {
           !clienteNumeroFiltro && !clienteIdFiltro && qClienteFiltro
             ? qClienteFiltro
             : undefined,
+        solo_abiertos: true,
       });
       setTrabajos(rows || []);
       if (!rows || rows.length === 0) {
@@ -633,6 +633,61 @@ export function TrabajosDiariosRegistroView() {
     }
   };
 
+  const handleCrearSinVale = async () => {
+    const cliente = clientes.find((c) => safeText(c.numero || c.id) === crearClienteId);
+    if (!cliente) {
+      toast({ title: "Falta cliente", description: "Selecciona un cliente para continuar.", variant: "destructive" });
+      return;
+    }
+    const instNames = crearInstaladores
+      .map((sel) => {
+        const w = workersOptions.find((w) => safeText(w.CI) === sel || safeText(w.nombre) === sel);
+        return safeText(w?.nombre, sel);
+      })
+      .filter(Boolean);
+
+    if (!crearFecha) {
+      toast({ title: "Falta fecha", description: "Selecciona la fecha del trabajo.", variant: "destructive" });
+      return;
+    }
+
+    if (instNames.length === 0) {
+      toast({ title: "Falta instalador", description: "Selecciona al menos un instalador.", variant: "destructive" });
+      return;
+    }
+
+    setCreandoSinVale(true);
+    try {
+      const created = await TrabajosDiariosService.createTrabajoDiarioSinVale({
+        cliente_numero: safeText(cliente.numero),
+        fecha: crearFecha,
+        instaladores: instNames,
+        tipo_trabajo: crearTipo,
+      });
+      // Enriquecer con datos del cliente para mostrarlo en la lista
+      const enriched: TrabajoDiarioRegistro = {
+        ...created,
+        cliente_nombre: safeText(cliente.nombre),
+        cliente_telefono: safeText(cliente.telefono),
+        cliente_direccion: safeText(cliente.direccion),
+        fecha_trabajo: crearFecha,
+      };
+      setTrabajos((prev) => [enriched, ...prev]);
+      setShowCrearDialog(false);
+      setCrearFecha("");
+      setCrearClienteId("");
+      setCrearInstaladores([]);
+      setCrearTipo("INSTALACION NUEVA");
+      toast({ title: "Trabajo creado", description: "El trabajo diario fue creado. Ahora puedes rellenarlo." });
+      if (enriched.id) void handleSelectTrabajo(enriched);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo crear el trabajo diario";
+      toast({ title: "Error", description: message, variant: "destructive" });
+    } finally {
+      setCreandoSinVale(false);
+    }
+  };
+
   const toggleTrabajador = (value: string) => {
     setTrabajadoresSeleccionados((prev) => {
       if (prev.includes(value)) {
@@ -779,9 +834,21 @@ export function TrabajosDiariosRegistroView() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch">
         <Card className="xl:col-span-1 h-auto max-h-[52vh] xl:max-h-none xl:h-[72vh] min-h-0 xl:min-h-[560px] flex flex-col">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">
-              Resultados ({trabajosFiltrados.length})
-            </CardTitle>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base">
+                Resultados ({trabajosFiltrados.length})
+              </CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs shrink-0"
+                onClick={() => { setCrearFecha(fecha); setShowCrearDialog(true); }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Sin vale
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 overflow-y-auto px-0 pb-0">
             {loading && trabajosFiltrados.length === 0 ? (
@@ -894,6 +961,164 @@ export function TrabajosDiariosRegistroView() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Diálogo: Agregar trabajo sin vale de salida ── */}
+      <Dialog open={showCrearDialog} onOpenChange={setShowCrearDialog}>
+        <DialogContent className="w-full max-w-2xl flex flex-col overflow-hidden p-0 gap-0">
+          {/* Cabecera fija */}
+          <DialogHeader className="px-6 pt-6 pb-4 border-b shrink-0">
+            <DialogTitle>Agregar trabajo sin vale de salida</DialogTitle>
+          </DialogHeader>
+
+          {/* Zona scrollable */}
+          <div className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Fecha */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">
+                  Fecha de trabajo <span className="text-red-500">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={crearFecha}
+                  onChange={(e) => setCrearFecha(e.target.value)}
+                />
+              </div>
+
+              {/* Tipo de trabajo */}
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Tipo de trabajo</label>
+                <select
+                  value={crearTipo}
+                  onChange={(e) => setCrearTipo(e.target.value as TrabajoDiarioTipo)}
+                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="INSTALACION NUEVA">Instalación nueva</option>
+                  <option value="INSTALACION EN PROCESO">Instalación en proceso</option>
+                  <option value="AVERIA">Avería</option>
+                  <option value="ACTUALIZACION">Actualización</option>
+                </select>
+              </div>
+
+              {/* Cliente */}
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs font-medium text-slate-600">
+                  Cliente <span className="text-red-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={clienteOptions}
+                  value={crearClienteId}
+                  onValueChange={setCrearClienteId}
+                  placeholder={loadingClientes ? "Cargando clientes..." : "Buscar cliente"}
+                  searchPlaceholder="Nombre, código o dirección..."
+                  disabled={loadingClientes}
+                  className="w-full"
+                  truncateSelected={false}
+                  truncateOptions={false}
+                  disablePortal={true}
+                  listClassName="max-h-[180px]"
+                />
+              </div>
+
+              {/* Instaladores */}
+              <div className="col-span-2 space-y-1">
+                <label className="text-xs font-medium text-slate-600">
+                  Instaladores <span className="text-red-500">*</span>
+                </label>
+                <Popover open={crearInstaladorOpen} onOpenChange={setCrearInstaladorOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" role="combobox" className="w-full justify-between text-sm">
+                      <span className="truncate text-left">
+                        {crearInstaladores.length > 0
+                          ? `${crearInstaladores.length} seleccionado(s)`
+                          : "Seleccionar instaladores"}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" disablePortal={true}>
+                    <Command>
+                      <CommandInput placeholder="Buscar trabajador..." />
+                      <CommandList className="max-h-[180px]">
+                        <CommandEmpty>No se encontraron trabajadores.</CommandEmpty>
+                        <CommandGroup>
+                          {workersOptions.map((worker, index) => {
+                            const ci = safeText(worker.CI);
+                            const nombre = safeText(worker.nombre) || "Trabajador";
+                            const value = ci || nombre;
+                            const label = ci ? `${nombre} (${ci})` : nombre;
+                            const selected = crearInstaladores.includes(value);
+                            return (
+                              <CommandItem
+                                key={`crear-${value}-${index}`}
+                                value={`${value} ${label}`}
+                                onSelect={() =>
+                                  setCrearInstaladores((prev) =>
+                                    prev.includes(value)
+                                      ? prev.filter((v) => v !== value)
+                                      : [...prev, value],
+                                  )
+                                }
+                              >
+                                <Check className={cn("mr-2 h-4 w-4", selected ? "opacity-100" : "opacity-0")} />
+                                {label}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {crearInstaladores.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {crearInstaladores.map((val) => {
+                      const label = workerMap.get(val) || val;
+                      return (
+                        <Badge key={val} variant="outline" className="gap-1 text-xs">
+                          <span className="max-w-[220px] truncate">{label}</span>
+                          <button
+                            type="button"
+                            onClick={() => setCrearInstaladores((prev) => prev.filter((v) => v !== val))}
+                            className="text-slate-400 hover:text-slate-700"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer fijo con botones */}
+          <div className="px-6 py-4 border-t shrink-0 flex justify-end gap-2 bg-white">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowCrearDialog(false);
+                setCrearFecha("");
+                setCrearClienteId("");
+                setCrearInstaladores([]);
+                setCrearTipo("INSTALACION NUEVA");
+              }}
+              disabled={creandoSinVale}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleCrearSinVale()}
+              disabled={creandoSinVale || !crearClienteId || !crearFecha}
+            >
+              {creandoSinVale ? "Creando..." : "Crear trabajo"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

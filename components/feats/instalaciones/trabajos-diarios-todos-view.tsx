@@ -271,7 +271,7 @@ export function TrabajosDiariosTodosView() {
                 : undefined,
             incluir_cerrados: true,
           });
-      setTrabajos(rows || []);
+      setTrabajos((rows || []).filter((t) => t.cierre_diario_confirmado === true));
     } catch (error) {
       const message =
         error instanceof Error
