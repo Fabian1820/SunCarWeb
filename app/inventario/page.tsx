@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/shared/molecule/card"
@@ -14,12 +14,15 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { useInventario } from "@/hooks/use-inventario"
+import { MarcaService } from "@/lib/api-services"
 import type { Almacen, Tienda } from "@/lib/inventario-types"
+import type { MarcaSimplificada } from "@/lib/types/feats/marcas/marca-types"
 import { AlmacenesTable } from "@/components/feats/inventario/almacenes-table"
 import { AlmacenForm } from "@/components/feats/inventario/almacen-form"
 import { TiendasTable } from "@/components/feats/inventario/tiendas-table"
 import { TiendaForm } from "@/components/feats/inventario/tienda-form"
 import { StockTable } from "@/components/feats/inventario/stock-table"
+import { InventarioCruzadoTable } from "@/components/feats/inventario/inventario-cruzado-table"
 import { MovimientosTable } from "@/components/feats/inventario/movimientos-table"
 import { MovimientoForm } from "@/components/feats/inventario/movimiento-form"
 
@@ -57,6 +60,11 @@ export default function InventarioPage() {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [stockAlmacenFilter, setStockAlmacenFilter] = useState("all")
   const [stockSearch, setStockSearch] = useState("")
+  const [stockCategoriaFilter, setStockCategoriaFilter] = useState("all")
+  const [stockMarcaFilter, setStockMarcaFilter] = useState("all")
+  const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all")
+  const [marcas, setMarcas] = useState<MarcaSimplificada[]>([])
+
   const [movTipoFilter, setMovTipoFilter] = useState("all")
   const [movSearch, setMovSearch] = useState("")
 
@@ -74,6 +82,12 @@ export default function InventarioPage() {
   const [isDeleteAlmacenOpen, setIsDeleteAlmacenOpen] = useState(false)
   const [isDeleteTiendaOpen, setIsDeleteTiendaOpen] = useState(false)
 
+  // Load marcas once for detailed stock view
+  useEffect(() => {
+    MarcaService.getMarcasSimplificadas().then(setMarcas).catch(() => {})
+  }, [])
+
+  // Sync tab from URL params
   useEffect(() => {
     const tab = searchParams.get("tab")
     if (tab && allowedTabs.includes(tab)) {
@@ -81,17 +95,93 @@ export default function InventarioPage() {
     }
   }, [searchParams])
 
-  const filteredStock = useMemo(() => {
+  // Auto-refetch stock when almacen filter changes (skip initial mount, handled by the hook)
+  const isFirstRender = useRef(true)
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      return
+    }
+    // Reset detail filters when switching almacen
+    setStockSearch("")
+    setStockCategoriaFilter("all")
+    setStockMarcaFilter("all")
+    setStockPotenciaFilter("all")
+    refetchStock(stockAlmacenFilter === "all" ? undefined : stockAlmacenFilter)
+  }, [stockAlmacenFilter])
+
+  // Build marcas map for detailed view
+  const marcaNombrePorId = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const marca of marcas) {
+      map.set(marca.id, marca.nombre)
+    }
+    return map
+  }, [marcas])
+
+  const materialPorCodigo = useMemo(() => {
+    const map = new Map<string, typeof materiales[number]>()
+    for (const material of materiales) {
+      map.set(String(material.codigo).trim().toLowerCase(), material)
+    }
+    return map
+  }, [materiales])
+
+  // Filter options derived from current stock + materials (for specific almacen view)
+  const stockFilterOptions = useMemo(() => {
+    const categoriasSet = new Set<string>()
+    const potenciaSet = new Set<string>()
+    const marcasMap = new Map<string, string>()
+
+    for (const item of stock) {
+      const codigo = String(item.material_codigo || "").trim().toLowerCase()
+      const material = materialPorCodigo.get(codigo)
+
+      const categoria = String(material?.categoria || (item as any).categoria || "").trim()
+      if (categoria) categoriasSet.add(categoria)
+
+      const potencia = material?.potenciaKW
+      if (potencia !== undefined && potencia !== null && `${potencia}` !== "") {
+        potenciaSet.add(String(potencia))
+      }
+
+      const marcaId = String(material?.marca_id || "").trim()
+      if (marcaId) {
+        marcasMap.set(marcaId, marcaNombrePorId.get(marcaId) || marcaId)
+      }
+    }
+
+    return {
+      categorias: Array.from(categoriasSet).sort((a, b) => a.localeCompare(b)),
+      potencias: Array.from(potenciaSet).sort((a, b) => Number(a) - Number(b)),
+      marcas: Array.from(marcasMap.entries())
+        .map(([id, nombre]) => ({ id, nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    }
+  }, [stock, materialPorCodigo, marcaNombrePorId])
+
+  // Filtered stock for the detailed almacen view
+  const filteredStockDetallado = useMemo(() => {
+    const search = stockSearch.trim().toLowerCase()
     return stock.filter(item => {
-      const matchAlmacen = stockAlmacenFilter === "all" || item.almacen_id === stockAlmacenFilter
-      const search = stockSearch.trim().toLowerCase()
-      if (!search) return matchAlmacen
-      const matchSearch =
-        String(item.material_codigo).toLowerCase().includes(search) ||
-        (item.material_descripcion || "").toLowerCase().includes(search)
-      return matchAlmacen && matchSearch
+      const codigo = String(item.material_codigo || "").trim().toLowerCase()
+      const material = materialPorCodigo.get(codigo)
+      const nombre = String(
+        material?.nombre || material?.descripcion || item.material_descripcion || ""
+      ).toLowerCase()
+
+      const categoria = String(material?.categoria || (item as any).categoria || "").trim()
+      const marcaId = String(material?.marca_id || "").trim()
+      const potencia = material?.potenciaKW
+
+      const matchSearch = !search || codigo.includes(search) || nombre.includes(search)
+      const matchCategoria = stockCategoriaFilter === "all" || categoria === stockCategoriaFilter
+      const matchMarca = stockMarcaFilter === "all" || marcaId === stockMarcaFilter
+      const matchPotencia = stockPotenciaFilter === "all" || String(potencia ?? "") === stockPotenciaFilter
+
+      return matchSearch && matchCategoria && matchMarca && matchPotencia
     })
-  }, [stock, stockAlmacenFilter, stockSearch])
+  }, [stock, stockSearch, materialPorCodigo, stockCategoriaFilter, stockMarcaFilter, stockPotenciaFilter])
 
   const filteredMovimientos = useMemo(() => {
     return movimientos.filter(mov => {
@@ -198,6 +288,8 @@ export default function InventarioPage() {
     )
   }
 
+  const isSpecificAlmacen = stockAlmacenFilter !== "all"
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50">
       <ModuleHeader
@@ -238,8 +330,16 @@ export default function InventarioPage() {
               <CardHeader className="space-y-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <CardTitle>Stock por almacen</CardTitle>
-                    <CardDescription>Consulta las existencias actuales por almacen.</CardDescription>
+                    <CardTitle>
+                      {isSpecificAlmacen
+                        ? `Stock: ${almacenes.find(a => a.id === stockAlmacenFilter)?.nombre || stockAlmacenFilter}`
+                        : "Stock por almacén"}
+                    </CardTitle>
+                    <CardDescription>
+                      {isSpecificAlmacen
+                        ? "Existencias actuales en el almacén seleccionado."
+                        : "Vista consolidada de existencias en todos los almacenes."}
+                    </CardDescription>
                   </div>
                   <Button
                     variant="outline"
@@ -249,9 +349,11 @@ export default function InventarioPage() {
                     <span className="ml-2">Refrescar</span>
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                {/* Almacen filter always visible */}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Almacen</Label>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Almacén</Label>
                     <Select value={stockAlmacenFilter} onValueChange={setStockAlmacenFilter}>
                       <SelectTrigger>
                         <SelectValue placeholder="Todos" />
@@ -266,18 +368,90 @@ export default function InventarioPage() {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Search always visible */}
                   <div>
                     <Label className="text-sm font-medium text-gray-700 mb-2 block">Buscar material</Label>
                     <Input
                       value={stockSearch}
                       onChange={(e) => setStockSearch(e.target.value)}
-                      placeholder="Codigo o descripcion"
+                      placeholder="Código o descripción"
                     />
                   </div>
+
+                  {/* Extra filters only for specific almacen */}
+                  {isSpecificAlmacen && (
+                    <>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Categoría</Label>
+                        <Select value={stockCategoriaFilter} onValueChange={setStockCategoriaFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas</SelectItem>
+                            {stockFilterOptions.categorias.map(cat => (
+                              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Marca</Label>
+                        <Select value={stockMarcaFilter} onValueChange={setStockMarcaFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas</SelectItem>
+                            {stockFilterOptions.marcas.map(marca => (
+                              <SelectItem key={marca.id} value={marca.id}>{marca.nombre}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Potencia</Label>
+                        <Select value={stockPotenciaFilter} onValueChange={setStockPotenciaFilter}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas</SelectItem>
+                            {stockFilterOptions.potencias.map(p => (
+                              <SelectItem key={p} value={p}>{p} KW</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </>
+                  )}
                 </div>
               </CardHeader>
+
               <CardContent>
-                <StockTable stock={filteredStock} />
+                {loadingStock ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-amber-600" />
+                    <span className="ml-3 text-gray-600">Cargando stock...</span>
+                  </div>
+                ) : isSpecificAlmacen ? (
+                  <StockTable
+                    stock={filteredStockDetallado}
+                    detailed
+                    materials={materiales}
+                    marcas={marcas}
+                    almacenNombreFallback={almacenes.find(a => a.id === stockAlmacenFilter)?.nombre}
+                  />
+                ) : (
+                  <InventarioCruzadoTable
+                    stock={stock}
+                    almacenes={almacenes}
+                    search={stockSearch}
+                  />
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -341,7 +515,7 @@ export default function InventarioPage() {
                     <Input
                       value={movSearch}
                       onChange={(e) => setMovSearch(e.target.value)}
-                      placeholder="Codigo, descripcion, referencia"
+                      placeholder="Código, descripción, referencia"
                     />
                   </div>
                 </div>
