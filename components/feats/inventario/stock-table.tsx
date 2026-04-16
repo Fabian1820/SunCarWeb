@@ -129,7 +129,7 @@ export function StockTable({
       <TooltipProvider>
         <>
           <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
-            <table className="min-w-[900px] w-full">
+            <table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[56px]">
