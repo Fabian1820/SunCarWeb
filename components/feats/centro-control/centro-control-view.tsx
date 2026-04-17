@@ -109,6 +109,14 @@ function isPendienteVisita(estado: string | undefined) {
   return normalizeText(estado ?? "") === "pendiente de visita"
 }
 
+function isAveriaPendiente(estado: unknown) {
+  return normalizeText(String(estado ?? "")) === "pendiente"
+}
+
+function isAveriaSolucionada(estado: unknown) {
+  return normalizeText(String(estado ?? "")) === "solucionada"
+}
+
 // ─── Estado colors ────────────────────────────────────────────────────────────
 
 const ESTADO_COLORS_MAP: Array<{ keys: string[]; style: { bg: string; dot: string; label: string } }> = [
@@ -1833,6 +1841,7 @@ export default function CentroControlView() {
           setAllLeads(leads)
           const brigList = brigadasResult.status === "fulfilled" ? brigadasResult.value : []
           setBrigadas(brigList as Brigada[])
+          const trabajosDiariosRaw = trabajosDiariosResult.status === "fulfilled" ? trabajosDiariosResult.value : []
 
           const enProceso = clients.filter(c => isEnProceso(c.estado)).length
           const instalacionesTerminadas = trabajosDiariosRaw.filter(t =>
@@ -1851,8 +1860,8 @@ export default function CentroControlView() {
           conAverias.forEach(c => {
             const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
             avs.forEach(a => {
-              if (a.estado === "Pendiente") averiasPendientes++
-              else if (a.estado === "Solucionada" && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
+              if (isAveriaPendiente(a.estado)) averiasPendientes++
+              else if (isAveriaSolucionada(a.estado) && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
             })
           })
 
@@ -1873,7 +1882,6 @@ export default function CentroControlView() {
           // Ventas — guardar raw en estado para recomputar al cambiar periodo
           const clientesVenta = clientesVentaResult.status === "fulfilled" ? clientesVentaResult.value : []
           const todasSolicitudesVenta = solicitudesVentaResult.status === "fulfilled" ? solicitudesVentaResult.value : []
-          const trabajosDiariosRaw = trabajosDiariosResult.status === "fulfilled" ? trabajosDiariosResult.value : []
           setAllClientesVenta(clientesVenta)
           setAllSolicitudesVenta(todasSolicitudesVenta)
           setAllTrabajosDiarios(trabajosDiariosRaw.map(t => ({
@@ -2037,7 +2045,7 @@ export default function CentroControlView() {
     const map = new Map<string, Cliente[]>()
     clientesConAverias.filter(c => {
       const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
-      return avs?.some(a => a.estado === "Pendiente")
+      return avs?.some(a => isAveriaPendiente(a.estado))
     }).forEach(c => {
       const key = normalizeText(c.municipio); if (!key) return
       const list = map.get(key) ?? []; list.push(c); map.set(key, list)
@@ -2196,7 +2204,7 @@ export default function CentroControlView() {
     let averiasSolucionadas = 0
     clientesConAverias.forEach(c => {
       const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
-      avs.forEach(a => { if (a.estado === "Solucionada" && inR(a.fecha_solucion as string)) averiasSolucionadas++ })
+      avs.forEach(a => { if (isAveriaSolucionada(a.estado) && inR(a.fecha_solucion as string)) averiasSolucionadas++ })
     })
 
     const ofertasCreadas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion)).length
