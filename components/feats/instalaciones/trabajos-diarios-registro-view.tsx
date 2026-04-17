@@ -956,6 +956,7 @@ export function TrabajosDiariosRegistroView() {
                 showSubmitButton={false}
                 isSaving={saving || loadingMateriales}
                 isClosing={closingDay}
+                showInicioSection={selectedTrabajo.tipo_trabajo !== "ACTUALIZACION"}
               />
             )}
           </CardContent>

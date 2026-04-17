@@ -429,8 +429,9 @@ const serializeTrabajoPayload = (
       })
     : [];
 
+  const isActualizacion = payload.tipo_trabajo === "ACTUALIZACION";
   const body: Record<string, unknown> = {
-    inicio: serializeMomento(payload.inicio, fecha),
+    ...(isActualizacion ? {} : { inicio: serializeMomento(payload.inicio, fecha) }),
     fin: serializeMomento(payload.fin, fecha),
   };
 
