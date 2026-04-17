@@ -44,6 +44,7 @@ export function TrabajadorPermisosDialog({
   const [almacenesSeleccionados, setAlmacenesSeleccionados] = useState<Set<string>>(new Set())
   const [tiendaSearch, setTiendaSearch] = useState("")
   const [almacenSearch, setAlmacenSearch] = useState("")
+  const [trabajosSeleccionados, setTrabajosSeleccionados] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const { toast } = useToast()
@@ -86,12 +87,19 @@ export function TrabajadorPermisosDialog({
             .map((nombre) => nombre.split(":")[1])
             .filter(Boolean)
         )
+        const trabajosKeys = new Set(
+          nombresModulos
+            .filter((nombre) => nombre.startsWith("trabajos:"))
+            .map((nombre) => nombre.slice("trabajos:".length))
+            .filter(Boolean)
+        )
         setTiendasSeleccionadas(tiendasIds)
         setAlmacenesSeleccionados(almacenesIds)
+        setTrabajosSeleccionados(trabajosKeys)
 
         const idsSeleccionados = new Set(
           modulos
-            .filter((m) => !m.nombre.startsWith("tienda:") && !m.nombre.startsWith("almacen:"))
+            .filter((m) => !m.nombre.startsWith("tienda:") && !m.nombre.startsWith("almacen:") && !m.nombre.startsWith("trabajos:"))
             .filter((m) => nombresModulos.includes(m.nombre))
             .map((m) => m.id)
         )
@@ -100,6 +108,7 @@ export function TrabajadorPermisosDialog({
         setModulosSeleccionados(new Set())
         setTiendasSeleccionadas(new Set())
         setAlmacenesSeleccionados(new Set())
+        setTrabajosSeleccionados(new Set())
       }
     } catch (error) {
       toast({
@@ -132,9 +141,21 @@ export function TrabajadorPermisosDialog({
     setModulosSeleccionados(new Set())
   }
 
+  const TRABAJOS_TABS = [
+    { key: "confirmar",       label: "Confirmar salidas",              desc: "Pestaña dentro de Operaciones" },
+    { key: "registrar",       label: "Cierre diario instalaciones",    desc: "Pestaña dentro de Operaciones" },
+    { key: "actualizaciones", label: "Actualizaciones",                desc: "Pestaña dentro de Operaciones" },
+    { key: "entregas",        label: "Entregas sin instalar",          desc: "Pestaña dentro de Operaciones" },
+    { key: "todos",           label: "Todos los trabajos",             desc: "Pestaña dentro de Operaciones" },
+    { key: "acceso-directo",  label: "Acceso directo desde el inicio", desc: "Muestra tarjeta en el dashboard, fuera de Operaciones" },
+  ]
+
   const modulosGenerales = useMemo(() => {
     return todosModulos.filter(
-      (modulo) => !modulo.nombre.startsWith("tienda:") && !modulo.nombre.startsWith("almacen:")
+      (modulo) =>
+        !modulo.nombre.startsWith("tienda:") &&
+        !modulo.nombre.startsWith("almacen:") &&
+        !modulo.nombre.startsWith("trabajos:")
     )
   }, [todosModulos])
 
@@ -172,6 +193,7 @@ export function TrabajadorPermisosDialog({
 
       const tiendaIds = Array.from(tiendasSeleccionadas)
       const almacenIds = Array.from(almacenesSeleccionados)
+      const trabajosKeys = Array.from(trabajosSeleccionados)
 
       const tiendaModulos = await Promise.all(
         tiendaIds.map((tiendaId) => ensureModuloId(`tienda:${tiendaId}`))
@@ -179,11 +201,15 @@ export function TrabajadorPermisosDialog({
       const almacenModulos = await Promise.all(
         almacenIds.map((almacenId) => ensureModuloId(`almacen:${almacenId}`))
       )
+      const trabajosModulos = await Promise.all(
+        trabajosKeys.map((key) => ensureModuloId(`trabajos:${key}`))
+      )
 
       const moduloIds = new Set([
         ...Array.from(modulosSeleccionados),
         ...tiendaModulos,
         ...almacenModulos,
+        ...trabajosModulos,
       ])
 
       await PermisosService.updateTrabajadorPermisos(trabajadorCi, {
@@ -367,6 +393,41 @@ export function TrabajadorPermisosDialog({
                       </div>
                     ))
                   )}
+                </div>
+              </div>
+
+              {/* Pestañas de Trabajos Diarios */}
+              <div>
+                <Label className="text-sm font-semibold text-gray-900">Trabajos Diarios — pestañas</Label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Selecciona las pestañas del módulo de Trabajos Diarios a las que tendrá acceso.
+                </p>
+                <div className="mt-3 rounded-lg border p-2 space-y-1">
+                  {TRABAJOS_TABS.map((tab) => (
+                    <div
+                      key={tab.key}
+                      className={`flex items-start space-x-3 rounded-md px-2 py-2 hover:bg-gray-50 ${tab.key === "acceso-directo" ? "border-t mt-1 pt-3" : ""}`}
+                    >
+                      <Checkbox
+                        id={`trabajos-${tab.key}`}
+                        checked={trabajosSeleccionados.has(tab.key)}
+                        onCheckedChange={() => {
+                          const newSet = new Set(trabajosSeleccionados)
+                          if (newSet.has(tab.key)) {
+                            newSet.delete(tab.key)
+                          } else {
+                            newSet.add(tab.key)
+                          }
+                          setTrabajosSeleccionados(newSet)
+                        }}
+                        className="mt-0.5"
+                      />
+                      <Label htmlFor={`trabajos-${tab.key}`} className="flex-1 cursor-pointer">
+                        <span className="font-medium">{tab.label}</span>
+                        <span className="block text-xs text-gray-400 font-normal">{tab.desc}</span>
+                      </Label>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

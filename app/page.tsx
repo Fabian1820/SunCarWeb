@@ -164,6 +164,15 @@ export default function Dashboard() {
       iconClass: "text-amber-600",
     },
     {
+      id: "todos-trabajos",
+      permission: "trabajos:acceso-directo",
+      href: "/operaciones/todos-trabajos",
+      icon: FileCheck,
+      title: "Trabajos Diarios",
+      description: "Seguimiento diario de todos los trabajos e instalaciones.",
+      iconClass: "text-violet-600",
+    },
+    {
       id: "instalaciones",
       href: "/instalaciones",
       icon: Wrench,
@@ -350,6 +359,12 @@ export default function Dashboard() {
         "reportes-comercial",
         "resultados",
       ],
+    },
+    {
+      id: "campo",
+      title: "Trabajos Diarios",
+      subtitle: "Seguimiento diario de instalaciones y trabajos.",
+      moduleIds: ["todos-trabajos"],
     },
     {
       id: "operaciones",
