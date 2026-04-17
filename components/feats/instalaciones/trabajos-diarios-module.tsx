@@ -46,11 +46,9 @@ type TabKey = (typeof TABS)[number]["key"];
 export function TrabajosDiariosModule() {
   const { hasPermission, user } = useAuth();
 
-  const visibleTabs = TABS.filter((t) => {
-    if (!user?.is_superAdmin && !hasPermission(t.permission)) return false;
-    if (t.key === "todos" && hasPermission("trabajos:acceso-directo")) return false;
-    return true;
-  });
+  const visibleTabs = TABS.filter(
+    (t) => user?.is_superAdmin || hasPermission(t.permission),
+  );
 
   const [tab, setTab] = useState<TabKey | "">("");
 

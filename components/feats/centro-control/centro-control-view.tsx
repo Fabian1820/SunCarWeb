@@ -1728,7 +1728,7 @@ export default function CentroControlView() {
   // Raw datasets (para recomputar stats al cambiar periodo sin re-fetching)
   const [allClientesVenta, setAllClientesVenta] = useState<ClienteVenta[]>([])
   const [allSolicitudesVenta, setAllSolicitudesVenta] = useState<SolicitudVenta[]>([])
-  const [allTrabajosDiarios, setAllTrabajosDiarios] = useState<Array<{ fecha_trabajo?: string }>>([])
+  const [allTrabajosDiarios, setAllTrabajosDiarios] = useState<Array<{ fecha_trabajo?: string; tipo_trabajo?: string; instalacion_terminada?: boolean; cierre_diario_confirmado?: boolean }>>([])
   const [showProvinceLabels, setShowProvinceLabels] = useState(true)
   const [showLeadStates, setShowLeadStates] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
@@ -1835,11 +1835,16 @@ export default function CentroControlView() {
           setBrigadas(brigList as Brigada[])
 
           const enProceso = clients.filter(c => isEnProceso(c.estado)).length
-          const instalacionesTerminadas = clients.filter(c => {
-            const n = normalizeText(c.estado ?? "")
-            return (n === "instalacion terminada" || n === "instalado" || n.includes("equipo instalado")) && isInRange(c.fecha_montaje ?? c.fecha_instalacion, weekStart, weekEnd)
-          }).length
-          const instalacionesComenzadas = clients.filter(c => isEnProceso(c.estado) && isInRange(c.fecha_instalacion ?? c.fecha_montaje, weekStart, weekEnd)).length
+          const instalacionesTerminadas = trabajosDiariosRaw.filter(t =>
+            t.cierre_diario_confirmado === true &&
+            t.instalacion_terminada === true &&
+            isInRange(t.fecha_trabajo, weekStart, weekEnd)
+          ).length
+          const instalacionesComenzadas = trabajosDiariosRaw.filter(t =>
+            t.cierre_diario_confirmado === true &&
+            normalizeText(t.tipo_trabajo ?? "").includes("instalacion nueva") &&
+            isInRange(t.fecha_trabajo, weekStart, weekEnd)
+          ).length
           const nuevosClientes = clients.filter(c => isInRange(c.fecha_contacto, weekStart, weekEnd)).length
 
           let averiasPendientes = 0, averiasSolucionadas = 0
@@ -1871,7 +1876,12 @@ export default function CentroControlView() {
           const trabajosDiariosRaw = trabajosDiariosResult.status === "fulfilled" ? trabajosDiariosResult.value : []
           setAllClientesVenta(clientesVenta)
           setAllSolicitudesVenta(todasSolicitudesVenta)
-          setAllTrabajosDiarios(trabajosDiariosRaw.map(t => ({ fecha_trabajo: t.fecha_trabajo })))
+          setAllTrabajosDiarios(trabajosDiariosRaw.map(t => ({
+            fecha_trabajo: t.fecha_trabajo,
+            tipo_trabajo: t.tipo_trabajo,
+            instalacion_terminada: t.instalacion_terminada,
+            cierre_diario_confirmado: t.cierre_diario_confirmado,
+          })))
           const solicitudesUsadas = todasSolicitudesVenta.filter(s => s.estado === "usada")
           const matVendidosMap = new Map<string, { nombre: string; cantidad: number }>()
           solicitudesUsadas.forEach(s => {
@@ -2170,11 +2180,16 @@ export default function CentroControlView() {
     const { start, end } = periodoRange
     const inR = (s: string | null | undefined) => isInRange(s, start, end)
 
-    const instalacionesTerminadas = allClients.filter(c => {
-      const n = normalizeText(c.estado ?? "")
-      return (n === "instalacion terminada" || n === "instalado" || n.includes("equipo instalado")) && inR(c.fecha_montaje ?? c.fecha_instalacion)
-    }).length
-    const instalacionesComenzadas = allClients.filter(c => isEnProceso(c.estado) && inR(c.fecha_instalacion ?? c.fecha_montaje)).length
+    const instalacionesTerminadas = allTrabajosDiarios.filter(t =>
+      t.cierre_diario_confirmado === true &&
+      t.instalacion_terminada === true &&
+      inR(t.fecha_trabajo)
+    ).length
+    const instalacionesComenzadas = allTrabajosDiarios.filter(t =>
+      t.cierre_diario_confirmado === true &&
+      normalizeText(t.tipo_trabajo ?? "").includes("instalacion nueva") &&
+      inR(t.fecha_trabajo)
+    ).length
     const nuevosClientes = allClients.filter(c => inR(c.fecha_contacto)).length
     const nuevosLeads = allLeads.filter(l => inR(l.fecha_contacto)).length
 
