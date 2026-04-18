@@ -352,8 +352,8 @@ export function CreateSolicitudMaterialDialog({
               }
 
               if (entregados.length > 0 || pendientes.length > 0) {
-                // Entregados arriba (en rojo), pendientes abajo (normales)
-                setMateriales([...entregados, ...pendientes]);
+                // Pendientes primero, entregados al final (en rojo)
+                setMateriales([...pendientes, ...entregados]);
                 setMaterialesSinVinculo([]);
                 return;
               }
