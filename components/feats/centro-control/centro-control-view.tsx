@@ -103,7 +103,8 @@ function isPendienteInstalacion(estado: string | undefined) {
   return normalizeText(estado ?? "") === "pendiente de instalacion"
 }
 function isEnProceso(estado: string | undefined) {
-  return normalizeText(estado ?? "") === "instalacion en proceso"
+  const n = normalizeText(estado ?? "")
+  return n === "instalacion en proceso" || n === "en proceso" || n.includes("en proceso")
 }
 function isPendienteVisita(estado: string | undefined) {
   return normalizeText(estado ?? "") === "pendiente de visita"
@@ -1858,11 +1859,16 @@ export default function CentroControlView() {
 
           let averiasPendientes = 0, averiasSolucionadas = 0
           conAverias.forEach(c => {
-            const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
-            avs.forEach(a => {
-              if (isAveriaPendiente(a.estado)) averiasPendientes++
-              else if (isAveriaSolucionada(a.estado) && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
-            })
+            const avs: Array<Record<string, unknown>> = (c.averias as unknown as Array<Record<string, unknown>>) ?? []
+            if (avs.length > 0) {
+              avs.forEach(a => {
+                if (isAveriaPendiente(a.estado)) averiasPendientes++
+                else if (isAveriaSolucionada(a.estado) && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
+              })
+            } else {
+              // el endpoint no embebe el array — contar el cliente como avería pendiente
+              averiasPendientes++
+            }
           })
 
           const ofertasRaw = ofertasConfeccionResult.status === "fulfilled"
@@ -2203,7 +2209,7 @@ export default function CentroControlView() {
 
     let averiasSolucionadas = 0
     clientesConAverias.forEach(c => {
-      const avs = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>>) ?? []
+      const avs: Array<Record<string, unknown>> = (c.averias as unknown as Array<Record<string, unknown>>) ?? []
       avs.forEach(a => { if (isAveriaSolucionada(a.estado) && inR(a.fecha_solucion as string)) averiasSolucionadas++ })
     })
 
