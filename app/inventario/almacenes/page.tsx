@@ -4,8 +4,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, ConfirmDeleteDialog } from "@/components/shared/molecule/dialog"
-import { Plus, Loader2, AlertCircle, RefreshCw } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Plus, AlertCircle, RefreshCw } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
@@ -23,13 +23,11 @@ export default function GestionAlmacenesPage() {
     refetchAll,
     createAlmacen,
     updateAlmacen,
-    deleteAlmacen,
   } = useInventario()
   const { toast } = useToast()
 
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingAlmacen, setEditingAlmacen] = useState<Almacen | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const handleCreate = async (data: Parameters<typeof createAlmacen>[0]) => {
     await createAlmacen(data)
@@ -43,13 +41,6 @@ export default function GestionAlmacenesPage() {
     toast({ title: "Almacén actualizado correctamente" })
     setEditingAlmacen(null)
     setIsDialogOpen(false)
-  }
-
-  const handleDelete = async () => {
-    if (!deletingId) return
-    await deleteAlmacen(deletingId)
-    toast({ title: "Almacén eliminado correctamente" })
-    setDeletingId(null)
   }
 
   const openEdit = (almacen: Almacen) => {
@@ -108,7 +99,6 @@ export default function GestionAlmacenesPage() {
               <AlmacenesTable
                 almacenes={almacenes}
                 onEdit={openEdit}
-                onDelete={(id) => setDeletingId(id)}
                 onView={(almacen) => {
                   if (almacen.id) router.push(`/almacenes/${almacen.id}`)
                 }}
@@ -133,14 +123,6 @@ export default function GestionAlmacenesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog confirmar eliminación */}
-      <ConfirmDeleteDialog
-        open={!!deletingId}
-        onConfirm={handleDelete}
-        onCancel={() => setDeletingId(null)}
-        title="Eliminar almacén"
-        description="¿Estás seguro de que deseas eliminar este almacén? Esta acción no se puede deshacer."
-      />
     </div>
   )
 }
