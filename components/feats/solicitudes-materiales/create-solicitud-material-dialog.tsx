@@ -52,6 +52,7 @@ interface MaterialRow {
   cantidad: number;
   foto?: string;
   sinVinculo?: boolean;
+  entregado?: boolean;
 }
 
 interface LookupCliente {
@@ -284,7 +285,7 @@ export function CreateSolicitudMaterialDialog({
     async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[]) => {
       setLoadingSugeridos(true);
       try {
-        // Intentar obtener materiales pendientes de la oferta confección
+        // Intentar obtener materiales de la oferta confección
         if (clienteNumero) {
           try {
             const ofertaResponse = await apiRequest<any>(
@@ -299,47 +300,60 @@ export function CreateSolicitudMaterialDialog({
                   ? [payload.oferta]
                   : [];
 
-            // Recopilar items con entregas pendientes de todas las ofertas
-            const pendientes: { material_codigo: string; cantidad: number }[] = [];
+            // Acumular por material_codigo: pendiente total y si tiene alguna entrega
+            const acumulado = new Map<string, { pendiente: number; tieneEntregas: boolean }>();
             for (const oferta of rawOfertas) {
               const items: any[] = Array.isArray(oferta.items ?? oferta.materiales)
                 ? (oferta.items ?? oferta.materiales)
                 : [];
               for (const item of items) {
-                const pendiente = Number(item.cantidad_pendiente_por_entregar ?? 0);
-                if (pendiente > 0 && item.material_codigo) {
-                  const existing = pendientes.find(
-                    (p) => p.material_codigo === item.material_codigo,
-                  );
-                  if (existing) {
-                    existing.cantidad += pendiente;
-                  } else {
-                    pendientes.push({ material_codigo: item.material_codigo, cantidad: pendiente });
-                  }
+                if (!item.material_codigo) continue;
+                const pendiente = Number(item.cantidad_pendiente_por_entregar ?? -1);
+                const entregas: any[] = Array.isArray(item.entregas) ? item.entregas : [];
+                const tieneEntregas = entregas.length > 0;
+                const existing = acumulado.get(item.material_codigo);
+                if (existing) {
+                  existing.pendiente = pendiente >= 0
+                    ? existing.pendiente + pendiente
+                    : existing.pendiente;
+                  existing.tieneEntregas = existing.tieneEntregas || tieneEntregas;
+                } else {
+                  acumulado.set(item.material_codigo, {
+                    pendiente: pendiente >= 0 ? pendiente : 0,
+                    tieneEntregas,
+                  });
                 }
               }
             }
 
-            if (pendientes.length > 0) {
-              const rows: MaterialRow[] = [];
-              for (const p of pendientes) {
-                const catalogMat = catalog.find(
-                  (m) => m.codigo?.toString() === p.material_codigo,
-                );
-                if (catalogMat) {
-                  rows.push({
-                    material_id: catalogMat.id || catalogMat._id || "",
-                    codigo: catalogMat.codigo?.toString() || p.material_codigo,
-                    nombre: catalogMat.nombre || catalogMat.descripcion || "",
-                    descripcion: catalogMat.descripcion || catalogMat.nombre || "",
-                    um: catalogMat.um || "U",
-                    cantidad: Math.max(1, Math.trunc(p.cantidad)),
-                    foto: catalogMat.foto,
-                  });
+            if (acumulado.size > 0) {
+              const entregados: MaterialRow[] = [];
+              const pendientes: MaterialRow[] = [];
+
+              for (const [codigo, info] of acumulado) {
+                const catalogMat = catalog.find(m => m.codigo?.toString() === codigo);
+                if (!catalogMat) continue;
+                const id = catalogMat.id || catalogMat._id || "";
+                const row: MaterialRow = {
+                  material_id: id,
+                  codigo: catalogMat.codigo?.toString() || codigo,
+                  nombre: catalogMat.nombre || catalogMat.descripcion || "",
+                  descripcion: catalogMat.descripcion || catalogMat.nombre || "",
+                  um: catalogMat.um || "U",
+                  cantidad: Math.max(0, Math.trunc(info.pendiente)),
+                  foto: catalogMat.foto,
+                };
+                // Entregado = sin pendiente Y tiene al menos una entrega registrada
+                if (info.pendiente === 0 && info.tieneEntregas) {
+                  entregados.push({ ...row, entregado: true });
+                } else {
+                  pendientes.push({ ...row, cantidad: Math.max(1, Math.trunc(info.pendiente)) });
                 }
               }
-              if (rows.length > 0) {
-                setMateriales(rows);
+
+              if (entregados.length > 0 || pendientes.length > 0) {
+                // Entregados arriba (en rojo), pendientes abajo (normales)
+                setMateriales([...entregados, ...pendientes]);
                 setMaterialesSinVinculo([]);
                 return;
               }
@@ -514,7 +528,7 @@ export function CreateSolicitudMaterialDialog({
     if (!selectedAlmacenId) return;
 
     const validMaterials = materiales.filter(
-      (m) => m.material_id && !m.sinVinculo,
+      (m) => m.material_id && !m.sinVinculo && !m.entregado,
     );
     if (validMaterials.length === 0) return;
 
@@ -586,7 +600,7 @@ export function CreateSolicitudMaterialDialog({
 
   const hasSinVinculo = materiales.some((m) => m.sinVinculo);
   const validCount = materiales.filter(
-    (m) => m.material_id && !m.sinVinculo,
+    (m) => m.material_id && !m.sinVinculo && !m.entregado,
   ).length;
   const canSubmit =
     selectedAlmacenId && validCount > 0 && !submitting && !hasSinVinculo;
@@ -720,74 +734,95 @@ export function CreateSolicitudMaterialDialog({
                     </tr>
                   </thead>
                   <tbody>
-                    {materiales.map((mat, idx) => (
-                      <tr
-                        key={idx}
-                        className={`border-b last:border-b-0 ${mat.sinVinculo ? "bg-red-50" : ""}`}
-                      >
-                        <td className="py-2 px-3">
-                          <div className="flex items-center gap-2">
-                            {mat.foto ? (
-                              <img
-                                src={mat.foto}
-                                alt={mat.nombre || mat.descripcion}
-                                className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display =
-                                    "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                                <Package className="h-4 w-4 text-gray-400" />
-                              </div>
-                            )}
-                            <div>
-                              <p
-                                className={`font-medium leading-tight ${mat.sinVinculo ? "text-red-700" : "text-gray-900"}`}
-                              >
-                                {mat.nombre || mat.descripcion || mat.codigo}
-                              </p>
-                              {mat.codigo && (
-                                <p className="text-xs text-gray-400">
-                                  {mat.codigo}
-                                </p>
+                    {materiales.map((mat, idx) => {
+                      const rowBg = mat.entregado
+                        ? "bg-red-50"
+                        : mat.sinVinculo
+                          ? "bg-orange-50"
+                          : "";
+                      return (
+                        <tr
+                          key={idx}
+                          className={`border-b last:border-b-0 ${rowBg}`}
+                        >
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              {mat.foto ? (
+                                <img
+                                  src={mat.foto}
+                                  alt={mat.nombre || mat.descripcion}
+                                  className={`h-8 w-8 rounded object-cover border flex-shrink-0 ${mat.entregado ? "border-red-200 opacity-60" : "border-gray-200"}`}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display =
+                                      "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className={`h-8 w-8 rounded border flex items-center justify-center flex-shrink-0 ${mat.entregado ? "bg-red-100 border-red-200" : "bg-gray-100 border-gray-200"}`}>
+                                  <Package className={`h-4 w-4 ${mat.entregado ? "text-red-400" : "text-gray-400"}`} />
+                                </div>
                               )}
-                              {mat.sinVinculo && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-red-100 text-red-700 border-red-300"
+                              <div>
+                                <p
+                                  className={`font-medium leading-tight ${mat.entregado ? "text-red-700 line-through" : mat.sinVinculo ? "text-orange-700" : "text-gray-900"}`}
                                 >
-                                  Sin vinculo
-                                </Badge>
-                              )}
+                                  {mat.nombre || mat.descripcion || mat.codigo}
+                                </p>
+                                {mat.codigo && (
+                                  <p className={`text-xs ${mat.entregado ? "text-red-400" : "text-gray-400"}`}>
+                                    {mat.codigo}
+                                  </p>
+                                )}
+                                {mat.entregado && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-red-100 text-red-700 border-red-300 mt-0.5"
+                                  >
+                                    Ya entregado
+                                  </Badge>
+                                )}
+                                {mat.sinVinculo && !mat.entregado && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-orange-100 text-orange-700 border-orange-300"
+                                  >
+                                    Sin vinculo
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="py-2 px-3 text-gray-500">{mat.um}</td>
-                        <td className="py-2 px-3">
-                          <Input
-                            type="number"
-                            min="0"
-                            step="1"
-                            value={mat.cantidad === 0 ? "" : mat.cantidad}
-                            onChange={(e) =>
-                              handleCantidadChange(idx, e.target.value)
-                            }
-                            className="h-8 w-24"
-                            placeholder="0"
-                          />
-                        </td>
-                        <td className="py-2 px-3">
-                          <button
-                            onClick={() => handleRemoveMaterial(idx)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className={`py-2 px-3 ${mat.entregado ? "text-red-400" : "text-gray-500"}`}>{mat.um}</td>
+                          <td className="py-2 px-3">
+                            {mat.entregado ? (
+                              <span className="text-xs text-red-500 font-medium">Completo</span>
+                            ) : (
+                              <Input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={mat.cantidad === 0 ? "" : mat.cantidad}
+                                onChange={(e) =>
+                                  handleCantidadChange(idx, e.target.value)
+                                }
+                                className="h-8 w-24"
+                                placeholder="0"
+                              />
+                            )}
+                          </td>
+                          <td className="py-2 px-3">
+                            {!mat.entregado && (
+                              <button
+                                onClick={() => handleRemoveMaterial(idx)}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

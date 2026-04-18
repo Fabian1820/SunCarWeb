@@ -25,7 +25,8 @@
       "Bash(mkdir -p /Users/yanyhurtado/MIO/Suncar/SunCarWeb/components/feats/centro-control)",
       "Bash(mkdir -p /Users/yanyhurtado/MIO/Suncar/SunCarWeb/app/centro-control)",
       "Bash(cp /Users/yanyhurtado/MIO/Suncar/SunCarWeb/.claude/worktrees/gifted-robinson/components/feats/centro-control/centro-control-view.tsx /Users/yanyhurtado/MIO/Suncar/SunCarWeb/components/feats/centro-control/centro-control-view.tsx)",
-      "Bash(cp /Users/yanyhurtado/MIO/Suncar/SunCarWeb/.claude/worktrees/gifted-robinson/app/centro-control/page.tsx /Users/yanyhurtado/MIO/Suncar/SunCarWeb/app/centro-control/page.tsx)"
+      "Bash(cp /Users/yanyhurtado/MIO/Suncar/SunCarWeb/.claude/worktrees/gifted-robinson/app/centro-control/page.tsx /Users/yanyhurtado/MIO/Suncar/SunCarWeb/app/centro-control/page.tsx)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")"
     ],
     "deny": [],
     "ask": []

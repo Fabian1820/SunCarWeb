@@ -829,6 +829,19 @@ export function ConfeccionOfertasView({
       setCostoTransportacion(ofertaACopiar.costo_transportacion || 0);
       setDescuentoPorcentaje(ofertaACopiar.descuento_porcentaje || 0);
 
+      // Cargar división del margen (materiales vs instalación)
+      if (
+        typeof ofertaACopiar.porcentaje_margen_materiales === "number" &&
+        typeof ofertaACopiar.porcentaje_margen_instalacion === "number"
+      ) {
+        setPorcentajeMargenMateriales(ofertaACopiar.porcentaje_margen_materiales);
+        setPorcentajeMargenInstalacion(ofertaACopiar.porcentaje_margen_instalacion);
+      } else if (typeof ofertaACopiar.porcentaje_margen_materiales === "number") {
+        const mat = Math.min(100, Math.max(0, ofertaACopiar.porcentaje_margen_materiales));
+        setPorcentajeMargenMateriales(mat);
+        setPorcentajeMargenInstalacion(100 - mat);
+      }
+
       console.log("🔍 DEBUG - Cargando descuento al editar:", {
         descuento_porcentaje: ofertaACopiar.descuento_porcentaje,
         monto_descuento: ofertaACopiar.monto_descuento,
