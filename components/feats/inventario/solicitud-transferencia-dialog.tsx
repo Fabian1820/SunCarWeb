@@ -65,7 +65,6 @@ export function SolicitudTransferenciaDialog({
   const [destinoId, setDestinoId] = useState("")
   const [items, setItems] = useState<ItemRow[]>([])
   const [motivo, setMotivo] = useState("")
-  const [referencia, setReferencia] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -81,7 +80,6 @@ export function SolicitudTransferenciaDialog({
       setDestinoId("")
       setItems([])
       setMotivo("")
-      setReferencia("")
       setError(null)
       setMaterialSearch("")
       setMaterialResults([])
@@ -222,7 +220,6 @@ export function SolicitudTransferenciaDialog({
           cantidad: item.cantidad,
         })),
         motivo: motivo || undefined,
-        referencia: referencia || undefined,
       })
       onOpenChange(false)
       onSuccess()
@@ -460,25 +457,15 @@ export function SolicitudTransferenciaDialog({
             )}
           </div>
 
-          {/* Motivo y Referencia */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Motivo</Label>
-              <Textarea
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                placeholder="Motivo del traspaso..."
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Referencia</Label>
-              <Input
-                value={referencia}
-                onChange={(e) => setReferencia(e.target.value)}
-                placeholder="Documento, guía, etc."
-              />
-            </div>
+          {/* Motivo */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Motivo</Label>
+            <Textarea
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
+              placeholder="Motivo del traspaso..."
+              rows={2}
+            />
           </div>
 
           {error && (
