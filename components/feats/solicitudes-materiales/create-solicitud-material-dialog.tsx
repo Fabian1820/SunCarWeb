@@ -34,6 +34,7 @@ import {
   SolicitudMaterialService,
   TrabajadorService,
 } from "@/lib/api-services";
+import { apiRequest } from "@/lib/api-config";
 import type { Almacen, Trabajador } from "@/lib/api-types";
 import type {
   SolicitudMaterial,
@@ -280,9 +281,75 @@ export function CreateSolicitudMaterialDialog({
   }, [clienteSearch, selectedCliente]);
 
   const loadSugeridos = useCallback(
-    async (clienteId: string, catalog: CatalogMaterial[]) => {
+    async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[]) => {
       setLoadingSugeridos(true);
       try {
+        // Intentar obtener materiales pendientes de la oferta confección
+        if (clienteNumero) {
+          try {
+            const ofertaResponse = await apiRequest<any>(
+              `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
+            );
+            const payload = ofertaResponse?.data ?? ofertaResponse;
+            const rawOfertas: any[] = Array.isArray(payload?.ofertas)
+              ? payload.ofertas
+              : Array.isArray(payload)
+                ? payload
+                : payload?.oferta
+                  ? [payload.oferta]
+                  : [];
+
+            // Recopilar items con entregas pendientes de todas las ofertas
+            const pendientes: { material_codigo: string; cantidad: number }[] = [];
+            for (const oferta of rawOfertas) {
+              const items: any[] = Array.isArray(oferta.items ?? oferta.materiales)
+                ? (oferta.items ?? oferta.materiales)
+                : [];
+              for (const item of items) {
+                const pendiente = Number(item.cantidad_pendiente_por_entregar ?? 0);
+                if (pendiente > 0 && item.material_codigo) {
+                  const existing = pendientes.find(
+                    (p) => p.material_codigo === item.material_codigo,
+                  );
+                  if (existing) {
+                    existing.cantidad += pendiente;
+                  } else {
+                    pendientes.push({ material_codigo: item.material_codigo, cantidad: pendiente });
+                  }
+                }
+              }
+            }
+
+            if (pendientes.length > 0) {
+              const rows: MaterialRow[] = [];
+              for (const p of pendientes) {
+                const catalogMat = catalog.find(
+                  (m) => m.codigo?.toString() === p.material_codigo,
+                );
+                if (catalogMat) {
+                  rows.push({
+                    material_id: catalogMat.id || catalogMat._id || "",
+                    codigo: catalogMat.codigo?.toString() || p.material_codigo,
+                    nombre: catalogMat.nombre || catalogMat.descripcion || "",
+                    descripcion: catalogMat.descripcion || catalogMat.nombre || "",
+                    um: catalogMat.um || "U",
+                    cantidad: Math.max(1, Math.trunc(p.cantidad)),
+                    foto: catalogMat.foto,
+                  });
+                }
+              }
+              if (rows.length > 0) {
+                setMateriales(rows);
+                setMaterialesSinVinculo([]);
+                return;
+              }
+            }
+          } catch {
+            // Si falla la consulta de oferta, continuar con sugeridos
+          }
+        }
+
+        // Fallback: materiales sugeridos del cliente
         const { materiales: sugeridos, materiales_sin_vinculo } =
           await SolicitudMaterialService.getMaterialesSugeridos(clienteId);
 
@@ -332,7 +399,7 @@ export function CreateSolicitudMaterialDialog({
     setClienteSearch(cliente.nombre || cliente.numero || "");
     setShowClienteDropdown(false);
     if (cliente.id || cliente._id) {
-      void loadSugeridos(cliente.id || cliente._id, allMaterials);
+      void loadSugeridos(cliente.id || cliente._id, cliente.numero, allMaterials);
     }
   };
 
@@ -600,7 +667,19 @@ export function CreateSolicitudMaterialDialog({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Materiales</Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Materiales</Label>
+              {materiales.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMateriales([])}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Quitar todos
+                </button>
+              )}
+            </div>
 
             {loadingSugeridos && (
               <div className="flex items-center gap-2 text-sm text-gray-500 py-3">
