@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
@@ -18,13 +18,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select"
-import { MaterialCombobox } from "@/components/feats/inventario/material-combobox"
+import { Badge } from "@/components/shared/atom/badge"
 import {
   AlertCircle,
   Loader2,
   Plus,
   Trash2,
   ArrowRightLeft,
+  Search,
+  Package,
 } from "lucide-react"
 import type { Almacen, StockItem } from "@/lib/inventario-types"
 import type { Material } from "@/lib/material-types"
@@ -33,8 +35,11 @@ import { InventarioService } from "@/lib/api-services"
 interface ItemRow {
   material_id: string
   material_codigo: string
+  nombre: string
+  descripcion: string
+  um: string
+  foto?: string
   cantidad: number
-  ubicacion_en_almacen: string
 }
 
 interface SolicitudTransferenciaDialogProps {
@@ -64,62 +69,109 @@ export function SolicitudTransferenciaDialog({
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Stock del almacén origen indexado por material_id
+  // Material search
+  const [materialSearch, setMaterialSearch] = useState("")
+  const [materialResults, setMaterialResults] = useState<Material[]>([])
+  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false)
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setOrigenId(currentAlmacenId || "")
+      setDestinoId("")
+      setItems([])
+      setMotivo("")
+      setReferencia("")
+      setError(null)
+      setMaterialSearch("")
+      setMaterialResults([])
+      setShowMaterialDropdown(false)
+    }
+  }, [open, currentAlmacenId])
+
+  // Stock del almacén origen indexado por material_id y material_codigo
   const stockPorMaterial = useMemo(() => {
-    const map = new Map<string, number>()
+    const mapById = new Map<string, number>()
+    const mapByCodigo = new Map<string, number>()
     for (const item of stock) {
       if (item.almacen_id === origenId) {
-        const key = item.material_id || item.material_codigo
-        map.set(key, (map.get(key) || 0) + item.cantidad)
+        if (item.material_id) {
+          mapById.set(item.material_id, (mapById.get(item.material_id) || 0) + item.cantidad)
+        }
+        if (item.material_codigo) {
+          mapByCodigo.set(item.material_codigo, (mapByCodigo.get(item.material_codigo) || 0) + item.cantidad)
+        }
       }
     }
-    return map
+    return { byId: mapById, byCodigo: mapByCodigo }
   }, [stock, origenId])
 
-  // Map material codigo → material object for quick lookup
-  const materialPorCodigo = useMemo(() => {
-    const map = new Map<string, Material>()
-    for (const m of materiales) map.set(String(m.codigo), m)
-    return map
-  }, [materiales])
-
-  const materialPorId = useMemo(() => {
-    const map = new Map<string, Material>()
-    for (const m of materiales) {
-      if (m.id) map.set(m.id, m)
-    }
-    return map
-  }, [materiales])
-
   const getStockDisponible = (materialId: string, materialCodigo: string) => {
-    return stockPorMaterial.get(materialId) || stockPorMaterial.get(materialCodigo) || 0
+    return stockPorMaterial.byId.get(materialId) || stockPorMaterial.byCodigo.get(materialCodigo) || 0
   }
 
-  const addItem = () => {
+  // Material search with debounce
+  useEffect(() => {
+    if (!materialSearch.trim()) {
+      setMaterialResults([])
+      setShowMaterialDropdown(false)
+      return
+    }
+
+    const handler = setTimeout(() => {
+      const term = materialSearch.toLowerCase()
+      const filtered = materiales
+        .filter(
+          (m) =>
+            (m.descripcion?.toLowerCase().includes(term) ||
+              m.nombre?.toLowerCase().includes(term) ||
+              m.codigo?.toString().toLowerCase().includes(term)) &&
+            !items.some((row) => row.material_id === m.id),
+        )
+        .slice(0, 15)
+
+      setMaterialResults(filtered)
+      setShowMaterialDropdown(filtered.length > 0)
+    }, 200)
+
+    return () => clearTimeout(handler)
+  }, [materialSearch, materiales, items])
+
+  const handleAddMaterial = (material: Material) => {
+    const id = material.id || ""
+    if (items.some((m) => m.material_id === id)) return
+
     setItems((prev) => [
       ...prev,
-      { material_id: "", material_codigo: "", cantidad: 1, ubicacion_en_almacen: "" },
+      {
+        material_id: id,
+        material_codigo: String(material.codigo || ""),
+        nombre: material.nombre || material.descripcion || "",
+        descripcion: material.descripcion || material.nombre || "",
+        um: material.um || "U",
+        foto: material.foto,
+        cantidad: 1,
+      },
     ])
+    setMaterialSearch("")
+    setShowMaterialDropdown(false)
   }
 
-  const removeItem = (index: number) => {
+  const handleRemoveMaterial = (index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const updateItem = (index: number, field: keyof ItemRow, value: string | number) => {
+  const handleCantidadChange = (index: number, value: string) => {
+    if (value === "") {
+      setItems((prev) =>
+        prev.map((m, i) => (i === index ? { ...m, cantidad: 0 } : m)),
+      )
+      return
+    }
+    const num = Number.parseInt(value, 10)
+    if (Number.isNaN(num) || num < 0) return
     setItems((prev) =>
-      prev.map((item, i) => {
-        if (i !== index) return item
-        if (field === "material_codigo") {
-          const mat = materialPorCodigo.get(String(value))
-          return {
-            ...item,
-            material_codigo: String(value),
-            material_id: mat?.id || "",
-          }
-        }
-        return { ...item, [field]: value }
-      }),
+      prev.map((m, i) => (i === index ? { ...m, cantidad: num } : m)),
     )
   }
 
@@ -140,21 +192,15 @@ export function SolicitudTransferenciaDialog({
       setError("Agrega al menos un material")
       return false
     }
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i]
-      if (!item.material_id && !item.material_codigo) {
-        setError(`Material ${i + 1}: selecciona un material`)
-        return false
-      }
+    for (const item of items) {
       if (!item.cantidad || item.cantidad <= 0) {
-        setError(`Material ${i + 1}: la cantidad debe ser mayor a 0`)
+        setError(`"${item.nombre || item.material_codigo}": la cantidad debe ser mayor a 0`)
         return false
       }
       const disponible = getStockDisponible(item.material_id, item.material_codigo)
       if (item.cantidad > disponible) {
-        const mat = materialPorId.get(item.material_id) || materialPorCodigo.get(item.material_codigo)
         setError(
-          `"${mat?.descripcion || item.material_codigo}": solo hay ${disponible} disponibles en el almacén origen`,
+          `"${item.nombre || item.material_codigo}": solo hay ${disponible} disponibles en el almacén origen`,
         )
         return false
       }
@@ -174,17 +220,10 @@ export function SolicitudTransferenciaDialog({
         items: items.map((item) => ({
           material_id: item.material_id || item.material_codigo,
           cantidad: item.cantidad,
-          ubicacion_en_almacen: item.ubicacion_en_almacen || undefined,
         })),
         motivo: motivo || undefined,
         referencia: referencia || undefined,
       })
-      // Reset form
-      setItems([])
-      setMotivo("")
-      setReferencia("")
-      setDestinoId("")
-      setError(null)
       onOpenChange(false)
       onSuccess()
     } catch (err) {
@@ -205,20 +244,20 @@ export function SolicitudTransferenciaDialog({
 
   return (
     <Dialog open={open} onOpenChange={resetAndClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <ArrowRightLeft className="h-5 w-5" />
+            <ArrowRightLeft className="h-5 w-5 text-amber-600" />
             Solicitar Traspaso de Materiales
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 pt-2">
-          {/* Almacén Origen */}
+        <div className="space-y-5 pt-2">
+          {/* Almacén Origen y Destino */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Almacén Origen *
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Almacén Origen <span className="text-red-500">*</span>
               </Label>
               <Select value={origenId} onValueChange={setOrigenId}>
                 <SelectTrigger>
@@ -234,9 +273,9 @@ export function SolicitudTransferenciaDialog({
               </Select>
             </div>
 
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Almacén Destino *
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                Almacén Destino <span className="text-red-500">*</span>
               </Label>
               <Select value={destinoId} onValueChange={setDestinoId}>
                 <SelectTrigger>
@@ -255,115 +294,176 @@ export function SolicitudTransferenciaDialog({
             </div>
           </div>
 
-          {/* Items */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label className="text-sm font-medium">Materiales *</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addItem}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Agregar
-              </Button>
+          {/* Materiales */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium">Materiales</Label>
+              {items.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setItems([])}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700 font-medium"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Quitar todos
+                </button>
+              )}
+            </div>
+
+            {/* Items table */}
+            {items.length > 0 && (
+              <div className="border rounded-md overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b">
+                      <th className="text-left py-2 px-3 font-medium text-gray-700">
+                        Material
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-24">
+                        En stock
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-28">
+                        Cantidad
+                      </th>
+                      <th className="w-10" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((mat, idx) => {
+                      const disponible = getStockDisponible(mat.material_id, mat.material_codigo)
+                      const excede = mat.cantidad > disponible
+                      return (
+                        <tr
+                          key={idx}
+                          className={`border-b last:border-b-0 ${excede ? "bg-red-50" : ""}`}
+                        >
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              {mat.foto ? (
+                                <img
+                                  src={mat.foto}
+                                  alt={mat.nombre || mat.descripcion}
+                                  className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = "none"
+                                  }}
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                                  <Package className="h-4 w-4 text-gray-400" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium leading-tight text-gray-900">
+                                  {mat.nombre || mat.descripcion || mat.material_codigo}
+                                </p>
+                                {mat.material_codigo && (
+                                  <p className="text-xs text-gray-400">
+                                    {mat.material_codigo}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-2 px-3">
+                            <Badge
+                              variant="outline"
+                              className={
+                                excede
+                                  ? "bg-red-100 text-red-700 border-red-300"
+                                  : "bg-blue-50 text-blue-700 border-blue-200"
+                              }
+                            >
+                              {disponible}
+                            </Badge>
+                          </td>
+                          <td className="py-2 px-3">
+                            <Input
+                              type="number"
+                              min="1"
+                              max={disponible}
+                              step="1"
+                              value={mat.cantidad === 0 ? "" : mat.cantidad}
+                              onChange={(e) =>
+                                handleCantidadChange(idx, e.target.value)
+                              }
+                              className={`h-8 w-24 ${excede ? "border-red-400" : ""}`}
+                              placeholder="0"
+                            />
+                          </td>
+                          <td className="py-2 px-3">
+                            <button
+                              onClick={() => handleRemoveMaterial(idx)}
+                              className="text-red-400 hover:text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Material search input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar material para agregar..."
+                value={materialSearch}
+                onChange={(e) => setMaterialSearch(e.target.value)}
+                className="pl-10"
+              />
+              {showMaterialDropdown && materialResults.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                  {materialResults.map((m) => (
+                    <button
+                      key={m.id}
+                      className="w-full text-left px-3 py-2 hover:bg-amber-50 text-sm flex items-center gap-2"
+                      onClick={() => handleAddMaterial(m)}
+                    >
+                      {m.foto ? (
+                        <img
+                          src={m.foto}
+                          alt={m.nombre || m.descripcion}
+                          className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none"
+                          }}
+                        />
+                      ) : (
+                        <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                          <Package className="h-3 w-3 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">
+                          {m.nombre || m.descripcion}
+                        </p>
+                        {m.codigo && (
+                          <p className="text-xs text-gray-400">{m.codigo}</p>
+                        )}
+                      </div>
+                      <Plus className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {items.length === 0 && (
-              <p className="text-sm text-gray-500 text-center py-4 border rounded-md border-dashed">
-                No hay materiales agregados. Presiona &quot;Agregar&quot; para
-                añadir materiales al traspaso.
+              <p className="text-sm text-gray-400 text-center py-2">
+                Busque y seleccione materiales para agregar al traspaso.
               </p>
             )}
-
-            <div className="space-y-3">
-              {items.map((item, index) => {
-                const disponible = getStockDisponible(item.material_id, item.material_codigo)
-                const excede = item.cantidad > disponible
-
-                return (
-                  <div
-                    key={index}
-                    className="border rounded-md p-3 space-y-2 bg-gray-50"
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className="flex-1">
-                        <Label className="text-xs text-gray-500 mb-1 block">
-                          Material
-                        </Label>
-                        <MaterialCombobox
-                          materials={materiales}
-                          value={item.material_codigo}
-                          onValueChange={(val) =>
-                            updateItem(index, "material_codigo", val)
-                          }
-                          placeholder="Buscar material..."
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="mt-5 text-red-500 hover:text-red-700"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label className="text-xs text-gray-500 mb-1 block">
-                          Cantidad *
-                        </Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          max={disponible}
-                          value={item.cantidad}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "cantidad",
-                              Number(e.target.value),
-                            )
-                          }
-                          className={excede ? "border-red-400" : ""}
-                        />
-                        <p
-                          className={`text-xs mt-1 ${excede ? "text-red-500 font-medium" : "text-gray-400"}`}
-                        >
-                          Disponible: {disponible}
-                        </p>
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500 mb-1 block">
-                          Ubicación (opcional)
-                        </Label>
-                        <Input
-                          value={item.ubicacion_en_almacen}
-                          onChange={(e) =>
-                            updateItem(
-                              index,
-                              "ubicacion_en_almacen",
-                              e.target.value,
-                            )
-                          }
-                          placeholder="Ej: Estante A"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
           </div>
 
           {/* Motivo y Referencia */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-sm font-medium mb-2 block">Motivo</Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Motivo</Label>
               <Textarea
                 value={motivo}
                 onChange={(e) => setMotivo(e.target.value)}
@@ -371,10 +471,8 @@ export function SolicitudTransferenciaDialog({
                 rows={2}
               />
             </div>
-            <div>
-              <Label className="text-sm font-medium mb-2 block">
-                Referencia
-              </Label>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Referencia</Label>
               <Input
                 value={referencia}
                 onChange={(e) => setReferencia(e.target.value)}
@@ -390,7 +488,7 @@ export function SolicitudTransferenciaDialog({
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => resetAndClose(false)}
@@ -398,13 +496,17 @@ export function SolicitudTransferenciaDialog({
             >
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting || items.length === 0}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
               {isSubmitting ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <ArrowRightLeft className="h-4 w-4 mr-2" />
               )}
-              Solicitar Traspaso
+              Solicitar Traspaso ({items.length})
             </Button>
           </div>
         </div>
