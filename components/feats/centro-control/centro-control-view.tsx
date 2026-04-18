@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback } from "react"
+import { useEffect, useMemo, useState, useCallback, ElementType } from "react"
 import type { Feature, FeatureCollection, GeoJsonObject } from "geojson"
 import type { Layer, LeafletMouseEvent, PathOptions } from "leaflet"
 import L from "leaflet"
@@ -31,7 +31,7 @@ import "leaflet/dist/leaflet.css"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type ViewMode = "todos" | "pendientes_instalacion" | "en_proceso" | "averias" | "visitas" | "ventas"
+type ViewMode = "todos" | "pendientes_instalacion" | "en_proceso" | "averias" | "visitas" | "ventas" | "trabajos_diarios" | "clientes_trabajados" | "instalaciones_terminadas" | "averias_solucionadas_periodo" | "visitas_realizadas_periodo"
 
 interface SimpleBounds { minLat: number; maxLat: number; minLng: number; maxLng: number }
 interface Point2D { lat: number; lng: number }
@@ -45,6 +45,7 @@ interface ControlData {
 }
 
 interface TooltipInfo { municipio: string; count: number; label: string; x: number; y: number }
+interface TrabajoDiarioRow { fecha_trabajo?: string; tipo_trabajo?: string; instalacion_terminada?: boolean; cierre_diario_confirmado?: boolean; cliente_numero?: string | null; cliente_nombre?: string | null; cliente_telefono?: string | null; cliente_direccion?: string | null; fin_comentario?: string | null }
 interface ComercialResumen { confirmadas: number; canceladas: number; reservadas: number }
 
 type SelectedItem =
@@ -54,6 +55,10 @@ type SelectedItem =
   | { mode: "averias"; municipio: string; clientes: Cliente[] }
   | { mode: "visitas"; municipio: string; clientes: Cliente[]; leads: Lead[] }
   | { mode: "ventas"; municipio: string; clientesVenta: ClienteVenta[] }
+  | { mode: "trabajos_diarios"; municipio: string; trabajos: TrabajoDiarioRow[] }
+  | { mode: "clientes_trabajados"; municipio: string; clienteNumeros: string[] }
+  | { mode: "instalaciones_terminadas"; municipio: string; trabajos: TrabajoDiarioRow[] }
+  | { mode: "averias_solucionadas_periodo"; municipio: string; clientes: Cliente[] }
 
 interface VentasResumen {
   totalClientesVentas: number
@@ -140,6 +145,18 @@ function normalizeText(value: string | undefined | null): string {
   if (!value) return ""
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+// GeoJSON shapeName → nombre oficial del backend (cuando difieren tras normalizar)
+const GEOJSON_SHAPE_ALIASES: Record<string, string> = {
+  "habana del este":        "la habana del este",       // GeoJSON omite "La"
+  "cespedes":               "carlos manuel de cespedes", // GeoJSON usa nombre corto
+  "isle of youth":          "isla de la juventud",       // GeoJSON en inglés
+}
+
+function geoJsonKey(shapeName: string): string {
+  const n = normalizeText(shapeName)
+  return GEOJSON_SHAPE_ALIASES[n] ?? n
 }
 
 function getWeekRange() {
@@ -293,12 +310,17 @@ async function fetchAllLeads(): Promise<Lead[]> {
 
 function densityColor(ratio: number, mode: ViewMode): string {
   const palettes: Record<ViewMode, string[]> = {
-    todos:                  ["#3d1505", "#92400e", "#d97706", "#f59e0b", "#fde68a"],
-    pendientes_instalacion: ["#431407", "#9a3412", "#ea580c", "#fb923c", "#fed7aa"],
-    en_proceso:             ["#172554", "#1e3a8a", "#1d4ed8", "#60a5fa", "#bfdbfe"],
-    averias:                ["#450a0a", "#991b1b", "#dc2626", "#f87171", "#fecaca"],
-    visitas:                ["#2e1065", "#5b21b6", "#7c3aed", "#c084fc", "#e9d5ff"],
-    ventas:                 ["#1a0533", "#4a1d96", "#7c3aed", "#a78bfa", "#ddd6fe"],
+    todos:                        ["#3d1505", "#92400e", "#d97706", "#f59e0b", "#fde68a"],
+    pendientes_instalacion:       ["#431407", "#9a3412", "#ea580c", "#fb923c", "#fed7aa"],
+    en_proceso:                   ["#172554", "#1e3a8a", "#1d4ed8", "#60a5fa", "#bfdbfe"],
+    averias:                      ["#450a0a", "#991b1b", "#dc2626", "#f87171", "#fecaca"],
+    visitas:                      ["#2e1065", "#5b21b6", "#7c3aed", "#c084fc", "#e9d5ff"],
+    ventas:                       ["#1a0533", "#4a1d96", "#7c3aed", "#a78bfa", "#ddd6fe"],
+    trabajos_diarios:             ["#083344", "#0e7490", "#06b6d4", "#67e8f9", "#cffafe"],
+    clientes_trabajados:          ["#042f2e", "#0d9488", "#14b8a6", "#5eead4", "#ccfbf1"],
+    instalaciones_terminadas:     ["#052e16", "#166534", "#16a34a", "#4ade80", "#bbf7d0"],
+    averias_solucionadas_periodo: ["#1c1917", "#44403c", "#78716c", "#a8a29e", "#e7e5e4"],
+    visitas_realizadas_periodo:   ["#1e1b4b", "#3730a3", "#6366f1", "#a5b4fc", "#e0e7ff"],
   }
   const p = palettes[mode]
   if (ratio < 0.2) return p[0]
@@ -314,6 +336,11 @@ function borderColor(mode: ViewMode): string {
   if (mode === "en_proceso") return "#60a5fa"
   if (mode === "averias") return "#f87171"
   if (mode === "ventas") return "#a78bfa"
+  if (mode === "trabajos_diarios") return "#67e8f9"
+  if (mode === "clientes_trabajados") return "#5eead4"
+  if (mode === "instalaciones_terminadas") return "#4ade80"
+  if (mode === "averias_solucionadas_periodo") return "#a8a29e"
+  if (mode === "visitas_realizadas_periodo") return "#a5b4fc"
   return "#c084fc"
 }
 
@@ -900,6 +927,218 @@ function agregarMaterialesDeOfertas(
   })
 }
 
+// ─── TrabajosCard ────────────────────────────────────────────────────────────
+
+function TrabajosCard({ municipio, trabajos, allClients, onClose }: { municipio: string; trabajos: TrabajoDiarioRow[]; allClients: Cliente[]; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const clienteMap = useMemo(() => {
+    const m = new Map<string, Cliente>()
+    allClients.forEach(c => { if (c.numero) m.set(c.numero, c) })
+    return m
+  }, [allClients])
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
+      <div className="bg-slate-900/95 border border-cyan-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-cyan-400" onClose={onClose} />
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
+          <HardHat className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+          <span className="text-xs text-slate-300"><span className="font-bold text-cyan-300 text-sm">{trabajos.length}</span> trabajo{trabajos.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
+          {trabajos.map((t, i) => {
+            const cliente = t.cliente_numero ? clienteMap.get(t.cliente_numero) : undefined
+            const nombre = t.cliente_nombre || cliente?.nombre || t.cliente_numero || "Cliente desconocido"
+            const telefono = t.cliente_telefono || cliente?.telefono
+            const direccion = t.cliente_direccion || cliente?.direccion
+            const isOpen = expanded === i
+            return (
+              <div key={i}>
+                <button onClick={() => setExpanded(e => e === i ? null : i)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 text-left">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-white truncate">{nombre}</p>
+                    <p className="text-[10px] text-cyan-400">{t.tipo_trabajo ?? "Sin tipo"}{t.fecha_trabajo ? ` · ${new Date(t.fecha_trabajo).toLocaleDateString("es-CU")}` : ""}</p>
+                  </div>
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" />}
+                </button>
+                {isOpen && (
+                  <div className="bg-slate-950/40 px-4 py-2.5 space-y-1">
+                    {telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5 shrink-0" />{telefono}</p>}
+                    {direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{direccion}</span></p>}
+                    {t.cliente_numero && <p className="text-[10px] text-slate-500">Cliente #{t.cliente_numero}</p>}
+                    {t.instalacion_terminada && <p className="text-[10px] text-emerald-400">✓ Instalación terminada</p>}
+                    {t.cierre_diario_confirmado && <p className="text-[10px] text-blue-400">✓ Cierre confirmado</p>}
+                    {t.fin_comentario && (
+                      <div className="mt-1 p-2 rounded-md bg-slate-700/30 border border-slate-600/30">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-0.5">Comentario de cierre</p>
+                        <p className="text-[11px] text-slate-300">{t.fin_comentario}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── ClientesTrabajadosCard ───────────────────────────────────────────────────
+
+function ClientesTrabajadosCard({ municipio, clienteNumeros, allClients, onClose }: { municipio: string; clienteNumeros: string[]; allClients: Cliente[]; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const clienteMap = useMemo(() => {
+    const m = new Map<string, Cliente>()
+    allClients.forEach(c => { if (c.numero) m.set(c.numero, c) })
+    return m
+  }, [allClients])
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
+      <div className="bg-slate-900/95 border border-teal-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-teal-400" onClose={onClose} />
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
+          <Users2 className="h-3.5 w-3.5 text-teal-400 shrink-0" />
+          <span className="text-xs text-slate-300"><span className="font-bold text-teal-300 text-sm">{clienteNumeros.length}</span> cliente{clienteNumeros.length !== 1 ? "s" : ""} trabajado{clienteNumeros.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
+          {clienteNumeros.map(num => {
+            const c = clienteMap.get(num)
+            const nombre = c?.nombre || `Cliente #${num}`
+            const isOpen = expanded === num
+            return (
+              <div key={num}>
+                <button onClick={() => setExpanded(e => e === num ? null : num)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 text-left">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-white truncate">{nombre}</p>
+                    {c?.numero && <p className="text-[10px] text-slate-500">#{c.numero}</p>}
+                  </div>
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" />}
+                </button>
+                {isOpen && (
+                  <div className="bg-slate-950/40 px-4 py-2.5 space-y-1">
+                    {c?.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5 shrink-0" />{c.telefono}</p>}
+                    {c?.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
+                    {c?.estado && <p className="text-[10px] text-slate-500">Estado: {c.estado}</p>}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── InstalacionesTerminadasCard ──────────────────────────────────────────────
+
+function InstalacionesTerminadasCard({ municipio, trabajos, allClients, onClose }: { municipio: string; trabajos: TrabajoDiarioRow[]; allClients: Cliente[]; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const clienteMap = useMemo(() => {
+    const m = new Map<string, Cliente>()
+    allClients.forEach(c => { if (c.numero) m.set(c.numero, c) })
+    return m
+  }, [allClients])
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
+      <div className="bg-slate-900/95 border border-emerald-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-emerald-400" onClose={onClose} />
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
+          <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+          <span className="text-xs text-slate-300"><span className="font-bold text-emerald-300 text-sm">{trabajos.length}</span> instalación{trabajos.length !== 1 ? "es" : ""} terminada{trabajos.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
+          {trabajos.map((t, i) => {
+            const cliente = t.cliente_numero ? clienteMap.get(t.cliente_numero) : undefined
+            const nombre = t.cliente_nombre || cliente?.nombre || t.cliente_numero || "Cliente desconocido"
+            const telefono = t.cliente_telefono || cliente?.telefono
+            const direccion = t.cliente_direccion || cliente?.direccion
+            const isOpen = expanded === i
+            return (
+              <div key={i}>
+                <button onClick={() => setExpanded(e => e === i ? null : i)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 text-left">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-white truncate">{nombre}</p>
+                    <p className="text-[10px] text-emerald-400">{t.fecha_trabajo ? new Date(t.fecha_trabajo).toLocaleDateString("es-CU") : "Sin fecha"}</p>
+                  </div>
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" />}
+                </button>
+                {isOpen && (
+                  <div className="bg-slate-950/40 px-4 py-2.5 space-y-1">
+                    {telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5 shrink-0" />{telefono}</p>}
+                    {direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{direccion}</span></p>}
+                    {t.cliente_numero && <p className="text-[10px] text-slate-500">Cliente #{t.cliente_numero}</p>}
+                    {t.tipo_trabajo && <p className="text-[10px] text-slate-500">Tipo: {t.tipo_trabajo}</p>}
+                    {t.fin_comentario && (
+                      <div className="mt-1 p-2 rounded-md bg-slate-700/30 border border-slate-600/30">
+                        <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-0.5">Comentario de cierre</p>
+                        <p className="text-[11px] text-slate-300">{t.fin_comentario}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── AveriasSolucionadasCard ──────────────────────────────────────────────────
+
+function AveriasSolucionadasCard({ municipio, clientes, onClose }: { municipio: string; clientes: Cliente[]; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<string | null>(null)
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
+      <div className="bg-slate-900/95 border border-orange-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
+        <CardHeader name={municipio} color="text-orange-400" onClose={onClose} />
+        <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
+          <Wrench className="h-3.5 w-3.5 text-orange-400 shrink-0" />
+          <span className="text-xs text-slate-300"><span className="font-bold text-orange-300 text-sm">{clientes.length}</span> avería{clientes.length !== 1 ? "s" : ""} solucionada{clientes.length !== 1 ? "s" : ""}</span>
+        </div>
+        <div className="max-h-72 overflow-y-auto divide-y divide-slate-700/30">
+          {clientes.map(c => {
+            const key = c.numero ?? c.id ?? ""
+            const avsSolucionadas = ((c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined)
+              ?.filter(a => a.estado !== "Pendiente") ?? []
+            const isOpen = expanded === key
+            return (
+              <div key={key}>
+                <button onClick={() => setExpanded(e => e === key ? null : key)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/5 text-left">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-semibold text-white truncate">{c.nombre}</p>
+                    <p className="text-[10px] text-orange-400">{avsSolucionadas.length} avería{avsSolucionadas.length !== 1 ? "s" : ""} solucionada{avsSolucionadas.length !== 1 ? "s" : ""}</p>
+                  </div>
+                  {isOpen ? <ChevronUp className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" /> : <ChevronDown className="h-3.5 w-3.5 text-slate-400 shrink-0 ml-2" />}
+                </button>
+                {isOpen && (
+                  <div className="bg-slate-950/40 px-4 py-2 space-y-1.5">
+                    {c.telefono && <p className="text-[11px] text-slate-400 flex items-center gap-1"><Phone className="h-2.5 w-2.5" />{c.telefono}</p>}
+                    {c.direccion && <p className="text-[11px] text-slate-400 flex items-center gap-1"><MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{c.direccion}</span></p>}
+                    {avsSolucionadas.map((a, i) => (
+                      <div key={String(a.id ?? i)} className="p-2 rounded-md bg-orange-500/10 border border-orange-500/20">
+                        <p className="text-[11px] text-orange-200">{String(a.descripcion ?? "Sin descripción")}</p>
+                        {a.fecha_resolucion != null && <p className="text-[10px] text-slate-500 mt-0.5">Resuelta: {new Date(String(a.fecha_resolucion)).toLocaleDateString("es-CU")}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── VentasClientesCard ───────────────────────────────────────────────────────
 
 function VentasClientesCard({ municipio, clientesVenta, solicitudesUsadas, onClose }: {
@@ -1262,7 +1501,9 @@ function AnalisisRegionalPanel({
   const modoLabel: Record<ViewMode, string> = {
     todos: "Todos", pendientes_instalacion: "Pendientes instalación",
     en_proceso: "En proceso", averias: "Con averías", visitas: "Pendientes visita",
-    ventas: "Clientes de ventas",
+    ventas: "Clientes de ventas", trabajos_diarios: "Trabajos diarios",
+    clientes_trabajados: "Clientes trabajados", instalaciones_terminadas: "Instalaciones terminadas",
+    averias_solucionadas_periodo: "Averías solucionadas", visitas_realizadas_periodo: "Visitas realizadas",
   }
 
   const handleExportExcel = async () => {
@@ -1737,7 +1978,7 @@ export default function CentroControlView() {
   // Raw datasets (para recomputar stats al cambiar periodo sin re-fetching)
   const [allClientesVenta, setAllClientesVenta] = useState<ClienteVenta[]>([])
   const [allSolicitudesVenta, setAllSolicitudesVenta] = useState<SolicitudVenta[]>([])
-  const [allTrabajosDiarios, setAllTrabajosDiarios] = useState<Array<{ fecha_trabajo?: string; tipo_trabajo?: string; instalacion_terminada?: boolean; cierre_diario_confirmado?: boolean }>>([])
+  const [allTrabajosDiarios, setAllTrabajosDiarios] = useState<TrabajoDiarioRow[]>([])
   const [showProvinceLabels, setShowProvinceLabels] = useState(true)
   const [showLeadStates, setShowLeadStates] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
@@ -1895,6 +2136,11 @@ export default function CentroControlView() {
             tipo_trabajo: t.tipo_trabajo,
             instalacion_terminada: t.instalacion_terminada,
             cierre_diario_confirmado: t.cierre_diario_confirmado,
+            cliente_numero: t.cliente_numero ?? null,
+            cliente_nombre: t.cliente_nombre ?? null,
+            cliente_telefono: t.cliente_telefono ?? null,
+            cliente_direccion: t.cliente_direccion ?? null,
+            fin_comentario: t.fin?.comentario ?? null,
           })))
           const solicitudesUsadas = todasSolicitudesVenta.filter(s => s.estado === "usada")
           const matVendidosMap = new Map<string, { nombre: string; cantidad: number }>()
@@ -1984,7 +2230,7 @@ export default function CentroControlView() {
       const bounds = computeGeoJSONBounds(f.geometry)
       const center = computeGeoJSONCenter(f.geometry)
       if (!bounds) return
-      const key = normalizeText(shapeName)
+      const key = geoJsonKey(shapeName)
       muniBounds.set(key, bounds)
 
       const provincia = muniToProvMap.get(key)
@@ -2081,14 +2327,12 @@ export default function CentroControlView() {
     return map
   }, [allClientesVenta])
 
-  const maxByMode = useMemo(() => {
-    if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()).map(v => v.clientes.length + v.leads.length), 1)
-    if (viewMode === "en_proceso") return Math.max(...Array.from(enProcesoMap.values()).map(v => v.length), 1)
-    if (viewMode === "averias") return Math.max(...Array.from(averiasMap.values()).map(v => v.length), 1)
-    if (viewMode === "visitas") return Math.max(...Array.from(visitasMap.values()).map(v => v.clientes.length + v.leads.length), 1)
-    if (viewMode === "ventas") return Math.max(...Array.from(ventasMap.values()).map(v => v.length), 1)
-    return maxClientes
-  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, maxClientes])
+  // ── Mapa auxiliar: cliente_numero → municipio normalizado ───────────────────
+  const clienteNumeroToMunicipioMap = useMemo(() => {
+    const map = new Map<string, string>()
+    allClients.forEach(c => { if (c.numero && c.municipio) map.set(String(c.numero), normalizeText(c.municipio)) })
+    return map
+  }, [allClients])
 
   // ── Filtros provincia / municipio ───────────────────────────────────────────
   const provinciasDisponibles = useMemo(() =>
@@ -2105,8 +2349,19 @@ export default function CentroControlView() {
       const provKey = normalizeText(m.provincia)
       if (muniKey && provKey) map.set(muniKey, provKey)
     })
+    // Fill in any municipios missing from stats endpoint using client data
+    allClients.forEach(c => {
+      const muniKey = normalizeText(c.municipio)
+      const provKey = normalizeText(c.provincia_montaje)
+      if (muniKey && provKey && !map.has(muniKey)) map.set(muniKey, provKey)
+    })
+    allLeads.forEach(l => {
+      const muniKey = normalizeText(l.municipio)
+      const provKey = normalizeText(l.provincia_montaje)
+      if (muniKey && provKey && !map.has(muniKey)) map.set(muniKey, provKey)
+    })
     return map
-  }, [municipios])
+  }, [municipios, allClients, allLeads])
 
   const provinceDisplayNameByKey = useMemo(() => {
     const map = new Map<string, string>()
@@ -2183,6 +2438,83 @@ export default function CentroControlView() {
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
   )
 
+  // ── Mapas filtrados por periodo (deben ir DESPUÉS de periodoRange) ────────────
+  const trabajosDiariosMap = useMemo(() => {
+    const map = new Map<string, TrabajoDiarioRow[]>()
+    if (!periodoRange) return map
+    const { start, end } = periodoRange
+    const inR = (s: string | null | undefined) => isInRange(s, start, end)
+    allTrabajosDiarios.filter(t => inR(t.fecha_trabajo)).forEach(t => {
+      const muni = t.cliente_numero ? clienteNumeroToMunicipioMap.get(t.cliente_numero) : undefined
+      if (!muni) return
+      const list = map.get(muni) ?? []; list.push(t); map.set(muni, list)
+    })
+    return map
+  }, [allTrabajosDiarios, clienteNumeroToMunicipioMap, periodoRange])
+
+  const clientesTrabajadosMap = useMemo(() => {
+    const map = new Map<string, Set<string>>()
+    if (!periodoRange) return map
+    const { start, end } = periodoRange
+    const inR = (s: string | null | undefined) => isInRange(s, start, end)
+    allTrabajosDiarios.filter(t => inR(t.fecha_trabajo) && t.cliente_numero).forEach(t => {
+      const muni = clienteNumeroToMunicipioMap.get(t.cliente_numero!)
+      if (!muni) return
+      const s = map.get(muni) ?? new Set<string>(); s.add(t.cliente_numero!); map.set(muni, s)
+    })
+    return map
+  }, [allTrabajosDiarios, clienteNumeroToMunicipioMap, periodoRange])
+
+  const instalacionesTerminadasMap = useMemo(() => {
+    const map = new Map<string, TrabajoDiarioRow[]>()
+    if (!periodoRange) return map
+    const { start, end } = periodoRange
+    const inR = (s: string | null | undefined) => isInRange(s, start, end)
+    allTrabajosDiarios.filter(t => t.cierre_diario_confirmado === true && t.instalacion_terminada === true && inR(t.fecha_trabajo)).forEach(t => {
+      const muni = t.cliente_numero ? clienteNumeroToMunicipioMap.get(t.cliente_numero) : undefined
+      if (!muni) return
+      const list = map.get(muni) ?? []; list.push(t); map.set(muni, list)
+    })
+    return map
+  }, [allTrabajosDiarios, clienteNumeroToMunicipioMap, periodoRange])
+
+  const averiasSolucionadasPeriodoMap = useMemo(() => {
+    const map = new Map<string, Cliente[]>()
+    if (!periodoRange) return map
+    const { start, end } = periodoRange
+    const inR = (s: string | null | undefined) => isInRange(s, start, end)
+    clientesConAverias.forEach(c => {
+      const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
+      const tiene = avs?.some(a => isAveriaSolucionada(a.estado) && inR(a.fecha_solucion as string))
+      if (!tiene || !c.municipio) return
+      const key = normalizeText(c.municipio)
+      const list = map.get(key) ?? []; list.push(c); map.set(key, list)
+    })
+    return map
+  }, [clientesConAverias, periodoRange])
+
+  const clientesTrabajadosPeriodo = useMemo(() => {
+    if (!periodoRange) return 0
+    const { start, end } = periodoRange
+    const inR = (s: string | null | undefined) => isInRange(s, start, end)
+    const nums = new Set<string>()
+    allTrabajosDiarios.filter(t => inR(t.fecha_trabajo) && t.cliente_numero).forEach(t => nums.add(t.cliente_numero!))
+    return nums.size
+  }, [allTrabajosDiarios, periodoRange])
+
+  const maxByMode = useMemo(() => {
+    if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()).map(v => v.clientes.length + v.leads.length), 1)
+    if (viewMode === "en_proceso") return Math.max(...Array.from(enProcesoMap.values()).map(v => v.length), 1)
+    if (viewMode === "averias") return Math.max(...Array.from(averiasMap.values()).map(v => v.length), 1)
+    if (viewMode === "visitas") return Math.max(...Array.from(visitasMap.values()).map(v => v.clientes.length + v.leads.length), 1)
+    if (viewMode === "ventas") return Math.max(...Array.from(ventasMap.values()).map(v => v.length), 1)
+    if (viewMode === "trabajos_diarios") return Math.max(...Array.from(trabajosDiariosMap.values()).map(v => v.length), 1)
+    if (viewMode === "clientes_trabajados") return Math.max(...Array.from(clientesTrabajadosMap.values()).map(v => v.size), 1)
+    if (viewMode === "instalaciones_terminadas") return Math.max(...Array.from(instalacionesTerminadasMap.values()).map(v => v.length), 1)
+    if (viewMode === "averias_solucionadas_periodo") return Math.max(...Array.from(averiasSolucionadasPeriodoMap.values()).map(v => v.length), 1)
+    return maxClientes
+  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, maxClientes])
+
   const periodoLabel = useMemo(
     () => formatPeriodoLabel(periodoTipo, periodoFecha, periodoDesde, periodoHasta),
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
@@ -2250,7 +2582,7 @@ export default function CentroControlView() {
   // ── Map styles ──────────────────────────────────────────────────────────────
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
     const shapeName = String((feature?.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
-    const key = normalizeText(shapeName)
+    const key = geoJsonKey(shapeName)
     const featureProvinciaKey = municipioToProvinciaMap.get(key) ?? ""
     const isProvinciaFilterActive = selectedProvinciaKeys.size > 0
     const isMunicipioFilterActive = Boolean(selectedMunicipioKey)
@@ -2265,6 +2597,10 @@ export default function CentroControlView() {
     else if (viewMode === "averias") count = averiasMap.get(key)?.length ?? 0
     else if (viewMode === "visitas") { const e = visitasMap.get(key); count = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0) }
     else if (viewMode === "ventas") count = ventasMap.get(key)?.length ?? 0
+    else if (viewMode === "trabajos_diarios") count = trabajosDiariosMap.get(key)?.length ?? 0
+    else if (viewMode === "clientes_trabajados") count = clientesTrabajadosMap.get(key)?.size ?? 0
+    else if (viewMode === "instalaciones_terminadas") count = instalacionesTerminadasMap.get(key)?.length ?? 0
+    else if (viewMode === "averias_solucionadas_periodo") count = averiasSolucionadasPeriodoMap.get(key)?.length ?? 0
 
     if (!isInsideFilter) {
       return { color: "#0b1220", weight: 0.5, fillColor: "#020617", fillOpacity: 0.15 }
@@ -2285,11 +2621,11 @@ export default function CentroControlView() {
       fillColor: densityColor(ratio, viewMode),
       fillOpacity: isMunicipioFilterActive ? 1 : 0.9,
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String((feature.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
-    const key = normalizeText(shapeName)
+    const key = geoJsonKey(shapeName)
 
     // Calcular count para el modo actual
     let modeCount = 0
@@ -2300,6 +2636,10 @@ export default function CentroControlView() {
     else if (viewMode === "averias") { modeCount = averiasMap.get(key)?.length ?? 0; modeLabel = "con avería" }
     else if (viewMode === "visitas") { const e = visitasMap.get(key); modeCount = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0); modeLabel = "visita pendiente" }
     else if (viewMode === "ventas") { modeCount = ventasMap.get(key)?.length ?? 0; modeLabel = "cliente ventas" }
+    else if (viewMode === "trabajos_diarios") { modeCount = trabajosDiariosMap.get(key)?.length ?? 0; modeLabel = "trabajo" }
+    else if (viewMode === "clientes_trabajados") { modeCount = clientesTrabajadosMap.get(key)?.size ?? 0; modeLabel = "cliente trabajado" }
+    else if (viewMode === "instalaciones_terminadas") { modeCount = instalacionesTerminadasMap.get(key)?.length ?? 0; modeLabel = "instalación terminada" }
+    else if (viewMode === "averias_solucionadas_periodo") { modeCount = averiasSolucionadasPeriodoMap.get(key)?.length ?? 0; modeLabel = "avería solucionada" }
 
     const featureProvinciaKey = municipioToProvinciaMap.get(key) ?? ""
     const shouldShowMunicipioLabels = selectedProvinciaKeys.size > 0
@@ -2354,14 +2694,26 @@ export default function CentroControlView() {
           } else if (viewMode === "ventas") {
             const cv = ventasMap.get(key); if (!cv?.length) return
             setSelectedItem(prev => prev?.mode === "ventas" && prev.municipio === shapeName ? null : { mode: "ventas", municipio: shapeName, clientesVenta: cv })
+          } else if (viewMode === "trabajos_diarios") {
+            const ts = trabajosDiariosMap.get(key); if (!ts?.length) return
+            setSelectedItem(prev => prev?.mode === "trabajos_diarios" && prev.municipio === shapeName ? null : { mode: "trabajos_diarios", municipio: shapeName, trabajos: ts })
+          } else if (viewMode === "clientes_trabajados") {
+            const cs = clientesTrabajadosMap.get(key); if (!cs?.size) return
+            setSelectedItem(prev => prev?.mode === "clientes_trabajados" && prev.municipio === shapeName ? null : { mode: "clientes_trabajados", municipio: shapeName, clienteNumeros: Array.from(cs) })
+          } else if (viewMode === "instalaciones_terminadas") {
+            const ts = instalacionesTerminadasMap.get(key); if (!ts?.length) return
+            setSelectedItem(prev => prev?.mode === "instalaciones_terminadas" && prev.municipio === shapeName ? null : { mode: "instalaciones_terminadas", municipio: shapeName, trabajos: ts })
+          } else if (viewMode === "averias_solucionadas_periodo") {
+            const cs = averiasSolucionadasPeriodoMap.get(key); if (!cs?.length) return
+            setSelectedItem(prev => prev?.mode === "averias_solucionadas_periodo" && prev.municipio === shapeName ? null : { mode: "averias_solucionadas_periodo", municipio: shapeName, clientes: cs })
           }
         },
       })
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
 
 
-  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
+  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${trabajosDiariosMap.size}-${clientesTrabajadosMap.size}-${instalacionesTerminadasMap.size}-${averiasSolucionadasPeriodoMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -2801,6 +3153,10 @@ export default function CentroControlView() {
           {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "ventas" && <VentasClientesCard municipio={selectedItem.municipio} clientesVenta={selectedItem.clientesVenta} solicitudesUsadas={allSolicitudesVenta.filter(s => s.estado === "usada")} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "trabajos_diarios" && <TrabajosCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={allClients} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "clientes_trabajados" && <ClientesTrabajadosCard municipio={selectedItem.municipio} clienteNumeros={selectedItem.clienteNumeros} allClients={allClients} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "instalaciones_terminadas" && <InstalacionesTerminadasCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={allClients} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "averias_solucionadas_periodo" && <AveriasSolucionadasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
           {showBrigadas && <BrigadasPanel brigadas={brigadas} onClose={() => setShowBrigadas(false)} />}
           {showAnalisisRegional && (
             <AnalisisRegionalPanel
@@ -2862,24 +3218,32 @@ export default function CentroControlView() {
                 <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Operaciones</span>
               </div>
               <div className="space-y-0.5">
-                {[
-                  { icon: PlayCircle,  label: "Instalaciones comenzadas",  value: periodoStats.instalacionesComenzadas, color: "text-blue-400"    },
-                  { icon: CheckCircle, label: "Instalaciones terminadas",   value: periodoStats.instalacionesTerminadas, color: "text-emerald-400" },
-                  { icon: Wrench,      label: "Trabajos diarios registr.",  value: periodoStats.trabajosDiarios,         color: "text-cyan-400"    },
-                  { icon: Shield,      label: "Averías solucionadas",       value: periodoStats.averiasSolucionadas,     color: "text-green-400"   },
-                  { icon: Eye,         label: "Visitas realizadas",         value: visitasRealizadasPeriodo,             color: "text-purple-400"  },
-                ].map(({ icon: Icon, label, value, color }) => (
-                  <div key={label} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
-                      <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
-                    </div>
-                    {loading
-                      ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
-                      : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
-                    }
-                  </div>
-                ))}
+                {([
+                  { icon: Wrench,      label: "Trabajos diarios realizados",  value: periodoStats.trabajosDiarios,         color: "text-cyan-400",    mode: "trabajos_diarios"             as ViewMode },
+                  { icon: Users2,      label: "Clientes trabajados",          value: clientesTrabajadosPeriodo,            color: "text-teal-400",    mode: "clientes_trabajados"          as ViewMode },
+                  { icon: CheckCircle, label: "Instalaciones terminadas",     value: periodoStats.instalacionesTerminadas, color: "text-emerald-400", mode: "instalaciones_terminadas"     as ViewMode },
+                  { icon: Shield,      label: "Averías solucionadas",         value: periodoStats.averiasSolucionadas,     color: "text-green-400",   mode: "averias_solucionadas_periodo" as ViewMode },
+                  { icon: Eye,         label: "Visitas realizadas",           value: visitasRealizadasPeriodo,             color: "text-purple-400",  mode: "visitas_realizadas_periodo"   as ViewMode },
+                ] as { icon: ElementType; label: string; value: number; color: string; mode: ViewMode }[]).map(({ icon: Icon, label, value, color, mode }) => {
+                  const isActive = viewMode === mode
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => setViewMode(v => v === mode ? "todos" : mode)}
+                      className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-colors gap-2 text-left ${isActive ? "bg-white/15 ring-1 ring-white/20" : "bg-white/5 hover:bg-white/10"}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
+                        <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
+                      </div>
+                      {loading
+                        ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
+                        : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
+                      }
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
