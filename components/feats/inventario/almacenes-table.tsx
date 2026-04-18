@@ -8,7 +8,7 @@ import type { Almacen } from "@/lib/inventario-types"
 interface AlmacenesTableProps {
   almacenes: Almacen[]
   onEdit: (almacen: Almacen) => void
-  onDelete: (id: string) => void
+  onDelete?: (id: string) => void
   onView?: (almacen: Almacen) => void
 }
 
@@ -87,15 +87,17 @@ export function AlmacenesTable({ almacenes, onEdit, onDelete, onView }: Almacene
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => almacen.id && onDelete(almacen.id)}
-                    className="border-red-300 text-red-700 hover:bg-red-50"
-                    title="Eliminar almacen"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {onDelete ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => almacen.id && onDelete(almacen.id)}
+                      className="border-red-300 text-red-700 hover:bg-red-50"
+                      title="Eliminar almacen"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : null}
                 </div>
               </td>
             </tr>

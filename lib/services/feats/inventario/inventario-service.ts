@@ -18,6 +18,8 @@ import type {
   MovimientoLoteResponse,
   MovimientoLoteResumenPorMaterial,
   VentaCreateData,
+  SolicitudTransferencia,
+  SolicitudTransferenciaCreateData,
 } from "../../../inventario-types";
 import type { MaterialesBajoMinimoResponse } from "../../../types/feats/inventario/stock-minimo-types";
 
@@ -720,5 +722,63 @@ export class InventarioService {
       "/inventario/materiales-bajo-minimo"
     );
     return response;
+  }
+
+  // ── Solicitudes de Transferencia ──
+
+  static async getSolicitudesTransferencia(params?: {
+    estado?: string;
+    almacen_id?: string;
+    solicitante?: string;
+  }): Promise<SolicitudTransferencia[]> {
+    const search = new URLSearchParams();
+    if (params?.estado) search.set("estado", params.estado);
+    if (params?.almacen_id) search.set("almacen_id", params.almacen_id);
+    if (params?.solicitante) search.set("solicitante", params.solicitante);
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+    const response = await apiRequest<any>(
+      `/solicitudes-transferencia/${suffix}`,
+    );
+    return extractArray<SolicitudTransferencia>(response);
+  }
+
+  static async createSolicitudTransferencia(
+    data: SolicitudTransferenciaCreateData,
+  ): Promise<string> {
+    const response = await apiRequest<any>("/solicitudes-transferencia/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return response?.solicitud_id || extractItem<any>(response)?.solicitud_id;
+  }
+
+  static async aprobarSolicitudTransferencia(
+    solicitudId: string,
+    comentario?: string,
+  ): Promise<void> {
+    const body: Record<string, unknown> = {};
+    if (comentario) body.comentario = comentario;
+    await apiRequest<any>(
+      `/solicitudes-transferencia/${solicitudId}/aprobar`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    );
+  }
+
+  static async denegarSolicitudTransferencia(
+    solicitudId: string,
+    comentario?: string,
+  ): Promise<void> {
+    const body: Record<string, unknown> = {};
+    if (comentario) body.comentario = comentario;
+    await apiRequest<any>(
+      `/solicitudes-transferencia/${solicitudId}/denegar`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+      },
+    );
   }
 }
