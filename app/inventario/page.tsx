@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/shared/atom/select"
-import { AlertCircle, Loader2, RefreshCw, ArrowRightLeft } from "lucide-react"
+import { AlertCircle, Loader2, RefreshCw } from "lucide-react"
 import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useInventario } from "@/hooks/use-inventario"
@@ -14,8 +14,6 @@ import { MarcaService } from "@/lib/api-services"
 import type { MarcaSimplificada } from "@/lib/types/feats/marcas/marca-types"
 import { StockTable } from "@/components/feats/inventario/stock-table"
 import { InventarioCruzadoTable } from "@/components/feats/inventario/inventario-cruzado-table"
-import { SolicitudTransferenciaDialog } from "@/components/feats/inventario/solicitud-transferencia-dialog"
-import { SolicitudesTransferenciaTable } from "@/components/feats/inventario/solicitudes-transferencia-table"
 
 export default function InventarioPage() {
   const {
@@ -35,8 +33,6 @@ export default function InventarioPage() {
   const [stockMarcaFilter, setStockMarcaFilter] = useState("all")
   const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all")
   const [marcas, setMarcas] = useState<MarcaSimplificada[]>([])
-  const [showTransferDialog, setShowTransferDialog] = useState(false)
-  const [transferTableKey, setTransferTableKey] = useState(0)
 
   useEffect(() => {
     MarcaService.getMarcasSimplificadas().then(setMarcas).catch(() => {})
@@ -110,15 +106,6 @@ export default function InventarioPage() {
     })
   }, [stock, stockSearch, materialPorCodigo, stockCategoriaFilter, stockMarcaFilter, stockPotenciaFilter])
 
-  const handleTransferSuccess = () => {
-    setTransferTableKey((k) => k + 1)
-    refetchStock(stockAlmacenFilter === "all" ? undefined : stockAlmacenFilter)
-  }
-
-  const handleTransferResolved = () => {
-    refetchStock(stockAlmacenFilter === "all" ? undefined : stockAlmacenFilter)
-  }
-
   if (loading) {
     return <PageLoader moduleName="Inventario" text="Cargando inventario..." />
   }
@@ -154,7 +141,7 @@ export default function InventarioPage() {
         className="bg-white shadow-sm border-b border-orange-100"
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8 space-y-6">
+      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <Card>
           <CardHeader className="space-y-4">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -170,22 +157,13 @@ export default function InventarioPage() {
                     : "Vista consolidada de existencias en todos los almacenes."}
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setShowTransferDialog(true)}
-                  className="bg-amber-600 hover:bg-amber-700"
-                >
-                  <ArrowRightLeft className="h-4 w-4 mr-2" />
-                  Solicitar Traspaso
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => refetchStock(stockAlmacenFilter === "all" ? undefined : stockAlmacenFilter)}
-                >
-                  {loadingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  <span className="ml-2">Refrescar</span>
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                onClick={() => refetchStock(stockAlmacenFilter === "all" ? undefined : stockAlmacenFilter)}
+              >
+                {loadingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                <span className="ml-2">Refrescar</span>
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -286,31 +264,7 @@ export default function InventarioPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Transfer Requests Section */}
-        <Card>
-          <CardContent className="pt-6">
-            <SolicitudesTransferenciaTable
-              key={transferTableKey}
-              almacenes={almacenes}
-              materiales={materiales}
-              currentAlmacenId={isSpecificAlmacen ? stockAlmacenFilter : undefined}
-              onResolved={handleTransferResolved}
-            />
-          </CardContent>
-        </Card>
       </main>
-
-      {/* Transfer Request Dialog */}
-      <SolicitudTransferenciaDialog
-        open={showTransferDialog}
-        onOpenChange={setShowTransferDialog}
-        almacenes={almacenes}
-        materiales={materiales}
-        stock={stock}
-        currentAlmacenId={isSpecificAlmacen ? stockAlmacenFilter : undefined}
-        onSuccess={handleTransferSuccess}
-      />
     </div>
   )
 }

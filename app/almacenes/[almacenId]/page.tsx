@@ -19,6 +19,7 @@ import {
   Search,
   FileSpreadsheet,
   Loader2,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -62,6 +63,8 @@ import {
 } from "@/components/shared/molecule/tabs";
 import { EditarStockForm } from "@/components/feats/inventario/editar-stock-form";
 import { SalidaLoteForm } from "@/components/feats/inventario/salida-lote-form";
+import { SolicitudTransferenciaDialog } from "@/components/feats/inventario/solicitud-transferencia-dialog";
+import { SolicitudesTransferenciaTable } from "@/components/feats/inventario/solicitudes-transferencia-table";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 
 export default function AlmacenDetallePage() {
@@ -97,6 +100,8 @@ export default function AlmacenDetallePage() {
     "entrada" | "salida" | null
   >(null);
   const [exportingStock, setExportingStock] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferTableKey, setTransferTableKey] = useState(0);
 
   const loadDetalle = async () => {
     setLoading(true);
@@ -583,6 +588,29 @@ export default function AlmacenDetallePage() {
                     <PackageMinus className="h-4 w-4 mr-2" />
                     Registrar salida por lote
                   </Button>
+                  <Button
+                    className="bg-amber-600 hover:bg-amber-700"
+                    onClick={() => setIsTransferDialogOpen(true)}
+                  >
+                    <ArrowRightLeft className="h-4 w-4 mr-2" />
+                    Solicitar Traspaso
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Solicitudes de Traspaso */}
+              <Card>
+                <CardContent className="pt-6">
+                  <SolicitudesTransferenciaTable
+                    key={transferTableKey}
+                    almacenes={almacenesList}
+                    materiales={materiales}
+                    currentAlmacenId={almacenId}
+                    onResolved={() => {
+                      refreshStock();
+                      refreshMovimientos();
+                    }}
+                  />
                 </CardContent>
               </Card>
 
@@ -886,6 +914,19 @@ export default function AlmacenDetallePage() {
             ) : null}
           </DialogContent>
         </Dialog>
+
+        <SolicitudTransferenciaDialog
+          open={isTransferDialogOpen}
+          onOpenChange={setIsTransferDialogOpen}
+          almacenes={almacenesList}
+          materiales={materiales}
+          stock={stock}
+          currentAlmacenId={almacenId}
+          onSuccess={() => {
+            setTransferTableKey((k) => k + 1);
+            refreshStock();
+          }}
+        />
 
         <Dialog
           open={isMaterialDialogOpen}
