@@ -16,4 +16,8 @@ export type {
   MovimientoLoteResponse,
   VentaItem,
   VentaCreateData,
+  SolicitudTransferenciaEstado,
+  SolicitudTransferenciaItem,
+  SolicitudTransferencia,
+  SolicitudTransferenciaCreateData,
 } from "./types/feats/inventario/inventario-types";

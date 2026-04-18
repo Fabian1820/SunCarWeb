@@ -145,3 +145,44 @@ export interface VentaCreateData {
   referencia?: string;
   items: VentaItem[];
 }
+
+// ── Solicitudes de Transferencia ──
+
+export type SolicitudTransferenciaEstado = "pendiente" | "aprobada" | "denegada";
+
+export interface SolicitudTransferenciaItem {
+  material_id: string;
+  material_codigo?: string;
+  cantidad: number;
+  ubicacion_en_almacen?: string | null;
+}
+
+export interface SolicitudTransferencia {
+  id: string;
+  almacen_origen_id: string;
+  almacen_destino_id: string;
+  items: SolicitudTransferenciaItem[];
+  motivo?: string | null;
+  referencia?: string | null;
+  estado: SolicitudTransferenciaEstado;
+  solicitante: string;
+  solicitante_ci: string;
+  aprobador?: string | null;
+  aprobador_ci?: string | null;
+  comentario_resolucion?: string | null;
+  fecha_solicitud: string;
+  fecha_resolucion?: string | null;
+  movimiento_ids: string[];
+}
+
+export interface SolicitudTransferenciaCreateData {
+  almacen_origen_id: string;
+  almacen_destino_id: string;
+  items: {
+    material_id: string;
+    cantidad: number;
+    ubicacion_en_almacen?: string;
+  }[];
+  motivo?: string;
+  referencia?: string;
+}
