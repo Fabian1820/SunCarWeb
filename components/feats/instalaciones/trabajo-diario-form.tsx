@@ -428,10 +428,23 @@ export function TrabajoDiarioForm({
       Number(patch.cantidad_usada_hoy ?? row.cantidad_usada_hoy ?? 0),
     );
     const merged = { ...row, ...patch };
+    const totalVales = Math.max(0, Number(merged.cantidad_total_vales || 0));
+    const yaEnServicioOferta = Math.max(0, Number(merged.cantidad_en_servicio_actual_oferta || 0));
+    const esEquipoPrincipal =
+      merged.es_equipo_principal === true ||
+      isCategoriaServicio(merged.categoria) ||
+      isMaterialServicioByNameCode(
+        merged.nombre,
+        merged.material_codigo || merged.codigo_material || merged.material_id,
+      );
+    // Para equipos principales usar el total del vale como techo, no cantidadUsadaHoy
+    const techoServicio = esEquipoPrincipal
+      ? Math.max(0, totalVales - yaEnServicioOferta)
+      : cantidadUsadaHoy;
     const cantidadServicio = Math.max(
       0,
       Math.min(
-        cantidadUsadaHoy,
+        techoServicio,
         Number(merged.cantidad_en_servicio || 0),
       ),
     );
@@ -443,7 +456,7 @@ export function TrabajoDiarioForm({
         Number(merged.disponible_hoy || 0) - cantidadUsadaHoy,
       ),
       en_servicio:
-        merged.en_servicio === true && cantidadUsadaHoy > 0 && cantidadServicio > 0,
+        merged.en_servicio === true && cantidadServicio > 0,
       cantidad_en_servicio: cantidadServicio,
     };
     onMaterialesResumenChange(next);
@@ -550,25 +563,21 @@ export function TrabajoDiarioForm({
                       </thead>
                       <tbody>
                         {equiposPrincipales.map(({ material, index }) => {
-                          const limiteHoy = Math.max(
-                            0,
-                            Number(
-                              material.disponible_hoy ??
-                                material.cantidad_total_vales ??
-                                material.cantidad_usada_hoy ??
-                                0,
-                            ),
-                          );
-                          const cantidadEnServicio = Math.max(
-                            0,
-                            Math.min(
-                              limiteHoy,
-                              Number(material.cantidad_en_servicio || 0),
-                            ),
-                          );
+                          const totalVales = Math.max(0, Number(material.cantidad_total_vales || 0));
                           const yaEnServicioOferta = Math.max(
                             0,
                             Number(material.cantidad_en_servicio_actual_oferta || 0),
+                          );
+                          // Para equipos principales el límite es el total del vale menos
+                          // los que ya estaban en servicio desde la oferta, NO disponible_hoy
+                          // (disponible_hoy aplica a consumibles, no a equipos instalables)
+                          const limiteServicio = Math.max(0, totalVales - yaEnServicioOferta);
+                          const cantidadEnServicio = Math.max(
+                            0,
+                            Math.min(
+                              limiteServicio,
+                              Number(material.cantidad_en_servicio || 0),
+                            ),
                           );
                           const codigo = material.material_codigo || material.codigo_material;
                           return (
@@ -600,14 +609,14 @@ export function TrabajoDiarioForm({
                                   type="number"
                                   min="0"
                                   step="1"
-                                  max={limiteHoy}
+                                  max={limiteServicio}
                                   value={cantidadEnServicio}
                                   onChange={(e) => {
                                     const parsed = Number(e.target.value || 0);
                                     const safeCantidad = Math.max(
                                       0,
                                       Math.min(
-                                        limiteHoy,
+                                        limiteServicio,
                                         Number.isFinite(parsed) ? parsed : 0,
                                       ),
                                     );

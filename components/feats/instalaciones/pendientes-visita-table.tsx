@@ -45,6 +45,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import type { ClienteFoto } from "@/lib/api-types";
 
 type ViewMode = "pendientes" | "realizadas";
@@ -875,7 +876,7 @@ export function PendientesVisitaTable({
         return;
       }
 
-      setOfertaCargada(ofertas[0]);
+      setOfertaCargada(seleccionarOfertaConfirmada(ofertas) ?? ofertas[0]);
       setOfertasCargadas(ofertas);
       setOfertaDialogOpen(true);
     } catch (error: any) {

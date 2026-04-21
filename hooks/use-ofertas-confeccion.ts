@@ -100,6 +100,27 @@ export interface OfertaConfeccion {
   fecha_actualizacion: string;
 }
 
+/**
+ * Selecciona la oferta a usar de una lista:
+ * 1. Filtra las confirmadas_por_cliente
+ * 2. Entre las confirmadas, elige la más reciente por fecha_actualizacion / fecha_creacion
+ * 3. Si no hay ninguna confirmada, devuelve la primera del array (fallback)
+ */
+export function seleccionarOfertaConfirmada(
+  ofertas: OfertaConfeccion[],
+): OfertaConfeccion | undefined {
+  if (!ofertas.length) return undefined;
+  const confirmadas = ofertas.filter(
+    (o) => o.estado === "confirmada_por_cliente",
+  );
+  const pool = confirmadas.length > 0 ? confirmadas : ofertas;
+  return pool.reduce((mejor, actual) => {
+    const tMejor = new Date(mejor.fecha_actualizacion || mejor.fecha_creacion || 0).getTime();
+    const tActual = new Date(actual.fecha_actualizacion || actual.fecha_creacion || 0).getTime();
+    return tActual > tMejor ? actual : mejor;
+  });
+}
+
 export interface OfertaConfeccionEntregaItem {
   cantidad: number;
   fecha: string;

@@ -39,6 +39,7 @@ import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fot
 import { EntregaCelebrationAnimation } from "@/components/feats/instalaciones/entrega-celebration-animation";
 import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
+import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 
 interface InstalacionesEnProcesoTableProps {
   clients: Cliente[];
@@ -84,6 +85,18 @@ interface OfertaParaEntrega {
   _uid: string;
   [key: string]: any;
 }
+
+/** Devuelve solo la oferta confirmada más reciente; fallback a la primera si ninguna está confirmada */
+const seleccionarMejorOfertaParaEntrega = (ofertas: OfertaParaEntrega[]): OfertaParaEntrega | undefined => {
+  if (!ofertas.length) return undefined;
+  const confirmadas = ofertas.filter((o) => o.estado === "confirmada_por_cliente");
+  const pool = confirmadas.length > 0 ? confirmadas : ofertas;
+  return pool.reduce((mejor, actual) => {
+    const tMejor = new Date(mejor.fecha_actualizacion || mejor.fecha_creacion || 0).getTime();
+    const tActual = new Date(actual.fecha_actualizacion || actual.fecha_creacion || 0).getTime();
+    return tActual > tMejor ? actual : mejor;
+  });
+};
 
 type ServicioCategoria = "inversores" | "paneles" | "baterias";
 
@@ -846,7 +859,7 @@ export function InstalacionesEnProcesoTable({
     try {
       const ofertas = await loadOfertasParaEntrega(client);
       if (ofertas.length > 0) {
-        setOfertaConfeccionCargada(ofertas[0]);
+        setOfertaConfeccionCargada(seleccionarOfertaConfirmada(ofertas) ?? ofertas[0]);
       } else {
         toast({
           title: "Sin oferta confeccionada",
@@ -884,7 +897,7 @@ export function InstalacionesEnProcesoTable({
     try {
       const ofertas = await loadOfertasParaEntrega(client);
       if (ofertas.length > 0) {
-        const oferta = ofertas[0];
+        const oferta = seleccionarOfertaConfirmada(ofertas) ?? ofertas[0];
         setOfertaServicioCargada(oferta);
         updateServicioStatusForCliente(
           client,
@@ -1333,11 +1346,12 @@ export function InstalacionesEnProcesoTable({
         return;
       }
 
-      setOfertasEntrega(ofertas);
-      const ofertaConEntregas = ofertas.find((oferta) =>
-        ofertaTieneEntregas(oferta),
-      );
-      const ofertaInicial = ofertaConEntregas || ofertas[0];
+      const mejorOferta = seleccionarMejorOfertaParaEntrega(ofertas);
+      const ofertasFiltradas = mejorOferta ? [mejorOferta] : ofertas.slice(0, 1);
+      setOfertasEntrega(ofertasFiltradas);
+      const confirmada = mejorOferta;
+      const ofertaConEntregas = confirmada && ofertaTieneEntregas(confirmada) ? confirmada : undefined;
+      const ofertaInicial = ofertaConEntregas || confirmada || ofertasFiltradas[0];
       setOfertaEntregaSeleccionadaUid(ofertaInicial._uid);
       setMostrarFormularioEntrega(!ofertaTieneEntregas(ofertaInicial));
 
@@ -1710,14 +1724,16 @@ export function InstalacionesEnProcesoTable({
         }
       }
 
-      setOfertasEntrega(ofertasRecargadas);
+      const mejorRecargada = seleccionarMejorOfertaParaEntrega(ofertasRecargadas);
+      const recargadasFiltradas = mejorRecargada ? [mejorRecargada] : ofertasRecargadas.slice(0, 1);
+      setOfertasEntrega(recargadasFiltradas);
       setOfertaEntregaSeleccionadaUid((prev) => {
-        const existe = ofertasRecargadas.some((oferta) => oferta._uid === prev);
+        const existe = recargadasFiltradas.some((oferta) => oferta._uid === prev);
         if (existe) return prev;
-        const ofertaActualizada = ofertasRecargadas.find(
+        const ofertaActualizada = recargadasFiltradas.find(
           (oferta) => getOfertaPersistedId(oferta) === ofertaId,
         );
-        return ofertaActualizada?._uid || ofertasRecargadas[0]?._uid || "";
+        return ofertaActualizada?._uid || recargadasFiltradas[0]?._uid || "";
       });
 
       setMostrarFormularioEntrega(false);

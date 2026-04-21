@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import type { ClienteFoto } from "@/lib/api-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
 import type {
   BrigadaPlanificacionOption,
   PlanTrabajoItem,
@@ -676,7 +677,7 @@ export function PlanificacionDiariaTrabajosTable({
       }
 
       const ofertasTyped = ofertas as unknown as OfertaConfeccion[];
-      setOfertaCargada(ofertasTyped[0]);
+      setOfertaCargada(seleccionarOfertaConfirmada(ofertasTyped) ?? ofertasTyped[0]);
       setOfertasCargadas(ofertasTyped);
       setOfertaDialogOpen(true);
     } catch {
@@ -699,12 +700,13 @@ export function PlanificacionDiariaTrabajosTable({
         });
         return;
       }
-      const withEntregas = ofertas.find((oferta) =>
-        ofertaTieneEntregas(oferta),
-      );
+      const confirmada = seleccionarOfertaConfirmada(ofertas);
+      const withEntregas = (confirmada && ofertaTieneEntregas(confirmada))
+        ? confirmada
+        : ofertas.find((oferta) => ofertaTieneEntregas(oferta));
       setMaterialesDialogData({
         trabajoNombre: trabajo.nombre,
-        oferta: withEntregas || ofertas[0],
+        oferta: withEntregas || confirmada || ofertas[0],
       });
     } catch {
       toast({
@@ -725,7 +727,7 @@ export function PlanificacionDiariaTrabajosTable({
         });
         return;
       }
-      const oferta = ofertas[0];
+      const oferta = seleccionarOfertaConfirmada(ofertas) ?? ofertas[0];
       const items = Array.isArray(oferta.items) ? oferta.items : [];
       const itemsEnServicio = items.filter(
         (item) =>
