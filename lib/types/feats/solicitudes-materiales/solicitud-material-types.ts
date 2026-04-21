@@ -146,6 +146,7 @@ export interface SolicitudMaterialSummary {
 export interface SolicitudMaterialSummaryResponse {
   success?: boolean;
   message?: string;
-  data: SolicitudMaterialSummary[];
+  data: SolicitudMaterialSummary[] | { solicitudes?: SolicitudMaterialSummary[] };
   total: number;
+  solicitudes?: SolicitudMaterialSummary[];
 }

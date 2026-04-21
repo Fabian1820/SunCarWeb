@@ -136,6 +136,7 @@ export interface SolicitudVentaSummary {
 export interface SolicitudVentaSummaryResponse {
   success?: boolean;
   message?: string;
-  data: SolicitudVentaSummary[];
+  data: SolicitudVentaSummary[] | { solicitudes?: SolicitudVentaSummary[] };
   total: number;
+  solicitudes?: SolicitudVentaSummary[];
 }

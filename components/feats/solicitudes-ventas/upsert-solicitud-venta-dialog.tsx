@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,7 @@ import {
   ChevronUp,
   Warehouse,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import {
   ClienteVentaService,
@@ -47,6 +48,7 @@ import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
   SolicitudVentaUpdateData,
+  StockItem,
 } from "@/lib/api-types";
 
 interface MaterialRow {
@@ -57,6 +59,11 @@ interface MaterialRow {
   descripcion?: string;
   um?: string;
   foto?: string;
+  stock_actual: number | null;
+  alerta_stock: boolean;
+  stock_suficiente: boolean;
+  stock_despues: number | null;
+  faltante: number;
 }
 
 interface UpsertSolicitudVentaDialogProps {
@@ -68,6 +75,53 @@ interface UpsertSolicitudVentaDialogProps {
   solicitud?: SolicitudVenta | null;
   isLoading?: boolean;
 }
+
+const calculateStockAlertV = (
+  cantidadDespachar: number,
+  stockActual: number | null,
+  fallbackAlert = false,
+) => {
+  if (stockActual === null) {
+    return {
+      alerta_stock: fallbackAlert,
+      stock_suficiente: !fallbackAlert,
+      stock_despues: null,
+      faltante: 0,
+    };
+  }
+  const alerta_stock = cantidadDespachar > stockActual;
+  return {
+    alerta_stock,
+    stock_suficiente: !alerta_stock,
+    faltante: Math.max(cantidadDespachar - stockActual, 0),
+    stock_despues: stockActual - cantidadDespachar,
+  };
+};
+
+const buildStockMapV = (items: StockItem[]): Map<string, number> => {
+  const map = new Map<string, number>();
+  for (const item of items) {
+    if (item.material_id) map.set(item.material_id, item.cantidad);
+    if (item.material_codigo) {
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+    }
+  }
+  return map;
+};
+
+const lookupFromMapV = (
+  map: Map<string, number>,
+  materialId: string,
+  codigo?: string,
+): number | null => {
+  if (map.size === 0) return null;
+  if (materialId && map.has(materialId)) return map.get(materialId)!;
+  if (codigo) {
+    const key = `c:${codigo.trim().toLowerCase()}`;
+    if (map.has(key)) return map.get(key)!;
+  }
+  return 0;
+};
 
 const formatClienteLabel = (cliente: ClienteVenta) =>
   cliente.numero
@@ -119,6 +173,14 @@ export function UpsertSolicitudVentaDialog({
   const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
 
   const isEdit = Boolean(solicitud?.id);
+
+  // Stock precargado del almacén seleccionado (una sola llamada al backend)
+  const [loadingStock, setLoadingStock] = useState(false);
+  const stockMapRef = useRef<Map<string, number>>(new Map());
+
+  // Ref to access current materialRows inside effects without causing loops
+  const materialRowsRef = useRef<MaterialRow[]>([]);
+  materialRowsRef.current = materialRows;
 
   useEffect(() => {
     if (!open) return;
@@ -189,6 +251,11 @@ export function UpsertSolicitudVentaDialog({
           item.material?.nombre,
         um: item.material?.um || item.um,
         foto: item.material?.foto,
+        stock_actual: null,
+        alerta_stock: false,
+        stock_suficiente: true,
+        stock_despues: null,
+        faltante: 0,
       }),
     );
 
@@ -344,18 +411,30 @@ export function UpsertSolicitudVentaDialog({
   const handleAddMaterial = (material: MaterialVentaWeb) => {
     if (materialRows.some((row) => row.material_id === material.id)) return;
 
-    setMaterialRows((prev) => [
-      ...prev,
-      {
-        material_id: material.id,
-        cantidad: 1,
-        codigo: material.codigo,
-        nombre: material.nombre,
-        descripcion: material.descripcion,
-        um: material.um,
-        foto: material.foto,
-      },
-    ]);
+    const stockActual = lookupFromMapV(stockMapRef.current, material.id, material.codigo);
+    const stockState = calculateStockAlertV(1, stockActual);
+
+    setMaterialRows((prev) =>
+      prev.some((row) => row.material_id === material.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              material_id: material.id,
+              cantidad: 1,
+              codigo: material.codigo,
+              nombre: material.nombre,
+              descripcion: material.descripcion,
+              um: material.um,
+              foto: material.foto,
+              stock_actual: stockActual,
+              alerta_stock: stockState.alerta_stock,
+              stock_suficiente: stockState.stock_suficiente,
+              stock_despues: stockState.stock_despues,
+              faltante: stockState.faltante,
+            },
+          ],
+    );
     setMaterialSearch("");
     setShowMaterialDropdown(false);
   };
@@ -366,10 +445,44 @@ export function UpsertSolicitudVentaDialog({
 
     setMaterialRows((prev) =>
       prev.map((item, rowIndex) =>
-        rowIndex === index ? { ...item, cantidad } : item,
+        rowIndex === index
+          ? { ...item, cantidad, ...calculateStockAlertV(cantidad, item.stock_actual, item.alerta_stock) }
+          : item,
       ),
     );
   };
+
+  // Una sola llamada al cambiar el almacén: carga TODO el stock y recalcula en memoria
+  useEffect(() => {
+    if (!selectedAlmacenId) {
+      stockMapRef.current = new Map();
+      return;
+    }
+
+    void (async () => {
+      setLoadingStock(true);
+      try {
+        const items = await InventarioService.getStock({ almacen_id: selectedAlmacenId });
+        const map = buildStockMapV(items);
+        stockMapRef.current = map;
+
+        // Recalcular alertas de todos los materiales ya cargados (sin más llamadas)
+        const rows = materialRowsRef.current;
+        if (rows.length > 0) {
+          setMaterialRows(
+            rows.map((m) => {
+              if (!m.material_id) return m;
+              const stockActual = lookupFromMapV(map, m.material_id, m.codigo);
+              return { ...m, stock_actual: stockActual, ...calculateStockAlertV(m.cantidad, stockActual) };
+            }),
+          );
+        }
+      } finally {
+        setLoadingStock(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAlmacenId]);
 
   const handleRemoveMaterial = (index: number) => {
     setMaterialRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
@@ -412,7 +525,7 @@ export function UpsertSolicitudVentaDialog({
     setSelectedAlmacenId(reserva.almacen_id);
 
     // Pre-fill materiales — cruza con el catálogo ya cargado para obtener um y foto
-    const rows: MaterialRow[] = (reserva.materiales || [])
+    const baseRows: MaterialRow[] = (reserva.materiales || [])
       .filter((m) => m.nombre || m.material_id)
       .map((m) => {
         const cat = materialesVendibles.find((mv) => mv.id === m.material_id);
@@ -424,9 +537,22 @@ export function UpsertSolicitudVentaDialog({
           descripcion: m.descripcion ?? cat?.descripcion,
           um: cat?.um,
           foto: cat?.foto,
+          stock_actual: null,
+          alerta_stock: false,
+          stock_suficiente: true,
+          stock_despues: null,
+          faltante: 0,
         };
       });
-    setMaterialRows(rows);
+
+    // Aplicar stock desde el mapa ya cargado (sin llamadas extra)
+    const map = stockMapRef.current;
+    setMaterialRows(
+      baseRows.map((r) => {
+        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
+      }),
+    );
 
     setReservaAplicada(reserva);
     setShowReservaPanel(false);
@@ -478,6 +604,37 @@ export function UpsertSolicitudVentaDialog({
               {loadError}
             </div>
           ) : null}
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              Almacen <span className="text-red-500">*</span>
+              {loadingStock && (
+                <span className="flex items-center gap-1 text-xs font-normal text-gray-500">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Cargando stock...
+                </span>
+              )}
+            </Label>
+            <Select
+              value={selectedAlmacenId}
+              onValueChange={setSelectedAlmacenId}
+              disabled={loadingStock}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccione un almacen" />
+              </SelectTrigger>
+              <SelectContent>
+                {almacenes
+                  .filter((almacen) => Boolean(almacen.id))
+                  .map((almacen) => (
+                    <SelectItem key={almacen.id} value={almacen.id!}>
+                      {almacen.nombre}
+                      {almacen.codigo ? ` (${almacen.codigo})` : ""}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Reserva shortcut — solo en modo crear */}
           {!isEdit ? (
@@ -741,30 +898,6 @@ export function UpsertSolicitudVentaDialog({
 
           <div className="space-y-2">
             <Label>
-              Almacen <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={selectedAlmacenId}
-              onValueChange={setSelectedAlmacenId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccione un almacen" />
-              </SelectTrigger>
-              <SelectContent>
-                {almacenes
-                  .filter((almacen) => Boolean(almacen.id))
-                  .map((almacen) => (
-                    <SelectItem key={almacen.id} value={almacen.id!}>
-                      {almacen.nombre}
-                      {almacen.codigo ? ` (${almacen.codigo})` : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>
               Materiales <span className="text-red-500">*</span>
             </Label>
 
@@ -801,6 +934,13 @@ export function UpsertSolicitudVentaDialog({
               ) : null}
             </div>
 
+            {!selectedAlmacenId && !loadingStock && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                Seleccione un almacén arriba para ver alertas de stock disponible
+              </p>
+            )}
+
             {materialRows.length > 0 ? (
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
@@ -822,7 +962,7 @@ export function UpsertSolicitudVentaDialog({
                     {materialRows.map((material, index) => (
                       <tr
                         key={`${material.material_id}-${index}`}
-                        className="border-b last:border-b-0"
+                        className={`border-b last:border-b-0 ${material.alerta_stock ? "bg-red-50/60" : ""}`}
                       >
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
@@ -849,6 +989,20 @@ export function UpsertSolicitudVentaDialog({
                               <p className="text-xs text-gray-500 truncate">
                                 {material.codigo}
                               </p>
+                              {material.alerta_stock && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-red-50 text-red-700 border-red-200 mt-0.5"
+                                >
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Stock insuficiente
+                                </Badge>
+                              )}
+                              {material.alerta_stock && (
+                                <p className="text-xs text-red-600 mt-0.5">
+                                  Stock: {material.stock_actual ?? 0} | Faltante: {material.faltante}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>
