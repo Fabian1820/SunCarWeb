@@ -33,6 +33,7 @@ import {
   BookmarkCheck,
   Ship,
   Monitor,
+  ClipboardList,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -46,6 +47,7 @@ import FormViewer from "@/components/feats/reports/FormViewerNoSSR";
 import { ReporteService, ClienteService, TasaCambioService } from "@/lib/api-services";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import ContactosDashboard from "@/components/feats/contactos/contactos-dashboard";
+import { TicketManualDialog } from "@/components/feats/dashboard/ticket-manual-dialog";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
@@ -58,6 +60,7 @@ export default function Dashboard() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
   const [isTasaCambioDialogOpen, setIsTasaCambioDialogOpen] = useState(false);
+  const [isTicketDialogOpen, setIsTicketDialogOpen] = useState(false);
   const [tasaCambioHoy, setTasaCambioHoy] = useState<TasaCambio | null>(null);
   const [loadingTasaCambio, setLoadingTasaCambio] = useState(false);
   const [errorTasaCambio, setErrorTasaCambio] = useState<string | null>(null);
@@ -602,6 +605,17 @@ export default function Dashboard() {
                                     </div>
                                 </Button>
                             </Link> */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsTicketDialogOpen(true)}
+                aria-label="Generar ticket o vale de venta"
+                className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+              >
+                <ClipboardList className="h-4 w-4 text-orange-600 sm:mr-2" />
+                <span className="hidden sm:inline">Ticket / Vale</span>
+                <span className="sr-only">Ticket / Vale</span>
+              </Button>
               <Link href="/calculadora" className="flex">
                 <Button
                   variant="outline"
@@ -794,6 +808,12 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Ticket / Vale Manual Dialog */}
+      <TicketManualDialog
+        open={isTicketDialogOpen}
+        onOpenChange={setIsTicketDialogOpen}
+      />
 
       {/* Birthday Notification Checker */}
       <BirthdayChecker />

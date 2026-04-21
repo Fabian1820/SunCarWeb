@@ -419,6 +419,155 @@ export class ReciboService {
   }
 
   /**
+   * Genera y descarga ticket manual desde el Dashboard.
+   * - nombreAlmacen es opcional: si no se provee, no se muestra "Emitido desde".
+   * - Tabla de productos sin líneas: Nombre | Precio unit. | Total (sin código).
+   */
+  static descargarTicketManualDashboard(data: ReciboSalidaContabilidadData): void {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [72, 297],
+    });
+
+    const fecha = data.fecha || new Date();
+    const formatMoney = (value: number) => {
+      const [entero, decimal] = value.toFixed(2).split('.');
+      const enteroAgrupado = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+      return `${enteroAgrupado}.${decimal}`;
+    };
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginLeft = 2.6;
+    const marginRight = 2.6;
+    const horizontalNudgeMm = -0.5;
+    const contentLeftX = marginLeft + horizontalNudgeMm;
+    const contentRightX = pageWidth - marginRight + horizontalNudgeMm;
+    const centerX = (contentLeftX + contentRightX) / 2;
+    const amountRightX = contentRightX - 0.5;
+    let yPos = 10;
+
+    // ===== ENCABEZADO =====
+    doc.setFontSize(11.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('RECIBO DE VENTA', centerX, yPos, { align: 'center' });
+    yPos += 6;
+
+    doc.setFontSize(9.2);
+
+    // Fecha
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha:', contentLeftX, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(fecha.toLocaleDateString('es-ES'), contentLeftX + 15, yPos);
+    yPos += 4;
+
+    // Hora
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hora:', contentLeftX, yPos);
+    doc.setFont('helvetica', 'normal');
+    doc.text(
+      fecha.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' }),
+      contentLeftX + 15,
+      yPos,
+    );
+    yPos += 4;
+
+    // Lugar (solo si se proporcionó)
+    if (data.nombreAlmacen && data.nombreAlmacen.trim()) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Lugar:', contentLeftX, yPos);
+      const labelWidth = doc.getTextWidth('Lugar:');
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.nombreAlmacen.trim(), contentLeftX + labelWidth + 1.8, yPos);
+      yPos += 4;
+    }
+
+    yPos += 1;
+    doc.setLineWidth(0.3);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
+    yPos += 4;
+
+    // ===== PRODUCTOS (tabla sin líneas) =====
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('PRODUCTOS', centerX, yPos, { align: 'center' });
+    yPos += 5;
+
+    const colWidths = {
+      nombre: 38,
+      precioUnit: 14,
+      cantidad: 12,
+    };
+    const tableWidth = colWidths.nombre + colWidths.precioUnit + colWidths.cantidad;
+    const tableLeftX = centerX - tableWidth / 2;
+
+    const productosData = data.items.map((item) => [
+      item.descripcion || '-',
+      formatMoney(item.precio_unitario),
+      String(item.cantidad),
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [['Nombre', 'P. Unit.', 'Cant.']],
+      body: productosData,
+      theme: 'plain',
+      styles: {
+        fontSize: 7.8,
+        cellPadding: { top: 1, right: 1, bottom: 1, left: 1 },
+        overflow: 'linebreak',
+        valign: 'top',
+        lineWidth: 0,
+      },
+      headStyles: {
+        fontSize: 8,
+        fontStyle: 'bold',
+        fillColor: false as unknown as [number, number, number],
+        textColor: [0, 0, 0],
+        lineWidth: 0,
+      },
+      columnStyles: {
+        0: { cellWidth: colWidths.nombre, fontStyle: 'normal' },
+        1: { cellWidth: colWidths.precioUnit, halign: 'right', fontStyle: 'bold' },
+        2: { cellWidth: colWidths.cantidad, halign: 'center', fontStyle: 'bold' },
+      },
+      margin: { left: tableLeftX, right: pageWidth - (tableLeftX + tableWidth) },
+    });
+
+    // @ts-ignore
+    yPos = doc.lastAutoTable.finalY + 4;
+
+    doc.setLineWidth(0.3);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
+    yPos += 5;
+
+    // ===== TOTAL =====
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL:', contentLeftX, yPos);
+    doc.text(formatMoney(data.total), amountRightX, yPos, { align: 'right' });
+    yPos += 7;
+
+    doc.setLineWidth(0.3);
+    doc.line(contentLeftX, yPos, contentRightX, yPos);
+    yPos += 6;
+
+    // ===== PIE =====
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('¡Gracias por su compra!', centerX, yPos, { align: 'center' });
+    yPos += 4;
+    doc.setFontSize(6);
+    doc.text('Este documento es un comprobante de pago', centerX, yPos, { align: 'center' });
+    yPos += 3;
+    doc.text('Conserve este recibo', centerX, yPos, { align: 'center' });
+
+    const nombreArchivo = `ticket_manual_${Date.now()}.pdf`;
+    doc.save(nombreArchivo);
+  }
+
+  /**
    * Genera y descarga recibo simplificado para salidas de Existencias-Contabilidad
    */
   static descargarReciboSalidaContabilidad(data: ReciboSalidaContabilidadData): void {
