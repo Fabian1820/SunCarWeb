@@ -129,24 +129,41 @@ export class FacturaService {
   ): Promise<string> {
     try {
       const raw = await response.text();
+      console.error(`❌ [FacturaService] HTTP ${response.status} raw body:`, raw);
       if (!raw) return `${fallback} (HTTP ${response.status})`;
 
       const parsed = JSON.parse(raw) as
-        | { detail?: string; message?: string; error?: string }
+        | { detail?: unknown; message?: string; error?: string }
         | string;
 
       if (typeof parsed === "string" && parsed.trim()) {
         return parsed;
       }
 
-      const detail =
-        (typeof parsed === "object" && parsed?.detail) ||
-        (typeof parsed === "object" && parsed?.message) ||
-        (typeof parsed === "object" && parsed?.error) ||
-        "";
+      if (typeof parsed === "object") {
+        const detail = parsed?.detail;
 
-      if (detail && String(detail).trim()) {
-        return String(detail);
+        // FastAPI validation error: detail es un array de objetos con loc/msg/type
+        if (Array.isArray(detail)) {
+          const msgs = detail
+            .map((d: { loc?: string[]; msg?: string }) => {
+              const loc = Array.isArray(d?.loc) ? d.loc.join(" → ") : "";
+              const msg = d?.msg || "";
+              return loc ? `${loc}: ${msg}` : msg;
+            })
+            .filter(Boolean);
+          const joined = msgs.join(" | ");
+          console.error("❌ [FacturaService] Validation detail:", detail);
+          return joined || `${fallback} (HTTP ${response.status})`;
+        }
+
+        // Mensaje plano de error
+        const msg =
+          (typeof detail === "string" && detail) ||
+          parsed?.message ||
+          parsed?.error ||
+          "";
+        if (msg && String(msg).trim()) return String(msg);
       }
 
       return `${fallback} (HTTP ${response.status})`;
@@ -177,10 +194,34 @@ export class FacturaService {
   async crearFactura(
     factura: Omit<Factura, "id" | "fecha_creacion" | "total">,
   ): Promise<{ message: string; id: string; numero_factura: string }> {
+    // Limpiar vales: quitar id interno (solo conservar id_vale_salida para referencias)
+    // y filtrar items con cantidad 0 o negativa
+    const valesLimpios = (factura.vales || []).map((vale) => ({
+      id_vale_salida: vale.id_vale_salida ?? vale.id ?? null,
+      fecha: vale.fecha,
+      items: (vale.items || []).filter((item) => item.cantidad > 0),
+    }));
+
+    // Construir payload limpio sin campos que el backend de creación no acepta
+    const payload: Record<string, unknown> = {
+      numero_factura: factura.numero_factura,
+      tipo: factura.tipo,
+      subtipo: factura.subtipo ?? null,
+      cliente_id: factura.cliente_id ?? null,
+      trabajador_ci: factura.trabajador_ci ?? null,
+      nombre_responsable: factura.nombre_responsable ?? null,
+      nombre_cliente: factura.nombre_cliente ?? null,
+      vales: valesLimpios,
+      pagada: factura.pagada,
+      terminada: factura.terminada,
+    };
+
+    console.log("📤 [FacturaService] Creando factura - payload:", JSON.stringify(payload, null, 2));
+
     const response = await fetch(this.baseUrl, {
       method: "POST",
       headers: this.getHeaders(),
-      body: JSON.stringify(factura),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
