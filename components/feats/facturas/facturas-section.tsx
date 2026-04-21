@@ -206,26 +206,69 @@ const isValeNoFacturadoDisponible = (vale: ValeSalida) => {
   return Boolean(getClienteKeyFromVale(vale));
 };
 
+// Códigos de baterías con descuento especial del 20%
+const CODIGOS_BATERIA_DESCUENTO_20_SECTION = new Set([
+  "FLS48100SMG01",
+  "FLS48100SCG01",
+]);
+
+const normalizeCategoria = (value?: string | null) =>
+  (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+
+const resolveInstaladoraDiscount = (
+  codigo?: string | null,
+  categoria?: string | null,
+): number => {
+  const normalizedCode = (codigo || "").toString().trim().toUpperCase();
+  if (CODIGOS_BATERIA_DESCUENTO_20_SECTION.has(normalizedCode)) return 20;
+
+  const normalizedCategory = normalizeCategoria(categoria);
+  if (normalizedCategory === "INVERSORES" || normalizedCategory === "INVERSOR")
+    return 15;
+  if (normalizedCategory === "BATERIAS" || normalizedCategory === "BATERIA")
+    return 15;
+
+  return 0;
+};
+
+const applyInstaladoraDiscount = (
+  price: number,
+  discountPct: number,
+): number => {
+  if (discountPct <= 0) return price;
+  return Math.round(price * ((100 - discountPct) / 100) * 100) / 100;
+};
+
 const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
   id: valeSalida.id,
   id_vale_salida: valeSalida.id,
   fecha: valeSalida.fecha_creacion || new Date().toISOString(),
-  items: (valeSalida.materiales || []).map((material) => ({
-    material_id: (material.material_id || "").toString(),
-    codigo:
+  items: (valeSalida.materiales || []).map((material) => {
+    const codigo =
       material.material_codigo ||
       material.codigo ||
       material.material?.codigo ||
-      "",
-    descripcion:
-      material.material_descripcion ||
-      material.descripcion ||
-      material.material?.descripcion ||
-      material.material?.nombre ||
-      "",
-    precio: Number(material.material?.precio || 0),
-    cantidad: Number(material.cantidad || 0),
-  })),
+      "";
+    const basePrice = Number(material.material?.precio || 0);
+    const categoria = material.material?.categoria;
+    const discountPct = resolveInstaladoraDiscount(codigo, categoria);
+    return {
+      material_id: (material.material_id || "").toString(),
+      codigo,
+      descripcion:
+        material.material_descripcion ||
+        material.descripcion ||
+        material.material?.descripcion ||
+        material.material?.nombre ||
+        "",
+      precio: applyInstaladoraDiscount(basePrice, discountPct),
+      cantidad: Number(material.cantidad || 0),
+    };
+  }),
 });
 
 const toSafeNumber = (value: unknown): number => {
