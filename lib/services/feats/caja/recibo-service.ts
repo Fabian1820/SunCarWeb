@@ -503,7 +503,7 @@ export class ReciboService {
     const tableLeftX = centerX - tableWidth / 2;
 
     const productosData = data.items.map((item) => [
-      item.descripcion || '-',
+      (item.descripcion || '-').toUpperCase(),
       formatMoney(item.precio_unitario),
       String(item.cantidad),
     ]);
@@ -514,8 +514,8 @@ export class ReciboService {
       body: productosData,
       theme: 'plain',
       styles: {
-        fontSize: 7.8,
-        cellPadding: { top: 1, right: 1, bottom: 1, left: 1 },
+        fontSize: 8.2,
+        cellPadding: { top: 1.2, right: 1, bottom: 1.2, left: 1 },
         overflow: 'linebreak',
         valign: 'top',
         lineWidth: 0,
@@ -528,7 +528,7 @@ export class ReciboService {
         lineWidth: 0,
       },
       columnStyles: {
-        0: { cellWidth: colWidths.nombre, fontStyle: 'normal' },
+        0: { cellWidth: colWidths.nombre, fontStyle: 'bold' },
         1: { cellWidth: colWidths.precioUnit, halign: 'right', fontStyle: 'bold' },
         2: { cellWidth: colWidths.cantidad, halign: 'center', fontStyle: 'bold' },
       },
