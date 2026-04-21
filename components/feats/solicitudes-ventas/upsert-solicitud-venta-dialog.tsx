@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,6 +32,7 @@ import {
   ChevronUp,
   Warehouse,
   User,
+  AlertTriangle,
 } from "lucide-react";
 import {
   ClienteVentaService,
@@ -57,6 +58,11 @@ interface MaterialRow {
   descripcion?: string;
   um?: string;
   foto?: string;
+  stock_actual: number | null;
+  alerta_stock: boolean;
+  stock_suficiente: boolean;
+  stock_despues: number | null;
+  faltante: number;
 }
 
 interface UpsertSolicitudVentaDialogProps {
@@ -68,6 +74,76 @@ interface UpsertSolicitudVentaDialogProps {
   solicitud?: SolicitudVenta | null;
   isLoading?: boolean;
 }
+
+const toFiniteNumberV = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const normalizeCodeV = (value?: string): string => value?.trim().toLowerCase() || "";
+
+const calculateStockAlertV = (
+  cantidadDespachar: number,
+  stockActual: number | null,
+  fallbackAlert = false,
+) => {
+  if (stockActual === null) {
+    return {
+      alerta_stock: fallbackAlert,
+      stock_suficiente: !fallbackAlert,
+      stock_despues: null,
+      faltante: 0,
+    };
+  }
+  const alerta_stock = cantidadDespachar > stockActual;
+  return {
+    alerta_stock,
+    stock_suficiente: !alerta_stock,
+    faltante: Math.max(cantidadDespachar - stockActual, 0),
+    stock_despues: stockActual - cantidadDespachar,
+  };
+};
+
+const getStockFromAlmacenV = async (
+  almacenId: string,
+  materialId: string,
+  materialCodigo?: string,
+): Promise<number | null> => {
+  if (!almacenId) return null;
+  try {
+    let stockRows = await InventarioService.getStock({
+      almacen_id: almacenId,
+      material_id: materialId,
+    });
+    if ((!stockRows || stockRows.length === 0) && materialCodigo) {
+      stockRows = await InventarioService.getStock({
+        almacen_id: almacenId,
+        material_codigo: materialCodigo,
+      });
+    }
+    if (!stockRows || stockRows.length === 0) return 0;
+    const targetCode = normalizeCodeV(materialCodigo);
+    const match =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      stockRows.find((row: any) => row.material_id === materialId) ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      stockRows.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (row: any) =>
+          targetCode.length > 0 &&
+          normalizeCodeV(String(row.material_codigo || "")) === targetCode,
+      ) ||
+      stockRows[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return toFiniteNumberV((match as any)?.cantidad) ?? 0;
+  } catch {
+    return 0;
+  }
+};
 
 const formatClienteLabel = (cliente: ClienteVenta) =>
   cliente.numero
@@ -119,6 +195,10 @@ export function UpsertSolicitudVentaDialog({
   const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
 
   const isEdit = Boolean(solicitud?.id);
+
+  // Ref to access current materialRows inside effects without causing loops
+  const materialRowsRef = useRef<MaterialRow[]>([]);
+  materialRowsRef.current = materialRows;
 
   useEffect(() => {
     if (!open) return;
@@ -189,6 +269,11 @@ export function UpsertSolicitudVentaDialog({
           item.material?.nombre,
         um: item.material?.um || item.um,
         foto: item.material?.foto,
+        stock_actual: null,
+        alerta_stock: false,
+        stock_suficiente: true,
+        stock_despues: null,
+        faltante: 0,
       }),
     );
 
@@ -341,21 +426,37 @@ export function UpsertSolicitudVentaDialog({
     }
   };
 
-  const handleAddMaterial = (material: MaterialVentaWeb) => {
+  const handleAddMaterial = async (material: MaterialVentaWeb) => {
     if (materialRows.some((row) => row.material_id === material.id)) return;
 
-    setMaterialRows((prev) => [
-      ...prev,
-      {
-        material_id: material.id,
-        cantidad: 1,
-        codigo: material.codigo,
-        nombre: material.nombre,
-        descripcion: material.descripcion,
-        um: material.um,
-        foto: material.foto,
-      },
-    ]);
+    const stockActual = await getStockFromAlmacenV(
+      selectedAlmacenId,
+      material.id,
+      material.codigo,
+    );
+    const stockState = calculateStockAlertV(1, stockActual);
+
+    setMaterialRows((prev) =>
+      prev.some((row) => row.material_id === material.id)
+        ? prev
+        : [
+            ...prev,
+            {
+              material_id: material.id,
+              cantidad: 1,
+              codigo: material.codigo,
+              nombre: material.nombre,
+              descripcion: material.descripcion,
+              um: material.um,
+              foto: material.foto,
+              stock_actual: stockActual,
+              alerta_stock: stockState.alerta_stock,
+              stock_suficiente: stockState.stock_suficiente,
+              stock_despues: stockState.stock_despues,
+              faltante: stockState.faltante,
+            },
+          ],
+    );
     setMaterialSearch("");
     setShowMaterialDropdown(false);
   };
@@ -366,10 +467,31 @@ export function UpsertSolicitudVentaDialog({
 
     setMaterialRows((prev) =>
       prev.map((item, rowIndex) =>
-        rowIndex === index ? { ...item, cantidad } : item,
+        rowIndex === index
+          ? { ...item, cantidad, ...calculateStockAlertV(cantidad, item.stock_actual, item.alerta_stock) }
+          : item,
       ),
     );
   };
+
+  // Recalcular stock de todos los materiales cuando cambia el almacén
+  useEffect(() => {
+    if (!selectedAlmacenId) return;
+    const rows = materialRowsRef.current;
+    if (rows.length === 0) return;
+
+    void (async () => {
+      const updated = await Promise.all(
+        rows.map(async (m) => {
+          if (!m.material_id) return m;
+          const stockActual = await getStockFromAlmacenV(selectedAlmacenId, m.material_id, m.codigo);
+          return { ...m, stock_actual: stockActual, ...calculateStockAlertV(m.cantidad, stockActual) };
+        }),
+      );
+      setMaterialRows(updated);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAlmacenId]);
 
   const handleRemoveMaterial = (index: number) => {
     setMaterialRows((prev) => prev.filter((_, rowIndex) => rowIndex !== index));
@@ -397,7 +519,7 @@ export function UpsertSolicitudVentaDialog({
     }
   };
 
-  const applyReserva = (reserva: Reserva) => {
+  const applyReserva = async (reserva: Reserva) => {
     // Pre-fill cliente (minimal object, sufficient for the form payload)
     const cliente: ClienteVenta = {
       id: reserva.cliente_id,
@@ -412,7 +534,7 @@ export function UpsertSolicitudVentaDialog({
     setSelectedAlmacenId(reserva.almacen_id);
 
     // Pre-fill materiales — cruza con el catálogo ya cargado para obtener um y foto
-    const rows: MaterialRow[] = (reserva.materiales || [])
+    const baseRows: MaterialRow[] = (reserva.materiales || [])
       .filter((m) => m.nombre || m.material_id)
       .map((m) => {
         const cat = materialesVendibles.find((mv) => mv.id === m.material_id);
@@ -424,9 +546,26 @@ export function UpsertSolicitudVentaDialog({
           descripcion: m.descripcion ?? cat?.descripcion,
           um: cat?.um,
           foto: cat?.foto,
+          stock_actual: null,
+          alerta_stock: false,
+          stock_suficiente: true,
+          stock_despues: null,
+          faltante: 0,
         };
       });
-    setMaterialRows(rows);
+
+    // Fetch stock for each material if almacen is known
+    if (reserva.almacen_id && baseRows.length > 0) {
+      const rowsWithStock = await Promise.all(
+        baseRows.map(async (r) => {
+          const stockActual = await getStockFromAlmacenV(reserva.almacen_id, r.material_id, r.codigo);
+          return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
+        }),
+      );
+      setMaterialRows(rowsWithStock);
+    } else {
+      setMaterialRows(baseRows);
+    }
 
     setReservaAplicada(reserva);
     setShowReservaPanel(false);
@@ -478,6 +617,30 @@ export function UpsertSolicitudVentaDialog({
               {loadError}
             </div>
           ) : null}
+
+          <div className="space-y-2">
+            <Label>
+              Almacen <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={selectedAlmacenId}
+              onValueChange={setSelectedAlmacenId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccione un almacen" />
+              </SelectTrigger>
+              <SelectContent>
+                {almacenes
+                  .filter((almacen) => Boolean(almacen.id))
+                  .map((almacen) => (
+                    <SelectItem key={almacen.id} value={almacen.id!}>
+                      {almacen.nombre}
+                      {almacen.codigo ? ` (${almacen.codigo})` : ""}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Reserva shortcut — solo en modo crear */}
           {!isEdit ? (
@@ -741,30 +904,6 @@ export function UpsertSolicitudVentaDialog({
 
           <div className="space-y-2">
             <Label>
-              Almacen <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={selectedAlmacenId}
-              onValueChange={setSelectedAlmacenId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccione un almacen" />
-              </SelectTrigger>
-              <SelectContent>
-                {almacenes
-                  .filter((almacen) => Boolean(almacen.id))
-                  .map((almacen) => (
-                    <SelectItem key={almacen.id} value={almacen.id!}>
-                      {almacen.nombre}
-                      {almacen.codigo ? ` (${almacen.codigo})` : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>
               Materiales <span className="text-red-500">*</span>
             </Label>
 
@@ -801,6 +940,13 @@ export function UpsertSolicitudVentaDialog({
               ) : null}
             </div>
 
+            {!selectedAlmacenId && (
+              <p className="text-xs text-amber-600 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                Seleccione un almacén arriba para ver alertas de stock disponible
+              </p>
+            )}
+
             {materialRows.length > 0 ? (
               <div className="border rounded-md overflow-hidden">
                 <table className="w-full text-sm">
@@ -822,7 +968,7 @@ export function UpsertSolicitudVentaDialog({
                     {materialRows.map((material, index) => (
                       <tr
                         key={`${material.material_id}-${index}`}
-                        className="border-b last:border-b-0"
+                        className={`border-b last:border-b-0 ${material.alerta_stock ? "bg-red-50/60" : ""}`}
                       >
                         <td className="py-2 px-3">
                           <div className="flex items-center gap-2">
@@ -849,6 +995,20 @@ export function UpsertSolicitudVentaDialog({
                               <p className="text-xs text-gray-500 truncate">
                                 {material.codigo}
                               </p>
+                              {material.alerta_stock && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs bg-red-50 text-red-700 border-red-200 mt-0.5"
+                                >
+                                  <AlertTriangle className="h-3 w-3 mr-1" />
+                                  Stock insuficiente
+                                </Badge>
+                              )}
+                              {material.alerta_stock && (
+                                <p className="text-xs text-red-600 mt-0.5">
+                                  Stock: {material.stock_actual ?? 0} | Faltante: {material.faltante}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>

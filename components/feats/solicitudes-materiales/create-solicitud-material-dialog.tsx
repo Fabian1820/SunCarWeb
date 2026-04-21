@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -53,6 +53,11 @@ interface MaterialRow {
   foto?: string;
   sinVinculo?: boolean;
   entregado?: boolean;
+  stock_actual: number | null;
+  alerta_stock: boolean;
+  stock_suficiente: boolean;
+  stock_despues: number | null;
+  faltante: number;
 }
 
 interface LookupCliente {
@@ -71,6 +76,76 @@ interface CatalogMaterial {
   um?: string;
   foto?: string;
 }
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
+const normalizeCode = (value?: string): string => value?.trim().toLowerCase() || "";
+
+const calculateStockAlert = (
+  cantidadDespachar: number,
+  stockActual: number | null,
+  fallbackAlert = false,
+) => {
+  if (stockActual === null) {
+    return {
+      alerta_stock: fallbackAlert,
+      stock_suficiente: !fallbackAlert,
+      stock_despues: null,
+      faltante: 0,
+    };
+  }
+  const alerta_stock = cantidadDespachar > stockActual;
+  return {
+    alerta_stock,
+    stock_suficiente: !alerta_stock,
+    faltante: Math.max(cantidadDespachar - stockActual, 0),
+    stock_despues: stockActual - cantidadDespachar,
+  };
+};
+
+const getStockFromAlmacen = async (
+  almacenId: string,
+  materialId: string,
+  materialCodigo?: string,
+): Promise<number | null> => {
+  if (!almacenId) return null;
+  try {
+    let stockRows = await InventarioService.getStock({
+      almacen_id: almacenId,
+      material_id: materialId,
+    });
+    if ((!stockRows || stockRows.length === 0) && materialCodigo) {
+      stockRows = await InventarioService.getStock({
+        almacen_id: almacenId,
+        material_codigo: materialCodigo,
+      });
+    }
+    if (!stockRows || stockRows.length === 0) return 0;
+    const targetCode = normalizeCode(materialCodigo);
+    const match =
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      stockRows.find((row: any) => row.material_id === materialId) ||
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      stockRows.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (row: any) =>
+          targetCode.length > 0 &&
+          normalizeCode(String(row.material_codigo || "")) === targetCode,
+      ) ||
+      stockRows[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return toFiniteNumber((match as any)?.cantidad) ?? 0;
+  } catch {
+    return 0;
+  }
+};
 
 const normalizeDateInput = (dateStr?: string | null): string => {
   if (!dateStr) return "";
@@ -126,6 +201,10 @@ export function CreateSolicitudMaterialDialog({
 
   const [submitting, setSubmitting] = useState(false);
   const isEditMode = useMemo(() => Boolean(solicitud?.id), [solicitud?.id]);
+
+  // Ref to access current materiales inside effects without causing loops
+  const materialesRef = useRef<MaterialRow[]>([]);
+  materialesRef.current = materiales;
 
   useEffect(() => {
     if (!open) return;
@@ -238,6 +317,11 @@ export function CreateSolicitudMaterialDialog({
         cantidad: Math.max(0, Math.trunc(item.cantidad || 0)),
         foto: materialInfo?.foto,
         sinVinculo: !item.material_id,
+        stock_actual: null,
+        alerta_stock: false,
+        stock_suficiente: true,
+        stock_despues: null,
+        faltante: 0,
       };
     });
 
@@ -282,16 +366,18 @@ export function CreateSolicitudMaterialDialog({
   }, [clienteSearch, selectedCliente]);
 
   const loadSugeridos = useCallback(
-    async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[]) => {
+    async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[], almacenId?: string) => {
       setLoadingSugeridos(true);
       try {
         // Intentar obtener materiales de la oferta confección
         if (clienteNumero) {
           try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const ofertaResponse = await apiRequest<any>(
               `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
             );
             const payload = ofertaResponse?.data ?? ofertaResponse;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const rawOfertas: any[] = Array.isArray(payload?.ofertas)
               ? payload.ofertas
               : Array.isArray(payload)
@@ -303,12 +389,14 @@ export function CreateSolicitudMaterialDialog({
             // Acumular por material_codigo: pendiente total y si tiene alguna entrega
             const acumulado = new Map<string, { pendiente: number; tieneEntregas: boolean }>();
             for (const oferta of rawOfertas) {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const items: any[] = Array.isArray(oferta.items ?? oferta.materiales)
                 ? (oferta.items ?? oferta.materiales)
                 : [];
               for (const item of items) {
                 if (!item.material_codigo) continue;
                 const pendiente = Number(item.cantidad_pendiente_por_entregar ?? -1);
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const entregas: any[] = Array.isArray(item.entregas) ? item.entregas : [];
                 const tieneEntregas = entregas.length > 0;
                 const existing = acumulado.get(item.material_codigo);
@@ -342,6 +430,11 @@ export function CreateSolicitudMaterialDialog({
                   um: catalogMat.um || "U",
                   cantidad: Math.max(0, Math.trunc(info.pendiente)),
                   foto: catalogMat.foto,
+                  stock_actual: null,
+                  alerta_stock: false,
+                  stock_suficiente: true,
+                  stock_despues: null,
+                  faltante: 0,
                 };
                 // Entregado = sin pendiente Y tiene al menos una entrega registrada
                 if (info.pendiente === 0 && info.tieneEntregas) {
@@ -352,8 +445,19 @@ export function CreateSolicitudMaterialDialog({
               }
 
               if (entregados.length > 0 || pendientes.length > 0) {
-                // Pendientes primero, entregados al final (en rojo)
-                setMateriales([...pendientes, ...entregados]);
+                const allRows = [...pendientes, ...entregados];
+                if (almacenId) {
+                  const rowsWithStock = await Promise.all(
+                    allRows.map(async (r) => {
+                      if (!r.material_id || r.sinVinculo || r.entregado) return r;
+                      const stockActual = await getStockFromAlmacen(almacenId, r.material_id, r.codigo);
+                      return { ...r, stock_actual: stockActual, ...calculateStockAlert(r.cantidad, stockActual) };
+                    })
+                  );
+                  setMateriales(rowsWithStock);
+                } else {
+                  setMateriales(allRows);
+                }
                 setMaterialesSinVinculo([]);
                 return;
               }
@@ -375,7 +479,7 @@ export function CreateSolicitudMaterialDialog({
           const src = mat || catalogMat;
           return {
             material_id: s.material_id || "",
-            codigo: src?.codigo || s.material_codigo || s.codigo || "",
+            codigo: src?.codigo?.toString() || s.material_codigo || s.codigo || "",
             nombre:
               src?.nombre ||
               src?.descripcion ||
@@ -393,10 +497,26 @@ export function CreateSolicitudMaterialDialog({
             cantidad: Math.max(0, Math.trunc(s.cantidad || 0)),
             foto: src?.foto,
             sinVinculo: !s.material_id,
+            stock_actual: null,
+            alerta_stock: false,
+            stock_suficiente: true,
+            stock_despues: null,
+            faltante: 0,
           };
         });
 
-        setMateriales(rows);
+        if (almacenId && rows.length > 0) {
+          const rowsWithStock = await Promise.all(
+            rows.map(async (r) => {
+              if (!r.material_id || r.sinVinculo) return r;
+              const stockActual = await getStockFromAlmacen(almacenId, r.material_id, r.codigo);
+              return { ...r, stock_actual: stockActual, ...calculateStockAlert(r.cantidad, stockActual) };
+            })
+          );
+          setMateriales(rowsWithStock);
+        } else {
+          setMateriales(rows);
+        }
         setMaterialesSinVinculo(materiales_sin_vinculo || []);
       } catch (error) {
         console.error("Error loading suggested materials:", error);
@@ -413,7 +533,7 @@ export function CreateSolicitudMaterialDialog({
     setClienteSearch(cliente.nombre || cliente.numero || "");
     setShowClienteDropdown(false);
     if (cliente.id || cliente._id) {
-      void loadSugeridos(cliente.id || cliente._id, cliente.numero, allMaterials);
+      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, allMaterials, selectedAlmacenId);
     }
   };
 
@@ -484,22 +604,38 @@ export function CreateSolicitudMaterialDialog({
     setResponsableResults([]);
   };
 
-  const handleAddMaterial = (material: CatalogMaterial) => {
+  const handleAddMaterial = async (material: CatalogMaterial) => {
     const id = material.id || material._id || "";
     if (materiales.some((m) => m.material_id === id)) return;
 
-    setMateriales((prev) => [
-      ...prev,
-      {
-        material_id: id,
-        codigo: material.codigo?.toString() || "",
-        nombre: material.nombre || material.descripcion || "",
-        descripcion: material.descripcion || material.nombre || "",
-        um: material.um || "U",
-        cantidad: 1,
-        foto: material.foto,
-      },
-    ]);
+    const stockActual = await getStockFromAlmacen(
+      selectedAlmacenId,
+      id,
+      material.codigo?.toString(),
+    );
+    const stockState = calculateStockAlert(1, stockActual);
+
+    setMateriales((prev) =>
+      prev.some((row) => row.material_id === id)
+        ? prev
+        : [
+            ...prev,
+            {
+              material_id: id,
+              codigo: material.codigo?.toString() || "",
+              nombre: material.nombre || material.descripcion || "",
+              descripcion: material.descripcion || material.nombre || "",
+              um: material.um || "U",
+              cantidad: 1,
+              foto: material.foto,
+              stock_actual: stockActual,
+              alerta_stock: stockState.alerta_stock,
+              stock_suficiente: stockState.stock_suficiente,
+              stock_despues: stockState.stock_despues,
+              faltante: stockState.faltante,
+            },
+          ],
+    );
     setMaterialSearch("");
     setShowMaterialDropdown(false);
   };
@@ -512,17 +648,44 @@ export function CreateSolicitudMaterialDialog({
     // Permitir campo vacío temporalmente para facilitar edición
     if (value === "") {
       setMateriales((prev) =>
-        prev.map((m, i) => (i === index ? { ...m, cantidad: 0 } : m)),
+        prev.map((m, i) =>
+          i === index
+            ? { ...m, cantidad: 0, ...calculateStockAlert(0, m.stock_actual) }
+            : m,
+        ),
       );
       return;
     }
-    
+
     const num = Number.parseInt(value, 10);
     if (Number.isNaN(num) || num < 0) return;
     setMateriales((prev) =>
-      prev.map((m, i) => (i === index ? { ...m, cantidad: num } : m)),
+      prev.map((m, i) =>
+        i === index
+          ? { ...m, cantidad: num, ...calculateStockAlert(num, m.stock_actual, m.alerta_stock) }
+          : m,
+      ),
     );
   };
+
+  // Recalcular stock de todos los materiales cuando cambia el almacén
+  useEffect(() => {
+    if (!selectedAlmacenId) return;
+    const mats = materialesRef.current;
+    if (mats.length === 0) return;
+
+    void (async () => {
+      const updated = await Promise.all(
+        mats.map(async (m) => {
+          if (!m.material_id || m.sinVinculo || m.entregado) return m;
+          const stockActual = await getStockFromAlmacen(selectedAlmacenId, m.material_id, m.codigo);
+          return { ...m, stock_actual: stockActual, ...calculateStockAlert(m.cantidad, stockActual) };
+        }),
+      );
+      setMateriales(updated);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAlmacenId]);
 
   const handleSubmit = async () => {
     if (!selectedAlmacenId) return;
@@ -624,6 +787,35 @@ export function CreateSolicitudMaterialDialog({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">
+              Almacen <span className="text-red-500">*</span>
+            </Label>
+            {almacenesLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando almacenes...
+              </div>
+            ) : (
+              <Select
+                value={selectedAlmacenId}
+                onValueChange={setSelectedAlmacenId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccione un almacen" />
+                </SelectTrigger>
+                <SelectContent>
+                  {almacenes.map((a) => (
+                    <SelectItem key={a.id} value={a.id!}>
+                      {a.nombre}
+                      {a.codigo && ` (${a.codigo})`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label className="text-sm font-medium">
               Cliente{" "}
@@ -739,7 +931,9 @@ export function CreateSolicitudMaterialDialog({
                         ? "bg-red-50"
                         : mat.sinVinculo
                           ? "bg-orange-50"
-                          : "";
+                          : mat.alerta_stock
+                            ? "bg-red-50/60"
+                            : "";
                       return (
                         <tr
                           key={idx}
@@ -788,6 +982,20 @@ export function CreateSolicitudMaterialDialog({
                                   >
                                     Sin vinculo
                                   </Badge>
+                                )}
+                                {mat.alerta_stock && !mat.entregado && !mat.sinVinculo && (
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-red-50 text-red-700 border-red-200 mt-0.5"
+                                  >
+                                    <AlertTriangle className="h-3 w-3 mr-1" />
+                                    Stock insuficiente
+                                  </Badge>
+                                )}
+                                {mat.alerta_stock && !mat.entregado && (
+                                  <p className="text-xs text-red-600 mt-0.5">
+                                    Stock: {mat.stock_actual ?? 0} | Faltante: {mat.faltante}
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -877,41 +1085,19 @@ export function CreateSolicitudMaterialDialog({
               )}
             </div>
 
+            {!selectedAlmacenId && (
+              <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
+                <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                Seleccione un almacén arriba para ver alertas de stock disponible
+              </p>
+            )}
+
             {materiales.length === 0 && !loadingSugeridos && (
               <p className="text-sm text-gray-400 text-center py-2">
                 {selectedCliente
                   ? "No se encontraron materiales sugeridos. Agregue materiales manualmente."
                   : "Seleccione un cliente para cargar sugeridos o agregue materiales manualmente."}
               </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">
-              Almacen <span className="text-red-500">*</span>
-            </Label>
-            {almacenesLoading ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando almacenes...
-              </div>
-            ) : (
-              <Select
-                value={selectedAlmacenId}
-                onValueChange={setSelectedAlmacenId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccione un almacen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {almacenes.map((a) => (
-                    <SelectItem key={a.id} value={a.id!}>
-                      {a.nombre}
-                      {a.codigo && ` (${a.codigo})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             )}
           </div>
 
