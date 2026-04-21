@@ -48,6 +48,7 @@ import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
   SolicitudVentaUpdateData,
+  StockItem,
 } from "@/lib/api-types";
 
 interface MaterialRow {
@@ -75,17 +76,6 @@ interface UpsertSolicitudVentaDialogProps {
   isLoading?: boolean;
 }
 
-const toFiniteNumberV = (value: unknown): number | null => {
-  if (typeof value === "number") return Number.isFinite(value) ? value : null;
-  if (typeof value === "string") {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  }
-  return null;
-};
-
-const normalizeCodeV = (value?: string): string => value?.trim().toLowerCase() || "";
-
 const calculateStockAlertV = (
   cantidadDespachar: number,
   stockActual: number | null,
@@ -108,41 +98,29 @@ const calculateStockAlertV = (
   };
 };
 
-const getStockFromAlmacenV = async (
-  almacenId: string,
-  materialId: string,
-  materialCodigo?: string,
-): Promise<number | null> => {
-  if (!almacenId) return null;
-  try {
-    let stockRows = await InventarioService.getStock({
-      almacen_id: almacenId,
-      material_id: materialId,
-    });
-    if ((!stockRows || stockRows.length === 0) && materialCodigo) {
-      stockRows = await InventarioService.getStock({
-        almacen_id: almacenId,
-        material_codigo: materialCodigo,
-      });
+const buildStockMapV = (items: StockItem[]): Map<string, number> => {
+  const map = new Map<string, number>();
+  for (const item of items) {
+    if (item.material_id) map.set(item.material_id, item.cantidad);
+    if (item.material_codigo) {
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
     }
-    if (!stockRows || stockRows.length === 0) return 0;
-    const targetCode = normalizeCodeV(materialCodigo);
-    const match =
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      stockRows.find((row: any) => row.material_id === materialId) ||
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      stockRows.find(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (row: any) =>
-          targetCode.length > 0 &&
-          normalizeCodeV(String(row.material_codigo || "")) === targetCode,
-      ) ||
-      stockRows[0];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return toFiniteNumberV((match as any)?.cantidad) ?? 0;
-  } catch {
-    return 0;
   }
+  return map;
+};
+
+const lookupFromMapV = (
+  map: Map<string, number>,
+  materialId: string,
+  codigo?: string,
+): number | null => {
+  if (map.size === 0) return null;
+  if (materialId && map.has(materialId)) return map.get(materialId)!;
+  if (codigo) {
+    const key = `c:${codigo.trim().toLowerCase()}`;
+    if (map.has(key)) return map.get(key)!;
+  }
+  return 0;
 };
 
 const formatClienteLabel = (cliente: ClienteVenta) =>
@@ -195,6 +173,10 @@ export function UpsertSolicitudVentaDialog({
   const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
 
   const isEdit = Boolean(solicitud?.id);
+
+  // Stock precargado del almacén seleccionado (una sola llamada al backend)
+  const [loadingStock, setLoadingStock] = useState(false);
+  const stockMapRef = useRef<Map<string, number>>(new Map());
 
   // Ref to access current materialRows inside effects without causing loops
   const materialRowsRef = useRef<MaterialRow[]>([]);
@@ -426,14 +408,10 @@ export function UpsertSolicitudVentaDialog({
     }
   };
 
-  const handleAddMaterial = async (material: MaterialVentaWeb) => {
+  const handleAddMaterial = (material: MaterialVentaWeb) => {
     if (materialRows.some((row) => row.material_id === material.id)) return;
 
-    const stockActual = await getStockFromAlmacenV(
-      selectedAlmacenId,
-      material.id,
-      material.codigo,
-    );
+    const stockActual = lookupFromMapV(stockMapRef.current, material.id, material.codigo);
     const stockState = calculateStockAlertV(1, stockActual);
 
     setMaterialRows((prev) =>
@@ -474,21 +452,34 @@ export function UpsertSolicitudVentaDialog({
     );
   };
 
-  // Recalcular stock de todos los materiales cuando cambia el almacén
+  // Una sola llamada al cambiar el almacén: carga TODO el stock y recalcula en memoria
   useEffect(() => {
-    if (!selectedAlmacenId) return;
-    const rows = materialRowsRef.current;
-    if (rows.length === 0) return;
+    if (!selectedAlmacenId) {
+      stockMapRef.current = new Map();
+      return;
+    }
 
     void (async () => {
-      const updated = await Promise.all(
-        rows.map(async (m) => {
-          if (!m.material_id) return m;
-          const stockActual = await getStockFromAlmacenV(selectedAlmacenId, m.material_id, m.codigo);
-          return { ...m, stock_actual: stockActual, ...calculateStockAlertV(m.cantidad, stockActual) };
-        }),
-      );
-      setMaterialRows(updated);
+      setLoadingStock(true);
+      try {
+        const items = await InventarioService.getStock({ almacen_id: selectedAlmacenId });
+        const map = buildStockMapV(items);
+        stockMapRef.current = map;
+
+        // Recalcular alertas de todos los materiales ya cargados (sin más llamadas)
+        const rows = materialRowsRef.current;
+        if (rows.length > 0) {
+          setMaterialRows(
+            rows.map((m) => {
+              if (!m.material_id) return m;
+              const stockActual = lookupFromMapV(map, m.material_id, m.codigo);
+              return { ...m, stock_actual: stockActual, ...calculateStockAlertV(m.cantidad, stockActual) };
+            }),
+          );
+        }
+      } finally {
+        setLoadingStock(false);
+      }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAlmacenId]);
@@ -519,7 +510,7 @@ export function UpsertSolicitudVentaDialog({
     }
   };
 
-  const applyReserva = async (reserva: Reserva) => {
+  const applyReserva = (reserva: Reserva) => {
     // Pre-fill cliente (minimal object, sufficient for the form payload)
     const cliente: ClienteVenta = {
       id: reserva.cliente_id,
@@ -554,18 +545,14 @@ export function UpsertSolicitudVentaDialog({
         };
       });
 
-    // Fetch stock for each material if almacen is known
-    if (reserva.almacen_id && baseRows.length > 0) {
-      const rowsWithStock = await Promise.all(
-        baseRows.map(async (r) => {
-          const stockActual = await getStockFromAlmacenV(reserva.almacen_id, r.material_id, r.codigo);
-          return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
-        }),
-      );
-      setMaterialRows(rowsWithStock);
-    } else {
-      setMaterialRows(baseRows);
-    }
+    // Aplicar stock desde el mapa ya cargado (sin llamadas extra)
+    const map = stockMapRef.current;
+    setMaterialRows(
+      baseRows.map((r) => {
+        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
+      }),
+    );
 
     setReservaAplicada(reserva);
     setShowReservaPanel(false);
@@ -619,12 +606,19 @@ export function UpsertSolicitudVentaDialog({
           ) : null}
 
           <div className="space-y-2">
-            <Label>
+            <Label className="flex items-center gap-2">
               Almacen <span className="text-red-500">*</span>
+              {loadingStock && (
+                <span className="flex items-center gap-1 text-xs font-normal text-gray-500">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Cargando stock...
+                </span>
+              )}
             </Label>
             <Select
               value={selectedAlmacenId}
               onValueChange={setSelectedAlmacenId}
+              disabled={loadingStock}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Seleccione un almacen" />
@@ -940,7 +934,7 @@ export function UpsertSolicitudVentaDialog({
               ) : null}
             </div>
 
-            {!selectedAlmacenId && (
+            {!selectedAlmacenId && !loadingStock && (
               <p className="text-xs text-amber-600 flex items-center gap-1">
                 <AlertTriangle className="h-3 w-3 flex-shrink-0" />
                 Seleccione un almacén arriba para ver alertas de stock disponible
