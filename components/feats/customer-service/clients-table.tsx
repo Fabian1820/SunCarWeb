@@ -92,6 +92,7 @@ const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
 interface ClientsTableProps {
   clients: Cliente[];
+  totalClients?: number;
   onEdit: (client: Cliente) => void;
   onDelete: (client: Cliente) => void;
   onViewLocation: (client: Cliente) => void;
@@ -111,6 +112,7 @@ interface ClientsTableProps {
     comercial: string;
     fechaDesde: string;
     fechaHasta: string;
+    mes: string;
   }) => void;
   exportButtons?: React.ReactNode;
 }
@@ -443,6 +445,7 @@ const formatEntregaDate = (value?: string) => {
 
 export function ClientsTable({
   clients,
+  totalClients,
   onEdit,
   onViewLocation,
   onUploadFotos,
@@ -646,6 +649,7 @@ export function ClientsTable({
     comercial: "",
     fechaDesde: "",
     fechaHasta: "",
+    mes: "",
   });
 
   const ofertasDelCliente = useMemo(() => {
@@ -695,6 +699,7 @@ export function ClientsTable({
         comercial: filters.comercial,
         fechaDesde: filters.fechaDesde,
         fechaHasta: filters.fechaHasta,
+        mes: filters.mes,
       });
     }
   }, [debouncedSearchTerm, filters, onFiltersChange]);
@@ -990,7 +995,8 @@ export function ClientsTable({
     filters.fuente ||
     filters.comercial ||
     filters.fechaDesde ||
-    filters.fechaHasta;
+    filters.fechaHasta ||
+    filters.mes;
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -1001,6 +1007,7 @@ export function ClientsTable({
       comercial: "",
       fechaDesde: "",
       fechaHasta: "",
+      mes: "",
     });
   };
 
@@ -4021,7 +4028,7 @@ export function ClientsTable({
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <div>
               <Popover>
                 <PopoverTrigger asChild>
@@ -4143,7 +4150,48 @@ export function ClientsTable({
                 placeholder="Fecha hasta"
               />
             </div>
+
+            <div>
+              <Select
+                value={filters.mes || "todos"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    mes: value === "todos" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los meses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos los meses</SelectItem>
+                  <SelectItem value="1">Enero</SelectItem>
+                  <SelectItem value="2">Febrero</SelectItem>
+                  <SelectItem value="3">Marzo</SelectItem>
+                  <SelectItem value="4">Abril</SelectItem>
+                  <SelectItem value="5">Mayo</SelectItem>
+                  <SelectItem value="6">Junio</SelectItem>
+                  <SelectItem value="7">Julio</SelectItem>
+                  <SelectItem value="8">Agosto</SelectItem>
+                  <SelectItem value="9">Septiembre</SelectItem>
+                  <SelectItem value="10">Octubre</SelectItem>
+                  <SelectItem value="11">Noviembre</SelectItem>
+                  <SelectItem value="12">Diciembre</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
+
+          {(filters.fechaDesde || filters.fechaHasta || filters.mes) &&
+            typeof totalClients === "number" && (
+              <div className="mt-4 text-sm text-gray-700">
+                Total de clientes en el período:{" "}
+                <span className="font-semibold text-orange-600">
+                  {totalClients}
+                </span>
+              </div>
+            )}
         </CardContent>
       </Card>
 

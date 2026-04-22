@@ -38,6 +38,7 @@ type ClientesFilters = {
   comercial: string;
   fechaDesde: string;
   fechaHasta: string;
+  mes: string;
   skip: number;
   limit: number;
 };
@@ -145,44 +146,17 @@ const buildClientSearchText = (client: Cliente): string => {
   return normalizeSearchText(fields.join(" "));
 };
 
-const matchesClientFilters = (
+const matchesClientDateFilters = (
   client: Cliente,
-  filters: Pick<
-    ClientesFilters,
-    | "searchTerm"
-    | "estado"
-    | "fuente"
-    | "comercial"
-    | "fechaDesde"
-    | "fechaHasta"
-  >,
+  filters: Pick<ClientesFilters, "fechaDesde" | "fechaHasta" | "mes">,
 ): boolean => {
-  const normalizedSearch = normalizeSearchText(filters.searchTerm.trim());
-  if (normalizedSearch) {
-    if (!buildClientSearchText(client).includes(normalizedSearch)) return false;
-  }
+  if (!filters.fechaDesde && !filters.fechaHasta && !filters.mes) return true;
 
-  if (filters.estado.length > 0) {
-    const estadoCliente = normalizeFilterValue(client.estado || "");
-    const estadosSeleccionados = filters.estado.map(normalizeFilterValue);
-    if (!estadosSeleccionados.includes(estadoCliente)) return false;
-  }
-
-  if (filters.fuente.trim()) {
-    const fuenteCliente = normalizeFilterValue(client.fuente || "");
-    if (fuenteCliente !== normalizeFilterValue(filters.fuente)) return false;
-  }
-
-  if (filters.comercial.trim()) {
-    const comercialCliente = normalizeFilterValue(client.comercial || "");
-    if (comercialCliente !== normalizeFilterValue(filters.comercial))
-      return false;
-  }
+  const fechaCliente =
+    parseClientDate(client.fecha_creacion) ?? parseClientDate(client.created_at);
+  if (!fechaCliente) return false;
 
   if (filters.fechaDesde || filters.fechaHasta) {
-    const fechaCliente = parseClientDate(client.fecha_contacto);
-    if (!fechaCliente) return false;
-
     const desde = parseClientDate(filters.fechaDesde);
     const hasta = parseClientDate(filters.fechaHasta);
     if (desde) desde.setHours(0, 0, 0, 0);
@@ -190,6 +164,13 @@ const matchesClientFilters = (
 
     if (desde && fechaCliente < desde) return false;
     if (hasta && fechaCliente > hasta) return false;
+  }
+
+  if (filters.mes) {
+    const month = Number.parseInt(filters.mes, 10);
+    if (Number.isFinite(month)) {
+      if (fechaCliente.getMonth() + 1 !== month) return false;
+    }
   }
 
   return true;
@@ -224,6 +205,7 @@ export default function ClientesPage() {
     comercial: "",
     fechaDesde: "",
     fechaHasta: "",
+    mes: "",
     skip: 0,
     limit: 20,
   });
@@ -244,7 +226,8 @@ export default function ClientesPage() {
           prev.fuente !== newFilters.fuente ||
           prev.comercial !== newFilters.comercial ||
           prev.fechaDesde !== newFilters.fechaDesde ||
-          prev.fechaHasta !== newFilters.fechaHasta;
+          prev.fechaHasta !== newFilters.fechaHasta ||
+          prev.mes !== newFilters.mes;
 
         if (!filtersChanged) return prev;
 
@@ -273,8 +256,6 @@ export default function ClientesPage() {
       estado?: string[];
       fuente?: string;
       comercial?: string;
-      fechaDesde?: string;
-      fechaHasta?: string;
     }): Promise<Cliente[]> => {
       const pageSize = 200;
       const allClients: Cliente[] = [];
@@ -341,20 +322,43 @@ export default function ClientesPage() {
         const normalizedEstado = Array.from(
           new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
         );
+        const hasDateFilter = Boolean(
+          filters.fechaDesde || filters.fechaHasta || filters.mes,
+        );
 
-        const result = await ClienteService.getClientes({
+        const baseParams = {
           q: searchValue || undefined,
           estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
           fuente: filters.fuente || undefined,
           comercial: filters.comercial || undefined,
-          fechaDesde: filters.fechaDesde || undefined,
-          fechaHasta: filters.fechaHasta || undefined,
-          skip: filters.skip,
-          limit: filters.limit,
-        });
+        };
 
-        setClients(sortClientsByCodigo(result.clients));
-        setTotalClients(result.total);
+        if (hasDateFilter) {
+          const all = await fetchAllClientsByBaseFilters(baseParams);
+          const filtered = all.filter((client) =>
+            matchesClientDateFilters(client, {
+              fechaDesde: filters.fechaDesde,
+              fechaHasta: filters.fechaHasta,
+              mes: filters.mes,
+            }),
+          );
+          const sorted = sortClientsByCodigo(filtered);
+          const page = sorted.slice(
+            filters.skip,
+            filters.skip + filters.limit,
+          );
+          setClients(page);
+          setTotalClients(filtered.length);
+        } else {
+          const result = await ClienteService.getClientes({
+            ...baseParams,
+            skip: filters.skip,
+            limit: filters.limit,
+          });
+          setClients(sortClientsByCodigo(result.clients));
+          setTotalClients(result.total);
+        }
+
         if (
           overrideFilters?.skip !== undefined ||
           overrideFilters?.limit !== undefined
@@ -369,7 +373,7 @@ export default function ClientesPage() {
         setLoading(false);
       }
     },
-    [appliedFilters],
+    [appliedFilters, fetchAllClientsByBaseFilters],
   );
 
   const getAllFilteredClientsForExport = useCallback(async (): Promise<
@@ -387,11 +391,17 @@ export default function ClientesPage() {
       estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
       fuente: appliedFilters.fuente || undefined,
       comercial: appliedFilters.comercial || undefined,
-      fechaDesde: appliedFilters.fechaDesde || undefined,
-      fechaHasta: appliedFilters.fechaHasta || undefined,
     });
 
-    return sortClientsByCodigo(result);
+    const filtered = result.filter((client) =>
+      matchesClientDateFilters(client, {
+        fechaDesde: appliedFilters.fechaDesde,
+        fechaHasta: appliedFilters.fechaHasta,
+        mes: appliedFilters.mes,
+      }),
+    );
+
+    return sortClientsByCodigo(filtered);
   }, [appliedFilters, fetchAllClientsByBaseFilters]);
 
   // Cargar datos iniciales
@@ -422,6 +432,7 @@ export default function ClientesPage() {
     appliedFilters.comercial,
     appliedFilters.fechaDesde,
     appliedFilters.fechaHasta,
+    appliedFilters.mes,
     appliedFilters.skip,
     appliedFilters.limit,
   ]);
@@ -793,6 +804,7 @@ export default function ClientesPage() {
         <div className="space-y-4">
           <ClientsTable
             clients={clients}
+            totalClients={totalClients}
             onEdit={handleEditClient}
             onDelete={handleDeleteClient}
             onViewLocation={handleViewClientLocation}

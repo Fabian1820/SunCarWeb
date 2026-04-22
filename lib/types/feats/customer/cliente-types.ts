@@ -34,6 +34,7 @@ export interface Cliente {
   carnet_identidad?: string;
   fecha_instalacion?: string;
   fecha_montaje?: string;
+  fecha_creacion?: string;
   created_at?: string;
   updated_at?: string;
   comprobante_pago_url?: string;

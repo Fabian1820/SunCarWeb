@@ -23,6 +23,7 @@ import { useMaterials } from "@/hooks/use-materials";
 import { useEffect, useMemo, useState } from "react";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
 import { GenerarLinkPagoConfeccionButton } from "./generar-link-pago-confeccion-button";
+import { PagoService } from "@/lib/services/feats/pagos/pago-service";
 
 interface VerOfertaClienteDialogProps {
   open: boolean;
@@ -88,6 +89,13 @@ const formatDateTime = (value?: string) => {
   });
 };
 
+const formatDate = (value?: string) => {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("es-ES");
+};
+
 const formatDateOnly = (value?: string) => {
   if (!value) return "--";
   const date = new Date(value);
@@ -109,6 +117,7 @@ export function VerOfertaClienteDialog({
   const { materials } = useMaterials();
   const [modoVista, setModoVista] = useState<"listado" | "detalle">("detalle");
   const [ofertaSeleccionadaIndex, setOfertaSeleccionadaIndex] = useState(0);
+  const [primerPagoFecha, setPrimerPagoFecha] = useState<string | null>(null);
 
   const ofertasDisponibles = useMemo(() => {
     if (ofertas.length > 0) return ofertas;
@@ -136,6 +145,36 @@ export function VerOfertaClienteDialog({
     if (ofertasDisponibles.length === 0) return null;
     return ofertasDisponibles[ofertaSeleccionadaIndex] ?? ofertasDisponibles[0];
   }, [ofertasDisponibles, ofertaSeleccionadaIndex]);
+
+  useEffect(() => {
+    if (!open || !oferta?.id) {
+      setPrimerPagoFecha(null);
+      return;
+    }
+    let cancelado = false;
+    PagoService.getPagosByOferta(oferta.id)
+      .then((pagos) => {
+        if (cancelado) return;
+        if (!pagos.length) {
+          setPrimerPagoFecha(null);
+          return;
+        }
+        const primerPago = pagos.reduce((prev, curr) => {
+          const prevTime = new Date(prev.fecha).getTime();
+          const currTime = new Date(curr.fecha).getTime();
+          if (Number.isNaN(prevTime)) return curr;
+          if (Number.isNaN(currTime)) return prev;
+          return currTime < prevTime ? curr : prev;
+        });
+        setPrimerPagoFecha(primerPago.fecha ?? null);
+      })
+      .catch(() => {
+        if (!cancelado) setPrimerPagoFecha(null);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [open, oferta?.id]);
 
   // Manejar el cierre del diálogo
   const handleClose = () => {
@@ -466,6 +505,14 @@ export function VerOfertaClienteDialog({
                     </span>
                   </span>
                 </div>
+                {primerPagoFecha && (
+                  <div className="text-xs text-slate-600">
+                    Fecha del primer pago:{" "}
+                    <span className="font-semibold text-slate-900">
+                      {formatDate(primerPagoFecha)}
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -869,6 +916,14 @@ export function VerOfertaClienteDialog({
                               </span>
                             </span>
                           </div>
+                          {primerPagoFecha && (
+                            <div className="text-xs text-slate-600">
+                              Fecha del primer pago:{" "}
+                              <span className="font-semibold text-slate-900">
+                                {formatDate(primerPagoFecha)}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Notas */}

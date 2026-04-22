@@ -12,6 +12,7 @@ import {
   X, MapPin, Zap, ChevronDown, ChevronUp, TrendingUp, Users2,
   HardHat, TriangleAlert, CalendarClock, ExternalLink, Filter,
   XCircle, Bookmark, UserCheck, ShoppingCart, Package, Truck,
+  BarChart3,
 } from "lucide-react"
 import Link from "next/link"
 import { ResultadosService, ClienteService, LeadService } from "@/lib/api-services"
@@ -1947,6 +1948,98 @@ function BrigadasPanel({ brigadas, onClose }: { brigadas: Brigada[]; onClose: ()
   )
 }
 
+// ─── ClientesStatsPanel ───────────────────────────────────────────────────────
+
+const MESES_NOMBRES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+]
+
+function ClientesStatsPanel({ clientes, onClose }: { clientes: Cliente[]; onClose: () => void }) {
+  const statsPorAnio = useMemo(() => {
+    const porAnio = new Map<number, number[]>()
+    for (const c of clientes) {
+      const raw = c.fecha_creacion ?? (c as unknown as { created_at?: string }).created_at
+      if (!raw) continue
+      const d = new Date(raw)
+      if (isNaN(d.getTime())) continue
+      const year = d.getFullYear()
+      const month = d.getMonth()
+      if (!porAnio.has(year)) porAnio.set(year, new Array(12).fill(0))
+      porAnio.get(year)![month] += 1
+    }
+    return Array.from(porAnio.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([year, counts]) => ({
+        year,
+        total: counts.reduce((acc, v) => acc + v, 0),
+        meses: counts
+          .map((count, idx) => ({ mes: idx + 1, count }))
+          .filter((m) => m.count > 0),
+      }))
+  }, [clientes])
+
+  const statsPorAnioVisible = useMemo(
+    () => statsPorAnio.filter((y) => y.year >= 2025),
+    [statsPorAnio],
+  )
+  const maxCount = Math.max(
+    1,
+    ...statsPorAnioVisible.flatMap((y) => y.meses.map((m) => m.count)),
+  )
+  const totalConFecha = statsPorAnio.reduce((acc, y) => acc + y.total, 0)
+
+  return (
+    <div className="absolute inset-y-0 right-0 z-[1000] w-72 pointer-events-auto flex flex-col">
+      <div className="bg-slate-900/98 border-l border-slate-700 h-full flex flex-col shadow-2xl backdrop-blur-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-4 w-4 text-cyan-400" />
+            <span className="text-sm font-bold text-cyan-400">Clientes por mes</span>
+            <span className="text-xs text-slate-500 bg-white/5 px-1.5 py-0.5 rounded-full">{totalConFecha}</span>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700 transition-colors">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          {totalConFecha === 0
+            ? <p className="text-center text-slate-500 text-xs py-8">Sin datos de fecha de creación</p>
+            : statsPorAnioVisible.map(({ year, total, meses }) => (
+              <div key={year} className="border-b border-slate-800">
+                <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700">
+                  <span className="text-xs font-bold text-slate-200 uppercase tracking-wider">{year}</span>
+                  <span className="text-[11px] text-slate-400">Total: <span className="font-bold text-cyan-400">{total}</span></span>
+                </div>
+                <div className="divide-y divide-slate-800/60">
+                  {meses.map(({ mes, count }) => {
+                    const pct = (count / maxCount) * 100
+                    return (
+                      <div key={mes} className="px-4 py-2.5">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-[12px] text-white">{MESES_NOMBRES[mes - 1]}</p>
+                          <span className="text-sm font-bold text-cyan-400">{count}</span>
+                        </div>
+                        <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <div className="h-full bg-cyan-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+        </div>
+        <div className="px-4 py-3 border-t border-slate-800">
+          <Link href="/clientes" className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-cyan-400 transition-colors">
+            <ExternalLink className="h-3 w-3" />Ver todos los clientes
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CentroControlView() {
@@ -1965,6 +2058,7 @@ export default function CentroControlView() {
   const [viewMode, setViewMode] = useState<ViewMode>("todos")
   const [showBrigadas, setShowBrigadas] = useState(false)
   const [showAnalisisRegional, setShowAnalisisRegional] = useState(false)
+  const [showClientesStats, setShowClientesStats] = useState(false)
   const [allConfeccionOfertas, setAllConfeccionOfertas] = useState<RawConfeccionOferta[]>([])
   const [ventasResumen, setVentasResumen] = useState<VentasResumen>({ totalClientesVentas: 0, totalSolicitudesDespachadas: 0, materialesVendidos: [] })
   const [showMaterialesVendidos, setShowMaterialesVendidos] = useState(false)
@@ -2096,7 +2190,7 @@ export default function CentroControlView() {
             normalizeText(t.tipo_trabajo ?? "").includes("instalacion nueva") &&
             isInRange(t.fecha_trabajo, weekStart, weekEnd)
           ).length
-          const nuevosClientes = clients.filter(c => isInRange(c.fecha_contacto, weekStart, weekEnd)).length
+          const nuevosClientes = clients.filter(c => isInRange(c.fecha_creacion, weekStart, weekEnd)).length
 
           let averiasPendientes = 0, averiasSolucionadas = 0
           conAverias.forEach(c => {
@@ -2536,7 +2630,7 @@ export default function CentroControlView() {
       normalizeText(t.tipo_trabajo ?? "").includes("instalacion nueva") &&
       inR(t.fecha_trabajo)
     ).length
-    const nuevosClientes = allClients.filter(c => inR(c.fecha_contacto)).length
+    const nuevosClientes = allClients.filter(c => inR(c.fecha_creacion)).length
     const nuevosLeads = allLeads.filter(l => inR(l.fecha_contacto)).length
 
     let averiasSolucionadas = 0
@@ -2838,6 +2932,16 @@ export default function CentroControlView() {
                       <span className="text-[11px] text-slate-300 truncate">Análisis regional</span>
                     </div>
                     <Filter className="h-3 w-3 text-emerald-400/60 shrink-0" />
+                  </button>
+                  <button onClick={() => setShowClientesStats(b => !b)}
+                    className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all gap-2 text-left
+                      ${showClientesStats ? "bg-cyan-500/20 ring-1 ring-inset ring-white/20" : "bg-white/5 hover:bg-white/10"}`}>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <BarChart3 className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
+                      <span className="text-[11px] text-slate-300 truncate">Ver estadísticas de clientes</span>
+                    </div>
+                    {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
+                      : <span className="text-sm font-bold text-cyan-400 shrink-0">{allClients.length}</span>}
                   </button>
                 </div>
                 {viewMode !== "todos" && (
@@ -3158,6 +3262,7 @@ export default function CentroControlView() {
           {selectedItem?.mode === "instalaciones_terminadas" && <InstalacionesTerminadasCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={allClients} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "averias_solucionadas_periodo" && <AveriasSolucionadasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
           {showBrigadas && <BrigadasPanel brigadas={brigadas} onClose={() => setShowBrigadas(false)} />}
+          {showClientesStats && <ClientesStatsPanel clientes={allClients} onClose={() => setShowClientesStats(false)} />}
           {showAnalisisRegional && (
             <AnalisisRegionalPanel
               allClients={allClients}
