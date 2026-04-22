@@ -43,6 +43,7 @@ import type { ClienteVenta } from "@/lib/types/feats/clientes-ventas/cliente-ven
 import type { SolicitudVenta } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
 import type { Material } from "@/lib/types/feats/materials/material-types";
+import { FacturasSubmoduleGuard } from "@/components/auth/facturas-submodule-guard";
 
 interface FacturaValeItem {
   material_id: string;
@@ -665,6 +666,14 @@ const formatNumeroFacturaExport = (value?: string) => {
 };
 
 export default function FacturasSolarCarrosPage() {
+  return (
+    <FacturasSubmoduleGuard>
+      <FacturasSolarCarrosPageContent />
+    </FacturasSubmoduleGuard>
+  );
+}
+
+function FacturasSolarCarrosPageContent() {
   const { toast } = useToast();
 
   const [tab, setTab] = useState("instaladora");

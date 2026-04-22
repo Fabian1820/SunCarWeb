@@ -1,0 +1,1 @@
+export const SOLO_PAGOS_CLIENTES_CIS = ["03030266837"]

@@ -4,9 +4,15 @@ import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
 import { ArrowLeft, FileText, CreditCard, Receipt } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { SOLO_PAGOS_CLIENTES_CIS } from "@/lib/facturacion-access"
 
 export default function FacturacionPage() {
-    const submodules = [
+    const { user } = useAuth()
+    const soloPagosClientes =
+        !!user?.ci && SOLO_PAGOS_CLIENTES_CIS.includes(user.ci)
+
+    const submodulesAll = [
         {
             id: 'pagos-clientes',
             href: '/facturas/pagos-clientes',
@@ -32,6 +38,10 @@ export default function FacturacionPage() {
             color: 'sky-600',
         },
     ]
+
+    const submodules = soloPagosClientes
+        ? submodulesAll.filter((m) => m.id === 'pagos-clientes')
+        : submodulesAll
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
