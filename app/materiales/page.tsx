@@ -367,7 +367,8 @@ export default function MaterialesPage() {
   const filteredMaterials = materials.filter((material) => {
     const matchesSearch =
       material.codigo.toString().includes(searchTerm) ||
-      material.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+      material.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (material.numero_serie ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategoryFilter =
       selectedCategory === "all" || material.categoria === selectedCategory;
     const materialPrice = Number(material.precio ?? 0);
@@ -885,7 +886,7 @@ export default function MaterialesPage() {
                         id="search"
                         placeholder={
                           viewMode === "materials"
-                            ? "Buscar por código o descripción..."
+                            ? "Buscar por código, descripción o N° serie..."
                             : "Buscar por nombre de categoría..."
                         }
                         value={searchTerm}
