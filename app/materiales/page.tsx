@@ -74,6 +74,7 @@ export default function MaterialesPage() {
   const { toast, dismiss } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedMarca, setSelectedMarca] = useState("all");
   const [priceFilter, setPriceFilter] = useState<"all" | "zero">("all");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -371,13 +372,15 @@ export default function MaterialesPage() {
       (material.numero_serie ?? "").toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategoryFilter =
       selectedCategory === "all" || material.categoria === selectedCategory;
+    const matchesMarcaFilter =
+      selectedMarca === "all" || material.marca_id === selectedMarca;
     const materialPrice = Number(material.precio ?? 0);
     const matchesPriceFilter =
       priceFilter === "all" ||
       (priceFilter === "zero" &&
         Number.isFinite(materialPrice) &&
         materialPrice === 0);
-    return matchesSearch && matchesCategoryFilter && matchesPriceFilter;
+    return matchesSearch && matchesCategoryFilter && matchesMarcaFilter && matchesPriceFilter;
   });
 
   const filteredCategories = catalogs.filter((category) => {
@@ -921,6 +924,30 @@ export default function MaterialesPage() {
                                 value={category}
                               >
                                 {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="lg:w-48">
+                        <Label
+                          htmlFor="marca-filter"
+                          className="text-sm font-medium text-gray-700 mb-2 block"
+                        >
+                          Filtrar por Marca
+                        </Label>
+                        <Select
+                          value={selectedMarca}
+                          onValueChange={setSelectedMarca}
+                        >
+                          <SelectTrigger id="marca-filter">
+                            <SelectValue placeholder="Todas las marcas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas las marcas</SelectItem>
+                            {marcas.map((marca: any) => (
+                              <SelectItem key={marca.id} value={marca.id}>
+                                {marca.nombre}
                               </SelectItem>
                             ))}
                           </SelectContent>
