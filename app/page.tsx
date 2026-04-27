@@ -401,12 +401,6 @@ export default function Dashboard() {
       ],
     },
     {
-      id: "web",
-      title: "Marketing",
-      subtitle: "Blog y galería.",
-      moduleIds: ["blog", "galeriaweb"],
-    },
-    {
       id: "gestion-almacenes",
       title: "Gestión de Almacenes",
       subtitle: "Materiales, almacenes, inventario y envío de contenedores.",
@@ -428,6 +422,12 @@ export default function Dashboard() {
       title: "Área de Dirección",
       subtitle: "Billetera, fichas de costo y permisos.",
       moduleIds: ["wallet", "fichas-costo", "permisos"],
+    },
+    {
+      id: "web",
+      title: "Marketing",
+      subtitle: "Blog y galería.",
+      moduleIds: ["blog", "galeriaweb"],
     },
   ];
 
