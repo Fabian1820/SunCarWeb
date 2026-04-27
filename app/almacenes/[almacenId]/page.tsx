@@ -827,13 +827,12 @@ export default function AlmacenDetallePage() {
                       )}
                       <span className="ml-2">Exportar Excel</span>
                     </Button>
-                    <Button variant="outline" size="sm" onClick={refreshStock}>
+                    <Button variant="outline" size="icon" onClick={refreshStock} title="Refrescar">
                       {loadingStock ? (
                         <RefreshCw className="h-4 w-4 animate-spin" />
                       ) : (
                         <RefreshCw className="h-4 w-4" />
                       )}
-                      <span className="ml-2">Refrescar</span>
                     </Button>
                   </div>
                 </CardHeader>
@@ -881,15 +880,15 @@ export default function AlmacenDetallePage() {
                   </div>
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={refreshMovimientos}
+                    title="Refrescar"
                   >
                     {loadingMovimientos ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}
-                    <span className="ml-2">Refrescar</span>
                   </Button>
                 </CardHeader>
                 <CardContent>
