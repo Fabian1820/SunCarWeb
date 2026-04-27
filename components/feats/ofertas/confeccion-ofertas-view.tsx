@@ -155,13 +155,24 @@ export function ConfeccionOfertasView({
   tipoContactoInicial,
   ofertaGenericaInicial,
 }: ConfeccionOfertasViewProps = {}) {
-  const { materials, loading } = useMaterials();
+  const {
+    materials,
+    categories: catalogoCategorias,
+    hasAnyCategoryLoaded,
+    loadedCategories,
+    loadingCategories,
+    loadCategoryMaterials,
+    ensureCategoriesList,
+  } = useMaterials({ lite: true, lazy: true });
+  // El loader bloqueante solo espera a la PRIMERA categoría (la activa).
+  const loading = !hasAnyCategoryLoaded;
+
   const {
     almacenes,
     stock,
     refetchStock,
     loading: loadingAlmacenes,
-  } = useInventario();
+  } = useInventario({ lite: true });
   const { marcas, loading: loadingMarcas } = useMarcas();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -585,6 +596,53 @@ export function ConfeccionOfertasView({
 
   const activeStep = steps[activeStepIndex] ?? steps[0];
 
+  // ─────────────────────────────────────────────────────────────────
+  // Carga progresiva de materiales:
+  // 1. Lista de categorías al montar (rápido).
+  // 2. Categoría del step activo → materiales (libera el loader).
+  // 3. Resto de categorías en background, en paralelo.
+  // 4. Si el usuario cambia de step antes que llegue su categoría, se
+  //    dispara el load puntual.
+  // ─────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    ensureCategoriesList();
+  }, [ensureCategoriesList]);
+
+  // Carga materiales de la(s) categoría(s) que matchean el step activo
+  useEffect(() => {
+    if (!catalogoCategorias.length || !activeStep) return;
+    const matching = catalogoCategorias.filter((cat) =>
+      activeStep.match?.(cat),
+    );
+    matching.forEach((cat) => {
+      if (!loadedCategories.has(cat) && !loadingCategories.has(cat)) {
+        loadCategoryMaterials(cat);
+      }
+    });
+  }, [
+    activeStep,
+    catalogoCategorias,
+    loadCategoryMaterials,
+    loadedCategories,
+    loadingCategories,
+  ]);
+
+  // Una vez cargada la primera categoría, hidratar el resto en background
+  useEffect(() => {
+    if (!hasAnyCategoryLoaded || !catalogoCategorias.length) return;
+    const pendientes = catalogoCategorias.filter(
+      (cat) => !loadedCategories.has(cat) && !loadingCategories.has(cat),
+    );
+    if (!pendientes.length) return;
+    pendientes.forEach((cat) => loadCategoryMaterials(cat));
+  }, [
+    hasAnyCategoryLoaded,
+    catalogoCategorias,
+    loadCategoryMaterials,
+    loadedCategories,
+    loadingCategories,
+  ]);
+
   const seccionLabelMap = useMemo(() => {
     const map = new Map<string, string>();
     steps.forEach((step) => map.set(step.id, step.label));
@@ -597,6 +655,13 @@ export function ConfeccionOfertasView({
       setAlmacenId(almacenes[0]?.id ?? "");
     }
   }, [almacenes, almacenId]);
+
+  // Stock bajo demanda: solo se carga cuando hay un almacén seleccionado.
+  // useInventario({ lite: true }) NO trae stock al montar; aquí lo pedimos.
+  useEffect(() => {
+    if (!almacenId) return;
+    refetchStock(almacenId);
+  }, [almacenId, refetchStock]);
 
   // Cargar datos de la oferta en modo edición
   // Cargar datos de la oferta en modo edición o duplicación
@@ -5825,7 +5890,7 @@ export function ConfeccionOfertasView({
     });
   };
 
-  if (loading || loadingAlmacenes || loadingMarcas) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-[60vh] text-sm text-slate-500">
         Cargando materiales...

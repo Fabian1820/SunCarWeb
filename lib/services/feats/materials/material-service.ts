@@ -420,6 +420,32 @@ export class MaterialService {
     return result.data;
   }
 
+  /**
+   * Endpoint liviano: devuelve solo los campos necesarios para listar
+   * materiales en el flujo de ofertas (codigo, descripcion, nombre, precio,
+   * marca_id, potenciaKW, foto). NO incluye especificaciones, fichas técnicas,
+   * precios por cantidad, etc. Para flujos de gestión usar getAllCatalogs().
+   */
+  static async getAllCatalogsLite(): Promise<BackendCatalogoProductos[]> {
+    const result = await apiRequest<{ data: BackendCatalogoProductos[] }>(
+      "/productos/lite",
+    );
+    return result.data;
+  }
+
+  /**
+   * Variante lite filtrada por categoría. Devuelve un array de catálogos
+   * (típicamente 1) con sus materiales en formato lite.
+   */
+  static async getCategoryLite(
+    categoria: string,
+  ): Promise<BackendCatalogoProductos[]> {
+    const result = await apiRequest<{ data: BackendCatalogoProductos[] }>(
+      `/productos/lite?categoria=${encodeURIComponent(categoria)}`,
+    );
+    return result.data;
+  }
+
   // Category management methods
   static async createCategoryWithMaterials(
     data: CreateCategoryRequest,

@@ -98,7 +98,7 @@ export default function Dashboard() {
       id: "leads",
       href: "/leads",
       icon: Phone,
-      title: "Gestionar Leads",
+      title: "Gestionar Leads Instaladora",
       description: "Administrar leads y oportunidades de venta.",
       iconClass: "text-green-600",
     },
@@ -106,7 +106,7 @@ export default function Dashboard() {
       id: "clientes",
       href: "/clientes",
       icon: User,
-      title: "Gestionar Clientes",
+      title: "Gestionar Clientes Instaladora",
       description: "Administrar información y reportes de clientes.",
       iconClass: "text-orange-600",
     },
@@ -114,7 +114,7 @@ export default function Dashboard() {
       id: "clientes-ventas",
       href: "/clientes-ventas",
       icon: Users,
-      title: "Clientes Ventas",
+      title: "Gestionar Clientes Ventas",
       description: "Registrar y gestionar clientes de ventas.",
       iconClass: "text-teal-600",
     },
@@ -138,7 +138,7 @@ export default function Dashboard() {
       id: "ofertas-gestion",
       href: "/ofertas-gestion",
       icon: Zap,
-      title: "Gestionar Ofertas",
+      title: "Gestionar Ofertas Instaladora",
       description: "Confección de ofertas y herramientas de ventas.",
       iconClass: "text-amber-600",
     },
@@ -146,18 +146,19 @@ export default function Dashboard() {
       id: "reportes-comercial",
       href: "/reportes-comercial",
       icon: BarChart3,
-      title: "Reportes Comercial",
+      title: "Reportes Comercial Instaladora",
       description: "Reportes y análisis del área comercial.",
       iconClass: "text-indigo-600",
     },
-    {
-      id: "resultados",
-      href: "/resultados",
-      icon: Trophy,
-      title: "Resultados",
-      description: "Indicadores principales y presencia nacional.",
-      iconClass: "text-amber-600",
-    },
+    // Módulo "Resultados" oculto temporalmente — se reactivará más adelante.
+    // {
+    //   id: "resultados",
+    //   href: "/resultados",
+    //   icon: Trophy,
+    //   title: "Resultados",
+    //   description: "Indicadores principales y presencia nacional.",
+    //   iconClass: "text-amber-600",
+    // },
     {
       id: "centro-control",
       href: "/centro-control",
@@ -179,7 +180,7 @@ export default function Dashboard() {
       id: "instalaciones",
       href: "/instalaciones",
       icon: Wrench,
-      title: "Operaciones",
+      title: "Instalaciones",
       description: "Instalaciones en proceso, nuevas y averías.",
       iconClass: "text-purple-600",
     },
@@ -207,14 +208,15 @@ export default function Dashboard() {
       description: "Administrar personal y asignaciones.",
       iconClass: "text-blue-600",
     },
-    {
-      id: "reportes",
-      href: "/reportes",
-      icon: FileCheck,
-      title: "Gestionar Reportes",
-      description: "Administrar historial de reportes.",
-      iconClass: "text-emerald-600",
-    },
+    // Módulo "Gestionar Reportes" oculto temporalmente.
+    // {
+    //   id: "reportes",
+    //   href: "/reportes",
+    //   icon: FileCheck,
+    //   title: "Gestionar Reportes",
+    //   description: "Administrar historial de reportes.",
+    //   iconClass: "text-emerald-600",
+    // },
     {
       id: "materiales",
       href: "/materiales",
@@ -349,65 +351,83 @@ export default function Dashboard() {
 
   const moduleGroups: ModuleGroup[] = [
     {
-      id: "comercial",
-      title: "Comercial",
-      subtitle: "Leads, clientes, ofertas, reportes comercial y resultados.",
+      id: "resultados-empresa",
+      title: "",
+      subtitle: "",
+      moduleIds: ["centro-control"],
+    },
+    {
+      id: "comercial-instaladora",
+      title: "Comercial Instaladora",
+      subtitle: "Leads, clientes, ofertas y reportes de la instaladora.",
       moduleIds: [
         "leads",
         "clientes",
-        "clientes-ventas",
-        "solicitudes-ventas",
-        "reservas-ventas",
         "ofertas-gestion",
         "reportes-comercial",
-        "resultados",
       ],
     },
     {
-      id: "campo",
-      title: "Trabajos Diarios",
-      subtitle: "Seguimiento diario de instalaciones y trabajos.",
-      moduleIds: ["todos-trabajos"],
+      id: "comercial-ventas",
+      title: "Comercial Ventas",
+      subtitle: "Clientes, solicitudes, reservas y tiendas del área de ventas.",
+      moduleIds: [
+        "clientes-ventas",
+        "solicitudes-ventas",
+        "reservas-ventas",
+        "tiendas-suncarventas",
+      ],
     },
     {
       id: "operaciones",
       title: "Operaciones",
-      subtitle: "Brigadas, trabajadores, reportes y operaciones.",
+      subtitle: "Brigadas, instaladores, instalaciones y solicitudes.",
       moduleIds: [
-        "centro-control",
         "brigadas",
         "trabajadores",
-        "reportes",
         "instalaciones",
+        "todos-trabajos",
         "solicitudes-materiales",
       ],
     },
     {
       id: "economia",
       title: "Economía",
-      subtitle:
-        "Materiales, facturación, almacenes, inventario, tiendas, RH y costos.",
+      subtitle: "Facturación, tasa de cambio y existencias.",
       moduleIds: [
-        "materiales",
-        "envio-contenedores",
         "facturas",
-        "wallet",
         "tasa-cambio-diaria",
-        "almacenes-suncar",
-        "inventario",
         "existencias-contabilidad",
-        "tiendas-suncarventas",
-        "recursos-humanos",
-        "sedes",
-        "departamentos",
-        "fichas-costo",
       ],
     },
     {
+      id: "gestion-almacenes",
+      title: "Gestión de Almacenes",
+      subtitle: "Materiales, almacenes, inventario y envío de contenedores.",
+      moduleIds: [
+        "materiales",
+        "almacenes-suncar",
+        "inventario",
+        "envio-contenedores",
+      ],
+    },
+    {
+      id: "recursos-humanos-grupo",
+      title: "Recursos Humanos",
+      subtitle: "Personal, sedes y departamentos.",
+      moduleIds: ["recursos-humanos", "sedes", "departamentos"],
+    },
+    {
+      id: "area-direccion",
+      title: "Área de Dirección",
+      subtitle: "Billetera, fichas de costo y permisos.",
+      moduleIds: ["wallet", "fichas-costo", "permisos"],
+    },
+    {
       id: "web",
-      title: "Web",
-      subtitle: "Blog, galería y gestión de permisos.",
-      moduleIds: ["blog", "galeriaweb", "permisos"],
+      title: "Marketing",
+      subtitle: "Blog y galería.",
+      moduleIds: ["blog", "galeriaweb"],
     },
   ];
 
@@ -605,17 +625,20 @@ export default function Dashboard() {
                                     </div>
                                 </Button>
                             </Link> */}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsTicketDialogOpen(true)}
-                aria-label="Generar ticket o vale de venta"
-                className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
-              >
-                <ClipboardList className="h-4 w-4 text-orange-600 sm:mr-2" />
-                <span className="hidden sm:inline">Ticket / Vale</span>
-                <span className="sr-only">Ticket / Vale</span>
-              </Button>
+              {/* Botón Ticket / Vale oculto temporalmente */}
+              {false && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsTicketDialogOpen(true)}
+                  aria-label="Generar ticket o vale de venta"
+                  className="flex items-center justify-center bg-white hover:bg-orange-50 border-orange-200 hover:border-orange-300 rounded-full sm:rounded-md h-9 px-3 sm:h-10 sm:px-4 sm:w-auto touch-manipulation"
+                >
+                  <ClipboardList className="h-4 w-4 text-orange-600 sm:mr-2" />
+                  <span className="hidden sm:inline">Ticket / Vale</span>
+                  <span className="sr-only">Ticket / Vale</span>
+                </Button>
+              )}
               <Link href="/calculadora" className="flex">
                 <Button
                   variant="outline"
@@ -665,21 +688,6 @@ export default function Dashboard() {
       >
         {/* Full width layout for modules */}
         <div className="flex flex-col">
-          <div className="mb-4 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-center sm:text-left">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                Módulos del Sistema
-              </h2>
-              {user && (
-                <p className="text-sm text-gray-600 mt-2">
-                  Bienvenido,{" "}
-                  <span className="font-semibold">{user.nombre}</span> -{" "}
-                  {user.rol}
-                </p>
-              )}
-            </div>
-          </div>
-
           {groupedAvailableModules.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-gray-600">
@@ -694,15 +702,14 @@ export default function Dashboard() {
             <div className="space-y-8">
               {groupedAvailableModules.map((group) => (
                 <section key={group.id} className="space-y-4">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-semibold text-gray-900">
-                      {group.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                      {group.subtitle}
-                    </p>
-                    <div className="mt-3 h-px bg-gradient-to-r from-orange-300 via-orange-200 to-transparent" />
-                  </div>
+                  {group.title ? (
+                    <div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">
+                        {group.title}
+                      </h3>
+                      <div className="mt-3 h-px bg-gradient-to-r from-orange-300 via-orange-200 to-transparent" />
+                    </div>
+                  ) : null}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
                     {group.modules.map((module) => (

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { LeadService } from "@/lib/api-services";
+import { apiRequest } from "@/lib/api-config";
 import type {
   Lead,
   LeadCreateData,
@@ -8,11 +9,16 @@ import type {
   Cliente,
 } from "@/lib/api-types";
 
+type OfertasFilter = "" | "con_ofertas" | "sin_ofertas" | "confirmadas" | "pendientes";
+
 interface LeadFilters {
   searchTerm: string;
-  estado: string;
+  estado: string[];
   fuente: string;
   comercial: string;
+  provincia: string;
+  municipio: string;
+  ofertas: OfertasFilter;
   fechaDesde: string;
   fechaHasta: string;
   skip: number;
@@ -22,6 +28,10 @@ interface LeadFilters {
 interface UseLeadsReturn {
   leads: Lead[];
   availableSources: string[];
+  availableComerciales: string[];
+  availableProvincias: string[];
+  availableMunicipios: string[];
+  ensureComercialesCargados: () => Promise<void>;
   filters: LeadFilters;
   initialLoading: boolean;
   loading: boolean;
@@ -121,11 +131,21 @@ export function useLeads(): UseLeadsReturn {
   const [totalLeads, setTotalLeads] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+  const [allComerciales, setAllComerciales] = useState<string[]>([]);
+  const [provinciasCatalogo, setProvinciasCatalogo] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [municipiosCatalogo, setMunicipiosCatalogo] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
   const [filters, setFiltersState] = useState<LeadFilters>({
     searchTerm: "",
-    estado: "",
+    estado: [],
     fuente: "",
     comercial: "",
+    provincia: "",
+    municipio: "",
+    ofertas: "",
     fechaDesde: "",
     fechaHasta: "",
     skip: 0,
@@ -220,6 +240,38 @@ export function useLeads(): UseLeadsReturn {
     [],
   );
 
+  const matchesOfertasFilter = useCallback(
+    (lead: Lead, ofertas: OfertasFilter): boolean => {
+      if (!ofertas) return true;
+      const oc = lead.oferta_confeccion;
+      const totalOfertas = oc?.total_ofertas ?? 0;
+      const totalConfirmadas = oc?.total_confirmadas ?? 0;
+      const tieneEmbebidas =
+        Array.isArray(lead.ofertas) &&
+        lead.ofertas.some(
+          (o) =>
+            o.inversor_codigo ||
+            o.bateria_codigo ||
+            o.panel_codigo ||
+            o.elementos_personalizados,
+        );
+      const tieneOfertas = totalOfertas > 0 || tieneEmbebidas;
+      switch (ofertas) {
+        case "con_ofertas":
+          return tieneOfertas;
+        case "sin_ofertas":
+          return !tieneOfertas;
+        case "confirmadas":
+          return totalConfirmadas > 0;
+        case "pendientes":
+          return totalOfertas > 0 && totalConfirmadas === 0;
+        default:
+          return true;
+      }
+    },
+    [],
+  );
+
   const loadLeads = useCallback(
     async (overrideFilters?: Partial<LeadFilters>) => {
       setLoading(true);
@@ -232,10 +284,21 @@ export function useLeads(): UseLeadsReturn {
         const hasDateFilters = Boolean(
           effectiveFilters.fechaDesde || effectiveFilters.fechaHasta,
         );
+        const estadosSeleccionados = Array.isArray(effectiveFilters.estado)
+          ? effectiveFilters.estado.filter(Boolean)
+          : [];
+        const hasClientFilters =
+          Boolean(effectiveFilters.provincia) ||
+          Boolean(effectiveFilters.municipio) ||
+          Boolean(effectiveFilters.ofertas) ||
+          estadosSeleccionados.length > 1;
 
-        if (hasDateFilters) {
+        if (hasDateFilters || hasClientFilters) {
           const allBaseLeads = await fetchAllLeadsByBaseFilters({
-            estado: effectiveFilters.estado,
+            estado:
+              estadosSeleccionados.length === 1
+                ? estadosSeleccionados[0]
+                : "",
             fuente: effectiveFilters.fuente,
             comercial: effectiveFilters.comercial,
           });
@@ -246,13 +309,36 @@ export function useLeads(): UseLeadsReturn {
             effectiveFilters.fechaHasta,
           );
 
+          const filteredByLocation = filteredByDate.filter((lead) => {
+            if (
+              estadosSeleccionados.length > 1 &&
+              !estadosSeleccionados.includes((lead.estado || "").trim())
+            ) {
+              return false;
+            }
+            if (
+              effectiveFilters.provincia &&
+              (lead.provincia_montaje || "").trim() !==
+                effectiveFilters.provincia
+            ) {
+              return false;
+            }
+            if (
+              effectiveFilters.municipio &&
+              (lead.municipio || "").trim() !== effectiveFilters.municipio
+            ) {
+              return false;
+            }
+            return matchesOfertasFilter(lead, effectiveFilters.ofertas);
+          });
+
           const filteredBySearch = effectiveSearchTerm
-            ? filteredByDate.filter((lead) =>
+            ? filteredByLocation.filter((lead) =>
                 buildLeadSearchText(lead).includes(
                   normalizeSearchValue(effectiveSearchTerm),
                 ),
               )
-            : filteredByDate;
+            : filteredByLocation;
 
           const total = filteredBySearch.length;
           const skip = effectiveFilters.skip ?? 0;
@@ -280,7 +366,10 @@ export function useLeads(): UseLeadsReturn {
           limit,
         } = await LeadService.getLeads({
           q: effectiveSearchTerm || undefined,
-          estado: effectiveFilters.estado || undefined,
+          estado:
+            estadosSeleccionados.length === 1
+              ? estadosSeleccionados[0]
+              : undefined,
           fuente: effectiveFilters.fuente || undefined,
           comercial: effectiveFilters.comercial || undefined,
           fechaDesde: effectiveFilters.fechaDesde || undefined,
@@ -314,6 +403,7 @@ export function useLeads(): UseLeadsReturn {
       fetchAllLeadsByBaseFilters,
       buildLeadSearchText,
       normalizeSearchValue,
+      matchesOfertasFilter,
     ],
   );
 
@@ -328,6 +418,157 @@ export function useLeads(): UseLeadsReturn {
     return sources as string[];
   }, [leads]);
 
+  // Comerciales: carga lazy con cache en sessionStorage (TTL 10 min).
+  const COMERCIALES_CACHE_KEY = "leads_comerciales_cache_v1";
+  const COMERCIALES_CACHE_TTL_MS = 10 * 60 * 1000;
+  const comercialesLoadingRef = useMemo(() => ({ inFlight: false }), []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem(COMERCIALES_CACHE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { ts: number; data: string[] };
+      if (
+        parsed?.ts &&
+        Date.now() - parsed.ts < COMERCIALES_CACHE_TTL_MS &&
+        Array.isArray(parsed.data)
+      ) {
+        setAllComerciales(parsed.data);
+      }
+    } catch {
+      // ignore cache errors
+    }
+  }, []);
+
+  const ensureComercialesCargados = useCallback(async () => {
+    if (comercialesLoadingRef.inFlight) return;
+    if (allComerciales.length > 0) return;
+    comercialesLoadingRef.inFlight = true;
+    try {
+      const todos = await fetchAllLeadsByBaseFilters({
+        estado: "",
+        fuente: "",
+        comercial: "",
+      });
+      const comerciales = Array.from(
+        new Set(
+          todos
+            .map((lead) => lead.comercial)
+            .filter(
+              (c): c is string => typeof c === "string" && c.trim() !== "",
+            )
+            .map((c) => c.trim()),
+        ),
+      ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+      setAllComerciales(comerciales);
+      if (typeof window !== "undefined") {
+        try {
+          window.sessionStorage.setItem(
+            COMERCIALES_CACHE_KEY,
+            JSON.stringify({ ts: Date.now(), data: comerciales }),
+          );
+        } catch {
+          // ignore quota errors
+        }
+      }
+    } catch (error) {
+      console.error("Error cargando comerciales:", error);
+    } finally {
+      comercialesLoadingRef.inFlight = false;
+    }
+  }, [allComerciales.length, comercialesLoadingRef, fetchAllLeadsByBaseFilters]);
+
+  // Fusionar comerciales globales con los de la página actual (por si hay alguno
+  // recién creado que aún no está en el cache de allComerciales).
+  const availableComerciales = useMemo(() => {
+    const set = new Set<string>(allComerciales);
+    for (const lead of leads) {
+      if (typeof lead.comercial === "string" && lead.comercial.trim()) {
+        set.add(lead.comercial.trim());
+      }
+    }
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
+  }, [allComerciales, leads]);
+
+  // Cargar catálogo de provincias desde el backend
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: Array<{ codigo: string; nombre: string }>;
+        }>("/provincias/", { method: "GET" });
+        if (cancelado) return;
+        if (response?.success && Array.isArray(response.data)) {
+          setProvinciasCatalogo(
+            [...response.data].sort((a, b) =>
+              a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("Error cargando catálogo de provincias:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  // Cargar municipios cuando cambia la provincia seleccionada
+  useEffect(() => {
+    let cancelado = false;
+    if (!filters.provincia) {
+      setMunicipiosCatalogo([]);
+      return;
+    }
+    const provinciaCodigo = provinciasCatalogo.find(
+      (p) => p.nombre === filters.provincia,
+    )?.codigo;
+    if (!provinciaCodigo) {
+      setMunicipiosCatalogo([]);
+      return;
+    }
+    (async () => {
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: Array<{ codigo: string; nombre: string }>;
+        }>(`/provincias/provincia/${provinciaCodigo}/municipios`, {
+          method: "GET",
+        });
+        if (cancelado) return;
+        if (response?.success && Array.isArray(response.data)) {
+          setMunicipiosCatalogo(
+            [...response.data].sort((a, b) =>
+              a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("Error cargando catálogo de municipios:", error);
+        setMunicipiosCatalogo([]);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [filters.provincia, provinciasCatalogo]);
+
+  const availableProvincias = useMemo(
+    () => provinciasCatalogo.map((p) => p.nombre),
+    [provinciasCatalogo],
+  );
+
+  const availableMunicipios = useMemo(
+    () => municipiosCatalogo.map((m) => m.nombre),
+    [municipiosCatalogo],
+  );
+
   const setFilters = useCallback((newFilters: Partial<LeadFilters>) => {
     if (typeof newFilters.searchTerm === "string") {
       setSearchTerm(newFilters.searchTerm);
@@ -338,14 +579,27 @@ export function useLeads(): UseLeadsReturn {
       newFilters.estado !== undefined ||
       newFilters.fuente !== undefined ||
       newFilters.comercial !== undefined ||
+      newFilters.provincia !== undefined ||
+      newFilters.municipio !== undefined ||
+      newFilters.ofertas !== undefined ||
       newFilters.fechaDesde !== undefined ||
       newFilters.fechaHasta !== undefined;
 
-    setFiltersState((prev) => ({
-      ...prev,
-      ...newFilters,
-      skip: shouldResetSkip ? 0 : (newFilters.skip ?? prev.skip),
-    }));
+    setFiltersState((prev) => {
+      const next: LeadFilters = {
+        ...prev,
+        ...newFilters,
+        skip: shouldResetSkip ? 0 : (newFilters.skip ?? prev.skip),
+      };
+      if (
+        newFilters.provincia !== undefined &&
+        newFilters.provincia !== prev.provincia &&
+        newFilters.municipio === undefined
+      ) {
+        next.municipio = "";
+      }
+      return next;
+    });
   }, []);
 
   const setPage = useCallback(
@@ -520,8 +774,9 @@ export function useLeads(): UseLeadsReturn {
   const getAllFilteredLeadsForExport = useCallback(async (): Promise<
     Lead[]
   > => {
+    const estadosSel = (filters.estado || []).filter(Boolean);
     const allBaseLeads = await fetchAllLeadsByBaseFilters({
-      estado: filters.estado,
+      estado: estadosSel.length === 1 ? estadosSel[0] : "",
       fuente: filters.fuente,
       comercial: filters.comercial,
     });
@@ -532,12 +787,31 @@ export function useLeads(): UseLeadsReturn {
       filters.fechaHasta,
     );
 
+    const allLocationFiltered = allDateFilteredLeads.filter((lead) => {
+      if (
+        estadosSel.length > 1 &&
+        !estadosSel.includes((lead.estado || "").trim())
+      )
+        return false;
+      if (
+        filters.provincia &&
+        (lead.provincia_montaje || "").trim() !== filters.provincia
+      )
+        return false;
+      if (
+        filters.municipio &&
+        (lead.municipio || "").trim() !== filters.municipio
+      )
+        return false;
+      return matchesOfertasFilter(lead, filters.ofertas);
+    });
+
     const effectiveSearchTerm = normalizeSearchValue(filters.searchTerm.trim());
     if (!effectiveSearchTerm) {
-      return allDateFilteredLeads;
+      return allLocationFiltered;
     }
 
-    return allDateFilteredLeads.filter((lead) =>
+    return allLocationFiltered.filter((lead) =>
       buildLeadSearchText(lead).includes(effectiveSearchTerm),
     );
   }, [
@@ -548,8 +822,12 @@ export function useLeads(): UseLeadsReturn {
     filters.fechaDesde,
     filters.fechaHasta,
     filters.fuente,
+    filters.provincia,
+    filters.municipio,
+    filters.ofertas,
     filters.searchTerm,
     normalizeSearchValue,
+    matchesOfertasFilter,
   ]);
 
   // Cargar leads al montar y cuando cambien filtros (incluyendo búsqueda)
@@ -560,6 +838,9 @@ export function useLeads(): UseLeadsReturn {
     filters.estado,
     filters.fuente,
     filters.comercial,
+    filters.provincia,
+    filters.municipio,
+    filters.ofertas,
     filters.fechaDesde,
     filters.fechaHasta,
     filters.skip,
@@ -573,6 +854,10 @@ export function useLeads(): UseLeadsReturn {
   return {
     leads,
     availableSources,
+    availableComerciales,
+    availableProvincias,
+    availableMunicipios,
+    ensureComercialesCargados,
     filters,
     initialLoading,
     loading,

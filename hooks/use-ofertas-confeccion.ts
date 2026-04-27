@@ -157,7 +157,7 @@ export interface EstadoOfertaCliente {
   error: boolean;
 }
 
-const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
+export const normalizeOfertaConfeccion = (raw: any): OfertaConfeccion => {
   const tipo =
     raw.tipo ??
     raw.tipo_oferta ??
@@ -335,7 +335,8 @@ const extractOfertasCliente = (payload: unknown): unknown[] => {
 
 const CLIENTES_CON_OFERTA_CACHE_KEY = "clientes_con_ofertas_cache_v2";
 
-export function useOfertasConfeccion() {
+export function useOfertasConfeccion(options?: { autoLoad?: boolean }) {
+  const autoLoad = options?.autoLoad ?? true;
   const [ofertas, setOfertas] = useState<OfertaConfeccion[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -912,8 +913,10 @@ export function useOfertasConfeccion() {
   );
 
   useEffect(() => {
-    fetchOfertas();
-  }, [fetchOfertas]);
+    if (autoLoad) {
+      fetchOfertas();
+    }
+  }, [autoLoad, fetchOfertas]);
 
   return {
     ofertas,
