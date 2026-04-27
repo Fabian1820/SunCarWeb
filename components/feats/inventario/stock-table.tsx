@@ -216,20 +216,34 @@ export function StockTable({
                       </TooltipContent>
                     </Tooltip>
                   </td>
-                  <td className="py-3 px-2">
-                    <div className="text-sm font-semibold text-gray-900">
-                      {item.material_codigo}
-                    </div>
+                  <td className="py-3 px-2 max-w-[110px]">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="text-sm font-semibold text-gray-900 truncate cursor-default">
+                          {item.material_codigo}
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{item.material_codigo}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   <td className="py-3 px-2">
                     <span className="text-sm text-gray-700">
                       {material?.potenciaKW ? `${material.potenciaKW} KW` : "-"}
                     </span>
                   </td>
-                  <td className="py-3 px-2">
-                    <span className="text-sm text-gray-700">
-                      {marcaNombre || "-"}
-                    </span>
+                  <td className="py-3 px-2 max-w-[100px]">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-sm text-gray-700 truncate block cursor-default">
+                          {marcaNombre || "-"}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{marcaNombre || "-"}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   <td className="py-3 px-2 max-w-[100px]">
                     <Tooltip>
@@ -272,10 +286,17 @@ export function StockTable({
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-2">
-                    <span className="text-sm text-gray-700">
-                      {item.ubicacion_en_almacen || "-"}
-                    </span>
+                  <td className="py-3 px-2 max-w-[160px]">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-sm text-gray-700 truncate block cursor-default">
+                          {item.ubicacion_en_almacen || "-"}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{item.ubicacion_en_almacen || "-"}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   {(onEditStock || onUpdateUbicacion) ? (
                     <td className="py-3 px-2 text-center">
