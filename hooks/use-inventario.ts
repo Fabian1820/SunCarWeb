@@ -41,7 +41,15 @@ interface UseInventarioReturn {
   createMovimiento: (data: MovimientoCreateData) => Promise<void>
 }
 
-export function useInventario(): UseInventarioReturn {
+export function useInventario(options?: {
+  /**
+   * Si es `true`, al montar SOLO carga la lista de almacenes y tiendas.
+   * Stock, materiales y movimientos se cargan bajo demanda (refetchStock,
+   * refetchMovimientos). Útil para flujos que no necesitan stock global.
+   */
+  lite?: boolean;
+}): UseInventarioReturn {
+  const lite = options?.lite ?? false;
   const [almacenes, setAlmacenes] = useState<Almacen[]>([])
   const [tiendas, setTiendas] = useState<Tienda[]>([])
   const [stock, setStock] = useState<StockItem[]>([])
@@ -92,22 +100,33 @@ export function useInventario(): UseInventarioReturn {
     setLoading(true)
     setError(null)
     try {
-      const [almacenesData, tiendasData, materialesData] = await Promise.all([
-        InventarioService.getAlmacenes(),
-        InventarioService.getTiendas(),
-        MaterialService.getAllMaterials(),
-      ])
-      setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
-      setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
-      setMateriales(Array.isArray(materialesData) ? materialesData : [])
-      await Promise.all([refetchStock(), refetchMovimientos()])
+      if (lite) {
+        // Modo lite: solo almacenes + tiendas. Stock/materiales/movimientos
+        // bajo demanda vía refetchStock/refetchMovimientos.
+        const [almacenesData, tiendasData] = await Promise.all([
+          InventarioService.getAlmacenes(),
+          InventarioService.getTiendas(),
+        ])
+        setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
+        setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
+      } else {
+        const [almacenesData, tiendasData, materialesData] = await Promise.all([
+          InventarioService.getAlmacenes(),
+          InventarioService.getTiendas(),
+          MaterialService.getAllMaterials(),
+        ])
+        setAlmacenes(Array.isArray(almacenesData) ? almacenesData : [])
+        setTiendas(Array.isArray(tiendasData) ? tiendasData : [])
+        setMateriales(Array.isArray(materialesData) ? materialesData : [])
+        await Promise.all([refetchStock(), refetchMovimientos()])
+      }
     } catch (err) {
       console.error('Error fetching inventario:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar inventario')
     } finally {
       setLoading(false)
     }
-  }, [refetchMovimientos, refetchStock])
+  }, [lite, refetchMovimientos, refetchStock])
 
   useEffect(() => {
     refetchAll()

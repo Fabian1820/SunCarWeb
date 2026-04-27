@@ -24,7 +24,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { Plus, Search, Loader2 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/shared/molecule/popover";
+import { Checkbox } from "@/components/shared/molecule/checkbox";
+import { Label } from "@/components/shared/atom/label";
+import { Plus, Search, Loader2, ChevronDown } from "lucide-react";
 import { LeadsTable } from "@/components/feats/leads/leads-table";
 import { SmartPagination } from "@/components/shared/molecule/smart-pagination";
 import { CreateLeadDialog } from "@/components/feats/leads/create-lead-dialog";
@@ -51,6 +58,10 @@ export default function LeadsPage() {
   const {
     leads,
     availableSources,
+    availableComerciales,
+    availableProvincias,
+    availableMunicipios,
+    ensureComercialesCargados,
     filters,
     initialLoading,
     loading,
@@ -389,8 +400,10 @@ export default function LeadsPage() {
   > => {
     // Construir título con filtro de estado si aplica
     let titulo = "Listado de Leads";
-    if (filters.estado) {
-      titulo = `Listado de Leads - ${filters.estado}`;
+    if (filters.estado.length === 1) {
+      titulo = `Listado de Leads - ${filters.estado[0]}`;
+    } else if (filters.estado.length > 1) {
+      titulo = `Listado de Leads - ${filters.estado.length} estados`;
     }
     const allFilteredLeads = await getAllFilteredLeadsForExport();
     const exportData = buildLeadsExportData(allFilteredLeads);
@@ -457,7 +470,7 @@ export default function LeadsPage() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
         {/* Error Alert */}
         {error && (
           <Card className="mb-6 border-red-200 bg-red-50">
@@ -498,9 +511,12 @@ export default function LeadsPage() {
                   setSearchTerm("");
                   setFilters({
                     searchTerm: "",
-                    estado: "",
+                    estado: [],
                     fuente: "",
                     comercial: "",
+                    provincia: "",
+                    municipio: "",
+                    ofertas: "",
                     fechaDesde: "",
                     fechaHasta: "",
                   });
@@ -512,43 +528,77 @@ export default function LeadsPage() {
             </div>
 
             {/* Segunda fila: Todos los filtros en una sola fila con buen espaciado */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* Filtro por Estado */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Filtro por Estado (multi-select) */}
               <div>
-                <Select
-                  value={filters.estado || "todos"}
-                  onValueChange={(value) =>
-                    setFilters({ estado: value === "todos" ? "" : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los estados" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los estados</SelectItem>
-                    <SelectItem value="Esperando equipo">
-                      Esperando equipo
-                    </SelectItem>
-                    <SelectItem value="No interesado">No interesado</SelectItem>
-                    <SelectItem value="Pendiente de instalación">
-                      Pendiente de instalación
-                    </SelectItem>
-                    <SelectItem value="Pendiente de presupuesto">
-                      Pendiente de presupuesto
-                    </SelectItem>
-                    <SelectItem value="Pendiente de visita">
-                      Pendiente de visita
-                    </SelectItem>
-                    <SelectItem value="Pendiente de visitarnos">
-                      Pendiente de visitarnos
-                    </SelectItem>
-                    <SelectItem value="Proximamente">Proximamente</SelectItem>
-                    <SelectItem value="Revisando ofertas">
-                      Revisando ofertas
-                    </SelectItem>
-                    <SelectItem value="Sin respuesta">Sin respuesta</SelectItem>
-                  </SelectContent>
-                </Select>
+                {(() => {
+                  const estadosDisponibles = [
+                    "Esperando equipo",
+                    "No interesado",
+                    "Pendiente de instalación",
+                    "Pendiente de presupuesto",
+                    "Pendiente de visita",
+                    "Pendiente de visitarnos",
+                    "Proximamente",
+                    "Revisando ofertas",
+                    "Sin respuesta",
+                  ];
+                  const seleccionados = filters.estado;
+                  const toggleEstado = (estado: string) => {
+                    const next = seleccionados.includes(estado)
+                      ? seleccionados.filter((e) => e !== estado)
+                      : [...seleccionados, estado];
+                    setFilters({ estado: next });
+                  };
+                  return (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-between font-normal"
+                        >
+                          <span className="truncate">
+                            {seleccionados.length > 0
+                              ? `${seleccionados.length} estado${seleccionados.length > 1 ? "s" : ""}`
+                              : "Todos los estados"}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-gray-400" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="start" className="w-72">
+                        <div className="flex items-center justify-between mb-2">
+                          <Label className="text-sm text-gray-700">
+                            Estado
+                          </Label>
+                          {seleccionados.length > 0 && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-xs"
+                              onClick={() => setFilters({ estado: [] })}
+                            >
+                              Limpiar
+                            </Button>
+                          )}
+                        </div>
+                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                          {estadosDisponibles.map((estado) => (
+                            <label
+                              key={estado}
+                              className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                            >
+                              <Checkbox
+                                checked={seleccionados.includes(estado)}
+                                onCheckedChange={() => toggleEstado(estado)}
+                              />
+                              <span>{estado}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  );
+                })()}
               </div>
 
               {/* Filtro por Fuente */}
@@ -583,23 +633,97 @@ export default function LeadsPage() {
                   onValueChange={(value) =>
                     setFilters({ comercial: value === "todos" ? "" : value })
                   }
+                  onOpenChange={(open) => {
+                    if (open) ensureComercialesCargados();
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Todos los comerciales" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="todos">Todos los comerciales</SelectItem>
-                    <SelectItem value="Enelido Alexander Calero Perez">
-                      Enelido Alexander Calero Perez
+                    {availableComerciales.map((comercial) => (
+                      <SelectItem key={comercial} value={comercial}>
+                        {comercial}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Provincia */}
+              <div>
+                <Select
+                  value={filters.provincia || "todas"}
+                  onValueChange={(value) =>
+                    setFilters({ provincia: value === "todas" ? "" : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las provincias" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas las provincias</SelectItem>
+                    {availableProvincias.map((p) => (
+                      <SelectItem key={p} value={p}>
+                        {p}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Municipio */}
+              <div>
+                <Select
+                  value={filters.municipio || "todos"}
+                  onValueChange={(value) =>
+                    setFilters({ municipio: value === "todos" ? "" : value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los municipios" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los municipios</SelectItem>
+                    {availableMunicipios.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Ofertas */}
+              <div>
+                <Select
+                  value={filters.ofertas || "todas"}
+                  onValueChange={(value) =>
+                    setFilters({
+                      ofertas:
+                        value === "todas"
+                          ? ""
+                          : (value as
+                              | "con_ofertas"
+                              | "sin_ofertas"
+                              | "confirmadas"
+                              | "pendientes"),
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Ofertas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Ofertas</SelectItem>
+                    <SelectItem value="con_ofertas">Con ofertas</SelectItem>
+                    <SelectItem value="sin_ofertas">Sin ofertas</SelectItem>
+                    <SelectItem value="confirmadas">
+                      Con ofertas confirmadas
                     </SelectItem>
-                    <SelectItem value="Yanet Clara Rodríguez Quintana">
-                      Yanet Clara Rodríguez Quintana
-                    </SelectItem>
-                    <SelectItem value="Dashel Pinillos Zubiaur">
-                      Dashel Pinillos Zubiaur
-                    </SelectItem>
-                    <SelectItem value="Gretel María Mojena Almenares">
-                      Gretel María Mojena Almenares
+                    <SelectItem value="pendientes">
+                      Con ofertas, sin confirmar
                     </SelectItem>
                   </SelectContent>
                 </Select>
@@ -675,6 +799,7 @@ export default function LeadsPage() {
                   onUpdatePrioridad={handleUpdateLeadPrioridad}
                   loading={loading}
                   disableActions={loadingAction}
+                  onRefreshLeads={loadLeads}
                 />
                 {totalLeads > limit && (
                   <SmartPagination

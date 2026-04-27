@@ -39,6 +39,25 @@ export interface LeadFoto {
   tipo: "instalacion" | "averia";
 }
 
+export interface ItemOfertaConfeccionResumen {
+  material_codigo: string | null;
+  descripcion: string;
+  cantidad: number;
+}
+
+export interface OfertaConfeccionResumen {
+  id: string;
+  total_ofertas: number;
+  total_confirmadas: number;
+  hay_confirmada: boolean;
+  componentes_principales?: {
+    inversor_seleccionado?: string | null;
+    bateria_seleccionada?: string | null;
+    panel_seleccionado?: string | null;
+  };
+  items: ItemOfertaConfeccionResumen[];
+}
+
 export interface Lead {
   id?: string;
   fecha_contacto: string;
@@ -62,6 +81,7 @@ export interface Lead {
   moneda?: string;
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // ⚠️ CAMPO TEMPORAL: NO se guarda en lead. Se usa para crear visita automática.
+  oferta_confeccion?: OfertaConfeccionResumen | null;
 }
 
 export interface LeadResponse {

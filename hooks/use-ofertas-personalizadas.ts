@@ -36,7 +36,10 @@ interface UseOfertasPersonalizadasReturn {
   getTotalGastadoCliente: (clienteId: string) => Promise<number>
 }
 
-export function useOfertasPersonalizadas(): UseOfertasPersonalizadasReturn {
+export function useOfertasPersonalizadas(
+  options?: { autoLoad?: boolean },
+): UseOfertasPersonalizadasReturn {
+  const autoLoad = options?.autoLoad ?? true
   const [ofertas, setOfertas] = useState<OfertaPersonalizada[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -238,8 +241,10 @@ export function useOfertasPersonalizadas(): UseOfertasPersonalizadasReturn {
 
   // Cargar ofertas al montar el hook
   useEffect(() => {
-    loadOfertas()
-  }, [loadOfertas])
+    if (autoLoad) {
+      loadOfertas()
+    }
+  }, [autoLoad, loadOfertas])
 
   return {
     ofertas,

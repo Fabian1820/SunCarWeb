@@ -73,9 +73,30 @@ interface CatalogMaterial {
   codigo?: string | number;
   nombre?: string;
   descripcion?: string;
+  categoria?: string;
   um?: string;
   foto?: string;
 }
+
+const normalizeCategory = (value: unknown): string =>
+  String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const isCategoriaOfertaPermitida = (value: unknown): boolean => {
+  const categoria = normalizeCategory(value);
+  if (!categoria) return false;
+
+  return (
+    categoria.includes("inversor") ||
+    categoria.includes("bateria") ||
+    categoria.includes("panel") ||
+    categoria.includes("mppt") ||
+    categoria.includes("estructura")
+  );
+};
 
 const calculateStockAlert = (
   cantidadDespachar: number,
@@ -360,6 +381,12 @@ export function CreateSolicitudMaterialDialog({
         // Intentar obtener materiales de la oferta confección
         if (clienteNumero) {
           try {
+            const catalogByCodigo = new Map<string, CatalogMaterial>();
+            catalog.forEach((mat) => {
+              const key = String(mat.codigo || "").trim();
+              if (key) catalogByCodigo.set(key, mat);
+            });
+
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const ofertaResponse = await apiRequest<any>(
               `/ofertas/confeccion/cliente/${encodeURIComponent(clienteNumero)}`,
@@ -383,18 +410,28 @@ export function CreateSolicitudMaterialDialog({
                 : [];
               for (const item of items) {
                 if (!item.material_codigo) continue;
+                const materialCodigo = String(item.material_codigo).trim();
+                if (!materialCodigo) continue;
+                const catalogMat = catalogByCodigo.get(materialCodigo);
+                const categoriaItem =
+                  item.categoria ??
+                  item.categoria_nombre ??
+                  item.categoria_material ??
+                  catalogMat?.categoria;
+                if (!isCategoriaOfertaPermitida(categoriaItem)) continue;
+
                 const pendiente = Number(item.cantidad_pendiente_por_entregar ?? -1);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const entregas: any[] = Array.isArray(item.entregas) ? item.entregas : [];
                 const tieneEntregas = entregas.length > 0;
-                const existing = acumulado.get(item.material_codigo);
+                const existing = acumulado.get(materialCodigo);
                 if (existing) {
                   existing.pendiente = pendiente >= 0
                     ? existing.pendiente + pendiente
                     : existing.pendiente;
                   existing.tieneEntregas = existing.tieneEntregas || tieneEntregas;
                 } else {
-                  acumulado.set(item.material_codigo, {
+                  acumulado.set(materialCodigo, {
                     pendiente: pendiente >= 0 ? pendiente : 0,
                     tieneEntregas,
                   });

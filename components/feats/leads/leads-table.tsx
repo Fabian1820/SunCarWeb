@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { PriorityDot } from "@/components/shared/atom/priority-dot";
@@ -44,6 +44,9 @@ import {
   CreditCard,
   Plus,
   FileCheck,
+  Zap,
+  Battery,
+  Sun,
 } from "lucide-react";
 import { useOfertasPersonalizadas } from "@/hooks/use-ofertas-personalizadas";
 import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
@@ -69,6 +72,8 @@ import type {
   OfertaPersonalizadaUpdateRequest,
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { seleccionarOfertaConfirmada, normalizeOfertaConfeccion } from "@/hooks/use-ofertas-confeccion";
+import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
 
@@ -95,6 +100,8 @@ interface LeadsTableProps {
   ) => Promise<void>;
   loading?: boolean;
   disableActions?: boolean;
+  /** Callback para refrescar la lista de leads (tras asignar/editar/eliminar oferta). */
+  onRefreshLeads?: () => Promise<void>;
 }
 
 // Helper function to break text at approximately 25 characters
@@ -135,6 +142,7 @@ export function LeadsTable({
   onUpdatePrioridad,
   loading,
   disableActions,
+  onRefreshLeads,
 }: LeadsTableProps) {
   const { toast } = useToast();
   const {
@@ -143,15 +151,29 @@ export function LeadsTable({
     createOferta,
     updateOferta,
     deleteOferta,
-  } = useOfertasPersonalizadas();
+    loadOfertas: loadOfertasPersonalizadas,
+  } = useOfertasPersonalizadas({ autoLoad: false });
   const {
     fetchOfertasGenericasAprobadas,
     asignarOfertaALead,
-    obtenerIdsLeadsConOfertas,
     obtenerOfertaPorLead,
     eliminarOferta,
     refetch: refetchOfertas,
-  } = useOfertasConfeccion();
+  } = useOfertasConfeccion({ autoLoad: false });
+  const ofertasPersonalizadasCargadasRef = useRef(false);
+  const ofertasConfeccionCargadasRef = useRef(false);
+
+  const ensureOfertasPersonalizadasCargadas = useCallback(() => {
+    if (ofertasPersonalizadasCargadasRef.current) return;
+    ofertasPersonalizadasCargadasRef.current = true;
+    loadOfertasPersonalizadas();
+  }, [loadOfertasPersonalizadas]);
+
+  const ensureOfertasConfeccionCargadas = useCallback(() => {
+    if (ofertasConfeccionCargadasRef.current) return;
+    ofertasConfeccionCargadasRef.current = true;
+    refetchOfertas();
+  }, [refetchOfertas]);
   const { materials, loading: loadingMaterials } = useMaterials();
   const { marcas, loading: loadingMarcas } = useMarcas();
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -230,12 +252,23 @@ export function LeadsTable({
   const [ofertasLeadActuales, setOfertasLeadActuales] = useState<
     OfertaConfeccion[]
   >([]);
-  const [leadsConOferta, setLeadsConOferta] = useState<Set<string>>(new Set());
-  const [cargaSetOfertasTerminada, setCargaSetOfertasTerminada] =
-    useState(false);
   const [consultandoOfertaLead, setConsultandoOfertaLead] = useState<
     string | null
   >(null);
+
+  // Deriva si un lead tiene oferta a partir de los datos embebidos
+  const leadTieneOferta = useCallback((lead: Lead) => {
+    if ((lead.oferta_confeccion?.total_ofertas ?? 0) > 0) return true;
+    return Boolean(
+      lead.ofertas?.some(
+        (o) =>
+          o.inversor_codigo ||
+          o.bateria_codigo ||
+          o.panel_codigo ||
+          o.elementos_personalizados,
+      ),
+    );
+  }, []);
 
   // Estados para editar/eliminar/exportar ofertas
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
@@ -250,6 +283,7 @@ export function LeadsTable({
     useState<OfertaConfeccion | null>(null);
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
+
 
   const ofertasDelLead = useMemo(() => {
     if (!selectedLeadForOfertas) return [];
@@ -269,80 +303,6 @@ export function LeadsTable({
       ) ?? null,
     [ofertasGenericasAprobadas, ofertaGenericaParaDuplicarId],
   );
-
-  // Cargar leads con ofertas al montar el componente
-  const cargarLeadsConOfertas = useCallback(
-    async (options?: { skipCache?: boolean; silent?: boolean }) => {
-      if (!options?.silent) {
-        setCargaSetOfertasTerminada(false);
-      }
-      try {
-        const result = await obtenerIdsLeadsConOfertas({
-          skipCache: options?.skipCache,
-        });
-
-        if (result.success) {
-          const idsConOferta = new Set(result.ids_leads.filter(Boolean));
-
-          console.log("✅ Leads con oferta cargados:", idsConOferta.size);
-
-          setLeadsConOferta(idsConOferta);
-
-          return true;
-        } else {
-          console.warn("⚠️ No se pudo cargar endpoint de leads con ofertas");
-          return false;
-        }
-      } catch (error) {
-        console.error("❌ Error cargando leads con ofertas:", error);
-        return false;
-      } finally {
-        if (!options?.silent) {
-          setCargaSetOfertasTerminada(true);
-        }
-      }
-    },
-    [obtenerIdsLeadsConOfertas],
-  );
-
-  // Cargar set de leads con ofertas al montar el componente
-  useEffect(() => {
-    let activo = true;
-    const reintentosMs = [0, 500, 1500, 3000];
-
-    const intentarCarga = async () => {
-      for (const delay of reintentosMs) {
-        if (!activo) return;
-        if (delay > 0) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
-          if (!activo) return;
-        }
-
-        try {
-          console.log("🔄 Cargando leads con ofertas desde servidor");
-          const ok = await cargarLeadsConOfertas({ skipCache: true });
-          if (ok) {
-            console.log(
-              "✅ Leads con ofertas cargados exitosamente desde servidor",
-            );
-            return;
-          }
-        } catch (error) {
-          console.error("Error cargando leads con ofertas:", error);
-          if (activo) setCargaSetOfertasTerminada(true);
-        }
-      }
-    };
-
-    intentarCarga().catch((error) => {
-      console.error("Error en reintentos de leads con ofertas:", error);
-      if (activo) setCargaSetOfertasTerminada(true);
-    });
-
-    return () => {
-      activo = false;
-    };
-  }, [cargarLeadsConOfertas]);
 
   const loadOfertasGenericasAprobadasParaDuplicar = useCallback(async () => {
     setLoadingOfertasGenericasAprobadas(true);
@@ -409,6 +369,7 @@ export function LeadsTable({
 
   const openAsignarOfertaDialog = async (lead: Lead) => {
     try {
+      ensureOfertasConfeccionCargadas();
       console.log("Click en boton de oferta para lead:", lead.id);
       const leadId = lead.id;
       if (!leadId) {
@@ -420,33 +381,12 @@ export function LeadsTable({
         return;
       }
 
-      if (!cargaSetOfertasTerminada) {
-        toast({
-          title: "Cargando ofertas",
-          description:
-            "Espera un momento mientras se verifica el estado de ofertas.",
-        });
-        return;
-      }
-
       // Verificar con el servidor
       console.log("🔍 Verificando oferta en servidor para lead:", leadId);
       const result = await obtenerOfertaPorLead(leadId);
       console.log("📡 Resultado de verificacion:", result);
 
       if (result.success && result.oferta) {
-        // Lead tiene oferta - actualizar set local si no estaba
-        if (!leadsConOferta.has(leadId)) {
-          console.log(
-            "✅ Lead tiene oferta pero no estaba en el set - agregando",
-          );
-          setLeadsConOferta((prev) => {
-            const next = new Set(prev);
-            next.add(leadId);
-            return next;
-          });
-        }
-
         const ofertas = result.ofertas?.length
           ? result.ofertas
           : [result.oferta];
@@ -462,19 +402,6 @@ export function LeadsTable({
           setShowVerOfertaDialog(true);
         }
         return;
-      }
-
-      // Lead NO tiene oferta
-      if (leadsConOferta.has(leadId)) {
-        // Estaba en el set pero ya no tiene oferta - remover
-        console.log(
-          "⚠️ Lead estaba en el set pero ya no tiene oferta - removiendo",
-        );
-        setLeadsConOferta((prev) => {
-          const next = new Set(prev);
-          next.delete(leadId);
-          return next;
-        });
       }
 
       if (result.error) {
@@ -578,8 +505,8 @@ export function LeadsTable({
     setOfertasGenericasAprobadasCargadas(false);
     setOfertaGenericaParaDuplicarId("");
     setLeadForAsignarOferta(null);
-
-    await cargarLeadsConOfertas({ skipCache: true, silent: true });
+    // Refrescar lista para reflejar la nueva oferta en la columna y el botón
+    onRefreshLeads?.();
   };
 
   const handleAsignarOferta = async (ofertaGenericaId: string) => {
@@ -596,16 +523,11 @@ export function LeadsTable({
       console.log("✅ Oferta asignada exitosamente");
       console.log("📝 Lead ID:", leadId);
 
-      // Actualizar el estado local inmediatamente
-      setLeadsConOferta((prev) => {
-        const next = new Set(prev);
-        next.add(leadId);
-        console.log("📊 Estado actualizado:", Array.from(next));
-        return next;
-      });
-
       closeAsignarOfertaDialog();
       closeOfertaFlowDialog();
+
+      // Refrescar la lista para que el botón verde se actualice
+      onRefreshLeads?.();
 
       toast({
         title: "✅ Oferta asignada",
@@ -822,7 +744,7 @@ export function LeadsTable({
   };
 
   const leadTieneOfertaConfeccionada = Boolean(
-    leadToConvert?.id && leadsConOferta.has(leadToConvert.id),
+    leadToConvert && leadTieneOferta(leadToConvert),
   );
 
   const handleComprobanteDialogOpenChange = (open: boolean) => {
@@ -972,8 +894,8 @@ export function LeadsTable({
       setMostrarDialogoEliminar(false);
       setOfertaParaEliminar(null);
 
-      // Actualizar el estado de leads con ofertas
-      await cargarLeadsConOfertas({ skipCache: true, silent: true });
+      // Refrescar para que el botón vuelva a gris si era la última oferta
+      onRefreshLeads?.();
 
       toast({
         title: "Oferta eliminada",
@@ -2567,19 +2489,19 @@ export function LeadsTable({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px] max-w-[140px]">
+                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[240px] max-w-[320px]">
                   Lead
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[100px]">
+                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[100px]">
                   Contacto
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] max-w-[140px]">
+                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[160px] max-w-[190px]">
                   Estado
                 </th>
-                <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[220px]">
+                <th className="px-3 py-3 text-left text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[220px]">
                   Oferta
                 </th>
-                <th className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
+                <th className="px-3 py-3 text-right text-[13px] font-semibold text-gray-500 uppercase tracking-wider min-w-[120px] w-[120px]">
                   Acciones
                 </th>
               </tr>
@@ -2587,120 +2509,167 @@ export function LeadsTable({
             <tbody className="bg-white divide-y divide-gray-200">
               {leads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="px-2 py-3 min-w-[100px] max-w-[140px]">
+                  <td className="px-3 py-4 min-w-[240px] max-w-[320px]">
                     <div>
-                      <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="text-base font-semibold text-gray-900 break-words">
                         {lead.nombre}
                       </div>
-                      <div className="text-xs text-gray-500 break-words whitespace-pre-line">
+                      <div className="text-base text-gray-500 break-words whitespace-pre-line">
                         {breakTextAtLength(
                           lead.direccion || "Sin dirección",
-                          20,
+                          32,
                         )}
                       </div>
+                      {(lead.municipio || lead.provincia_montaje) && (
+                        <div className="text-[13px] text-gray-500 flex items-center mt-1">
+                          <MapPin className="h-3.5 w-3.5 mr-1 text-gray-400 flex-shrink-0" />
+                          <span className="truncate">
+                            {[lead.municipio, lead.provincia_montaje]
+                              .filter(Boolean)
+                              .join(", ")}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap min-w-[100px] max-w-[130px]">
-                    <div className="text-xs text-gray-900 truncate">
+                  <td className="px-3 py-4 whitespace-nowrap min-w-[100px] max-w-[130px]">
+                    <div className="text-base text-gray-900 truncate">
                       {lead.telefono}
                     </div>
                     {lead.telefono_adicional && (
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
-                        <PhoneForwarded className="h-3 w-3 mr-1 text-gray-400" />
+                      <div className="text-base text-gray-500 flex items-center mt-1">
+                        <PhoneForwarded className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">
                           {lead.telefono_adicional}
                         </span>
                       </div>
                     )}
                     {lead.pais_contacto && (
-                      <div className="text-xs text-gray-500 flex items-center mt-1">
-                        <MapPin className="h-3 w-3 mr-1 text-gray-400" />
+                      <div className="text-base text-gray-500 flex items-center mt-1">
+                        <MapPin className="h-4 w-4 mr-1 text-gray-400" />
                         <span className="truncate">{lead.pais_contacto}</span>
                       </div>
                     )}
                   </td>
-                  <td className="px-2 py-3 min-w-[120px] max-w-[140px]">
+                  <td className="px-3 py-4 min-w-[160px] max-w-[190px]">
                     <div className="w-full">
                       {(() => {
                         const estadoBadge = getEstadoBadge(lead.estado);
                         return (
                           <Badge
-                            className={`${estadoBadge.className} text-xs whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
+                            className={`${estadoBadge.className} text-base whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
                           >
                             {estadoBadge.label}
                           </Badge>
                         );
                       })()}
                       {lead.comercial && (
-                        <div className="text-xs text-gray-500 flex items-center mt-1">
-                          <UserCheck className="h-3 w-3 mr-1 text-gray-400" />
+                        <div className="text-base text-gray-500 flex items-center mt-1">
+                          <UserCheck className="h-4 w-4 mr-1 text-gray-400" />
                           <span className="truncate">{lead.comercial}</span>
                         </div>
                       )}
                     </div>
                   </td>
-                  <td className="px-2 py-3 min-w-[220px] max-w-[280px]">
+                  <td className="px-3 py-4 min-w-[220px] max-w-[280px]">
                     <div className="space-y-1">
-                      {lead.ofertas && lead.ofertas.length > 0 ? (
-                        lead.ofertas.map((oferta, idx) => (
-                          <div key={idx} className="text-xs space-y-0.5">
-                            {oferta.inversor_codigo &&
-                              oferta.inversor_cantidad > 0 && (
-                                <div>
-                                  <span className="text-gray-700">
-                                    Inversor:
-                                  </span>{" "}
-                                  <span className="text-gray-900 font-medium">
-                                    {oferta.inversor_nombre ||
-                                      oferta.inversor_codigo}
-                                  </span>
-                                  <span className="text-gray-500 ml-1">
-                                    ({oferta.inversor_cantidad})
-                                  </span>
-                                </div>
-                              )}
-                            {oferta.bateria_codigo &&
-                              oferta.bateria_cantidad > 0 && (
-                                <div>
-                                  <span className="text-gray-700">
-                                    Batería:
-                                  </span>{" "}
-                                  <span className="text-gray-900 font-medium">
-                                    {oferta.bateria_nombre ||
-                                      oferta.bateria_codigo}
-                                  </span>
-                                  <span className="text-gray-500 ml-1">
-                                    ({oferta.bateria_cantidad})
-                                  </span>
-                                </div>
-                              )}
-                            {oferta.panel_codigo &&
-                              oferta.panel_cantidad > 0 && (
-                                <div>
-                                  <span className="text-gray-700">
-                                    Paneles:
-                                  </span>{" "}
-                                  <span className="text-gray-900 font-medium">
-                                    {oferta.panel_nombre || oferta.panel_codigo}
-                                  </span>
-                                  <span className="text-gray-500 ml-1">
-                                    ({oferta.panel_cantidad})
-                                  </span>
-                                </div>
-                              )}
-                            {oferta.elementos_personalizados && (
-                              <div className="text-gray-700">
-                                {oferta.elementos_personalizados}
+                      {(() => {
+                        type Componente = { cantidad: number; descripcion: string };
+                        let inv: Componente | null = null;
+                        let bat: Componente | null = null;
+                        let pan: Componente | null = null;
+                        let elementoPersonalizado: string | null = null;
+
+                        const embebidas = lead.ofertas?.filter(
+                          (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados
+                        ) ?? [];
+                        const oc = lead.oferta_confeccion;
+
+                        if (embebidas.length > 0) {
+                          const oferta = embebidas[0];
+                          if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+                            inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
+                          }
+                          if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+                            bat = { cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo };
+                          }
+                          if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+                            pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
+                          }
+                          if (oferta.elementos_personalizados) {
+                            elementoPersonalizado = oferta.elementos_personalizados;
+                          }
+                        } else if (oc && oc.items?.length) {
+                          const cp = oc.componentes_principales ?? {};
+                          const itemInv = oc.items.find((it) => cp.inversor_seleccionado ? it.material_codigo === cp.inversor_seleccionado : it.descripcion?.toLowerCase().includes("inversor"));
+                          const itemBat = oc.items.find((it) => cp.bateria_seleccionada ? it.material_codigo === cp.bateria_seleccionada : it.descripcion?.toLowerCase().includes("bater"));
+                          const itemPan = oc.items.find((it) => cp.panel_seleccionado ? it.material_codigo === cp.panel_seleccionado : it.descripcion?.toLowerCase().includes("panel"));
+                          if (itemInv) inv = { cantidad: itemInv.cantidad, descripcion: itemInv.descripcion };
+                          if (itemBat) bat = { cantidad: itemBat.cantidad, descripcion: itemBat.descripcion };
+                          if (itemPan) pan = { cantidad: itemPan.cantidad, descripcion: itemPan.descripcion };
+                        }
+
+                        const sinComponentes = !inv && !bat && !pan && !elementoPersonalizado;
+                        if (sinComponentes && !oc) {
+                          return <div className="text-base text-gray-400">Sin ofertas</div>;
+                        }
+
+                        const totalOfertas = oc?.total_ofertas ?? 0;
+                        const totalConfirmadas = oc?.total_confirmadas ?? 0;
+
+                        return (
+                          <div className="space-y-1.5">
+                            {oc && (
+                              <div className="flex flex-wrap gap-1">
+                                <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
+                                  {totalOfertas} {totalOfertas === 1 ? "oferta" : "ofertas"}
+                                </span>
+                                <span
+                                  className={`inline-flex items-center rounded px-2 py-0.5 text-[13px] font-medium ${
+                                    totalConfirmadas > 0
+                                      ? "bg-emerald-100 text-emerald-700"
+                                      : "bg-amber-100 text-amber-700"
+                                  }`}
+                                >
+                                  {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
+                                </span>
                               </div>
                             )}
+                            <div className="space-y-1 text-[14px]">
+                              {inv && (
+                                <div className="flex items-center gap-1.5 text-gray-700">
+                                  <Zap className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                                  <span className="font-medium">{inv.cantidad}x</span>
+                                  <span className="truncate">{inv.descripcion}</span>
+                                </div>
+                              )}
+                              {bat && (
+                                <div className="flex items-center gap-1.5 text-gray-700">
+                                  <Battery className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                  <span className="font-medium">{bat.cantidad}x</span>
+                                  <span className="truncate">{bat.descripcion}</span>
+                                </div>
+                              )}
+                              {pan && (
+                                <div className="flex items-center gap-1.5 text-gray-700">
+                                  <Sun className="h-4 w-4 text-yellow-500 flex-shrink-0" />
+                                  <span className="font-medium">{pan.cantidad}x</span>
+                                  <span className="truncate">{pan.descripcion}</span>
+                                </div>
+                              )}
+                              {elementoPersonalizado && (
+                                <div className="text-gray-700 text-[13px] truncate">{elementoPersonalizado}</div>
+                              )}
+                              {sinComponentes && oc && (
+                                <div className="text-gray-400 text-[13px]">Sin componentes principales</div>
+                              )}
+                            </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-xs text-gray-400">Sin ofertas</div>
-                      )}
+                        );
+                      })()}
                     </div>
                   </td>
-                  <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
+                  <td className="px-3 py-4 whitespace-nowrap text-right text-sm font-medium min-w-[120px] w-[120px]">
                     <div className="flex items-center justify-end space-x-1">
                       <div className="flex items-center h-7 w-7 justify-center">
                         <PriorityDot
@@ -2728,33 +2697,21 @@ export function LeadsTable({
                               );
                             });
                         }}
-                        disabled={
-                          consultandoOfertaLead === lead.id ||
-                          !cargaSetOfertasTerminada
-                        }
+                        disabled={consultandoOfertaLead === lead.id}
                         className={(() => {
-                          if (!cargaSetOfertasTerminada) {
-                            return "text-slate-400 hover:text-slate-500 hover:bg-slate-50 h-7 w-7 p-0";
-                          }
-                          const leadId = lead.id;
-                          const tieneOferta =
-                            leadId && leadsConOferta.has(leadId);
+                          const tieneOferta = leadTieneOferta(lead);
                           if (tieneOferta)
                             return "text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-300 h-7 w-7 p-0";
                           return "text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0";
                         })()}
-                        title={(() => {
-                          if (!cargaSetOfertasTerminada)
-                            return "Cargando estado de oferta...";
-                          const leadId = lead.id;
-                          const tieneOferta =
-                            leadId && leadsConOferta.has(leadId);
-                          if (tieneOferta) return "Ver oferta asignada";
-                          return "Asignar oferta generica";
-                        })()}
+                        title={
+                          leadTieneOferta(lead)
+                            ? "Ver oferta asignada"
+                            : "Asignar oferta generica"
+                        }
                       >
                         <FileCheck
-                          className={`h-3 w-3 ${consultandoOfertaLead === lead.id || !cargaSetOfertasTerminada ? "animate-pulse" : ""}`}
+                          className={`h-3 w-3 ${consultandoOfertaLead === lead.id ? "animate-pulse" : ""}`}
                         />
                       </Button>
                       <Button
@@ -3653,7 +3610,9 @@ export function LeadsTable({
         open={showOfertasDialog}
         onOpenChange={(open) => {
           setShowOfertasDialog(open);
-          if (!open) {
+          if (open) {
+            ensureOfertasPersonalizadasCargadas();
+          } else {
             closeOfertasDialog();
           }
         }}
@@ -4224,9 +4183,8 @@ export function LeadsTable({
         onSuccess={async () => {
           setMostrarDialogoEditar(false);
           setOfertaParaEditar(null);
-          // Recargar ofertas después de editar
-          await cargarLeadsConOfertas({ skipCache: true, silent: true });
           if (refetchOfertas) refetchOfertas();
+          onRefreshLeads?.();
           toast({
             title: "Oferta actualizada",
             description: "Los cambios se guardaron correctamente.",

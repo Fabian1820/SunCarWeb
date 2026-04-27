@@ -2,7 +2,6 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
-import { InitialLoaderProvider } from "@/components/shared/atom/initial-loader-provider"
 import { AuthProvider } from "@/contexts/auth-context"
 import { AuthGuard } from "@/components/auth/auth-guard"
 import { PWAInstallPrompt } from "@/components/shared/molecule/pwa-install-prompt"
@@ -76,12 +75,10 @@ export default function RootLayout({
       </head>
       <body className={inter.className}>
         <AuthProvider>
-          <InitialLoaderProvider>
-            <AuthGuard>
-              <FixedHeaderWatcher />
-              {children}
-            </AuthGuard>
-          </InitialLoaderProvider>
+          <AuthGuard>
+            <FixedHeaderWatcher />
+            {children}
+          </AuthGuard>
         </AuthProvider>
         <PWAInstallPrompt />
         <OfflineIndicator />

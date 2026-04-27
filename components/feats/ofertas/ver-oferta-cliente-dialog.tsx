@@ -114,7 +114,7 @@ export function VerOfertaClienteDialog({
   onEliminar,
   onExportar,
 }: VerOfertaClienteDialogProps) {
-  const { materials } = useMaterials();
+  const { materials } = useMaterials({ lite: true });
   const [modoVista, setModoVista] = useState<"listado" | "detalle">("detalle");
   const [ofertaSeleccionadaIndex, setOfertaSeleccionadaIndex] = useState(0);
   const [primerPagoFecha, setPrimerPagoFecha] = useState<string | null>(null);
