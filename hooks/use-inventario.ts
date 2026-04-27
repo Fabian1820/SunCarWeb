@@ -18,6 +18,7 @@ interface UseInventarioReturn {
   tiendas: Tienda[]
   stock: StockItem[]
   movimientos: MovimientoInventario[]
+  movimientosTotal: number
   materiales: Material[]
   loading: boolean
   loadingStock: boolean
@@ -31,6 +32,11 @@ interface UseInventarioReturn {
     tienda_id?: string
     material_id?: string
     material_codigo?: string
+    skip?: number
+    limit?: number
+    busqueda?: string
+    fecha_desde?: string
+    fecha_hasta?: string
   }) => Promise<void>
   createAlmacen: (data: AlmacenCreateData) => Promise<void>
   updateAlmacen: (id: string, data: AlmacenUpdateData) => Promise<void>
@@ -46,6 +52,7 @@ export function useInventario(): UseInventarioReturn {
   const [tiendas, setTiendas] = useState<Tienda[]>([])
   const [stock, setStock] = useState<StockItem[]>([])
   const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([])
+  const [movimientosTotal, setMovimientosTotal] = useState(0)
   const [materiales, setMateriales] = useState<Material[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingStock, setLoadingStock] = useState(false)
@@ -73,16 +80,23 @@ export function useInventario(): UseInventarioReturn {
     tienda_id?: string
     material_id?: string
     material_codigo?: string
+    skip?: number
+    limit?: number
+    busqueda?: string
+    fecha_desde?: string
+    fecha_hasta?: string
   }) => {
     setLoadingMovimientos(true)
     setError(null)
     try {
-      const data = await InventarioService.getMovimientos(params)
-      setMovimientos(Array.isArray(data) ? data : [])
+      const result = await InventarioService.getMovimientos(params)
+      setMovimientos(result.data)
+      setMovimientosTotal(result.total)
     } catch (err) {
       console.error('Error fetching movimientos:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar movimientos')
       setMovimientos([])
+      setMovimientosTotal(0)
     } finally {
       setLoadingMovimientos(false)
     }
@@ -157,6 +171,7 @@ export function useInventario(): UseInventarioReturn {
     tiendas,
     stock,
     movimientos,
+    movimientosTotal,
     materiales,
     loading,
     loadingStock,

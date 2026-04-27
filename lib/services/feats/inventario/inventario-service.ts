@@ -553,7 +553,12 @@ export class InventarioService {
     tienda_id?: string;
     material_id?: string;
     material_codigo?: string;
-  }): Promise<MovimientoInventario[]> {
+    skip?: number;
+    limit?: number;
+    busqueda?: string;
+    fecha_desde?: string;
+    fecha_hasta?: string;
+  }): Promise<{ data: MovimientoInventario[]; total: number; skip: number; limit: number }> {
     const search = new URLSearchParams();
     if (params?.tipo) search.set("tipo", params.tipo);
     if (params?.almacen_id) search.set("almacen_id", params.almacen_id);
@@ -561,9 +566,18 @@ export class InventarioService {
     if (params?.material_id) search.set("material_id", params.material_id);
     if (params?.material_codigo)
       search.set("material_codigo", params.material_codigo);
+    if (params?.skip !== undefined) search.set("skip", String(params.skip));
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.busqueda) search.set("busqueda", params.busqueda);
+    if (params?.fecha_desde) search.set("fecha_desde", params.fecha_desde);
+    if (params?.fecha_hasta) search.set("fecha_hasta", params.fecha_hasta);
     const suffix = search.toString() ? `?${search.toString()}` : "";
     const response = await apiRequest<any>(`/inventario/movimientos${suffix}`);
-    return this.normalizeMovimientosResponse(response);
+    const data = this.normalizeMovimientosResponse(response);
+    const total = typeof response?.total === "number" ? response.total : data.length;
+    const skip = typeof response?.skip === "number" ? response.skip : 0;
+    const limit = typeof response?.limit === "number" ? response.limit : data.length;
+    return { data, total, skip, limit };
   }
 
   static async createMovimiento(

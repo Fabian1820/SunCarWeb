@@ -95,7 +95,14 @@ export default function AlmacenDetallePage() {
   const [stockMarcaFilter, setStockMarcaFilter] = useState("all");
   const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all");
   const [stockCantidadFilter, setStockCantidadFilter] = useState<"all" | "zero" | "nonzero">("all");
-  const [historialSearch, setHistorialSearch] = useState("");
+  const [historialSearchInput, setHistorialSearchInput] = useState("")
+  const [historialSearch, setHistorialSearch] = useState("")
+  const [historialTipo, setHistorialTipo] = useState("")
+  const [historialFechaDesde, setHistorialFechaDesde] = useState("")
+  const [historialFechaHasta, setHistorialFechaHasta] = useState("")
+  const [movimientosTotal, setMovimientosTotal] = useState(0)
+  const [movimientosSkip, setMovimientosSkip] = useState(0)
+  const MOVIMIENTOS_LIMIT = 100;
   const [ultimoResumenLote, setUltimoResumenLote] =
     useState<MovimientoLoteResponse | null>(null);
   const [ultimoTipoLote, setUltimoTipoLote] = useState<
@@ -127,10 +134,12 @@ export default function AlmacenDetallePage() {
       setMarcas(marcasData);
 
       if (almacenEncontrado?.id) {
-        const [stockData, movimientosData] = await Promise.all([
+        const [stockData, movimientosResult] = await Promise.all([
           InventarioService.getStock({ almacen_id: almacenEncontrado.id }),
           InventarioService.getMovimientos({
             almacen_id: almacenEncontrado.id,
+            skip: 0,
+            limit: 100,
           }),
         ]);
         setStock(
@@ -142,7 +151,9 @@ export default function AlmacenDetallePage() {
               item.almacen_id,
           })),
         );
-        setMovimientos(movimientosData);
+        setMovimientos(movimientosResult.data);
+        setMovimientosTotal(movimientosResult.total);
+        setMovimientosSkip(0);
       }
     } catch (err) {
       console.error("Error loading almacen detalle:", err);
@@ -173,14 +184,29 @@ export default function AlmacenDetallePage() {
     }
   };
 
-  const refreshMovimientos = async () => {
+  const refreshMovimientos = async (overrideSkip?: number, overrideBusqueda?: string, overrideTipo?: string, overrideFechaDesde?: string, overrideFechaHasta?: string) => {
     if (!almacen?.id) return;
+    const skip = overrideSkip !== undefined ? overrideSkip : movimientosSkip;
+    const busqueda = overrideBusqueda !== undefined ? overrideBusqueda : (historialSearch || undefined);
+    const tipo = overrideTipo !== undefined ? overrideTipo : (historialTipo || undefined);
+    const rawDesde = overrideFechaDesde !== undefined ? overrideFechaDesde : historialFechaDesde;
+    const rawHasta = overrideFechaHasta !== undefined ? overrideFechaHasta : historialFechaHasta;
+    const fechaDesde = rawDesde ? `${rawDesde}T00:00:00` : undefined;
+    const fechaHasta = rawHasta ? `${rawHasta}T23:59:59` : undefined;
     setLoadingMovimientos(true);
     try {
-      const movimientosData = await InventarioService.getMovimientos({
+      const result = await InventarioService.getMovimientos({
         almacen_id: almacen.id,
+        skip,
+        limit: MOVIMIENTOS_LIMIT,
+        busqueda,
+        tipo,
+        fecha_desde: fechaDesde,
+        fecha_hasta: fechaHasta,
       });
-      setMovimientos(movimientosData);
+      setMovimientos(result.data);
+      setMovimientosTotal(result.total);
+      setMovimientosSkip(result.skip);
     } finally {
       setLoadingMovimientos(false);
     }
@@ -194,6 +220,19 @@ export default function AlmacenDetallePage() {
     setMateriales(materialesData);
     setCatalogos(catalogosData);
   };
+
+  // Debounce search input → historialSearch
+  useEffect(() => {
+    const timer = setTimeout(() => setHistorialSearch(historialSearchInput), 400);
+    return () => clearTimeout(timer);
+  }, [historialSearchInput]);
+
+  // Re-fetch movimientos when filters change (reset to page 0)
+  useEffect(() => {
+    if (!almacen?.id) return;
+    refreshMovimientos(0, historialSearch, historialTipo, historialFechaDesde, historialFechaHasta);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historialSearch, historialTipo, historialFechaDesde, historialFechaHasta]);
 
   useEffect(() => {
     setUltimoResumenLote(null);
@@ -317,15 +356,8 @@ export default function AlmacenDetallePage() {
     stockCantidadFilter,
   ]);
 
-  const filteredMovimientos = useMemo(() => {
-    const search = historialSearch.trim().toLowerCase();
-    if (!search) return movimientos;
-    return movimientos.filter((mov) => {
-      const codigo = String(mov.material_codigo || "").toLowerCase();
-      const nombre = String(mov.material_descripcion || "").toLowerCase();
-      return codigo.includes(search) || nombre.includes(search);
-    });
-  }, [movimientos, historialSearch]);
+  const movimientosTotalPages = Math.ceil(movimientosTotal / MOVIMIENTOS_LIMIT) || 1;
+  const movimientosCurrentPage = Math.floor(movimientosSkip / MOVIMIENTOS_LIMIT) + 1;
 
   const handleRegistrarSalidaLote = async (payload: {
     items: Array<{
@@ -354,7 +386,7 @@ export default function AlmacenDetallePage() {
     setUltimoResumenLote(resumen);
     setUltimoTipoLote("salida");
     setIsSalidaDialogOpen(false);
-    await Promise.all([refreshStock(), refreshMovimientos()]);
+    await Promise.all([refreshStock(), refreshMovimientos(0)]);
   };
 
   const handleRegistrarEntradaLote = async (payload: {
@@ -384,7 +416,7 @@ export default function AlmacenDetallePage() {
     setUltimoResumenLote(resumen);
     setUltimoTipoLote("entrada");
     setIsEntradaDialogOpen(false);
-    await Promise.all([refreshStock(), refreshMovimientos()]);
+    await Promise.all([refreshStock(), refreshMovimientos(0)]);
   };
 
   const handleAjustarStock = async (payload: {
@@ -409,7 +441,7 @@ export default function AlmacenDetallePage() {
     });
     setIsEditarStockDialogOpen(false);
     setStockToEdit(null);
-    await Promise.all([refreshStock(), refreshMovimientos()]);
+    await Promise.all([refreshStock(), refreshMovimientos(0)]);
   };
 
   const handleUpdateUbicacion = async (
@@ -619,7 +651,7 @@ export default function AlmacenDetallePage() {
                     currentAlmacenId={almacenId}
                     onResolved={() => {
                       refreshStock();
-                      refreshMovimientos();
+                      refreshMovimientos(0);
                     }}
                   />
                 </CardContent>
@@ -851,37 +883,80 @@ export default function AlmacenDetallePage() {
 
             <TabsContent value="historial" className="space-y-6">
               <Card>
-                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex-1">
-                    <CardTitle>Historial de movimientos</CardTitle>
-                    <CardDescription>
-                      Entradas y salidas registradas.
-                    </CardDescription>
-                    <div className="mt-3 max-w-sm">
-                      <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                        Buscar por código o nombre
-                      </Label>
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <CardTitle>Historial de movimientos</CardTitle>
+                      <CardDescription>
+                        Entradas y salidas registradas. Total: {movimientosTotal}
+                      </CardDescription>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-1 block">Buscar</Label>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                          <Input
+                            value={historialSearchInput}
+                            onChange={(e) => setHistorialSearchInput(e.target.value)}
+                            placeholder="Código, nombre o serie..."
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-1 block">Tipo</Label>
+                        <Select value={historialTipo || "all"} onValueChange={(v) => setHistorialTipo(v === "all" ? "" : v)}>
+                          <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="entrada">Entrada</SelectItem>
+                            <SelectItem value="salida">Salida</SelectItem>
+                            <SelectItem value="transferencia">Transferencia</SelectItem>
+                            <SelectItem value="ajuste">Ajuste</SelectItem>
+                            <SelectItem value="venta">Venta</SelectItem>
+                            <SelectItem value="eliminacion">Eliminación</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-1 block">Desde</Label>
                         <Input
-                          value={historialSearch}
-                          onChange={(e) => setHistorialSearch(e.target.value)}
-                          placeholder="Ej: MAT-001 o descripción..."
-                          className="pl-9"
+                          type="date"
+                          value={historialFechaDesde}
+                          onChange={(e) => setHistorialFechaDesde(e.target.value)}
                         />
                       </div>
-                      {historialSearch && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          {filteredMovimientos.length} de {movimientos.length}{" "}
-                          movimientos
-                        </p>
-                      )}
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-1 block">Hasta</Label>
+                        <Input
+                          type="date"
+                          value={historialFechaHasta}
+                          onChange={(e) => setHistorialFechaHasta(e.target.value)}
+                        />
+                      </div>
                     </div>
+                    {(historialSearchInput || historialTipo || historialFechaDesde || historialFechaHasta) && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setHistorialSearchInput("");
+                          setHistorialTipo("");
+                          setHistorialFechaDesde("");
+                          setHistorialFechaHasta("");
+                        }}
+                        className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Limpiar filtros
+                      </Button>
+                    )}
                   </div>
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={refreshMovimientos}
+                    onClick={() => refreshMovimientos()}
                     title="Refrescar"
                   >
                     {loadingMovimientos ? (
@@ -891,12 +966,37 @@ export default function AlmacenDetallePage() {
                     )}
                   </Button>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                   <MovimientosTable
-                    movimientos={filteredMovimientos}
+                    movimientos={movimientos}
                     materials={materiales}
                     almacenes={almacenesList}
                   />
+                  {movimientosTotal > MOVIMIENTOS_LIMIT && (
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                      <p className="text-sm text-gray-500">
+                        Página {movimientosCurrentPage} de {movimientosTotalPages} · {movimientosTotal} movimientos
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={movimientosSkip === 0 || loadingMovimientos}
+                          onClick={() => refreshMovimientos(movimientosSkip - MOVIMIENTOS_LIMIT)}
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={movimientosCurrentPage >= movimientosTotalPages || loadingMovimientos}
+                          onClick={() => refreshMovimientos(movimientosSkip + MOVIMIENTOS_LIMIT)}
+                        >
+                          Siguiente
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
