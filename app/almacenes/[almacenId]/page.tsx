@@ -20,6 +20,7 @@ import {
   FileSpreadsheet,
   Loader2,
   ArrowRightLeft,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -93,6 +94,7 @@ export default function AlmacenDetallePage() {
   const [stockCategoriaFilter, setStockCategoriaFilter] = useState("all");
   const [stockMarcaFilter, setStockMarcaFilter] = useState("all");
   const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all");
+  const [stockCantidadFilter, setStockCantidadFilter] = useState<"all" | "zero" | "nonzero">("all");
   const [historialSearch, setHistorialSearch] = useState("");
   const [ultimoResumenLote, setUltimoResumenLote] =
     useState<MovimientoLoteResponse | null>(null);
@@ -278,6 +280,7 @@ export default function AlmacenDetallePage() {
           item.material_descripcion ||
           "",
       ).toLowerCase();
+      const numeroSerie = String(material?.numero_serie ?? "").toLowerCase();
 
       const categoria = String(
         material?.categoria || item.categoria || "",
@@ -286,7 +289,10 @@ export default function AlmacenDetallePage() {
       const potencia = material?.potenciaKW;
 
       const matchSearch =
-        !search || codigo.includes(search) || nombre.includes(search);
+        !search ||
+        codigo.includes(search) ||
+        nombre.includes(search) ||
+        numeroSerie.includes(search);
       const matchCategoria =
         stockCategoriaFilter === "all" || categoria === stockCategoriaFilter;
       const matchMarca =
@@ -294,8 +300,12 @@ export default function AlmacenDetallePage() {
       const matchPotencia =
         stockPotenciaFilter === "all" ||
         String(potencia ?? "") === stockPotenciaFilter;
+      const matchCantidad =
+        stockCantidadFilter === "all" ||
+        (stockCantidadFilter === "zero" && item.cantidad === 0) ||
+        (stockCantidadFilter === "nonzero" && item.cantidad !== 0);
 
-      return matchSearch && matchCategoria && matchMarca && matchPotencia;
+      return matchSearch && matchCategoria && matchMarca && matchPotencia && matchCantidad;
     });
   }, [
     stock,
@@ -304,6 +314,7 @@ export default function AlmacenDetallePage() {
     stockCategoriaFilter,
     stockMarcaFilter,
     stockPotenciaFilter,
+    stockCantidadFilter,
   ]);
 
   const filteredMovimientos = useMemo(() => {
@@ -686,17 +697,17 @@ export default function AlmacenDetallePage() {
                   <div>
                     <CardTitle>Stock del almacen</CardTitle>
                     <CardDescription>Existencias actuales.</CardDescription>
-                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
                       <div>
                         <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Buscar por código o nombre
+                          Buscar
                         </Label>
                         <Input
                           value={stockSearch}
                           onChange={(event) =>
                             setStockSearch(event.target.value)
                           }
-                          placeholder="Ej: MAT-001 o descripción"
+                          placeholder="Ej: MAT-001, descripción o serie..."
                         />
                       </div>
                       <div>
@@ -762,7 +773,44 @@ export default function AlmacenDetallePage() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                          Cantidad
+                        </Label>
+                        <Select
+                          value={stockCantidadFilter}
+                          onValueChange={(v) => setStockCantidadFilter(v as "all" | "zero" | "nonzero")}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Todas" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Todas</SelectItem>
+                            <SelectItem value="zero">Solo en cero</SelectItem>
+                            <SelectItem value="nonzero">Excluir ceros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
+                    {(stockSearch || stockCategoriaFilter !== "all" || stockMarcaFilter !== "all" || stockPotenciaFilter !== "all" || stockCantidadFilter !== "all") && (
+                      <div className="mt-3">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setStockSearch("");
+                            setStockCategoriaFilter("all");
+                            setStockMarcaFilter("all");
+                            setStockPotenciaFilter("all");
+                            setStockCantidadFilter("all");
+                          }}
+                          className="text-gray-600 border-gray-300 hover:bg-gray-50"
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Limpiar filtros
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
@@ -779,13 +827,12 @@ export default function AlmacenDetallePage() {
                       )}
                       <span className="ml-2">Exportar Excel</span>
                     </Button>
-                    <Button variant="outline" size="sm" onClick={refreshStock}>
+                    <Button variant="outline" size="icon" onClick={refreshStock} title="Refrescar">
                       {loadingStock ? (
                         <RefreshCw className="h-4 w-4 animate-spin" />
                       ) : (
                         <RefreshCw className="h-4 w-4" />
                       )}
-                      <span className="ml-2">Refrescar</span>
                     </Button>
                   </div>
                 </CardHeader>
@@ -833,15 +880,15 @@ export default function AlmacenDetallePage() {
                   </div>
                   <Button
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={refreshMovimientos}
+                    title="Refrescar"
                   >
                     {loadingMovimientos ? (
                       <RefreshCw className="h-4 w-4 animate-spin" />
                     ) : (
                       <RefreshCw className="h-4 w-4" />
                     )}
-                    <span className="ml-2">Refrescar</span>
                   </Button>
                 </CardHeader>
                 <CardContent>

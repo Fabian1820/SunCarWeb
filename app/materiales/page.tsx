@@ -38,6 +38,7 @@ import {
   Globe,
   AlertTriangle,
   FileSpreadsheet,
+  X,
 } from "lucide-react";
 import { MaterialsTable } from "@/components/feats/materials/materials-table";
 import { CategoriesTable } from "@/components/feats/materials/categories-table";
@@ -366,10 +367,11 @@ export default function MaterialesPage() {
   };
 
   const filteredMaterials = materials.filter((material) => {
+    const term = searchTerm.toLowerCase();
     const matchesSearch =
-      material.codigo.toString().includes(searchTerm) ||
-      material.descripcion.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (material.numero_serie ?? "").toLowerCase().includes(searchTerm.toLowerCase());
+      material.codigo.toString().toLowerCase().includes(term) ||
+      material.descripcion.toLowerCase().includes(term) ||
+      (material.numero_serie ?? "").toLowerCase().includes(term);
     const matchesCategoryFilter =
       selectedCategory === "all" || material.categoria === selectedCategory;
     const matchesMarcaFilter =
@@ -977,6 +979,24 @@ export default function MaterialesPage() {
                           </SelectContent>
                         </Select>
                       </div>
+                    </div>
+                  )}
+                  {viewMode === "materials" && (searchTerm || selectedCategory !== "all" || selectedMarca !== "all" || priceFilter !== "all") && (
+                    <div className="flex items-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSearchTerm("");
+                          setSelectedCategory("all");
+                          setSelectedMarca("all");
+                          setPriceFilter("all");
+                        }}
+                        className="text-gray-600 border-gray-300 hover:bg-gray-50 whitespace-nowrap"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Limpiar filtros
+                      </Button>
                     </div>
                   )}
                 </div>
