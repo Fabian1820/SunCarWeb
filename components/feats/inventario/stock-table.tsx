@@ -231,10 +231,17 @@ export function StockTable({
                       {marcaNombre || "-"}
                     </span>
                   </td>
-                  <td className="py-3 px-2">
-                    <span className="text-sm text-gray-700">
-                      {material?.categoria || item.categoria || "-"}
-                    </span>
+                  <td className="py-3 px-2 max-w-[100px]">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-sm text-gray-700 truncate block cursor-default">
+                          {material?.categoria || item.categoria || "-"}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{material?.categoria || item.categoria || "-"}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </td>
                   <td className="py-3 px-2">
                     <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 text-sm font-semibold">

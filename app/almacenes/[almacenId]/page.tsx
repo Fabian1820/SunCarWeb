@@ -700,7 +700,7 @@ export default function AlmacenDetallePage() {
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
                       <div>
                         <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Buscar por código, nombre o N° serie
+                          Buscar
                         </Label>
                         <Input
                           value={stockSearch}
