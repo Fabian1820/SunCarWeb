@@ -1,6 +1,6 @@
 // Tipos y enums para el módulo de Facturas
 
-export type FacturaTipo = "instaladora" | "cliente_directo";
+export type FacturaTipo = "instaladora" | "cliente_directo" | "venta";
 export type FacturaSubTipo = "brigada" | "cliente";
 export type EstadoFactura =
   | "terminada_pagada"

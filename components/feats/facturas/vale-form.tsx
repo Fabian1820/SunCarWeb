@@ -17,7 +17,7 @@ interface ValeFormProps {
     onChange: (index: number, vale: Vale) => void
     onRemove: (index: number) => void
     canRemove: boolean
-    tipoFactura?: 'instaladora' | 'cliente_directo'
+    tipoFactura?: 'instaladora' | 'cliente_directo' | 'venta'
 }
 
 export function ValeForm({

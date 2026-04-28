@@ -26,7 +26,7 @@ interface ItemValeRowProps {
   materiales: Material[];
   onChange: (index: number, item: ItemVale) => void;
   onRemove: (index: number) => void;
-  tipoFactura?: "instaladora" | "cliente_directo";
+  tipoFactura?: "instaladora" | "cliente_directo" | "venta";
 }
 
 export function ItemValeRow({
@@ -38,6 +38,7 @@ export function ItemValeRow({
   tipoFactura,
 }: ItemValeRowProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [ventaDescuentoPct, setVentaDescuentoPct] = useState(0);
 
   const normalizarTexto = (valor?: string | null) =>
     (valor || "")
@@ -96,20 +97,34 @@ export function ItemValeRow({
       (m, idx) => buildMaterialKey(m, idx) === materialKey,
     );
     if (material) {
-      // Obtener el precio base del material
-      let precioFinal = material.precio || 0;
-      const precioOriginal = precioFinal;
+      const precioOriginal = material.precio || 0;
 
+      if (tipoFactura === "venta") {
+        // En ventas: usar precio original, aplicar descuento local si hay uno activo
+        const precioFinal = ventaDescuentoPct > 0
+          ? Math.round(precioOriginal * ((100 - ventaDescuentoPct) / 100) * 100) / 100
+          : precioOriginal;
+        onChange(index, {
+          ...item,
+          material_id:
+            (material as any)._id ||
+            material.id ||
+            (material as any).material_id ||
+            (material as any).producto_id ||
+            "",
+          codigo: material.codigo.toString(),
+          descripcion: material.descripcion,
+          precio: precioFinal,
+        });
+        return;
+      }
+
+      let precioFinal = precioOriginal;
       const porcentajeDescuento = obtenerPorcentajeDescuento(material);
 
       if (porcentajeDescuento > 0) {
         const factorDescuento = (100 - porcentajeDescuento) / 100;
         precioFinal = Math.round(precioFinal * factorDescuento * 100) / 100;
-        console.log("✅ Descuento aplicado:", {
-          precioOriginal,
-          precioFinal,
-          descuento: `${porcentajeDescuento}%`,
-        });
       }
 
       onChange(index, {
@@ -143,6 +158,28 @@ export function ItemValeRow({
 
   const handleFieldChange = (field: keyof ItemVale, value: string | number) => {
     onChange(index, { ...item, [field]: value });
+  };
+
+  const ventaMaterialOriginalPrice = useMemo(() => {
+    if (tipoFactura !== "venta") return null;
+    const m = materiales.find(
+      (mat) =>
+        ((mat as any)._id || mat.id || (mat as any).material_id || (mat as any).producto_id) ===
+          item.material_id &&
+        (item.codigo ? String(mat.codigo) === String(item.codigo) : true),
+    );
+    return m?.precio ?? null;
+  }, [tipoFactura, materiales, item.material_id, item.codigo]);
+
+  const handleVentaDescuentoChange = (pctStr: string) => {
+    const pct = Math.min(20, Math.max(0, Number(pctStr) || 0));
+    setVentaDescuentoPct(pct);
+    if (ventaMaterialOriginalPrice !== null) {
+      const precioFinal = pct > 0
+        ? Math.round(ventaMaterialOriginalPrice * ((100 - pct) / 100) * 100) / 100
+        : ventaMaterialOriginalPrice;
+      onChange(index, { ...item, precio: precioFinal });
+    }
   };
 
   const subtotal = item.precio * item.cantidad;
@@ -213,27 +250,51 @@ export function ItemValeRow({
         />
       </div>
 
-      {/* Precio */}
-      <div className="col-span-2 space-y-2">
-        <Label className="text-xs flex items-center gap-2">
-          Precio
-          {tieneDescuento && (
-            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-semibold">
-              -{porcentajeDescuentoActual}%
-            </span>
-          )}
-        </Label>
-        <Input
-          type="number"
-          step="0.01"
-          value={item.precio}
-          onChange={(e) =>
-            handleFieldChange("precio", parseFloat(e.target.value) || 0)
-          }
-          placeholder="0.00"
-          className={`text-right ${tieneDescuento ? "border-green-300 bg-green-50" : ""}`}
-        />
-      </div>
+      {/* Precio / Descuento ventas */}
+      {tipoFactura === "venta" ? (
+        <>
+          <div className="col-span-1 space-y-2">
+            <Label className="text-xs">Precio orig.</Label>
+            <div className="h-10 flex items-center justify-end text-sm text-gray-500 font-medium">
+              {ventaMaterialOriginalPrice !== null ? `$${ventaMaterialOriginalPrice.toFixed(2)}` : "-"}
+            </div>
+          </div>
+          <div className="col-span-1 space-y-2">
+            <Label className="text-xs">Desc. % (máx 20)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="20"
+              step="0.1"
+              value={ventaDescuentoPct}
+              onChange={(e) => handleVentaDescuentoChange(e.target.value)}
+              placeholder="0"
+              className="text-right"
+            />
+          </div>
+        </>
+      ) : (
+        <div className="col-span-2 space-y-2">
+          <Label className="text-xs flex items-center gap-2">
+            Precio
+            {tieneDescuento && (
+              <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-semibold">
+                -{porcentajeDescuentoActual}%
+              </span>
+            )}
+          </Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={item.precio}
+            onChange={(e) =>
+              handleFieldChange("precio", parseFloat(e.target.value) || 0)
+            }
+            placeholder="0.00"
+            className={`text-right ${tieneDescuento ? "border-green-300 bg-green-50" : ""}`}
+          />
+        </div>
+      )}
 
       {/* Cantidad */}
       <div className="col-span-1 space-y-2">

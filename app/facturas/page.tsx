@@ -30,6 +30,14 @@ export default function FacturacionPage() {
             color: 'orange-600',
         },
         {
+            id: 'vales-facturas-ventas',
+            href: '/facturas/vales-facturas-ventas',
+            icon: FileText,
+            title: 'Vales y Facturas de Ventas',
+            description: 'Control de facturación y vales de ventas directas a clientes',
+            color: 'blue-600',
+        },
+        {
             id: 'facturas-solar-carros',
             href: '/facturas/facturas-solar-carros',
             icon: Receipt,

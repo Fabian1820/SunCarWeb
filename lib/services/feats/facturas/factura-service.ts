@@ -241,6 +241,7 @@ export class FacturaService {
   ): Promise<Factura[]> {
     const params = new URLSearchParams();
 
+    if (filters?.tipo) params.append("tipo", filters.tipo);
     if (filters?.mes_vale)
       params.append("mes_vale", filters.mes_vale.toString());
     if (filters?.anio_vale)
@@ -437,8 +438,10 @@ export class FacturaService {
     cliente_numero?: string;
     skip?: number;
     limit?: number;
+    solicitud_tipo?: "material" | "venta";
   }): Promise<ValeSalida[]> {
     const search = new URLSearchParams();
+    if (params.solicitud_tipo) search.append("solicitud_tipo", params.solicitud_tipo);
     if (params.cliente_id) search.append("cliente_id", params.cliente_id);
     if (params.cliente_numero)
       search.append("cliente_numero", params.cliente_numero);
@@ -476,9 +479,11 @@ export class FacturaService {
       cliente_id?: string;
       cliente_numero?: string;
       q?: string;
+      solicitud_tipo?: "material" | "venta";
     } = {},
   ): Promise<ValeSalida[]> {
     const search = new URLSearchParams();
+    if (params.solicitud_tipo) search.append("solicitud_tipo", params.solicitud_tipo);
     if (params.skip != null) search.append("skip", String(params.skip));
     if (params.limit != null) search.append("limit", String(params.limit));
     if (params.cliente_id) search.append("cliente_id", params.cliente_id);
@@ -560,6 +565,7 @@ export class FacturaService {
   async obtenerStats(filters?: FacturaFilters): Promise<FacturaStats> {
     const params = new URLSearchParams();
 
+    if (filters?.tipo) params.append("tipo", filters.tipo);
     if (filters?.mes_vale)
       params.append("mes_vale", filters.mes_vale.toString());
     if (filters?.anio_vale)
@@ -594,8 +600,9 @@ export class FacturaService {
   /**
    * Obtiene facturas consolidadas con información de ofertas y pagos
    */
-  async obtenerFacturasConsolidadas(): Promise<FacturaConsolidada[]> {
-    const url = `/facturas/consolidadas`;
+  async obtenerFacturasConsolidadas(tipo?: FacturaTipo): Promise<FacturaConsolidada[]> {
+    const params = tipo ? `?tipo=${encodeURIComponent(tipo)}` : "";
+    const url = `/facturas/consolidadas${params}`;
     console.log("📡 Obteniendo facturas consolidadas:", url);
 
     try {

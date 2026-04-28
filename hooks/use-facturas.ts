@@ -8,10 +8,14 @@ import type {
   FacturaConsolidada,
   FacturaFilters,
   FacturaStats,
+  FacturaTipo,
   Vale,
 } from "@/lib/types/feats/facturas/factura-types";
 
-export function useFacturas() {
+export function useFacturas(options?: { tipoFactura?: FacturaTipo }) {
+  const tipoFactura = options?.tipoFactura;
+  const baseFilters: FacturaFilters = tipoFactura ? { tipo: tipoFactura } : {};
+
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [facturasConsolidadas, setFacturasConsolidadas] = useState<
     FacturaConsolidada[]
@@ -19,7 +23,7 @@ export function useFacturas() {
   const [stats, setStats] = useState<FacturaStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<FacturaFilters>({});
+  const [filters, setFilters] = useState<FacturaFilters>(baseFilters);
   const { token } = useAuth();
   const lastTokenRef = useRef<string | null>(null);
 
@@ -38,7 +42,7 @@ export function useFacturas() {
     setError(null);
     try {
       console.log("🔄 Cargando facturas consolidadas");
-      const data = await facturaService.obtenerFacturasConsolidadas();
+      const data = await facturaService.obtenerFacturasConsolidadas(tipoFactura);
       console.log("✅ Facturas consolidadas cargadas:", data?.length || 0);
       setFacturasConsolidadas(data);
     } catch (err) {
@@ -51,7 +55,7 @@ export function useFacturas() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, tipoFactura]);
 
   /**
    * Cargar facturas con filtros
@@ -141,17 +145,19 @@ export function useFacturas() {
    * Aplicar nuevos filtros (solo actualiza el estado, el filtrado es local)
    */
   const aplicarFiltros = useCallback(async (newFilters: FacturaFilters) => {
-    setFilters(newFilters);
+    setFilters({ ...baseFilters, ...newFilters });
     // El filtrado se hace localmente en el componente, no necesitamos recargar
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoFactura]);
 
   /**
    * Limpiar filtros (solo resetea el estado)
    */
   const limpiarFiltros = useCallback(async () => {
-    setFilters({});
+    setFilters(baseFilters);
     // El filtrado se hace localmente en el componente, no necesitamos recargar
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoFactura]);
 
   /**
    * Obtener número sugerido

@@ -19,7 +19,7 @@ import {
 import { useFacturas } from "@/hooks/use-facturas";
 import { FacturasFilters } from "./facturas-filters";
 import { FacturasConsolidadasTable } from "./facturas-consolidadas-table";
-import { FacturaFormDialog } from "./factura-form-dialog";
+import { FacturaVentasFormDialog } from "./factura-ventas-form-dialog";
 import { AnularFacturaDialog } from "./anular-factura-dialog";
 import type {
   Factura,
@@ -52,10 +52,6 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/shared/molecule/tabs";
-import {
-  FacturaContabilidadService,
-  type FacturaContabilidadReporteMensualItem,
-} from "@/lib/services/feats/facturas/factura-contabilidad-service";
 import { facturaService } from "@/lib/services/feats/facturas/factura-service";
 import {
   ExportFacturaService,
@@ -64,9 +60,9 @@ import {
 } from "@/lib/services/feats/facturas/export-factura-service";
 import { useAuth } from "@/contexts/auth-context";
 import { ValeSalidaService } from "@/lib/services/feats/vales-salida/vale-salida-service";
-import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
+import { ClienteVentaService } from "@/lib/services/feats/clientes-ventas/cliente-venta-service";
 import { DevolucionValeService } from "@/lib/api-services";
-import type { Cliente, ValeSalida } from "@/lib/api-types";
+import type { ValeSalida } from "@/lib/api-types";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
@@ -84,7 +80,6 @@ const parseNullableNumber = (value: unknown): number | null => {
     const trimmed = value.trim();
     if (!trimmed) return null;
 
-    // Limpiar símbolos y espacios, preservando separadores decimales/millares.
     const cleaned = trimmed.replace(/[^\d,.-]/g, "");
     if (!cleaned) return null;
 
@@ -92,7 +87,6 @@ const parseNullableNumber = (value: unknown): number | null => {
     const lastDot = cleaned.lastIndexOf(".");
     let normalized = cleaned;
 
-    // Si existen ambos separadores, el último se considera decimal.
     if (lastComma !== -1 && lastDot !== -1) {
       if (lastComma > lastDot) {
         normalized = cleaned.replace(/\./g, "").replace(",", ".");
@@ -172,17 +166,17 @@ const normalizeKey = (value?: string | null) =>
   (value || "").trim().toUpperCase();
 
 const getSolicitudFromVale = (vale: ValeSalida) =>
-  vale.solicitud_material || vale.solicitud_venta || vale.solicitud || null;
+  vale.solicitud_venta || vale.solicitud_material || vale.solicitud || null;
 
 const getClienteFromVale = (vale: ValeSalida) => {
   const solicitud = getSolicitudFromVale(vale);
   if (!solicitud) return null;
-  return solicitud.cliente || solicitud.cliente_venta || null;
+  return solicitud.cliente_venta || solicitud.cliente || null;
 };
 
 const getClienteKeyFromVale = (vale: ValeSalida): string | null => {
   const cliente = getClienteFromVale(vale);
-  const key = (cliente?.numero || cliente?.id || "").toString().trim();
+  const key = (cliente?.id || cliente?.numero || "").toString().trim();
   return key || null;
 };
 
@@ -206,43 +200,6 @@ const isValeNoFacturadoDisponible = (vale: ValeSalida) => {
   return Boolean(getClienteKeyFromVale(vale));
 };
 
-// Códigos de baterías con descuento especial del 20%
-const CODIGOS_BATERIA_DESCUENTO_20_SECTION = new Set([
-  "FLS48100SMG01",
-  "FLS48100SCG01",
-]);
-
-const normalizeCategoria = (value?: string | null) =>
-  (value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toUpperCase();
-
-const resolveInstaladoraDiscount = (
-  codigo?: string | null,
-  categoria?: string | null,
-): number => {
-  const normalizedCode = (codigo || "").toString().trim().toUpperCase();
-  if (CODIGOS_BATERIA_DESCUENTO_20_SECTION.has(normalizedCode)) return 20;
-
-  const normalizedCategory = normalizeCategoria(categoria);
-  if (normalizedCategory === "INVERSORES" || normalizedCategory === "INVERSOR")
-    return 15;
-  if (normalizedCategory === "BATERIAS" || normalizedCategory === "BATERIA")
-    return 15;
-
-  return 0;
-};
-
-const applyInstaladoraDiscount = (
-  price: number,
-  discountPct: number,
-): number => {
-  if (discountPct <= 0) return price;
-  return Math.round(price * ((100 - discountPct) / 100) * 100) / 100;
-};
-
 const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
   id: valeSalida.id,
   id_vale_salida: valeSalida.id,
@@ -254,8 +211,6 @@ const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
       material.material?.codigo ||
       "";
     const basePrice = Number(material.material?.precio || 0);
-    const categoria = material.material?.categoria;
-    const discountPct = resolveInstaladoraDiscount(codigo, categoria);
     return {
       material_id: (material.material_id || "").toString(),
       codigo,
@@ -265,7 +220,7 @@ const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
         material.material?.descripcion ||
         material.material?.nombre ||
         "",
-      precio: applyInstaladoraDiscount(basePrice, discountPct),
+      precio: basePrice, // ventas: precio original sin descuento
       cantidad: Number(material.cantidad || 0),
     };
   }),
@@ -333,7 +288,7 @@ const ajustarValeConDevoluciones = async (
   }
 };
 
-export function FacturasSection() {
+export function FacturasVentasSection() {
   const {
     facturas,
     facturasConsolidadas,
@@ -352,7 +307,7 @@ export function FacturasSection() {
     actualizarVale,
     eliminarVale,
     cargarFacturasConsolidadas,
-  } = useFacturas({ tipoFactura: "instaladora" });
+  } = useFacturas({ tipoFactura: "venta" });
   const { materials, loading: loadingMaterials } = useMaterials();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -368,7 +323,7 @@ export function FacturasSection() {
   const [facturaDetails, setFacturaDetails] = useState<Factura | null>(null);
   const [valesListDialogOpen, setValesListDialogOpen] = useState(false);
   const [valeDialogOpen, setValeDialogOpen] = useState(false);
-  const [modoManual, setModoManual] = useState(true); // true = manual, false = desde vales de salida
+  const [modoManual, setModoManual] = useState(true);
   const [valesDisponibles, setValesDisponibles] = useState<ValeSalida[]>([]);
   const [valesSeleccionados, setValesSeleccionados] = useState<Set<string>>(
     new Set(),
@@ -466,24 +421,8 @@ export function FacturasSection() {
     [],
   );
 
-  const mapClienteToExportData = useCallback(
-    (cliente: Cliente | null | undefined): FacturaExportClienteData | null => {
-      if (!cliente) return null;
-      return {
-        numero: cliente.numero || null,
-        nombre: cliente.nombre || null,
-        carnet_identidad: cliente.carnet_identidad || null,
-        telefono: cliente.telefono || null,
-        direccion: cliente.direccion || null,
-        provincia_montaje: cliente.provincia_montaje || null,
-        municipio: cliente.municipio || null,
-      };
-    },
-    [],
-  );
-
   const getClienteDataForFacturaExport = useCallback(
-    async (factura: Factura) => {
+    async (factura: Factura): Promise<FacturaExportClienteData> => {
       const identifier = (factura.cliente_id || "").toString().trim();
       const fallback: FacturaExportClienteData = {
         numero: identifier || null,
@@ -497,42 +436,36 @@ export function FacturasSection() {
 
       if (!identifier) return fallback;
 
-      const byNumero = await ClienteService.getClienteByNumero(identifier);
-      const mappedByNumero = mapClienteToExportData(byNumero);
-      if (mappedByNumero) return mappedByNumero;
-
       try {
-        const response = await ClienteService.getClientes({
-          q: identifier,
-          limit: 80,
-        });
-        const found = (response.clients || []).find(
-          (cliente) =>
-            cliente.id === identifier || cliente.numero === identifier,
-        );
-        const candidate = found || response.clients?.[0] || null;
-        const mappedCandidate = mapClienteToExportData(candidate);
-        if (mappedCandidate) return mappedCandidate;
+        const clienteVenta = await ClienteVentaService.getClienteById(identifier);
+        if (clienteVenta) {
+          return {
+            numero: (clienteVenta as any).numero || null,
+            nombre: clienteVenta.nombre || null,
+            carnet_identidad:
+              (clienteVenta as any).ci ||
+              (clienteVenta as any).carnet_identidad ||
+              null,
+            telefono: clienteVenta.telefono || null,
+            direccion: clienteVenta.direccion || null,
+            provincia_montaje:
+              (clienteVenta as any).provincia ||
+              (clienteVenta as any).provincia_montaje ||
+              null,
+            municipio: clienteVenta.municipio || null,
+          };
+        }
       } catch {
         // noop
       }
 
       return fallback;
     },
-    [mapClienteToExportData],
+    [],
   );
 
   const getExportMetaForFactura = useCallback(
     async (factura: Factura): Promise<FacturaExportMeta> => {
-      if (factura.subtipo === "brigada") {
-        return {
-          titular: "brigada",
-          responsable_nombre:
-            factura.nombre_responsable || factura.nombre_cliente || null,
-          responsable_ci: factura.trabajador_ci || null,
-        };
-      }
-
       return {
         titular: "cliente",
         cliente: await getClienteDataForFacturaExport(factura),
@@ -631,10 +564,9 @@ export function FacturasSection() {
       if (facturaPorId) return facturaPorId;
     }
 
-    const facturaCompleta = facturas.find(
+    return facturas.find(
       (f) => f.numero_factura === facturaConsolidada.numero_factura,
     );
-    return facturaCompleta;
   };
 
   const handleEditConsolidada = (facturaConsolidada: FacturaConsolidada) => {
@@ -862,11 +794,9 @@ export function FacturasSection() {
 
     setSavingVale(true);
     try {
-      // Convertir cada vale de salida al formato de Vale de factura
       for (const valeSalida of vales) {
         const valeAjustado = await ajustarValeConDevoluciones(valeSalida);
         const valeParaFactura = mapValeSalidaToFacturaVale(valeAjustado);
-
         await agregarVale(facturaForVale.id, valeParaFactura);
       }
 
@@ -894,9 +824,8 @@ export function FacturasSection() {
     setLoadingValesSalida(true);
     try {
       const valesFiltrados = await facturaService.obtenerValesDisponibles({
-        solicitud_tipo: "material",
+        solicitud_tipo: "venta",
         cliente_id: facturaForVale.cliente_id,
-        cliente_numero: facturaForVale.cliente_id,
         skip: 0,
         limit: 200,
       });
@@ -1056,11 +985,9 @@ export function FacturasSection() {
     return "Terminada - no pagada";
   };
 
-  // Filtro local de respaldo para asegurar que el buscador siempre funcione
   const facturasFiltradas = useMemo(() => {
     let resultado = facturasConsolidadas;
 
-    // Filtro por búsqueda de texto
     const term = (filters.nombre_cliente || "").trim().toLowerCase();
     if (term) {
       resultado = resultado.filter((factura) => {
@@ -1076,29 +1003,24 @@ export function FacturasSection() {
       });
     }
 
-    // Filtro por tipo
     if (filters.tipo) {
       resultado = resultado.filter((factura) => factura.tipo === filters.tipo);
     }
 
-    // Filtro por subtipo
     if (filters.subtipo) {
       resultado = resultado.filter(
         (factura) => factura.subtipo === filters.subtipo,
       );
     }
 
-    // Filtro por fecha específica
     if (filters.fecha_vale) {
       resultado = resultado.filter((factura) => {
         if (!factura.fecha) return false;
-        // Comparar solo la fecha (sin hora) - formato DD/MM/YYYY del backend
         const [dia, mes, anio] = factura.fecha.split("/");
         const facturaFecha = `${anio}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`;
         return facturaFecha === filters.fecha_vale;
       });
     } else {
-      // Filtro por mes (usando el campo 'mes' que viene del backend)
       if (filters.mes_vale) {
         resultado = resultado.filter((factura) => {
           if (!factura.mes) return false;
@@ -1121,7 +1043,6 @@ export function FacturasSection() {
         });
       }
 
-      // Filtro por año (extraer del campo 'fecha' DD/MM/YYYY)
       if (filters.anio_vale) {
         resultado = resultado.filter((factura) => {
           if (!factura.fecha) return false;
@@ -1160,7 +1081,6 @@ export function FacturasSection() {
     });
   }, [facturasConsolidadas, filters, facturas]);
 
-  // Calcular total facturado de las facturas filtradas
   const totalFacturado = useMemo(() => {
     return facturasFiltradas
       .filter((factura) => factura.anulada !== true)
@@ -1172,7 +1092,7 @@ export function FacturasSection() {
     setValesNoFacturadosError(null);
     try {
       const allVales = await facturaService.obtenerValesNoFacturados({
-        solicitud_tipo: "material",
+        solicitud_tipo: "venta",
         skip: 0,
         limit: 200,
         q: searchValesNoFacturados.trim() || undefined,
@@ -1244,7 +1164,7 @@ export function FacturasSection() {
           solicitud?.codigo,
           solicitud?.estado,
           cliente?.nombre,
-          cliente?.numero,
+          (cliente as any)?.numero,
           cliente?.id,
         ];
 
@@ -1341,7 +1261,7 @@ export function FacturasSection() {
       facturas.filter((factura) => {
         if (!factura.id) return false;
         if (factura.anulada) return false;
-        if (factura.tipo !== "instaladora" || factura.subtipo !== "cliente") {
+        if (factura.tipo !== "venta" || factura.subtipo !== "cliente") {
           return false;
         }
         return (
@@ -1539,16 +1459,9 @@ export function FacturasSection() {
             ? totalPrecioFinal - factura.total_factura
             : 0;
 
-        // Determinar el tipo/subtipo para mostrar cuando no hay cliente
         let clienteDisplay = factura.cliente_nombre || "";
         if (!clienteDisplay) {
-          if (factura.tipo === "cliente_directo") {
-            clienteDisplay = "Cliente Directo";
-          } else if (factura.subtipo === "brigada") {
-            clienteDisplay = "Brigada";
-          } else {
-            clienteDisplay = "Sin cliente";
-          }
+          clienteDisplay = "Sin cliente";
         }
 
         return {
@@ -1569,9 +1482,9 @@ export function FacturasSection() {
       });
 
       await exportToExcel({
-        title: "Suncar SRL - Vales y Facturas de Instaladora",
+        title: "Suncar SRL - Vales y Facturas de Ventas",
         subtitle: `Registros exportados: ${data.length} facturas${Object.keys(filters).length > 0 ? " (filtradas)" : ""}`,
-        filename: generateFilename("facturas_instaladora"),
+        filename: generateFilename("facturas_ventas"),
         columns: [
           { header: "Número Factura", key: "numero_factura", width: 18 },
           { header: "Mes", key: "mes", width: 12 },
@@ -1631,9 +1544,9 @@ export function FacturasSection() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50">
       {/* Header */}
-      <header className="fixed-header bg-white shadow-sm border-b border-orange-100">
+      <header className="fixed-header bg-white shadow-sm border-b border-blue-100">
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center py-4 sm:py-5 gap-4">
             <div className="flex items-center space-x-3">
@@ -1650,7 +1563,7 @@ export function FacturasSection() {
                   <span className="sr-only">Volver a Facturación</span>
                 </Button>
               </Link>
-              <div className="p-0 rounded-full bg-white shadow border border-orange-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
+              <div className="p-0 rounded-full bg-white shadow border border-blue-200 flex items-center justify-center h-8 w-8 sm:h-12 sm:w-12">
                 <img
                   src="/logo.png"
                   alt="Logo SunCar"
@@ -1659,20 +1572,20 @@ export function FacturasSection() {
               </div>
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate flex items-center gap-2">
-                  Vales y Facturas de Instaladora
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  Vales y Facturas de Ventas
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     Finanzas
                   </span>
                 </h1>
                 <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  Control de facturación y vales
+                  Control de facturación y vales de ventas
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3 justify-end">
               {activeTab === "facturas" ? (
                 <>
-                  <div className="rounded-lg bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-700">
+                  <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
                     Total facturado: {formatCurrency(totalFacturado)}
                   </div>
                   <Button
@@ -1698,7 +1611,7 @@ export function FacturasSection() {
                   <Button
                     onClick={handleCreate}
                     size="sm"
-                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-orange-600 hover:bg-orange-700 touch-manipulation"
+                    className="h-10 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 touch-manipulation"
                     aria-label="Nueva factura"
                     title="Nueva factura"
                   >
@@ -1949,7 +1862,7 @@ export function FacturasSection() {
                         disabled={
                           processingValesNoFacturados || !selectedClienteRaw
                         }
-                        className="bg-orange-600 hover:bg-orange-700"
+                        className="bg-blue-600 hover:bg-blue-700"
                       >
                         {processingValesNoFacturados ? (
                           <>
@@ -2019,7 +1932,7 @@ export function FacturasSection() {
 
             {loadingValesNoFacturados ? (
               <div className="flex items-center justify-center py-12 bg-white rounded-lg border border-gray-200">
-                <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
               </div>
             ) : valesNoFacturadosError ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -2064,8 +1977,8 @@ export function FacturasSection() {
                       key={vale.id}
                       className={`border rounded-lg transition-all ${
                         isSelected
-                          ? "border-orange-500 bg-orange-50"
-                          : "border-gray-200 bg-white hover:border-orange-300"
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200 bg-white hover:border-blue-300"
                       }`}
                     >
                       <div
@@ -2088,12 +2001,12 @@ export function FacturasSection() {
                                 </p>
                                 <p className="text-xs text-gray-600">
                                   Cliente: {cliente?.nombre || "Sin cliente"}{" "}
-                                  {cliente?.numero
-                                    ? `(#${cliente.numero})`
+                                  {(cliente as any)?.numero
+                                    ? `(#${(cliente as any).numero})`
                                     : ""}
                                 </p>
                               </div>
-                              <span className="font-bold text-orange-600">
+                              <span className="font-bold text-blue-600">
                                 {formatCurrency(total)}
                               </span>
                             </div>
@@ -2219,7 +2132,7 @@ export function FacturasSection() {
       </main>
 
       {/* Dialog de Formulario */}
-      <FacturaFormDialog
+      <FacturaVentasFormDialog
         open={formDialogOpen}
         onOpenChange={handleFormDialogOpenChange}
         factura={selectedFactura}
@@ -2354,7 +2267,6 @@ export function FacturasSection() {
                   </p>
                 </div>
               ) : null}
-              {/* Información General */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-gray-600">Número de Factura</p>
@@ -2370,7 +2282,7 @@ export function FacturasSection() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total</p>
-                  <p className="font-bold text-xl text-orange-600">
+                  <p className="font-bold text-xl text-blue-600">
                     {formatCurrency(facturaDetails.total || 0)}
                   </p>
                 </div>
@@ -2404,7 +2316,6 @@ export function FacturasSection() {
                 </div>
               </div>
 
-              {/* Items combinados de todos los vales */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-lg">
                   Items (
@@ -2537,7 +2448,7 @@ export function FacturasSection() {
 
                   <div className="mt-3 pt-3 border-t border-gray-300 flex justify-between font-semibold">
                     <span>Total del Vale:</span>
-                    <span className="text-orange-600">
+                    <span className="text-blue-600">
                       {formatCurrency(
                         vale.items.reduce(
                           (sum, item) => sum + item.precio * item.cantidad,
@@ -2572,7 +2483,6 @@ export function FacturasSection() {
               </span>
             </p>
 
-            {/* Selector Manual / Desde Vales de Salida */}
             {!valeToEdit && facturaForVale?.cliente_id && (
               <div>
                 <Label className="text-sm font-medium text-gray-700 block">
@@ -2623,7 +2533,6 @@ export function FacturasSection() {
               </div>
             )}
 
-            {/* Contenido según modo */}
             {modoManual ? (
               <ValeForm
                 vale={valeDraft}
@@ -2632,13 +2541,13 @@ export function FacturasSection() {
                 onChange={(_, vale) => setValeDraft(vale)}
                 onRemove={() => setValeDraft(valeDraft)}
                 canRemove={false}
-                tipoFactura={facturaForVale?.tipo}
+                tipoFactura="venta"
               />
             ) : (
               <div className="space-y-3">
                 {loadingValesSalida ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
                   </div>
                 ) : valesDisponibles.length === 0 ? (
                   <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
@@ -2665,8 +2574,8 @@ export function FacturasSection() {
                         key={vale.id}
                         className={`border rounded-lg transition-all ${
                           isSelected
-                            ? "border-orange-500 bg-orange-50"
-                            : "border-gray-200 hover:border-orange-300"
+                            ? "border-blue-500 bg-blue-50"
+                            : "border-gray-200 hover:border-blue-300"
                         }`}
                       >
                         <div
@@ -2680,19 +2589,17 @@ export function FacturasSection() {
                               className="mt-1"
                             />
                             <div className="flex-1 space-y-2">
-                              {/* Header */}
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                   <span className="font-semibold text-lg">
                                     Vale {vale.codigo || vale.id.slice(0, 8)}
                                   </span>
                                 </div>
-                                <span className="font-bold text-orange-600">
+                                <span className="font-bold text-blue-600">
                                   {formatCurrency(total)}
                                 </span>
                               </div>
 
-                              {/* Info */}
                               <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
                                 {vale.fecha_creacion && (
                                   <div>
@@ -2707,7 +2614,6 @@ export function FacturasSection() {
                                 )}
                               </div>
 
-                              {/* Materiales preview */}
                               <div className="space-y-1">
                                 <div className="flex items-center justify-between">
                                   <span className="text-xs text-gray-500">
@@ -2767,7 +2673,6 @@ export function FacturasSection() {
                           </div>
                         </div>
 
-                        {/* Lista expandida de materiales */}
                         {isExpanded && (
                           <div className="border-t border-gray-200 bg-gray-50 p-4">
                             <div className="space-y-2">
@@ -2829,7 +2734,7 @@ export function FacturasSection() {
               {modoManual ? (
                 <Button
                   onClick={handleSaveVale}
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-blue-600 hover:bg-blue-700"
                   disabled={
                     savingVale ||
                     loadingMaterials ||
@@ -2851,7 +2756,7 @@ export function FacturasSection() {
               ) : (
                 <Button
                   onClick={handleAgregarValesSeleccionados}
-                  className="bg-orange-600 hover:bg-orange-700"
+                  className="bg-blue-600 hover:bg-blue-700"
                   disabled={savingVale || valesSeleccionados.size === 0}
                 >
                   {savingVale ? (

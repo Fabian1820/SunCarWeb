@@ -515,6 +515,7 @@ export function FacturaFormDialog({
         }
 
         const allVales = await facturaService.obtenerValesDisponibles({
+          solicitud_tipo: "material",
           ...clienteLookup,
           skip: 0,
           limit: 200,
