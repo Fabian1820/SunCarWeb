@@ -3,6 +3,12 @@
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/shared/molecule/dropdown-menu";
+import {
   Calendar,
   ClipboardList,
   Eye,
@@ -11,8 +17,11 @@ import {
   User,
   Warehouse,
   Ban,
+  FileDown,
 } from "lucide-react";
 import type { SolicitudVentaSummary } from "@/lib/api-types";
+
+export type ExportTipo = "conduce" | "garantia" | "ambos";
 
 interface SolicitudesVentasTableProps {
   solicitudes: SolicitudVentaSummary[];
@@ -20,6 +29,7 @@ interface SolicitudesVentasTableProps {
   onEdit?: (solicitud: SolicitudVentaSummary) => void;
   onAnular?: (solicitud: SolicitudVentaSummary) => void;
   onReabrir?: (solicitud: SolicitudVentaSummary) => void;
+  onExportar?: (solicitud: SolicitudVentaSummary, tipo: ExportTipo) => void;
 }
 
 export function SolicitudesVentasTable({
@@ -28,6 +38,7 @@ export function SolicitudesVentasTable({
   onEdit,
   onAnular,
   onReabrir,
+  onExportar,
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -194,6 +205,40 @@ export function SolicitudesVentasTable({
                           Reabrir
                         </span>
                       </Button>
+                    )}
+                    {onExportar && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="border-purple-300 text-purple-700 hover:bg-purple-50"
+                            title="Exportar documentos"
+                          >
+                            <FileDown className="h-4 w-4 sm:mr-1" />
+                            <span className="hidden sm:inline text-xs">
+                              Exportar
+                            </span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => onExportar(solicitud, "conduce")}
+                          >
+                            Conduce legal
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => onExportar(solicitud, "garantia")}
+                          >
+                            Certificado de garantía
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => onExportar(solicitud, "ambos")}
+                          >
+                            Ambos
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 </td>
