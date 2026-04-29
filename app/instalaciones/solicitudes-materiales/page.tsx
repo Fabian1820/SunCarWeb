@@ -274,7 +274,7 @@ export default function SolicitudesMaterialesPage() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-purple-600">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 gap-4">
