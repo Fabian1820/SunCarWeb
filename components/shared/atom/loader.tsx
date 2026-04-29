@@ -1,15 +1,24 @@
-import { Loader2 } from "lucide-react"
+"use client"
 
-export function Loader({ label }: { label?: string }) {
+import { DotLottieReact } from "@lottiefiles/dotlottie-react"
+
+export function Loader({ label, className }: { label?: string; className?: string }) {
+  // className se usa en algunos sitios como spinner inline (ej: botones), lo mantenemos pequeño
+  if (className) {
+    return <span className={className} />
+  }
+
   return (
     <div className="flex flex-col items-center justify-center py-8">
-      <span className="relative flex h-16 w-16">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-200 opacity-75"></span>
-        <span className="relative inline-flex rounded-full h-16 w-16 bg-gradient-to-br from-orange-400 to-yellow-300 items-center justify-center">
-          <Loader2 className="h-10 w-10 text-white animate-spin" />
-        </span>
-      </span>
-      {label && <span className="mt-4 text-lg font-medium text-orange-700 animate-fade-in">{label}</span>}
+      <DotLottieReact
+        src="/solar-sun-animation.lottie"
+        loop
+        autoplay
+        style={{ width: 140, height: 140 }}
+      />
+      {label && (
+        <span className="mt-2 text-sm font-medium text-gray-600">{label}</span>
+      )}
     </div>
   )
-} 
+}

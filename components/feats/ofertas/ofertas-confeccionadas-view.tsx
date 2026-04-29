@@ -2337,7 +2337,6 @@ export function OfertasConfeccionadasView() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[90px]">Foto</TableHead>
                   <TableHead>Nombre automático</TableHead>
                   <TableHead>Lead / Cliente</TableHead>
                   <TableHead className="w-[120px]">Fecha creación</TableHead>
@@ -2371,19 +2370,6 @@ export function OfertasConfeccionadasView() {
 
                   return (
                     <TableRow key={oferta.id}>
-                      <TableCell>
-                        <div className="h-14 w-14 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
-                          {oferta.foto_portada ? (
-                            <img
-                              src={oferta.foto_portada}
-                              alt={oferta.nombre}
-                              className="h-full w-full object-contain p-1"
-                            />
-                          ) : (
-                            <Building2 className="h-6 w-6 text-slate-400" />
-                          )}
-                        </div>
-                      </TableCell>
                       <TableCell>
                         <p className="font-semibold text-slate-900 line-clamp-2">
                           {oferta.nombre_automatico || oferta.nombre || "--"}
