@@ -543,8 +543,15 @@ export function FacturaVentasFormDialog({
       const valeId = vale.id_vale_salida || vale.id || "";
       return total + vale.items.reduce((sum, item, itemIndex) => {
         const key = getItemKey(valeId, itemIndex);
-        const discount = itemDiscounts[key] ?? 0;
-        return sum + item.precio * (1 - discount / 100) * item.cantidad;
+        const userDiscount = itemDiscounts[key];
+        let precioEfectivo: number;
+        if (userDiscount === undefined) {
+          // No tocado: usar precio_pagado guardado si existe, sino precio original
+          precioEfectivo = item.precio_pagado ?? item.precio;
+        } else {
+          precioEfectivo = item.precio * (1 - userDiscount / 100);
+        }
+        return sum + precioEfectivo * item.cantidad;
       }, 0);
     }, 0);
   }, [formData.vales, itemDiscounts]);
@@ -561,14 +568,19 @@ export function FacturaVentasFormDialog({
           ...vale,
           items: vale.items.map((item, itemIndex) => {
             const key = getItemKey(valeId, itemIndex);
-            const discount = itemDiscounts[key] ?? 0;
-            if (discount > 0) {
+            const userDiscount = itemDiscounts[key]; // undefined = usuario no tocó este ítem
+            if (userDiscount === undefined) {
+              // No hubo cambio: conservar lo que ya tiene el ítem (para edición)
+              return item;
+            }
+            if (userDiscount > 0) {
               return {
                 ...item,
-                descuento: discount,
-                precio_pagado: Math.round(item.precio * (1 - discount / 100) * 100) / 100,
+                descuento: userDiscount,
+                precio_pagado: Math.round(item.precio * (1 - userDiscount / 100) * 100) / 100,
               };
             }
+            // Descuento explícitamente en 0: limpiar
             return { ...item, descuento: null, precio_pagado: null };
           }),
         };
