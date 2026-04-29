@@ -124,6 +124,7 @@ const CLIENT_ESTADOS = [
   "Instalación en Proceso",
   "Pendiente de visita",
   "Pendiente de visitarnos",
+  "No interesado",
 ];
 
 const LEAD_FUENTES = [
