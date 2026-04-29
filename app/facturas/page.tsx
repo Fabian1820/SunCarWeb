@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { SOLO_PAGOS_CLIENTES_CIS } from "@/lib/facturacion-access"
 
 export default function FacturacionPage() {
-    const { user } = useAuth()
+    const { user, hasSubPermission } = useAuth()
     const soloPagosClientes =
         !!user?.ci && SOLO_PAGOS_CLIENTES_CIS.includes(user.ci)
 
@@ -47,9 +47,10 @@ export default function FacturacionPage() {
         },
     ]
 
-    const submodules = soloPagosClientes
-        ? submodulesAll.filter((m) => m.id === 'pagos-clientes')
-        : submodulesAll
+    const submodules = submodulesAll.filter((m) => {
+        if (soloPagosClientes) return m.id === 'pagos-clientes'
+        return hasSubPermission("facturas", m.id)
+    })
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">

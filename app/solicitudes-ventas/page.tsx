@@ -28,6 +28,12 @@ import type {
   SolicitudVentaSummary,
 } from "@/lib/api-types";
 import { SolicitudVentaService } from "@/lib/api-services";
+import {
+  generarConduceLegal,
+  generarCertificadoGarantia,
+  generarAmbos,
+} from "@/lib/services/feats/solicitudes-ventas/export-solicitud-venta-word-service";
+import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 
 export default function SolicitudesVentasPage() {
   const { toast } = useToast();
@@ -266,6 +272,41 @@ export default function SolicitudesVentasPage() {
     }
   };
 
+  const handleExportar = async (
+    solicitud: SolicitudVentaSummary,
+    tipo: ExportTipo,
+  ) => {
+    try {
+      const solicitudCompleta = await SolicitudVentaService.getSolicitudById(
+        solicitud.id,
+      );
+      if (!solicitudCompleta) {
+        toast({
+          title: "Error",
+          description: "No se pudo cargar la solicitud",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (tipo === "conduce") {
+        await generarConduceLegal(solicitudCompleta);
+      } else if (tipo === "garantia") {
+        await generarCertificadoGarantia(solicitudCompleta);
+      } else {
+        await generarAmbos(solicitudCompleta);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "No se pudo generar el documento",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleViewSolicitud = async (solicitud: SolicitudVentaSummary) => {
     try {
       const solicitudCompleta =
@@ -361,6 +402,9 @@ export default function SolicitudesVentasPage() {
               }}
               onReabrir={(solicitud) => {
                 void handleReabrirSolicitud(solicitud);
+              }}
+              onExportar={(solicitud, tipo) => {
+                void handleExportar(solicitud, tipo);
               }}
             />
 

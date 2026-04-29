@@ -51,6 +51,7 @@ export interface Factura {
   anulada?: boolean;
   motivo_anulacion?: string | null;
   total?: number;
+  monto_pagado?: number | null; // Ventas: lo que pagó realmente el cliente
 }
 
 export interface FacturaConsolidada {
@@ -69,6 +70,7 @@ export interface FacturaConsolidada {
   ofertas: OfertaInfo[];
   total_cobrado_todas_ofertas: number;
   monto_pendiente_materiales: number;
+  monto_pagado?: number | null; // Ventas: lo que pagó realmente el cliente
   pagada: boolean;
   terminada: boolean;
   anulada?: boolean;

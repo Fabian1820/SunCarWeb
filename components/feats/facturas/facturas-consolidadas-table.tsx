@@ -34,6 +34,7 @@ interface FacturasConsolidadasTableProps {
   onAddVale: (factura: FacturaConsolidada) => void;
   onAnular: (factura: FacturaConsolidada) => void;
   reversed?: boolean;
+  modeVentas?: boolean;
 }
 
 export function FacturasConsolidadasTable({
@@ -44,6 +45,7 @@ export function FacturasConsolidadasTable({
   onAddVale,
   onAnular,
   reversed = false,
+  modeVentas = false,
 }: FacturasConsolidadasTableProps) {
   const [clienteDialogOpen, setClienteDialogOpen] = useState(false);
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null);
@@ -139,14 +141,20 @@ export function FacturasConsolidadasTable({
                   <TableHead className="text-right">
                     Total Materiales Facturados
                   </TableHead>
-                  <TableHead className="text-right">Monto Cobrado</TableHead>
-                  <TableHead className="text-right">
-                    Monto Pendiente Materiales
-                  </TableHead>
-                  <TableHead className="text-right">
-                    Precio Final Oferta
-                  </TableHead>
-                  <TableHead className="text-right">Ganancia Actual</TableHead>
+                  {modeVentas ? (
+                    <TableHead className="text-right">Monto Pagado</TableHead>
+                  ) : (
+                    <>
+                      <TableHead className="text-right">Monto Cobrado</TableHead>
+                      <TableHead className="text-right">
+                        Monto Pendiente Materiales
+                      </TableHead>
+                      <TableHead className="text-right">
+                        Precio Final Oferta
+                      </TableHead>
+                      <TableHead className="text-right">Ganancia Actual</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
@@ -225,24 +233,36 @@ export function FacturasConsolidadasTable({
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(factura.total_factura)}
                         </TableCell>
-                        <TableCell
-                          className={`text-right font-medium ${factura.total_cobrado_todas_ofertas > 0 ? "text-green-600" : "text-gray-600"}`}
-                        >
-                          {formatCurrency(factura.total_cobrado_todas_ofertas)}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right font-medium ${factura.monto_pendiente_materiales > 0 ? "text-red-600" : "text-gray-600"}`}
-                        >
-                          {formatCurrency(factura.monto_pendiente_materiales)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium">
-                          {hasOfertas ? formatCurrency(totalPrecioFinal) : "-"}
-                        </TableCell>
-                        <TableCell
-                          className={`text-right font-semibold ${gananciaTotal !== 0 ? "text-blue-600" : "text-gray-600"}`}
-                        >
-                          {hasOfertas ? formatCurrency(gananciaTotal) : "-"}
-                        </TableCell>
+                        {modeVentas ? (
+                          <TableCell
+                            className={`text-right font-medium ${(factura.monto_pagado ?? 0) > 0 ? "text-green-600" : "text-gray-600"}`}
+                          >
+                            {factura.monto_pagado != null
+                              ? formatCurrency(factura.monto_pagado)
+                              : formatCurrency(factura.total_factura)}
+                          </TableCell>
+                        ) : (
+                          <>
+                            <TableCell
+                              className={`text-right font-medium ${factura.total_cobrado_todas_ofertas > 0 ? "text-green-600" : "text-gray-600"}`}
+                            >
+                              {formatCurrency(factura.total_cobrado_todas_ofertas)}
+                            </TableCell>
+                            <TableCell
+                              className={`text-right font-medium ${factura.monto_pendiente_materiales > 0 ? "text-red-600" : "text-gray-600"}`}
+                            >
+                              {formatCurrency(factura.monto_pendiente_materiales)}
+                            </TableCell>
+                            <TableCell className="text-right font-medium">
+                              {hasOfertas ? formatCurrency(totalPrecioFinal) : "-"}
+                            </TableCell>
+                            <TableCell
+                              className={`text-right font-semibold ${gananciaTotal !== 0 ? "text-blue-600" : "text-gray-600"}`}
+                            >
+                              {hasOfertas ? formatCurrency(gananciaTotal) : "-"}
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <div className="flex justify-end gap-2">
                             <Button

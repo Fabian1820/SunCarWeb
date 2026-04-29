@@ -43,6 +43,7 @@ interface AuthContextType {
   isLoading: boolean
   getAuthHeader: () => Record<string, string>
   hasPermission: (module: string) => boolean
+  hasSubPermission: (parent: string, child: string) => boolean
   loadModulosPermitidos: () => Promise<void>
 }
 
@@ -152,16 +153,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = (module: string): boolean => {
     if (!user) return false
+    if (user.is_superAdmin && module !== 'permisos') return true
+    // Acceso exacto O acceso a cualquier sub-módulo (ej: "facturas/vales-facturas-ventas" → permite ver "facturas")
+    return modulosPermitidos.includes(module) ||
+      modulosPermitidos.some(p => p.startsWith(module + "/"))
+  }
 
-    // Los superAdmin tienen acceso a todos los módulos excepto el módulo de permisos
-    // (que se maneja aparte en el dashboard)
-    if (user.is_superAdmin && module !== 'permisos') {
-      return true
-    }
-
-    // Verificar si el módulo está en la lista de módulos permitidos
-    // Los nombres deben coincidir exactamente con los almacenados en la base de datos
-    return modulosPermitidos.includes(module)
+  // Verifica si el usuario puede acceder a un sub-módulo específico.
+  // Retorna true si tiene permiso al módulo padre completo O al sub-módulo exacto.
+  const hasSubPermission = (parent: string, child: string): boolean => {
+    if (!user) return false
+    if (user.is_superAdmin) return true
+    return modulosPermitidos.includes(parent) ||
+      modulosPermitidos.includes(`${parent}/${child}`)
   }
 
   return (
@@ -175,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       getAuthHeader,
       hasPermission,
+      hasSubPermission,
       loadModulosPermitidos
     }}>
       {children}

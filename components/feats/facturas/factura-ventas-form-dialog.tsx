@@ -12,7 +12,7 @@ import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
-import { Eye, Loader2, Package, Search, X, User } from "lucide-react";
+import { Eye, Loader2, Package, Search, X, User, DollarSign } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { ClienteVentaService } from "@/lib/services/feats/clientes-ventas/cliente-venta-service";
 import { facturaService } from "@/lib/services/feats/facturas/factura-service";
@@ -318,8 +318,9 @@ export function FacturaVentasFormDialog({
     trabajador_ci: null,
     nombre_responsable: null,
     vales: [],
-    pagada: false,
-    terminada: false,
+    pagada: true,
+    terminada: true,
+    monto_pagado: null,
   });
 
   const [clientes, setClientes] = useState<ClienteVenta[]>([]);
@@ -376,8 +377,9 @@ export function FacturaVentasFormDialog({
         nombre_responsable: null,
         nombre_cliente: factura.nombre_cliente,
         vales: factura.vales,
-        pagada: factura.pagada,
-        terminada: factura.terminada,
+        pagada: true,
+        terminada: true,
+        monto_pagado: factura.monto_pagado ?? null,
       });
       setSelectedValeIds([]);
       setValesDisponibles([]);
@@ -402,8 +404,9 @@ export function FacturaVentasFormDialog({
           trabajador_ci: null,
           nombre_responsable: null,
           vales: mappedPrefillVales,
-          pagada: false,
-          terminada: false,
+          pagada: true,
+          terminada: true,
+          monto_pagado: null,
         });
         setSelectedValeIds(valesAjustados.map((v) => v.id));
         setValesDisponibles(valesAjustados);
@@ -511,6 +514,22 @@ export function FacturaVentasFormDialog({
     [factura, formData.cliente_id, hasPrefilledVales],
   );
 
+  const totalMateriales = useMemo(
+    () =>
+      formData.vales.reduce(
+        (sum, vale) =>
+          sum +
+          vale.items.reduce((s, item) => s + item.precio * item.cantidad, 0),
+        0,
+      ),
+    [formData.vales],
+  );
+
+  // Valor efectivo mostrado: lo que ingresó el usuario, o el total de materiales por defecto
+  const montoPagadoEfectivo = formData.monto_pagado ?? totalMateriales;
+  const minMontoPagado = Math.round(totalMateriales * 0.8 * 100) / 100;
+  const montoPagadoValido = montoPagadoEfectivo >= minMontoPagado;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -525,6 +544,9 @@ export function FacturaVentasFormDialog({
         trabajador_ci: null,
         nombre_responsable: null,
         nombre_cliente: selectedCliente?.nombre || formData.nombre_cliente || undefined,
+        pagada: true,
+        terminada: true,
+        monto_pagado: montoPagadoEfectivo,
       };
       await onSave(payload);
       onOpenChange(false);
@@ -536,7 +558,9 @@ export function FacturaVentasFormDialog({
   };
 
   const isFormValid = () =>
-    Boolean(formData.numero_factura.trim()) && Boolean(formData.cliente_id);
+    Boolean(formData.numero_factura.trim()) &&
+    Boolean(formData.cliente_id) &&
+    montoPagadoValido;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -682,31 +706,39 @@ export function FacturaVentasFormDialog({
             </div>
           )}
 
-          {/* Estados */}
-          <div className="flex gap-6">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="pagada"
-                checked={formData.pagada}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, pagada: checked as boolean })
-                }
-              />
-              <Label htmlFor="pagada" className="cursor-pointer">
-                Pagada
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="terminada"
-                checked={formData.terminada}
-                onCheckedChange={(checked) =>
-                  setFormData({ ...formData, terminada: checked as boolean })
-                }
-              />
-              <Label htmlFor="terminada" className="cursor-pointer">
-                Terminada
-              </Label>
+          {/* Monto Pagado */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-blue-600" />
+              Monto Pagado por el Cliente
+            </Label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              <div className="space-y-1">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={minMontoPagado}
+                  value={montoPagadoEfectivo}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setFormData({
+                      ...formData,
+                      monto_pagado: Number.isNaN(val) ? null : val,
+                    });
+                  }}
+                  className={`text-right ${!montoPagadoValido ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                />
+                {!montoPagadoValido && (
+                  <p className="text-xs text-red-600">
+                    El monto mínimo es ${minMontoPagado.toFixed(2)} (descuento máximo 20%)
+                  </p>
+                )}
+              </div>
+              <div className="text-xs text-gray-500 space-y-1 pt-2">
+                <p>Total materiales: <span className="font-semibold text-gray-700">${totalMateriales.toFixed(2)}</span></p>
+                <p>Mínimo permitido (−20%): <span className="font-semibold text-gray-700">${minMontoPagado.toFixed(2)}</span></p>
+                <p className="text-gray-400">Puede subirse sin límite.</p>
+              </div>
             </div>
           </div>
 
