@@ -913,6 +913,9 @@ export function EditClientDialog({
                         <SelectItem value="Pendiente de visita">
                           Pendiente de visita
                         </SelectItem>
+                        <SelectItem value="No interesado">
+                          No interesado
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
