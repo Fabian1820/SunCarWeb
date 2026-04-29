@@ -15,13 +15,8 @@ import {
   BarChart3,
 } from "lucide-react"
 import Link from "next/link"
-import { ResultadosService, ClienteService, LeadService } from "@/lib/api-services"
-import { BrigadaService } from "@/lib/services/feats/brigade/brigada-service"
-import { ClienteVentaService } from "@/lib/services/feats/clientes-ventas/cliente-venta-service"
-import { SolicitudVentaService } from "@/lib/services/feats/solicitudes-ventas/solicitud-venta-service"
-import { TrabajosDiariosService } from "@/lib/services/feats/instalaciones/trabajos-diarios-service"
-import { InstalacionesService } from "@/lib/services/feats/instalaciones/instalaciones-service"
 import { apiRequest } from "@/lib/api-config"
+import { CentroControlService } from "@/lib/services/feats/centro-control/centro-control-service"
 import type { MunicipioDetallado } from "@/lib/types/feats/resultados/resultados-types"
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
@@ -280,31 +275,6 @@ function computeGeoJSONCenter(geometry: Feature["geometry"]): Point2D | null {
 
 // ─── Paginadores ─────────────────────────────────────────────────────────────
 
-async function fetchAllClientes(): Promise<Cliente[]> {
-  const PAGE = 200
-  const first = await ClienteService.getClientes({ skip: 0, limit: PAGE })
-  const all: Cliente[] = [...first.clients]
-  if (first.total <= PAGE) return all
-  const pages = Math.ceil((first.total - PAGE) / PAGE)
-  const rest = await Promise.all(Array.from({ length: pages }, (_, i) =>
-    ClienteService.getClientes({ skip: (i + 1) * PAGE, limit: PAGE }).then(r => r.clients).catch(() => [] as Cliente[])
-  ))
-  rest.forEach(p => all.push(...p))
-  return all
-}
-
-async function fetchAllLeads(): Promise<Lead[]> {
-  const PAGE = 200
-  const first = await LeadService.getLeads({ skip: 0, limit: PAGE })
-  const all: Lead[] = [...first.leads]
-  if (first.total <= PAGE) return all
-  const pages = Math.ceil((first.total - PAGE) / PAGE)
-  const rest = await Promise.all(Array.from({ length: pages }, (_, i) =>
-    LeadService.getLeads({ skip: (i + 1) * PAGE, limit: PAGE }).then(r => r.leads).catch(() => [] as Lead[])
-  ))
-  rest.forEach(p => all.push(...p))
-  return all
-}
 
 // ─── Colores del mapa ─────────────────────────────────────────────────────────
 // 5 niveles con alto contraste entre cada uno
@@ -2093,204 +2063,102 @@ export default function CentroControlView() {
   const fetchData = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true); else setLoading(true)
 
-    const getVisitasRealizadas = async (weekStartStr: string, weekEndStr: string) => {
-      try {
-        const visitasRes = await apiRequest<Record<string, unknown>>(`/visitas/?estado=completada&fecha_desde=${weekStartStr}&fecha_hasta=${weekEndStr}`)
-        const inner = (visitasRes?.data ?? visitasRes) as Record<string, unknown> | null
-        const visitas = Array.isArray(inner?.visitas) ? inner.visitas : []
-        return typeof inner?.total === "number" ? inner.total : visitas.length
-      } catch {
-        return 0
-      }
-    }
-
-    const parseOfertasConfeccion = (payload: unknown): unknown[] => {
-      if (Array.isArray(payload)) return payload
-      if (payload && typeof payload === "object" && Array.isArray((payload as { data?: unknown[] }).data)) {
-        return (payload as { data?: unknown[] }).data ?? []
-      }
-      return []
-    }
-
     try {
       const { start: weekStart, end: weekEnd } = getWeekRange()
       const weekStartStr = toISODate(weekStart), weekEndStr = toISODate(weekEnd)
 
-      // Fase 1 (rápida): tarjetas y métricas principales
-      const [dashboardResult, pendientesResult, pendientesVisitaResult,
-        leadsThisWeekResult, visitasRealizadasResult,
-      ] = await Promise.allSettled([
-        ResultadosService.getDashboardPrincipal(),
-        InstalacionesService.getPendientesInstalacion(),
-        apiRequest<{ total_general?: number; clientes?: unknown[]; leads?: unknown[] }>("/pendientes-visita/"),
-        LeadService.getLeads({ fechaDesde: weekStartStr, fechaHasta: weekEndStr, limit: 1000 }),
-        getVisitasRealizadas(weekStartStr, weekEndStr),
-      ])
+      const data = await CentroControlService.getDashboard(weekStartStr, weekEndStr, isRefresh)
 
-      const dashboard = dashboardResult.status === "fulfilled" ? dashboardResult.value : null
-      const pendientes = pendientesResult.status === "fulfilled" ? pendientesResult.value : null
-      const pendientesInstalacion = pendientes ? (pendientes.total_leads ?? 0) + (pendientes.total_clientes ?? 0) : 0
-      const pendientesVisita = pendientesVisitaResult.status === "fulfilled" ? pendientesVisitaResult.value : null
-      const visitasPendientes = pendientesVisita?.total_general ?? ((pendientesVisita?.clientes?.length ?? 0) + (pendientesVisita?.leads?.length ?? 0))
-      const leadsData = leadsThisWeekResult.status === "fulfilled" ? leadsThisWeekResult.value : { leads: [], total: 0 }
-      const nuevosLeads = leadsData.total > 0 ? leadsData.total : leadsData.leads.length
-      const visitasRealizadas = visitasRealizadasResult.status === "fulfilled" ? visitasRealizadasResult.value : 0
+      // KPIs, operaciones y stats de semana — todos en una respuesta
+      setControlData({
+        totalClientes: data.kpis.total_clientes,
+        totalMunicipios: data.kpis.total_municipios,
+        totalKwPaneles: data.kpis.total_kw_paneles,
+        totalKwInversores: data.kpis.total_kw_inversores,
+        totalKwhBaterias: data.kpis.total_kwh_baterias,
+        pendientesInstalacion: data.operaciones.pendientes_instalacion,
+        enProceso: data.operaciones.en_proceso,
+        averiasPendientes: data.operaciones.averias_pendientes,
+        visitasPendientes: data.operaciones.visitas_pendientes,
+        instalacionesTerminadas: data.semana.instalaciones_terminadas,
+        instalacionesComenzadas: data.semana.instalaciones_comenzadas,
+        nuevosLeads: data.semana.nuevos_leads,
+        nuevosClientes: data.semana.nuevos_clientes,
+        averiasSolucionadas: data.semana.averias_solucionadas,
+        visitasRealizadas: data.semana.visitas_realizadas,
+      })
 
-      setControlData(prev => ({
-        totalClientes: dashboard?.cantidad_clientes ?? prev?.totalClientes ?? 0,
-        totalMunicipios: dashboard?.cantidad_municipios_instalados ?? 0,
-        totalKwPaneles: dashboard?.total_kw_paneles ?? 0,
-        totalKwInversores: dashboard?.total_kw_inversores ?? 0,
-        totalKwhBaterias: dashboard?.total_kw_baterias ?? 0,
-        pendientesInstalacion,
-        enProceso: prev?.enProceso ?? 0,
-        averiasPendientes: prev?.averiasPendientes ?? 0,
-        visitasPendientes,
-        instalacionesTerminadas: prev?.instalacionesTerminadas ?? 0,
-        instalacionesComenzadas: prev?.instalacionesComenzadas ?? 0,
-        nuevosLeads,
-        nuevosClientes: prev?.nuevosClientes ?? 0,
-        averiasSolucionadas: prev?.averiasSolucionadas ?? 0,
-        visitasRealizadas,
-      }))
+      // Datasets completos
+      setAllClients(data.clientes as unknown as Cliente[])
+      setAllLeads(data.leads as unknown as Lead[])
+      setBrigadas(data.brigadas as unknown as Brigada[])
+      setAllConfeccionOfertas(data.ofertas_confeccion as RawConfeccionOferta[])
+      setMunicipios(data.municipios_detallados as unknown as MunicipioDetallado[])
+
+      // Clientes con averías (derivados del slim — solo los que tienen averias pendientes)
+      setClientesConAverias(data.clientes.filter(c => (c.averias?.length ?? 0) > 0) as unknown as Cliente[])
+
+      // Resumen comercial
+      setComercialResumen({
+        confirmadas: data.comercial.ofertas_confirmadas,
+        canceladas: data.comercial.ofertas_canceladas,
+        reservadas: data.comercial.ofertas_reservadas,
+      })
+
+      // Ventas
+      const clientesVenta = data.clientes_venta as unknown as ClienteVenta[]
+      const todasSolicitudesVenta = data.solicitudes_venta as unknown as SolicitudVenta[]
+      setAllClientesVenta(clientesVenta)
+      setAllSolicitudesVenta(todasSolicitudesVenta)
+
+      const solicitudesUsadas = todasSolicitudesVenta.filter(s => s.estado === "usada")
+      const matVendidosMap = new Map<string, { nombre: string; cantidad: number }>()
+      solicitudesUsadas.forEach(s => {
+        s.materiales?.forEach(m => {
+          const nombre = m.material_descripcion || m.descripcion || m.material_codigo || m.codigo || m.material_id || "Material"
+          const key = m.material_id || normalizeText(nombre)
+          const ex = matVendidosMap.get(key) ?? { nombre, cantidad: 0 }
+          ex.cantidad += m.cantidad ?? 0
+          matVendidosMap.set(key, ex)
+        })
+      })
+      setVentasResumen({
+        totalClientesVentas: clientesVenta.length,
+        totalSolicitudesDespachadas: solicitudesUsadas.length,
+        materialesVendidos: Array.from(matVendidosMap.values()).filter(m => m.cantidad > 0).sort((a, b) => b.cantidad - a.cantidad),
+      })
+
+      // Trabajos diarios
+      setAllTrabajosDiarios(data.trabajos_diarios.map(t => ({
+        fecha_trabajo: t.fecha_trabajo,
+        tipo_trabajo: t.tipo_trabajo,
+        instalacion_terminada: t.instalacion_terminada,
+        cierre_diario_confirmado: t.cierre_diario_confirmado,
+        cliente_numero: t.cliente_numero ?? null,
+        cliente_nombre: t.cliente_nombre ?? null,
+        cliente_telefono: t.cliente_telefono ?? null,
+        cliente_direccion: t.cliente_direccion ?? null,
+        fin_comentario: t.fin_comentario ?? null,
+      })))
+
       setLastUpdate(new Date())
-
-      // Fase 2 (pesada): datasets completos para mapa/paneles
-      void (async () => {
-        try {
-          const [allClientsResult, clientesConAveriasResult, allLeadsResult, brigadasResult, ofertasConfeccionResult, clientesVentaResult, solicitudesVentaResult, trabajosDiariosResult] = await Promise.allSettled([
-            fetchAllClientes(),
-            ClienteService.getClientesConAverias(),
-            fetchAllLeads(),
-            BrigadaService.getAllBrigadas(),
-            apiRequest<{ data?: unknown[] } | unknown[]>("/ofertas/confeccion/"),
-            ClienteVentaService.getClientes(),
-            SolicitudVentaService.getSolicitudes(), // todas, sin filtro de estado
-            TrabajosDiariosService.getTrabajosTodos(),
-          ])
-
-          const clients: Cliente[] = allClientsResult.status === "fulfilled" ? allClientsResult.value : []
-          setAllClients(clients)
-          const conAverias: Cliente[] = clientesConAveriasResult.status === "fulfilled" ? clientesConAveriasResult.value : []
-          setClientesConAverias(conAverias)
-          const leads: Lead[] = allLeadsResult.status === "fulfilled" ? allLeadsResult.value : []
-          setAllLeads(leads)
-          const brigList = brigadasResult.status === "fulfilled" ? brigadasResult.value : []
-          setBrigadas(brigList as Brigada[])
-          const trabajosDiariosRaw = trabajosDiariosResult.status === "fulfilled" ? trabajosDiariosResult.value : []
-
-          const enProceso = clients.filter(c => isEnProceso(c.estado)).length
-          const instalacionesTerminadas = trabajosDiariosRaw.filter(t =>
-            t.cierre_diario_confirmado === true &&
-            t.instalacion_terminada === true &&
-            isInRange(t.fecha_trabajo, weekStart, weekEnd)
-          ).length
-          const instalacionesComenzadas = trabajosDiariosRaw.filter(t =>
-            t.cierre_diario_confirmado === true &&
-            normalizeText(t.tipo_trabajo ?? "").includes("instalacion nueva") &&
-            isInRange(t.fecha_trabajo, weekStart, weekEnd)
-          ).length
-          const nuevosClientes = clients.filter(c => isInRange(c.fecha_creacion, weekStart, weekEnd)).length
-
-          let averiasPendientes = 0, averiasSolucionadas = 0
-          conAverias.forEach(c => {
-            const avs: Array<Record<string, unknown>> = (c.averias as unknown as Array<Record<string, unknown>>) ?? []
-            if (avs.length > 0) {
-              avs.forEach(a => {
-                if (isAveriaPendiente(a.estado)) averiasPendientes++
-                else if (isAveriaSolucionada(a.estado) && isInRange(a.fecha_solucion as string, weekStart, weekEnd)) averiasSolucionadas++
-              })
-            } else {
-              // el endpoint no embebe el array — contar el cliente como avería pendiente
-              averiasPendientes++
-            }
-          })
-
-          const ofertasRaw = ofertasConfeccionResult.status === "fulfilled"
-            ? parseOfertasConfeccion(ofertasConfeccionResult.value)
-            : []
-          const resumenComercial = ofertasRaw.reduce<ComercialResumen>((acc, item) => {
-            const record = item as Record<string, unknown>
-            const estado = String(record.estado ?? record.status ?? "").toLowerCase().trim()
-            if (estado.includes("confirmada_por_cliente") || estado.includes("confirmada por cliente")) acc.confirmadas += 1
-            else if (estado.includes("cancelada")) acc.canceladas += 1
-            else if (estado.includes("reservada")) acc.reservadas += 1
-            return acc
-          }, { confirmadas: 0, canceladas: 0, reservadas: 0 })
-          setComercialResumen(resumenComercial)
-          setAllConfeccionOfertas(ofertasRaw as RawConfeccionOferta[])
-
-          // Ventas — guardar raw en estado para recomputar al cambiar periodo
-          const clientesVenta = clientesVentaResult.status === "fulfilled" ? clientesVentaResult.value : []
-          const todasSolicitudesVenta = solicitudesVentaResult.status === "fulfilled" ? solicitudesVentaResult.value : []
-          setAllClientesVenta(clientesVenta)
-          setAllSolicitudesVenta(todasSolicitudesVenta)
-          setAllTrabajosDiarios(trabajosDiariosRaw.map(t => ({
-            fecha_trabajo: t.fecha_trabajo,
-            tipo_trabajo: t.tipo_trabajo,
-            instalacion_terminada: t.instalacion_terminada,
-            cierre_diario_confirmado: t.cierre_diario_confirmado,
-            cliente_numero: t.cliente_numero ?? null,
-            cliente_nombre: t.cliente_nombre ?? null,
-            cliente_telefono: t.cliente_telefono ?? null,
-            cliente_direccion: t.cliente_direccion ?? null,
-            fin_comentario: t.fin?.comentario ?? null,
-          })))
-          const solicitudesUsadas = todasSolicitudesVenta.filter(s => s.estado === "usada")
-          const matVendidosMap = new Map<string, { nombre: string; cantidad: number }>()
-          solicitudesUsadas.forEach(s => {
-            s.materiales?.forEach(m => {
-              const nombre = m.material_descripcion || m.descripcion || m.material_codigo || m.codigo || m.material_id || "Material"
-              const key = m.material_id || normalizeText(nombre)
-              const ex = matVendidosMap.get(key) ?? { nombre, cantidad: 0 }
-              ex.cantidad += m.cantidad ?? 0
-              matVendidosMap.set(key, ex)
-            })
-          })
-          const materialesVendidos = Array.from(matVendidosMap.values())
-            .filter(m => m.cantidad > 0)
-            .sort((a, b) => b.cantidad - a.cantidad)
-          setVentasResumen({
-            totalClientesVentas: clientesVenta.length,
-            totalSolicitudesDespachadas: solicitudesUsadas.length,
-            materialesVendidos,
-          })
-
-          setControlData(prev => prev ? {
-            ...prev,
-            totalClientes: dashboard?.cantidad_clientes ?? clients.length,
-            enProceso,
-            averiasPendientes,
-            instalacionesTerminadas,
-            instalacionesComenzadas,
-            nuevosClientes,
-            averiasSolucionadas,
-          } : prev)
-          setLastUpdate(new Date())
-        } catch (err) {
-          console.error("Error cargando datasets completos de Centro de Control:", err)
-        }
-      })()
     } catch (err) {
-      console.error("Error cargando datos:", err)
+      console.error("Error cargando datos del Centro de Control:", err)
     } finally {
       setLoading(false); setRefreshing(false)
     }
   }, [])
 
-  // ── Map Load ────────────────────────────────────────────────────────────────
+  // ── Map Load (solo GeoJSON local — municipios vienen del dashboard) ──────────
   useEffect(() => {
     let cancelled = false
     async function loadMap() {
       setMapLoading(true)
       try {
-        const [muniData, geoRes] = await Promise.all([
-          ResultadosService.getMunicipiosDetallados(),
-          fetch("/data/cuba-municipios.geojson", { cache: "force-cache" }),
-        ])
+        const geoRes = await fetch("/data/cuba-municipios.geojson", { cache: "force-cache" })
         if (!geoRes.ok) throw new Error("GeoJSON no disponible")
         const geoJson = (await geoRes.json()) as GeoJsonObject
-        if (!cancelled) { setMunicipios(muniData); setGeoJsonData(geoJson) }
+        if (!cancelled) setGeoJsonData(geoJson)
       } catch (err) {
         console.error("Error cargando mapa:", err)
       } finally {
