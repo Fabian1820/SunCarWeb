@@ -401,9 +401,32 @@ export function CreateSolicitudMaterialDialog({
                   ? [payload.oferta]
                   : [];
 
+            // Solo considerar ofertas confirmadas por el cliente.
+            // Si hay más de una confirmada, usar la más reciente (por fecha_actualizacion / fecha_creacion).
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const esConfirmada = (o: any) => {
+              const estado = String(o?.estado || o?.status || "").toLowerCase();
+              return estado.includes("confirmada_por_cliente") || estado.includes("confirmada_cliente");
+            };
+            const confirmadas = rawOfertas.filter(esConfirmada);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const ofertaSeleccionada: any | null =
+              confirmadas.length === 0
+                ? null
+                : confirmadas.reduce((mejor, actual) => {
+                    const tMejor = new Date(
+                      mejor?.fecha_actualizacion || mejor?.fecha_creacion || mejor?.updated_at || mejor?.created_at || 0,
+                    ).getTime();
+                    const tActual = new Date(
+                      actual?.fecha_actualizacion || actual?.fecha_creacion || actual?.updated_at || actual?.created_at || 0,
+                    ).getTime();
+                    return tActual > tMejor ? actual : mejor;
+                  });
+            const ofertasAUsar = ofertaSeleccionada ? [ofertaSeleccionada] : [];
+
             // Acumular por material_codigo: pendiente total y si tiene alguna entrega
             const acumulado = new Map<string, { pendiente: number; tieneEntregas: boolean }>();
-            for (const oferta of rawOfertas) {
+            for (const oferta of ofertasAUsar) {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const items: any[] = Array.isArray(oferta.items ?? oferta.materiales)
                 ? (oferta.items ?? oferta.materiales)
