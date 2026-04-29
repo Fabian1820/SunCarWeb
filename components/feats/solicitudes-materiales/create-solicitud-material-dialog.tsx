@@ -420,19 +420,26 @@ export function CreateSolicitudMaterialDialog({
                   catalogMat?.categoria;
                 if (!isCategoriaOfertaPermitida(categoriaItem)) continue;
 
-                const pendiente = Number(item.cantidad_pendiente_por_entregar ?? -1);
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const entregas: any[] = Array.isArray(item.entregas) ? item.entregas : [];
                 const tieneEntregas = entregas.length > 0;
+                const totalEntregado = entregas.reduce(
+                  (sum, entrega) => sum + (Number(entrega?.cantidad) || 0),
+                  0,
+                );
+                const cantidadTotal = Number(item.cantidad) || 0;
+                const rawPendiente = item.cantidad_pendiente_por_entregar;
+                const pendiente =
+                  Number.isFinite(Number(rawPendiente)) && rawPendiente !== undefined && rawPendiente !== null
+                    ? Math.max(0, Number(rawPendiente))
+                    : Math.max(0, cantidadTotal - totalEntregado);
                 const existing = acumulado.get(materialCodigo);
                 if (existing) {
-                  existing.pendiente = pendiente >= 0
-                    ? existing.pendiente + pendiente
-                    : existing.pendiente;
+                  existing.pendiente = existing.pendiente + pendiente;
                   existing.tieneEntregas = existing.tieneEntregas || tieneEntregas;
                 } else {
                   acumulado.set(materialCodigo, {
-                    pendiente: pendiente >= 0 ? pendiente : 0,
+                    pendiente,
                     tieneEntregas,
                   });
                 }
@@ -1022,10 +1029,16 @@ export function CreateSolicitudMaterialDialog({
                                     Stock insuficiente
                                   </Badge>
                                 )}
-                                {mat.alerta_stock && !mat.entregado && (
-                                  <p className="text-xs text-red-600 mt-0.5">
-                                    Stock: {mat.stock_actual ?? 0} | Faltante: {mat.faltante}
-                                  </p>
+                                {!mat.entregado && !mat.sinVinculo && selectedAlmacenId && (
+                                  mat.alerta_stock ? (
+                                    <p className="text-xs text-red-600 mt-0.5">
+                                      Stock: {mat.stock_actual ?? 0} {mat.um} | Faltante: {mat.faltante}
+                                    </p>
+                                  ) : (
+                                    <p className="text-xs text-gray-500 mt-0.5">
+                                      Stock disponible: {mat.stock_actual ?? 0} {mat.um}
+                                    </p>
+                                  )
                                 )}
                               </div>
                             </div>
@@ -1079,38 +1092,57 @@ export function CreateSolicitudMaterialDialog({
               )}
               {showMaterialDropdown && materialResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
-                  {materialResults.map((m) => (
-                    <button
-                      key={m.id || m._id}
-                      className="w-full text-left px-3 py-2 hover:bg-purple-50 text-sm flex items-center gap-2"
-                      onClick={() => handleAddMaterial(m)}
-                    >
-                      {m.foto ? (
-                        <img
-                          src={m.foto}
-                          alt={m.nombre || m.descripcion}
-                          className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display =
-                              "none";
-                          }}
-                        />
-                      ) : (
-                        <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
-                          <Package className="h-3 w-3 text-gray-400" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">
-                          {m.nombre || m.descripcion}
-                        </p>
-                        {m.codigo && (
-                          <p className="text-xs text-gray-400">{m.codigo}</p>
+                  {materialResults.map((m) => {
+                    const matId = m.id || m._id || "";
+                    const stockDisponible = selectedAlmacenId
+                      ? lookupFromMap(stockMap, matId, m.codigo?.toString())
+                      : null;
+                    return (
+                      <button
+                        key={matId}
+                        className="w-full text-left px-3 py-2 hover:bg-purple-50 text-sm flex items-center gap-2"
+                        onClick={() => handleAddMaterial(m)}
+                      >
+                        {m.foto ? (
+                          <img
+                            src={m.foto}
+                            alt={m.nombre || m.descripcion}
+                            className="h-7 w-7 rounded object-cover border border-gray-200 flex-shrink-0"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="h-7 w-7 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                            <Package className="h-3 w-3 text-gray-400" />
+                          </div>
                         )}
-                      </div>
-                      <Plus className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    </button>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">
+                            {m.nombre || m.descripcion}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs">
+                            {m.codigo && (
+                              <span className="text-gray-400">{m.codigo}</span>
+                            )}
+                            {selectedAlmacenId && (
+                              <span
+                                className={
+                                  (stockDisponible ?? 0) > 0
+                                    ? "text-green-600 font-medium"
+                                    : "text-red-500 font-medium"
+                                }
+                              >
+                                Stock: {stockDisponible ?? 0} {m.um || "U"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <Plus className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
