@@ -737,8 +737,9 @@ export function FacturaVentasFormDialog({
                       <div className="divide-y divide-gray-100">
                         {/* Encabezado columnas */}
                         <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs text-gray-500 font-medium bg-gray-50">
+                          <div className="col-span-1"></div>
                           <div className="col-span-4">Material</div>
-                          <div className="col-span-2 text-right">Cant.</div>
+                          <div className="col-span-1 text-right">Cant.</div>
                           <div className="col-span-2 text-right">Precio unit.</div>
                           <div className="col-span-2 text-center">Desc. %</div>
                           <div className="col-span-2 text-right">Subtotal</div>
@@ -748,13 +749,32 @@ export function FacturaVentasFormDialog({
                           const discount = itemDiscounts[key] ?? 0;
                           const precioConDesc = item.precio * (1 - discount / 100);
                           const subtotal = precioConDesc * item.cantidad;
+                          const matchedMaterial = materials.find(
+                            (m) =>
+                              m.codigo?.toString() === item.codigo ||
+                              m.id?.toString() === item.material_id,
+                          );
+                          const fotoUrl = matchedMaterial?.foto || null;
                           return (
                             <div key={key} className="grid grid-cols-12 gap-2 px-4 py-2 items-center text-sm">
-                              <div className="col-span-4">
-                                <p className="font-medium text-gray-900 truncate">{item.codigo}</p>
-                                <p className="text-xs text-gray-500 truncate">{item.descripcion}</p>
+                              <div className="col-span-1 flex items-center justify-center">
+                                {fotoUrl ? (
+                                  <img
+                                    src={fotoUrl}
+                                    alt={item.codigo}
+                                    className="h-9 w-9 rounded object-cover border border-gray-200"
+                                  />
+                                ) : (
+                                  <div className="h-9 w-9 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                    <Package className="h-4 w-4 text-gray-400" />
+                                  </div>
+                                )}
                               </div>
-                              <div className="col-span-2 text-right text-gray-700">{item.cantidad}</div>
+                              <div className="col-span-4">
+                                <p className="text-sm font-semibold text-gray-800 truncate">{item.codigo}</p>
+                                <p className="text-sm text-gray-700 truncate">{item.descripcion}</p>
+                              </div>
+                              <div className="col-span-1 text-right text-gray-700">{item.cantidad}</div>
                               <div className="col-span-2 text-right text-gray-700">${item.precio.toFixed(2)}</div>
                               <div className="col-span-2">
                                 <Input
