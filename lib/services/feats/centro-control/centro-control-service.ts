@@ -68,6 +68,7 @@ export interface CentroControlOfertaSlim {
   lead_id?: string
   estado?: string
   fecha_creacion?: string
+  /** Solo presente en respuestas on-demand (equipos-batch / ofertas-items) */
   items?: Array<{ material_codigo?: string; descripcion?: string; cantidad?: number; categoria?: string }>
   elementos_personalizados?: Array<{ descripcion?: string; cantidad?: number; categoria?: string }>
 }
@@ -127,5 +128,17 @@ export class CentroControlService {
     const params = new URLSearchParams({ fecha_desde: fechaDesde, fecha_hasta: fechaHasta })
     if (forceRefresh) params.set("force_refresh", "true")
     return apiRequest<CentroControlDashboard>(`/centro-control/dashboard?${params}`)
+  }
+
+  /** Carga los items de equipos para un lote de clientes (on-demand al abrir un card de detalle) */
+  static async getEquiposBatch(numerosCliente: string[]): Promise<CentroControlOfertaSlim[]> {
+    if (!numerosCliente.length) return []
+    const numeros = numerosCliente.join(",")
+    return apiRequest<CentroControlOfertaSlim[]>(`/centro-control/equipos-batch?numeros=${encodeURIComponent(numeros)}`)
+  }
+
+  /** Carga todas las ofertas con items — para el panel de Análisis Regional (on-demand) */
+  static async getOfertasItems(): Promise<CentroControlOfertaSlim[]> {
+    return apiRequest<CentroControlOfertaSlim[]>(`/centro-control/ofertas-items`)
   }
 }

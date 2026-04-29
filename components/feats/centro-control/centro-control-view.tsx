@@ -2030,6 +2030,11 @@ export default function CentroControlView() {
   const [showAnalisisRegional, setShowAnalisisRegional] = useState(false)
   const [showClientesStats, setShowClientesStats] = useState(false)
   const [allConfeccionOfertas, setAllConfeccionOfertas] = useState<RawConfeccionOferta[]>([])
+  // Ofertas con items cargadas on-demand al abrir un card de detalle
+  const [equiposParaCard, setEquiposParaCard] = useState<RawConfeccionOferta[]>([])
+  // Ofertas con items para el panel AnalisisRegional (cargadas lazy al abrirlo)
+  const [ofertasItemsCompleto, setOfertasItemsCompleto] = useState<RawConfeccionOferta[]>([])
+  const [ofertasItemsLoading, setOfertasItemsLoading] = useState(false)
   const [ventasResumen, setVentasResumen] = useState<VentasResumen>({ totalClientesVentas: 0, totalSolicitudesDespachadas: 0, materialesVendidos: [] })
   const [showMaterialesVendidos, setShowMaterialesVendidos] = useState(false)
   // ── Periodo del panel derecho ──────────────────────────────────────────────
@@ -2171,6 +2176,31 @@ export default function CentroControlView() {
 
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { setSelectedItem(null) }, [viewMode])
+
+  // ── Carga on-demand de equipos al abrir un card de detalle ─────────────────
+  useEffect(() => {
+    const modos = ["pendientes_instalacion", "en_proceso", "averias", "visitas"] as const
+    if (!selectedItem || !modos.includes(selectedItem.mode as typeof modos[number])) {
+      setEquiposParaCard([])
+      return
+    }
+    const item = selectedItem as { clientes: Cliente[] }
+    const numeros = item.clientes.map(c => c.numero).filter((n): n is string => !!n)
+    if (!numeros.length) { setEquiposParaCard([]); return }
+    CentroControlService.getEquiposBatch(numeros)
+      .then(data => setEquiposParaCard(data as RawConfeccionOferta[]))
+      .catch(() => setEquiposParaCard([]))
+  }, [selectedItem])
+
+  // ── Carga lazy de ofertas con items para AnalisisRegional ──────────────────
+  useEffect(() => {
+    if (!showAnalisisRegional || ofertasItemsCompleto.length > 0 || ofertasItemsLoading) return
+    setOfertasItemsLoading(true)
+    CentroControlService.getOfertasItems()
+      .then(data => setOfertasItemsCompleto(data as RawConfeccionOferta[]))
+      .catch(() => {})
+      .finally(() => setOfertasItemsLoading(false))
+  }, [showAnalisisRegional, ofertasItemsCompleto.length, ofertasItemsLoading])
 
   // ── Compute GeoJSON bounds ──────────────────────────────────────────────────
   useEffect(() => {
@@ -3120,10 +3150,10 @@ export default function CentroControlView() {
 
           {/* Cards */}
           {selectedItem?.mode === "todos" && <MunicipioCard muni={selectedItem.muni} allClients={allClients} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "pendientes_instalacion" && <PendientesInstCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "en_proceso" && <EnProcesoCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={allConfeccionOfertas} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "pendientes_instalacion" && <PendientesInstCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "en_proceso" && <EnProcesoCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "ventas" && <VentasClientesCard municipio={selectedItem.municipio} clientesVenta={selectedItem.clientesVenta} solicitudesUsadas={allSolicitudesVenta.filter(s => s.estado === "usada")} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "trabajos_diarios" && <TrabajosCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={allClients} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "clientes_trabajados" && <ClientesTrabajadosCard municipio={selectedItem.municipio} clienteNumeros={selectedItem.clienteNumeros} allClients={allClients} onClose={() => setSelectedItem(null)} />}
@@ -3137,11 +3167,16 @@ export default function CentroControlView() {
               allLeads={allLeads}
               viewMode={viewMode}
               provinciasDisponibles={provinciasDisponibles}
-              confeccionOfertas={allConfeccionOfertas}
+              confeccionOfertas={ofertasItemsCompleto}
               selectedProvincias={analisisProvinciasSeleccionadas}
               onSelectedProvinciasChange={setAnalisisProvinciasSeleccionadas}
               onClose={() => { setShowAnalisisRegional(false); setAnalisisProvinciasSeleccionadas([]) }}
             />
+          )}
+          {showAnalisisRegional && ofertasItemsLoading && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 text-xs text-slate-300 flex items-center gap-2 pointer-events-none">
+              <RefreshCw className="h-3 w-3 animate-spin" /> Cargando materiales…
+            </div>
           )}
 
           <div className="absolute inset-0 pointer-events-none z-10 shadow-[inset_0_0_80px_rgba(0,0,0,0.7)]" />
