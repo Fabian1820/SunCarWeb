@@ -235,11 +235,9 @@ export function FacturasConsolidadasTable({
                         </TableCell>
                         {modeVentas ? (
                           <TableCell
-                            className={`text-right font-medium ${(factura.monto_pagado ?? 0) > 0 ? "text-green-600" : "text-gray-600"}`}
+                            className={`text-right font-medium ${(factura.total_pagado ?? factura.total_factura) < factura.total_factura ? "text-blue-600" : "text-green-600"}`}
                           >
-                            {factura.monto_pagado != null
-                              ? formatCurrency(factura.monto_pagado)
-                              : formatCurrency(factura.total_factura)}
+                            {formatCurrency(factura.total_pagado ?? factura.total_factura)}
                           </TableCell>
                         ) : (
                           <>

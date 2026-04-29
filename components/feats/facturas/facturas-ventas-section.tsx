@@ -1074,7 +1074,7 @@ export function FacturasVentasSection() {
   const totalFacturado = useMemo(() => {
     return facturasFiltradas
       .filter((factura) => factura.anulada !== true)
-      .reduce((sum, factura) => sum + factura.total_factura, 0);
+      .reduce((sum, factura) => sum + (factura.total_pagado ?? factura.total_factura), 0);
   }, [facturasFiltradas]);
 
   const cargarValesNoFacturados = useCallback(async () => {
@@ -1464,7 +1464,7 @@ export function FacturasVentasSection() {
           estado_factura: factura.anulada ? "Anulada" : "Activa",
           motivo_anulacion: factura.motivo_anulacion?.trim() || "-",
           total_materiales: factura.total_factura,
-          monto_pagado: factura.monto_pagado ?? factura.total_factura,
+          monto_pagado: factura.total_pagado ?? factura.total_factura,
         };
       });
 
