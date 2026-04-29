@@ -1440,15 +1440,6 @@ export function FacturasVentasSection() {
       });
 
       const data = facturasOrdenadas.map((factura) => {
-        const totalPrecioFinal = factura.ofertas.reduce(
-          (sum, oferta) => sum + oferta.precio_final,
-          0,
-        );
-        const gananciaTotal =
-          factura.ofertas.length > 0
-            ? totalPrecioFinal - factura.total_factura
-            : 0;
-
         let clienteDisplay = factura.cliente_nombre || "";
         if (!clienteDisplay) {
           clienteDisplay = "Sin cliente";
@@ -1461,13 +1452,8 @@ export function FacturasVentasSection() {
           cliente: clienteDisplay,
           estado_factura: factura.anulada ? "Anulada" : "Activa",
           motivo_anulacion: factura.motivo_anulacion?.trim() || "-",
-          responsable_anulacion: factura.nombre_responsable?.trim() || "-",
           total_materiales: factura.total_factura,
-          monto_cobrado: factura.total_cobrado_todas_ofertas,
-          monto_pendiente: factura.monto_pendiente_materiales,
-          precio_final_oferta:
-            factura.ofertas.length > 0 ? totalPrecioFinal : 0,
-          ganancia_actual: factura.ofertas.length > 0 ? gananciaTotal : 0,
+          monto_pagado: factura.monto_pagado ?? factura.total_factura,
         };
       });
 
@@ -1483,27 +1469,11 @@ export function FacturasVentasSection() {
           { header: "Estado", key: "estado_factura", width: 14 },
           { header: "Motivo Anulacion", key: "motivo_anulacion", width: 34 },
           {
-            header: "Responsable Anulacion",
-            key: "responsable_anulacion",
-            width: 28,
-          },
-          {
             header: "Total Materiales Facturados",
             key: "total_materiales",
             width: 22,
           },
-          { header: "Monto Cobrado", key: "monto_cobrado", width: 18 },
-          {
-            header: "Monto Pendiente Materiales",
-            key: "monto_pendiente",
-            width: 22,
-          },
-          {
-            header: "Precio Final Oferta",
-            key: "precio_final_oferta",
-            width: 20,
-          },
-          { header: "Ganancia Actual", key: "ganancia_actual", width: 18 },
+          { header: "Monto Pagado", key: "monto_pagado", width: 18 },
         ],
         data,
       });
@@ -1700,6 +1670,7 @@ export function FacturasVentasSection() {
               onAddVale={handleAddValeConsolidada}
               onAnular={handleAnularConsolidada}
               reversed={reversed}
+              modeVentas
             />
           </TabsContent>
 
