@@ -1003,16 +1003,6 @@ export function FacturasVentasSection() {
       });
     }
 
-    if (filters.tipo) {
-      resultado = resultado.filter((factura) => factura.tipo === filters.tipo);
-    }
-
-    if (filters.subtipo) {
-      resultado = resultado.filter(
-        (factura) => factura.subtipo === filters.subtipo,
-      );
-    }
-
     if (filters.fecha_vale) {
       resultado = resultado.filter((factura) => {
         if (!factura.fecha) return false;
@@ -1697,6 +1687,9 @@ export function FacturasVentasSection() {
               onClearFilters={limpiarFiltros}
               reversed={reversed}
               onToggleReversed={() => setReversed(!reversed)}
+              hideEstado
+              hideTipo
+              hideSubtipo
             />
 
             <FacturasConsolidadasTable

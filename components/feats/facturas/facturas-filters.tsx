@@ -27,6 +27,9 @@ interface FacturasFiltersProps {
   onClearFilters: () => void;
   reversed?: boolean;
   onToggleReversed?: () => void;
+  hideEstado?: boolean;
+  hideTipo?: boolean;
+  hideSubtipo?: boolean;
 }
 
 export function FacturasFilters({
@@ -35,6 +38,9 @@ export function FacturasFilters({
   onClearFilters,
   reversed = false,
   onToggleReversed,
+  hideEstado = false,
+  hideTipo = false,
+  hideSubtipo = false,
 }: FacturasFiltersProps) {
   const [localFilters, setLocalFilters] = useState<FacturaFilters>(filters);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
@@ -186,6 +192,7 @@ export function FacturasFilters({
             </div>
           </div>
 
+          {!hideEstado && (
           <div className="w-full sm:w-auto min-w-[170px] space-y-1">
             <Label>Estado</Label>
             <Select
@@ -210,7 +217,9 @@ export function FacturasFilters({
               </SelectContent>
             </Select>
           </div>
+          )}
 
+          {!hideTipo && (
           <div className="w-full sm:w-auto min-w-[150px] space-y-1">
             <Label>Tipo</Label>
             <Select
@@ -235,7 +244,9 @@ export function FacturasFilters({
               </SelectContent>
             </Select>
           </div>
+          )}
 
+          {!hideSubtipo && (
           <div className="w-full sm:w-auto min-w-[150px] space-y-1">
             <Label>Subtipo</Label>
             <Select
@@ -261,6 +272,7 @@ export function FacturasFilters({
               </SelectContent>
             </Select>
           </div>
+          )}
 
           <div className="flex-1 min-w-[220px] space-y-1">
             <Label>Buscador</Label>
