@@ -332,6 +332,7 @@ export function FacturaVentasFormDialog({
   const [selectedValeIds, setSelectedValeIds] = useState<string[]>([]);
   const [valePreview, setValePreview] = useState<ValeSalida | null>(null);
   const [saving, setSaving] = useState(false);
+  const [itemDiscounts, setItemDiscounts] = useState<Record<string, number>>({});
 
   const loadClientes = useCallback(async () => {
     setLoadingClientes(true);
@@ -383,6 +384,7 @@ export function FacturaVentasFormDialog({
       });
       setSelectedValeIds([]);
       setValesDisponibles([]);
+      setItemDiscounts({});
     } else if (!factura && open) {
       let cancelled = false;
       const loadPrefill = async () => {
@@ -490,6 +492,7 @@ export function FacturaVentasFormDialog({
     setSelectedValeIds([]);
     setValesDisponibles([]);
     setValesError(null);
+    setItemDiscounts({});
   };
 
   const handleValeCheckedChange = (valeId: string, checked: boolean) => {
@@ -525,10 +528,19 @@ export function FacturaVentasFormDialog({
     [formData.vales],
   );
 
-  // Valor efectivo mostrado: lo que ingresó el usuario, o el total de materiales por defecto
-  const montoPagadoEfectivo = formData.monto_pagado ?? totalMateriales;
-  const minMontoPagado = Math.round(totalMateriales * 0.8 * 100) / 100;
-  const montoPagadoValido = montoPagadoEfectivo >= minMontoPagado;
+  const getItemKey = (valeId: string, itemIndex: number) => `${valeId}-${itemIndex}`;
+
+  // Monto pagado calculado desde los precios con descuento por ítem
+  const montoPagadoEfectivo = useMemo(() => {
+    return formData.vales.reduce((total, vale) => {
+      const valeId = vale.id_vale_salida || vale.id || "";
+      return total + vale.items.reduce((sum, item, itemIndex) => {
+        const key = getItemKey(valeId, itemIndex);
+        const discount = itemDiscounts[key] ?? 0;
+        return sum + item.precio * (1 - discount / 100) * item.cantidad;
+      }, 0);
+    }, 0);
+  }, [formData.vales, itemDiscounts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -559,8 +571,7 @@ export function FacturaVentasFormDialog({
 
   const isFormValid = () =>
     Boolean(formData.numero_factura.trim()) &&
-    Boolean(formData.cliente_id) &&
-    montoPagadoValido;
+    Boolean(formData.cliente_id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -706,41 +717,81 @@ export function FacturaVentasFormDialog({
             </div>
           )}
 
-          {/* Monto Pagado */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              Monto Pagado por el Cliente
-            </Label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              <div className="space-y-1">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min={minMontoPagado}
-                  value={montoPagadoEfectivo}
-                  onChange={(e) => {
-                    const val = parseFloat(e.target.value);
-                    setFormData({
-                      ...formData,
-                      monto_pagado: Number.isNaN(val) ? null : val,
-                    });
-                  }}
-                  className={`text-right ${!montoPagadoValido ? "border-red-400 focus-visible:ring-red-400" : ""}`}
-                />
-                {!montoPagadoValido && (
-                  <p className="text-xs text-red-600">
-                    El monto mínimo es ${minMontoPagado.toFixed(2)} (descuento máximo 20%)
-                  </p>
-                )}
+          {/* Descuentos por material */}
+          {formData.vales.length > 0 && (
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-blue-600" />
+                Descuentos por material (máx. 20% por ítem)
+              </Label>
+              <div className="space-y-4">
+                {formData.vales.map((vale) => {
+                  const valeId = vale.id_vale_salida || vale.id || "";
+                  return (
+                    <div key={valeId} className="border border-blue-200 rounded-lg overflow-hidden">
+                      <div className="bg-blue-50 px-4 py-2 border-b border-blue-200">
+                        <span className="text-xs font-semibold text-blue-800">
+                          Vale {valeId.slice(-8).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="divide-y divide-gray-100">
+                        {/* Encabezado columnas */}
+                        <div className="grid grid-cols-12 gap-2 px-4 py-2 text-xs text-gray-500 font-medium bg-gray-50">
+                          <div className="col-span-4">Material</div>
+                          <div className="col-span-2 text-right">Cant.</div>
+                          <div className="col-span-2 text-right">Precio unit.</div>
+                          <div className="col-span-2 text-center">Desc. %</div>
+                          <div className="col-span-2 text-right">Subtotal</div>
+                        </div>
+                        {vale.items.map((item, itemIndex) => {
+                          const key = getItemKey(valeId, itemIndex);
+                          const discount = itemDiscounts[key] ?? 0;
+                          const precioConDesc = item.precio * (1 - discount / 100);
+                          const subtotal = precioConDesc * item.cantidad;
+                          return (
+                            <div key={key} className="grid grid-cols-12 gap-2 px-4 py-2 items-center text-sm">
+                              <div className="col-span-4">
+                                <p className="font-medium text-gray-900 truncate">{item.codigo}</p>
+                                <p className="text-xs text-gray-500 truncate">{item.descripcion}</p>
+                              </div>
+                              <div className="col-span-2 text-right text-gray-700">{item.cantidad}</div>
+                              <div className="col-span-2 text-right text-gray-700">${item.precio.toFixed(2)}</div>
+                              <div className="col-span-2">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={20}
+                                  step={0.5}
+                                  value={discount}
+                                  onChange={(e) => {
+                                    const val = Math.min(20, Math.max(0, parseFloat(e.target.value) || 0));
+                                    setItemDiscounts((prev) => ({ ...prev, [key]: val }));
+                                  }}
+                                  className="text-center h-8 text-sm px-1"
+                                />
+                              </div>
+                              <div className={`col-span-2 text-right font-semibold ${discount > 0 ? "text-blue-600" : "text-gray-800"}`}>
+                                ${subtotal.toFixed(2)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="text-xs text-gray-500 space-y-1 pt-2">
-                <p>Total materiales: <span className="font-semibold text-gray-700">${totalMateriales.toFixed(2)}</span></p>
-                <p>Mínimo permitido (−20%): <span className="font-semibold text-gray-700">${minMontoPagado.toFixed(2)}</span></p>
-                <p className="text-gray-400">Puede subirse sin límite.</p>
+              <div className="flex justify-between items-center border-t pt-3 text-sm">
+                <div className="space-y-0.5 text-gray-500">
+                  <p>Total materiales (sin descuento): <span className="font-semibold text-gray-700">${totalMateriales.toFixed(2)}</span></p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-gray-500">Monto a cobrar al cliente</p>
+                  <p className="text-lg font-bold text-blue-700">${montoPagadoEfectivo.toFixed(2)}</p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <DialogFooter>
             <Button
