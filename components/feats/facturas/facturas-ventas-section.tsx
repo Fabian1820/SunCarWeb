@@ -1203,6 +1203,17 @@ export function FacturasVentasSection() {
     anioValesNoFacturados,
   ]);
 
+  const totalNoFacturado = useMemo(() => {
+    return valesNoFacturadosFiltrados.reduce((sum, vale) => {
+      const totalVale = (vale.materiales || []).reduce(
+        (s, item) =>
+          s + Number(item.material?.precio ?? 0) * Number(item.cantidad || 0),
+        0,
+      );
+      return sum + totalVale;
+    }, 0);
+  }, [valesNoFacturadosFiltrados]);
+
   const valesNoFacturadosSeleccionadosLista = useMemo(
     () =>
       valesNoFacturados.filter((vale) =>
@@ -1583,7 +1594,12 @@ export function FacturasVentasSection() {
               ) : (
                 <>
                   <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700">
-                    Vales no facturados: {valesNoFacturados.length}
+                    Total no facturado: {formatCurrency(totalNoFacturado)}
+                  </div>
+                  <div className="rounded-lg bg-gray-100 px-3 py-2 text-sm text-gray-600">
+                    {valesNoFacturadosFiltrados.length !== valesNoFacturados.length
+                      ? `${valesNoFacturadosFiltrados.length} de ${valesNoFacturados.length} vales`
+                      : `${valesNoFacturados.length} vales`}
                   </div>
                   <Button
                     onClick={cargarValesNoFacturados}
