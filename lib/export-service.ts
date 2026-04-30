@@ -197,6 +197,7 @@ export interface ExportOptions {
     nombre_oferta?: string;
     tipo_oferta?: string;
     fecha_creacion?: string;
+    estado?: string;
   };
   componentesPrincipales?: {
     inversor?: {
@@ -1813,8 +1814,16 @@ export async function exportToPDF(options: ExportOptions): Promise<void> {
     hour12: false,
   });
   const numeroOfertaFooter = ofertaData?.numero_oferta?.toString().trim();
-  const marcaExportacionFooter = numeroOfertaFooter
-    ? `Oferta: ${numeroOfertaFooter} | Exportado: ${fechaExportacion} ${horaExportacion}`
+  const estadoOfertaFooter = ofertaData?.estado?.toString().trim();
+  const ofertaSegmentoFooter = numeroOfertaFooter
+    ? estadoOfertaFooter
+      ? `Oferta: ${numeroOfertaFooter} - ${estadoOfertaFooter}`
+      : `Oferta: ${numeroOfertaFooter}`
+    : estadoOfertaFooter
+      ? `Oferta - ${estadoOfertaFooter}`
+      : "";
+  const marcaExportacionFooter = ofertaSegmentoFooter
+    ? `${ofertaSegmentoFooter} | Exportado: ${fechaExportacion} ${horaExportacion}`
     : `Exportado: ${fechaExportacion} ${horaExportacion}`;
 
   for (let i = 1; i <= pageCount; i++) {

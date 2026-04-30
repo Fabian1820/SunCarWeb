@@ -132,6 +132,22 @@ interface ConfeccionOfertasViewProps {
   ofertaGenericaInicial?: boolean;
 }
 
+const ESTADO_OFERTA_LABELS: Record<string, string> = {
+  en_revision: "En Revisión",
+  aprobada_para_enviar: "Aprobada para Enviar",
+  enviada_a_cliente: "Enviada a Cliente",
+  confirmada_por_cliente: "Confirmada por Cliente",
+  reservada: "Reservada",
+  rechazada: "Rechazada",
+  cancelada: "Cancelada",
+  agotada: "Agotada",
+};
+
+const obtenerLabelEstadoOferta = (estado?: string | null): string => {
+  if (!estado) return "";
+  return ESTADO_OFERTA_LABELS[estado] || estado;
+};
+
 type ReservaOfertaEstado = "activa" | "cancelada" | "expirada" | "consumida";
 
 interface ReservaMaterialDraft {
@@ -2611,12 +2627,14 @@ export function ConfeccionOfertasView({
       );
       const nombreMaterial = material?.nombre || item.descripcion;
 
+      const esCableado =
+        item.seccion === "CABLEADO_AC" || item.seccion === "CABLEADO_DC";
       rows.push({
         material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
         descripcion: nombreMaterial,
-        cantidad: item.cantidad,
+        cantidad: esCableado ? `hasta ${item.cantidad}` : item.cantidad,
         precio_unitario: item.precio,
         porcentaje_margen: formatNumberForExport(porcentajeCalculado),
         margen: formatNumberForExport(margenAsignado),
@@ -2919,6 +2937,7 @@ export function ConfeccionOfertasView({
         numero_oferta: ofertaId,
         nombre_oferta: nombreAutomatico, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? "Genérica" : "Personalizada",
+        estado: obtenerLabelEstadoOferta(estadoOferta),
       },
       incluirFotos: true,
       fotosMap,
@@ -3164,6 +3183,7 @@ export function ConfeccionOfertasView({
     inversorSeleccionado,
     bateriaSeleccionada,
     panelSeleccionado,
+    estadoOferta,
   ]);
 
   const exportOptionsSinPrecios = useMemo(() => {
@@ -3192,12 +3212,14 @@ export function ConfeccionOfertasView({
       );
       const nombreMaterial = material?.nombre || item.descripcion;
 
+      const esCableado =
+        item.seccion === "CABLEADO_AC" || item.seccion === "CABLEADO_DC";
       rows.push({
         material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
         descripcion: nombreMaterial,
-        cantidad: item.cantidad,
+        cantidad: esCableado ? `hasta ${item.cantidad}` : item.cantidad,
       });
     });
 
@@ -3387,6 +3409,7 @@ export function ConfeccionOfertasView({
         numero_oferta: ofertaId,
         nombre_oferta: nombreAutomatico, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? "Genérica" : "Personalizada",
+        estado: obtenerLabelEstadoOferta(estadoOferta),
       },
       incluirFotos: true,
       fotosMap,
@@ -3554,6 +3577,7 @@ export function ConfeccionOfertasView({
     inversorSeleccionado,
     bateriaSeleccionada,
     panelSeleccionado,
+    estadoOferta,
   ]);
 
   const exportOptionsClienteConPrecios = useMemo(() => {
@@ -3585,12 +3609,14 @@ export function ConfeccionOfertasView({
       );
       const nombreMaterial = material?.nombre || item.descripcion;
 
+      const esCableado =
+        item.seccion === "CABLEADO_AC" || item.seccion === "CABLEADO_DC";
       rows.push({
         material_codigo: item.materialCodigo,
         seccion,
         tipo: "Material",
         descripcion: nombreMaterial,
-        cantidad: item.cantidad,
+        cantidad: esCableado ? `hasta ${item.cantidad}` : item.cantidad,
         total: formatNumberForExport(totalConMargen),
       });
     });
@@ -3829,6 +3855,7 @@ export function ConfeccionOfertasView({
         numero_oferta: ofertaId,
         nombre_oferta: nombreAutomatico, // Nombre corto para UI
         tipo_oferta: ofertaGenerica ? "Genérica" : "Personalizada",
+        estado: obtenerLabelEstadoOferta(estadoOferta),
       },
       incluirFotos: true,
       fotosMap,
@@ -4003,6 +4030,7 @@ export function ConfeccionOfertasView({
     inversorSeleccionado,
     bateriaSeleccionada,
     panelSeleccionado,
+    estadoOferta,
   ]);
 
   const agregarMaterial = (material: Material) => {

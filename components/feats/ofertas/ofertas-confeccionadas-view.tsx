@@ -1033,12 +1033,14 @@ export function OfertasConfeccionadasView() {
           ? (margenAsignado / costoItem) * 100
           : 0;
 
+      const esCableado =
+        item.seccion === "CABLEADO_AC" || item.seccion === "CABLEADO_DC";
       rowsCompleto.push({
         material_codigo: item.material_codigo,
         seccion: seccionLabel,
         tipo: "Material",
         descripcion: nombreMaterial,
-        cantidad: item.cantidad,
+        cantidad: esCableado ? `hasta ${item.cantidad}` : item.cantidad,
         precio_unitario: item.precio.toFixed(2),
         porcentaje_margen: `${porcentajeMargen.toFixed(2)}%`,
         margen: margenAsignado.toFixed(2),
@@ -1349,6 +1351,7 @@ export function OfertasConfeccionadasView() {
         numero_oferta: oferta.numero_oferta || oferta.id,
         nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
+        estado: getEstadoBadge(oferta.estado).label,
       },
       incluirFotos: true,
       fotosMap,
@@ -1392,12 +1395,14 @@ export function OfertasConfeccionadasView() {
       const material = materialesMap.get(item.material_codigo?.toString());
       const nombreMaterial = material?.nombre || item.descripcion;
 
+      const esCableado =
+        item.seccion === "CABLEADO_AC" || item.seccion === "CABLEADO_DC";
       rowsSinPrecios.push({
         material_codigo: item.material_codigo,
         seccion: seccionLabel,
         tipo: "Material",
         descripcion: nombreMaterial,
-        cantidad: item.cantidad,
+        cantidad: esCableado ? `hasta ${item.cantidad}` : item.cantidad,
       });
     });
 
@@ -1642,6 +1647,7 @@ export function OfertasConfeccionadasView() {
         numero_oferta: oferta.numero_oferta || oferta.id,
         nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
+        estado: getEstadoBadge(oferta.estado).label,
       },
       incluirFotos: true,
       fotosMap,
@@ -1683,12 +1689,14 @@ export function OfertasConfeccionadasView() {
       const material = materialesMap.get(item.material_codigo?.toString());
       const nombreMaterial = material?.nombre || item.descripcion;
 
+      const esCableado =
+        item.seccion === "CABLEADO_AC" || item.seccion === "CABLEADO_DC";
       rowsClienteConPrecios.push({
         material_codigo: item.material_codigo,
         seccion: seccionLabel,
         tipo: "Material",
         descripcion: nombreMaterial,
-        cantidad: item.cantidad,
+        cantidad: esCableado ? `hasta ${item.cantidad}` : item.cantidad,
         total: totalConMargen.toFixed(2),
       });
     });
@@ -1975,6 +1983,7 @@ export function OfertasConfeccionadasView() {
         numero_oferta: oferta.numero_oferta || oferta.id,
         nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
+        estado: getEstadoBadge(oferta.estado).label,
       },
       incluirFotos: true,
       fotosMap,
@@ -2058,6 +2067,7 @@ export function OfertasConfeccionadasView() {
         numero_oferta: oferta.numero_oferta || oferta.id,
         nombre_oferta: oferta.nombre_completo || oferta.nombre,
         tipo_oferta: oferta.tipo === "generica" ? "Genérica" : "Personalizada",
+        estado: getEstadoBadge(oferta.estado).label,
       },
       incluirFotos: true,
       fotosMap,
