@@ -2377,9 +2377,15 @@ export default function CentroControlView() {
     return zero
   }, [periodoTipo, periodoRange, controlData])
 
-  // Re-fetch visitas cuando cambia el periodo (dato que solo viene del backend)
+  // Re-fetch visitas cuando cambia el periodo
+  // Para "semana" usamos el dato que ya viene del dashboard (sin llamada extra)
   useEffect(() => {
     if (!periodoRange) { setVisitasRealizadasPeriodo(0); return }
+    // "semana" ya está cubierto por controlData.visitasRealizadas — evitar 428KB de request
+    if (periodoTipo === "semana") {
+      setVisitasRealizadasPeriodo(controlData?.visitasRealizadas ?? 0)
+      return
+    }
     const startStr = toISODate(periodoRange.start)
     const endStr   = toISODate(periodoRange.end)
     let cancelled = false
@@ -2392,7 +2398,7 @@ export default function CentroControlView() {
       })
       .catch(() => { if (!cancelled) setVisitasRealizadasPeriodo(0) })
     return () => { cancelled = true }
-  }, [periodoRange])
+  }, [periodoRange, periodoTipo, controlData?.visitasRealizadas])
 
   // ── Map styles ──────────────────────────────────────────────────────────────
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
