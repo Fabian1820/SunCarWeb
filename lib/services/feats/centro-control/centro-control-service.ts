@@ -1,5 +1,7 @@
 import { apiRequest } from "@/lib/api-config"
 
+// ── Tipos base ───────────────────────────────────────────────────────────────
+
 export interface CentroControlKpis {
   total_clientes: number
   total_municipios: number
@@ -32,7 +34,57 @@ export interface CentroControlComercial {
   ofertas_reservadas: number
 }
 
-export interface CentroControlClienteSlim {
+// ── Municipios por modo (heatmap) ────────────────────────────────────────────
+
+export interface MunicipioModoCount {
+  municipio: string
+  provincia: string
+  count: number
+}
+
+export interface MunicipiosPorModo {
+  pendientes_instalacion: MunicipioModoCount[]
+  en_proceso: MunicipioModoCount[]
+  averias: MunicipioModoCount[]
+  visitas: MunicipioModoCount[]
+  ventas: MunicipioModoCount[]
+}
+
+// ── Ventas resumen ───────────────────────────────────────────────────────────
+
+export interface MaterialVendido {
+  nombre: string
+  cantidad: number
+}
+
+export interface VentasResumen {
+  total_clientes_venta: number
+  total_solicitudes_despachadas: number
+  materiales_vendidos: MaterialVendido[]
+}
+
+// ── Dashboard principal ──────────────────────────────────────────────────────
+
+export interface CentroControlDashboard {
+  kpis: CentroControlKpis
+  operaciones: CentroControlOperaciones
+  semana: CentroControlSemana
+  comercial: CentroControlComercial
+  municipios_detallados: Record<string, unknown>[]
+  municipios_por_modo: MunicipiosPorModo
+  ventas_resumen: VentasResumen
+}
+
+// ── Detalle on-demand (click municipio) ──────────────────────────────────────
+
+export interface AveriaSlim {
+  tipo?: string
+  descripcion?: string
+  fecha?: string
+  estado?: string
+}
+
+export interface ClienteSlim {
   id?: string
   numero?: string
   nombre?: string
@@ -46,12 +98,10 @@ export interface CentroControlClienteSlim {
   fecha_instalacion?: string
   fecha_montaje?: string
   falta_instalacion?: string
-  fecha_creacion?: string
-  created_at?: string
-  averias?: Array<{ tipo?: string; descripcion?: string; fecha?: string; estado?: string }>
+  averias?: AveriaSlim[]
 }
 
-export interface CentroControlLeadSlim {
+export interface LeadSlim {
   id?: string
   nombre?: string
   telefono?: string
@@ -63,29 +113,7 @@ export interface CentroControlLeadSlim {
   fecha_contacto?: string
 }
 
-export interface CentroControlOfertaSlim {
-  cliente_numero?: string
-  lead_id?: string
-  estado?: string
-  fecha_creacion?: string
-  /** Solo presente en respuestas on-demand (equipos-batch / ofertas-items) */
-  items?: Array<{ material_codigo?: string; descripcion?: string; cantidad?: number; categoria?: string }>
-  elementos_personalizados?: Array<{ descripcion?: string; cantidad?: number; categoria?: string }>
-}
-
-export interface CentroControlTrabajoDiarioSlim {
-  fecha_trabajo?: string
-  tipo_trabajo?: string
-  instalacion_terminada?: boolean
-  cierre_diario_confirmado?: boolean
-  cliente_numero?: string
-  cliente_nombre?: string
-  cliente_telefono?: string
-  cliente_direccion?: string
-  fin_comentario?: string
-}
-
-export interface CentroControlClienteVentaSlim {
+export interface ClienteVentaSlim {
   id?: string
   numero?: string
   nombre?: string
@@ -96,7 +124,7 @@ export interface CentroControlClienteVentaSlim {
   ci?: string
 }
 
-export interface CentroControlSolicitudVentaSlim {
+export interface SolicitudVentaSlim {
   id?: string
   estado?: string
   materiales?: Array<{
@@ -108,36 +136,69 @@ export interface CentroControlSolicitudVentaSlim {
   }>
 }
 
-export interface CentroControlDashboard {
-  kpis: CentroControlKpis
-  operaciones: CentroControlOperaciones
-  semana: CentroControlSemana
-  comercial: CentroControlComercial
-  clientes: CentroControlClienteSlim[]
-  leads: CentroControlLeadSlim[]
-  brigadas: Record<string, unknown>[]
-  ofertas_confeccion: CentroControlOfertaSlim[]
-  municipios_detallados: Record<string, unknown>[]
-  trabajos_diarios: CentroControlTrabajoDiarioSlim[]
-  clientes_venta: CentroControlClienteVentaSlim[]
-  solicitudes_venta: CentroControlSolicitudVentaSlim[]
+export interface MunicipioClientesResponse {
+  clientes: ClienteSlim[]
+  leads: LeadSlim[]
+  clientes_venta: ClienteVentaSlim[]
+  solicitudes_usadas: SolicitudVentaSlim[]
 }
 
+export type ModoMunicipio =
+  | "pendientes_instalacion"
+  | "en_proceso"
+  | "averias"
+  | "visitas"
+  | "ventas"
+
+// ── Equipos batch ────────────────────────────────────────────────────────────
+
+export interface CentroControlOfertaSlim {
+  cliente_numero?: string
+  lead_id?: string
+  estado?: string
+  fecha_creacion?: string
+  items?: Array<{ material_codigo?: string; descripcion?: string; cantidad?: number; categoria?: string }>
+  elementos_personalizados?: Array<{ descripcion?: string; cantidad?: number; categoria?: string }>
+}
+
+// ── Servicio ─────────────────────────────────────────────────────────────────
+
 export class CentroControlService {
-  static async getDashboard(fechaDesde: string, fechaHasta: string, forceRefresh = false): Promise<CentroControlDashboard> {
+  /** Dashboard principal — solo stats y conteos agregados */
+  static async getDashboard(
+    fechaDesde: string,
+    fechaHasta: string,
+    forceRefresh = false,
+  ): Promise<CentroControlDashboard> {
     const params = new URLSearchParams({ fecha_desde: fechaDesde, fecha_hasta: fechaHasta })
     if (forceRefresh) params.set("force_refresh", "true")
     return apiRequest<CentroControlDashboard>(`/centro-control/dashboard?${params}`)
   }
 
-  /** Carga los items de equipos para un lote de clientes (on-demand al abrir un card de detalle) */
+  /** On-demand: clientes/leads de un municipio al hacer click en el mapa */
+  static async getMunicipioClientes(
+    mode: ModoMunicipio,
+    municipio: string,
+  ): Promise<MunicipioClientesResponse> {
+    const params = new URLSearchParams({ mode, municipio })
+    return apiRequest<MunicipioClientesResponse>(`/centro-control/municipio-clientes?${params}`)
+  }
+
+  /** On-demand: brigadas cuando el usuario abre el panel */
+  static async getBrigadas(): Promise<{ brigadas: Record<string, unknown>[] }> {
+    return apiRequest<{ brigadas: Record<string, unknown>[] }>(`/centro-control/brigadas`)
+  }
+
+  /** On-demand: equipos al abrir un card de detalle */
   static async getEquiposBatch(numerosCliente: string[]): Promise<CentroControlOfertaSlim[]> {
     if (!numerosCliente.length) return []
     const numeros = numerosCliente.join(",")
-    return apiRequest<CentroControlOfertaSlim[]>(`/centro-control/equipos-batch?numeros=${encodeURIComponent(numeros)}`)
+    return apiRequest<CentroControlOfertaSlim[]>(
+      `/centro-control/equipos-batch?numeros=${encodeURIComponent(numeros)}`,
+    )
   }
 
-  /** Carga todas las ofertas con items — para el panel de Análisis Regional (on-demand) */
+  /** On-demand: todas las ofertas con items para el panel de Análisis Regional */
   static async getOfertasItems(): Promise<CentroControlOfertaSlim[]> {
     return apiRequest<CentroControlOfertaSlim[]>(`/centro-control/ofertas-items`)
   }

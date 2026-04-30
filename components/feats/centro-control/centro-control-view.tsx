@@ -21,8 +21,7 @@ import type { MunicipioDetallado } from "@/lib/types/feats/resultados/resultados
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types"
-import type { ClienteVenta } from "@/lib/types/feats/clientes-ventas/cliente-venta-types"
-import type { SolicitudVenta } from "@/lib/types/feats/solicitudes-ventas/solicitud-venta-types"
+import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim } from "@/lib/services/feats/centro-control/centro-control-service"
 import "leaflet/dist/leaflet.css"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -46,11 +45,11 @@ interface ComercialResumen { confirmadas: number; canceladas: number; reservadas
 
 type SelectedItem =
   | { mode: "todos"; muni: MunicipioDetallado }
-  | { mode: "pendientes_instalacion"; municipio: string; clientes: Cliente[]; leads: Lead[] }
-  | { mode: "en_proceso"; municipio: string; clientes: Cliente[] }
-  | { mode: "averias"; municipio: string; clientes: Cliente[] }
-  | { mode: "visitas"; municipio: string; clientes: Cliente[]; leads: Lead[] }
-  | { mode: "ventas"; municipio: string; clientesVenta: ClienteVenta[] }
+  | { mode: "pendientes_instalacion"; municipio: string; clientes: ClienteSlim[]; leads: LeadSlim[] }
+  | { mode: "en_proceso"; municipio: string; clientes: ClienteSlim[] }
+  | { mode: "averias"; municipio: string; clientes: ClienteSlim[] }
+  | { mode: "visitas"; municipio: string; clientes: ClienteSlim[]; leads: LeadSlim[] }
+  | { mode: "ventas"; municipio: string; clientesVenta: ClienteVentaSlim[]; solicitudesUsadas: SolicitudVentaSlim[] }
   | { mode: "trabajos_diarios"; municipio: string; trabajos: TrabajoDiarioRow[] }
   | { mode: "clientes_trabajados"; municipio: string; clienteNumeros: string[] }
   | { mode: "instalaciones_terminadas"; municipio: string; trabajos: TrabajoDiarioRow[] }
@@ -428,50 +427,15 @@ function EquiposRow({ equipos }: { equipos: EquipoItem[] }) {
 
 // ─── MunicipioCard (modo todos) ───────────────────────────────────────────────
 
-function MunicipioCard({ muni, allClients, onClose }: { muni: MunicipioDetallado; allClients: Cliente[]; onClose: () => void }) {
-  const munNorm = normalizeText(muni.municipio)
-  const provNorm = normalizeText(muni.provincia)
-  const clientesDelMunicipio = useMemo(() => allClients.filter(c => {
-    const cMun = normalizeText(c.municipio), cProv = normalizeText(c.provincia_montaje)
-    return (cMun === munNorm && cProv === provNorm) || (cMun === munNorm && !cProv)
-  }), [allClients, munNorm, provNorm])
-
-  const estadosCounts = useMemo(() => {
-    const counts = new Map<string, { display: string; count: number }>()
-    clientesDelMunicipio.forEach(c => {
-      const raw = (c.estado ?? "Sin estado").trim(), key = raw.toLowerCase()
-      const ex = counts.get(key); if (ex) ex.count++; else counts.set(key, { display: raw, count: 1 })
-    })
-    return Array.from(counts.values()).sort((a, b) => b.count - a.count)
-  }, [clientesDelMunicipio])
-
+function MunicipioCard({ muni, onClose }: { muni: MunicipioDetallado; onClose: () => void }) {
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-72 pointer-events-auto">
       <div className="bg-slate-900/95 border border-amber-500/30 rounded-xl shadow-2xl backdrop-blur-sm overflow-hidden">
         <CardHeader name={muni.municipio} sub={muni.provincia} color="text-amber-400" onClose={onClose} />
         <div className="px-4 py-2 flex items-center gap-2 border-b border-slate-700/50">
           <Users className="h-3.5 w-3.5 text-orange-400 shrink-0" />
-          <span className="text-xs text-slate-300"><span className="font-bold text-white text-sm">{clientesDelMunicipio.length}</span> cliente{clientesDelMunicipio.length !== 1 ? "s" : ""}</span>
+          <span className="text-xs text-slate-300"><span className="font-bold text-white text-sm">{muni.cantidad_clientes}</span> cliente{muni.cantidad_clientes !== 1 ? "s" : ""}</span>
         </div>
-        {estadosCounts.length > 0 && (
-          <div className="px-4 py-2 border-b border-slate-700/50">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Estados</p>
-            <div className="space-y-1">
-              {estadosCounts.map(({ display, count }) => {
-                const style = getEstadoStyle(display)
-                return (
-                  <div key={display.toLowerCase()} className={`flex items-center justify-between px-2 py-1 rounded-md ${style.bg}`}>
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className={`h-1.5 w-1.5 rounded-full ${style.dot} shrink-0`} />
-                      <span className={`text-[11px] ${style.label} truncate`}>{display}</span>
-                    </div>
-                    <span className="text-xs font-bold text-white shrink-0 ml-2">{count}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
         <div className="px-4 py-2">
           <p className="text-[10px] text-slate-500 uppercase tracking-wider mb-1.5">Potencia instalada</p>
           <div className="grid grid-cols-3 gap-1.5">
@@ -495,7 +459,7 @@ function MunicipioCard({ muni, allClients, onClose }: { muni: MunicipioDetallado
 
 // ─── PendientesInstCard ───────────────────────────────────────────────────────
 
-function PendientesInstCard({ municipio, clientes, leads, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; leads: Lead[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
+function PendientesInstCard({ municipio, clientes, leads, confeccionOfertas, onClose }: { municipio: string; clientes: ClienteSlim[]; leads: LeadSlim[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<"clientes" | "leads" | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -580,7 +544,7 @@ function PendientesInstCard({ municipio, clientes, leads, confeccionOfertas, onC
 
 // ─── EnProcesoCard ────────────────────────────────────────────────────────────
 
-function EnProcesoCard({ municipio, clientes, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
+function EnProcesoCard({ municipio, clientes, confeccionOfertas, onClose }: { municipio: string; clientes: ClienteSlim[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -636,7 +600,7 @@ function EnProcesoCard({ municipio, clientes, confeccionOfertas, onClose }: { mu
 
 // ─── AveriasCard ──────────────────────────────────────────────────────────────
 
-function AveriasCard({ municipio, clientes, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
+function AveriasCard({ municipio, clientes, confeccionOfertas, onClose }: { municipio: string; clientes: ClienteSlim[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null)
   const totalAverias = useMemo(() =>
     clientes.reduce((sum, c) => {
@@ -697,7 +661,7 @@ function AveriasCard({ municipio, clientes, confeccionOfertas, onClose }: { muni
 
 // ─── VisitasCard ──────────────────────────────────────────────────────────────
 
-function VisitasCard({ municipio, clientes, leads, confeccionOfertas, onClose }: { municipio: string; clientes: Cliente[]; leads: Lead[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
+function VisitasCard({ municipio, clientes, leads, confeccionOfertas, onClose }: { municipio: string; clientes: ClienteSlim[]; leads: LeadSlim[]; confeccionOfertas: RawConfeccionOferta[]; onClose: () => void }) {
   const [expanded, setExpanded] = useState<"clientes" | "leads" | null>(null)
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -1114,34 +1078,25 @@ function AveriasSolucionadasCard({ municipio, clientes, onClose }: { municipio: 
 
 function VentasClientesCard({ municipio, clientesVenta, solicitudesUsadas, onClose }: {
   municipio: string
-  clientesVenta: ClienteVenta[]
-  solicitudesUsadas: SolicitudVenta[]
+  clientesVenta: ClienteVentaSlim[]
+  solicitudesUsadas: SolicitudVentaSlim[]
   onClose: () => void
 }) {
   const [expanded, setExpanded] = useState<string | null>(null)
 
-  const sorted = useMemo(() =>
-    [...clientesVenta].sort((a, b) => {
-      const da = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0
-      const db = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0
-      return db - da
-    }), [clientesVenta])
-
-  /** Agrupa materiales de todas las solicitudes usadas de un cliente */
-  const getMaterialesCliente = (clienteId: string) => {
-    const map = new Map<string, { nombre: string; cantidad: number; um?: string }>()
-    solicitudesUsadas
-      .filter(s => s.cliente_venta_id === clienteId)
-      .forEach(s => {
-        ;(s.materiales ?? []).forEach(m => {
-          const nombre = m.material?.nombre || m.material_descripcion || m.descripcion || m.material_codigo || m.codigo || m.material_id || "Material"
-          const key = m.material_id || normalizeText(nombre)
-          const prev = map.get(key) ?? { nombre, cantidad: 0, um: m.um }
-          map.set(key, { ...prev, cantidad: prev.cantidad + (m.cantidad ?? 0) })
-        })
+  /** Agrupa materiales de todas las solicitudes del municipio */
+  const allMateriales = useMemo(() => {
+    const map = new Map<string, { nombre: string; cantidad: number }>()
+    solicitudesUsadas.forEach(s => {
+      ;(s.materiales ?? []).forEach(m => {
+        const nombre = m.material_descripcion || m.descripcion || m.material_codigo || m.material_id || "Material"
+        const key = m.material_id || normalizeText(nombre)
+        const prev = map.get(key) ?? { nombre, cantidad: 0 }
+        map.set(key, { ...prev, cantidad: prev.cantidad + (m.cantidad ?? 0) })
       })
+    })
     return Array.from(map.values()).filter(m => m.cantidad > 0).sort((a, b) => b.cantidad - a.cantidad)
-  }
+  }, [solicitudesUsadas])
 
   return (
     <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] w-80 pointer-events-auto">
@@ -1154,10 +1109,9 @@ function VentasClientesCard({ municipio, clientesVenta, solicitudesUsadas, onClo
           </span>
         </div>
         <div className="max-h-80 overflow-y-auto divide-y divide-slate-700/30">
-          {sorted.map(cv => {
-            const key = cv.id
+          {clientesVenta.map((cv, idx) => {
+            const key = cv.id ?? String(idx)
             const isOpen = expanded === key
-            const materiales = isOpen ? getMaterialesCliente(cv.id) : []
             return (
               <div key={key}>
                 <button
@@ -1187,34 +1141,26 @@ function VentasClientesCard({ municipio, clientesVenta, solicitudesUsadas, onClo
                         <MapPin className="h-2.5 w-2.5 shrink-0" /><span className="truncate">{cv.direccion}</span>
                       </p>
                     )}
-                    {cv.fecha_creacion && (
-                      <p className="text-[11px] text-slate-500 flex items-center gap-1">
-                        <Calendar className="h-2.5 w-2.5 shrink-0" />
-                        Alta: {new Date(cv.fecha_creacion).toLocaleDateString("es-CU")}
-                      </p>
-                    )}
-                    {/* Materiales comprados */}
-                    {materiales.length > 0 ? (
-                      <div className="mt-1.5 pt-1.5 border-t border-slate-700/30 space-y-0.5">
-                        <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mb-1">Materiales comprados</p>
-                        {materiales.map((mat, i) => (
-                          <p key={i} className="text-[10px] flex items-center gap-1.5 text-slate-300">
-                            <Package className="h-2.5 w-2.5 shrink-0 text-violet-400" />
-                            <span className="truncate">{mat.nombre}</span>
-                            <span className="shrink-0 font-semibold text-violet-300">
-                              ×{mat.cantidad}{mat.um ? ` ${mat.um}` : ""}
-                            </span>
-                          </p>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[10px] text-slate-600 italic mt-1">Sin compras registradas</p>
-                    )}
                   </div>
                 )}
               </div>
             )
           })}
+          {/* Materiales despachados del municipio */}
+          {allMateriales.length > 0 && (
+            <div className="px-4 py-2.5 border-t border-slate-700/50">
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold mb-1.5">Materiales despachados</p>
+              <div className="space-y-0.5">
+                {allMateriales.map((mat, i) => (
+                  <p key={i} className="text-[10px] flex items-center gap-1.5 text-slate-300">
+                    <Package className="h-2.5 w-2.5 shrink-0 text-violet-400" />
+                    <span className="truncate">{mat.nombre}</span>
+                    <span className="shrink-0 font-semibold text-violet-300">×{mat.cantidad}</span>
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -2016,43 +1962,44 @@ export default function CentroControlView() {
   const clock = useLiveClock()
   const [geoJsonData, setGeoJsonData] = useState<GeoJsonObject | null>(null)
   const [municipios, setMunicipios] = useState<MunicipioDetallado[]>([])
-  const [allClients, setAllClients] = useState<Cliente[]>([])
-  const [allLeads, setAllLeads] = useState<Lead[]>([])
-  const [brigadas, setBrigadas] = useState<Brigada[]>([])
-  const [clientesConAverias, setClientesConAverias] = useState<Cliente[]>([])
   const [controlData, setControlData] = useState<ControlData | null>(null)
   const [loading, setLoading] = useState(true)
   const [mapLoading, setMapLoading] = useState(true)
   const [tooltip, setTooltip] = useState<TooltipInfo | null>(null)
   const [selectedItem, setSelectedItem] = useState<SelectedItem | null>(null)
+  const [municipioDetailLoading, setMunicipioDetailLoading] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("todos")
   const [showBrigadas, setShowBrigadas] = useState(false)
   const [showAnalisisRegional, setShowAnalisisRegional] = useState(false)
   const [showClientesStats, setShowClientesStats] = useState(false)
-  const [allConfeccionOfertas, setAllConfeccionOfertas] = useState<RawConfeccionOferta[]>([])
+  // Municipios por modo: counts pre-agregados desde el backend (para heatmap)
+  const [municipiosPorModo, setMunicipiosPorModo] = useState<import("@/lib/services/feats/centro-control/centro-control-service").MunicipiosPorModo>({
+    pendientes_instalacion: [], en_proceso: [], averias: [], visitas: [], ventas: [],
+  })
   // Ofertas con items cargadas on-demand al abrir un card de detalle
   const [equiposParaCard, setEquiposParaCard] = useState<RawConfeccionOferta[]>([])
   // Ofertas con items para el panel AnalisisRegional (cargadas lazy al abrirlo)
   const [ofertasItemsCompleto, setOfertasItemsCompleto] = useState<RawConfeccionOferta[]>([])
   const [ofertasItemsLoading, setOfertasItemsLoading] = useState(false)
+  // Brigadas on-demand
+  const [brigadas, setBrigadas] = useState<Brigada[]>([])
+  const [brigadasLoading, setBrigadasLoading] = useState(false)
   const [ventasResumen, setVentasResumen] = useState<VentasResumen>({ totalClientesVentas: 0, totalSolicitudesDespachadas: 0, materialesVendidos: [] })
   const [showMaterialesVendidos, setShowMaterialesVendidos] = useState(false)
   // ── Periodo del panel derecho ──────────────────────────────────────────────
   const [periodoTipo, setPeriodoTipo] = useState<PeriodoTipo>("semana")
-  const [periodoFecha, setPeriodoFecha] = useState("")   // fecha única
-  const [periodoDesde, setPeriodoDesde] = useState("")   // rango inicio
-  const [periodoHasta, setPeriodoHasta] = useState("")   // rango fin
+  const [periodoFecha, setPeriodoFecha] = useState("")
+  const [periodoDesde, setPeriodoDesde] = useState("")
+  const [periodoHasta, setPeriodoHasta] = useState("")
   const [visitasRealizadasPeriodo, setVisitasRealizadasPeriodo] = useState(0)
-
-  // Raw datasets (para recomputar stats al cambiar periodo sin re-fetching)
-  const [allClientesVenta, setAllClientesVenta] = useState<ClienteVenta[]>([])
-  const [allSolicitudesVenta, setAllSolicitudesVenta] = useState<SolicitudVenta[]>([])
-  const [allTrabajosDiarios, setAllTrabajosDiarios] = useState<TrabajoDiarioRow[]>([])
   const [showProvinceLabels, setShowProvinceLabels] = useState(true)
   const [showLeadStates, setShowLeadStates] = useState(false)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [comercialResumen, setComercialResumen] = useState<ComercialResumen>({ confirmadas: 0, canceladas: 0, reservadas: 0 })
+  // Stats de leads para panel izquierdo
+  const [leadsTotal, setLeadsTotal] = useState(0)
+  const [leadsPorEstado, setLeadsPorEstado] = useState<Array<{ estado: string; count: number }>>([])
 
   // Filtros de provincia / municipio
   const [filterProvincia, setFilterProvincia] = useState("")
@@ -2074,7 +2021,7 @@ export default function CentroControlView() {
 
       const data = await CentroControlService.getDashboard(weekStartStr, weekEndStr, isRefresh)
 
-      // KPIs, operaciones y stats de semana — todos en una respuesta
+      // KPIs + operaciones + semana — solo números, nada de arrays crudos
       setControlData({
         totalClientes: data.kpis.total_clientes,
         totalMunicipios: data.kpis.total_municipios,
@@ -2093,58 +2040,30 @@ export default function CentroControlView() {
         visitasRealizadas: data.semana.visitas_realizadas,
       })
 
-      // Datasets completos
-      setAllClients(data.clientes as unknown as Cliente[])
-      setAllLeads(data.leads as unknown as Lead[])
-      setBrigadas(data.brigadas as unknown as Brigada[])
-      setAllConfeccionOfertas(data.ofertas_confeccion as RawConfeccionOferta[])
+      // Municipios detallados para mapa "todos"
       setMunicipios(data.municipios_detallados as unknown as MunicipioDetallado[])
 
-      // Clientes con averías (derivados del slim — solo los que tienen averias pendientes)
-      setClientesConAverias(data.clientes.filter(c => (c.averias?.length ?? 0) > 0) as unknown as Cliente[])
+      // Counts por modo para heatmap — ya agregados en el backend
+      setMunicipiosPorModo(data.municipios_por_modo)
 
-      // Resumen comercial
+      // Comercial
       setComercialResumen({
         confirmadas: data.comercial.ofertas_confirmadas,
         canceladas: data.comercial.ofertas_canceladas,
         reservadas: data.comercial.ofertas_reservadas,
       })
+      setLeadsTotal(data.comercial.total_leads)
+      setLeadsPorEstado(data.comercial.leads_por_estado)
 
-      // Ventas
-      const clientesVenta = data.clientes_venta as unknown as ClienteVenta[]
-      const todasSolicitudesVenta = data.solicitudes_venta as unknown as SolicitudVenta[]
-      setAllClientesVenta(clientesVenta)
-      setAllSolicitudesVenta(todasSolicitudesVenta)
-
-      const solicitudesUsadas = todasSolicitudesVenta.filter(s => s.estado === "usada")
-      const matVendidosMap = new Map<string, { nombre: string; cantidad: number }>()
-      solicitudesUsadas.forEach(s => {
-        s.materiales?.forEach(m => {
-          const nombre = m.material_descripcion || m.descripcion || m.material_codigo || m.codigo || m.material_id || "Material"
-          const key = m.material_id || normalizeText(nombre)
-          const ex = matVendidosMap.get(key) ?? { nombre, cantidad: 0 }
-          ex.cantidad += m.cantidad ?? 0
-          matVendidosMap.set(key, ex)
-        })
-      })
+      // Ventas resumen — ya calculado en el backend
       setVentasResumen({
-        totalClientesVentas: clientesVenta.length,
-        totalSolicitudesDespachadas: solicitudesUsadas.length,
-        materialesVendidos: Array.from(matVendidosMap.values()).filter(m => m.cantidad > 0).sort((a, b) => b.cantidad - a.cantidad),
+        totalClientesVentas: data.ventas_resumen.total_clientes_venta,
+        totalSolicitudesDespachadas: data.ventas_resumen.total_solicitudes_despachadas,
+        materialesVendidos: data.ventas_resumen.materiales_vendidos.map(m => ({
+          nombre: m.nombre,
+          cantidad: m.cantidad,
+        })),
       })
-
-      // Trabajos diarios
-      setAllTrabajosDiarios(data.trabajos_diarios.map(t => ({
-        fecha_trabajo: t.fecha_trabajo,
-        tipo_trabajo: t.tipo_trabajo,
-        instalacion_terminada: t.instalacion_terminada,
-        cierre_diario_confirmado: t.cierre_diario_confirmado,
-        cliente_numero: t.cliente_numero ?? null,
-        cliente_nombre: t.cliente_nombre ?? null,
-        cliente_telefono: t.cliente_telefono ?? null,
-        cliente_direccion: t.cliente_direccion ?? null,
-        fin_comentario: t.fin_comentario ?? null,
-      })))
 
       setLastUpdate(new Date())
     } catch (err) {
@@ -2177,6 +2096,16 @@ export default function CentroControlView() {
   useEffect(() => { fetchData() }, [fetchData])
   useEffect(() => { setSelectedItem(null) }, [viewMode])
 
+  // ── Brigadas on-demand al abrir el panel ────────────────────────────────────
+  useEffect(() => {
+    if (!showBrigadas || brigadas.length > 0 || brigadasLoading) return
+    setBrigadasLoading(true)
+    CentroControlService.getBrigadas()
+      .then(res => setBrigadas(res.brigadas as unknown as Brigada[]))
+      .catch(() => {})
+      .finally(() => setBrigadasLoading(false))
+  }, [showBrigadas, brigadas.length, brigadasLoading])
+
   // ── Carga on-demand de equipos al abrir un card de detalle ─────────────────
   useEffect(() => {
     const modos = ["pendientes_instalacion", "en_proceso", "averias", "visitas"] as const
@@ -2184,7 +2113,7 @@ export default function CentroControlView() {
       setEquiposParaCard([])
       return
     }
-    const item = selectedItem as { clientes: Cliente[] }
+    const item = selectedItem as { clientes: { numero?: string }[] }
     const numeros = item.clientes.map(c => c.numero).filter((n): n is string => !!n)
     if (!numeros.length) { setEquiposParaCard([]); return }
     CentroControlService.getEquiposBatch(numeros)
@@ -2263,68 +2192,47 @@ export default function CentroControlView() {
 
   const maxClientes = useMemo(() => Math.max(...municipios.map(m => m.cantidad_clientes ?? 0), 1), [municipios])
 
+  // ── Maps de conteo por municipio — construidos desde aggregaciones del backend ──
+
   const pendientesInstMap = useMemo(() => {
-    const map = new Map<string, { clientes: Cliente[]; leads: Lead[] }>()
-    allClients.filter(c => isPendienteInstalacion(c.estado)).forEach(c => {
-      const key = normalizeText(c.municipio); if (!key) return
-      const e = map.get(key) ?? { clientes: [], leads: [] }; e.clientes.push(c); map.set(key, e)
-    })
-    allLeads.filter(l => isPendienteInstalacion(l.estado)).forEach(l => {
-      const key = normalizeText(l.municipio); if (!key) return
-      const e = map.get(key) ?? { clientes: [], leads: [] }; e.leads.push(l); map.set(key, e)
+    const map = new Map<string, number>()
+    municipiosPorModo.pendientes_instalacion.forEach(m => {
+      const key = normalizeText(m.municipio); if (key) map.set(key, m.count)
     })
     return map
-  }, [allClients, allLeads])
+  }, [municipiosPorModo.pendientes_instalacion])
 
   const enProcesoMap = useMemo(() => {
-    const map = new Map<string, Cliente[]>()
-    allClients.filter(c => isEnProceso(c.estado)).forEach(c => {
-      const key = normalizeText(c.municipio); if (!key) return
-      const list = map.get(key) ?? []; list.push(c); map.set(key, list)
+    const map = new Map<string, number>()
+    municipiosPorModo.en_proceso.forEach(m => {
+      const key = normalizeText(m.municipio); if (key) map.set(key, m.count)
     })
     return map
-  }, [allClients])
+  }, [municipiosPorModo.en_proceso])
 
   const averiasMap = useMemo(() => {
-    const map = new Map<string, Cliente[]>()
-    clientesConAverias.filter(c => {
-      const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
-      return avs?.some(a => isAveriaPendiente(a.estado))
-    }).forEach(c => {
-      const key = normalizeText(c.municipio); if (!key) return
-      const list = map.get(key) ?? []; list.push(c); map.set(key, list)
+    const map = new Map<string, number>()
+    municipiosPorModo.averias.forEach(m => {
+      const key = normalizeText(m.municipio); if (key) map.set(key, m.count)
     })
     return map
-  }, [clientesConAverias])
+  }, [municipiosPorModo.averias])
 
   const visitasMap = useMemo(() => {
-    const map = new Map<string, { clientes: Cliente[]; leads: Lead[] }>()
-    allClients.filter(c => isPendienteVisita(c.estado)).forEach(c => {
-      const key = normalizeText(c.municipio); if (!key) return
-      const e = map.get(key) ?? { clientes: [], leads: [] }; e.clientes.push(c); map.set(key, e)
-    })
-    allLeads.filter(l => isPendienteVisita(l.estado)).forEach(l => {
-      const key = normalizeText(l.municipio); if (!key) return
-      const e = map.get(key) ?? { clientes: [], leads: [] }; e.leads.push(l); map.set(key, e)
+    const map = new Map<string, number>()
+    municipiosPorModo.visitas.forEach(m => {
+      const key = normalizeText(m.municipio); if (key) map.set(key, m.count)
     })
     return map
-  }, [allClients, allLeads])
+  }, [municipiosPorModo.visitas])
 
   const ventasMap = useMemo(() => {
-    const map = new Map<string, ClienteVenta[]>()
-    allClientesVenta.forEach(cv => {
-      const key = normalizeText(cv.municipio); if (!key) return
-      const list = map.get(key) ?? []; list.push(cv); map.set(key, list)
+    const map = new Map<string, number>()
+    municipiosPorModo.ventas.forEach(m => {
+      const key = normalizeText(m.municipio); if (key) map.set(key, m.count)
     })
     return map
-  }, [allClientesVenta])
-
-  // ── Mapa auxiliar: cliente_numero → municipio normalizado ───────────────────
-  const clienteNumeroToMunicipioMap = useMemo(() => {
-    const map = new Map<string, string>()
-    allClients.forEach(c => { if (c.numero && c.municipio) map.set(String(c.numero), normalizeText(c.municipio)) })
-    return map
-  }, [allClients])
+  }, [municipiosPorModo.ventas])
 
   // ── Filtros provincia / municipio ───────────────────────────────────────────
   const provinciasDisponibles = useMemo(() =>
@@ -2341,19 +2249,21 @@ export default function CentroControlView() {
       const provKey = normalizeText(m.provincia)
       if (muniKey && provKey) map.set(muniKey, provKey)
     })
-    // Fill in any municipios missing from stats endpoint using client data
-    allClients.forEach(c => {
-      const muniKey = normalizeText(c.municipio)
-      const provKey = normalizeText(c.provincia_montaje)
-      if (muniKey && provKey && !map.has(muniKey)) map.set(muniKey, provKey)
-    })
-    allLeads.forEach(l => {
-      const muniKey = normalizeText(l.municipio)
-      const provKey = normalizeText(l.provincia_montaje)
+    // Completar con provincias de los modos (municipiosPorModo incluye provincia)
+    const allModoItems = [
+      ...municipiosPorModo.pendientes_instalacion,
+      ...municipiosPorModo.en_proceso,
+      ...municipiosPorModo.averias,
+      ...municipiosPorModo.visitas,
+      ...municipiosPorModo.ventas,
+    ]
+    allModoItems.forEach(item => {
+      const muniKey = normalizeText(item.municipio)
+      const provKey = normalizeText(item.provincia)
       if (muniKey && provKey && !map.has(muniKey)) map.set(muniKey, provKey)
     })
     return map
-  }, [municipios, allClients, allLeads])
+  }, [municipios, municipiosPorModo])
 
   const provinceDisplayNameByKey = useMemo(() => {
     const map = new Map<string, string>()
@@ -2408,21 +2318,16 @@ export default function CentroControlView() {
     })
   }, [geoProvBoundsMap, geoProvCenterMap, provinceDisplayNameByKey, filterProvincia, analisisProvinciasSeleccionadas.length])
 
-  // ── Estadísticas comerciales ────────────────────────────────────────────────
-  const leadsByEstado = useMemo(() => {
-    const counts = new Map<string, number>()
-    allLeads.forEach(l => {
-      const raw = (l.estado ?? "").trim()
-      const estado = ESTADOS_VALIDOS_LEAD.has(raw) ? raw : "Sin estado"
-      counts.set(estado, (counts.get(estado) ?? 0) + 1)
-    })
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1])
-  }, [allLeads])
+  // ── Estadísticas comerciales — desde backend ────────────────────────────────
+  const leadsByEstado = useMemo(() =>
+    leadsPorEstado.map(({ estado, count }) => [estado, count] as [string, number]),
+  [leadsPorEstado])
 
   const conversionPct = useMemo(() => {
-    const total = allClients.length + allLeads.length
-    return total ? Math.round((allClients.length / total) * 1000) / 10 : 0
-  }, [allClients.length, allLeads.length])
+    const totalClientes = controlData?.totalClientes ?? 0
+    const total = totalClientes + leadsTotal
+    return total ? Math.round((totalClientes / total) * 1000) / 10 : 0
+  }, [controlData?.totalClientes, leadsTotal])
 
   // ── Periodo selector memos ────────────────────────────────────────────────
   const periodoRange = useMemo(
@@ -2430,129 +2335,47 @@ export default function CentroControlView() {
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
   )
 
-  // ── Mapas filtrados por periodo (deben ir DESPUÉS de periodoRange) ────────────
-  const trabajosDiariosMap = useMemo(() => {
-    const map = new Map<string, TrabajoDiarioRow[]>()
-    if (!periodoRange) return map
-    const { start, end } = periodoRange
-    const inR = (s: string | null | undefined) => isInRange(s, start, end)
-    allTrabajosDiarios.filter(t => inR(t.fecha_trabajo)).forEach(t => {
-      const muni = t.cliente_numero ? clienteNumeroToMunicipioMap.get(t.cliente_numero) : undefined
-      if (!muni) return
-      const list = map.get(muni) ?? []; list.push(t); map.set(muni, list)
-    })
-    return map
-  }, [allTrabajosDiarios, clienteNumeroToMunicipioMap, periodoRange])
+  // ── Mapas de periodo — vacíos por ahora (deferred: se calcularán en el backend con /periodo-stats) ──
+  const trabajosDiariosMap = useMemo(() => new Map<string, TrabajoDiarioRow[]>(), [])
+  const clientesTrabajadosMap = useMemo(() => new Map<string, Set<string>>(), [])
+  const instalacionesTerminadasMap = useMemo(() => new Map<string, TrabajoDiarioRow[]>(), [])
+  const averiasSolucionadasPeriodoMap = useMemo(() => new Map<string, Cliente[]>(), [])
 
-  const clientesTrabajadosMap = useMemo(() => {
-    const map = new Map<string, Set<string>>()
-    if (!periodoRange) return map
-    const { start, end } = periodoRange
-    const inR = (s: string | null | undefined) => isInRange(s, start, end)
-    allTrabajosDiarios.filter(t => inR(t.fecha_trabajo) && t.cliente_numero).forEach(t => {
-      const muni = clienteNumeroToMunicipioMap.get(t.cliente_numero!)
-      if (!muni) return
-      const s = map.get(muni) ?? new Set<string>(); s.add(t.cliente_numero!); map.set(muni, s)
-    })
-    return map
-  }, [allTrabajosDiarios, clienteNumeroToMunicipioMap, periodoRange])
-
-  const instalacionesTerminadasMap = useMemo(() => {
-    const map = new Map<string, TrabajoDiarioRow[]>()
-    if (!periodoRange) return map
-    const { start, end } = periodoRange
-    const inR = (s: string | null | undefined) => isInRange(s, start, end)
-    allTrabajosDiarios.filter(t => t.cierre_diario_confirmado === true && t.instalacion_terminada === true && inR(t.fecha_trabajo)).forEach(t => {
-      const muni = t.cliente_numero ? clienteNumeroToMunicipioMap.get(t.cliente_numero) : undefined
-      if (!muni) return
-      const list = map.get(muni) ?? []; list.push(t); map.set(muni, list)
-    })
-    return map
-  }, [allTrabajosDiarios, clienteNumeroToMunicipioMap, periodoRange])
-
-  const averiasSolucionadasPeriodoMap = useMemo(() => {
-    const map = new Map<string, Cliente[]>()
-    if (!periodoRange) return map
-    const { start, end } = periodoRange
-    const inR = (s: string | null | undefined) => isInRange(s, start, end)
-    clientesConAverias.forEach(c => {
-      const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
-      const tiene = avs?.some(a => isAveriaSolucionada(a.estado) && inR(a.fecha_solucion as string))
-      if (!tiene || !c.municipio) return
-      const key = normalizeText(c.municipio)
-      const list = map.get(key) ?? []; list.push(c); map.set(key, list)
-    })
-    return map
-  }, [clientesConAverias, periodoRange])
-
-  const clientesTrabajadosPeriodo = useMemo(() => {
-    if (!periodoRange) return 0
-    const { start, end } = periodoRange
-    const inR = (s: string | null | undefined) => isInRange(s, start, end)
-    const nums = new Set<string>()
-    allTrabajosDiarios.filter(t => inR(t.fecha_trabajo) && t.cliente_numero).forEach(t => nums.add(t.cliente_numero!))
-    return nums.size
-  }, [allTrabajosDiarios, periodoRange])
+  // Period stats de trabajos — deferred (se implementará con endpoint /periodo-stats)
+  const clientesTrabajadosPeriodo = 0
 
   const maxByMode = useMemo(() => {
-    if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()).map(v => v.clientes.length + v.leads.length), 1)
-    if (viewMode === "en_proceso") return Math.max(...Array.from(enProcesoMap.values()).map(v => v.length), 1)
-    if (viewMode === "averias") return Math.max(...Array.from(averiasMap.values()).map(v => v.length), 1)
-    if (viewMode === "visitas") return Math.max(...Array.from(visitasMap.values()).map(v => v.clientes.length + v.leads.length), 1)
-    if (viewMode === "ventas") return Math.max(...Array.from(ventasMap.values()).map(v => v.length), 1)
-    if (viewMode === "trabajos_diarios") return Math.max(...Array.from(trabajosDiariosMap.values()).map(v => v.length), 1)
-    if (viewMode === "clientes_trabajados") return Math.max(...Array.from(clientesTrabajadosMap.values()).map(v => v.size), 1)
-    if (viewMode === "instalaciones_terminadas") return Math.max(...Array.from(instalacionesTerminadasMap.values()).map(v => v.length), 1)
-    if (viewMode === "averias_solucionadas_periodo") return Math.max(...Array.from(averiasSolucionadasPeriodoMap.values()).map(v => v.length), 1)
+    if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()), 1)
+    if (viewMode === "en_proceso") return Math.max(...Array.from(enProcesoMap.values()), 1)
+    if (viewMode === "averias") return Math.max(...Array.from(averiasMap.values()), 1)
+    if (viewMode === "visitas") return Math.max(...Array.from(visitasMap.values()), 1)
+    if (viewMode === "ventas") return Math.max(...Array.from(ventasMap.values()), 1)
     return maxClientes
-  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, maxClientes])
+  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, maxClientes])
 
   const periodoLabel = useMemo(
     () => formatPeriodoLabel(periodoTipo, periodoFecha, periodoDesde, periodoHasta),
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
   )
 
+  // periodoStats: para "semana" usa datos del backend; otros periodos deferred
   const periodoStats = useMemo(() => {
     const zero = { instalacionesComenzadas: 0, instalacionesTerminadas: 0, nuevosClientes: 0, nuevosLeads: 0, averiasSolucionadas: 0, ofertasCreadas: 0, ofertasConfirmadas: 0, ofertasCanceladas: 0, reservas: 0, trabajosDiarios: 0, nuevosClientesVentas: 0, solicitudesDespachadas: 0, materialesVendidosUnidades: 0 }
-    if (!periodoRange) return zero
-    const { start, end } = periodoRange
-    const inR = (s: string | null | undefined) => isInRange(s, start, end)
-
-    const instalacionesTerminadas = allTrabajosDiarios.filter(t =>
-      t.cierre_diario_confirmado === true &&
-      t.instalacion_terminada === true &&
-      inR(t.fecha_trabajo)
-    ).length
-    const instalacionesComenzadas = allTrabajosDiarios.filter(t =>
-      t.cierre_diario_confirmado === true &&
-      normalizeText(t.tipo_trabajo ?? "").includes("instalacion nueva") &&
-      inR(t.fecha_trabajo)
-    ).length
-    const nuevosClientes = allClients.filter(c => inR(c.fecha_creacion)).length
-    const nuevosLeads = allLeads.filter(l => inR(l.fecha_contacto)).length
-
-    let averiasSolucionadas = 0
-    clientesConAverias.forEach(c => {
-      const avs: Array<Record<string, unknown>> = (c.averias as unknown as Array<Record<string, unknown>>) ?? []
-      avs.forEach(a => { if (isAveriaSolucionada(a.estado) && inR(a.fecha_solucion as string)) averiasSolucionadas++ })
-    })
-
-    const ofertasCreadas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion)).length
-    const ofertasConfirmadas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion) && isOfertaConfirmadaPorCliente(o.estado)).length
-    const ofertasCanceladas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion) && normalizeText(o.estado ?? "").includes("cancelada")).length
-    const reservas = allConfeccionOfertas.filter(o => inR(o.fecha_creacion) && normalizeText(o.estado ?? "").includes("reservada")).length
-
-    const trabajosDiarios = allTrabajosDiarios.filter(t => inR(t.fecha_trabajo)).length
-
-    const solicitudesUsadas = allSolicitudesVenta.filter(s => s.estado === "usada")
-    const nuevosClientesVentas = allClientesVenta.filter(cv => inR(cv.fecha_creacion)).length
-    const solicitudesDespachadas = solicitudesUsadas.filter(s => inR(s.fecha_creacion)).length
-    const materialesVendidosUnidades = solicitudesUsadas
-      .filter(s => inR(s.fecha_creacion))
-      .reduce((sum, s) => sum + (s.materiales?.reduce((ms, m) => ms + (m.cantidad ?? 0), 0) ?? 0), 0)
-
-    return { instalacionesComenzadas, instalacionesTerminadas, nuevosClientes, nuevosLeads, averiasSolucionadas, ofertasCreadas, ofertasConfirmadas, ofertasCanceladas, reservas, trabajosDiarios, nuevosClientesVentas, solicitudesDespachadas, materialesVendidosUnidades }
-  }, [periodoRange, allClients, allLeads, clientesConAverias, allConfeccionOfertas, allTrabajosDiarios, allSolicitudesVenta, allClientesVenta])
+    if (!periodoRange || !controlData) return zero
+    // Para el periodo "semana" usamos los valores ya calculados en el backend
+    if (periodoTipo === "semana") {
+      return {
+        ...zero,
+        instalacionesComenzadas: controlData.instalacionesComenzadas,
+        instalacionesTerminadas: controlData.instalacionesTerminadas,
+        nuevosClientes: controlData.nuevosClientes,
+        nuevosLeads: controlData.nuevosLeads,
+        averiasSolucionadas: controlData.averiasSolucionadas,
+      }
+    }
+    // Otros periodos: deferred — retorna ceros hasta implementar /periodo-stats
+    return zero
+  }, [periodoTipo, periodoRange, controlData])
 
   // Re-fetch visitas cuando cambia el periodo (dato que solo viene del backend)
   useEffect(() => {
@@ -2584,11 +2407,11 @@ export default function CentroControlView() {
 
     let count = 0
     if (viewMode === "todos") count = municipioMap.get(key)?.cantidad_clientes ?? 0
-    else if (viewMode === "pendientes_instalacion") { const e = pendientesInstMap.get(key); count = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0) }
-    else if (viewMode === "en_proceso") count = enProcesoMap.get(key)?.length ?? 0
-    else if (viewMode === "averias") count = averiasMap.get(key)?.length ?? 0
-    else if (viewMode === "visitas") { const e = visitasMap.get(key); count = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0) }
-    else if (viewMode === "ventas") count = ventasMap.get(key)?.length ?? 0
+    else if (viewMode === "pendientes_instalacion") count = pendientesInstMap.get(key) ?? 0
+    else if (viewMode === "en_proceso") count = enProcesoMap.get(key) ?? 0
+    else if (viewMode === "averias") count = averiasMap.get(key) ?? 0
+    else if (viewMode === "visitas") count = visitasMap.get(key) ?? 0
+    else if (viewMode === "ventas") count = ventasMap.get(key) ?? 0
     else if (viewMode === "trabajos_diarios") count = trabajosDiariosMap.get(key)?.length ?? 0
     else if (viewMode === "clientes_trabajados") count = clientesTrabajadosMap.get(key)?.size ?? 0
     else if (viewMode === "instalaciones_terminadas") count = instalacionesTerminadasMap.get(key)?.length ?? 0
@@ -2613,7 +2436,7 @@ export default function CentroControlView() {
       fillColor: densityColor(ratio, viewMode),
       fillOpacity: isMunicipioFilterActive ? 1 : 0.9,
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, maxByMode, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKeys])
 
   const onEachFeature = useCallback((feature: Feature, layer: Layer) => {
     const shapeName = String((feature.properties as Record<string, unknown> | undefined)?.shapeName ?? "")
@@ -2623,11 +2446,11 @@ export default function CentroControlView() {
     let modeCount = 0
     let modeLabel = "cliente"
     if (viewMode === "todos") { modeCount = municipioMap.get(key)?.cantidad_clientes ?? 0; modeLabel = "cliente" }
-    else if (viewMode === "pendientes_instalacion") { const e = pendientesInstMap.get(key); modeCount = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0); modeLabel = "pendiente" }
-    else if (viewMode === "en_proceso") { modeCount = enProcesoMap.get(key)?.length ?? 0; modeLabel = "en proceso" }
-    else if (viewMode === "averias") { modeCount = averiasMap.get(key)?.length ?? 0; modeLabel = "con avería" }
-    else if (viewMode === "visitas") { const e = visitasMap.get(key); modeCount = (e?.clientes.length ?? 0) + (e?.leads.length ?? 0); modeLabel = "visita pendiente" }
-    else if (viewMode === "ventas") { modeCount = ventasMap.get(key)?.length ?? 0; modeLabel = "cliente ventas" }
+    else if (viewMode === "pendientes_instalacion") { modeCount = pendientesInstMap.get(key) ?? 0; modeLabel = "pendiente" }
+    else if (viewMode === "en_proceso") { modeCount = enProcesoMap.get(key) ?? 0; modeLabel = "en proceso" }
+    else if (viewMode === "averias") { modeCount = averiasMap.get(key) ?? 0; modeLabel = "con avería" }
+    else if (viewMode === "visitas") { modeCount = visitasMap.get(key) ?? 0; modeLabel = "visita pendiente" }
+    else if (viewMode === "ventas") { modeCount = ventasMap.get(key) ?? 0; modeLabel = "cliente ventas" }
     else if (viewMode === "trabajos_diarios") { modeCount = trabajosDiariosMap.get(key)?.length ?? 0; modeLabel = "trabajo" }
     else if (viewMode === "clientes_trabajados") { modeCount = clientesTrabajadosMap.get(key)?.size ?? 0; modeLabel = "cliente trabajado" }
     else if (viewMode === "instalaciones_terminadas") { modeCount = instalacionesTerminadasMap.get(key)?.length ?? 0; modeLabel = "instalación terminada" }
@@ -2652,7 +2475,7 @@ export default function CentroControlView() {
     }
 
     if ("on" in layer && "setStyle" in layer) {
-      const typed = layer as { on: (ev: Record<string, (e: LeafletMouseEvent) => void>) => void; setStyle: (s: PathOptions) => void; bringToFront: () => void }
+      const typed = layer as unknown as { on: (ev: Record<string, (e: LeafletMouseEvent) => void>) => void; setStyle: (s: PathOptions) => void; bringToFront: () => void }
       typed.on({
         mouseover: (e: LeafletMouseEvent) => {
           if (!modeCount) return
@@ -2672,40 +2495,49 @@ export default function CentroControlView() {
             const muni = municipioMap.get(key); if (!muni) return
             setSelectedItem(prev => prev?.mode === "todos" && prev.muni.municipio === muni.municipio ? null : { mode: "todos", muni })
           } else if (viewMode === "pendientes_instalacion") {
-            const en = pendientesInstMap.get(key); if (!en || (!en.clientes.length && !en.leads.length)) return
-            setSelectedItem(prev => prev?.mode === "pendientes_instalacion" && prev.municipio === shapeName ? null : { mode: "pendientes_instalacion", municipio: shapeName, clientes: en.clientes, leads: en.leads })
+            if (!(pendientesInstMap.get(key) ?? 0)) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getMunicipioClientes("pendientes_instalacion", shapeName)
+              .then(data => setSelectedItem({ mode: "pendientes_instalacion", municipio: shapeName, clientes: data.clientes, leads: data.leads }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
           } else if (viewMode === "en_proceso") {
-            const cs = enProcesoMap.get(key); if (!cs?.length) return
-            setSelectedItem(prev => prev?.mode === "en_proceso" && prev.municipio === shapeName ? null : { mode: "en_proceso", municipio: shapeName, clientes: cs })
+            if (!(enProcesoMap.get(key) ?? 0)) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getMunicipioClientes("en_proceso", shapeName)
+              .then(data => setSelectedItem({ mode: "en_proceso", municipio: shapeName, clientes: data.clientes }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
           } else if (viewMode === "averias") {
-            const cs = averiasMap.get(key); if (!cs?.length) return
-            setSelectedItem(prev => prev?.mode === "averias" && prev.municipio === shapeName ? null : { mode: "averias", municipio: shapeName, clientes: cs })
+            if (!(averiasMap.get(key) ?? 0)) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getMunicipioClientes("averias", shapeName)
+              .then(data => setSelectedItem({ mode: "averias", municipio: shapeName, clientes: data.clientes }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
           } else if (viewMode === "visitas") {
-            const ev = visitasMap.get(key); if (!ev || (!ev.clientes.length && !ev.leads.length)) return
-            setSelectedItem(prev => prev?.mode === "visitas" && prev.municipio === shapeName ? null : { mode: "visitas", municipio: shapeName, clientes: ev.clientes, leads: ev.leads })
+            if (!(visitasMap.get(key) ?? 0)) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getMunicipioClientes("visitas", shapeName)
+              .then(data => setSelectedItem({ mode: "visitas", municipio: shapeName, clientes: data.clientes, leads: data.leads }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
           } else if (viewMode === "ventas") {
-            const cv = ventasMap.get(key); if (!cv?.length) return
-            setSelectedItem(prev => prev?.mode === "ventas" && prev.municipio === shapeName ? null : { mode: "ventas", municipio: shapeName, clientesVenta: cv })
-          } else if (viewMode === "trabajos_diarios") {
-            const ts = trabajosDiariosMap.get(key); if (!ts?.length) return
-            setSelectedItem(prev => prev?.mode === "trabajos_diarios" && prev.municipio === shapeName ? null : { mode: "trabajos_diarios", municipio: shapeName, trabajos: ts })
-          } else if (viewMode === "clientes_trabajados") {
-            const cs = clientesTrabajadosMap.get(key); if (!cs?.size) return
-            setSelectedItem(prev => prev?.mode === "clientes_trabajados" && prev.municipio === shapeName ? null : { mode: "clientes_trabajados", municipio: shapeName, clienteNumeros: Array.from(cs) })
-          } else if (viewMode === "instalaciones_terminadas") {
-            const ts = instalacionesTerminadasMap.get(key); if (!ts?.length) return
-            setSelectedItem(prev => prev?.mode === "instalaciones_terminadas" && prev.municipio === shapeName ? null : { mode: "instalaciones_terminadas", municipio: shapeName, trabajos: ts })
-          } else if (viewMode === "averias_solucionadas_periodo") {
-            const cs = averiasSolucionadasPeriodoMap.get(key); if (!cs?.length) return
-            setSelectedItem(prev => prev?.mode === "averias_solucionadas_periodo" && prev.municipio === shapeName ? null : { mode: "averias_solucionadas_periodo", municipio: shapeName, clientes: cs })
+            if (!(ventasMap.get(key) ?? 0)) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getMunicipioClientes("ventas", shapeName)
+              .then(data => setSelectedItem({ mode: "ventas", municipio: shapeName, clientesVenta: data.clientes_venta, solicitudesUsadas: data.solicitudes_usadas }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
           }
+          // Modos de periodo (trabajos_diarios, etc.) — deferred, Maps vacíos
         },
       })
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys, setMunicipioDetailLoading, setSelectedItem])
 
 
-  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${trabajosDiariosMap.size}-${clientesTrabajadosMap.size}-${instalacionesTerminadasMap.size}-${averiasSolucionadasPeriodoMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
+  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -2839,7 +2671,7 @@ export default function CentroControlView() {
                       <span className="text-[11px] text-slate-300 truncate">Ver estadísticas de clientes</span>
                     </div>
                     {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
-                      : <span className="text-sm font-bold text-cyan-400 shrink-0">{allClients.length}</span>}
+                      : <span className="text-sm font-bold text-cyan-400 shrink-0">{controlData?.totalClientes ?? 0}</span>}
                   </button>
                 </div>
                 {viewMode !== "todos" && (
@@ -2876,7 +2708,7 @@ export default function CentroControlView() {
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
                       {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
-                        : <span className="text-sm font-bold text-amber-400">{allLeads.length}</span>}
+                        : <span className="text-sm font-bold text-amber-400">{leadsTotal}</span>}
                       {showLeadStates ? <ChevronUp className="h-3 w-3 text-slate-500" /> : <ChevronDown className="h-3 w-3 text-slate-500" />}
                     </div>
                   </button>
@@ -2901,7 +2733,7 @@ export default function CentroControlView() {
                       <span className="text-[11px] text-slate-300 leading-tight truncate">Clientes</span>
                     </div>
                     {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
-                      : <span className="text-sm font-bold text-orange-400 shrink-0">{allClients.length}</span>}
+                      : <span className="text-sm font-bold text-orange-400 shrink-0">{controlData?.totalClientes ?? 0}</span>}
                   </div>
 
                   {/* Ofertas confirmadas */}
@@ -3149,22 +2981,28 @@ export default function CentroControlView() {
           )}
 
           {/* Cards */}
-          {selectedItem?.mode === "todos" && <MunicipioCard muni={selectedItem.muni} allClients={allClients} onClose={() => setSelectedItem(null)} />}
+          {municipioDetailLoading && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-slate-900/95 border border-slate-700 rounded-xl px-5 py-3 flex items-center gap-3 shadow-xl pointer-events-none">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-amber-400 border-t-transparent" />
+              <p className="text-xs text-slate-300">Cargando detalle…</p>
+            </div>
+          )}
+          {selectedItem?.mode === "todos" && <MunicipioCard muni={selectedItem.muni} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "pendientes_instalacion" && <PendientesInstCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "en_proceso" && <EnProcesoCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "averias" && <AveriasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "visitas" && <VisitasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} leads={selectedItem.leads} confeccionOfertas={equiposParaCard} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "ventas" && <VentasClientesCard municipio={selectedItem.municipio} clientesVenta={selectedItem.clientesVenta} solicitudesUsadas={allSolicitudesVenta.filter(s => s.estado === "usada")} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "trabajos_diarios" && <TrabajosCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={allClients} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "clientes_trabajados" && <ClientesTrabajadosCard municipio={selectedItem.municipio} clienteNumeros={selectedItem.clienteNumeros} allClients={allClients} onClose={() => setSelectedItem(null)} />}
-          {selectedItem?.mode === "instalaciones_terminadas" && <InstalacionesTerminadasCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={allClients} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "ventas" && <VentasClientesCard municipio={selectedItem.municipio} clientesVenta={selectedItem.clientesVenta} solicitudesUsadas={selectedItem.solicitudesUsadas} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "trabajos_diarios" && <TrabajosCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={[]} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "clientes_trabajados" && <ClientesTrabajadosCard municipio={selectedItem.municipio} clienteNumeros={selectedItem.clienteNumeros} allClients={[]} onClose={() => setSelectedItem(null)} />}
+          {selectedItem?.mode === "instalaciones_terminadas" && <InstalacionesTerminadasCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={[]} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "averias_solucionadas_periodo" && <AveriasSolucionadasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
           {showBrigadas && <BrigadasPanel brigadas={brigadas} onClose={() => setShowBrigadas(false)} />}
-          {showClientesStats && <ClientesStatsPanel clientes={allClients} onClose={() => setShowClientesStats(false)} />}
+          {showClientesStats && <ClientesStatsPanel clientes={[]} onClose={() => setShowClientesStats(false)} />}
           {showAnalisisRegional && (
             <AnalisisRegionalPanel
-              allClients={allClients}
-              allLeads={allLeads}
+              allClients={[]}
+              allLeads={[]}
               viewMode={viewMode}
               provinciasDisponibles={provinciasDisponibles}
               confeccionOfertas={ofertasItemsCompleto}
