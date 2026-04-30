@@ -533,18 +533,34 @@ export class InventarioService {
     material_codigo?: string;
     sort_by?: string;
     sort_dir?: "asc" | "desc";
-  }): Promise<StockItem[]> {
+    skip?: number;
+    limit?: number;
+    categoria?: string;
+    marca_id?: string;
+    potencia_kw?: string;
+    cantidad_filter?: string;
+  }): Promise<{ data: StockItem[]; total: number; skip: number; limit: number }> {
     const search = new URLSearchParams();
     if (params?.almacen_id) search.set("almacen_id", params.almacen_id);
     if (params?.q) search.set("q", params.q);
     if (params?.material_id) search.set("material_id", params.material_id);
-    if (params?.material_codigo)
-      search.set("material_codigo", params.material_codigo);
+    if (params?.material_codigo) search.set("material_codigo", params.material_codigo);
     if (params?.sort_by) search.set("sort_by", params.sort_by);
     if (params?.sort_dir) search.set("sort_dir", params.sort_dir);
+    if (params?.skip !== undefined) search.set("skip", String(params.skip));
+    if (params?.limit !== undefined) search.set("limit", String(params.limit));
+    if (params?.categoria) search.set("categoria", params.categoria);
+    if (params?.marca_id) search.set("marca_id", params.marca_id);
+    if (params?.potencia_kw) search.set("potencia_kw", params.potencia_kw);
+    if (params?.cantidad_filter && params.cantidad_filter !== "all")
+      search.set("cantidad_filter", params.cantidad_filter);
     const suffix = search.toString() ? `?${search.toString()}` : "";
     const response = await apiRequest<any>(`/inventario/stock${suffix}`);
-    return this.normalizeStockResponse(response);
+    const data = this.normalizeStockResponse(response);
+    const total = typeof response?.total === "number" ? response.total : data.length;
+    const skip = typeof response?.skip === "number" ? response.skip : 0;
+    const limit = typeof response?.limit === "number" ? response.limit : data.length;
+    return { data, total, skip, limit };
   }
 
   static async getMovimientos(params?: {

@@ -313,8 +313,9 @@ const loadStockByCode = async (
   if (!almacenId) return stockByCode;
 
   try {
-    const stockRows = await InventarioService.getStock({
+    const { data: stockRows } = await InventarioService.getStock({
       almacen_id: almacenId,
+      limit: 200,
     });
     stockRows.forEach((row) => {
       const code = normalizeMaterialCode(String(row.material_codigo || ""));

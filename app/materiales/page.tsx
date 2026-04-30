@@ -50,6 +50,7 @@ import { DuplicatesDashboard } from "@/components/feats/materials/duplicates-das
 import { MarcasManagement } from "@/components/feats/materials/marcas-management";
 import { MarcaForm } from "@/components/feats/materials/marca-form";
 import { useMaterials } from "@/hooks/use-materials";
+import { usePaginatedMaterials } from "@/hooks/use-paginated-materials";
 import type { Material, BackendCatalogoProductos } from "@/lib/material-types";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
@@ -73,6 +74,11 @@ export default function MaterialesPage() {
     registerNewCategory,
   } = useMaterials();
   const { toast, dismiss } = useToast();
+
+  // Hook de paginación: maneja filtros, llamadas al backend y paginación
+  const paginated = usePaginatedMaterials();
+
+  // Estados de filtro locales para controlar los inputs (se sincronizan con el hook)
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedMarca, setSelectedMarca] = useState("all");
@@ -366,24 +372,33 @@ export default function MaterialesPage() {
     }
   };
 
-  const filteredMaterials = materials.filter((material) => {
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      material.codigo.toString().toLowerCase().includes(term) ||
-      material.descripcion.toLowerCase().includes(term) ||
-      (material.numero_serie ?? "").toLowerCase().includes(term);
-    const matchesCategoryFilter =
-      selectedCategory === "all" || material.categoria === selectedCategory;
-    const matchesMarcaFilter =
-      selectedMarca === "all" || material.marca_id === selectedMarca;
-    const materialPrice = Number(material.precio ?? 0);
-    const matchesPriceFilter =
-      priceFilter === "all" ||
-      (priceFilter === "zero" &&
-        Number.isFinite(materialPrice) &&
-        materialPrice === 0);
-    return matchesSearch && matchesCategoryFilter && matchesMarcaFilter && matchesPriceFilter;
-  });
+  // La tabla de materiales usa datos paginados del backend, no filtrado local
+  const filteredMaterials = paginated.materials;
+
+  // Helpers para cambiar filtros y propagarlos al hook paginado
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    paginated.setFilters({ q: value });
+  };
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+    paginated.setFilters({ categoria: value });
+  };
+  const handleMarcaChange = (value: string) => {
+    setSelectedMarca(value);
+    paginated.setFilters({ marca_id: value });
+  };
+  const handlePriceFilterChange = (value: "all" | "zero") => {
+    setPriceFilter(value);
+    paginated.setFilters({ precio_zero: value === "zero" });
+  };
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setSelectedCategory("all");
+    setSelectedMarca("all");
+    setPriceFilter("all");
+    paginated.setFilters({ q: "", categoria: "all", marca_id: "all", precio_zero: false });
+  };
 
   const filteredCategories = catalogs.filter((category) => {
     const matchesSearch = category.categoria
@@ -895,7 +910,7 @@ export default function MaterialesPage() {
                             : "Buscar por nombre de categoría..."
                         }
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         className="pl-10"
                       />
                     </div>
@@ -911,7 +926,7 @@ export default function MaterialesPage() {
                         </Label>
                         <Select
                           value={selectedCategory}
-                          onValueChange={setSelectedCategory}
+                          onValueChange={handleCategoryChange}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Todas las categorías" />
@@ -940,7 +955,7 @@ export default function MaterialesPage() {
                         </Label>
                         <Select
                           value={selectedMarca}
-                          onValueChange={setSelectedMarca}
+                          onValueChange={handleMarcaChange}
                         >
                           <SelectTrigger id="marca-filter">
                             <SelectValue placeholder="Todas las marcas" />
@@ -965,7 +980,7 @@ export default function MaterialesPage() {
                         <Select
                           value={priceFilter}
                           onValueChange={(value: "all" | "zero") =>
-                            setPriceFilter(value)
+                            handlePriceFilterChange(value)
                           }
                         >
                           <SelectTrigger id="price-filter">
@@ -986,12 +1001,7 @@ export default function MaterialesPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setSearchTerm("");
-                          setSelectedCategory("all");
-                          setSelectedMarca("all");
-                          setPriceFilter("all");
-                        }}
+                        onClick={handleClearFilters}
                         className="text-gray-600 border-gray-300 hover:bg-gray-50 whitespace-nowrap"
                       >
                         <X className="h-4 w-4 mr-1" />
@@ -1059,7 +1069,11 @@ export default function MaterialesPage() {
                   </CardTitle>
                   <CardDescription>
                     {viewMode === "materials"
-                      ? `Mostrando ${filteredMaterials.length} de ${materials.length} materiales`
+                      ? paginated.meta.total > 0
+                        ? `Mostrando ${(paginated.meta.page - 1) * paginated.meta.limit + 1}–${Math.min(paginated.meta.page * paginated.meta.limit, paginated.meta.total)} de ${paginated.meta.total} materiales`
+                        : paginated.loading
+                          ? "Cargando materiales..."
+                          : "No se encontraron materiales"
                       : `Mostrando ${filteredCategories.length} de ${catalogs.length} categorías`}
                   </CardDescription>
                 </CardHeader>
@@ -1068,11 +1082,23 @@ export default function MaterialesPage() {
                     <MaterialsTable
                       materials={filteredMaterials}
                       onEdit={openEditDialog}
-                      onFichaTecnicaUploaded={(codigo, url) => {
-                        // Actualizar el material en el estado local
+                      onFichaTecnicaUploaded={() => {
+                        paginated.refetch();
                         refetchBackground();
                       }}
                       marcas={marcas}
+                      loading={paginated.loading}
+                      pagination={
+                        paginated.meta.totalPages > 1
+                          ? {
+                              page: paginated.meta.page,
+                              totalPages: paginated.meta.totalPages,
+                              total: paginated.meta.total,
+                              limit: paginated.meta.limit,
+                              onPageChange: paginated.setPage,
+                            }
+                          : undefined
+                      }
                     />
                   ) : (
                     <CategoriesTable
