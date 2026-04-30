@@ -30,10 +30,10 @@ import {
   AlertCircle,
   Package,
   Upload,
-  Image as ImageIcon,
   FileText,
   Download,
 } from "lucide-react";
+import { FileUpload } from "@/components/shared/molecule/file-upload";
 import type { Material, MaterialFormData } from "@/lib/material-types";
 import { useToast } from "@/hooks/use-toast";
 import { useMarcas } from "@/hooks/use-marcas";
@@ -83,13 +83,9 @@ export function MaterialForm({
   });
 
   const [fotoFile, setFotoFile] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(
-    initialData?.foto || null,
-  );
   const [fotoUrl, setFotoUrl] = useState<string | null>(
     initialData?.foto || null,
   );
-  const [cambiarFoto, setCambiarFoto] = useState(false);
 
   // Estado para ficha técnica
   const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null);
@@ -154,8 +150,7 @@ export function MaterialForm({
       stockaje_minimo: initialData.stockaje_minimo ?? null,
     });
     setFotoUrl(initialData.foto || null);
-    setFotoPreview(initialData.foto || null);
-    setCambiarFoto(false);
+    setFotoFile(null);
     setFichaTecnicaUrl(initialData.ficha_tecnica_url || null);
     setFichaTecnicaFile(null);
     setCambiarFichaTecnica(false);
@@ -197,39 +192,6 @@ export function MaterialForm({
   const marcasFiltradas = marcasSimplificadas.filter((marca) =>
     marca.tipos_material.includes(formData.categoria as any),
   );
-
-  // Manejar cambio de archivo de foto
-  const handleFotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-
-    if (!file) {
-      setFotoFile(null);
-      setFotoPreview(fotoUrl);
-      return;
-    }
-
-    // Validar que sea imagen
-    if (!file.type.startsWith("image/")) {
-      setError("El archivo debe ser una imagen");
-      return;
-    }
-
-    // Validar tamaño (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError("La imagen no debe superar 5MB");
-      return;
-    }
-
-    setFotoFile(file);
-    setError(null);
-
-    // Crear preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setFotoPreview(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
 
   // Manejar cambio de archivo de ficha técnica
   const handleFichaTecnicaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -414,7 +376,7 @@ export function MaterialForm({
             stockaje_minimo: null,
           });
           setFotoFile(null);
-          setFotoPreview(null);
+
           setFotoUrl(null);
           setFichaTecnicaFile(null);
           setFichaTecnicaUrl(null);
@@ -756,104 +718,33 @@ export function MaterialForm({
           )}
 
           {/* Foto del Material */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-gray-700">
-              Foto del Producto
-            </Label>
+          <FileUpload
+            id="material-foto"
+            label="Foto del Producto"
+            accept="image/*"
+            value={fotoFile}
+            onChange={(file) => setFotoFile(file)}
+            maxSizeInMB={5}
+            showPreview={true}
+            disabled={isSubmitting || uploadingFoto}
+            currentImageUrl={!fotoFile ? (fotoUrl || undefined) : undefined}
+          />
 
-            <div className="flex flex-col md:flex-row md:items-start gap-6">
-              {/* Foto actual (solo en modo edición) */}
-              {isEditing && fotoUrl && !cambiarFoto && (
-                <div className="space-y-3">
-                  <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                    <img
-                      src={fotoUrl}
-                      alt="Foto actual"
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/placeholder.svg";
-                      }}
-                    />
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCambiarFoto(true)}
-                    disabled={isSubmitting || uploadingFoto}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Cambiar Foto
-                  </Button>
-                </div>
-              )}
-
-              {/* Input de archivo (crear o cambiar foto) */}
-              {(!isEditing || !fotoUrl || cambiarFoto) && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFotoChange}
-                      disabled={isSubmitting || uploadingFoto}
-                      className="flex-1"
-                    />
-                    {cambiarFoto && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setCambiarFoto(false);
-                          setFotoFile(null);
-                          setFotoPreview(fotoUrl);
-                        }}
-                        disabled={isSubmitting || uploadingFoto}
-                      >
-                        Cancelar
-                      </Button>
-                    )}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Formatos: JPG, PNG, GIF. Máximo 5MB
-                  </p>
-                </div>
-              )}
-
-              {/* Preview de la foto */}
-              {fotoPreview && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">
-                    Vista Previa
-                  </Label>
-                  <div className="relative w-48 h-48 border-2 border-gray-200 rounded-lg overflow-hidden">
-                    <img
-                      src={fotoPreview}
-                      alt="Preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                </div>
-              )}
+          {/* Indicador de subida */}
+          {uploadingFoto && (
+            <div className="flex items-center gap-2 text-sm text-blue-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Subiendo foto...</span>
             </div>
+          )}
 
-            {/* Indicador de subida */}
-            {uploadingFoto && (
-              <div className="flex items-center gap-2 text-sm text-blue-600">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Subiendo foto...</span>
-              </div>
-            )}
-
-            {/* Error de subida */}
-            {uploadError && (
-              <div className="flex items-center gap-2 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                <span>{uploadError}</span>
-              </div>
-            )}
-          </div>
+          {/* Error de subida */}
+          {uploadError && (
+            <div className="flex items-center gap-2 text-sm text-red-600">
+              <AlertCircle className="h-4 w-4" />
+              <span>{uploadError}</span>
+            </div>
+          )}
 
           {/* Ficha Técnica del Material */}
           <div className="space-y-3 p-4 bg-purple-50 rounded-lg border border-purple-200">

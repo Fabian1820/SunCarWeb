@@ -73,6 +73,60 @@ export interface CentroControlDashboard {
   municipios_detallados: Record<string, unknown>[]
   municipios_por_modo: MunicipiosPorModo
   ventas_resumen: VentasResumen
+  brigadas_count: number
+}
+
+// ── Periodo stats (on-demand) ────────────────────────────────────────────────
+
+export interface PeriodoStats {
+  instalaciones_terminadas: number
+  instalaciones_comenzadas: number
+  nuevos_leads: number
+  nuevos_clientes: number
+  averias_solucionadas: number
+  visitas_realizadas: number
+  trabajos_diarios: number
+  clientes_trabajados: number
+  ofertas_creadas: number
+  ofertas_confirmadas: number
+  ofertas_canceladas: number
+  reservas: number
+  nuevos_clientes_ventas: number
+  solicitudes_despachadas: number
+  materiales_vendidos_unidades: number
+}
+
+// ── Análisis regional (on-demand) ────────────────────────────────────────────
+
+export interface AnalisisRegionalClienteSlim {
+  id?: string
+  nombre?: string
+  numero?: string
+  estado?: string
+  provincia_montaje?: string
+  municipio?: string
+  tiene_averia_pendiente: boolean
+}
+
+export interface AnalisisRegionalLeadSlim {
+  id?: string
+  nombre?: string
+  estado?: string
+  provincia_montaje?: string
+  municipio?: string
+}
+
+export interface AnalisisRegionalData {
+  clientes: AnalisisRegionalClienteSlim[]
+  leads: AnalisisRegionalLeadSlim[]
+}
+
+// ── Clientes por mes (on-demand) ─────────────────────────────────────────────
+
+export interface ClientesPorMesItem {
+  year: number
+  month: number
+  count: number
 }
 
 // ── Detalle on-demand (click municipio) ──────────────────────────────────────
@@ -201,5 +255,21 @@ export class CentroControlService {
   /** On-demand: todas las ofertas con items para el panel de Análisis Regional */
   static async getOfertasItems(): Promise<CentroControlOfertaSlim[]> {
     return apiRequest<CentroControlOfertaSlim[]>(`/centro-control/ofertas-items`)
+  }
+
+  /** On-demand: estadísticas agregadas para un rango de fechas arbitrario */
+  static async getPeriodoStats(fechaDesde: string, fechaHasta: string): Promise<PeriodoStats> {
+    const params = new URLSearchParams({ fecha_desde: fechaDesde, fecha_hasta: fechaHasta })
+    return apiRequest<PeriodoStats>(`/centro-control/periodo-stats?${params}`)
+  }
+
+  /** On-demand: clientes y leads slim para el panel de Análisis Regional */
+  static async getAnalisisRegional(): Promise<AnalisisRegionalData> {
+    return apiRequest<AnalisisRegionalData>(`/centro-control/analisis-regional`)
+  }
+
+  /** On-demand: conteo de clientes agrupado por año/mes para ClientesStatsPanel */
+  static async getClientesPorMes(): Promise<ClientesPorMesItem[]> {
+    return apiRequest<ClientesPorMesItem[]>(`/centro-control/clientes-por-mes`)
   }
 }
