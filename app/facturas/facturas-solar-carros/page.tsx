@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import jsPDF from "jspdf";
-import { ArrowLeft, FileText, Loader2, Receipt } from "lucide-react";
+import { ArrowLeft, Eye, FileText, Loader2, Receipt } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -683,6 +683,7 @@ function FacturasSolarCarrosPageContent() {
   const [instaladoraRows, setInstaladoraRows] = useState<InstaladoraRow[]>([]);
   const [ventasRows, setVentasRows] = useState<VentasRow[]>([]);
   const [facturasSolar, setFacturasSolar] = useState<FacturaSolarCarroView[]>([]);
+  const [facturaVista, setFacturaVista] = useState<FacturaSolarCarroView | null>(null);
   const [searchInstaladora, setSearchInstaladora] = useState("");
   const [searchVentas, setSearchVentas] = useState("");
   const [fechaValeDesde, setFechaValeDesde] = useState("");
@@ -2278,14 +2279,24 @@ function FacturasSolarCarrosPageContent() {
                                 </ul>
                               </td>
                               <td className="px-3 py-2 text-right">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => void handleDownloadFacturaCreadaPDF(factura)}
-                                >
-                                  <FileText className="h-4 w-4 mr-1" />
-                                  Descargar PDF
-                                </Button>
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => setFacturaVista(factura)}
+                                  >
+                                    <Eye className="h-4 w-4 mr-1" />
+                                    Ver factura
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => void handleDownloadFacturaCreadaPDF(factura)}
+                                  >
+                                    <FileText className="h-4 w-4 mr-1" />
+                                    Descargar PDF
+                                  </Button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -2801,6 +2812,138 @@ function FacturasSolarCarrosPageContent() {
                     <p>Firma del Representante de la Empresa</p>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!facturaVista} onOpenChange={(open) => !open && setFacturaVista(null)}>
+        <DialogContent className="w-[96vw] max-w-[900px] max-h-[95vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Detalle de factura</DialogTitle>
+          </DialogHeader>
+
+          {facturaVista && (
+            <div className="rounded-lg border bg-white p-5 shadow-sm">
+              <div className="flex justify-center mb-3">
+                <Image
+                  src="/logo.png"
+                  alt="Logo empresa"
+                  width={64}
+                  height={64}
+                  className="h-16 w-16 object-contain"
+                />
+              </div>
+              <p className="text-center text-xl font-bold tracking-wide mb-5">FACTURA</p>
+
+              <div className="flex flex-wrap justify-between gap-6 text-sm">
+                <div className="w-full sm:w-3/5 space-y-1">
+                  <p>
+                    <span className="font-semibold">Empresa instaladora:</span> {EMPRESA.nombre}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Dirección:</span> {EMPRESA.direccion}
+                  </p>
+                  <p>
+                    <span className="font-semibold">NIT:</span> {EMPRESA.nit}
+                  </p>
+                </div>
+                <div className="w-full sm:w-2/5 space-y-1">
+                  <p>
+                    <span className="font-semibold">No factura:</span> {facturaVista.noFactura || "-"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Fecha:</span> {formatDate(facturaVista.fecha)}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Origen:</span>{" "}
+                    {facturaVista.origen === "instaladora" ? "Instaladora" : "Ventas"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="border-t my-4" />
+
+              <div className="text-sm space-y-1">
+                <p className="font-semibold">Datos del cliente</p>
+                <p>
+                  <span className="font-semibold">Nombre:</span> {facturaVista.cliente.nombre || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">Teléfono:</span> {facturaVista.cliente.telefono || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">Dirección:</span> {facturaVista.cliente.direccion || "-"}
+                </p>
+                <p>
+                  <span className="font-semibold">
+                    {facturaVista.cliente.documentoLabel || "Documento"}:
+                  </span>{" "}
+                  {facturaVista.cliente.documentoValor || "-"}
+                </p>
+              </div>
+
+              <div className="border-t my-4" />
+
+              <div className="text-sm space-y-2">
+                <p className="font-semibold">Materiales facturados</p>
+                {facturaVista.materiales.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border">
+                      <thead>
+                        <tr className="bg-slate-50 border-b">
+                          <th className="text-left px-3 py-2">Cantidad</th>
+                          <th className="text-left px-3 py-2">Código</th>
+                          <th className="text-left px-3 py-2">Descripción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {facturaVista.materiales.map((m, idx) => (
+                          <tr key={`vista-mat-${idx}`} className="border-b last:border-b-0">
+                            <td className="px-3 py-2 tabular-nums">
+                              {formatQty(parseNumero(m.cantidad))}
+                            </td>
+                            <td className="px-3 py-2">{m.codigo || "-"}</td>
+                            <td className="px-3 py-2">{m.descripcion || "-"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Sin materiales registrados.</p>
+                )}
+              </div>
+
+              <div className="border-t my-4" />
+
+              <div className="text-sm space-y-2">
+                <p>
+                  <span className="font-semibold">Concepto:</span>
+                </p>
+                <p className="whitespace-pre-line">{facturaVista.concepto || "-"}</p>
+                <div className="border-t pt-2 mt-2">
+                  <p className="flex justify-between gap-3">
+                    <span className="font-semibold">Monto total</span>
+                    <span>
+                      {formatAmountNumber(facturaVista.totalRegistrado)} {facturaVista.monedaTotal}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setFacturaVista(null)}>
+                  Cerrar
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleDownloadFacturaCreadaPDF(facturaVista)}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  Descargar PDF
+                </Button>
               </div>
             </div>
           )}
