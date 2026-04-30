@@ -14,6 +14,8 @@ export interface ItemVale {
   precio: number;
   cantidad: number;
   subtotal?: number;
+  descuento?: number | null;    // % de descuento (0-20)
+  precio_pagado?: number | null; // precio final tras descuento
 }
 
 export interface Vale {
@@ -51,7 +53,7 @@ export interface Factura {
   anulada?: boolean;
   motivo_anulacion?: string | null;
   total?: number;
-  monto_pagado?: number | null; // Ventas: lo que pagó realmente el cliente
+  total_pagado?: number | null; // Suma de precio_pagado × cantidad (lo que pagó el cliente)
 }
 
 export interface FacturaConsolidada {
@@ -70,7 +72,7 @@ export interface FacturaConsolidada {
   ofertas: OfertaInfo[];
   total_cobrado_todas_ofertas: number;
   monto_pendiente_materiales: number;
-  monto_pagado?: number | null; // Ventas: lo que pagó realmente el cliente
+  total_pagado?: number | null; // Suma de precio_pagado × cantidad (lo que pagó el cliente)
   pagada: boolean;
   terminada: boolean;
   anulada?: boolean;

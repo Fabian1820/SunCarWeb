@@ -1,6 +1,11 @@
 "use client"
 
-import { DotLottieReact } from "@lottiefiles/dotlottie-react"
+import dynamic from "next/dynamic"
+
+const DotLottieReact = dynamic(
+  () => import("@lottiefiles/dotlottie-react").then((m) => m.DotLottieReact),
+  { ssr: false, loading: () => <div style={{ width: 160, height: 160 }} /> },
+)
 
 interface PageLoaderProps {
   text?: string

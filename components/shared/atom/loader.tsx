@@ -1,9 +1,13 @@
 "use client"
 
-import { DotLottieReact } from "@lottiefiles/dotlottie-react"
+import dynamic from "next/dynamic"
+
+const DotLottieReact = dynamic(
+  () => import("@lottiefiles/dotlottie-react").then((m) => m.DotLottieReact),
+  { ssr: false, loading: () => <div style={{ width: 140, height: 140 }} /> },
+)
 
 export function Loader({ label, className }: { label?: string; className?: string }) {
-  // className se usa en algunos sitios como spinner inline (ej: botones), lo mantenemos pequeño
   if (className) {
     return <span className={className} />
   }

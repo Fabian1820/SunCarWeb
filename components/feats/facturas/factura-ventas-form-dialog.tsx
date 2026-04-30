@@ -320,7 +320,6 @@ export function FacturaVentasFormDialog({
     vales: [],
     pagada: true,
     terminada: true,
-    monto_pagado: null,
   });
 
   const [clientes, setClientes] = useState<ClienteVenta[]>([]);
@@ -380,11 +379,20 @@ export function FacturaVentasFormDialog({
         vales: factura.vales,
         pagada: true,
         terminada: true,
-        monto_pagado: factura.monto_pagado ?? null,
       });
       setSelectedValeIds([]);
       setValesDisponibles([]);
-      setItemDiscounts({});
+      // Reconstruir descuentos por ítem desde los datos guardados
+      const initialDiscounts: Record<string, number> = {};
+      factura.vales.forEach((vale) => {
+        const valeId = vale.id_vale_salida || vale.id || "";
+        vale.items.forEach((item, itemIndex) => {
+          if (item.descuento) {
+            initialDiscounts[`${valeId}-${itemIndex}`] = item.descuento;
+          }
+        });
+      });
+      setItemDiscounts(initialDiscounts);
     } else if (!factura && open) {
       let cancelled = false;
       const loadPrefill = async () => {
@@ -408,7 +416,6 @@ export function FacturaVentasFormDialog({
           vales: mappedPrefillVales,
           pagada: true,
           terminada: true,
-          monto_pagado: null,
         });
         setSelectedValeIds(valesAjustados.map((v) => v.id));
         setValesDisponibles(valesAjustados);
@@ -536,8 +543,15 @@ export function FacturaVentasFormDialog({
       const valeId = vale.id_vale_salida || vale.id || "";
       return total + vale.items.reduce((sum, item, itemIndex) => {
         const key = getItemKey(valeId, itemIndex);
-        const discount = itemDiscounts[key] ?? 0;
-        return sum + item.precio * (1 - discount / 100) * item.cantidad;
+        const userDiscount = itemDiscounts[key];
+        let precioEfectivo: number;
+        if (userDiscount === undefined) {
+          // No tocado: usar precio_pagado guardado si existe, sino precio original
+          precioEfectivo = item.precio_pagado ?? item.precio;
+        } else {
+          precioEfectivo = item.precio * (1 - userDiscount / 100);
+        }
+        return sum + precioEfectivo * item.cantidad;
       }, 0);
     }, 0);
   }, [formData.vales, itemDiscounts]);
@@ -547,6 +561,30 @@ export function FacturaVentasFormDialog({
     setSaving(true);
     try {
       const selectedCliente = clientes.find((c) => c.id === formData.cliente_id);
+      // Enriquecer ítems con descuento y precio_pagado por ítem
+      const valesConDescuento = formData.vales.map((vale) => {
+        const valeId = vale.id_vale_salida || vale.id || "";
+        return {
+          ...vale,
+          items: vale.items.map((item, itemIndex) => {
+            const key = getItemKey(valeId, itemIndex);
+            const userDiscount = itemDiscounts[key]; // undefined = usuario no tocó este ítem
+            if (userDiscount === undefined) {
+              // No hubo cambio: conservar lo que ya tiene el ítem (para edición)
+              return item;
+            }
+            if (userDiscount > 0) {
+              return {
+                ...item,
+                descuento: userDiscount,
+                precio_pagado: Math.round(item.precio * (1 - userDiscount / 100) * 100) / 100,
+              };
+            }
+            // Descuento explícitamente en 0: limpiar
+            return { ...item, descuento: null, precio_pagado: null };
+          }),
+        };
+      });
       const payload: Omit<Factura, "id" | "fecha_creacion" | "total"> = {
         ...formData,
         numero_factura: formData.numero_factura.trim(),
@@ -558,7 +596,7 @@ export function FacturaVentasFormDialog({
         nombre_cliente: selectedCliente?.nombre || formData.nombre_cliente || undefined,
         pagada: true,
         terminada: true,
-        monto_pagado: montoPagadoEfectivo,
+        vales: valesConDescuento,
       };
       await onSave(payload);
       onOpenChange(false);

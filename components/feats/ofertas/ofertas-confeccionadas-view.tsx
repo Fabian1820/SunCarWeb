@@ -30,7 +30,17 @@ import {
 } from "@/components/shared/molecule/table";
 import { EditarOfertaDialog } from "./editar-oferta-dialog";
 import { ExportSelectionDialog } from "./export-selection-dialog";
-import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion";
+import {
+  useOfertasConfeccion,
+  normalizeOfertaConfeccion,
+  type OfertaConfeccion,
+} from "@/hooks/use-ofertas-confeccion";
+import {
+  useOfertasListado,
+  useOpcionesComponentes,
+  type OfertaListadoItem,
+} from "@/hooks/use-ofertas-listado";
+import { apiRequest } from "@/lib/api-config";
 import { useMaterials } from "@/hooks/use-materials";
 import { useMarcas } from "@/hooks/use-marcas";
 import {
@@ -52,16 +62,32 @@ import {
   Trash2,
   Copy,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
 export function OfertasConfeccionadasView() {
   const router = useRouter();
-  const { ofertas, loading, eliminarOferta, refetch } = useOfertasConfeccion();
+
+  // Listado paginado con filtros en backend
+  const {
+    ofertas,
+    total,
+    totalPaginas,
+    pagina,
+    loading,
+    setFiltros,
+    irAPagina,
+    refetch,
+  } = useOfertasListado();
+  const opcionesComponentes = useOpcionesComponentes();
+
+
   const { materials } = useMaterials();
   const { marcas } = useMarcas();
+
+  // Estados de filtros individuales (se sincronizan al backend con debounce)
   const [searchQuery, setSearchQuery] = useState("");
   const [searchPrecioFinal, setSearchPrecioFinal] = useState("");
   const [estadoFiltro, setEstadoFiltro] = useState("todos");
@@ -73,25 +99,25 @@ export function OfertasConfeccionadasView() {
   const [cantidadBateriaFiltro, setCantidadBateriaFiltro] = useState("");
   const [panelFiltro, setPanelFiltro] = useState("todos");
   const [cantidadPanelFiltro, setCantidadPanelFiltro] = useState("");
+
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
+
+  // Estado para carga de oferta completa en diálogos (export/edit/detail)
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
-  const [ofertaSeleccionada, setOfertaSeleccionada] = useState<
-    (typeof ofertas)[number] | null
-  >(null);
+  const [ofertaSeleccionada, setOfertaSeleccionada] =
+    useState<OfertaConfeccion | null>(null);
   const [mostrarDialogoExportar, setMostrarDialogoExportar] = useState(false);
-  const [ofertaParaExportar, setOfertaParaExportar] = useState<
-    (typeof ofertas)[number] | null
-  >(null);
+  const [ofertaParaExportar, setOfertaParaExportar] =
+    useState<OfertaConfeccion | null>(null);
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
-  const [ofertaParaEditar, setOfertaParaEditar] = useState<
-    (typeof ofertas)[number] | null
-  >(null);
+  const [ofertaParaEditar, setOfertaParaEditar] =
+    useState<OfertaConfeccion | null>(null);
   const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false);
-  const [ofertaParaEliminar, setOfertaParaEliminar] = useState<
-    (typeof ofertas)[number] | null
-  >(null);
+  const [ofertaParaEliminar, setOfertaParaEliminar] =
+    useState<OfertaListadoItem | null>(null);
   const [eliminandoOferta, setEliminandoOferta] = useState(false);
   const [terminosCondicionesPayload, setTerminosCondicionesPayload] =
     useState<TerminosCondicionesPayload | null>(null);
@@ -166,22 +192,11 @@ export function OfertasConfeccionadasView() {
   };
 
   const almacenesDisponibles = useMemo(() => {
-    if (almacenes.length > 0) {
-      return almacenes.map((almacen) => ({
-        id: almacen.id,
-        nombre: almacen.nombre || almacen.id,
-      }));
-    }
-    const map = new Map<string, string>();
-    ofertas.forEach((oferta) => {
-      if (oferta.almacen_id && oferta.almacen_nombre) {
-        map.set(oferta.almacen_id, oferta.almacen_nombre);
-      } else if (oferta.almacen_id) {
-        map.set(oferta.almacen_id, oferta.almacen_id);
-      }
-    });
-    return Array.from(map.entries()).map(([id, nombre]) => ({ id, nombre }));
-  }, [almacenes, ofertas]);
+    return almacenes.map((almacen) => ({
+      id: almacen.id,
+      nombre: almacen.nombre || almacen.id,
+    }));
+  }, [almacenes]);
 
   // Cargar clientes, leads y almacenes
   useEffect(() => {
@@ -215,11 +230,40 @@ export function OfertasConfeccionadasView() {
     loadAlmacenes();
   }, []);
 
+  // Sincronizar cambios de filtros con el backend (debounce en el hook)
+  useEffect(() => {
+    setFiltros({
+      busqueda: searchQuery,
+      precioMax: searchPrecioFinal,
+      estado: estadoFiltro === "todos" ? "" : estadoFiltro,
+      tipo: tipoFiltro === "todas" ? "" : tipoFiltro,
+      almacenId: almacenFiltro === "todos" ? "" : almacenFiltro,
+      inversorCodigo: inversorFiltro === "todos" ? "" : inversorFiltro,
+      cantidadInversores: cantidadInversorFiltro,
+      bateriaCodigo: bateriaFiltro === "todos" ? "" : bateriaFiltro,
+      cantidadBaterias: cantidadBateriaFiltro,
+      panelCodigo: panelFiltro === "todos" ? "" : panelFiltro,
+      cantidadPaneles: cantidadPanelFiltro,
+    });
+  }, [
+    searchQuery,
+    searchPrecioFinal,
+    estadoFiltro,
+    tipoFiltro,
+    almacenFiltro,
+    inversorFiltro,
+    cantidadInversorFiltro,
+    bateriaFiltro,
+    cantidadBateriaFiltro,
+    panelFiltro,
+    cantidadPanelFiltro,
+    setFiltros,
+  ]);
+
   // Cargar términos y condiciones
   useEffect(() => {
     const cargarTerminos = async () => {
       try {
-        const { apiRequest } = await import("@/lib/api-config");
         const result = await apiRequest<{
           success: boolean;
           data?: TerminosCondicionesPayload;
@@ -290,186 +334,21 @@ export function OfertasConfeccionadasView() {
     return map;
   }, [leads]);
 
-  // Filtrado de ofertas
-  const ofertasFiltradas = useMemo(() => {
-    if (!searchQuery.trim() && !searchPrecioFinal.trim()) return ofertas;
-    const query = searchQuery.trim().toLowerCase();
-    const parsePrecioLimite = (value: string): number | null => {
-      const raw = value.trim();
-      if (!raw) return null;
-      const normalized = raw
-        .replace(/\$/g, "")
-        .replace(/\s/g, "")
-        .replace(",", ".");
-      const parsed = Number(normalized);
-      return Number.isFinite(parsed) ? parsed : null;
-    };
-    const precioLimite = parsePrecioLimite(searchPrecioFinal);
-
-    return ofertas.filter((oferta) => {
-      let matchTexto = true;
-      if (query) {
-        matchTexto = false;
-        if (oferta.nombre.toLowerCase().includes(query)) matchTexto = true;
-        if (oferta.cliente_nombre?.toLowerCase().includes(query))
-          matchTexto = true;
-        if (oferta.nombre_lead_sin_agregar?.toLowerCase().includes(query))
-          matchTexto = true;
-        if (oferta.lead_nombre?.toLowerCase().includes(query))
-          matchTexto = true;
-
-        if (!matchTexto && oferta.lead_id) {
-          const lead = leadPorId.get(oferta.lead_id);
-          if (lead?.nombre_completo?.toLowerCase().includes(query))
-            matchTexto = true;
-          if (lead?.nombre?.toLowerCase().includes(query)) matchTexto = true;
-          if (lead?.telefono?.toLowerCase().includes(query)) matchTexto = true;
-          if (lead?.email?.toLowerCase().includes(query)) matchTexto = true;
-        }
-      }
-
-      let matchPrecio = true;
-      if (searchPrecioFinal.trim() && precioLimite !== null) {
-        const precioFinal = Number(oferta.precio_final || 0);
-        matchPrecio = precioFinal <= precioLimite;
-      }
-
-      return matchTexto && matchPrecio;
-    });
-  }, [ofertas, searchQuery, searchPrecioFinal, leadPorId]);
-
-  const opcionesMaterialesPrincipales = useMemo(() => {
-    const construirOpciones = (
-      seccion: "INVERSORES" | "BATERIAS" | "PANELES",
-    ) => {
-      const map = new Map<string, string>();
-
-      ofertas.forEach((oferta) => {
-        (oferta.items || []).forEach((item) => {
-          if (item.seccion !== seccion) return;
-          const codigo = String(item.material_codigo || "").trim();
-          if (!codigo) return;
-          const descripcion = String(item.descripcion || "").trim();
-          const label = descripcion ? `${codigo} - ${descripcion}` : codigo;
-          if (!map.has(codigo)) {
-            map.set(codigo, label);
-          }
-        });
-      });
-
-      return Array.from(map.entries())
-        .map(([codigo, label]) => ({ codigo, label }))
-        .sort((a, b) => a.label.localeCompare(b.label));
-    };
-
-    return {
-      inversores: construirOpciones("INVERSORES"),
-      baterias: construirOpciones("BATERIAS"),
-      paneles: construirOpciones("PANELES"),
-    };
-  }, [ofertas]);
-
-  const ofertasFiltradasConFiltros = useMemo(() => {
-    const normalizar = (value: unknown) =>
-      String(value ?? "")
-        .trim()
-        .toLowerCase();
-    const parseCantidad = (value: string) => {
-      if (!value.trim()) return null;
-      const n = Number(value);
-      if (!Number.isFinite(n) || n <= 0) return null;
-      return n;
-    };
-    const cumpleFiltroPrincipal = (
-      oferta: (typeof ofertas)[number],
-      seccion: "INVERSORES" | "BATERIAS" | "PANELES",
-      textoFiltro: string,
-      cantidadFiltro: string,
-    ) => {
-      const texto = normalizar(textoFiltro);
-      const materialSeleccionado =
-        texto !== "" && texto !== "todos" ? texto : "";
-      const cantidadObjetivo = parseCantidad(cantidadFiltro);
-      const hayFiltro =
-        materialSeleccionado !== "" || cantidadObjetivo !== null;
-      if (!hayFiltro) return true;
-
-      const itemsSeccion = (oferta.items || []).filter(
-        (item) => item.seccion === seccion,
-      );
-      if (itemsSeccion.length === 0) return false;
-
-      if (materialSeleccionado) {
-        const matchTexto = itemsSeccion.some((item) => {
-          const codigo = normalizar(item.material_codigo);
-          return codigo === materialSeleccionado;
-        });
-        if (!matchTexto) return false;
-      }
-
-      if (cantidadObjetivo !== null) {
-        const itemsCantidad = materialSeleccionado
-          ? itemsSeccion.filter(
-              (item) =>
-                normalizar(item.material_codigo) === materialSeleccionado,
-            )
-          : itemsSeccion;
-        const cantidadTotal = itemsCantidad.reduce(
-          (sum, item) => sum + (Number(item.cantidad) || 0),
-          0,
-        );
-        if (cantidadTotal !== cantidadObjetivo) return false;
-      }
-
-      return true;
-    };
-
-    return ofertasFiltradas.filter((oferta) => {
-      const matchEstado =
-        estadoFiltro === "todos" || oferta.estado === estadoFiltro;
-      const matchTipo = tipoFiltro === "todas" || oferta.tipo === tipoFiltro;
-      const matchAlmacen =
-        almacenFiltro === "todos" || oferta.almacen_id === almacenFiltro;
-      const matchInversor = cumpleFiltroPrincipal(
-        oferta,
-        "INVERSORES",
-        inversorFiltro,
-        cantidadInversorFiltro,
-      );
-      const matchBateria = cumpleFiltroPrincipal(
-        oferta,
-        "BATERIAS",
-        bateriaFiltro,
-        cantidadBateriaFiltro,
-      );
-      const matchPanel = cumpleFiltroPrincipal(
-        oferta,
-        "PANELES",
-        panelFiltro,
-        cantidadPanelFiltro,
-      );
-
-      return (
-        matchEstado &&
-        matchTipo &&
-        matchAlmacen &&
-        matchInversor &&
-        matchBateria &&
-        matchPanel
-      );
-    });
-  }, [
-    ofertasFiltradas,
-    estadoFiltro,
-    tipoFiltro,
-    almacenFiltro,
-    inversorFiltro,
-    cantidadInversorFiltro,
-    bateriaFiltro,
-    cantidadBateriaFiltro,
-    panelFiltro,
-    cantidadPanelFiltro,
-  ]);
+  // Opciones de materiales para filtros: vienen del backend (useOpcionesComponentes)
+  const opcionesMaterialesPrincipales = useMemo(() => ({
+    inversores: opcionesComponentes.inversores.map((o) => ({
+      codigo: o.codigo,
+      label: o.descripcion ? `${o.codigo} - ${o.descripcion}` : o.codigo,
+    })),
+    baterias: opcionesComponentes.baterias.map((o) => ({
+      codigo: o.codigo,
+      label: o.descripcion ? `${o.codigo} - ${o.descripcion}` : o.codigo,
+    })),
+    paneles: opcionesComponentes.paneles.map((o) => ({
+      codigo: o.codigo,
+      label: o.descripcion ? `${o.codigo} - ${o.descripcion}` : o.codigo,
+    })),
+  }), [opcionesComponentes]);
 
   const clientePorOferta = useMemo(() => {
     const map = new Map<string, Cliente>();
@@ -507,7 +386,7 @@ export function OfertasConfeccionadasView() {
     return map;
   }, [materials]);
 
-  const calcularTotalesDetalle = (oferta: (typeof ofertas)[number]) => {
+  const calcularTotalesDetalle = (oferta: OfertaConfeccion) => {
     const base =
       (oferta.subtotal_con_margen || 0) +
       (oferta.costo_transportacion || 0) +
@@ -522,18 +401,13 @@ export function OfertasConfeccionadasView() {
     return { base, contribucion, totalSinRedondeo, redondeo };
   };
 
-  const calcularConversion = (oferta: (typeof ofertas)[number]) => {
+  const calcularConversion = (oferta: OfertaConfeccion) => {
     const moneda = oferta.moneda_pago || "USD";
     const tasa = oferta.tasa_cambio || 0;
     if (moneda === "USD" || tasa <= 0) return null;
     const base = oferta.precio_final || 0;
     const convertido = moneda === "EUR" ? base / tasa : base * tasa;
     return { moneda, tasa, convertido };
-  };
-
-  const abrirDetalle = (oferta: (typeof ofertas)[number]) => {
-    setOfertaSeleccionada(oferta);
-    setDetalleAbierto(true);
   };
 
   const totalesDetalle = useMemo(() => {
@@ -616,7 +490,7 @@ export function OfertasConfeccionadasView() {
   }, []);
 
   // Generar opciones de exportación para una oferta
-  const generarOpcionesExportacion = (oferta: (typeof ofertas)[number]) => {
+  const generarOpcionesExportacion = (oferta: OfertaConfeccion) => {
     const terminosCondicionesExport = buildTerminosCondicionesHtml(
       terminosCondicionesPayload,
       { oferta },
@@ -1480,9 +1354,7 @@ export function OfertasConfeccionadasView() {
 
     // Agregar descuento con su valor
     if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
-      const totalesCalc = calcularTotalesDetalle(oferta);
-      const montoDescuento =
-        totalesCalc.descuento || oferta.monto_descuento || 0;
+      const montoDescuento = oferta.monto_descuento || 0;
       rowsSinPrecios.push({
         material_codigo: "",
         seccion: "Descuento",
@@ -1499,7 +1371,6 @@ export function OfertasConfeccionadasView() {
       tipo: "TOTAL",
       descripcion: "Precio Total",
       cantidad: "",
-      total: (oferta.precio_final || 0).toFixed(2),
       total: (oferta.precio_final || 0).toFixed(2),
     });
 
@@ -1814,9 +1685,7 @@ export function OfertasConfeccionadasView() {
 
     // Agregar descuento si aplica
     if (oferta.descuento_porcentaje && oferta.descuento_porcentaje > 0) {
-      const totalesCalc = calcularTotalesDetalle(oferta);
-      const montoDescuento =
-        totalesCalc.descuento || oferta.monto_descuento || 0;
+      const montoDescuento = oferta.monto_descuento || 0;
       rowsClienteConPrecios.push({
         material_codigo: "",
         seccion: "Descuento",
@@ -2092,35 +1961,72 @@ export function OfertasConfeccionadasView() {
     };
   };
 
-  const abrirDialogoExportar = (oferta: (typeof ofertas)[number]) => {
-    setOfertaParaExportar(oferta);
-    setMostrarDialogoExportar(true);
+  // Carga oferta completa (con items) para diálogos de detalle/export/edit
+  const fetchOfertaCompleta = useCallback(
+    async (id: string): Promise<OfertaConfeccion | null> => {
+      try {
+        setLoadingDetalle(true);
+        const response = await apiRequest<any>(`/ofertas/confeccion/${id}`, {
+          method: "GET",
+        });
+        const raw = response?.data ?? response;
+        if (!raw) return null;
+        return normalizeOfertaConfeccion(raw);
+      } catch (err) {
+        console.error("Error cargando oferta completa:", err);
+        return null;
+      } finally {
+        setLoadingDetalle(false);
+      }
+    },
+    [],
+  );
+
+  const abrirDialogoExportar = async (oferta: OfertaListadoItem) => {
+    const completa = await fetchOfertaCompleta(oferta.id);
+    if (completa) {
+      setOfertaParaExportar(completa);
+      setMostrarDialogoExportar(true);
+    }
   };
 
-  const abrirEditar = (oferta: (typeof ofertas)[number]) => {
-    setOfertaParaEditar(oferta);
-    setMostrarDialogoEditar(true);
+  const abrirEditar = async (oferta: OfertaListadoItem) => {
+    const completa = await fetchOfertaCompleta(oferta.id);
+    if (completa) {
+      setOfertaParaEditar(completa);
+      setMostrarDialogoEditar(true);
+    }
   };
 
-  const irADuplicar = (oferta: (typeof ofertas)[number]) => {
+  const irADuplicar = (oferta: OfertaListadoItem) => {
     router.push(`/ofertas-gestion/duplicar?id=${oferta.id}`);
   };
 
-  const abrirDialogoEliminar = (oferta: (typeof ofertas)[number]) => {
+  const abrirDialogoEliminar = (oferta: OfertaListadoItem) => {
     setOfertaParaEliminar(oferta);
     setMostrarDialogoEliminar(true);
   };
 
+  const abrirDetalle = async (oferta: OfertaListadoItem) => {
+    const completa = await fetchOfertaCompleta(oferta.id);
+    if (completa) {
+      setOfertaSeleccionada(completa);
+      setDetalleAbierto(true);
+    }
+  };
+
   const confirmarEliminar = async () => {
     if (!ofertaParaEliminar) return;
-
     setEliminandoOferta(true);
     try {
-      await eliminarOferta(ofertaParaEliminar.id);
+      await apiRequest(`/ofertas/confeccion/${ofertaParaEliminar.id}`, {
+        method: "DELETE",
+      });
       setMostrarDialogoEliminar(false);
       setOfertaParaEliminar(null);
+      refetch();
     } catch (error) {
-      // El error ya se maneja en el hook
+      console.error("Error eliminando oferta:", error);
     } finally {
       setEliminandoOferta(false);
     }
@@ -2130,24 +2036,6 @@ export function OfertasConfeccionadasView() {
     setMostrarDialogoEliminar(false);
     setOfertaParaEliminar(null);
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Loader label="Cargando ofertas confeccionadas..." />
-      </div>
-    );
-  }
-
-  if (ofertas.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500">
-          No hay ofertas confeccionadas para mostrar
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -2173,14 +2061,8 @@ export function OfertasConfeccionadasView() {
                 />
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-600">
-                <span className="font-semibold text-slate-900">
-                  {ofertasFiltradasConFiltros.length}
-                </span>
-                <span>
-                  {ofertasFiltradasConFiltros.length === 1
-                    ? "oferta"
-                    : "ofertas"}
-                </span>
+                <span className="font-semibold text-slate-900">{total}</span>
+                <span>{total === 1 ? "oferta" : "ofertas"}</span>
               </div>
               <Button
                 type="button"
@@ -2240,7 +2122,7 @@ export function OfertasConfeccionadasView() {
                 <SelectContent>
                   <SelectItem value="todos">Todos los almacenes</SelectItem>
                   {almacenesDisponibles.map((almacen) => (
-                    <SelectItem key={almacen.id} value={almacen.id}>
+                    <SelectItem key={almacen.id ?? ""} value={almacen.id ?? ""}>
                       {almacen.nombre}
                     </SelectItem>
                   ))}
@@ -2337,7 +2219,21 @@ export function OfertasConfeccionadasView() {
         </CardContent>
       </Card>
 
-      {ofertasFiltradasConFiltros.length === 0 ? (
+      {/* Overlay de carga para fetch de oferta completa */}
+      {loadingDetalle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20">
+          <div className="bg-white rounded-lg p-4 shadow-lg flex items-center gap-3">
+            <Loader className="h-5 w-5 animate-spin text-orange-500" />
+            <span className="text-sm text-slate-700">Cargando oferta...</span>
+          </div>
+        </div>
+      )}
+
+      {loading && ofertas.length === 0 ? (
+        <div className="flex items-center justify-center h-48">
+          <Loader label="Cargando ofertas..." />
+        </div>
+      ) : ofertas.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-gray-500">No se encontraron ofertas</p>
         </div>
@@ -2360,21 +2256,15 @@ export function OfertasConfeccionadasView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ofertasFiltradasConFiltros.map((oferta) => {
+                {ofertas.map((oferta) => {
                   const estadoBadge = getEstadoBadge(oferta.estado);
                   const contactoNombre =
                     oferta.tipo === "personalizada"
                       ? oferta.nombre_lead_sin_agregar ||
-                        (oferta.lead_id &&
-                          leadPorId.get(oferta.lead_id)?.nombre_completo) ||
-                        (oferta.lead_id &&
-                          leadPorId.get(oferta.lead_id)?.nombre) ||
                         oferta.lead_nombre ||
                         oferta.cliente_nombre ||
                         clienteNombrePorOferta.get(oferta.cliente_id || "") ||
-                        clienteNombrePorOferta.get(
-                          oferta.cliente_numero || "",
-                        ) ||
+                        clienteNombrePorOferta.get(oferta.cliente_numero || "") ||
                         "Contacto no asignado"
                       : "Genérica";
 
@@ -2382,7 +2272,7 @@ export function OfertasConfeccionadasView() {
                     <TableRow key={oferta.id}>
                       <TableCell>
                         <p className="font-semibold text-slate-900 line-clamp-2">
-                          {oferta.nombre_automatico || oferta.nombre || "--"}
+                          {oferta.nombre || "--"}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -2409,6 +2299,7 @@ export function OfertasConfeccionadasView() {
                             className="h-8 w-8 p-0"
                             onClick={() => abrirDialogoExportar(oferta)}
                             title="Exportar oferta"
+                            disabled={loadingDetalle}
                           >
                             <Download className="h-3.5 w-3.5" />
                           </Button>
@@ -2427,6 +2318,7 @@ export function OfertasConfeccionadasView() {
                             className="h-8 w-8 p-0"
                             onClick={() => abrirEditar(oferta)}
                             title="Editar oferta"
+                            disabled={loadingDetalle}
                           >
                             <Edit className="h-3.5 w-3.5" />
                           </Button>
@@ -2445,6 +2337,7 @@ export function OfertasConfeccionadasView() {
                             className="h-8 w-8 p-0"
                             onClick={() => abrirDetalle(oferta)}
                             title="Ver detalle"
+                            disabled={loadingDetalle}
                           >
                             <FileText className="h-3.5 w-3.5" />
                           </Button>
@@ -2457,6 +2350,53 @@ export function OfertasConfeccionadasView() {
             </Table>
           </CardContent>
         </Card>
+      )}
+
+      {/* Paginación */}
+      {totalPaginas > 1 && (
+        <div className="flex items-center justify-between px-1">
+          <p className="text-sm text-slate-500">
+            Página {pagina} de {totalPaginas} &middot;{" "}
+            {total} {total === 1 ? "oferta" : "ofertas"} en total
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => irAPagina(1)}
+              disabled={pagina === 1 || loading}
+            >
+              «
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => irAPagina(pagina - 1)}
+              disabled={pagina === 1 || loading}
+            >
+              ‹ Anterior
+            </Button>
+            <span className="text-sm text-slate-700 px-2">
+              {pagina} / {totalPaginas}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => irAPagina(pagina + 1)}
+              disabled={pagina === totalPaginas || loading}
+            >
+              Siguiente ›
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => irAPagina(totalPaginas)}
+              disabled={pagina === totalPaginas || loading}
+            >
+              »
+            </Button>
+          </div>
+        </div>
       )}
 
       <Dialog open={detalleAbierto} onOpenChange={setDetalleAbierto}>
