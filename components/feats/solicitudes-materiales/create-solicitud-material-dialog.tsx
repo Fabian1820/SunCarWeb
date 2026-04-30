@@ -31,6 +31,7 @@ import {
   ClienteService,
   InventarioService,
   MaterialService,
+  ReservaVentaService,
   SolicitudMaterialService,
   TrabajadorService,
 } from "@/lib/api-services";
@@ -120,13 +121,14 @@ const calculateStockAlert = (
   };
 };
 
-/** Construye un mapa material_id/codigo → cantidad a partir de StockItem[]. */
+/** Construye un mapa material_id/codigo → stock efectivo (total − reservado global) a partir de StockItem[]. */
 const buildStockMap = (items: StockItem[]): Map<string, number> => {
   const map = new Map<string, number>();
   for (const item of items) {
-    if (item.material_id) map.set(item.material_id, item.cantidad);
+    const efectivo = Math.max(0, item.cantidad - (item.cantidad_reservada ?? 0));
+    if (item.material_id) map.set(item.material_id, efectivo);
     if (item.material_codigo) {
-      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, efectivo);
     }
   }
   return map;
@@ -210,10 +212,16 @@ export function CreateSolicitudMaterialDialog({
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
   const [loadingStock, setLoadingStock] = useState(false);
   const stockMapRef = useRef<Map<string, number>>(new Map());
+  // Mapa de reservas netas del cliente seleccionado: material_id → cantidad reservada por ese cliente
+  const clientReservaMapRef = useRef<Map<string, number>>(new Map());
 
   // Ref to access current materiales inside effects without causing loops
   const materialesRef = useRef<MaterialRow[]>([]);
   materialesRef.current = materiales;
+
+  // Ref para acceder al cliente seleccionado sin cerrar sobre estado obsoleto en effects
+  const selectedClienteRef = useRef<LookupCliente | null>(null);
+  selectedClienteRef.current = selectedCliente;
 
   useEffect(() => {
     if (!open) return;
@@ -375,7 +383,29 @@ export function CreateSolicitudMaterialDialog({
   }, [clienteSearch, selectedCliente]);
 
   const loadSugeridos = useCallback(
-    async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[]) => {
+    async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[], almacenId?: string) => {
+      // Carga reservas netas del cliente en el almacén dado; devuelve mapa vacío si no aplica
+      const buildCMap = async (): Promise<Map<string, number>> => {
+        if (!almacenId) return new Map();
+        try {
+          const { data } = await ReservaVentaService.getReservas({
+            almacen_id: almacenId,
+            cliente_id: clienteId,
+            estado: "activa",
+            limit: 100,
+          });
+          const cMap = new Map<string, number>();
+          for (const reserva of data) {
+            for (const mat of reserva.materiales ?? []) {
+              const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+              if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
+            }
+          }
+          return cMap;
+        } catch {
+          return new Map();
+        }
+      };
       setLoadingSugeridos(true);
       try {
         // Intentar obtener materiales de la oferta confección
@@ -502,11 +532,15 @@ export function CreateSolicitudMaterialDialog({
               if (entregados.length > 0 || pendientes.length > 0) {
                 const allRows = [...pendientes, ...entregados];
                 const map = stockMapRef.current;
+                const cMap = await buildCMap();
+                clientReservaMapRef.current = cMap;
                 setMateriales(
                   allRows.map((r) => {
                     if (!r.material_id || r.sinVinculo || r.entregado) return r;
-                    const stockActual = lookupFromMap(map, r.material_id, r.codigo);
-                    return { ...r, stock_actual: stockActual, ...calculateStockAlert(r.cantidad, stockActual) };
+                    const base = lookupFromMap(map, r.material_id, r.codigo);
+                    if (base === null) return { ...r, stock_actual: null };
+                    const effective = base + (cMap.get(r.material_id) ?? 0);
+                    return { ...r, stock_actual: effective, ...calculateStockAlert(r.cantidad, effective) };
                   }),
                 );
                 setMaterialesSinVinculo([]);
@@ -557,11 +591,15 @@ export function CreateSolicitudMaterialDialog({
         });
 
         const map = stockMapRef.current;
+        const cMap = await buildCMap();
+        clientReservaMapRef.current = cMap;
         setMateriales(
           rows.map((r) => {
             if (!r.material_id || r.sinVinculo) return r;
-            const stockActual = lookupFromMap(map, r.material_id, r.codigo);
-            return { ...r, stock_actual: stockActual, ...calculateStockAlert(r.cantidad, stockActual) };
+            const base = lookupFromMap(map, r.material_id, r.codigo);
+            if (base === null) return { ...r, stock_actual: null };
+            const effective = base + (cMap.get(r.material_id) ?? 0);
+            return { ...r, stock_actual: effective, ...calculateStockAlert(r.cantidad, effective) };
           }),
         );
         setMaterialesSinVinculo(materiales_sin_vinculo || []);
@@ -580,7 +618,7 @@ export function CreateSolicitudMaterialDialog({
     setClienteSearch(cliente.nombre || cliente.numero || "");
     setShowClienteDropdown(false);
     if (cliente.id || cliente._id) {
-      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, allMaterials);
+      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, allMaterials, selectedAlmacenId || undefined);
     }
   };
 
@@ -588,6 +626,15 @@ export function CreateSolicitudMaterialDialog({
     setSelectedCliente(null);
     setClienteSearch("");
     setShowClienteDropdown(false);
+    // Limpiar bonus del cliente y recalcular stock sin él
+    clientReservaMapRef.current = new Map();
+    setMateriales((prev) =>
+      prev.map((m) => {
+        if (!m.material_id || m.sinVinculo || m.entregado) return m;
+        const base = lookupFromMap(stockMapRef.current, m.material_id, m.codigo);
+        return { ...m, stock_actual: base, ...(base !== null ? calculateStockAlert(m.cantidad, base) : {}) };
+      }),
+    );
   };
 
   useEffect(() => {
@@ -655,7 +702,9 @@ export function CreateSolicitudMaterialDialog({
     const id = material.id || material._id || "";
     if (materiales.some((m) => m.material_id === id)) return;
 
-    const stockActual = lookupFromMap(stockMapRef.current, id, material.codigo?.toString());
+    const base = lookupFromMap(stockMapRef.current, id, material.codigo?.toString());
+    const bonus = base !== null ? (clientReservaMapRef.current.get(id) ?? 0) : 0;
+    const stockActual = base !== null ? base + bonus : null;
     const stockState = calculateStockAlert(1, stockActual);
 
     setMateriales((prev) =>
@@ -717,6 +766,7 @@ export function CreateSolicitudMaterialDialog({
       const empty = new Map<string, number>();
       setStockMap(empty);
       stockMapRef.current = empty;
+      clientReservaMapRef.current = new Map();
       return;
     }
 
@@ -728,14 +778,38 @@ export function CreateSolicitudMaterialDialog({
         setStockMap(map);
         stockMapRef.current = map;
 
+        // Cargar reservas netas del cliente seleccionado (si hay) para sumar su propio bonus
+        const currentCliente = selectedClienteRef.current;
+        const clienteId = currentCliente?.id || currentCliente?._id;
+        const cMap = new Map<string, number>();
+        if (clienteId) {
+          try {
+            const { data } = await ReservaVentaService.getReservas({
+              almacen_id: selectedAlmacenId,
+              cliente_id: clienteId,
+              estado: "activa",
+              limit: 100,
+            });
+            for (const reserva of data) {
+              for (const mat of reserva.materiales ?? []) {
+                const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+                if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
+              }
+            }
+          } catch { /* ignorar error de reservas, mostrar solo stock efectivo */ }
+        }
+        clientReservaMapRef.current = cMap;
+
         // Recalcular alertas de todos los materiales ya cargados (sin más llamadas)
         const mats = materialesRef.current;
         if (mats.length > 0) {
           setMateriales(
             mats.map((m) => {
               if (!m.material_id || m.sinVinculo || m.entregado) return m;
-              const stockActual = lookupFromMap(map, m.material_id, m.codigo);
-              return { ...m, stock_actual: stockActual, ...calculateStockAlert(m.cantidad, stockActual) };
+              const base = lookupFromMap(map, m.material_id, m.codigo);
+              if (base === null) return m;
+              const effective = base + (cMap.get(m.material_id) ?? 0);
+              return { ...m, stock_actual: effective, ...calculateStockAlert(m.cantidad, effective) };
             }),
           );
         }
@@ -1117,8 +1191,11 @@ export function CreateSolicitudMaterialDialog({
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {materialResults.map((m) => {
                     const matId = m.id || m._id || "";
-                    const stockDisponible = selectedAlmacenId
+                    const baseDisponible = selectedAlmacenId
                       ? lookupFromMap(stockMap, matId, m.codigo?.toString())
+                      : null;
+                    const stockDisponible = baseDisponible !== null
+                      ? baseDisponible + (clientReservaMapRef.current.get(matId) ?? 0)
                       : null;
                     return (
                       <button
