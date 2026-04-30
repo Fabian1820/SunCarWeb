@@ -15,13 +15,12 @@ import {
   BarChart3,
 } from "lucide-react"
 import Link from "next/link"
-import { apiRequest } from "@/lib/api-config"
 import { CentroControlService } from "@/lib/services/feats/centro-control/centro-control-service"
 import type { MunicipioDetallado } from "@/lib/types/feats/resultados/resultados-types"
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types"
-import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim } from "@/lib/services/feats/centro-control/centro-control-service"
+import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim, PeriodoStats, AnalisisRegionalData, ClientesPorMesItem } from "@/lib/services/feats/centro-control/centro-control-service"
 import "leaflet/dist/leaflet.css"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -37,6 +36,7 @@ interface ControlData {
   enProceso: number; averiasPendientes: number; visitasPendientes: number
   instalacionesTerminadas: number; instalacionesComenzadas: number; nuevosLeads: number
   nuevosClientes: number; averiasSolucionadas: number; visitasRealizadas: number
+  brigadasCount: number
 }
 
 interface TooltipInfo { municipio: string; count: number; label: string; x: number; y: number }
@@ -1245,7 +1245,10 @@ function AnalisisRegionalPanel({
       if (modoAnalisis === "pendientes_instalacion") return isPendienteInstalacion(c.estado)
       if (modoAnalisis === "en_proceso") return isEnProceso(c.estado)
       if (modoAnalisis === "averias") {
-        const avs = (c as unknown as Record<string, unknown>).averias as Array<Record<string, unknown>> | undefined
+        const raw = c as unknown as Record<string, unknown>
+        // Slim clients from analisis-regional expose tiene_averia_pendiente directly
+        if (typeof raw.tiene_averia_pendiente === "boolean") return raw.tiene_averia_pendiente
+        const avs = raw.averias as Array<Record<string, unknown>> | undefined
         return avs?.some(a => a.estado === "Pendiente") ?? false
       }
       if (modoAnalisis === "visitas") return isPendienteVisita(c.estado)
@@ -1871,18 +1874,12 @@ const MESES_NOMBRES = [
   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
 ]
 
-function ClientesStatsPanel({ clientes, onClose }: { clientes: Cliente[]; onClose: () => void }) {
+function ClientesStatsPanel({ clientesPorMes, onClose }: { clientesPorMes: ClientesPorMesItem[]; onClose: () => void }) {
   const statsPorAnio = useMemo(() => {
     const porAnio = new Map<number, number[]>()
-    for (const c of clientes) {
-      const raw = c.fecha_creacion ?? (c as unknown as { created_at?: string }).created_at
-      if (!raw) continue
-      const d = new Date(raw)
-      if (isNaN(d.getTime())) continue
-      const year = d.getFullYear()
-      const month = d.getMonth()
+    for (const { year, month, count } of clientesPorMes) {
       if (!porAnio.has(year)) porAnio.set(year, new Array(12).fill(0))
-      porAnio.get(year)![month] += 1
+      porAnio.get(year)![month - 1] += count
     }
     return Array.from(porAnio.entries())
       .sort((a, b) => a[0] - b[0])
@@ -1893,7 +1890,7 @@ function ClientesStatsPanel({ clientes, onClose }: { clientes: Cliente[]; onClos
           .map((count, idx) => ({ mes: idx + 1, count }))
           .filter((m) => m.count > 0),
       }))
-  }, [clientes])
+  }, [clientesPorMes])
 
   const statsPorAnioVisible = useMemo(
     () => statsPorAnio.filter((y) => y.year >= 2025),
@@ -1984,6 +1981,15 @@ export default function CentroControlView() {
   // Brigadas on-demand
   const [brigadas, setBrigadas] = useState<Brigada[]>([])
   const [brigadasLoading, setBrigadasLoading] = useState(false)
+  // Periodo stats on-demand (para periodos distintos a "semana")
+  const [periodoApiStats, setPeriodoApiStats] = useState<PeriodoStats | null>(null)
+  const [periodoApiLoading, setPeriodoApiLoading] = useState(false)
+  // Análisis regional on-demand
+  const [analisisRegionalData, setAnalisisRegionalData] = useState<AnalisisRegionalData | null>(null)
+  const [analisisRegionalLoading, setAnalisisRegionalLoading] = useState(false)
+  // Clientes por mes on-demand
+  const [clientesPorMesData, setClientesPorMesData] = useState<ClientesPorMesItem[]>([])
+  const [clientesPorMesLoading, setClientesPorMesLoading] = useState(false)
   const [ventasResumen, setVentasResumen] = useState<VentasResumen>({ totalClientesVentas: 0, totalSolicitudesDespachadas: 0, materialesVendidos: [] })
   const [showMaterialesVendidos, setShowMaterialesVendidos] = useState(false)
   // ── Periodo del panel derecho ──────────────────────────────────────────────
@@ -2038,6 +2044,7 @@ export default function CentroControlView() {
         nuevosClientes: data.semana.nuevos_clientes,
         averiasSolucionadas: data.semana.averias_solucionadas,
         visitasRealizadas: data.semana.visitas_realizadas,
+        brigadasCount: data.brigadas_count ?? 0,
       })
 
       // Municipios detallados para mapa "todos"
@@ -2105,6 +2112,44 @@ export default function CentroControlView() {
       .catch(() => {})
       .finally(() => setBrigadasLoading(false))
   }, [showBrigadas, brigadas.length, brigadasLoading])
+
+  // ── Carga on-demand de periodo-stats (solo para periodos distintos a "semana") ─
+  useEffect(() => {
+    // "semana" ya está cubierto por el dashboard — no hacer llamada extra
+    if (periodoTipo === "semana") { setPeriodoApiStats(null); return }
+    // Calcular rango inline para evitar forward reference con periodoRange (declarado más abajo)
+    const range = getPeriodRange(periodoTipo, periodoFecha, periodoDesde, periodoHasta)
+    if (!range) { setPeriodoApiStats(null); return }
+    const startStr = toISODate(range.start)
+    const endStr   = toISODate(range.end)
+    let cancelled = false
+    setPeriodoApiLoading(true)
+    CentroControlService.getPeriodoStats(startStr, endStr)
+      .then(data => { if (!cancelled) setPeriodoApiStats(data) })
+      .catch(() => { if (!cancelled) setPeriodoApiStats(null) })
+      .finally(() => { if (!cancelled) setPeriodoApiLoading(false) })
+    return () => { cancelled = true }
+  }, [periodoTipo, periodoFecha, periodoDesde, periodoHasta])
+
+  // ── Carga on-demand de analisis-regional al abrir el panel ─────────────────
+  useEffect(() => {
+    if (!showAnalisisRegional || analisisRegionalData || analisisRegionalLoading) return
+    setAnalisisRegionalLoading(true)
+    CentroControlService.getAnalisisRegional()
+      .then(data => setAnalisisRegionalData(data))
+      .catch(() => {})
+      .finally(() => setAnalisisRegionalLoading(false))
+  }, [showAnalisisRegional, analisisRegionalData, analisisRegionalLoading])
+
+  // ── Carga on-demand de clientes-por-mes al abrir el panel ──────────────────
+  useEffect(() => {
+    if (!showClientesStats || clientesPorMesData.length > 0 || clientesPorMesLoading) return
+    setClientesPorMesLoading(true)
+    CentroControlService.getClientesPorMes()
+      .then(data => setClientesPorMesData(data))
+      .catch(() => {})
+      .finally(() => setClientesPorMesLoading(false))
+  }, [showClientesStats, clientesPorMesData.length, clientesPorMesLoading])
 
   // ── Carga on-demand de equipos al abrir un card de detalle ─────────────────
   useEffect(() => {
@@ -2341,9 +2386,6 @@ export default function CentroControlView() {
   const instalacionesTerminadasMap = useMemo(() => new Map<string, TrabajoDiarioRow[]>(), [])
   const averiasSolucionadasPeriodoMap = useMemo(() => new Map<string, Cliente[]>(), [])
 
-  // Period stats de trabajos — deferred (se implementará con endpoint /periodo-stats)
-  const clientesTrabajadosPeriodo = 0
-
   const maxByMode = useMemo(() => {
     if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()), 1)
     if (viewMode === "en_proceso") return Math.max(...Array.from(enProcesoMap.values()), 1)
@@ -2358,12 +2400,11 @@ export default function CentroControlView() {
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
   )
 
-  // periodoStats: para "semana" usa datos del backend; otros periodos deferred
+  // periodoStats: para "semana" usa datos del dashboard; otros periodos usa la API /periodo-stats
   const periodoStats = useMemo(() => {
-    const zero = { instalacionesComenzadas: 0, instalacionesTerminadas: 0, nuevosClientes: 0, nuevosLeads: 0, averiasSolucionadas: 0, ofertasCreadas: 0, ofertasConfirmadas: 0, ofertasCanceladas: 0, reservas: 0, trabajosDiarios: 0, nuevosClientesVentas: 0, solicitudesDespachadas: 0, materialesVendidosUnidades: 0 }
-    if (!periodoRange || !controlData) return zero
-    // Para el periodo "semana" usamos los valores ya calculados en el backend
-    if (periodoTipo === "semana") {
+    const zero = { instalacionesComenzadas: 0, instalacionesTerminadas: 0, nuevosClientes: 0, nuevosLeads: 0, averiasSolucionadas: 0, ofertasCreadas: 0, ofertasConfirmadas: 0, ofertasCanceladas: 0, reservas: 0, trabajosDiarios: 0, clientesTrabajados: 0, nuevosClientesVentas: 0, solicitudesDespachadas: 0, materialesVendidosUnidades: 0 }
+    if (!periodoRange) return zero
+    if (periodoTipo === "semana" && controlData) {
       return {
         ...zero,
         instalacionesComenzadas: controlData.instalacionesComenzadas,
@@ -2373,32 +2414,41 @@ export default function CentroControlView() {
         averiasSolucionadas: controlData.averiasSolucionadas,
       }
     }
-    // Otros periodos: deferred — retorna ceros hasta implementar /periodo-stats
+    // Para otros periodos — usa datos de la API /periodo-stats
+    if (periodoApiStats) {
+      return {
+        instalacionesComenzadas:      periodoApiStats.instalaciones_comenzadas,
+        instalacionesTerminadas:      periodoApiStats.instalaciones_terminadas,
+        nuevosClientes:               periodoApiStats.nuevos_clientes,
+        nuevosLeads:                  periodoApiStats.nuevos_leads,
+        averiasSolucionadas:          periodoApiStats.averias_solucionadas,
+        ofertasCreadas:               periodoApiStats.ofertas_creadas,
+        ofertasConfirmadas:           periodoApiStats.ofertas_confirmadas,
+        ofertasCanceladas:            periodoApiStats.ofertas_canceladas,
+        reservas:                     periodoApiStats.reservas,
+        trabajosDiarios:              periodoApiStats.trabajos_diarios,
+        clientesTrabajados:           periodoApiStats.clientes_trabajados,
+        nuevosClientesVentas:         periodoApiStats.nuevos_clientes_ventas,
+        solicitudesDespachadas:       periodoApiStats.solicitudes_despachadas,
+        materialesVendidosUnidades:   periodoApiStats.materiales_vendidos_unidades,
+      }
+    }
     return zero
-  }, [periodoTipo, periodoRange, controlData])
+  }, [periodoTipo, periodoRange, controlData, periodoApiStats])
 
-  // Re-fetch visitas cuando cambia el periodo
-  // Para "semana" usamos el dato que ya viene del dashboard (sin llamada extra)
+  // Visitas realizadas: usa datos ya calculados (dashboard para semana, periodo-stats para el resto)
   useEffect(() => {
     if (!periodoRange) { setVisitasRealizadasPeriodo(0); return }
-    // "semana" ya está cubierto por controlData.visitasRealizadas — evitar 428KB de request
     if (periodoTipo === "semana") {
+      // "semana" ya viene del dashboard — evitar llamada extra
       setVisitasRealizadasPeriodo(controlData?.visitasRealizadas ?? 0)
-      return
+    } else if (periodoApiStats) {
+      // Los otros periodos vienen de /periodo-stats — ya calculado en paralelo
+      setVisitasRealizadasPeriodo(periodoApiStats.visitas_realizadas)
+    } else {
+      setVisitasRealizadasPeriodo(0)
     }
-    const startStr = toISODate(periodoRange.start)
-    const endStr   = toISODate(periodoRange.end)
-    let cancelled = false
-    apiRequest<Record<string, unknown>>(`/visitas/?estado=completada&fecha_desde=${startStr}&fecha_hasta=${endStr}`)
-      .then(res => {
-        if (cancelled) return
-        const inner = (res?.data ?? res) as Record<string, unknown> | null
-        const visitas = Array.isArray(inner?.visitas) ? inner.visitas : []
-        setVisitasRealizadasPeriodo(typeof inner?.total === "number" ? inner.total : visitas.length)
-      })
-      .catch(() => { if (!cancelled) setVisitasRealizadasPeriodo(0) })
-    return () => { cancelled = true }
-  }, [periodoRange, periodoTipo, controlData?.visitasRealizadas])
+  }, [periodoRange, periodoTipo, controlData?.visitasRealizadas, periodoApiStats])
 
   // ── Map styles ──────────────────────────────────────────────────────────────
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
@@ -2658,7 +2708,7 @@ export default function CentroControlView() {
                       <span className="text-[11px] text-slate-300 truncate">Brigadas registradas</span>
                     </div>
                     {loading ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse" />
-                      : <span className="text-sm font-bold text-amber-400 shrink-0">{brigadas.length}</span>}
+                      : <span className="text-sm font-bold text-amber-400 shrink-0">{controlData?.brigadasCount ?? 0}</span>}
                   </button>
                   <button onClick={() => setShowAnalisisRegional(b => !b)}
                     className={`w-full flex items-center justify-between py-2 px-3 rounded-lg transition-all gap-2 text-left
@@ -3004,11 +3054,21 @@ export default function CentroControlView() {
           {selectedItem?.mode === "instalaciones_terminadas" && <InstalacionesTerminadasCard municipio={selectedItem.municipio} trabajos={selectedItem.trabajos} allClients={[]} onClose={() => setSelectedItem(null)} />}
           {selectedItem?.mode === "averias_solucionadas_periodo" && <AveriasSolucionadasCard municipio={selectedItem.municipio} clientes={selectedItem.clientes} onClose={() => setSelectedItem(null)} />}
           {showBrigadas && <BrigadasPanel brigadas={brigadas} onClose={() => setShowBrigadas(false)} />}
-          {showClientesStats && <ClientesStatsPanel clientes={[]} onClose={() => setShowClientesStats(false)} />}
+          {showClientesStats && (
+            <ClientesStatsPanel
+              clientesPorMes={clientesPorMesData}
+              onClose={() => setShowClientesStats(false)}
+            />
+          )}
+          {showClientesStats && clientesPorMesLoading && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 text-xs text-slate-300 flex items-center gap-2 pointer-events-none">
+              <RefreshCw className="h-3 w-3 animate-spin" /> Cargando estadísticas…
+            </div>
+          )}
           {showAnalisisRegional && (
             <AnalisisRegionalPanel
-              allClients={[]}
-              allLeads={[]}
+              allClients={analisisRegionalData?.clientes as unknown as Cliente[] ?? []}
+              allLeads={analisisRegionalData?.leads as unknown as Lead[] ?? []}
               viewMode={viewMode}
               provinciasDisponibles={provinciasDisponibles}
               confeccionOfertas={ofertasItemsCompleto}
@@ -3017,9 +3077,9 @@ export default function CentroControlView() {
               onClose={() => { setShowAnalisisRegional(false); setAnalisisProvinciasSeleccionadas([]) }}
             />
           )}
-          {showAnalisisRegional && ofertasItemsLoading && (
+          {showAnalisisRegional && (ofertasItemsLoading || analisisRegionalLoading) && (
             <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] bg-slate-800/90 border border-slate-600 rounded-lg px-4 py-2 text-xs text-slate-300 flex items-center gap-2 pointer-events-none">
-              <RefreshCw className="h-3 w-3 animate-spin" /> Cargando materiales…
+              <RefreshCw className="h-3 w-3 animate-spin" /> Cargando datos regionales…
             </div>
           )}
 
@@ -3072,7 +3132,7 @@ export default function CentroControlView() {
               <div className="space-y-0.5">
                 {([
                   { icon: Wrench,      label: "Trabajos diarios realizados",  value: periodoStats.trabajosDiarios,         color: "text-cyan-400",    mode: "trabajos_diarios"             as ViewMode },
-                  { icon: Users2,      label: "Clientes trabajados",          value: clientesTrabajadosPeriodo,            color: "text-teal-400",    mode: "clientes_trabajados"          as ViewMode },
+                  { icon: Users2,      label: "Clientes trabajados",          value: periodoStats.clientesTrabajados,      color: "text-teal-400",    mode: "clientes_trabajados"          as ViewMode },
                   { icon: CheckCircle, label: "Instalaciones terminadas",     value: periodoStats.instalacionesTerminadas, color: "text-emerald-400", mode: "instalaciones_terminadas"     as ViewMode },
                   { icon: Shield,      label: "Averías solucionadas",         value: periodoStats.averiasSolucionadas,     color: "text-green-400",   mode: "averias_solucionadas_periodo" as ViewMode },
                   { icon: Eye,         label: "Visitas realizadas",           value: visitasRealizadasPeriodo,             color: "text-purple-400",  mode: "visitas_realizadas_periodo"   as ViewMode },
@@ -3089,7 +3149,7 @@ export default function CentroControlView() {
                         <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
                         <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
                       </div>
-                      {loading
+                      {loading || periodoApiLoading
                         ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
                         : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
                       }
@@ -3119,7 +3179,7 @@ export default function CentroControlView() {
                       <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
                       <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
                     </div>
-                    {loading
+                    {loading || periodoApiLoading
                       ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
                       : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
                     }
@@ -3162,7 +3222,7 @@ export default function CentroControlView() {
                       <Icon className={`h-3.5 w-3.5 ${color} shrink-0`} />
                       <span className="text-[11px] text-slate-300 leading-tight truncate">{label}</span>
                     </div>
-                    {loading
+                    {loading || periodoApiLoading
                       ? <div className="h-4 w-7 bg-slate-700 rounded animate-pulse shrink-0" />
                       : <span className={`text-sm font-bold ${color} shrink-0`}>{value}</span>
                     }
