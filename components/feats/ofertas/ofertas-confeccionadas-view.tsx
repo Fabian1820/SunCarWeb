@@ -2229,128 +2229,138 @@ export function OfertasConfeccionadasView() {
         </div>
       )}
 
-      {loading && ofertas.length === 0 ? (
-        <div className="flex items-center justify-center h-48">
-          <Loader label="Cargando ofertas..." />
-        </div>
-      ) : ofertas.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500">No se encontraron ofertas</p>
-        </div>
-      ) : (
-        <Card className="border border-slate-200 shadow-sm">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre automático</TableHead>
-                  <TableHead>Lead / Cliente</TableHead>
-                  <TableHead className="w-[120px]">Fecha creación</TableHead>
-                  <TableHead className="w-[140px] text-right">
-                    Precio final
-                  </TableHead>
-                  <TableHead className="w-[140px]">Estado</TableHead>
-                  <TableHead className="w-[280px] text-center">
-                    Acciones
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {ofertas.map((oferta) => {
-                  const estadoBadge = getEstadoBadge(oferta.estado);
-                  const contactoNombre =
-                    oferta.tipo === "personalizada"
-                      ? oferta.nombre_lead_sin_agregar ||
-                        oferta.lead_nombre ||
-                        oferta.cliente_nombre ||
-                        clienteNombrePorOferta.get(oferta.cliente_id || "") ||
-                        clienteNombrePorOferta.get(oferta.cliente_numero || "") ||
-                        "Contacto no asignado"
-                      : "Genérica";
+      <div className="relative min-h-[12rem]">
+        {loading && ofertas.length > 0 && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-sm">
+            <Loader label="Aplicando filtros..." />
+          </div>
+        )}
 
-                  return (
-                    <TableRow key={oferta.id}>
-                      <TableCell>
-                        <p className="font-semibold text-slate-900 line-clamp-2">
-                          {oferta.nombre || "--"}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm text-slate-700">
-                          {contactoNombre}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-sm text-slate-600">
-                        {formatDateOnly(oferta.fecha_creacion)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold text-emerald-700">
-                        {formatCurrency(Number(oferta.precio_final || 0))}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={estadoBadge.className}>
-                          {estadoBadge.label}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => abrirDialogoExportar(oferta)}
-                            title="Exportar oferta"
-                            disabled={loadingDetalle}
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                            onClick={() => irADuplicar(oferta)}
-                            title="Duplicar oferta"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => abrirEditar(oferta)}
-                            title="Editar oferta"
-                            disabled={loadingDetalle}
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => abrirDialogoEliminar(oferta)}
-                            title="Eliminar oferta"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => abrirDetalle(oferta)}
-                            title="Ver detalle"
-                            disabled={loadingDetalle}
-                          >
-                            <FileText className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+        {loading && ofertas.length === 0 ? (
+          <div className="flex items-center justify-center h-48">
+            <Loader label="Cargando ofertas..." />
+          </div>
+        ) : ofertas.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-500">No se encontraron ofertas</p>
+          </div>
+        ) : (
+          <Card className="border border-slate-200 shadow-sm">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre automático</TableHead>
+                    <TableHead>Lead / Cliente</TableHead>
+                    <TableHead className="w-[120px]">Fecha creación</TableHead>
+                    <TableHead className="w-[140px] text-right">
+                      Precio final
+                    </TableHead>
+                    <TableHead className="w-[140px]">Estado</TableHead>
+                    <TableHead className="w-[280px] text-center">
+                      Acciones
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {ofertas.map((oferta) => {
+                    const estadoBadge = getEstadoBadge(oferta.estado);
+                    const contactoNombre =
+                      oferta.tipo === "personalizada"
+                        ? oferta.nombre_lead_sin_agregar ||
+                          oferta.lead_nombre ||
+                          oferta.cliente_nombre ||
+                          clienteNombrePorOferta.get(oferta.cliente_id || "") ||
+                          clienteNombrePorOferta.get(
+                            oferta.cliente_numero || "",
+                          ) ||
+                          "Contacto no asignado"
+                        : "Genérica";
+
+                    return (
+                      <TableRow key={oferta.id}>
+                        <TableCell>
+                          <p className="font-semibold text-slate-900 line-clamp-2">
+                            {oferta.nombre || "--"}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm text-slate-700">
+                            {contactoNombre}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-sm text-slate-600">
+                          {formatDateOnly(oferta.fecha_creacion)}
+                        </TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-700">
+                          {formatCurrency(Number(oferta.precio_final || 0))}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={estadoBadge.className}>
+                            {estadoBadge.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center justify-center gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => abrirDialogoExportar(oferta)}
+                              title="Exportar oferta"
+                              disabled={loadingDetalle}
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              onClick={() => irADuplicar(oferta)}
+                              title="Duplicar oferta"
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => abrirEditar(oferta)}
+                              title="Editar oferta"
+                              disabled={loadingDetalle}
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => abrirDialogoEliminar(oferta)}
+                              title="Eliminar oferta"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => abrirDetalle(oferta)}
+                              title="Ver detalle"
+                              disabled={loadingDetalle}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
       {/* Paginación */}
       {totalPaginas > 1 && (

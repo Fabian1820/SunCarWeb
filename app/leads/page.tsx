@@ -41,6 +41,7 @@ import { FuentesManager } from "@/components/shared/molecule/fuentes-manager";
 import { useLeads } from "@/hooks/use-leads";
 import { useFuentesSync } from "@/hooks/use-fuentes-sync";
 import { LeadService } from "@/lib/api-services";
+import { Loader } from "@/components/shared/atom/loader";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import { useToast } from "@/hooks/use-toast";
 import { Toaster } from "@/components/shared/molecule/toaster";
@@ -779,11 +780,16 @@ export default function LeadsPage() {
               )}
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative min-h-[16rem]">
+            {loading && leads.length > 0 && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
+                <Loader label="Aplicando filtros..." />
+              </div>
+            )}
+
             {loading && leads.length === 0 ? (
-              <div className="text-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">Cargando leads...</p>
+              <div className="flex items-center justify-center py-12">
+                <Loader label="Cargando leads..." />
               </div>
             ) : (
               <div className="space-y-4">
