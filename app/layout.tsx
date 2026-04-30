@@ -7,6 +7,7 @@ import { AuthGuard } from "@/components/auth/auth-guard"
 import { PWAInstallPrompt } from "@/components/shared/molecule/pwa-install-prompt"
 import { OfflineIndicator } from "@/components/shared/molecule/offline-indicator"
 import { BackendStatusBanner } from "@/components/shared/molecule/backend-status-banner"
+import { ValidationErrorOverlay } from "@/components/shared/molecule/validation-error-overlay"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { FixedHeaderWatcher } from "@/components/shared/atom/fixed-header-watcher"
 
@@ -83,6 +84,7 @@ export default function RootLayout({
         <PWAInstallPrompt />
         <OfflineIndicator />
         <BackendStatusBanner />
+        <ValidationErrorOverlay />
         <Toaster />
       </body>
     </html>

@@ -334,15 +334,27 @@ export async function apiRequest<T>(
 
     // Detectar errores de validación 422 del backend
     if (!response.ok && response.status === 422) {
-      const validationErrors = Array.isArray(dataRecord?.errors)
+      const rawErrors = Array.isArray(dataRecord?.errors)
         ? (dataRecord.errors as Array<{ field: string; error: string }>)
-            .map((e) => `${e.field}: ${e.error}`)
-            .join("\n")
+        : [];
+
+      const validationErrors = rawErrors.length > 0
+        ? rawErrors.map((e) => `${e.field}: ${e.error}`).join("\n")
         : dataMessage || "Error de validación en los datos enviados";
+
+      // Emitir evento global para que el overlay lo muestre de forma bonita
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("validation-error-422", {
+          detail: {
+            errors: rawErrors,
+            message: dataMessage || "Error de validación",
+          },
+        }));
+      }
 
       const err = new Error(validationErrors) as Error & { isValidationError: true; errors: unknown };
       err.isValidationError = true;
-      err.errors = dataRecord?.errors ?? [];
+      err.errors = rawErrors;
       throw err;
     }
 
@@ -411,7 +423,7 @@ export async function apiRequest<T>(
       );
     }
 
-    return data;
+    return data as T;
   } catch (error) {
     if (
       error instanceof TypeError &&
