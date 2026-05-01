@@ -2,6 +2,20 @@
 
 ---
 
+## 📅 1 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit automático de "Analisis diario Claude".
+
+#### Consideraciones del día
+
+- El cambio de tipo de retorno de `getStock` (April 30) merece prueba en todos sus consumidores hoy en staging: `vales-salida`, `solicitudes-materiales`, `solicitudes-ventas`, `use-inventario`, `export-vale-salida-service`.
+- Los nuevos endpoints del Centro de Control (`/periodo-stats`, `/analisis-regional`, `/clientes-por-mes`) deben estar verificados en producción antes de cualquier release.
+- No hay riesgos nuevos que reportar hoy.
+
+---
+
 ## 📅 30 de Abril, 2026
 
 ### Resumen de cambios (últimas 24h)
