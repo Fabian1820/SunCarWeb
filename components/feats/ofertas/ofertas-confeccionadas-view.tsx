@@ -190,6 +190,10 @@ export function OfertasConfeccionadasView() {
       dateStyle: "short",
     });
   };
+  const toNumberSafe = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  };
 
   const almacenesDisponibles = useMemo(() => {
     return almacenes.map((almacen) => ({
@@ -898,7 +902,7 @@ export function OfertasConfeccionadasView() {
       const nombreMaterial = material?.nombre || item.descripcion;
 
       // Obtener margen asignado desde el item (viene de la BD)
-      const margenAsignado = (item as any).margen_asignado || 0;
+      const margenAsignado = toNumberSafe((item as any).margen_asignado);
       const costoItem = item.precio * item.cantidad;
 
       // Calcular porcentaje desde el margen asignado
@@ -924,7 +928,7 @@ export function OfertasConfeccionadasView() {
 
     // Calcular total de materiales (suma de todos los items)
     const totalMateriales = itemsOrdenados.reduce((sum, item) => {
-      const margenAsignado = (item as any).margen_asignado || 0;
+      const margenAsignado = toNumberSafe((item as any).margen_asignado);
       const costoItem = item.precio * item.cantidad;
       return sum + costoItem + margenAsignado;
     }, 0);
@@ -2008,10 +2012,11 @@ export function OfertasConfeccionadasView() {
   };
 
   const abrirDetalle = async (oferta: OfertaListadoItem) => {
+    setDetalleAbierto(true);
+    setOfertaSeleccionada(null);
     const completa = await fetchOfertaCompleta(oferta.id);
     if (completa) {
       setOfertaSeleccionada(completa);
-      setDetalleAbierto(true);
     }
   };
 
@@ -2411,7 +2416,11 @@ export function OfertasConfeccionadasView() {
 
       <Dialog open={detalleAbierto} onOpenChange={setDetalleAbierto}>
         <DialogContent className="max-w-6xl h-[90vh] overflow-hidden flex flex-col">
-          {ofertaSeleccionada ? (
+          {loadingDetalle && !ofertaSeleccionada ? (
+            <div className="h-full flex items-center justify-center">
+              <Loader />
+            </div>
+          ) : ofertaSeleccionada ? (
             <>
               <DialogHeader className="shrink-0">
                 <DialogTitle className="flex flex-wrap items-center gap-2">
@@ -3298,7 +3307,11 @@ export function OfertasConfeccionadasView() {
                 </div>
               </div>
             </>
-          ) : null}
+          ) : (
+            <div className="h-full flex items-center justify-center text-sm text-slate-500">
+              No se pudo cargar la oferta.
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

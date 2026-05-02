@@ -808,21 +808,26 @@ export function ConfeccionOfertasView({
 
         ofertaACopiar.items.forEach((item: any) => {
           const itemId = `${item.seccion}-${item.material_codigo}`;
+          const margenAsignado = Number(item.margen_asignado);
+          const margenAsignadoValido = Number.isFinite(margenAsignado)
+            ? margenAsignado
+            : 0;
 
           console.log(`  Procesando item ${itemId}:`, {
             margen_asignado: item.margen_asignado,
+            margen_asignado_parseado: margenAsignadoValido,
             tipo: typeof item.margen_asignado,
             precio: item.precio,
             cantidad: item.cantidad,
           });
 
-          if (typeof item.margen_asignado === "number") {
-            margenMap.set(itemId, item.margen_asignado);
+          if (margenAsignadoValido > 0) {
+            margenMap.set(itemId, margenAsignadoValido);
 
             // Calcular porcentaje desde el margen asignado
             const costoItem = item.precio * item.cantidad;
-            if (costoItem > 0 && item.margen_asignado > 0) {
-              const porcentaje = (item.margen_asignado / costoItem) * 100;
+            if (costoItem > 0) {
+              const porcentaje = (margenAsignadoValido / costoItem) * 100;
               porcentajeMap.set(itemId, porcentaje);
 
               // ✅ IMPORTANTE: Cargar también en porcentajeAsignadoPorItem
@@ -830,11 +835,11 @@ export function ConfeccionOfertasView({
               porcentajeAsignadoMap[itemId] = porcentaje;
 
               console.log(
-                `    ✅ Margen guardado: ${item.margen_asignado}, Porcentaje: ${porcentaje}%`,
+                `    ✅ Margen guardado: ${margenAsignadoValido}, Porcentaje: ${porcentaje}%`,
               );
             }
           } else {
-            console.log(`    ⚠️ No tiene margen_asignado o no es número`);
+            console.log(`    ⚠️ No tiene margen_asignado válido`);
           }
         });
 
