@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import {
   Card,
@@ -68,139 +68,193 @@ import { SolicitudTransferenciaDialog } from "@/components/feats/inventario/soli
 import { SolicitudesTransferenciaTable } from "@/components/feats/inventario/solicitudes-transferencia-table";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
 
+const STOCK_LIMIT = 40;
+const MOVIMIENTOS_LIMIT = 40;
+
 export default function AlmacenDetallePage() {
   const params = useParams();
   const almacenId = params.almacenId as string;
   const { toast } = useToast();
 
+  // Core data
   const [almacen, setAlmacen] = useState<Almacen | null>(null);
   const [almacenesList, setAlmacenesList] = useState<Almacen[]>([]);
-  const [stock, setStock] = useState<StockItem[]>([]);
-  const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
   const [materiales, setMateriales] = useState<Material[]>([]);
   const [marcas, setMarcas] = useState<MarcaSimplificada[]>([]);
   const [catalogos, setCatalogos] = useState<BackendCatalogoProductos[]>([]);
+
+  // Page loading state
   const [loading, setLoading] = useState(true);
-  const [loadingMovimientos, setLoadingMovimientos] = useState(false);
-  const [loadingStock, setLoadingStock] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isEntradaDialogOpen, setIsEntradaDialogOpen] = useState(false);
-  const [isSalidaDialogOpen, setIsSalidaDialogOpen] = useState(false);
-  const [isEditarStockDialogOpen, setIsEditarStockDialogOpen] = useState(false);
-  const [stockToEdit, setStockToEdit] = useState<StockItem | null>(null);
-  const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
+
+  // Active tab & loaded-tabs tracking (lazy loading)
   const [activeTab, setActiveTab] = useState("recepciones");
+  const loadedTabs = useRef<Set<string>>(new Set());
+
+  // ── Stock tab state ──────────────────────────────────────────
+  const [stock, setStock] = useState<StockItem[]>([]);
+  const [stockTotal, setStockTotal] = useState(0);
+  const [stockSkip, setStockSkip] = useState(0);
+  const [loadingStock, setLoadingStock] = useState(false);
+  // Filters (applied server-side)
+  const [stockSearchInput, setStockSearchInput] = useState("");
   const [stockSearch, setStockSearch] = useState("");
   const [stockCategoriaFilter, setStockCategoriaFilter] = useState("all");
   const [stockMarcaFilter, setStockMarcaFilter] = useState("all");
   const [stockPotenciaFilter, setStockPotenciaFilter] = useState("all");
   const [stockCantidadFilter, setStockCantidadFilter] = useState<"all" | "zero" | "nonzero">("all");
-  const [historialSearchInput, setHistorialSearchInput] = useState("")
-  const [historialSearch, setHistorialSearch] = useState("")
-  const [historialTipo, setHistorialTipo] = useState("")
-  const [historialFechaDesde, setHistorialFechaDesde] = useState("")
-  const [historialFechaHasta, setHistorialFechaHasta] = useState("")
-  const [movimientosTotal, setMovimientosTotal] = useState(0)
-  const [movimientosSkip, setMovimientosSkip] = useState(0)
-  const MOVIMIENTOS_LIMIT = 100;
-  const [ultimoResumenLote, setUltimoResumenLote] =
-    useState<MovimientoLoteResponse | null>(null);
-  const [ultimoTipoLote, setUltimoTipoLote] = useState<
-    "entrada" | "salida" | null
-  >(null);
   const [exportingStock, setExportingStock] = useState(false);
+
+  // ── Historial tab state ──────────────────────────────────────
+  const [movimientos, setMovimientos] = useState<MovimientoInventario[]>([]);
+  const [movimientosTotal, setMovimientosTotal] = useState(0);
+  const [movimientosSkip, setMovimientosSkip] = useState(0);
+  const [loadingMovimientos, setLoadingMovimientos] = useState(false);
+  const [historialSearchInput, setHistorialSearchInput] = useState("");
+  const [historialSearch, setHistorialSearch] = useState("");
+  const [historialTipo, setHistorialTipo] = useState("");
+  const [historialFechaDesde, setHistorialFechaDesde] = useState("");
+  const [historialFechaHasta, setHistorialFechaHasta] = useState("");
+
+  // ── Dialogs ──────────────────────────────────────────────────
+  const [isEntradaDialogOpen, setIsEntradaDialogOpen] = useState(false);
+  const [isSalidaDialogOpen, setIsSalidaDialogOpen] = useState(false);
+  const [isEditarStockDialogOpen, setIsEditarStockDialogOpen] = useState(false);
+  const [stockToEdit, setStockToEdit] = useState<StockItem | null>(null);
+  const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [transferTableKey, setTransferTableKey] = useState(0);
 
-  const loadDetalle = async () => {
+  // ── Lote resumen ─────────────────────────────────────────────
+  const [ultimoResumenLote, setUltimoResumenLote] = useState<MovimientoLoteResponse | null>(null);
+  const [ultimoTipoLote, setUltimoTipoLote] = useState<"entrada" | "salida" | null>(null);
+
+  // ── Filter options derived from full material catalog ────────
+  const marcaNombrePorId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const marca of marcas) map.set(marca.id, marca.nombre);
+    return map;
+  }, [marcas]);
+
+  const stockFilterOptions = useMemo(() => {
+    const categoriasSet = new Set<string>();
+    const potenciaSet = new Set<string>();
+    const marcasMap = new Map<string, string>();
+    for (const m of materiales) {
+      if (m.categoria) categoriasSet.add(m.categoria);
+      if (m.potenciaKW !== undefined && m.potenciaKW !== null && `${m.potenciaKW}` !== "") {
+        potenciaSet.add(String(m.potenciaKW));
+      }
+      if (m.marca_id) {
+        marcasMap.set(m.marca_id, marcaNombrePorId.get(m.marca_id) || m.marca_id);
+      }
+    }
+    return {
+      categorias: Array.from(categoriasSet).sort((a, b) => a.localeCompare(b)),
+      potencias: Array.from(potenciaSet).sort((a, b) => Number(a) - Number(b)),
+      marcas: Array.from(marcasMap.entries())
+        .map(([id, nombre]) => ({ id, nombre }))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre)),
+    };
+  }, [materiales, marcaNombrePorId]);
+
+  const categorias = useMemo(() => Array.from(new Set(catalogos.map((c) => c.categoria))).sort(), [catalogos]);
+  const unidades = useMemo(() => Array.from(new Set(materiales.map((m) => m.um))).sort(), [materiales]);
+  const materialPorCodigo = useMemo(() => {
+    const map = new Map<string, Material>();
+    for (const m of materiales) map.set(String(m.codigo).trim().toLowerCase(), m);
+    return map;
+  }, [materiales]);
+
+  // ── Load initial data (almacen info + materials for forms) ───
+  const loadDetalle = useCallback(async () => {
     setLoading(true);
     setError(null);
+    loadedTabs.current = new Set();
     try {
-      const [almacenesData, materialesData, catalogosData, marcasData] =
-        await Promise.all([
-          InventarioService.getAlmacenes(),
-          MaterialService.getAllMaterials(),
-          MaterialService.getAllCatalogs(),
-          MarcaService.getMarcasSimplificadas().catch(
-            () => [] as MarcaSimplificada[],
-          ),
-        ]);
-      const almacenEncontrado =
-        almacenesData.find((item) => item.id === almacenId) || null;
+      const [almacenesData, materialesData, catalogosData, marcasData] = await Promise.all([
+        InventarioService.getAlmacenes(),
+        MaterialService.getAllMaterials(),
+        MaterialService.getAllCatalogs(),
+        MarcaService.getMarcasSimplificadas().catch(() => [] as MarcaSimplificada[]),
+      ]);
+      const almacenEncontrado = almacenesData.find((item) => item.id === almacenId) || null;
       setAlmacen(almacenEncontrado);
       setAlmacenesList(almacenesData);
       setMateriales(materialesData);
       setCatalogos(catalogosData);
       setMarcas(marcasData);
-
-      if (almacenEncontrado?.id) {
-        const [stockData, movimientosResult] = await Promise.all([
-          InventarioService.getStock({ almacen_id: almacenEncontrado.id }),
-          InventarioService.getMovimientos({
-            almacen_id: almacenEncontrado.id,
-            skip: 0,
-            limit: 100,
-          }),
-        ]);
-        setStock(
-          stockData.map((item) => ({
-            ...item,
-            almacen_nombre:
-              item.almacen_nombre ||
-              almacenEncontrado.nombre ||
-              item.almacen_id,
-          })),
-        );
-        setMovimientos(movimientosResult.data);
-        setMovimientosTotal(movimientosResult.total);
-        setMovimientosSkip(0);
-      }
     } catch (err) {
-      console.error("Error loading almacen detalle:", err);
-      setError(
-        err instanceof Error ? err.message : "No se pudo cargar el almacén",
-      );
+      setError(err instanceof Error ? err.message : "No se pudo cargar el almacén");
     } finally {
       setLoading(false);
     }
-  };
+  }, [almacenId]);
 
-  const refreshStock = async () => {
-    if (!almacen?.id) return;
+  // ── Stock fetch ──────────────────────────────────────────────
+  const fetchStock = useCallback(async (opts: {
+    skip?: number;
+    q?: string;
+    categoria?: string;
+    marca_id?: string;
+    potencia_kw?: string;
+    cantidad_filter?: string;
+  } = {}) => {
+    if (!almacenId) return;
     setLoadingStock(true);
     try {
-      const stockData = await InventarioService.getStock({
-        almacen_id: almacen.id,
+      const result = await InventarioService.getStock({
+        almacen_id: almacenId,
+        skip: opts.skip ?? 0,
+        limit: STOCK_LIMIT,
+        q: opts.q || undefined,
+        categoria: opts.categoria && opts.categoria !== "all" ? opts.categoria : undefined,
+        marca_id: opts.marca_id && opts.marca_id !== "all" ? opts.marca_id : undefined,
+        potencia_kw: opts.potencia_kw && opts.potencia_kw !== "all" ? opts.potencia_kw : undefined,
+        cantidad_filter: opts.cantidad_filter && opts.cantidad_filter !== "all" ? opts.cantidad_filter : undefined,
       });
-      setStock(
-        stockData.map((item) => ({
-          ...item,
-          almacen_nombre:
-            item.almacen_nombre || almacen.nombre || item.almacen_id,
-        })),
-      );
+      setStock(result.data.map((item) => ({
+        ...item,
+        almacen_nombre: item.almacen_nombre || almacen?.nombre || item.almacen_id,
+      })));
+      setStockTotal(result.total);
+      setStockSkip(result.skip);
     } finally {
       setLoadingStock(false);
     }
-  };
+  }, [almacenId, almacen]);
 
-  const refreshMovimientos = async (overrideSkip?: number, overrideBusqueda?: string, overrideTipo?: string, overrideFechaDesde?: string, overrideFechaHasta?: string) => {
-    if (!almacen?.id) return;
-    const skip = overrideSkip !== undefined ? overrideSkip : movimientosSkip;
-    const busqueda = overrideBusqueda !== undefined ? overrideBusqueda : (historialSearch || undefined);
-    const tipo = overrideTipo !== undefined ? overrideTipo : (historialTipo || undefined);
-    const rawDesde = overrideFechaDesde !== undefined ? overrideFechaDesde : historialFechaDesde;
-    const rawHasta = overrideFechaHasta !== undefined ? overrideFechaHasta : historialFechaHasta;
-    const fechaDesde = rawDesde ? `${rawDesde}T00:00:00` : undefined;
-    const fechaHasta = rawHasta ? `${rawHasta}T23:59:59` : undefined;
+  const refreshStock = useCallback(() => {
+    fetchStock({
+      skip: 0,
+      q: stockSearch || undefined,
+      categoria: stockCategoriaFilter,
+      marca_id: stockMarcaFilter,
+      potencia_kw: stockPotenciaFilter,
+      cantidad_filter: stockCantidadFilter,
+    });
+  }, [fetchStock, stockSearch, stockCategoriaFilter, stockMarcaFilter, stockPotenciaFilter, stockCantidadFilter]);
+
+  // ── Movimientos fetch ────────────────────────────────────────
+  const fetchMovimientos = useCallback(async (opts: {
+    skip?: number;
+    busqueda?: string;
+    tipo?: string;
+    fechaDesde?: string;
+    fechaHasta?: string;
+  } = {}) => {
+    if (!almacenId) return;
     setLoadingMovimientos(true);
     try {
+      const skip = opts.skip ?? 0;
+      const fechaDesde = opts.fechaDesde ? `${opts.fechaDesde}T00:00:00` : undefined;
+      const fechaHasta = opts.fechaHasta ? `${opts.fechaHasta}T23:59:59` : undefined;
       const result = await InventarioService.getMovimientos({
-        almacen_id: almacen.id,
+        almacen_id: almacenId,
         skip,
         limit: MOVIMIENTOS_LIMIT,
-        busqueda,
-        tipo,
+        busqueda: opts.busqueda || undefined,
+        tipo: opts.tipo || undefined,
         fecha_desde: fechaDesde,
         fecha_hasta: fechaHasta,
       });
@@ -210,7 +264,89 @@ export default function AlmacenDetallePage() {
     } finally {
       setLoadingMovimientos(false);
     }
-  };
+  }, [almacenId]);
+
+  const refreshMovimientos = useCallback((overrideSkip?: number) => {
+    fetchMovimientos({
+      skip: overrideSkip ?? movimientosSkip,
+      busqueda: historialSearch,
+      tipo: historialTipo,
+      fechaDesde: historialFechaDesde,
+      fechaHasta: historialFechaHasta,
+    });
+  }, [fetchMovimientos, movimientosSkip, historialSearch, historialTipo, historialFechaDesde, historialFechaHasta]);
+
+  // ── Tab on-demand loading ────────────────────────────────────
+  const handleTabChange = useCallback((tab: string) => {
+    setActiveTab(tab);
+    if (!almacenId) return;
+
+    if (tab === "stock" && !loadedTabs.current.has("stock")) {
+      loadedTabs.current.add("stock");
+      fetchStock({ skip: 0 });
+    }
+    if (tab === "historial" && !loadedTabs.current.has("historial")) {
+      loadedTabs.current.add("historial");
+      fetchMovimientos({ skip: 0 });
+    }
+  }, [almacenId, fetchStock, fetchMovimientos]);
+
+  // ── Debounce: stock search ────────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => setStockSearch(stockSearchInput), 400);
+    return () => clearTimeout(timer);
+  }, [stockSearchInput]);
+
+  // Re-fetch stock when server-side filters change (reset to page 0)
+  const isFirstStockRender = useRef(true);
+  useEffect(() => {
+    if (isFirstStockRender.current) {
+      isFirstStockRender.current = false;
+      return;
+    }
+    if (!loadedTabs.current.has("stock")) return;
+    fetchStock({
+      skip: 0,
+      q: stockSearch,
+      categoria: stockCategoriaFilter,
+      marca_id: stockMarcaFilter,
+      potencia_kw: stockPotenciaFilter,
+      cantidad_filter: stockCantidadFilter,
+    });
+    setStockSkip(0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stockSearch, stockCategoriaFilter, stockMarcaFilter, stockPotenciaFilter, stockCantidadFilter]);
+
+  // ── Debounce: historial search ────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => setHistorialSearch(historialSearchInput), 400);
+    return () => clearTimeout(timer);
+  }, [historialSearchInput]);
+
+  // Re-fetch movimientos when historial filters change
+  const isFirstHistorialRender = useRef(true);
+  useEffect(() => {
+    if (isFirstHistorialRender.current) {
+      isFirstHistorialRender.current = false;
+      return;
+    }
+    if (!loadedTabs.current.has("historial")) return;
+    fetchMovimientos({
+      skip: 0,
+      busqueda: historialSearch,
+      tipo: historialTipo,
+      fechaDesde: historialFechaDesde,
+      fechaHasta: historialFechaHasta,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historialSearch, historialTipo, historialFechaDesde, historialFechaHasta]);
+
+  // Initial load
+  useEffect(() => {
+    setUltimoResumenLote(null);
+    setUltimoTipoLote(null);
+    loadDetalle();
+  }, [loadDetalle]);
 
   const refreshMateriales = async () => {
     const [materialesData, catalogosData] = await Promise.all([
@@ -221,156 +357,19 @@ export default function AlmacenDetallePage() {
     setCatalogos(catalogosData);
   };
 
-  // Debounce search input → historialSearch
-  useEffect(() => {
-    const timer = setTimeout(() => setHistorialSearch(historialSearchInput), 400);
-    return () => clearTimeout(timer);
-  }, [historialSearchInput]);
-
-  // Re-fetch movimientos when filters change (reset to page 0)
-  useEffect(() => {
-    if (!almacen?.id) return;
-    refreshMovimientos(0, historialSearch, historialTipo, historialFechaDesde, historialFechaHasta);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [historialSearch, historialTipo, historialFechaDesde, historialFechaHasta]);
-
-  useEffect(() => {
-    setUltimoResumenLote(null);
-    setUltimoTipoLote(null);
-    loadDetalle();
-  }, [almacenId]);
-
-  const categorias = useMemo(() => {
-    return Array.from(new Set(catalogos.map((cat) => cat.categoria))).sort();
-  }, [catalogos]);
-
-  const unidades = useMemo(() => {
-    return Array.from(
-      new Set(materiales.map((material) => material.um)),
-    ).sort();
-  }, [materiales]);
-
-  const materialPorCodigo = useMemo(() => {
-    const map = new Map<string, Material>();
-    for (const material of materiales) {
-      map.set(String(material.codigo).trim().toLowerCase(), material);
-    }
-    return map;
-  }, [materiales]);
-
-  const marcaNombrePorId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const marca of marcas) {
-      map.set(marca.id, marca.nombre);
-    }
-    return map;
-  }, [marcas]);
-
-  const stockFilterOptions = useMemo(() => {
-    const categoriasSet = new Set<string>();
-    const potenciaSet = new Set<string>();
-    const marcasMap = new Map<string, string>();
-
-    for (const item of stock) {
-      const codigo = String(item.material_codigo || "")
-        .trim()
-        .toLowerCase();
-      const material = materialPorCodigo.get(codigo);
-
-      const categoria = String(
-        material?.categoria || item.categoria || "",
-      ).trim();
-      if (categoria) categoriasSet.add(categoria);
-
-      const potencia = material?.potenciaKW;
-      if (potencia !== undefined && potencia !== null && `${potencia}` !== "") {
-        potenciaSet.add(String(potencia));
-      }
-
-      const marcaId = String(material?.marca_id || "").trim();
-      if (marcaId) {
-        marcasMap.set(marcaId, marcaNombrePorId.get(marcaId) || marcaId);
-      }
-    }
-
-    const categorias = Array.from(categoriasSet).sort((a, b) =>
-      a.localeCompare(b),
-    );
-    const potencias = Array.from(potenciaSet).sort(
-      (a, b) => Number(a) - Number(b),
-    );
-    const marcas = Array.from(marcasMap.entries())
-      .map(([id, nombre]) => ({ id, nombre }))
-      .sort((a, b) => a.nombre.localeCompare(b.nombre));
-
-    return { categorias, marcas, potencias };
-  }, [stock, materialPorCodigo, marcaNombrePorId]);
-
-  const filteredStock = useMemo(() => {
-    const search = stockSearch.trim().toLowerCase();
-    return stock.filter((item) => {
-      const codigo = String(item.material_codigo || "")
-        .trim()
-        .toLowerCase();
-      const material = materialPorCodigo.get(codigo);
-      const nombre = String(
-        material?.nombre ||
-          material?.descripcion ||
-          item.material_descripcion ||
-          "",
-      ).toLowerCase();
-      const numeroSerie = String(material?.numero_serie ?? "").toLowerCase();
-
-      const categoria = String(
-        material?.categoria || item.categoria || "",
-      ).trim();
-      const marcaId = String(material?.marca_id || "").trim();
-      const potencia = material?.potenciaKW;
-
-      const matchSearch =
-        !search ||
-        codigo.includes(search) ||
-        nombre.includes(search) ||
-        numeroSerie.includes(search);
-      const matchCategoria =
-        stockCategoriaFilter === "all" || categoria === stockCategoriaFilter;
-      const matchMarca =
-        stockMarcaFilter === "all" || marcaId === stockMarcaFilter;
-      const matchPotencia =
-        stockPotenciaFilter === "all" ||
-        String(potencia ?? "") === stockPotenciaFilter;
-      const matchCantidad =
-        stockCantidadFilter === "all" ||
-        (stockCantidadFilter === "zero" && item.cantidad === 0) ||
-        (stockCantidadFilter === "nonzero" && item.cantidad !== 0);
-
-      return matchSearch && matchCategoria && matchMarca && matchPotencia && matchCantidad;
-    });
-  }, [
-    stock,
-    stockSearch,
-    materialPorCodigo,
-    stockCategoriaFilter,
-    stockMarcaFilter,
-    stockPotenciaFilter,
-    stockCantidadFilter,
-  ]);
-
+  // ── Pagination computed ──────────────────────────────────────
+  const stockTotalPages = Math.ceil(stockTotal / STOCK_LIMIT) || 1;
+  const stockCurrentPage = Math.floor(stockSkip / STOCK_LIMIT) + 1;
   const movimientosTotalPages = Math.ceil(movimientosTotal / MOVIMIENTOS_LIMIT) || 1;
   const movimientosCurrentPage = Math.floor(movimientosSkip / MOVIMIENTOS_LIMIT) + 1;
 
+  // ── Action handlers ──────────────────────────────────────────
   const handleRegistrarSalidaLote = async (payload: {
-    items: Array<{
-      material_codigo: string;
-      cantidad: number;
-      origen_captura: "scanner" | "manual";
-      estado: string;
-    }>;
+    items: Array<{ material_codigo: string; cantidad: number; origen_captura: "scanner" | "manual"; estado: string }>;
     motivo?: string;
     referencia?: string;
   }) => {
-    if (!almacen.id) return;
-
+    if (!almacen?.id) return;
     const resumen = await InventarioService.createMovimientoLote({
       tipo: "salida",
       almacen_id: almacen.id,
@@ -378,29 +377,20 @@ export default function AlmacenDetallePage() {
       referencia: payload.referencia,
       items: payload.items,
     });
-
-    toast({
-      title: "Salida registrada",
-      description: `${resumen.total_materiales_distintos} materiales distintos / ${resumen.total_cantidad} total`,
-    });
+    toast({ title: "Salida registrada", description: `${resumen.total_materiales_distintos} materiales distintos / ${resumen.total_cantidad} total` });
     setUltimoResumenLote(resumen);
     setUltimoTipoLote("salida");
     setIsSalidaDialogOpen(false);
-    await Promise.all([refreshStock(), refreshMovimientos(0)]);
+    if (loadedTabs.current.has("stock")) refreshStock();
+    if (loadedTabs.current.has("historial")) fetchMovimientos({ skip: 0, busqueda: historialSearch, tipo: historialTipo, fechaDesde: historialFechaDesde, fechaHasta: historialFechaHasta });
   };
 
   const handleRegistrarEntradaLote = async (payload: {
-    items: Array<{
-      material_codigo: string;
-      cantidad: number;
-      origen_captura: "scanner" | "manual";
-      estado: string;
-    }>;
+    items: Array<{ material_codigo: string; cantidad: number; origen_captura: "scanner" | "manual"; estado: string }>;
     motivo?: string;
     referencia?: string;
   }) => {
-    if (!almacen.id) return;
-
+    if (!almacen?.id) return;
     const resumen = await InventarioService.createMovimientoLote({
       tipo: "entrada",
       almacen_id: almacen.id,
@@ -408,24 +398,16 @@ export default function AlmacenDetallePage() {
       referencia: payload.referencia,
       items: payload.items,
     });
-
-    toast({
-      title: "Entrada registrada",
-      description: `${resumen.total_materiales_distintos} materiales distintos / ${resumen.total_cantidad} total`,
-    });
+    toast({ title: "Entrada registrada", description: `${resumen.total_materiales_distintos} materiales distintos / ${resumen.total_cantidad} total` });
     setUltimoResumenLote(resumen);
     setUltimoTipoLote("entrada");
     setIsEntradaDialogOpen(false);
-    await Promise.all([refreshStock(), refreshMovimientos(0)]);
+    if (loadedTabs.current.has("stock")) refreshStock();
+    if (loadedTabs.current.has("historial")) fetchMovimientos({ skip: 0, busqueda: historialSearch, tipo: historialTipo, fechaDesde: historialFechaDesde, fechaHasta: historialFechaHasta });
   };
 
-  const handleAjustarStock = async (payload: {
-    cantidad: number;
-    motivo?: string;
-    referencia?: string;
-  }) => {
-    if (!almacen.id || !stockToEdit) return;
-
+  const handleAjustarStock = async (payload: { cantidad: number; motivo?: string; referencia?: string }) => {
+    if (!almacen?.id || !stockToEdit) return;
     await InventarioService.createMovimiento({
       tipo: "ajuste",
       material_codigo: stockToEdit.material_codigo,
@@ -434,43 +416,25 @@ export default function AlmacenDetallePage() {
       motivo: payload.motivo,
       referencia: payload.referencia,
     });
-
-    toast({
-      title: "Stock ajustado",
-      description: `El stock de ${stockToEdit.material_codigo} fue actualizado.`,
-    });
+    toast({ title: "Stock ajustado", description: `El stock de ${stockToEdit.material_codigo} fue actualizado.` });
     setIsEditarStockDialogOpen(false);
     setStockToEdit(null);
-    await Promise.all([refreshStock(), refreshMovimientos(0)]);
+    if (loadedTabs.current.has("stock")) refreshStock();
+    if (loadedTabs.current.has("historial")) fetchMovimientos({ skip: 0 });
   };
 
-  const handleUpdateUbicacion = async (
-    item: StockItem,
-    ubicacion: string | null,
-  ) => {
-    if (!almacen.id || !item.material_id) {
-      toast({
-        title: "Error",
-        description: "No se pudo actualizar la ubicación. Falta información del material.",
-        variant: "destructive",
-      });
+  const handleUpdateUbicacion = async (item: StockItem, ubicacion: string | null) => {
+    if (!almacen?.id || !item.material_id) {
+      toast({ title: "Error", description: "No se pudo actualizar la ubicación. Falta información del material.", variant: "destructive" });
       return;
     }
-
-    await InventarioService.updateStockUbicacion({
-      almacen_id: almacen.id,
-      material_id: item.material_id,
-      ubicacion_en_almacen: ubicacion,
-    });
-
-    toast({
-      title: "Ubicación actualizada",
-      description: `La ubicación de ${item.material_codigo} fue actualizada.`,
-    });
-    await refreshStock();
+    await InventarioService.updateStockUbicacion({ almacen_id: almacen.id, material_id: item.material_id, ubicacion_en_almacen: ubicacion });
+    toast({ title: "Ubicación actualizada", description: `La ubicación de ${item.material_codigo} fue actualizada.` });
+    if (loadedTabs.current.has("stock")) refreshStock();
   };
 
   const handleExportStockExcel = async () => {
+    if (!almacen) return;
     setExportingStock(true);
     try {
       const normalizeValue = (value: unknown): string | number => {
@@ -479,101 +443,62 @@ export default function AlmacenDetallePage() {
         if (value === null || value === undefined || value === "") return "-";
         return String(value);
       };
-
       await exportToExcel({
         title: "Suncar SRL - Stock de Almacén",
-        subtitle: `${almacen.nombre} | Registros: ${stock.length}`,
-        filename: generateFilename(
-          `stock_${String(almacen.nombre || almacen.id || "almacen")
-            .trim()
-            .replace(/\s+/g, "_")
-            .toLowerCase()}`,
-        ),
+        subtitle: `${almacen.nombre} | Registros: ${stockTotal}`,
+        filename: generateFilename(`stock_${String(almacen.nombre || almacen.id || "almacen").trim().replace(/\s+/g, "_").toLowerCase()}`),
         columns: [
           { header: "Almacén", key: "almacen_nombre", width: 24 },
           { header: "Código", key: "material_codigo", width: 18 },
           { header: "Nombre", key: "material_nombre", width: 32 },
           { header: "Descripción", key: "material_descripcion", width: 42 },
           { header: "Categoría", key: "categoria", width: 18 },
-          { header: "Marca ID", key: "marca_id", width: 20 },
           { header: "Marca", key: "marca_nombre", width: 24 },
           { header: "UM", key: "um", width: 10 },
           { header: "Potencia (kW)", key: "potenciaKW", width: 16 },
           { header: "Stock", key: "stock", width: 12 },
           { header: "Ubicación", key: "ubicacion_en_almacen", width: 30 },
           { header: "Precio", key: "precio", width: 14 },
-          { header: "Venta Web", key: "habilitar_venta_web", width: 14 },
         ],
         data: stock.map((item) => {
-          const codigo = String(item.material_codigo || "")
-            .trim()
-            .toLowerCase();
+          const codigo = String(item.material_codigo || "").trim().toLowerCase();
           const material = materialPorCodigo.get(codigo);
           const marcaId = String(material?.marca_id || "").trim();
-
           return {
-            almacen_nombre: normalizeValue(
-              item.almacen_nombre || almacen.nombre || item.almacen_id,
-            ),
+            almacen_nombre: normalizeValue(item.almacen_nombre || almacen.nombre || item.almacen_id),
             material_codigo: normalizeValue(item.material_codigo),
             material_nombre: normalizeValue(material?.nombre),
-            material_descripcion: normalizeValue(
-              material?.descripcion || item.material_descripcion,
-            ),
+            material_descripcion: normalizeValue(material?.descripcion || item.material_descripcion),
             categoria: normalizeValue(material?.categoria || item.categoria),
-            marca_id: normalizeValue(marcaId),
-            marca_nombre: normalizeValue(
-              marcaId ? marcaNombrePorId.get(marcaId) || marcaId : null,
-            ),
+            marca_nombre: normalizeValue(marcaId ? marcaNombrePorId.get(marcaId) || marcaId : null),
             um: normalizeValue(material?.um || item.um),
             potenciaKW: material?.potenciaKW ?? "-",
             stock: item.cantidad,
             ubicacion_en_almacen: normalizeValue(item.ubicacion_en_almacen),
             precio: material?.precio ?? "-",
-            habilitar_venta_web: normalizeValue(material?.habilitar_venta_web),
           };
         }),
       });
-
-      toast({
-        title: "Exportación exitosa",
-        description: "Se exportó el stock del almacén a Excel.",
-      });
+      toast({ title: "Exportación exitosa", description: "Se exportó el stock del almacén a Excel." });
     } catch (err: any) {
-      toast({
-        title: "Error al exportar",
-        description: err?.message || "No se pudo exportar el stock a Excel.",
-        variant: "destructive",
-      });
+      toast({ title: "Error al exportar", description: err?.message || "No se pudo exportar el stock a Excel.", variant: "destructive" });
     } finally {
       setExportingStock(false);
     }
   };
 
-  if (loading) {
-    return <PageLoader moduleName="Almacén" text="Cargando detalles..." />;
-  }
+  // ── Render ────────────────────────────────────────────────────
+  if (loading) return <PageLoader moduleName="Almacén" text="Cargando detalles..." />;
 
   if (error || !almacen) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-orange-50 flex items-center justify-center">
         <div className="text-center max-w-md">
           <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            Error al cargar almacén
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {error || "No se encontró el almacén solicitado."}
-          </p>
-          <Button
-            size="icon"
-            onClick={loadDetalle}
-            className="h-10 w-10 bg-amber-600 hover:bg-amber-700 touch-manipulation"
-            aria-label="Reintentar"
-            title="Reintentar"
-          >
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error al cargar almacén</h3>
+          <p className="text-gray-600 mb-4">{error || "No se encontró el almacén solicitado."}</p>
+          <Button size="icon" onClick={loadDetalle} className="h-10 w-10 bg-amber-600 hover:bg-amber-700 touch-manipulation" aria-label="Reintentar">
             <RefreshCw className="h-4 w-4" />
-            <span className="sr-only">Reintentar</span>
           </Button>
         </div>
       </div>
@@ -586,62 +511,42 @@ export default function AlmacenDetallePage() {
         <ModuleHeader
           title={`Almacén: ${almacen.nombre}`}
           subtitle={almacen.direccion || "Gestión de entradas y salidas"}
-          badge={{
-            text: "Inventario",
-            className: "bg-orange-100 text-orange-800",
-          }}
+          badge={{ text: "Inventario", className: "bg-orange-100 text-orange-800" }}
           className="bg-white shadow-sm border-b border-orange-100"
-          backButton={{
-            href: `/almacenes-suncar/${almacenId}`,
-            label: "Volver al Almacen",
-          }}
+          backButton={{ href: `/almacenes-suncar/${almacenId}`, label: "Volver al Almacen" }}
         />
 
         <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="space-y-6"
-          >
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="recepciones">Recepciones</TabsTrigger>
               <TabsTrigger value="stock">Stock en almacen</TabsTrigger>
-              <TabsTrigger value="historial">
-                Historial de movimiento
-              </TabsTrigger>
+              <TabsTrigger value="historial">Historial de movimiento</TabsTrigger>
             </TabsList>
 
+            {/* ── RECEPCIONES ─────────────────────────────────── */}
             <TabsContent value="recepciones" className="space-y-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Recepciones</CardTitle>
-                  <CardDescription>
-                    Registra entradas y salidas del almacen.
-                  </CardDescription>
+                  <CardDescription>Registra entradas y salidas del almacen.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-wrap gap-3">
                   <Button onClick={() => setIsEntradaDialogOpen(true)}>
                     <PackagePlus className="h-4 w-4 mr-2" />
                     Registrar entrada
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsSalidaDialogOpen(true)}
-                  >
+                  <Button variant="outline" onClick={() => setIsSalidaDialogOpen(true)}>
                     <PackageMinus className="h-4 w-4 mr-2" />
                     Registrar salida por lote
                   </Button>
-                  <Button
-                    className="bg-amber-600 hover:bg-amber-700"
-                    onClick={() => setIsTransferDialogOpen(true)}
-                  >
+                  <Button className="bg-amber-600 hover:bg-amber-700" onClick={() => setIsTransferDialogOpen(true)}>
                     <ArrowRightLeft className="h-4 w-4 mr-2" />
                     Solicitar Traspaso
                   </Button>
                 </CardContent>
               </Card>
 
-              {/* Solicitudes de Traspaso */}
               <Card>
                 <CardContent className="pt-6">
                   <SolicitudesTransferenciaTable
@@ -650,172 +555,114 @@ export default function AlmacenDetallePage() {
                     materiales={materiales}
                     currentAlmacenId={almacenId}
                     onResolved={() => {
-                      refreshStock();
-                      refreshMovimientos(0);
+                      if (loadedTabs.current.has("stock")) refreshStock();
+                      if (loadedTabs.current.has("historial")) fetchMovimientos({ skip: 0 });
                     }}
                   />
                 </CardContent>
               </Card>
 
-              {ultimoResumenLote ? (
+              {ultimoResumenLote && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>
-                      Ultimo resumen de{" "}
-                      {ultimoTipoLote === "entrada" ? "entrada" : "salida"}
-                    </CardTitle>
-                    <CardDescription>
-                      Respuesta devuelta por backend para el lote procesado.
-                    </CardDescription>
+                    <CardTitle>Ultimo resumen de {ultimoTipoLote === "entrada" ? "entrada" : "salida"}</CardTitle>
+                    <CardDescription>Respuesta devuelta por backend para el lote procesado.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <p className="text-sm text-gray-700">
-                      Materiales distintos:{" "}
-                      <span className="font-semibold">
-                        {ultimoResumenLote.total_materiales_distintos}
-                      </span>
+                      Materiales distintos: <span className="font-semibold">{ultimoResumenLote.total_materiales_distintos}</span>
                     </p>
                     <p className="text-sm text-gray-700">
-                      Cantidad total:{" "}
-                      <span className="font-semibold">
-                        {ultimoResumenLote.total_cantidad}
-                      </span>
+                      Cantidad total: <span className="font-semibold">{ultimoResumenLote.total_cantidad}</span>
                     </p>
                     <div className="rounded-md border">
                       <table className="w-full text-sm">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="text-left px-3 py-2 font-medium text-gray-700">
-                              Material
-                            </th>
-                            <th className="text-left px-3 py-2 font-medium text-gray-700">
-                              Cantidad
-                            </th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-700">Material</th>
+                            <th className="text-left px-3 py-2 font-medium text-gray-700">Cantidad</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {ultimoResumenLote.por_material.map((item) => (
-                            <tr
-                              key={item.material_codigo}
-                              className="border-t text-gray-700"
-                            >
-                              <td className="px-3 py-2">
-                                {item.material_codigo}
-                              </td>
+                          {ultimoResumenLote.por_material.length === 0 ? (
+                            <tr className="border-t">
+                              <td colSpan={2} className="px-3 py-3 text-gray-500 text-center">Sin desglose por material en la respuesta.</td>
+                            </tr>
+                          ) : ultimoResumenLote.por_material.map((item) => (
+                            <tr key={item.material_codigo} className="border-t text-gray-700">
+                              <td className="px-3 py-2">{item.material_codigo}</td>
                               <td className="px-3 py-2">{item.cantidad}</td>
                             </tr>
                           ))}
-                          {ultimoResumenLote.por_material.length === 0 ? (
-                            <tr className="border-t">
-                              <td
-                                colSpan={2}
-                                className="px-3 py-3 text-gray-500 text-center"
-                              >
-                                Sin desglose por material en la respuesta.
-                              </td>
-                            </tr>
-                          ) : null}
                         </tbody>
                       </table>
                     </div>
                   </CardContent>
                 </Card>
-              ) : null}
+              )}
             </TabsContent>
 
+            {/* ── STOCK ───────────────────────────────────────── */}
             <TabsContent value="stock" className="space-y-6">
               <Card>
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <div className="flex-1">
                     <CardTitle>Stock del almacen</CardTitle>
-                    <CardDescription>Existencias actuales.</CardDescription>
+                    <CardDescription>
+                      Existencias actuales.{" "}
+                      {stockTotal > 0 && (
+                        <span>Total: {stockTotal} · Página {stockCurrentPage}/{stockTotalPages}</span>
+                      )}
+                    </CardDescription>
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Buscar
-                        </Label>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Buscar</Label>
                         <Input
-                          value={stockSearch}
-                          onChange={(event) =>
-                            setStockSearch(event.target.value)
-                          }
+                          value={stockSearchInput}
+                          onChange={(e) => setStockSearchInput(e.target.value)}
                           placeholder="Ej: MAT-001, descripción o serie..."
                         />
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Categoría
-                        </Label>
-                        <Select
-                          value={stockCategoriaFilter}
-                          onValueChange={setStockCategoriaFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Categoría</Label>
+                        <Select value={stockCategoriaFilter} onValueChange={setStockCategoriaFilter}>
+                          <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todas</SelectItem>
-                            {stockFilterOptions.categorias.map((categoria) => (
-                              <SelectItem key={categoria} value={categoria}>
-                                {categoria}
-                              </SelectItem>
+                            {stockFilterOptions.categorias.map((c) => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Marca
-                        </Label>
-                        <Select
-                          value={stockMarcaFilter}
-                          onValueChange={setStockMarcaFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Marca</Label>
+                        <Select value={stockMarcaFilter} onValueChange={setStockMarcaFilter}>
+                          <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todas</SelectItem>
-                            {stockFilterOptions.marcas.map((marca) => (
-                              <SelectItem key={marca.id} value={marca.id}>
-                                {marca.nombre}
-                              </SelectItem>
+                            {stockFilterOptions.marcas.map((m) => (
+                              <SelectItem key={m.id} value={m.id}>{m.nombre}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Potencia
-                        </Label>
-                        <Select
-                          value={stockPotenciaFilter}
-                          onValueChange={setStockPotenciaFilter}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Potencia</Label>
+                        <Select value={stockPotenciaFilter} onValueChange={setStockPotenciaFilter}>
+                          <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todas</SelectItem>
-                            {stockFilterOptions.potencias.map((potencia) => (
-                              <SelectItem key={potencia} value={potencia}>
-                                {potencia} KW
-                              </SelectItem>
+                            {stockFilterOptions.potencias.map((p) => (
+                              <SelectItem key={p} value={p}>{p} KW</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
-                          Cantidad
-                        </Label>
-                        <Select
-                          value={stockCantidadFilter}
-                          onValueChange={(v) => setStockCantidadFilter(v as "all" | "zero" | "nonzero")}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Todas" />
-                          </SelectTrigger>
+                        <Label className="text-sm font-medium text-gray-700 mb-2 block">Cantidad</Label>
+                        <Select value={stockCantidadFilter} onValueChange={(v) => setStockCantidadFilter(v as "all" | "zero" | "nonzero")}>
+                          <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">Todas</SelectItem>
                             <SelectItem value="zero">Solo en cero</SelectItem>
@@ -824,13 +671,13 @@ export default function AlmacenDetallePage() {
                         </Select>
                       </div>
                     </div>
-                    {(stockSearch || stockCategoriaFilter !== "all" || stockMarcaFilter !== "all" || stockPotenciaFilter !== "all" || stockCantidadFilter !== "all") && (
+                    {(stockSearchInput || stockCategoriaFilter !== "all" || stockMarcaFilter !== "all" || stockPotenciaFilter !== "all" || stockCantidadFilter !== "all") && (
                       <div className="mt-3">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
-                            setStockSearch("");
+                            setStockSearchInput("");
                             setStockCategoriaFilter("all");
                             setStockMarcaFilter("all");
                             setStockPotenciaFilter("all");
@@ -852,35 +699,61 @@ export default function AlmacenDetallePage() {
                       disabled={exportingStock || stock.length === 0}
                       className="border-green-300 text-green-700 hover:bg-green-50"
                     >
-                      {exportingStock ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <FileSpreadsheet className="h-4 w-4" />
-                      )}
+                      {exportingStock ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
                       <span className="ml-2">Exportar Excel</span>
                     </Button>
                     <Button variant="outline" size="icon" onClick={refreshStock} title="Refrescar">
-                      {loadingStock ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4" />
-                      )}
+                      {loadingStock ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <StockTable
-                    stock={filteredStock}
-                    detailed
-                    materials={materiales}
-                    marcas={marcas}
-                    almacenNombreFallback={almacen.nombre}
-                    onUpdateUbicacion={handleUpdateUbicacion}
-                  />
+                <CardContent className="space-y-4">
+                  {loadingStock && stock.length === 0 ? (
+                    <div className="flex items-center justify-center py-12 text-gray-500">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Cargando stock...
+                    </div>
+                  ) : (
+                    <StockTable
+                      stock={stock}
+                      detailed
+                      materials={materiales}
+                      marcas={marcas}
+                      almacenNombreFallback={almacen.nombre}
+                      onUpdateUbicacion={handleUpdateUbicacion}
+                      loading={loadingStock}
+                    />
+                  )}
+                  {stockTotal > STOCK_LIMIT && (
+                    <div className="flex items-center justify-between border-t border-gray-100 pt-4">
+                      <p className="text-sm text-gray-500">
+                        Página {stockCurrentPage} de {stockTotalPages} · {stockTotal} materiales
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={stockSkip === 0 || loadingStock}
+                          onClick={() => fetchStock({ skip: stockSkip - STOCK_LIMIT, q: stockSearch, categoria: stockCategoriaFilter, marca_id: stockMarcaFilter, potencia_kw: stockPotenciaFilter, cantidad_filter: stockCantidadFilter })}
+                        >
+                          Anterior
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={stockCurrentPage >= stockTotalPages || loadingStock}
+                          onClick={() => fetchStock({ skip: stockSkip + STOCK_LIMIT, q: stockSearch, categoria: stockCategoriaFilter, marca_id: stockMarcaFilter, potencia_kw: stockPotenciaFilter, cantidad_filter: stockCantidadFilter })}
+                        >
+                          Siguiente
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
+            {/* ── HISTORIAL ───────────────────────────────────── */}
             <TabsContent value="historial" className="space-y-6">
               <Card>
                 <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -921,31 +794,18 @@ export default function AlmacenDetallePage() {
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-700 mb-1 block">Desde</Label>
-                        <Input
-                          type="date"
-                          value={historialFechaDesde}
-                          onChange={(e) => setHistorialFechaDesde(e.target.value)}
-                        />
+                        <Input type="date" value={historialFechaDesde} onChange={(e) => setHistorialFechaDesde(e.target.value)} />
                       </div>
                       <div>
                         <Label className="text-sm font-medium text-gray-700 mb-1 block">Hasta</Label>
-                        <Input
-                          type="date"
-                          value={historialFechaHasta}
-                          onChange={(e) => setHistorialFechaHasta(e.target.value)}
-                        />
+                        <Input type="date" value={historialFechaHasta} onChange={(e) => setHistorialFechaHasta(e.target.value)} />
                       </div>
                     </div>
                     {(historialSearchInput || historialTipo || historialFechaDesde || historialFechaHasta) && (
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => {
-                          setHistorialSearchInput("");
-                          setHistorialTipo("");
-                          setHistorialFechaDesde("");
-                          setHistorialFechaHasta("");
-                        }}
+                        onClick={() => { setHistorialSearchInput(""); setHistorialTipo(""); setHistorialFechaDesde(""); setHistorialFechaHasta(""); }}
                         className="text-gray-600 border-gray-300 hover:bg-gray-50"
                       >
                         <X className="h-4 w-4 mr-1" />
@@ -953,25 +813,19 @@ export default function AlmacenDetallePage() {
                       </Button>
                     )}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => refreshMovimientos()}
-                    title="Refrescar"
-                  >
-                    {loadingMovimientos ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4" />
-                    )}
+                  <Button variant="outline" size="icon" onClick={() => refreshMovimientos()} title="Refrescar">
+                    {loadingMovimientos ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
                   </Button>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <MovimientosTable
-                    movimientos={movimientos}
-                    materials={materiales}
-                    almacenes={almacenesList}
-                  />
+                  {loadingMovimientos && movimientos.length === 0 ? (
+                    <div className="flex items-center justify-center py-12 text-gray-500">
+                      <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                      Cargando historial...
+                    </div>
+                  ) : (
+                    <MovimientosTable movimientos={movimientos} materials={materiales} almacenes={almacenesList} />
+                  )}
                   {movimientosTotal > MOVIMIENTOS_LIMIT && (
                     <div className="flex items-center justify-between border-t border-gray-100 pt-4">
                       <p className="text-sm text-gray-500">
@@ -982,7 +836,7 @@ export default function AlmacenDetallePage() {
                           variant="outline"
                           size="sm"
                           disabled={movimientosSkip === 0 || loadingMovimientos}
-                          onClick={() => refreshMovimientos(movimientosSkip - MOVIMIENTOS_LIMIT)}
+                          onClick={() => fetchMovimientos({ skip: movimientosSkip - MOVIMIENTOS_LIMIT, busqueda: historialSearch, tipo: historialTipo, fechaDesde: historialFechaDesde, fechaHasta: historialFechaHasta })}
                         >
                           Anterior
                         </Button>
@@ -990,7 +844,7 @@ export default function AlmacenDetallePage() {
                           variant="outline"
                           size="sm"
                           disabled={movimientosCurrentPage >= movimientosTotalPages || loadingMovimientos}
-                          onClick={() => refreshMovimientos(movimientosSkip + MOVIMIENTOS_LIMIT)}
+                          onClick={() => fetchMovimientos({ skip: movimientosSkip + MOVIMIENTOS_LIMIT, busqueda: historialSearch, tipo: historialTipo, fechaDesde: historialFechaDesde, fechaHasta: historialFechaHasta })}
                         >
                           Siguiente
                         </Button>
@@ -1003,14 +857,10 @@ export default function AlmacenDetallePage() {
           </Tabs>
         </main>
 
-        <Dialog
-          open={isEntradaDialogOpen}
-          onOpenChange={setIsEntradaDialogOpen}
-        >
+        {/* ── Dialogs ──────────────────────────────────────────── */}
+        <Dialog open={isEntradaDialogOpen} onOpenChange={setIsEntradaDialogOpen}>
           <DialogContent className="max-w-5xl">
-            <DialogHeader>
-              <DialogTitle>Registrar entrada por lote</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Registrar entrada por lote</DialogTitle></DialogHeader>
             <SalidaLoteForm
               tipo="entrada"
               almacen={almacen}
@@ -1024,9 +874,7 @@ export default function AlmacenDetallePage() {
 
         <Dialog open={isSalidaDialogOpen} onOpenChange={setIsSalidaDialogOpen}>
           <DialogContent className="max-w-5xl">
-            <DialogHeader>
-              <DialogTitle>Registrar salida por lote</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Registrar salida por lote</DialogTitle></DialogHeader>
             <SalidaLoteForm
               tipo="salida"
               almacen={almacen}
@@ -1037,28 +885,17 @@ export default function AlmacenDetallePage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog
-          open={isEditarStockDialogOpen}
-          onOpenChange={(open) => {
-            setIsEditarStockDialogOpen(open);
-            if (!open) setStockToEdit(null);
-          }}
-        >
+        <Dialog open={isEditarStockDialogOpen} onOpenChange={(open) => { setIsEditarStockDialogOpen(open); if (!open) setStockToEdit(null); }}>
           <DialogContent className="max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Editar stock de material</DialogTitle>
-            </DialogHeader>
-            {stockToEdit ? (
+            <DialogHeader><DialogTitle>Editar stock de material</DialogTitle></DialogHeader>
+            {stockToEdit && (
               <EditarStockForm
                 almacen={almacen}
                 item={stockToEdit}
                 onSubmit={handleAjustarStock}
-                onCancel={() => {
-                  setIsEditarStockDialogOpen(false);
-                  setStockToEdit(null);
-                }}
+                onCancel={() => { setIsEditarStockDialogOpen(false); setStockToEdit(null); }}
               />
-            ) : null}
+            )}
           </DialogContent>
         </Dialog>
 
@@ -1069,20 +906,12 @@ export default function AlmacenDetallePage() {
           materiales={materiales}
           stock={stock}
           currentAlmacenId={almacenId}
-          onSuccess={() => {
-            setTransferTableKey((k) => k + 1);
-            refreshStock();
-          }}
+          onSuccess={() => { setTransferTableKey((k) => k + 1); if (loadedTabs.current.has("stock")) refreshStock(); }}
         />
 
-        <Dialog
-          open={isMaterialDialogOpen}
-          onOpenChange={setIsMaterialDialogOpen}
-        >
+        <Dialog open={isMaterialDialogOpen} onOpenChange={setIsMaterialDialogOpen}>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Crear material</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Crear material</DialogTitle></DialogHeader>
             <MaterialForm
               existingCategories={categorias}
               existingUnits={unidades}
@@ -1099,41 +928,17 @@ export default function AlmacenDetallePage() {
                 let productoId: string | undefined;
                 if (isNewCategory) {
                   productoId = await MaterialService.createCategoryWithPhoto({
-                    categoria,
-                    foto: categoryPhoto,
-                    esVendible: categoryVendible,
-                    materiales: [
-                      {
-                        codigo: String(codigo),
-                        descripcion,
-                        um,
-                        precio: precio || 0,
-                      },
-                    ],
+                    categoria, foto: categoryPhoto, esVendible: categoryVendible,
+                    materiales: [{ codigo: String(codigo), descripcion, um, precio: precio || 0 }],
                   });
                 } else {
-                  const catalogo = catalogos.find(
-                    (cat) => cat.categoria === categoria,
-                  );
+                  const catalogo = catalogos.find((cat) => cat.categoria === categoria);
                   productoId = catalogo?.id;
-                  if (!productoId) {
-                    const nuevoId =
-                      await MaterialService.createCategory(categoria);
-                    productoId = nuevoId;
-                  }
-                  await MaterialService.addMaterialToProduct(productoId, {
-                    codigo: String(codigo),
-                    descripcion,
-                    um,
-                    precio: precio || 0,
-                  });
+                  if (!productoId) productoId = await MaterialService.createCategory(categoria);
+                  await MaterialService.addMaterialToProduct(productoId, { codigo: String(codigo), descripcion, um, precio: precio || 0 });
                 }
-
                 await refreshMateriales();
-                toast({
-                  title: "Material creado",
-                  description: "El material fue registrado correctamente.",
-                });
+                toast({ title: "Material creado", description: "El material fue registrado correctamente." });
                 setIsMaterialDialogOpen(false);
               }}
               onCancel={() => setIsMaterialDialogOpen(false)}

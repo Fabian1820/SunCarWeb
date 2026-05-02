@@ -517,6 +517,61 @@ export class MaterialService {
     return true;
   }
 
+  static async getCatalogoAdmin(params: {
+    q?: string;
+    categoria?: string;
+    marca_id?: string;
+    precio_zero?: boolean;
+    page?: number;
+    limit?: number;
+    sort?: string;
+  }): Promise<{
+    data: Material[];
+    meta: { total: number; page: number; limit: number; totalPages: number };
+  }> {
+    const qs = new URLSearchParams();
+    if (params.q) qs.set("q", params.q);
+    if (params.categoria) qs.set("categoria", params.categoria);
+    if (params.marca_id) qs.set("marca_id", params.marca_id);
+    if (params.precio_zero === true) qs.set("precio_zero", "true");
+    if (params.page) qs.set("page", String(params.page));
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.sort) qs.set("sort", params.sort);
+
+    const result = await apiRequest<{
+      data: any[];
+      meta: { total: number; page: number; limit: number; totalPages: number };
+    }>(`/productos/admin/materiales?${qs.toString()}`);
+
+    const materials: Material[] = (result.data || []).map((item: any) => ({
+      id: item.material_id || item.codigo || "",
+      material_id: item.material_id,
+      codigo: String(item.codigo || ""),
+      categoria: item.categoria || "",
+      descripcion: item.descripcion || "",
+      nombre: item.nombre ?? undefined,
+      um: item.um || "",
+      precio: typeof item.precio === "number" ? item.precio : undefined,
+      marca_id: item.marca_id ?? undefined,
+      foto: item.foto ?? undefined,
+      potenciaKW: item.potenciaKW ?? undefined,
+      habilitar_venta_web: item.habilitar_venta_web ?? false,
+      numero_serie: item.numero_serie ?? null,
+      stockaje_minimo: item.stockaje_minimo ?? null,
+      ubicacion_en_almacen: item.ubicacion_en_almacen ?? null,
+      comentario: item.comentario ?? null,
+      ficha_tecnica_url: item.ficha_tecnica_url ?? null,
+      precio_por_cantidad: item.precio_por_cantidad ?? undefined,
+      especificaciones: item.especificaciones ?? undefined,
+      codigo_contabilidad: item.codigo_contabilidad ?? undefined,
+      cantidad_contabilidad: item.cantidad_contabilidad ?? undefined,
+      precio_contabilidad: item.precio_contabilidad ?? undefined,
+      producto_id: item.producto_id ?? undefined,
+    }));
+
+    return { data: materials, meta: result.meta };
+  }
+
   static async uploadFichaTecnica(file: File): Promise<string> {
     console.log("[MaterialService] Subiendo ficha técnica:", file.name);
     

@@ -35,6 +35,7 @@ interface StockTableProps {
   materials?: Material[];
   marcas?: MarcaItem[];
   almacenNombreFallback?: string;
+  loading?: boolean;
 }
 
 const normalizarCodigo = (codigo: string) => codigo.trim().toLowerCase();
@@ -47,6 +48,7 @@ export function StockTable({
   materials = [],
   marcas = [],
   almacenNombreFallback,
+  loading = false,
 }: StockTableProps) {
   const [isUbicacionDialogOpen, setIsUbicacionDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
@@ -128,7 +130,7 @@ export function StockTable({
     return (
       <TooltipProvider>
         <>
-          <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+          <div className={`overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0 relative ${loading ? "opacity-60 pointer-events-none" : ""}`}>
             <table className="w-full min-w-[900px] sm:min-w-0 sm:table-fixed">
           <thead>
             <tr className="border-b border-gray-200">
@@ -195,6 +197,8 @@ export function StockTable({
                         <img
                           src={material.foto}
                           alt={nombreMaterial}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full object-contain p-1"
                         />
                       </div>

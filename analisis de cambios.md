@@ -2,6 +2,89 @@
 
 ---
 
+## 📅 1 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit automático de "Analisis diario Claude".
+
+#### Consideraciones del día
+
+- El cambio de tipo de retorno de `getStock` (April 30) merece prueba en todos sus consumidores hoy en staging: `vales-salida`, `solicitudes-materiales`, `solicitudes-ventas`, `use-inventario`, `export-vale-salida-service`.
+- Los nuevos endpoints del Centro de Control (`/periodo-stats`, `/analisis-regional`, `/clientes-por-mes`) deben estar verificados en producción antes de cualquier release.
+- No hay riesgos nuevos que reportar hoy.
+
+---
+
+## 📅 30 de Abril, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Centro de Control, almacenes, manejo global de errores 422, ofertas/facturas**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `b26f898` | Ruben0304 | perf: Centro de Control — datos on-demand, mapas de conteos del backend |
+| `10d42a1` | Ruben0304 | fix: evitar llamada `/visitas/` en carga inicial del Centro de Control |
+| `997482` | yany1509 | Se añadió `estado` al tipo `ofertaData`; prefijo «hasta» en cableado AC/DC |
+| `f45193b` | Ruben0304 | feat: conectar Centro de Control con nuevos endpoints del backend |
+| `f494f54` | Fabian1820 | *(sin descripción: "hgvhj")* |
+| `e186a05` | yany1509 | agregada opción de ver factura solar carros |
+| `e72375a` | Fabian1820 | *(sin descripción: "vhjvhjvhjv")* |
+| `809c661` | Ruben0304 | Add loading lottie to filtered lists |
+| `d262ec3` | Ruben0304 | perf: carga on-demand por tab, paginación server-side e imágenes lazy en almacenes |
+| `ee1582a` | Ruben0304 | feat: manejo global de errores 422 en `apiRequest` |
+| `a7ef689` | Ruben0304 | feat: overlay global para errores de validación 422 |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Cambio del tipo de retorno de `getStock` de array plano a `{data, total, skip, limit}`**
+   - El commit dice que se actualizaron todos los callers (`vales-salida`, `solicitudes-materiales`, `solicitudes-ventas`, `use-inventario`, `export-vale-salida-service`), pero si alguno se pasó por alto, fallará intentando `.map()` sobre un objeto.
+   - **Acción recomendada:** Probar explícitamente cada módulo que consume `getStock` (especialmente exportaciones y vales de salida) para confirmar que recibe el campo `data` correctamente.
+
+2. **Dos commits más de Fabian1820 sin descripción (`hgvhj`, `vhjvhjvhjv`)**
+   - No es posible saber el alcance de estos cambios sin leer el diff. Si introducen un bug, el historial no da pistas.
+   - **Acción urgente:** Revisar manualmente esos diffs. Patrón recurrente — se recomienda establecer un hook de pre-commit que rechace mensajes de menos de 10 caracteres.
+
+#### 🟡 Riesgos medios
+
+3. **Centro de Control conectado a nuevos endpoints del backend**
+   - Los panels de Brigadas, PeriodoStats, AnalisisRegional y ClientesStats ahora llaman a endpoints dedicados (`/periodo-stats`, `/analisis-regional`, `/clientes-por-mes`, `/brigadas`). Si alguno de estos no existe en el backend en producción o devuelve un schema distinto al esperado, el panel correspondiente fallará.
+   - **Acción recomendada:** Verificar que todos los endpoints existen y están desplegados antes de pasar a producción.
+
+4. **Heatmap con `Map<string, number>` de conteos del backend**
+   - Los nombres de municipio que llegan en `municipios_por_modo` deben coincidir exactamente (mayúsculas, acentos) con los nombres de las features del GeoJSON. Una discrepancia hace que el municipio aparezca sin color en el mapa sin lanzar ningún error.
+   - **Consideración:** Añadir un log de advertencia cuando un nombre del backend no encuentre feature en el GeoJSON.
+
+5. **`ESTADO_OFERTA_LABELS` en exportaciones de ofertas (yany1509)**
+   - Si una oferta tiene un valor de `estado` que no está mapeado en `ESTADO_OFERTA_LABELS`, el campo aparecerá como `undefined` en la exportación PDF/Excel.
+   - **Acción recomendada:** Añadir un fallback (`?? estado`) para que los estados no mapeados muestren el valor raw en lugar de `undefined`.
+
+6. **Overlay de errores 422 asume un formato de payload específico**
+   - FastAPI devuelve 422 con `{detail: [{loc, msg, type}]}`, pero si algún endpoint del backend lanza un 422 personalizado con otro formato, el overlay puede mostrar datos crudos o quedar vacío.
+   - **Consideración:** Validar que el parser del overlay maneja tanto el formato estándar de FastAPI como variantes custom.
+
+7. **Carga on-demand de tabs en almacenes — primer activación**
+   - Los tabs Stock, Recepciones e Historial cargan al primer click. Si la conexión es lenta, el usuario verá el tab vacío brevemente. Confirmar que el indicador de carga (lottie) aparece correctamente dentro del tab antes de que lleguen los datos.
+
+#### 🟢 Mejoras positivas
+
+8. **Paginación server-side (40/página) + imágenes lazy en tabla de stock**
+   - Reduce drásticamente el tiempo de carga inicial del módulo de almacenes.
+
+9. **Centro de Control: eliminación de llamada de 428KB a `/visitas/`**
+   - Se reutiliza `controlData.visitasRealizadas` del dashboard para el modo semana (default), y solo se llama a la API cuando el usuario cambia el período. Gran mejora.
+
+10. **Overlay global de errores 422**
+    - Centraliza el manejo de errores de validación sin tocar hooks ni páginas individuales. Solución no intrusiva.
+
+11. **Ver factura solar carros (yany1509)**
+    - Nueva funcionalidad disponible en el módulo de carros.
+
+---
+
 ## 📅 29 de Abril, 2026
 
 ### Resumen de cambios (últimas 24h)

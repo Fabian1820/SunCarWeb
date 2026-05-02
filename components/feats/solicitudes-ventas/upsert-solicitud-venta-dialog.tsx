@@ -511,7 +511,7 @@ export function UpsertSolicitudVentaDialog({
     void (async () => {
       setLoadingStock(true);
       try {
-        const items = await InventarioService.getStock({ almacen_id: selectedAlmacenId });
+        const { data: items } = await InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 200 });
         const map = buildStockMapV(items);
         stockMapRef.current = map;
 

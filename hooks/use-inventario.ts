@@ -71,8 +71,8 @@ export function useInventario(options?: {
     setLoadingStock(true)
     setError(null)
     try {
-      const data = await InventarioService.getStock({ almacen_id: almacenId })
-      setStock(Array.isArray(data) ? data : [])
+      const result = await InventarioService.getStock({ almacen_id: almacenId, limit: 200 })
+      setStock(Array.isArray(result.data) ? result.data : [])
     } catch (err) {
       console.error('Error fetching stock:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar el stock')

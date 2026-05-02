@@ -773,7 +773,7 @@ export function CreateSolicitudMaterialDialog({
     void (async () => {
       setLoadingStock(true);
       try {
-        const items = await InventarioService.getStock({ almacen_id: selectedAlmacenId });
+        const { data: items } = await InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 200 });
         const map = buildStockMap(items);
         setStockMap(map);
         stockMapRef.current = map;

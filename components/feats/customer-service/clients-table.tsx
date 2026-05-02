@@ -5,6 +5,7 @@ import { Button } from "@/components/shared/atom/button";
 import { Badge } from "@/components/shared/atom/badge";
 import { PriorityDot } from "@/components/shared/atom/priority-dot";
 import { Label } from "@/components/shared/atom/label";
+import { Loader } from "@/components/shared/atom/loader";
 import {
   Select,
   SelectContent,
@@ -4618,8 +4619,18 @@ export function ClientsTable({
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          {sortedClients.length === 0 ? (
+        <CardContent className="relative min-h-[16rem]">
+          {loading && sortedClients.length > 0 && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-b-lg bg-white/80 backdrop-blur-sm">
+              <Loader label="Aplicando filtros..." />
+            </div>
+          )}
+
+          {loading && sortedClients.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader label="Cargando clientes..." />
+            </div>
+          ) : sortedClients.length === 0 ? (
             <div className="text-center py-12">
               <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900 mb-2">

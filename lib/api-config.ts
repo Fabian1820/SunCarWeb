@@ -332,6 +332,32 @@ export async function apiRequest<T>(
     const dataSuccess = dataRecord?.success;
     const dataError = dataRecord?.error;
 
+    // Detectar errores de validación 422 del backend
+    if (!response.ok && response.status === 422) {
+      const rawErrors = Array.isArray(dataRecord?.errors)
+        ? (dataRecord.errors as Array<{ field: string; error: string }>)
+        : [];
+
+      const validationErrors = rawErrors.length > 0
+        ? rawErrors.map((e) => `${e.field}: ${e.error}`).join("\n")
+        : dataMessage || "Error de validación en los datos enviados";
+
+      // Emitir evento global para que el overlay lo muestre de forma bonita
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("validation-error-422", {
+          detail: {
+            errors: rawErrors,
+            message: dataMessage || "Error de validación",
+          },
+        }));
+      }
+
+      const err = new Error(validationErrors) as Error & { isValidationError: true; errors: unknown };
+      err.isValidationError = true;
+      err.errors = rawErrors;
+      throw err;
+    }
+
     // Detectar token expirado o invÃ¡lido (401) ANTES de cualquier otro manejo
     if (!response.ok && response.status === 401) {
       const errorMessage = dataDetail || dataMessage || "";
@@ -397,7 +423,7 @@ export async function apiRequest<T>(
       );
     }
 
-    return data;
+    return data as T;
   } catch (error) {
     if (
       error instanceof TypeError &&
