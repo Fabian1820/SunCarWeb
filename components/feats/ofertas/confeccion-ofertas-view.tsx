@@ -225,7 +225,9 @@ export function ConfeccionOfertasView({
     return null;
   };
 
-  const estadoInicial = cargarEstadoGuardado();
+  // En modo edición, NUNCA usar localStorage: siempre cargar datos frescos de la API
+  // para evitar que valores stale (ej. margen_comercial) aparezcan al reabrir el diálogo
+  const estadoInicial = modoEdicion ? null : cargarEstadoGuardado();
 
   const [items, setItems] = useState<OfertaItem[]>(estadoInicial?.items || []);
   const [ofertaGenerica, setOfertaGenerica] = useState(

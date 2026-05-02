@@ -39,7 +39,8 @@ export function EditarOfertaDialog({ open, onOpenChange, oferta, onSuccess }: Ed
         
         {/* Contenido - debe tener flex-1 y min-h-0 para que los scrolls internos funcionen */}
         <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          <ConfeccionOfertasView 
+          <ConfeccionOfertasView
+            key={oferta.id}
             modoEdicion={true}
             ofertaParaEditar={oferta}
             onGuardarExito={() => {
