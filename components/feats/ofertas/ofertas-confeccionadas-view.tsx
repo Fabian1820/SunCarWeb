@@ -115,6 +115,9 @@ export function OfertasConfeccionadasView() {
   const [mostrarDialogoEditar, setMostrarDialogoEditar] = useState(false);
   const [ofertaParaEditar, setOfertaParaEditar] =
     useState<OfertaConfeccion | null>(null);
+  // Contador que cambia cada vez que se abre el diálogo de edición,
+  // para forzar un remount completo de ConfeccionOfertasView
+  const [editarDialogKey, setEditarDialogKey] = useState(0);
   const [mostrarDialogoEliminar, setMostrarDialogoEliminar] = useState(false);
   const [ofertaParaEliminar, setOfertaParaEliminar] =
     useState<OfertaListadoItem | null>(null);
@@ -1972,6 +1975,7 @@ export function OfertasConfeccionadasView() {
         setLoadingDetalle(true);
         const response = await apiRequest<any>(`/ofertas/confeccion/${id}`, {
           method: "GET",
+          cache: "no-store",
         });
         const raw = response?.data ?? response;
         if (!raw) return null;
@@ -1998,6 +2002,7 @@ export function OfertasConfeccionadasView() {
     const completa = await fetchOfertaCompleta(oferta.id);
     if (completa) {
       setOfertaParaEditar(completa);
+      setEditarDialogKey((k) => k + 1); // fuerza remount de ConfeccionOfertasView
       setMostrarDialogoEditar(true);
     }
   };
@@ -3327,6 +3332,7 @@ export function OfertasConfeccionadasView() {
 
       {/* Diálogo de Edición */}
       <EditarOfertaDialog
+        key={editarDialogKey}
         open={mostrarDialogoEditar}
         onOpenChange={setMostrarDialogoEditar}
         oferta={ofertaParaEditar}
