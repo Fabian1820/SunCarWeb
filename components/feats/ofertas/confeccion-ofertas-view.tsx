@@ -5286,24 +5286,12 @@ export function ConfeccionOfertasView({
         ofertaData.items = items.map((item) => {
           const costoItem = item.precio * item.cantidad;
 
-          // Usar el porcentaje editado manualmente si existe, sino usar el calculado automáticamente
-          const tieneManual =
-            typeof porcentajeAsignadoPorItem[item.id] === "number";
-          const porcentajeManual = porcentajeAsignadoPorItem[item.id];
-          const porcentajeAuto = porcentajeMargenPorItem.get(item.id) ?? 0;
-          const porcentajeItem = tieneManual
-            ? porcentajeManual
-            : porcentajeAuto;
-
-          const margenAsignado = costoItem * (porcentajeItem / 100);
+          // Usar margenPorMaterialCalculado (useMemo siempre actualizado) igual que en el export
+          const margenAsignado = margenPorMaterialCalculado.get(item.id) ?? 0;
 
           console.log(`  📦 Item ${item.id} (${item.materialCodigo}):`, {
             descripcion: item.descripcion.substring(0, 30),
             costo: costoItem,
-            tiene_manual: tieneManual,
-            porcentaje_manual: porcentajeManual,
-            porcentaje_auto: porcentajeAuto,
-            porcentaje_usado: porcentajeItem,
             margen_asignado: margenAsignado,
           });
 
