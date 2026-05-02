@@ -54,6 +54,8 @@ import {
   CreditCard,
   Truck,
   Zap,
+  Battery,
+  Sun,
 } from "lucide-react";
 import { ReportsTable } from "@/components/feats/reports/reports-table";
 import { ClienteService, ReporteService } from "@/lib/api-services";
@@ -113,6 +115,10 @@ interface ClientsTableProps {
     fechaDesde: string;
     fechaHasta: string;
     mes: string;
+    provincia: string;
+    municipio: string;
+    ofertas: string;
+    tiempo: string;
   }) => void;
   exportButtons?: React.ReactNode;
 }
@@ -142,6 +148,120 @@ const LEAD_COMERCIALES = [
   "Dashel Pinillos Zubiaur",
   "Gretel María Mojena Almenares",
 ];
+
+const COMERCIALES_LEADS_CACHE_KEY = "leadsComercialesAllCache";
+
+const parseClienteFecha = (value?: string): Date | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+    const [day, month, year] = trimmed.split("/").map(Number);
+    const parsed = new Date(year, month - 1, day);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getClienteFechaCreacion = (client: Cliente): Date | null => {
+  return (
+    parseClienteFecha(client.fecha_creacion) ??
+    parseClienteFecha(client.created_at) ??
+    parseClienteFecha(client.fecha_contacto)
+  );
+};
+
+const getClienteDiasDesdeCreacion = (client: Cliente): number | null => {
+  const fecha = getClienteFechaCreacion(client);
+  if (!fecha) return null;
+  const ahora = new Date();
+  const diffMs = ahora.getTime() - fecha.getTime();
+  if (Number.isNaN(diffMs) || diffMs < 0) return 0;
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+};
+
+const formatFechaCorta = (fecha: Date | null): string => {
+  if (!fecha) return "—";
+  const day = fecha.getDate().toString().padStart(2, "0");
+  const month = (fecha.getMonth() + 1).toString().padStart(2, "0");
+  const year = fecha.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const normalizeEstadoText = (estado?: string): string =>
+  (estado ?? "")
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .trim();
+
+const isClienteInstaladoConExito = (estado?: string): boolean => {
+  const norm = normalizeEstadoText(estado);
+  return norm.includes("equipo instalado") && norm.includes("exito");
+};
+
+type AtrasoBucket = "muy" | "medio" | "leve" | null;
+
+const getAtrasoBucket = (
+  client: Cliente,
+): { bucket: AtrasoBucket; dias: number | null } => {
+  if (isClienteInstaladoConExito(client.estado))
+    return { bucket: null, dias: getClienteDiasDesdeCreacion(client) };
+  const dias = getClienteDiasDesdeCreacion(client);
+  if (dias === null) return { bucket: null, dias: null };
+  if (dias > 30) return { bucket: "muy", dias };
+  if (dias >= 15) return { bucket: "medio", dias };
+  if (dias >= 10) return { bucket: "leve", dias };
+  return { bucket: null, dias };
+};
+
+const TIEMPO_BUCKETS: Record<string, (dias: number) => boolean> = {
+  "1_5": (d) => d >= 1 && d < 5,
+  "5_10": (d) => d >= 5 && d < 10,
+  "10_15": (d) => d >= 10 && d < 15,
+  "15_20": (d) => d >= 15 && d < 20,
+  "1mes": (d) => d >= 20 && d <= 30,
+  ">1mes": (d) => d > 30,
+};
+
+const TIEMPO_LABELS: Record<string, string> = {
+  "1_5": "Entre 1 y 5 días",
+  "5_10": "Entre 5 y 10 días",
+  "10_15": "Entre 10 y 15 días",
+  "15_20": "Entre 15 y 20 días",
+  "1mes": "1 mes",
+  ">1mes": "Más de 1 mes",
+};
+
+const OFERTAS_FILTER_OPTIONS = [
+  { value: "todas", label: "Todas las ofertas" },
+  { value: "con_ofertas", label: "Con ofertas" },
+  { value: "sin_ofertas", label: "Sin ofertas" },
+  { value: "con_confirmadas", label: "Con ofertas confirmadas" },
+  { value: "mas_1_confirmada", label: "Con más de 1 confirmada" },
+  { value: "sin_confirmadas", label: "Sin ofertas confirmadas" },
+];
+
+const getTotalConfirmadasCliente = (client: Cliente): number => {
+  const raw = client as Cliente & Record<string, unknown>;
+  // 1. Resumen de ofertas confeccion (igual a leads.oferta_confeccion.total_confirmadas)
+  const resumen = raw.ofertas_confeccion_resumen;
+  if (Array.isArray(resumen)) {
+    let total = 0;
+    for (const r of resumen) {
+      const tc = (r as Record<string, unknown>)?.total_confirmadas;
+      if (typeof tc === "number") total += tc;
+    }
+    if (total > 0) return total;
+  }
+  // 2. Fallback: ofertas embebidas con aprobada=true
+  if (Array.isArray(client.ofertas)) {
+    return client.ofertas.filter((o: any) => o?.aprobada === true).length;
+  }
+  return 0;
+};
 
 const normalizeClienteNumero = (value?: string) =>
   (value ?? "")
@@ -651,7 +771,114 @@ export function ClientsTable({
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
+    provincia: "",
+    municipio: "",
+    ofertas: "",
+    tiempo: "",
   });
+
+  // Provincias / municipios para filtros
+  const [provinciasList, setProvinciasList] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [municipiosList, setMunicipiosList] = useState<
+    Array<{ codigo: string; nombre: string }>
+  >([]);
+  const [comercialesExtra, setComercialesExtra] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: Array<{ codigo: string; nombre: string }>;
+        }>("/provincias/", { method: "GET" });
+        if (!cancelado && response.success && response.data) {
+          setProvinciasList(response.data);
+        }
+      } catch (error) {
+        console.error("Error cargando provincias:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!filters.provincia) {
+      setMunicipiosList([]);
+      return;
+    }
+    const provincia = provinciasList.find(
+      (p) => p.nombre === filters.provincia,
+    );
+    if (!provincia) {
+      setMunicipiosList([]);
+      return;
+    }
+    let cancelado = false;
+    (async () => {
+      try {
+        const response = await apiRequest<{
+          success: boolean;
+          data: Array<{ codigo: string; nombre: string }>;
+        }>(`/provincias/provincia/${provincia.codigo}/municipios`, {
+          method: "GET",
+        });
+        if (!cancelado && response.success && response.data) {
+          setMunicipiosList(response.data);
+        }
+      } catch (error) {
+        console.error("Error cargando municipios:", error);
+      }
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, [filters.provincia, provinciasList]);
+
+  // Cargar comerciales lazy: solo desde caché al inicio; el endpoint se invoca cuando el usuario abre el dropdown
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const cached = sessionStorage.getItem(COMERCIALES_LEADS_CACHE_KEY);
+      if (cached) {
+        const parsed = JSON.parse(cached) as string[];
+        if (Array.isArray(parsed)) setComercialesExtra(parsed);
+      }
+    } catch {}
+  }, []);
+
+  const comercialesFetchedRef = useRef(false);
+  const ensureComercialesCargados = useCallback(async () => {
+    if (comercialesFetchedRef.current) return;
+    comercialesFetchedRef.current = true;
+    try {
+      const response = await apiRequest<{
+        success: boolean;
+        data: { leads?: Array<{ comercial?: string }> };
+      }>("/leads/?skip=0&limit=500", { method: "GET" });
+      const leads = response?.data?.leads ?? [];
+      const set = new Set<string>();
+      for (const lead of leads) {
+        if (lead.comercial && lead.comercial.trim())
+          set.add(lead.comercial.trim());
+      }
+      const list = Array.from(set);
+      setComercialesExtra(list);
+      try {
+        sessionStorage.setItem(
+          COMERCIALES_LEADS_CACHE_KEY,
+          JSON.stringify(list),
+        );
+      } catch {}
+    } catch (error) {
+      console.warn("No se pudo cargar comerciales de leads:", error);
+      comercialesFetchedRef.current = false;
+    }
+  }, []);
 
   const ofertasDelCliente = useMemo(() => {
     if (!clientForOfertas) return [];
@@ -671,7 +898,17 @@ export function ClientsTable({
 
   const availableEstados = CLIENT_ESTADOS;
   const availableFuentes = LEAD_FUENTES;
-  const availableComerciales = LEAD_COMERCIALES;
+  const availableComerciales = useMemo(() => {
+    const set = new Set<string>();
+    LEAD_COMERCIALES.forEach((c) => set.add(c));
+    comercialesExtra.forEach((c) => set.add(c));
+    clients.forEach((c) => {
+      if (c.comercial && c.comercial.trim()) set.add(c.comercial.trim());
+    });
+    return Array.from(set).sort((a, b) =>
+      a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
+  }, [comercialesExtra, clients]);
 
   const toggleEstado = (estado: string) => {
     setFilters((prev) => {
@@ -701,12 +938,16 @@ export function ClientsTable({
         fechaDesde: filters.fechaDesde,
         fechaHasta: filters.fechaHasta,
         mes: filters.mes,
+        provincia: filters.provincia,
+        municipio: filters.municipio,
+        ofertas: filters.ofertas,
+        tiempo: filters.tiempo,
       });
     }
   }, [debouncedSearchTerm, filters, onFiltersChange]);
 
   const sortedClients = useMemo(() => {
-    return [...clients].sort((a, b) => {
+    const ordered = [...clients].sort((a, b) => {
       const tailA = getClientTailSortNumber(a);
       const tailB = getClientTailSortNumber(b);
       if (tailA !== tailB) return tailB - tailA;
@@ -715,7 +956,51 @@ export function ClientsTable({
       const codeB = getClientSortCode(b);
       return codeB.localeCompare(codeA, "es", { sensitivity: "base" });
     });
-  }, [clients]);
+
+    return ordered.filter((client) => {
+      if (filters.provincia) {
+        if ((client.provincia_montaje || "").trim() !== filters.provincia)
+          return false;
+      }
+      if (filters.municipio) {
+        if ((client.municipio || "").trim() !== filters.municipio) return false;
+      }
+      if (filters.ofertas) {
+        const tieneOfertas =
+          Array.isArray(client.ofertas) && client.ofertas.length > 0;
+        if (filters.ofertas === "con_ofertas" && !tieneOfertas) return false;
+        if (filters.ofertas === "sin_ofertas" && tieneOfertas) return false;
+        if (
+          filters.ofertas === "con_confirmadas" &&
+          getTotalConfirmadasCliente(client) <= 0
+        )
+          return false;
+        if (
+          filters.ofertas === "mas_1_confirmada" &&
+          getTotalConfirmadasCliente(client) <= 1
+        )
+          return false;
+        if (
+          filters.ofertas === "sin_confirmadas" &&
+          getTotalConfirmadasCliente(client) > 0
+        )
+          return false;
+      }
+      if (filters.tiempo) {
+        const dias = getClienteDiasDesdeCreacion(client);
+        if (dias === null) return false;
+        const matcher = TIEMPO_BUCKETS[filters.tiempo];
+        if (!matcher || !matcher(dias)) return false;
+      }
+      return true;
+    });
+  }, [
+    clients,
+    filters.provincia,
+    filters.municipio,
+    filters.ofertas,
+    filters.tiempo,
+  ]);
 
   useEffect(() => {
     if (!cargaSetOfertasTerminada) return;
@@ -997,7 +1282,11 @@ export function ClientsTable({
     filters.comercial ||
     filters.fechaDesde ||
     filters.fechaHasta ||
-    filters.mes;
+    filters.mes ||
+    filters.provincia ||
+    filters.municipio ||
+    filters.ofertas ||
+    filters.tiempo;
 
   const handleClearFilters = () => {
     setSearchTerm("");
@@ -1009,6 +1298,10 @@ export function ClientsTable({
       fechaDesde: "",
       fechaHasta: "",
       mes: "",
+      provincia: "",
+      municipio: "",
+      ofertas: "",
+      tiempo: "",
     });
   };
 
@@ -4029,7 +4322,7 @@ export function ClientsTable({
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <Popover>
                 <PopoverTrigger asChild>
@@ -4109,6 +4402,9 @@ export function ClientsTable({
                     comercial: value === "todos" ? "" : value,
                   }))
                 }
+                onOpenChange={(open) => {
+                  if (open) void ensureComercialesCargados();
+                }}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Todos los comerciales" />
@@ -4182,12 +4478,121 @@ export function ClientsTable({
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+              <Select
+                value={filters.provincia || "todas"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    provincia: value === "todas" ? "" : value,
+                    municipio: "",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las provincias" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
+                  <SelectItem value="todas">Todas las provincias</SelectItem>
+                  {provinciasList.map((p) => (
+                    <SelectItem key={p.codigo} value={p.nombre}>
+                      {p.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                value={filters.municipio || "todos"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    municipio: value === "todos" ? "" : value,
+                  }))
+                }
+                disabled={!filters.provincia}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      filters.provincia
+                        ? "Todos los municipios"
+                        : "Selecciona provincia"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] overflow-y-auto">
+                  <SelectItem value="todos">Todos los municipios</SelectItem>
+                  {municipiosList.map((m) => (
+                    <SelectItem key={m.codigo} value={m.nombre}>
+                      {m.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                value={filters.ofertas || "todas"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    ofertas: value === "todas" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas las ofertas" />
+                </SelectTrigger>
+                <SelectContent>
+                  {OFERTAS_FILTER_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                value={filters.tiempo || "todos"}
+                onValueChange={(value) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    tiempo: value === "todos" ? "" : value,
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Tiempo desde creación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Cualquier tiempo</SelectItem>
+                  {Object.entries(TIEMPO_LABELS).map(([key, label]) => (
+                    <SelectItem key={key} value={key}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {(filters.fechaDesde || filters.fechaHasta || filters.mes) &&
+          {(filters.fechaDesde ||
+            filters.fechaHasta ||
+            filters.mes ||
+            filters.provincia ||
+            filters.municipio ||
+            filters.ofertas ||
+            filters.tiempo) &&
             typeof totalClients === "number" && (
               <div className="mt-4 text-sm text-gray-700">
-                Total de clientes en el período:{" "}
+                Total de clientes filtrados:{" "}
                 <span className="font-semibold text-orange-600">
                   {totalClients}
                 </span>
@@ -4226,29 +4631,22 @@ export function ClientsTable({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[980px] lg:min-w-0">
+              <table className="w-full table-fixed divide-y divide-gray-200">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
                       Cliente
                     </th>
-                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[22%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%]">
                       Contacto
                     </th>
-                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
                       Estado
                     </th>
-                    {sortedClients.some(
-                      (c) => c.estado === "Instalación en Proceso",
-                    ) && (
-                      <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[8%]">
-                        Falta Instalación
-                      </th>
-                    )}
-                    <th className="text-left py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[20%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%]">
                       Oferta
                     </th>
-                    <th className="text-right py-3 px-3 text-sm font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
+                    <th className="text-right py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
                       Acciones
                     </th>
                   </tr>
@@ -4297,14 +4695,33 @@ export function ClientsTable({
                       );
                     };
 
+                    const atraso = getAtrasoBucket(client);
+                    const fechaCreacion = getClienteFechaCreacion(client);
+                    const atrasoBadgeClass =
+                      atraso.bucket === "muy"
+                        ? "bg-red-100 text-red-800 border border-red-300"
+                        : atraso.bucket === "medio"
+                          ? "bg-orange-100 text-orange-800 border border-orange-300"
+                          : atraso.bucket === "leve"
+                            ? "bg-yellow-100 text-yellow-800 border border-yellow-300"
+                            : "";
+                    const atrasoLabel =
+                      atraso.bucket === "muy"
+                        ? "Muy atrasado"
+                        : atraso.bucket === "medio"
+                          ? "Atrasado"
+                          : atraso.bucket === "leve"
+                            ? "Un poco atrasado"
+                            : "";
+
                     return (
                       <tr
                         key={client._id || client.numero}
                         className="hover:bg-gray-50 transition-colors"
                       >
-                        <td className="py-4 px-3">
+                        <td className="py-4 px-2 align-top">
                           <div className="flex items-start gap-2">
-                            <div className="pt-0.5">
+                            <div className="pt-1">
                               <PriorityDot
                                 prioridad={client.prioridad}
                                 onChange={(prioridad) =>
@@ -4314,139 +4731,189 @@ export function ClientsTable({
                                 disabled={!onUpdatePrioridad || !client.id}
                               />
                             </div>
-                            <div>
-                              <p className="font-semibold text-gray-900 text-base mb-1">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-900 text-base mb-0.5 truncate">
                                 {client.nombre}
                               </p>
-                              <p className="text-sm text-gray-500">
+                              <p className="text-[13px] text-gray-500 truncate">
                                 {client.numero}
                               </p>
+                              {fechaCreacion && (
+                                <p className="text-[13px] text-gray-400 mt-0.5">
+                                  {formatFechaCorta(fechaCreacion)}
+                                  {atraso.dias !== null && (
+                                    <span className="ml-1">
+                                      · {atraso.dias === 0 ? "Hoy" : `${atraso.dias}d`}
+                                    </span>
+                                  )}
+                                </p>
+                              )}
+                              {atraso.bucket && (
+                                <span
+                                  className={`mt-1 inline-block px-2 py-0.5 rounded text-[12px] font-medium ${atrasoBadgeClass}`}
+                                  title={
+                                    atraso.dias !== null
+                                      ? `${atraso.dias} días desde creación`
+                                      : undefined
+                                  }
+                                >
+                                  {atrasoLabel}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-3">
+                        <td className="py-4 px-2 align-top">
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center text-base text-gray-900">
-                              <Phone className="h-3.5 w-3.5 text-gray-400 mr-1.5" />
-                              <span className="font-medium">
+                              <Phone className="h-4 w-4 text-gray-400 mr-1.5 flex-shrink-0" />
+                              <span className="font-medium truncate">
                                 {client.telefono || "Sin teléfono"}
                               </span>
                             </div>
                             {client.direccion && (
-                              <div className="flex items-start text-sm text-gray-500">
-                                <MapPin className="h-3.5 w-3.5 text-gray-400 mr-1.5 mt-0.5 flex-shrink-0" />
-                                <span className="line-clamp-2">
+                              <div className="flex items-start text-[13px] text-gray-600">
+                                <MapPin className="h-4 w-4 text-gray-400 mr-1.5 mt-0.5 flex-shrink-0" />
+                                <span className="break-words">
                                   {client.direccion}
                                 </span>
                               </div>
                             )}
+                            {(client.provincia_montaje || client.municipio) && (
+                              <div className="text-[13px] text-gray-500 ml-5 truncate">
+                                {[client.municipio, client.provincia_montaje]
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </div>
+                            )}
                           </div>
                         </td>
-                        <td className="py-4 px-3">
+                        <td className="py-4 px-2 align-top">
                           <div className="w-full">
                             {client.estado && (
                               <Badge
-                                className={`${getEstadoColor(client.estado)} text-sm whitespace-normal break-words leading-tight inline-block px-3 py-1.5`}
+                                className={`${getEstadoColor(client.estado)} text-[13px] whitespace-normal break-words leading-tight inline-block px-2.5 py-1`}
                               >
                                 {client.estado}
                               </Badge>
                             )}
                             {client.comercial && (
-                              <div className="text-sm text-gray-500 flex items-center mt-2">
-                                <span className="truncate">
-                                  {client.comercial}
-                                </span>
+                              <div className="text-[13px] text-gray-600 mt-1.5 truncate">
+                                {client.comercial}
                               </div>
                             )}
                             {client.fuente && (
-                              <div className="text-sm text-gray-500 mt-1">
+                              <div className="text-[13px] text-gray-500 mt-0.5 truncate">
                                 <span className="text-gray-400">Fuente:</span>{" "}
                                 {client.fuente}
                               </div>
                             )}
                           </div>
                         </td>
-                        {sortedClients.some(
-                          (c) => c.estado === "Instalación en Proceso",
-                        ) && (
-                          <td className="py-4 px-3">
-                            {client.estado === "Instalación en Proceso" && (
-                              <div className="text-sm">
-                                <div className="text-gray-500 mb-1">Falta:</div>
-                                <div className="text-gray-900 font-medium">
-                                  {client.falta_instalacion ||
-                                    "No especificado"}
-                                </div>
+                        <td className="py-4 px-2 align-top">
+                          {(() => {
+                            const oferta = client.ofertas?.[0] as any;
+                            const inv =
+                              oferta?.inversor_codigo &&
+                              oferta?.inversor_cantidad > 0
+                                ? {
+                                    cantidad: oferta.inversor_cantidad,
+                                    descripcion:
+                                      oferta.inversor_nombre ||
+                                      oferta.inversor_codigo,
+                                  }
+                                : null;
+                            const bat =
+                              oferta?.bateria_codigo &&
+                              oferta?.bateria_cantidad > 0
+                                ? {
+                                    cantidad: oferta.bateria_cantidad,
+                                    descripcion:
+                                      oferta.bateria_nombre ||
+                                      oferta.bateria_codigo,
+                                  }
+                                : null;
+                            const pan =
+                              oferta?.panel_codigo &&
+                              oferta?.panel_cantidad > 0
+                                ? {
+                                    cantidad: oferta.panel_cantidad,
+                                    descripcion:
+                                      oferta.panel_nombre ||
+                                      oferta.panel_codigo,
+                                  }
+                                : null;
+                            const enProceso =
+                              client.estado === "Instalación en Proceso";
+                            const faltaInfo = enProceso ? (
+                              <div className="mt-1.5 inline-flex items-start gap-1 rounded bg-orange-50 border border-orange-200 px-1.5 py-0.5 text-[12px] text-orange-700">
+                                <span className="font-medium">Falta:</span>
+                                <span className="break-words">
+                                  {client.falta_instalacion || "No especificado"}
+                                </span>
                               </div>
-                            )}
-                          </td>
-                        )}
-                        <td className="py-4 px-3">
-                          <div className="space-y-1">
-                            {client.ofertas && client.ofertas.length > 0 ? (
-                              client.ofertas.map((oferta: any, idx: number) => (
-                                <div key={idx} className="text-sm space-y-0.5">
-                                  {oferta.inversor_codigo &&
-                                    oferta.inversor_cantidad > 0 && (
-                                      <div>
-                                        <span className="text-gray-700">
-                                          Inversor:
-                                        </span>{" "}
-                                        <span className="text-gray-900 font-medium">
-                                          {oferta.inversor_nombre ||
-                                            oferta.inversor_codigo}
-                                        </span>
-                                        <span className="text-gray-500 ml-1">
-                                          ({oferta.inversor_cantidad})
-                                        </span>
-                                      </div>
-                                    )}
-                                  {oferta.bateria_codigo &&
-                                    oferta.bateria_cantidad > 0 && (
-                                      <div>
-                                        <span className="text-gray-700">
-                                          Batería:
-                                        </span>{" "}
-                                        <span className="text-gray-900 font-medium">
-                                          {oferta.bateria_nombre ||
-                                            oferta.bateria_codigo}
-                                        </span>
-                                        <span className="text-gray-500 ml-1">
-                                          ({oferta.bateria_cantidad})
-                                        </span>
-                                      </div>
-                                    )}
-                                  {oferta.panel_codigo &&
-                                    oferta.panel_cantidad > 0 && (
-                                      <div>
-                                        <span className="text-gray-700">
-                                          Paneles:
-                                        </span>{" "}
-                                        <span className="text-gray-900 font-medium">
-                                          {oferta.panel_nombre ||
-                                            oferta.panel_codigo}
-                                        </span>
-                                        <span className="text-gray-500 ml-1">
-                                          ({oferta.panel_cantidad})
-                                        </span>
-                                      </div>
-                                    )}
-                                  {oferta.elementos_personalizados && (
-                                    <div className="text-gray-700">
-                                      {oferta.elementos_personalizados}
-                                    </div>
-                                  )}
+                            ) : null;
+                            if (!inv && !bat && !pan) {
+                              return (
+                                <div>
+                                  <div className="text-[14px] text-gray-400">
+                                    Sin ofertas
+                                  </div>
+                                  {faltaInfo}
                                 </div>
-                              ))
-                            ) : (
-                              <div className="text-sm text-gray-400">
-                                Sin ofertas
+                              );
+                            }
+                            return (
+                              <div className="space-y-1 text-[14px]">
+                                {inv && (
+                                  <div
+                                    className="flex items-center gap-1 text-gray-700"
+                                    title={inv.descripcion}
+                                  >
+                                    <Zap className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                                    <span className="font-medium">
+                                      {inv.cantidad}x
+                                    </span>
+                                    <span className="truncate">
+                                      {inv.descripcion}
+                                    </span>
+                                  </div>
+                                )}
+                                {bat && (
+                                  <div
+                                    className="flex items-center gap-1 text-gray-700"
+                                    title={bat.descripcion}
+                                  >
+                                    <Battery className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                                    <span className="font-medium">
+                                      {bat.cantidad}x
+                                    </span>
+                                    <span className="truncate">
+                                      {bat.descripcion}
+                                    </span>
+                                  </div>
+                                )}
+                                {pan && (
+                                  <div
+                                    className="flex items-center gap-1 text-gray-700"
+                                    title={pan.descripcion}
+                                  >
+                                    <Sun className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                                    <span className="font-medium">
+                                      {pan.cantidad}x
+                                    </span>
+                                    <span className="truncate">
+                                      {pan.descripcion}
+                                    </span>
+                                  </div>
+                                )}
+                                {faltaInfo}
                               </div>
-                            )}
-                          </div>
+                            );
+                          })()}
                         </td>
-                        <td className="py-4 px-3">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="py-4 px-2 align-top">
+                          <div className="flex items-center justify-end gap-1 flex-nowrap">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -4472,9 +4939,10 @@ export function ClientsTable({
                               }
                               className={(() => {
                                 const tieneOferta = getOfertaStatus(client);
+                                const base = "h-7 w-7 p-0";
                                 if (tieneOferta)
-                                  return "text-green-600 hover:text-green-700 hover:bg-green-50 border border-green-300";
-                                return "text-gray-600 hover:text-gray-700 hover:bg-gray-50";
+                                  return `${base} text-green-600 hover:text-green-700 hover:bg-green-50`;
+                                return `${base} text-gray-500 hover:text-gray-700 hover:bg-gray-50`;
                               })()}
                               title={(() => {
                                 const tieneOferta = getOfertaStatus(client);
@@ -4483,7 +4951,7 @@ export function ClientsTable({
                               })()}
                             >
                               <FileCheck
-                                className={`h-4 w-4 ${consultandoOfertaCliente === client.numero ? "animate-pulse" : ""}`}
+                                className={`h-3 w-3 ${consultandoOfertaCliente === client.numero ? "animate-pulse" : ""}`}
                               />
                             </Button>
                             {(() => {
@@ -4510,15 +4978,15 @@ export function ClientsTable({
                                   disabled={procesandoPago}
                                   className={
                                     listoParaPagar
-                                      ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                      ? "h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                   }
                                   title="Validar y marcar cliente listo para pagar"
                                 >
                                   {procesandoPago ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-3 w-3 animate-spin" />
                                   ) : (
-                                    <CreditCard className="h-4 w-4" />
+                                    <CreditCard className="h-3 w-3" />
                                   )}
                                 </Button>
                               );
@@ -4534,9 +5002,7 @@ export function ClientsTable({
 
                               return (
                                 <Button
-                                  variant={
-                                    tieneServicio ? "default" : "outline"
-                                  }
+                                  variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
                                     e.preventDefault();
@@ -4548,15 +5014,15 @@ export function ClientsTable({
                                   disabled={consultandoServicio}
                                   className={
                                     tieneServicio
-                                      ? "border-purple-800 bg-purple-700 text-white hover:bg-purple-800 hover:border-purple-900 shadow-md shadow-purple-500/40 ring-1 ring-purple-300 transition-all duration-200"
-                                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
+                                      ? "h-7 w-7 p-0 text-purple-700 hover:text-purple-800 hover:bg-purple-50"
+                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                   }
                                   title="Equipos en servicio"
                                 >
                                   {consultandoServicio ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-3 w-3 animate-spin" />
                                   ) : (
-                                    <Zap className="h-4 w-4" />
+                                    <Zap className="h-3 w-3" />
                                   )}
                                 </Button>
                               );
@@ -4585,8 +5051,8 @@ export function ClientsTable({
                                   disabled={consultandoEquipo}
                                   className={
                                     equipoEntregado
-                                      ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 border border-emerald-300"
-                                      : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                                      ? "h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                      : "h-7 w-7 p-0 text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                                   }
                                   title={
                                     equipoEntregado
@@ -4595,9 +5061,9 @@ export function ClientsTable({
                                   }
                                 >
                                   {consultandoEquipo ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <Loader2 className="h-3 w-3 animate-spin" />
                                   ) : (
-                                    <Truck className="h-4 w-4" />
+                                    <Truck className="h-3 w-3" />
                                   )}
                                 </Button>
                               );
@@ -4606,29 +5072,29 @@ export function ClientsTable({
                               variant="ghost"
                               size="sm"
                               onClick={() => handleViewClientDetails(client)}
-                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                              className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 h-7 w-7 p-0"
                               title="Ver detalles"
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-3 w-3" />
                             </Button>
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => onEdit(client)}
-                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-7 w-7 p-0"
                               title="Editar"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Edit className="h-3 w-3" />
                             </Button>
                             <Popover>
                               <PopoverTrigger asChild>
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50"
+                                  className="text-gray-600 hover:text-gray-700 hover:bg-gray-50 h-7 w-7 p-0"
                                   title="Más acciones"
                                 >
-                                  <MoreHorizontal className="h-4 w-4" />
+                                  <MoreHorizontal className="h-3 w-3" />
                                 </Button>
                               </PopoverTrigger>
                               <PopoverContent align="end" className="w-56 p-3">

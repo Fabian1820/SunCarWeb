@@ -20,7 +20,6 @@ import {
 } from "@/components/shared/atom/select";
 import { PrioritySelect } from "@/components/shared/molecule/priority-select";
 import { Loader2, MapPin } from "lucide-react";
-import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector";
 import type { Cliente, ClienteUpdateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
@@ -76,18 +75,6 @@ export function EditClientDialog({
     useState<string>("");
   const [detectingCountry, setDetectingCountry] = useState(false);
   const [showMapModal, setShowMapModal] = useState(false);
-
-  // Estados para materiales de oferta
-  const [inversores, setInversores] = useState<
-    Array<{ codigo: string | number; descripcion: string; precio?: number }>
-  >([]);
-  const [baterias, setBaterias] = useState<
-    Array<{ codigo: string | number; descripcion: string; precio?: number }>
-  >([]);
-  const [paneles, setPaneles] = useState<
-    Array<{ codigo: string | number; descripcion: string; precio?: number }>
-  >([]);
-  const [loadingMateriales, setLoadingMateriales] = useState(false);
 
   // Estado para controlar si se está usando fuente personalizada
   const fuentesBase = [
@@ -168,28 +155,6 @@ export function EditClientDialog({
     lat: "",
     lng: "",
   });
-
-  // Estados para la oferta (inicializar con la primera oferta del cliente si existe)
-  const [oferta, setOferta] = useState({
-    inversor_codigo: client.ofertas?.[0]?.inversor_codigo || "",
-    inversor_cantidad: client.ofertas?.[0]?.inversor_cantidad || 1,
-    bateria_codigo: client.ofertas?.[0]?.bateria_codigo || "",
-    bateria_cantidad: client.ofertas?.[0]?.bateria_cantidad || 1,
-    panel_codigo: client.ofertas?.[0]?.panel_codigo || "",
-    panel_cantidad: client.ofertas?.[0]?.panel_cantidad || 1,
-    elementos_personalizados:
-      client.ofertas?.[0]?.elementos_personalizados || "",
-    aprobada: client.ofertas?.[0]?.aprobada || false,
-    pagada: client.ofertas?.[0]?.pagada || false,
-    costo_oferta: client.ofertas?.[0]?.costo_oferta || 0,
-    costo_extra: client.ofertas?.[0]?.costo_extra || 0,
-    costo_transporte: client.ofertas?.[0]?.costo_transporte || 0,
-    razon_costo_extra: client.ofertas?.[0]?.razon_costo_extra || "",
-  });
-
-  // Calcular costo final automáticamente (incluye costo de transporte)
-  const costoFinal =
-    oferta.costo_oferta + oferta.costo_extra + oferta.costo_transporte;
 
   // Función para convertir fecha DD/MM/YYYY a YYYY-MM-DD (para input date)
   const convertToDateInput = (ddmmyyyy: string): string => {
@@ -367,43 +332,6 @@ export function EditClientDialog({
     }
   }, [formData.fuente]);
 
-  // Resetear oferta DESPUÉS de que los materiales se hayan cargado
-  useEffect(() => {
-    if (
-      open &&
-      !loadingMateriales &&
-      (inversores.length > 0 || baterias.length > 0 || paneles.length > 0)
-    ) {
-      console.log(
-        "🔄 Reseteando oferta con datos del cliente:",
-        client.ofertas?.[0],
-      );
-      setOferta({
-        inversor_codigo: client.ofertas?.[0]?.inversor_codigo || "",
-        inversor_cantidad: client.ofertas?.[0]?.inversor_cantidad || 1,
-        bateria_codigo: client.ofertas?.[0]?.bateria_codigo || "",
-        bateria_cantidad: client.ofertas?.[0]?.bateria_cantidad || 1,
-        panel_codigo: client.ofertas?.[0]?.panel_codigo || "",
-        panel_cantidad: client.ofertas?.[0]?.panel_cantidad || 1,
-        elementos_personalizados:
-          client.ofertas?.[0]?.elementos_personalizados || "",
-        aprobada: client.ofertas?.[0]?.aprobada || false,
-        pagada: client.ofertas?.[0]?.pagada || false,
-        costo_oferta: client.ofertas?.[0]?.costo_oferta || 0,
-        costo_extra: client.ofertas?.[0]?.costo_extra || 0,
-        costo_transporte: client.ofertas?.[0]?.costo_transporte || 0,
-        razon_costo_extra: client.ofertas?.[0]?.razon_costo_extra || "",
-      });
-    }
-  }, [
-    open,
-    loadingMateriales,
-    inversores.length,
-    baterias.length,
-    paneles.length,
-    client,
-  ]);
-
   // Cargar provincias al montar el componente
   useEffect(() => {
     const fetchProvincias = async () => {
@@ -430,77 +358,6 @@ export function EditClientDialog({
 
     fetchProvincias();
   }, []);
-
-  // Cargar materiales cuando se abre el diálogo
-  useEffect(() => {
-    if (!open) return;
-
-    const fetchMateriales = async () => {
-      setLoadingMateriales(true);
-      try {
-        const response = await apiRequest<{
-          success: boolean;
-          message: string;
-          data: Array<{
-            id: string;
-            categoria: string;
-            foto?: string;
-            esVendible?: boolean;
-            materiales?: Array<{
-              codigo: string | number;
-              descripcion: string;
-              um?: string;
-              precio?: number;
-            }>;
-          }>;
-        }>("/productos/", {
-          method: "GET",
-        });
-
-        if (!response.success) {
-          return;
-        }
-
-        const productos = response.data || [];
-
-        const inversoresCategoria = productos.find(
-          (p) => p.categoria === "INVERSORES",
-        );
-        if (
-          inversoresCategoria?.materiales &&
-          inversoresCategoria.materiales.length > 0
-        ) {
-          setInversores(inversoresCategoria.materiales);
-        }
-
-        const bateriasCategoria = productos.find(
-          (p) => p.categoria === "BATERÍAS",
-        );
-        if (
-          bateriasCategoria?.materiales &&
-          bateriasCategoria.materiales.length > 0
-        ) {
-          setBaterias(bateriasCategoria.materiales);
-        }
-
-        const panelesCategoria = productos.find(
-          (p) => p.categoria === "PANELES",
-        );
-        if (
-          panelesCategoria?.materiales &&
-          panelesCategoria.materiales.length > 0
-        ) {
-          setPaneles(panelesCategoria.materiales);
-        }
-      } catch (error) {
-        console.error("Error al cargar materiales:", error);
-      } finally {
-        setLoadingMateriales(false);
-      }
-    };
-
-    fetchMateriales();
-  }, [open]);
 
   // Cargar municipios cuando se selecciona una provincia
   useEffect(() => {
@@ -697,70 +554,20 @@ export function EditClientDialog({
     }
 
     try {
-      // Buscar las descripciones de los productos seleccionados
-      console.log("🔍 Buscando inversor con código:", oferta.inversor_codigo);
-      console.log(
-        "📦 Inversores disponibles:",
-        inversores.map((inv) => ({
-          codigo: inv.codigo,
-          descripcion: inv.descripcion,
-        })),
-      );
-
-      const inversorSeleccionado = inversores.find(
-        (inv) => String(inv.codigo) === String(oferta.inversor_codigo),
-      );
-      const bateriaSeleccionada = baterias.find(
-        (bat) => String(bat.codigo) === String(oferta.bateria_codigo),
-      );
-      const panelSeleccionado = paneles.find(
-        (pan) => String(pan.codigo) === String(oferta.panel_codigo),
-      );
-
-      console.log("✅ Inversor encontrado:", inversorSeleccionado);
-      console.log("✅ Batería encontrada:", bateriaSeleccionada);
-      console.log("✅ Panel encontrado:", panelSeleccionado);
-
-      // Construir el objeto de oferta incluyendo las descripciones
-      const ofertaToSend = {
-        inversor_codigo: oferta.inversor_codigo || "",
-        inversor_nombre: inversorSeleccionado?.descripcion || "",
-        inversor_cantidad: oferta.inversor_cantidad,
-        bateria_codigo: oferta.bateria_codigo || "",
-        bateria_nombre: bateriaSeleccionada?.descripcion || "",
-        bateria_cantidad: oferta.bateria_cantidad,
-        panel_codigo: oferta.panel_codigo || "",
-        panel_nombre: panelSeleccionado?.descripcion || "",
-        panel_cantidad: oferta.panel_cantidad,
-        elementos_personalizados: oferta.elementos_personalizados || "",
-        aprobada: oferta.aprobada,
-        pagada: oferta.pagada,
-        costo_oferta: oferta.costo_oferta,
-        costo_extra: oferta.costo_extra,
-        costo_transporte: oferta.costo_transporte,
-        razon_costo_extra: oferta.razon_costo_extra || "",
-      };
-
-      console.log("📦 Oferta a enviar:", ofertaToSend);
-
-      // Crear el clientData con la oferta incluida
-      const clientDataWithOferta: ClienteUpdateData = {
+      const clientDataToSubmit: ClienteUpdateData = {
         ...formData,
         latitud: clientLatLng.lat || undefined,
         longitud: clientLatLng.lng || undefined,
-        ofertas: [ofertaToSend] as any,
       };
 
-      if (clientDataWithOferta.estado !== "Pendiente de visita") {
-        delete (clientDataWithOferta as Record<string, unknown>).motivo_visita;
-      } else if (typeof clientDataWithOferta.motivo_visita === "string") {
-        clientDataWithOferta.motivo_visita =
-          clientDataWithOferta.motivo_visita.trim();
+      if (clientDataToSubmit.estado !== "Pendiente de visita") {
+        delete (clientDataToSubmit as Record<string, unknown>).motivo_visita;
+      } else if (typeof clientDataToSubmit.motivo_visita === "string") {
+        clientDataToSubmit.motivo_visita =
+          clientDataToSubmit.motivo_visita.trim();
       }
 
-      console.log("📤 Actualizando cliente con oferta:", clientDataWithOferta);
-
-      await onSubmit(clientDataWithOferta);
+      await onSubmit(clientDataToSubmit);
       onOpenChange(false);
     } catch (error) {
       console.error("Error al actualizar cliente:", error);
@@ -1251,352 +1058,6 @@ export function EditClientDialog({
                       handleInputChange("pais_contacto", e.target.value)
                     }
                     className="text-gray-900 placeholder:text-gray-400"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Fechas de Instalacion
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Inicio y fin de la instalacion
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="fecha_montaje">
-                    Fecha de inicio de instalación
-                  </Label>
-                  <Input
-                    id="fecha_montaje"
-                    type="date"
-                    value={convertToDateInput(formData.fecha_montaje || "")}
-                    onChange={(e) =>
-                      handleInputChange("fecha_montaje", e.target.value)
-                    }
-                    className="text-gray-900"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="fecha_instalacion">
-                    Fecha de fin de instalación
-                  </Label>
-                  <Input
-                    id="fecha_instalacion"
-                    type="date"
-                    value={convertToDateInput(formData.fecha_instalacion || "")}
-                    onChange={(e) =>
-                      handleInputChange("fecha_instalacion", e.target.value)
-                    }
-                    className="text-gray-900"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Sección 2: Oferta */}
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Detalles de productos y costos
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <MaterialSearchSelector
-                      label="Inversor"
-                      materials={inversores}
-                      value={oferta.inversor_codigo}
-                      onChange={(value) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          inversor_codigo: value,
-                        }))
-                      }
-                      placeholder="Buscar inversor por nombre o código..."
-                      disabled={loadingMateriales}
-                      loading={loadingMateriales}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="inversor_cantidad">Cantidad</Label>
-                    <Input
-                      id="inversor_cantidad"
-                      type="number"
-                      min="1"
-                      value={oferta.inversor_cantidad}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          inversor_cantidad: parseInt(e.target.value) || 1,
-                        }))
-                      }
-                      className="text-gray-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <MaterialSearchSelector
-                      label="Batería"
-                      materials={baterias}
-                      value={oferta.bateria_codigo}
-                      onChange={(value) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          bateria_codigo: value,
-                        }))
-                      }
-                      placeholder="Buscar batería por nombre o código..."
-                      disabled={loadingMateriales}
-                      loading={loadingMateriales}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="bateria_cantidad">Cantidad</Label>
-                    <Input
-                      id="bateria_cantidad"
-                      type="number"
-                      min="1"
-                      value={oferta.bateria_cantidad}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          bateria_cantidad: parseInt(e.target.value) || 1,
-                        }))
-                      }
-                      className="text-gray-900"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="md:col-span-2">
-                    <MaterialSearchSelector
-                      label="Panel"
-                      materials={paneles}
-                      value={oferta.panel_codigo}
-                      onChange={(value) =>
-                        setOferta((prev) => ({ ...prev, panel_codigo: value }))
-                      }
-                      placeholder="Buscar panel por nombre o código..."
-                      disabled={loadingMateriales}
-                      loading={loadingMateriales}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="panel_cantidad">Cantidad</Label>
-                    <Input
-                      id="panel_cantidad"
-                      type="number"
-                      min="1"
-                      value={oferta.panel_cantidad}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          panel_cantidad: parseInt(e.target.value) || 1,
-                        }))
-                      }
-                      className="text-gray-900"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="elementos_personalizados">
-                    Elementos Personalizados (Comentario)
-                  </Label>
-                  <Textarea
-                    id="elementos_personalizados"
-                    value={oferta.elementos_personalizados}
-                    onChange={(e) =>
-                      setOferta((prev) => ({
-                        ...prev,
-                        elementos_personalizados: e.target.value,
-                      }))
-                    }
-                    rows={2}
-                    className="text-gray-900 placeholder:text-gray-400"
-                    placeholder="Describe elementos adicionales o personalizados..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center space-x-2 p-3 border rounded-md">
-                    <input
-                      type="checkbox"
-                      id="aprobada"
-                      checked={oferta.aprobada}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          aprobada: e.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                    />
-                    <Label
-                      htmlFor="aprobada"
-                      className="cursor-pointer font-medium"
-                    >
-                      Oferta Aprobada
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-md">
-                    <input
-                      type="checkbox"
-                      id="pagada"
-                      checked={oferta.pagada}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          pagada: e.target.checked,
-                        }))
-                      }
-                      className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <Label
-                      htmlFor="pagada"
-                      className="cursor-pointer font-medium"
-                    >
-                      Oferta Pagada
-                    </Label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Sección 3: Costos y Pago */}
-            <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-              <div className="pb-4 mb-4 border-b-2 border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900">
-                  Costos y Pago
-                </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Información financiera de la oferta
-                </p>
-              </div>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="costo_oferta">Costo de Oferta</Label>
-                    <Input
-                      id="costo_oferta"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={oferta.costo_oferta}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          costo_oferta: parseFloat(e.target.value) || 0,
-                        }))
-                      }
-                      className="text-gray-900"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="costo_extra">Costo Extra</Label>
-                    <Input
-                      id="costo_extra"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={oferta.costo_extra}
-                      onChange={(e) =>
-                        setOferta((prev) => ({
-                          ...prev,
-                          costo_extra: parseFloat(e.target.value) || 0,
-                        }))
-                      }
-                      className="text-gray-900"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  {formData.provincia_montaje &&
-                  formData.provincia_montaje !== "La Habana" ? (
-                    <div>
-                      <Label htmlFor="costo_transporte">
-                        Costo de Transporte
-                      </Label>
-                      <Input
-                        id="costo_transporte"
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={oferta.costo_transporte || 0}
-                        onChange={(e) =>
-                          setOferta((prev) => ({
-                            ...prev,
-                            costo_transporte: parseFloat(e.target.value) || 0,
-                          }))
-                        }
-                        className="text-gray-900"
-                        placeholder="0.00"
-                      />
-                    </div>
-                  ) : (
-                    <div></div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label htmlFor="costo_final_2">Costo Final</Label>
-                    <Input
-                      id="costo_final_2"
-                      type="number"
-                      value={costoFinal.toFixed(2)}
-                      disabled
-                      className="text-gray-900 bg-gray-100"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="metodo_pago">Método de Pago</Label>
-                    <Input
-                      id="metodo_pago"
-                      value={formData.metodo_pago || ""}
-                      onChange={(e) =>
-                        handleInputChange("metodo_pago", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="moneda">Moneda</Label>
-                    <Input
-                      id="moneda"
-                      value={formData.moneda || ""}
-                      onChange={(e) =>
-                        handleInputChange("moneda", e.target.value)
-                      }
-                      className="text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="razon_costo_extra">
-                    Razón del Costo Extra
-                  </Label>
-                  <Input
-                    id="razon_costo_extra"
-                    value={oferta.razon_costo_extra}
-                    onChange={(e) =>
-                      setOferta((prev) => ({
-                        ...prev,
-                        razon_costo_extra: e.target.value,
-                      }))
-                    }
-                    className="text-gray-900 placeholder:text-gray-400"
-                    placeholder="Ej: Transporte, instalación especial, materiales adicionales..."
                   />
                 </div>
               </div>

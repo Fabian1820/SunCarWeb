@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Dialog,
@@ -39,8 +39,48 @@ type ClientesFilters = {
   fechaDesde: string;
   fechaHasta: string;
   mes: string;
+  provincia: string;
+  municipio: string;
+  ofertas: string;
+  tiempo: string;
   skip: number;
   limit: number;
+};
+
+const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
+  "1_5": (d) => d >= 1 && d < 5,
+  "5_10": (d) => d >= 5 && d < 10,
+  "10_15": (d) => d >= 10 && d < 15,
+  "15_20": (d) => d >= 15 && d < 20,
+  "1mes": (d) => d >= 20 && d <= 30,
+  ">1mes": (d) => d > 30,
+};
+
+const getTotalConfirmadasCliente = (client: Cliente): number => {
+  const raw = client as Cliente & Record<string, unknown>;
+  const resumen = raw.ofertas_confeccion_resumen;
+  if (Array.isArray(resumen)) {
+    let total = 0;
+    for (const r of resumen) {
+      const tc = (r as Record<string, unknown>)?.total_confirmadas;
+      if (typeof tc === "number") total += tc;
+    }
+    if (total > 0) return total;
+  }
+  if (Array.isArray(client.ofertas)) {
+    return client.ofertas.filter((o: any) => o?.aprobada === true).length;
+  }
+  return 0;
+};
+
+const getDiasDesdeCreacionCliente = (client: Cliente): number | null => {
+  const fecha =
+    parseClientDate(client.fecha_creacion) ??
+    parseClientDate(client.created_at);
+  if (!fecha) return null;
+  const diff = Date.now() - fecha.getTime();
+  if (Number.isNaN(diff) || diff < 0) return 0;
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
 const normalizeFilterValue = (value: string): string =>
@@ -146,6 +186,48 @@ const buildClientSearchText = (client: Cliente): string => {
   return normalizeSearchText(fields.join(" "));
 };
 
+const matchesClientLocalFilters = (
+  client: Cliente,
+  filters: Pick<
+    ClientesFilters,
+    | "fechaDesde"
+    | "fechaHasta"
+    | "mes"
+    | "provincia"
+    | "municipio"
+    | "ofertas"
+    | "tiempo"
+  >,
+): boolean => {
+  if (filters.provincia) {
+    if ((client.provincia_montaje || "").trim() !== filters.provincia)
+      return false;
+  }
+  if (filters.municipio) {
+    if ((client.municipio || "").trim() !== filters.municipio) return false;
+  }
+  if (filters.ofertas) {
+    const tieneOfertas =
+      Array.isArray(client.ofertas) && client.ofertas.length > 0;
+    if (filters.ofertas === "con_ofertas" && !tieneOfertas) return false;
+    if (filters.ofertas === "sin_ofertas" && tieneOfertas) return false;
+    const totalConfirmadas = getTotalConfirmadasCliente(client);
+    if (filters.ofertas === "con_confirmadas" && totalConfirmadas <= 0)
+      return false;
+    if (filters.ofertas === "mas_1_confirmada" && totalConfirmadas <= 1)
+      return false;
+    if (filters.ofertas === "sin_confirmadas" && totalConfirmadas > 0)
+      return false;
+  }
+  if (filters.tiempo) {
+    const dias = getDiasDesdeCreacionCliente(client);
+    if (dias === null) return false;
+    const matcher = TIEMPO_RANGES[filters.tiempo];
+    if (!matcher || !matcher(dias)) return false;
+  }
+  return matchesClientDateFilters(client, filters);
+};
+
 const matchesClientDateFilters = (
   client: Cliente,
   filters: Pick<ClientesFilters, "fechaDesde" | "fechaHasta" | "mes">,
@@ -206,6 +288,10 @@ export default function ClientesPage() {
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
+    provincia: "",
+    municipio: "",
+    ofertas: "",
+    tiempo: "",
     skip: 0,
     limit: 20,
   });
@@ -227,7 +313,11 @@ export default function ClientesPage() {
           prev.comercial !== newFilters.comercial ||
           prev.fechaDesde !== newFilters.fechaDesde ||
           prev.fechaHasta !== newFilters.fechaHasta ||
-          prev.mes !== newFilters.mes;
+          prev.mes !== newFilters.mes ||
+          prev.provincia !== newFilters.provincia ||
+          prev.municipio !== newFilters.municipio ||
+          prev.ofertas !== newFilters.ofertas ||
+          prev.tiempo !== newFilters.tiempo;
 
         if (!filtersChanged) return prev;
 
@@ -250,14 +340,44 @@ export default function ClientesPage() {
     [appliedFilters.limit],
   );
 
+  const fetchAllCacheRef = useRef<{
+    key: string;
+    data: Cliente[];
+    timestamp: number;
+  } | null>(null);
+  const FETCH_ALL_CACHE_TTL_MS = 60_000; // 1 minuto
+
   const fetchAllClientsByBaseFilters = useCallback(
     async (baseParams: {
       q?: string;
       estado?: string[];
       fuente?: string;
       comercial?: string;
+      provincia?: string;
+      municipio?: string;
+      fechaDesde?: string;
+      fechaHasta?: string;
     }): Promise<Cliente[]> => {
-      const pageSize = 200;
+      const cacheKey = JSON.stringify({
+        q: baseParams.q || "",
+        estado: [...(baseParams.estado || [])].sort(),
+        fuente: baseParams.fuente || "",
+        comercial: baseParams.comercial || "",
+        provincia: baseParams.provincia || "",
+        municipio: baseParams.municipio || "",
+        fechaDesde: baseParams.fechaDesde || "",
+        fechaHasta: baseParams.fechaHasta || "",
+      });
+      const cached = fetchAllCacheRef.current;
+      if (
+        cached &&
+        cached.key === cacheKey &&
+        Date.now() - cached.timestamp < FETCH_ALL_CACHE_TTL_MS
+      ) {
+        return cached.data;
+      }
+
+      const pageSize = 500;
       const allClients: Cliente[] = [];
       const seenKeys = new Set<string>();
       let nextSkip = 0;
@@ -308,6 +428,11 @@ export default function ClientesPage() {
         if (pageClients.length < responseLimit) break;
       }
 
+      fetchAllCacheRef.current = {
+        key: cacheKey,
+        data: allClients,
+        timestamp: Date.now(),
+      };
       return allClients;
     },
     [],
@@ -322,8 +447,10 @@ export default function ClientesPage() {
         const normalizedEstado = Array.from(
           new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
         );
-        const hasDateFilter = Boolean(
-          filters.fechaDesde || filters.fechaHasta || filters.mes,
+        // El backend soporta server-side: q, estado, fuente, comercial, provincia, municipio, fechaDesde, fechaHasta
+        // Sólo mes/ofertas/tiempo se filtran localmente (requieren fetch-all)
+        const hasLocalOnlyFilter = Boolean(
+          filters.mes || filters.ofertas || filters.tiempo,
         );
 
         const baseParams = {
@@ -331,15 +458,23 @@ export default function ClientesPage() {
           estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
           fuente: filters.fuente || undefined,
           comercial: filters.comercial || undefined,
+          provincia: filters.provincia || undefined,
+          municipio: filters.municipio || undefined,
+          fechaDesde: filters.fechaDesde || undefined,
+          fechaHasta: filters.fechaHasta || undefined,
         };
 
-        if (hasDateFilter) {
+        if (hasLocalOnlyFilter) {
           const all = await fetchAllClientsByBaseFilters(baseParams);
           const filtered = all.filter((client) =>
-            matchesClientDateFilters(client, {
-              fechaDesde: filters.fechaDesde,
-              fechaHasta: filters.fechaHasta,
+            matchesClientLocalFilters(client, {
+              fechaDesde: "", // ya aplicado por backend
+              fechaHasta: "",
               mes: filters.mes,
+              provincia: "", // ya aplicado por backend
+              municipio: "",
+              ofertas: filters.ofertas,
+              tiempo: filters.tiempo,
             }),
           );
           const sorted = sortClientsByCodigo(filtered);
@@ -391,13 +526,21 @@ export default function ClientesPage() {
       estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
       fuente: appliedFilters.fuente || undefined,
       comercial: appliedFilters.comercial || undefined,
+      provincia: appliedFilters.provincia || undefined,
+      municipio: appliedFilters.municipio || undefined,
+      fechaDesde: appliedFilters.fechaDesde || undefined,
+      fechaHasta: appliedFilters.fechaHasta || undefined,
     });
 
     const filtered = result.filter((client) =>
-      matchesClientDateFilters(client, {
-        fechaDesde: appliedFilters.fechaDesde,
-        fechaHasta: appliedFilters.fechaHasta,
+      matchesClientLocalFilters(client, {
+        fechaDesde: "",
+        fechaHasta: "",
         mes: appliedFilters.mes,
+        provincia: "",
+        municipio: "",
+        ofertas: appliedFilters.ofertas,
+        tiempo: appliedFilters.tiempo,
       }),
     );
 
@@ -433,13 +576,20 @@ export default function ClientesPage() {
     appliedFilters.fechaDesde,
     appliedFilters.fechaHasta,
     appliedFilters.mes,
+    appliedFilters.provincia,
+    appliedFilters.municipio,
+    appliedFilters.ofertas,
+    appliedFilters.tiempo,
     appliedFilters.skip,
     appliedFilters.limit,
   ]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
-    const refreshClients = () => fetchClients();
+    const refreshClients = () => {
+      fetchAllCacheRef.current = null;
+      fetchClients();
+    };
     window.addEventListener("refreshClientsTable", refreshClients);
     return () => {
       window.removeEventListener("refreshClientsTable", refreshClients);
@@ -786,17 +936,6 @@ export default function ClientesPage() {
         actions={
           <div className="flex items-center gap-2">
             <FuentesManager />
-            <Button
-              size="icon"
-              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white font-semibold shadow-md touch-manipulation"
-              onClick={() => setIsCreateClientDialogOpen(true)}
-              aria-label="Crear cliente"
-              title="Crear cliente"
-            >
-              <User className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Crear Cliente</span>
-              <span className="sr-only">Crear cliente</span>
-            </Button>
           </div>
         }
       />

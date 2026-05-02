@@ -20,7 +20,6 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Loader2, MapPin } from "lucide-react";
-import { MaterialSearchSelector } from "@/components/feats/materials/material-search-selector";
 import type { ClienteCreateData } from "@/lib/api-types";
 import { useAuth } from "@/contexts/auth-context";
 import { API_BASE_URL, apiRequest } from "@/lib/api-config";
@@ -71,18 +70,6 @@ export function CreateClientDialog({
   const [selectedProvinciaCodigo, setSelectedProvinciaCodigo] =
     useState<string>("");
   const [detectingCountry, setDetectingCountry] = useState(false);
-
-  // Estados para materiales de oferta
-  const [inversores, setInversores] = useState<
-    Array<{ codigo: string | number; descripcion: string; precio?: number }>
-  >([]);
-  const [baterias, setBaterias] = useState<
-    Array<{ codigo: string | number; descripcion: string; precio?: number }>
-  >([]);
-  const [paneles, setPaneles] = useState<
-    Array<{ codigo: string | number; descripcion: string; precio?: number }>
-  >([]);
-  const [loadingMateriales, setLoadingMateriales] = useState(false);
 
   // Estado para controlar si se está usando fuente personalizada
   const fuentesBase = [
@@ -140,34 +127,6 @@ export function CreateClientDialog({
     lat: string;
     lng: string;
   }>({ lat: "", lng: "" });
-
-  // Estado para equipo propio
-  const [equipoPropio, setEquipoPropio] = useState<boolean | undefined>(
-    undefined,
-  );
-  const [mostrarPreguntaEquipoPropio, setMostrarPreguntaEquipoPropio] =
-    useState(false);
-
-  // Estados para la oferta
-  const [oferta, setOferta] = useState({
-    inversor_codigo: "",
-    inversor_cantidad: 1,
-    bateria_codigo: "",
-    bateria_cantidad: 1,
-    panel_codigo: "",
-    panel_cantidad: 1,
-    elementos_personalizados: "",
-    aprobada: false,
-    pagada: false,
-    costo_oferta: 0,
-    costo_extra: 0,
-    costo_transporte: 0,
-    razon_costo_extra: "",
-  });
-
-  // Calcular costo final automáticamente (incluye costo de transporte)
-  const costoFinal =
-    oferta.costo_oferta + oferta.costo_extra + oferta.costo_transporte;
 
   // Función para convertir fecha DD/MM/YYYY a YYYY-MM-DD (para input date)
   const convertToDateInput = (ddmmyyyy: string): string => {
@@ -265,44 +224,11 @@ export function CreateClientDialog({
     }
   }, [formData.fuente]);
 
-  // Generar código automáticamente cuando se tengan provincia, municipio e inversor (o equipo propio)
+  // Generar código automáticamente cuando se tengan provincia y municipio
   useEffect(() => {
     const generarCodigoAutomatico = async () => {
-      // Verificar que tengamos provincia y municipio
       if (!selectedProvinciaCodigo || !formData.municipio) {
-        // Si falta algún dato, limpiar el código
         setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
-        setMostrarPreguntaEquipoPropio(false);
-        return;
-      }
-
-      // Verificar si hay inversor seleccionado
-      const tieneInversor =
-        oferta.inversor_codigo && oferta.inversor_codigo.trim() !== "";
-
-      // Si no hay inversor y no se ha respondido sobre equipo propio, mostrar pregunta
-      if (!tieneInversor && equipoPropio === undefined) {
-        setMostrarPreguntaEquipoPropio(true);
-        setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
-        return;
-      }
-
-      // Si no hay inversor y se indicó que NO es equipo propio, no generar código
-      if (!tieneInversor && equipoPropio === false) {
-        setMostrarPreguntaEquipoPropio(true);
-        setErrorCodigo(
-          "Debes seleccionar un inversor para generar el código del cliente",
-        );
-        setFormData((prev) => (prev.numero ? { ...prev, numero: "" } : prev));
-        return;
-      }
-
-      // Si llegamos aquí, podemos generar el código
-      // Caso 1: Tiene inversor
-      // Caso 2: No tiene inversor pero equipoPropio === true
-
-      if (!tieneInversor && !equipoPropio) {
-        // No debería llegar aquí, pero por seguridad
         return;
       }
 
@@ -311,7 +237,6 @@ export function CreateClientDialog({
       const nombreNormalizado = nombre.trim();
       const telefonoNormalizado = telefono.trim();
 
-      // Evita crear leads temporales con datos ficticios mientras el cliente no esté completo.
       if (
         !hasDatosBasicosParaCodigo ||
         !nombreNormalizado ||
@@ -324,7 +249,7 @@ export function CreateClientDialog({
         return;
       }
 
-      const baseLeadTemporal = {
+      const leadTemporal = {
         fecha_contacto: new Date().toISOString().split("T")[0],
         nombre: nombreNormalizado,
         telefono: telefonoNormalizado,
@@ -335,205 +260,57 @@ export function CreateClientDialog({
         municipio: formData.municipio,
         comercial,
         comentario: "__TEMP_LEAD_GENERAR_CODIGO_CLIENTE__",
+        ofertas: [],
       };
 
       setGenerandoCodigo(true);
       setErrorCodigo("");
-      setMostrarPreguntaEquipoPropio(false);
 
+      let leadId: string | null = null;
       try {
-        if (equipoPropio) {
-          // Generar código con prefijo P para equipo propio
-          // Crear lead temporal sin inversor
-          const leadTemporal = {
-            ...baseLeadTemporal,
-            ofertas: [], // Sin ofertas para equipo propio
-          };
+        const responseCrear = await apiRequest<{
+          success: boolean;
+          message: string;
+          data: { id: string };
+        }>("/leads/", {
+          method: "POST",
+          body: JSON.stringify(leadTemporal),
+        });
 
-          console.log(
-            "📝 Creando lead temporal para equipo propio:",
-            leadTemporal,
-          );
-
-          let leadId: string | null = null;
-          try {
-            const responseCrear = await apiRequest<{
-              success: boolean;
-              message: string;
-              data: { id: string };
-            }>("/leads/", {
-              method: "POST",
-              body: JSON.stringify(leadTemporal),
-            });
-
-            if (!responseCrear.success || !responseCrear.data?.id) {
-              throw new Error("Error al crear lead temporal");
-            }
-
-            leadId = responseCrear.data.id;
-            console.log("✅ Lead temporal creado con ID:", leadId);
-
-            // Generar código con equipo_propio=true
-            const responseGenerar = await apiRequest<{
-              success: boolean;
-              message: string;
-              codigo_generado: string;
-            }>(`/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`);
-
-            if (!responseGenerar.success || !responseGenerar.codigo_generado) {
-              throw new Error(
-                responseGenerar.message || "Error al generar el código",
-              );
-            }
-
-            const codigoGenerado = responseGenerar.codigo_generado;
-            console.log(
-              "✅ Código generado para equipo propio:",
-              codigoGenerado,
-            );
-
-            // Validar formato P + 9 dígitos
-            if (
-              codigoGenerado.length !== 10 ||
-              !/^P\d{9}$/.test(codigoGenerado)
-            ) {
-              throw new Error(
-                `El código generado tiene un formato incorrecto: "${codigoGenerado}". ` +
-                  `Debe ser P seguido de 9 dígitos.`,
-              );
-            }
-
-            setFormData((prev) => ({
-              ...prev,
-              numero: codigoGenerado,
-            }));
-
-            console.log(
-              "✅ Código generado automáticamente para equipo propio:",
-              codigoGenerado,
-            );
-          } finally {
-            if (leadId) {
-              try {
-                await apiRequest(`/leads/${leadId}`, {
-                  method: "DELETE",
-                });
-                console.log("✅ Lead temporal eliminado");
-              } catch (error) {
-                console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
-              }
-            }
-          }
-        } else {
-          // Generar código normal con inversor
-          const inversorSeleccionado = inversores.find(
-            (inv) => String(inv.codigo) === String(oferta.inversor_codigo),
-          );
-
-          if (!inversorSeleccionado) {
-            throw new Error("No se encontró el inversor seleccionado");
-          }
-
-          const municipioSeleccionado = municipios.find(
-            (m) => m.nombre === formData.municipio,
-          );
-
-          if (!municipioSeleccionado) {
-            throw new Error("No se encontró el municipio seleccionado");
-          }
-
-          const leadTemporal = {
-            ...baseLeadTemporal,
-            ofertas: [
-              {
-                id: "temp-" + Date.now(),
-                descripcion: inversorSeleccionado.descripcion,
-                descripcion_detallada: inversorSeleccionado.descripcion,
-                inversor_codigo: String(inversorSeleccionado.codigo),
-                inversor_nombre: inversorSeleccionado.descripcion,
-                precio: inversorSeleccionado.precio || 0,
-                precio_cliente: inversorSeleccionado.precio || 0,
-                marca: inversorSeleccionado.descripcion.split(" ")[0],
-                moneda: "USD",
-                financiamiento: false,
-                elementos: [],
-                cantidad: 1,
-              },
-            ],
-          };
-
-          console.log(
-            "📝 Creando lead temporal para generar código:",
-            leadTemporal,
-          );
-
-          let leadId: string | null = null;
-          try {
-            const responseCrear = await apiRequest<{
-              success: boolean;
-              message: string;
-              data: { id: string };
-            }>("/leads/", {
-              method: "POST",
-              body: JSON.stringify(leadTemporal),
-            });
-
-            if (!responseCrear.success || !responseCrear.data?.id) {
-              throw new Error("Error al crear lead temporal");
-            }
-
-            leadId = responseCrear.data.id;
-            console.log("✅ Lead temporal creado con ID:", leadId);
-
-            const responseGenerar = await apiRequest<{
-              success: boolean;
-              message: string;
-              codigo_generado: string;
-            }>(`/leads/${leadId}/generar-codigo-cliente`);
-
-            if (!responseGenerar.success || !responseGenerar.codigo_generado) {
-              throw new Error(
-                responseGenerar.message || "Error al generar el código",
-              );
-            }
-
-            const codigoGenerado = responseGenerar.codigo_generado;
-            console.log("✅ Código generado:", codigoGenerado);
-
-            if (codigoGenerado.length !== 10) {
-              throw new Error(
-                `El código generado tiene un formato incorrecto. ` +
-                  `Se esperaban 10 caracteres pero se recibieron ${codigoGenerado.length}. ` +
-                  `Código recibido: "${codigoGenerado}".`,
-              );
-            }
-
-            if (!/^[A-Z]\d{9}$/.test(codigoGenerado)) {
-              throw new Error(
-                `El código generado tiene un formato inválido: "${codigoGenerado}". ` +
-                  `Debe ser 1 letra mayúscula seguida de 9 dígitos.`,
-              );
-            }
-
-            setFormData((prev) => ({
-              ...prev,
-              numero: codigoGenerado,
-            }));
-
-            console.log("✅ Código generado automáticamente:", codigoGenerado);
-          } finally {
-            if (leadId) {
-              try {
-                await apiRequest(`/leads/${leadId}`, {
-                  method: "DELETE",
-                });
-                console.log("✅ Lead temporal eliminado");
-              } catch (error) {
-                console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
-              }
-            }
-          }
+        if (!responseCrear.success || !responseCrear.data?.id) {
+          throw new Error("Error al crear lead temporal");
         }
+
+        leadId = responseCrear.data.id;
+
+        const responseGenerar = await apiRequest<{
+          success: boolean;
+          message: string;
+          codigo_generado: string;
+        }>(`/leads/${leadId}/generar-codigo-cliente?equipo_propio=true`);
+
+        if (!responseGenerar.success || !responseGenerar.codigo_generado) {
+          throw new Error(
+            responseGenerar.message || "Error al generar el código",
+          );
+        }
+
+        const codigoGenerado = responseGenerar.codigo_generado;
+
+        if (
+          codigoGenerado.length !== 10 ||
+          !/^P\d{9}$/.test(codigoGenerado)
+        ) {
+          throw new Error(
+            `El código generado tiene un formato incorrecto: "${codigoGenerado}". ` +
+              `Debe ser P seguido de 9 dígitos.`,
+          );
+        }
+
+        setFormData((prev) => ({
+          ...prev,
+          numero: codigoGenerado,
+        }));
       } catch (error) {
         console.error("❌ Error al generar código:", error);
         const mensaje =
@@ -543,23 +320,22 @@ export function CreateClientDialog({
         setErrorCodigo(mensaje);
         setFormData((prev) => ({ ...prev, numero: "" }));
       } finally {
+        if (leadId) {
+          try {
+            await apiRequest(`/leads/${leadId}`, { method: "DELETE" });
+          } catch (error) {
+            console.warn("⚠️ No se pudo eliminar el lead temporal:", error);
+          }
+        }
         setGenerandoCodigo(false);
       }
     };
 
-    // Solo generar si tenemos los materiales cargados
-    if (!loadingMateriales && inversores.length > 0) {
-      generarCodigoAutomatico();
-    }
+    generarCodigoAutomatico();
   }, [
     selectedProvinciaCodigo,
     formData.municipio,
     formData.provincia_montaje,
-    oferta.inversor_codigo,
-    equipoPropio,
-    inversores,
-    municipios,
-    loadingMateriales,
     hasDatosBasicosParaCodigo,
   ]);
 
@@ -588,123 +364,6 @@ export function CreateClientDialog({
     };
 
     fetchProvincias();
-  }, []);
-
-  // Cargar materiales (inversores, baterías, paneles) al montar el componente
-  useEffect(() => {
-    const fetchMateriales = async () => {
-      setLoadingMateriales(true);
-      try {
-        console.log("🔄 Iniciando carga de materiales desde /productos/");
-
-        // Obtener todos los productos/categorías de una vez
-        const response = await apiRequest<{
-          success: boolean;
-          message: string;
-          data: Array<{
-            id: string;
-            categoria: string;
-            foto?: string;
-            esVendible?: boolean;
-            materiales?: Array<{
-              codigo: string | number;
-              descripcion: string;
-              um?: string;
-              precio?: number;
-            }>;
-          }>;
-        }>("/productos/", {
-          method: "GET",
-        });
-
-        console.log("📦 Respuesta completa del servidor:", response);
-
-        if (!response.success) {
-          console.error("❌ La respuesta no fue exitosa:", response.message);
-          return;
-        }
-
-        const productos = response.data || [];
-        console.log("📋 Total de categorías recibidas:", productos.length);
-        console.log(
-          "📋 Categorías disponibles:",
-          productos.map((p) => p.categoria),
-        );
-
-        // Buscar inversores
-        const inversoresCategoria = productos.find(
-          (p) => p.categoria === "INVERSORES",
-        );
-        if (
-          inversoresCategoria?.materiales &&
-          inversoresCategoria.materiales.length > 0
-        ) {
-          console.log(
-            "✅ Inversores encontrados:",
-            inversoresCategoria.materiales.length,
-          );
-          console.log("📝 Primer inversor:", inversoresCategoria.materiales[0]);
-          setInversores(inversoresCategoria.materiales);
-        } else {
-          console.warn(
-            "⚠️ No se encontró la categoría INVERSORES o no tiene materiales",
-          );
-          setInversores([]);
-        }
-
-        // Buscar baterías (con tilde)
-        const bateriasCategoria = productos.find(
-          (p) => p.categoria === "BATERÍAS",
-        );
-        if (
-          bateriasCategoria?.materiales &&
-          bateriasCategoria.materiales.length > 0
-        ) {
-          console.log(
-            "✅ Baterías encontradas:",
-            bateriasCategoria.materiales.length,
-          );
-          console.log("📝 Primera batería:", bateriasCategoria.materiales[0]);
-          setBaterias(bateriasCategoria.materiales);
-        } else {
-          console.warn(
-            "⚠️ No se encontró la categoría BATERÍAS o no tiene materiales",
-          );
-          setBaterias([]);
-        }
-
-        // Buscar paneles
-        const panelesCategoria = productos.find(
-          (p) => p.categoria === "PANELES",
-        );
-        if (
-          panelesCategoria?.materiales &&
-          panelesCategoria.materiales.length > 0
-        ) {
-          console.log(
-            "✅ Paneles encontrados:",
-            panelesCategoria.materiales.length,
-          );
-          console.log("📝 Primer panel:", panelesCategoria.materiales[0]);
-          setPaneles(panelesCategoria.materiales);
-        } else {
-          console.warn(
-            "⚠️ No se encontró la categoría PANELES o no tiene materiales",
-          );
-          setPaneles([]);
-        }
-      } catch (error) {
-        console.error("❌ Error al cargar materiales:", error);
-        if (error instanceof Error) {
-          console.error("❌ Mensaje de error:", error.message);
-          console.error("❌ Stack:", error.stack);
-        }
-      } finally {
-        setLoadingMateriales(false);
-      }
-    };
-
-    fetchMateriales();
   }, []);
 
   // Cargar municipios cuando se selecciona una provincia
@@ -989,47 +648,16 @@ export function CreateClientDialog({
     }
 
     try {
-      // Buscar las descripciones de los productos seleccionados
-      const inversorSeleccionado = inversores.find(
-        (inv) => String(inv.codigo) === oferta.inversor_codigo,
-      );
-      const bateriaSeleccionada = baterias.find(
-        (bat) => String(bat.codigo) === oferta.bateria_codigo,
-      );
-      const panelSeleccionado = paneles.find(
-        (pan) => String(pan.codigo) === oferta.panel_codigo,
-      );
-
-      // Construir el objeto de oferta desde el estado 'oferta' incluyendo las descripciones
-      const ofertaToSend = {
-        inversor_codigo: oferta.inversor_codigo || "",
-        inversor_nombre: inversorSeleccionado?.descripcion || "",
-        inversor_cantidad: oferta.inversor_cantidad,
-        bateria_codigo: oferta.bateria_codigo || "",
-        bateria_nombre: bateriaSeleccionada?.descripcion || "",
-        bateria_cantidad: oferta.bateria_cantidad,
-        panel_codigo: oferta.panel_codigo || "",
-        panel_nombre: panelSeleccionado?.descripcion || "",
-        panel_cantidad: oferta.panel_cantidad,
-        elementos_personalizados: oferta.elementos_personalizados || "",
-        aprobada: oferta.aprobada,
-        pagada: oferta.pagada,
-        costo_oferta: oferta.costo_oferta,
-        costo_extra: oferta.costo_extra,
-        costo_transporte: oferta.costo_transporte,
-        razon_costo_extra: oferta.razon_costo_extra || "",
-      };
-      const clientDataWithOferta: ClienteCreateData = {
+      const clientDataToSubmit: ClienteCreateData = {
         ...formData,
         fecha_contacto: getCurrentDateDDMMYYYY(),
-        // Mantener el estado seleccionado por el usuario (no sobrescribir)
         latitud: clientLatLng.lat || undefined,
         longitud: clientLatLng.lng || undefined,
-        ofertas: [ofertaToSend],
-        equipo_propio: equipoPropio, // ✅ Agregar campo equipo_propio
+        ofertas: [],
+        equipo_propio: true,
       };
 
-      await onSubmit(sanitizeClientData(clientDataWithOferta));
+      await onSubmit(sanitizeClientData(clientDataToSubmit));
     } catch (error) {
       console.error("Error al crear cliente:", error);
     }
@@ -1097,7 +725,7 @@ export function CreateClientDialog({
                     placeholder={
                       generandoCodigo
                         ? "Generando código..."
-                        : "Seleccione provincia, municipio e inversor (o marque equipo propio)"
+                        : "Seleccione provincia y municipio para generar el código"
                     }
                   />
                   {generandoCodigo && (
@@ -1112,18 +740,14 @@ export function CreateClientDialog({
                 {!errorCodigo && !generandoCodigo && formData.numero && (
                   <p className="text-sm text-green-600 mt-1">
                     ✓ Código generado automáticamente
-                    {equipoPropio && " (Equipo propio - Prefijo P)"}
                   </p>
                 )}
-                {!errorCodigo &&
-                  !generandoCodigo &&
-                  !formData.numero &&
-                  !mostrarPreguntaEquipoPropio && (
-                    <p className="text-sm text-gray-500 mt-1">
-                      El código se generará automáticamente al seleccionar
-                      provincia, municipio e inversor
-                    </p>
-                  )}
+                {!errorCodigo && !generandoCodigo && !formData.numero && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    El código se generará automáticamente al seleccionar
+                    provincia y municipio
+                  </p>
+                )}
                 {errors.numero && (
                   <p className="text-sm text-red-500 mt-1">{errors.numero}</p>
                 )}
@@ -1144,46 +768,6 @@ export function CreateClientDialog({
                 />
               </div>
             </div>
-
-            {/* Pregunta sobre equipo propio - solo si no hay inversor */}
-            {mostrarPreguntaEquipoPropio && (
-              <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
-                <Label className="text-sm font-semibold text-amber-900 mb-3 block">
-                  ¿El equipo es propio del cliente?
-                </Label>
-                <p className="text-xs text-amber-700 mb-3">
-                  No has seleccionado un inversor. Si el cliente ya tiene su
-                  propio equipo instalado, el código empezará con "P". Si
-                  necesita equipo, debes seleccionar un inversor.
-                </p>
-                <div className="flex gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={`flex-1 ${equipoPropio === true ? "bg-amber-100 border-amber-500 border-2" : "border-amber-300"} hover:bg-amber-100`}
-                    onClick={() => {
-                      setEquipoPropio(true);
-                      setErrorCodigo("");
-                    }}
-                  >
-                    {equipoPropio === true && "✓ "}Sí, es propio
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={`flex-1 ${equipoPropio === false ? "bg-amber-100 border-amber-500 border-2" : "border-amber-300"} hover:bg-amber-100`}
-                    onClick={() => {
-                      setEquipoPropio(false);
-                      setErrorCodigo(
-                        "Debes seleccionar un inversor para generar el código del cliente",
-                      );
-                    }}
-                  >
-                    {equipoPropio === false && "✓ "}No, necesita equipo
-                  </Button>
-                </div>
-              </div>
-            )}
 
             {/* 3. Estado y Fuente */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1577,300 +1161,6 @@ export function CreateClientDialog({
                   handleInputChange("fecha_instalacion", e.target.value)
                 }
                 className="text-gray-900"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Sección 2: Oferta */}
-        <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-          <div className="pb-4 mb-4 border-b-2 border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900">Oferta</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Detalles de productos y costos
-            </p>
-          </div>
-          <div className="space-y-4">
-            {/* Fila 1: Inversor y Cantidad */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <MaterialSearchSelector
-                  label="Inversor"
-                  materials={inversores}
-                  value={oferta.inversor_codigo}
-                  onChange={(value) =>
-                    setOferta((prev) => ({ ...prev, inversor_codigo: value }))
-                  }
-                  placeholder="Buscar inversor por nombre o código..."
-                  disabled={loadingMateriales}
-                  loading={loadingMateriales}
-                />
-              </div>
-              <div>
-                <Label htmlFor="inversor_cantidad">Cantidad</Label>
-                <Input
-                  id="inversor_cantidad"
-                  type="number"
-                  min="1"
-                  value={oferta.inversor_cantidad}
-                  onChange={(e) =>
-                    setOferta((prev) => ({
-                      ...prev,
-                      inversor_cantidad: parseInt(e.target.value) || 1,
-                    }))
-                  }
-                  className="text-gray-900"
-                />
-              </div>
-            </div>
-
-            {/* Fila 2: Batería y Cantidad */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <MaterialSearchSelector
-                  label="Batería"
-                  materials={baterias}
-                  value={oferta.bateria_codigo}
-                  onChange={(value) =>
-                    setOferta((prev) => ({ ...prev, bateria_codigo: value }))
-                  }
-                  placeholder="Buscar batería por nombre o código..."
-                  disabled={loadingMateriales}
-                  loading={loadingMateriales}
-                />
-              </div>
-              <div>
-                <Label htmlFor="bateria_cantidad">Cantidad</Label>
-                <Input
-                  id="bateria_cantidad"
-                  type="number"
-                  min="1"
-                  value={oferta.bateria_cantidad}
-                  onChange={(e) =>
-                    setOferta((prev) => ({
-                      ...prev,
-                      bateria_cantidad: parseInt(e.target.value) || 1,
-                    }))
-                  }
-                  className="text-gray-900"
-                />
-              </div>
-            </div>
-
-            {/* Fila 3: Panel y Cantidad */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="md:col-span-2">
-                <MaterialSearchSelector
-                  label="Panel"
-                  materials={paneles}
-                  value={oferta.panel_codigo}
-                  onChange={(value) =>
-                    setOferta((prev) => ({ ...prev, panel_codigo: value }))
-                  }
-                  placeholder="Buscar panel por nombre o código..."
-                  disabled={loadingMateriales}
-                  loading={loadingMateriales}
-                />
-              </div>
-              <div>
-                <Label htmlFor="panel_cantidad">Cantidad</Label>
-                <Input
-                  id="panel_cantidad"
-                  type="number"
-                  min="1"
-                  value={oferta.panel_cantidad}
-                  onChange={(e) =>
-                    setOferta((prev) => ({
-                      ...prev,
-                      panel_cantidad: parseInt(e.target.value) || 1,
-                    }))
-                  }
-                  className="text-gray-900"
-                />
-              </div>
-            </div>
-
-            {/* Fila 4: Elementos Personalizados */}
-            <div>
-              <Label htmlFor="elementos_personalizados">
-                Elementos Personalizados (Comentario)
-              </Label>
-              <Textarea
-                id="elementos_personalizados"
-                value={oferta.elementos_personalizados}
-                onChange={(e) =>
-                  setOferta((prev) => ({
-                    ...prev,
-                    elementos_personalizados: e.target.value,
-                  }))
-                }
-                rows={2}
-                className="text-gray-900 placeholder:text-gray-400"
-                placeholder="Describe elementos adicionales o personalizados..."
-              />
-            </div>
-
-            {/* Fila 5: Estado de la Oferta */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center space-x-2 p-3 border rounded-md">
-                <input
-                  type="checkbox"
-                  id="aprobada"
-                  checked={oferta.aprobada}
-                  onChange={(e) =>
-                    setOferta((prev) => ({
-                      ...prev,
-                      aprobada: e.target.checked,
-                    }))
-                  }
-                  className="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                />
-                <Label
-                  htmlFor="aprobada"
-                  className="cursor-pointer font-medium"
-                >
-                  Oferta Aprobada
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2 p-3 border rounded-md">
-                <input
-                  type="checkbox"
-                  id="pagada"
-                  checked={oferta.pagada}
-                  onChange={(e) =>
-                    setOferta((prev) => ({ ...prev, pagada: e.target.checked }))
-                  }
-                  className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                />
-                <Label htmlFor="pagada" className="cursor-pointer font-medium">
-                  Oferta Pagada
-                </Label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sección 3: Costos y Pago */}
-        <div className="border-2 border-gray-300 rounded-lg p-6 bg-white shadow-sm">
-          <div className="pb-4 mb-4 border-b-2 border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900">Costos y Pago</h3>
-            <p className="text-sm text-gray-500 mt-1">
-              Información financiera de la oferta
-            </p>
-          </div>
-          <div className="space-y-4">
-            {/* Fila 1: Costos - Primera fila */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="costo_oferta">Costo de Oferta</Label>
-                <Input
-                  id="costo_oferta"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={oferta.costo_oferta}
-                  onChange={(e) =>
-                    setOferta((prev) => ({
-                      ...prev,
-                      costo_oferta: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  className="text-gray-900"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label htmlFor="costo_extra">Costo Extra</Label>
-                <Input
-                  id="costo_extra"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={oferta.costo_extra}
-                  onChange={(e) =>
-                    setOferta((prev) => ({
-                      ...prev,
-                      costo_extra: parseFloat(e.target.value) || 0,
-                    }))
-                  }
-                  className="text-gray-900"
-                  placeholder="0.00"
-                />
-              </div>
-              {/* Costo de Transporte (solo si provincia != La Habana) */}
-              {formData.provincia_montaje &&
-              formData.provincia_montaje !== "La Habana" ? (
-                <div>
-                  <Label htmlFor="costo_transporte">Costo de Transporte</Label>
-                  <Input
-                    id="costo_transporte"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={oferta.costo_transporte || 0}
-                    onChange={(e) =>
-                      setOferta((prev) => ({
-                        ...prev,
-                        costo_transporte: parseFloat(e.target.value) || 0,
-                      }))
-                    }
-                    className="text-gray-900"
-                    placeholder="0.00"
-                  />
-                </div>
-              ) : (
-                <div></div>
-              )}
-            </div>
-
-            {/* Fila 2: Costo Final, Método de Pago y Moneda */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="costo_final_2">Costo Final</Label>
-                <Input
-                  id="costo_final_2"
-                  type="number"
-                  value={costoFinal.toFixed(2)}
-                  disabled
-                  className="text-gray-900 bg-gray-100"
-                />
-              </div>
-              <div>
-                <Label htmlFor="metodo_pago">Método de Pago</Label>
-                <Input
-                  id="metodo_pago"
-                  value={formData.metodo_pago || ""}
-                  onChange={(e) =>
-                    handleInputChange("metodo_pago", e.target.value)
-                  }
-                  className="text-gray-900 placeholder:text-gray-400"
-                />
-              </div>
-              <div>
-                <Label htmlFor="moneda">Moneda</Label>
-                <Input
-                  id="moneda"
-                  value={formData.moneda || ""}
-                  onChange={(e) => handleInputChange("moneda", e.target.value)}
-                  className="text-gray-900 placeholder:text-gray-400"
-                />
-              </div>
-            </div>
-
-            {/* Fila 3: Razón del Costo Extra */}
-            <div>
-              <Label htmlFor="razon_costo_extra">Razón del Costo Extra</Label>
-              <Input
-                id="razon_costo_extra"
-                value={oferta.razon_costo_extra}
-                onChange={(e) =>
-                  setOferta((prev) => ({
-                    ...prev,
-                    razon_costo_extra: e.target.value,
-                  }))
-                }
-                className="text-gray-900 placeholder:text-gray-400"
-                placeholder="Ej: Transporte, instalación especial, materiales adicionales..."
               />
             </div>
           </div>
