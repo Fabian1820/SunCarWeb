@@ -18,6 +18,7 @@ interface UseEnviosContenedoresReturn {
   setEstadoFilter: (value: "todos" | EstadoEnvioContenedor) => void;
   loadEnvios: () => Promise<void>;
   createEnvio: (data: EnvioContenedorCreateData) => Promise<EnvioContenedor>;
+  deleteEnvio: (id: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -27,14 +28,11 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [estadoFilter, setEstadoFilter] = useState<
-    "todos" | EstadoEnvioContenedor
-  >("todos");
+  const [estadoFilter, setEstadoFilter] = useState<"todos" | EstadoEnvioContenedor>("todos");
 
   const loadEnvios = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
       const data = await EnvioContenedorService.getEnvios();
       setEnvios(
@@ -45,11 +43,7 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
         }),
       );
     } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Error al cargar los envíos de contenedores",
-      );
+      setError(err instanceof Error ? err.message : "Error al cargar los envíos de contenedores");
       setEnvios([]);
     } finally {
       setLoading(false);
@@ -60,39 +54,39 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
     void loadEnvios();
   }, [loadEnvios]);
 
-  const createEnvio = useCallback(
-    async (data: EnvioContenedorCreateData) => {
-      setCreating(true);
-      setError(null);
+  const createEnvio = useCallback(async (data: EnvioContenedorCreateData) => {
+    setCreating(true);
+    setError(null);
+    try {
+      const created = await EnvioContenedorService.createEnvio(data);
+      setEnvios((prev) => [created, ...prev]);
+      return created;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo registrar el envío de contenedor";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setCreating(false);
+    }
+  }, []);
 
-      try {
-        const created = await EnvioContenedorService.createEnvio(data);
-        setEnvios((prev) => [created, ...prev]);
-        return created;
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "No se pudo registrar el envío de contenedor";
-        setError(message);
-        throw new Error(message);
-      } finally {
-        setCreating(false);
-      }
-    },
-    [],
-  );
+  const deleteEnvio = useCallback(async (id: string) => {
+    setError(null);
+    try {
+      await EnvioContenedorService.deleteEnvio(id);
+      setEnvios((prev) => prev.filter((e) => e.id !== id));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo eliminar el envío";
+      setError(message);
+      throw new Error(message);
+    }
+  }, []);
 
   const filteredEnvios = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-
     return envios.filter((envio) => {
-      if (estadoFilter !== "todos" && envio.estado !== estadoFilter) {
-        return false;
-      }
-
+      if (estadoFilter !== "todos" && envio.estado !== estadoFilter) return false;
       if (!term) return true;
-
       const index = [
         envio.nombre,
         envio.descripcion,
@@ -103,7 +97,6 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
       ]
         .join(" ")
         .toLowerCase();
-
       return index.includes(term);
     });
   }, [envios, searchTerm, estadoFilter]);
@@ -122,6 +115,7 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
     setEstadoFilter,
     loadEnvios,
     createEnvio,
+    deleteEnvio,
     clearError,
   };
 }

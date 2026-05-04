@@ -55,8 +55,19 @@ function EnvioContenedoresPageContent() {
     estadoFilter,
     setEstadoFilter,
     createEnvio,
+    deleteEnvio,
     clearError,
   } = useEnviosContenedores();
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("¿Eliminar este envío de contenedor? Esta acción no se puede deshacer.")) return;
+    try {
+      await deleteEnvio(id);
+      toast({ title: "Envío eliminado", description: "El envío fue eliminado correctamente." });
+    } catch {
+      toast({ title: "Error", description: "No se pudo eliminar el envío.", variant: "destructive" });
+    }
+  };
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
@@ -184,7 +195,7 @@ function EnvioContenedoresPageContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <EnviosContenedoresTable envios={filteredEnvios} />
+            <EnviosContenedoresTable envios={filteredEnvios} onDelete={handleDelete} />
           </CardContent>
         </Card>
       </main>
