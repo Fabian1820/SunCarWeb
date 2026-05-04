@@ -34,6 +34,7 @@ import {
   Ship,
   Monitor,
   ClipboardList,
+  Clipboard,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useEffect } from "react";
 import {
@@ -207,6 +208,14 @@ export default function Dashboard() {
       title: "Gestionar Instaladores",
       description: "Administrar personal y asignaciones.",
       iconClass: "text-blue-600",
+    },
+    {
+      id: "asignaciones",
+      href: "/asignaciones",
+      icon: Clipboard,
+      title: "Asignaciones a Empleados",
+      description: "Gestionar medios básicos asignados al personal.",
+      iconClass: "text-indigo-600",
     },
     // Módulo "Gestionar Reportes" oculto temporalmente.
     // {
@@ -385,6 +394,7 @@ export default function Dashboard() {
       moduleIds: [
         "brigadas",
         "trabajadores",
+        "asignaciones",
         "instalaciones",
         "todos-trabajos",
         "solicitudes-materiales",
