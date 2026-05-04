@@ -101,10 +101,9 @@ const calculateStockAlertV = (
 const buildStockMapV = (items: StockItem[]): Map<string, number> => {
   const map = new Map<string, number>();
   for (const item of items) {
-    const efectivo = Math.max(0, item.cantidad - (item.cantidad_reservada ?? 0));
-    if (item.material_id) map.set(item.material_id, efectivo);
+    if (item.material_id) map.set(item.material_id, item.cantidad);
     if (item.material_codigo) {
-      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, efectivo);
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
     }
   }
   return map;
@@ -178,6 +177,9 @@ export function UpsertSolicitudVentaDialog({
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
   const [loadingStock, setLoadingStock] = useState(false);
   const stockMapRef = useRef<Map<string, number>>(new Map());
+  // Lista raw de reservas activas del almacén y mapas derivados
+  const todasReservasVRef = useRef<import("@/lib/types/feats/reservas-ventas/reserva-venta-types").Reserva[]>([]);
+  const totalReservaVMapRef = useRef<Map<string, number>>(new Map());
   // Mapa de reservas netas del cliente seleccionado: material_id → cantidad reservada por ese cliente
   const clientReservaMapRef = useRef<Map<string, number>>(new Map());
 
@@ -374,36 +376,26 @@ export function UpsertSolicitudVentaDialog({
     setShowClienteDropdown(false);
     setShowQuickCreateCliente(false);
     setQuickCreateError(null);
-    // Cargar reservas del cliente en el almacén ya seleccionado (si hay)
+    // Recalcular reservas del cliente filtrando del total ya en memoria
     if (selectedAlmacenId) {
-      void (async () => {
-        try {
-          const { data } = await ReservaVentaService.getReservas({
-            almacen_id: selectedAlmacenId,
-            cliente_id: cliente.id,
-            estado: "activa",
-            limit: 100,
-          });
-          const cMap = new Map<string, number>();
-          for (const reserva of data) {
-            for (const mat of reserva.materiales ?? []) {
-              const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-              if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
-            }
-          }
-          clientReservaMapRef.current = cMap;
-          setMaterialRows((prev) =>
-            prev.map((m) => {
-              const base = lookupFromMapV(stockMapRef.current, m.material_id, m.codigo);
-              if (base === null) return m;
-              const effective = base + (cMap.get(m.material_id) ?? 0);
-              return { ...m, stock_actual: effective, ...calculateStockAlertV(m.cantidad, effective) };
-            }),
-          );
-        } catch {
-          clientReservaMapRef.current = new Map();
+      const reservasCliente = todasReservasVRef.current.filter((r) => r.cliente_id === cliente.id);
+      const cMap = new Map<string, number>();
+      for (const reserva of reservasCliente) {
+        for (const mat of reserva.materiales ?? []) {
+          const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+          if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
         }
-      })();
+      }
+      clientReservaMapRef.current = cMap;
+      const tMap = totalReservaVMapRef.current;
+      setMaterialRows((prev) =>
+        prev.map((m) => {
+          const bruto = lookupFromMapV(stockMapRef.current, m.material_id, m.codigo);
+          if (bruto === null) return m;
+          const effective = Math.max(0, bruto - (tMap.get(m.material_id) ?? 0) + (cMap.get(m.material_id) ?? 0));
+          return { ...m, stock_actual: effective, ...calculateStockAlertV(m.cantidad, effective) };
+        }),
+      );
     }
   };
 
@@ -412,12 +404,15 @@ export function UpsertSolicitudVentaDialog({
     setClienteSearch("");
     setClienteSearchResults([]);
     setShowClienteDropdown(false);
-    // Limpiar bonus del cliente y recalcular stock sin él
+    // Sin cliente: stock = bruto - total_reservado
     clientReservaMapRef.current = new Map();
+    const tMap = totalReservaVMapRef.current;
     setMaterialRows((prev) =>
       prev.map((m) => {
-        const base = lookupFromMapV(stockMapRef.current, m.material_id, m.codigo);
-        return { ...m, stock_actual: base, ...(base !== null ? calculateStockAlertV(m.cantidad, base) : {}) };
+        const bruto = lookupFromMapV(stockMapRef.current, m.material_id, m.codigo);
+        if (bruto === null) return m;
+        const effective = Math.max(0, bruto - (tMap.get(m.material_id) ?? 0));
+        return { ...m, stock_actual: effective, ...calculateStockAlertV(m.cantidad, effective) };
       }),
     );
   };
@@ -457,9 +452,10 @@ export function UpsertSolicitudVentaDialog({
   const handleAddMaterial = (material: MaterialVentaWeb) => {
     if (materialRows.some((row) => row.material_id === material.id)) return;
 
-    const base = lookupFromMapV(stockMapRef.current, material.id, material.codigo);
-    const bonus = base !== null ? (clientReservaMapRef.current.get(material.id) ?? 0) : 0;
-    const stockActual = base !== null ? base + bonus : null;
+    const bruto = lookupFromMapV(stockMapRef.current, material.id, material.codigo);
+    const stockActual = bruto !== null
+      ? Math.max(0, bruto - (totalReservaVMapRef.current.get(material.id) ?? 0) + (clientReservaMapRef.current.get(material.id) ?? 0))
+      : null;
     const stockState = calculateStockAlertV(1, stockActual);
 
     setMaterialRows((prev) =>
@@ -504,6 +500,8 @@ export function UpsertSolicitudVentaDialog({
   useEffect(() => {
     if (!selectedAlmacenId) {
       stockMapRef.current = new Map();
+      todasReservasVRef.current = [];
+      totalReservaVMapRef.current = new Map();
       clientReservaMapRef.current = new Map();
       return;
     }
@@ -511,40 +509,48 @@ export function UpsertSolicitudVentaDialog({
     void (async () => {
       setLoadingStock(true);
       try {
-        const { data: items } = await InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 200 });
+        // Carga paralela: stock bruto + todas las reservas activas del almacén
+        const [{ data: items }, { data: todasReservas }] = await Promise.all([
+          InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 500 }),
+          ReservaVentaService.getReservas({ almacen_id: selectedAlmacenId, estado: "activa", limit: 500 }),
+        ]);
+
         const map = buildStockMapV(items);
         stockMapRef.current = map;
 
-        // Cargar reservas netas del cliente seleccionado (si hay) para sumar su propio bonus
+        todasReservasVRef.current = todasReservas;
+        const tMap = new Map<string, number>();
+        for (const reserva of todasReservas) {
+          for (const mat of reserva.materiales ?? []) {
+            const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+            if (neta > 0) tMap.set(mat.material_id, (tMap.get(mat.material_id) ?? 0) + neta);
+          }
+        }
+        totalReservaVMapRef.current = tMap;
+
+        // Mapa de reservas del cliente seleccionado (filtrado del total)
         const currentCliente = selectedClienteVentaRef.current;
         const cMap = new Map<string, number>();
         if (currentCliente?.id) {
-          try {
-            const { data } = await ReservaVentaService.getReservas({
-              almacen_id: selectedAlmacenId,
-              cliente_id: currentCliente.id,
-              estado: "activa",
-              limit: 100,
-            });
-            for (const reserva of data) {
-              for (const mat of reserva.materiales ?? []) {
-                const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-                if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
-              }
+          const reservasCliente = todasReservas.filter((r) => r.cliente_id === currentCliente.id);
+          for (const reserva of reservasCliente) {
+            for (const mat of reserva.materiales ?? []) {
+              const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+              if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
             }
-          } catch { /* ignorar error de reservas, mostrar solo stock efectivo */ }
+          }
         }
         clientReservaMapRef.current = cMap;
 
-        // Recalcular alertas de todos los materiales ya cargados (sin más llamadas)
+        // stock_visible = bruto − total_reservado + reservado_por_cliente
         const rows = materialRowsRef.current;
         if (rows.length > 0) {
           setMaterialRows(
             rows.map((m) => {
               if (!m.material_id) return m;
-              const base = lookupFromMapV(map, m.material_id, m.codigo);
-              if (base === null) return m;
-              const effective = base + (cMap.get(m.material_id) ?? 0);
+              const bruto = lookupFromMapV(map, m.material_id, m.codigo);
+              if (bruto === null) return m;
+              const effective = Math.max(0, bruto - (tMap.get(m.material_id) ?? 0) + (cMap.get(m.material_id) ?? 0));
               return { ...m, stock_actual: effective, ...calculateStockAlertV(m.cantidad, effective) };
             }),
           );
@@ -1061,20 +1067,24 @@ export function UpsertSolicitudVentaDialog({
                               <p className="text-xs text-gray-500 truncate">
                                 {material.codigo}
                               </p>
-                              {material.alerta_stock && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-red-50 text-red-700 border-red-200 mt-0.5"
-                                >
-                                  <AlertTriangle className="h-3 w-3 mr-1" />
-                                  Stock insuficiente
-                                </Badge>
-                              )}
-                              {material.alerta_stock && (
-                                <p className="text-xs text-red-600 mt-0.5">
-                                  Stock: {material.stock_actual ?? 0} | Faltante: {material.faltante}
+                              {material.alerta_stock ? (
+                                <>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-xs bg-red-50 text-red-700 border-red-200 mt-0.5"
+                                  >
+                                    <AlertTriangle className="h-3 w-3 mr-1" />
+                                    Stock insuficiente
+                                  </Badge>
+                                  <p className="text-xs text-red-600 mt-0.5">
+                                    Stock: {material.stock_actual ?? 0} {material.um || ""} | Faltante: {material.faltante}
+                                  </p>
+                                </>
+                              ) : selectedAlmacenId && material.stock_actual !== null ? (
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  Stock disponible: {material.stock_actual} {material.um || ""}
                                 </p>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </td>

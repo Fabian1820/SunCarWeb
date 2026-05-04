@@ -121,18 +121,32 @@ const calculateStockAlert = (
   };
 };
 
-/** Construye un mapa material_id/codigo → stock efectivo (total − reservado global) a partir de StockItem[]. */
+/** Construye un mapa material_id/codigo → cantidad bruta de stock (sin descontar reservas). */
 const buildStockMap = (items: StockItem[]): Map<string, number> => {
   const map = new Map<string, number>();
   for (const item of items) {
-    const efectivo = Math.max(0, item.cantidad - (item.cantidad_reservada ?? 0));
-    // DEBUG temporal — eliminar cuando se confirme que los valores son correctos
-    if ((item.cantidad_reservada ?? 0) > 0) {
-      console.log(`[STOCK DEBUG] ${item.material_codigo} | cantidad=${item.cantidad} | cantidad_reservada=${item.cantidad_reservada} | efectivo=${efectivo}`);
-    }
-    if (item.material_id) map.set(item.material_id, efectivo);
+    if (item.material_id) map.set(item.material_id, item.cantidad);
     if (item.material_codigo) {
-      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, efectivo);
+      map.set(`c:${item.material_codigo.trim().toLowerCase()}`, item.cantidad);
+    }
+  }
+  return map;
+};
+
+/**
+ * Construye un mapa material_id → cantidad neta reservada a partir de una lista de Reservas.
+ * Si se pasa un clienteId, excluye sus reservas del total (para poder aplicar el bonus aparte).
+ */
+const buildReservaMap = (
+  reservas: { materiales?: { material_id: string; cantidad_reservada: number; cantidad_consumida?: number }[] }[],
+  excludeClienteId?: string,
+  excludeAlmacenId?: string,
+): Map<string, number> => {
+  const map = new Map<string, number>();
+  for (const reserva of reservas) {
+    for (const mat of reserva.materiales ?? []) {
+      const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+      if (neta > 0) map.set(mat.material_id, (map.get(mat.material_id) ?? 0) + neta);
     }
   }
   return map;
@@ -216,6 +230,10 @@ export function CreateSolicitudMaterialDialog({
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
   const [loadingStock, setLoadingStock] = useState(false);
   const stockMapRef = useRef<Map<string, number>>(new Map());
+  // Lista raw de todas las reservas activas del almacén seleccionado
+  const todasReservasRef = useRef<import("@/lib/types/feats/reservas-ventas/reserva-venta-types").Reserva[]>([]);
+  // Mapa de reservas netas totales del almacén (todos los clientes): material_id → total reservado
+  const totalReservaMapRef = useRef<Map<string, number>>(new Map());
   // Mapa de reservas netas del cliente seleccionado: material_id → cantidad reservada por ese cliente
   const clientReservaMapRef = useRef<Map<string, number>>(new Map());
 
@@ -388,27 +406,20 @@ export function CreateSolicitudMaterialDialog({
 
   const loadSugeridos = useCallback(
     async (clienteId: string, clienteNumero: string | undefined, catalog: CatalogMaterial[], almacenId?: string) => {
-      // Carga reservas netas del cliente en el almacén dado; devuelve mapa vacío si no aplica
-      const buildCMap = async (): Promise<Map<string, number>> => {
+      // Filtra las reservas del cliente desde la lista ya cargada en memoria (sin llamada extra).
+      // Si el almacén no está cargado aún, devuelve mapa vacío.
+      const buildCMap = (): Map<string, number> => {
         if (!almacenId) return new Map();
-        try {
-          const { data } = await ReservaVentaService.getReservas({
-            almacen_id: almacenId,
-            cliente_id: clienteId,
-            estado: "activa",
-            limit: 100,
-          });
-          const cMap = new Map<string, number>();
-          for (const reserva of data) {
-            for (const mat of reserva.materiales ?? []) {
-              const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-              if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
-            }
+        const reservasCliente = todasReservasRef.current.filter((r) => r.cliente_id === clienteId);
+        const cMap = new Map<string, number>();
+        for (const reserva of reservasCliente) {
+          for (const mat of reserva.materiales ?? []) {
+            const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+            if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
           }
-          return cMap;
-        } catch {
-          return new Map();
         }
+        clientReservaMapRef.current = cMap;
+        return cMap;
       };
       setLoadingSugeridos(true);
       try {
@@ -536,14 +547,14 @@ export function CreateSolicitudMaterialDialog({
               if (entregados.length > 0 || pendientes.length > 0) {
                 const allRows = [...pendientes, ...entregados];
                 const map = stockMapRef.current;
-                const cMap = await buildCMap();
-                clientReservaMapRef.current = cMap;
+                const tMap = totalReservaMapRef.current;
+                const cMap = buildCMap();
                 setMateriales(
                   allRows.map((r) => {
                     if (!r.material_id || r.sinVinculo || r.entregado) return r;
-                    const base = lookupFromMap(map, r.material_id, r.codigo);
-                    if (base === null) return { ...r, stock_actual: null };
-                    const effective = base + (cMap.get(r.material_id) ?? 0);
+                    const bruto = lookupFromMap(map, r.material_id, r.codigo);
+                    if (bruto === null) return { ...r, stock_actual: null };
+                    const effective = Math.max(0, bruto - (tMap.get(r.material_id) ?? 0) + (cMap.get(r.material_id) ?? 0));
                     return { ...r, stock_actual: effective, ...calculateStockAlert(r.cantidad, effective) };
                   }),
                 );
@@ -595,14 +606,14 @@ export function CreateSolicitudMaterialDialog({
         });
 
         const map = stockMapRef.current;
-        const cMap = await buildCMap();
-        clientReservaMapRef.current = cMap;
+        const tMap = totalReservaMapRef.current;
+        const cMap = buildCMap();
         setMateriales(
           rows.map((r) => {
             if (!r.material_id || r.sinVinculo) return r;
-            const base = lookupFromMap(map, r.material_id, r.codigo);
-            if (base === null) return { ...r, stock_actual: null };
-            const effective = base + (cMap.get(r.material_id) ?? 0);
+            const bruto = lookupFromMap(map, r.material_id, r.codigo);
+            if (bruto === null) return { ...r, stock_actual: null };
+            const effective = Math.max(0, bruto - (tMap.get(r.material_id) ?? 0) + (cMap.get(r.material_id) ?? 0));
             return { ...r, stock_actual: effective, ...calculateStockAlert(r.cantidad, effective) };
           }),
         );
@@ -630,13 +641,16 @@ export function CreateSolicitudMaterialDialog({
     setSelectedCliente(null);
     setClienteSearch("");
     setShowClienteDropdown(false);
-    // Limpiar bonus del cliente y recalcular stock sin él
+    // Sin cliente: stock visible = bruto - total_reservado (sin bonus)
     clientReservaMapRef.current = new Map();
+    const tMap = totalReservaMapRef.current;
     setMateriales((prev) =>
       prev.map((m) => {
         if (!m.material_id || m.sinVinculo || m.entregado) return m;
-        const base = lookupFromMap(stockMapRef.current, m.material_id, m.codigo);
-        return { ...m, stock_actual: base, ...(base !== null ? calculateStockAlert(m.cantidad, base) : {}) };
+        const bruto = lookupFromMap(stockMapRef.current, m.material_id, m.codigo);
+        if (bruto === null) return m;
+        const effective = Math.max(0, bruto - (tMap.get(m.material_id) ?? 0));
+        return { ...m, stock_actual: effective, ...calculateStockAlert(m.cantidad, effective) };
       }),
     );
   };
@@ -706,9 +720,10 @@ export function CreateSolicitudMaterialDialog({
     const id = material.id || material._id || "";
     if (materiales.some((m) => m.material_id === id)) return;
 
-    const base = lookupFromMap(stockMapRef.current, id, material.codigo?.toString());
-    const bonus = base !== null ? (clientReservaMapRef.current.get(id) ?? 0) : 0;
-    const stockActual = base !== null ? base + bonus : null;
+    const bruto = lookupFromMap(stockMapRef.current, id, material.codigo?.toString());
+    const stockActual = bruto !== null
+      ? Math.max(0, bruto - (totalReservaMapRef.current.get(id) ?? 0) + (clientReservaMapRef.current.get(id) ?? 0))
+      : null;
     const stockState = calculateStockAlert(1, stockActual);
 
     setMateriales((prev) =>
@@ -770,6 +785,8 @@ export function CreateSolicitudMaterialDialog({
       const empty = new Map<string, number>();
       setStockMap(empty);
       stockMapRef.current = empty;
+      todasReservasRef.current = [];
+      totalReservaMapRef.current = new Map();
       clientReservaMapRef.current = new Map();
       return;
     }
@@ -777,42 +794,45 @@ export function CreateSolicitudMaterialDialog({
     void (async () => {
       setLoadingStock(true);
       try {
-        const { data: items } = await InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 200 });
+        // Carga paralela: stock bruto + todas las reservas activas del almacén
+        const [{ data: items }, { data: todasReservas }] = await Promise.all([
+          InventarioService.getStock({ almacen_id: selectedAlmacenId, limit: 500 }),
+          ReservaVentaService.getReservas({ almacen_id: selectedAlmacenId, estado: "activa", limit: 500 }),
+        ]);
+
         const map = buildStockMap(items);
         setStockMap(map);
         stockMapRef.current = map;
 
-        // Cargar reservas netas del cliente seleccionado (si hay) para sumar su propio bonus
+        // Guardar lista raw y construir mapa total
+        todasReservasRef.current = todasReservas;
+        const tMap = buildReservaMap(todasReservas);
+        totalReservaMapRef.current = tMap;
+
+        // Mapa de reservas solo del cliente seleccionado (filtrado del total ya cargado)
         const currentCliente = selectedClienteRef.current;
         const clienteId = currentCliente?.id || currentCliente?._id;
         const cMap = new Map<string, number>();
         if (clienteId) {
-          try {
-            const { data } = await ReservaVentaService.getReservas({
-              almacen_id: selectedAlmacenId,
-              cliente_id: clienteId,
-              estado: "activa",
-              limit: 100,
-            });
-            for (const reserva of data) {
-              for (const mat of reserva.materiales ?? []) {
-                const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
-                if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
-              }
+          const reservasCliente = todasReservas.filter((r) => r.cliente_id === clienteId);
+          for (const reserva of reservasCliente) {
+            for (const mat of reserva.materiales ?? []) {
+              const neta = Math.max(0, mat.cantidad_reservada - (mat.cantidad_consumida ?? 0));
+              if (neta > 0) cMap.set(mat.material_id, (cMap.get(mat.material_id) ?? 0) + neta);
             }
-          } catch { /* ignorar error de reservas, mostrar solo stock efectivo */ }
+          }
         }
         clientReservaMapRef.current = cMap;
 
-        // Recalcular alertas de todos los materiales ya cargados (sin más llamadas)
+        // stock_visible = bruto − total_reservado + reservado_por_cliente
         const mats = materialesRef.current;
         if (mats.length > 0) {
           setMateriales(
             mats.map((m) => {
               if (!m.material_id || m.sinVinculo || m.entregado) return m;
-              const base = lookupFromMap(map, m.material_id, m.codigo);
-              if (base === null) return m;
-              const effective = base + (cMap.get(m.material_id) ?? 0);
+              const bruto = lookupFromMap(map, m.material_id, m.codigo);
+              if (bruto === null) return m;
+              const effective = Math.max(0, bruto - (tMap.get(m.material_id) ?? 0) + (cMap.get(m.material_id) ?? 0));
               return { ...m, stock_actual: effective, ...calculateStockAlert(m.cantidad, effective) };
             }),
           );
@@ -1195,11 +1215,11 @@ export function CreateSolicitudMaterialDialog({
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
                   {materialResults.map((m) => {
                     const matId = m.id || m._id || "";
-                    const baseDisponible = selectedAlmacenId
+                    const brutoDisponible = selectedAlmacenId
                       ? lookupFromMap(stockMap, matId, m.codigo?.toString())
                       : null;
-                    const stockDisponible = baseDisponible !== null
-                      ? baseDisponible + (clientReservaMapRef.current.get(matId) ?? 0)
+                    const stockDisponible = brutoDisponible !== null
+                      ? Math.max(0, brutoDisponible - (totalReservaMapRef.current.get(matId) ?? 0) + (clientReservaMapRef.current.get(matId) ?? 0))
                       : null;
                     return (
                       <button
