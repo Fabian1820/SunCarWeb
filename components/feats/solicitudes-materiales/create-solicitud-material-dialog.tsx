@@ -126,6 +126,10 @@ const buildStockMap = (items: StockItem[]): Map<string, number> => {
   const map = new Map<string, number>();
   for (const item of items) {
     const efectivo = Math.max(0, item.cantidad - (item.cantidad_reservada ?? 0));
+    // DEBUG temporal — eliminar cuando se confirme que los valores son correctos
+    if ((item.cantidad_reservada ?? 0) > 0) {
+      console.log(`[STOCK DEBUG] ${item.material_codigo} | cantidad=${item.cantidad} | cantidad_reservada=${item.cantidad_reservada} | efectivo=${efectivo}`);
+    }
     if (item.material_id) map.set(item.material_id, efectivo);
     if (item.material_codigo) {
       map.set(`c:${item.material_codigo.trim().toLowerCase()}`, efectivo);

@@ -443,9 +443,31 @@ export default function AlmacenDetallePage() {
         if (value === null || value === undefined || value === "") return "-";
         return String(value);
       };
+
+      // Fetch all matching records in batches of 200 (backend max limit)
+      const EXPORT_BATCH = 200;
+      const filters = {
+        almacen_id: almacenId,
+        q: stockSearch || undefined,
+        categoria: stockCategoriaFilter !== "all" ? stockCategoriaFilter : undefined,
+        marca_id: stockMarcaFilter !== "all" ? stockMarcaFilter : undefined,
+        potencia_kw: stockPotenciaFilter !== "all" ? stockPotenciaFilter : undefined,
+        cantidad_filter: stockCantidadFilter !== "all" ? stockCantidadFilter : undefined,
+      };
+      const firstBatch = await InventarioService.getStock({ ...filters, skip: 0, limit: EXPORT_BATCH });
+      const total = firstBatch.total;
+      const allStock = [...firstBatch.data];
+      if (total > EXPORT_BATCH) {
+        const remaining = Math.ceil((total - EXPORT_BATCH) / EXPORT_BATCH);
+        for (let i = 1; i <= remaining; i++) {
+          const batch = await InventarioService.getStock({ ...filters, skip: i * EXPORT_BATCH, limit: EXPORT_BATCH });
+          allStock.push(...batch.data);
+        }
+      }
+
       await exportToExcel({
         title: "Suncar SRL - Stock de Almacén",
-        subtitle: `${almacen.nombre} | Registros: ${stockTotal}`,
+        subtitle: `${almacen.nombre} | Registros: ${total}`,
         filename: generateFilename(`stock_${String(almacen.nombre || almacen.id || "almacen").trim().replace(/\s+/g, "_").toLowerCase()}`),
         columns: [
           { header: "Almacén", key: "almacen_nombre", width: 24 },
@@ -460,7 +482,7 @@ export default function AlmacenDetallePage() {
           { header: "Ubicación", key: "ubicacion_en_almacen", width: 30 },
           { header: "Precio", key: "precio", width: 14 },
         ],
-        data: stock.map((item) => {
+        data: allStock.map((item) => {
           const codigo = String(item.material_codigo || "").trim().toLowerCase();
           const material = materialPorCodigo.get(codigo);
           const marcaId = String(material?.marca_id || "").trim();
@@ -479,7 +501,7 @@ export default function AlmacenDetallePage() {
           };
         }),
       });
-      toast({ title: "Exportación exitosa", description: "Se exportó el stock del almacén a Excel." });
+      toast({ title: "Exportación exitosa", description: `Se exportaron ${allStock.length} registros a Excel.` });
     } catch (err: any) {
       toast({ title: "Error al exportar", description: err?.message || "No se pudo exportar el stock a Excel.", variant: "destructive" });
     } finally {

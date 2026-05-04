@@ -2,6 +2,76 @@
 
 ---
 
+## 📅 3 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude".
+
+#### Consideraciones pendientes
+
+- El commit `c4f92e5` de yany1509 (ayer) sobre `confeccion-ofertas-view` debe revisarse manualmente para confirmar que no reintroduce la lógica de valores stale corregida el mismo día.
+- El módulo de clientes (refactor masivo en `14ecc37`, 2308 líneas cambiadas) requiere prueba end-to-end en staging: creación, edición y validaciones.
+- `PersonalMessageOverlay` montado en `layout.tsx` (todas las páginas) debe verificarse con manejo de errores adecuado antes de producción.
+
+---
+
+## 📅 2 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Módulo de ofertas de confección (edición), módulo de clientes, contabilidad**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `9e42fee` | Ruben/Claude | fix: garantizar remount completo del diálogo de edición de ofertas (3 capas) |
+| `21754ed` | Ruben/Claude | fix: margen_comercial muestra valor stale al reabrir diálogo de edición |
+| `d0694e9` | Ruben/Claude | fix: usar `margenPorMaterialCalculado` (useMemo) en save de ofertas confección |
+| `8e600be` | Ruben/Claude | fix: ajuste menor en módulo de contabilidad — nuevo `PersonalMessageOverlay` |
+| `14ecc37` | yany1509 | "ajustes en solicitudes y trabajos diarios" — **en realidad: refactor masivo del módulo de clientes** |
+| `c4f92e5` | yany1509 | "ofertas" — ajustes en `confeccion-ofertas-view` y `ofertas-confeccionadas-view` |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Commit `14ecc37` de yany1509: mensaje engañoso + cambio masivo**
+   - El mensaje dice _"ajustes en solicitudes y trabajos diarios"_ pero los archivos modificados son exclusivamente del módulo de clientes: `app/clientes/page.tsx`, `create-client-dialog.tsx`, `edit-client-dialog.tsx`, `clients-table.tsx`.
+   - **Magnitud real:** 832 adiciones, 1476 eliminaciones (2308 líneas totales). `create-client-dialog.tsx` perdió 767 líneas y `edit-client-dialog.tsx` perdió 546 — ambos son prácticamente reescritos completos.
+   - Riesgo: los flujos de creación y edición de clientes pueden estar rotos o cambiar comportamiento en producción sin que el historial indique claramente qué fue lo que cambió.
+   - **Acción urgente:** Probar en staging la creación y edición de clientes end-to-end, incluyendo validaciones, campos opcionales/obligatorios y guardado.
+
+2. **Commit `c4f92e5` de yany1509 sobre `confeccion-ofertas-view` — colisión con los fixes de Claude**
+   - Este commit modifica los mismos archivos que acaban de ser corregidos por los tres fixes de margen_comercial (`confeccion-ofertas-view.tsx`, `ofertas-confeccionadas-view.tsx`). Si yany1509 trabajó sobre una base anterior a los fixes, puede haber reintroducido la lógica del bug de stale values.
+   - **Acción recomendada:** Revisar el diff de este commit cuidadosamente para confirmar que no revierte ni interfiere con `estadoInicial = null` (edit mode) ni con el uso de `margenPorMaterialCalculado`.
+
+#### 🟡 Riesgos medios
+
+3. **Triple capa de protección contra valores stale en el diálogo de edición**
+   - La solución funciona, pero su complejidad indica que el problema estaba arraigado en la arquitectura de estado. Riesgos residuales:
+     - `editarDialogKey` fuerza remount completo del árbol de componentes: puede causar parpadeo visible o pérdida de foco en conexiones lentas.
+     - `cache: 'no-store'` en `fetchOfertaCompleta` agrega un round-trip de red cada vez que se abre el diálogo de edición — latencia perceptible si el endpoint es lento.
+   - **Consideración:** Monitorear el tiempo de respuesta del endpoint de carga de oferta completa; si supera ~800ms, añadir un skeleton/loader visible.
+
+4. **`PersonalMessageOverlay` añadido a `app/layout.tsx`**
+   - Este componente nuevo (87 líneas) se monta en el layout raíz, es decir, está presente en **todas las páginas** de la app.
+   - Si tiene un error de render o una llamada a API que falla, puede romper el layout completo.
+   - **Acción recomendada:** Verificar que el componente tiene manejo de errores (`try/catch` o ErrorBoundary) y que no bloquea el render si su fuente de datos no responde.
+
+5. **`margenPorMaterialCalculado` como fuente única en save**
+   - Correcto cambiar de estado asíncrono a `useMemo`, pero si las dependencias del `useMemo` no están completas en el array de deps, puede guardar un valor obsoleto.
+   - **Consideración:** Revisar el array de dependencias del `useMemo` que calcula `margenPorMaterialCalculado`.
+
+#### 🟢 Mejoras positivas
+
+6. **Resolución definitiva del bug de stale state en edición de ofertas**
+   - Tres commits dedicados a eliminar una sola fuente de bug persistente. El patrón `key`-para-remount es idiomático en React y correcto para este caso.
+
+7. **Refactor del módulo de clientes**
+   - La reducción neta de ~644 líneas sugiere simplificación real del código (eliminación de lógica duplicada o componentes sobrediseñados). Si las pruebas pasan, es una mejora de mantenibilidad.
+
+---
+
 ## 📅 1 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)

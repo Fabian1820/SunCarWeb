@@ -40,3 +40,4 @@ export { ContabilidadService } from "./services/feats/contabilidad/contabilidad-
 export { TasaCambioService } from "./services/feats/tasa-cambio/tasa-cambio-service";
 export { ReservaVentaService } from "./services/feats/reservas-ventas/reserva-venta-service";
 export { EnvioContenedorService } from "./services/feats/envios-contenedores/envio-contenedor-service";
+export { AsignacionService } from "./services/feats/asignaciones/asignacion-service";
