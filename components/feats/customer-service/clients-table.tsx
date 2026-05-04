@@ -90,6 +90,7 @@ import type {
 } from "@/lib/types/feats/ofertas-personalizadas/oferta-personalizada-types";
 import { useToast } from "@/hooks/use-toast";
 import type { Cliente, ClienteFoto } from "@/lib/api-types";
+import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
@@ -246,8 +247,12 @@ const OFERTAS_FILTER_OPTIONS = [
 ];
 
 const getTotalConfirmadasCliente = (client: Cliente): number => {
+  // 1. Nuevo campo tipado oferta_confeccion (total sobre todas las confecciones del cliente)
+  if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
+    return client.oferta_confeccion.total_confirmadas;
+  }
+  // 2. Fallback: ofertas_confeccion_resumen (array dinámico del backend)
   const raw = client as Cliente & Record<string, unknown>;
-  // 1. Resumen de ofertas confeccion (igual a leads.oferta_confeccion.total_confirmadas)
   const resumen = raw.ofertas_confeccion_resumen;
   if (Array.isArray(resumen)) {
     let total = 0;
@@ -257,11 +262,16 @@ const getTotalConfirmadasCliente = (client: Cliente): number => {
     }
     if (total > 0) return total;
   }
-  // 2. Fallback: ofertas embebidas con aprobada=true
+  // 3. Fallback: ofertas embebidas con aprobada=true
   if (Array.isArray(client.ofertas)) {
     return client.ofertas.filter((o: any) => o?.aprobada === true).length;
   }
   return 0;
+};
+
+const getTieneOfertasCliente = (client: Cliente): boolean => {
+  if ((client.oferta_confeccion?.total_ofertas ?? 0) > 0) return true;
+  return Array.isArray(client.ofertas) && client.ofertas.length > 0;
 };
 
 const normalizeClienteNumero = (value?: string) =>
@@ -967,8 +977,7 @@ export function ClientsTable({
         if ((client.municipio || "").trim() !== filters.municipio) return false;
       }
       if (filters.ofertas) {
-        const tieneOfertas =
-          Array.isArray(client.ofertas) && client.ofertas.length > 0;
+        const tieneOfertas = getTieneOfertasCliente(client);
         if (filters.ofertas === "con_ofertas" && !tieneOfertas) return false;
         if (filters.ofertas === "sin_ofertas" && tieneOfertas) return false;
         if (
@@ -4301,7 +4310,7 @@ export function ClientsTable({
   return (
     <>
       <Card className="mb-6 border-l-4 border-l-orange-600">
-        <CardContent className="p-6">
+        <CardContent className="p-4 sm:p-6">
           <div className="flex gap-3 mb-4 flex-col sm:flex-row">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -4642,22 +4651,22 @@ export function ClientsTable({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full table-fixed divide-y divide-gray-200">
+              <table className="w-full table-fixed divide-y divide-gray-200 min-w-[640px]">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%] md:w-[18%]">
                       Cliente
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%]">
+                    <th className="hidden md:table-cell text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider md:w-[24%]">
                       Contacto
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[16%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[22%] md:w-[16%]">
                       Estado
                     </th>
-                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[24%]">
+                    <th className="text-left py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[34%] md:w-[24%]">
                       Oferta
                     </th>
-                    <th className="text-right py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[18%]">
+                    <th className="text-right py-3 px-2 text-[13px] font-semibold text-gray-500 uppercase tracking-wider w-[20%] md:w-[18%]">
                       Acciones
                     </th>
                   </tr>
@@ -4749,6 +4758,11 @@ export function ClientsTable({
                               <p className="text-[13px] text-gray-500 truncate">
                                 {client.numero}
                               </p>
+                              {client.telefono && (
+                                <p className="md:hidden text-[13px] text-gray-600 mt-0.5 truncate">
+                                  {client.telefono}
+                                </p>
+                              )}
                               {fechaCreacion && (
                                 <p className="text-[13px] text-gray-400 mt-0.5">
                                   {formatFechaCorta(fechaCreacion)}
@@ -4774,7 +4788,7 @@ export function ClientsTable({
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-2 align-top">
+                        <td className="hidden md:table-cell py-4 px-2 align-top">
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center text-base text-gray-900">
                               <Phone className="h-4 w-4 text-gray-400 mr-1.5 flex-shrink-0" />
@@ -4823,39 +4837,32 @@ export function ClientsTable({
                         </td>
                         <td className="py-4 px-2 align-top">
                           {(() => {
-                            const oferta = client.ofertas?.[0] as any;
-                            const inv =
-                              oferta?.inversor_codigo &&
-                              oferta?.inversor_cantidad > 0
-                                ? {
-                                    cantidad: oferta.inversor_cantidad,
-                                    descripcion:
-                                      oferta.inversor_nombre ||
-                                      oferta.inversor_codigo,
-                                  }
-                                : null;
-                            const bat =
-                              oferta?.bateria_codigo &&
-                              oferta?.bateria_cantidad > 0
-                                ? {
-                                    cantidad: oferta.bateria_cantidad,
-                                    descripcion:
-                                      oferta.bateria_nombre ||
-                                      oferta.bateria_codigo,
-                                  }
-                                : null;
-                            const pan =
-                              oferta?.panel_codigo &&
-                              oferta?.panel_cantidad > 0
-                                ? {
-                                    cantidad: oferta.panel_cantidad,
-                                    descripcion:
-                                      oferta.panel_nombre ||
-                                      oferta.panel_codigo,
-                                  }
-                                : null;
-                            const enProceso =
-                              client.estado === "Instalación en Proceso";
+                            let inv: { cantidad: number; descripcion: string } | null = null;
+                            let bat: { cantidad: number; descripcion: string } | null = null;
+                            let pan: { cantidad: number; descripcion: string } | null = null;
+
+                            const embebidas = client.ofertas?.filter(
+                              (o) => o.inversor_codigo || o.bateria_codigo || o.panel_codigo || o.elementos_personalizados
+                            ) ?? [];
+                            const oc = client.oferta_confeccion;
+
+                            if (oc && oc.items?.length) {
+                              ({ inv, bat, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                            } else if (embebidas.length > 0) {
+                              const oferta = embebidas[0];
+                              if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
+                                inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
+                              }
+                              if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
+                                bat = { cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo };
+                              }
+                              if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
+                                pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
+                              }
+                            }
+
+                            const sinComponentes = !inv && !bat && !pan;
+                            const enProceso = client.estado === "Instalación en Proceso";
                             const faltaInfo = enProceso ? (
                               <div className="mt-1.5 inline-flex items-start gap-1 rounded bg-orange-50 border border-orange-200 px-1.5 py-0.5 text-[12px] text-orange-700">
                                 <span className="font-medium">Falta:</span>
@@ -4864,67 +4871,70 @@ export function ClientsTable({
                                 </span>
                               </div>
                             ) : null;
-                            if (!inv && !bat && !pan) {
+
+                            if (sinComponentes && !oc) {
                               return (
                                 <div>
-                                  <div className="text-[14px] text-gray-400">
-                                    Sin ofertas
-                                  </div>
+                                  <div className="text-[14px] text-gray-400">Sin ofertas</div>
                                   {faltaInfo}
                                 </div>
                               );
                             }
+
+                            const totalOfertas = oc?.total_ofertas ?? 0;
+                            const totalConfirmadas = oc?.total_confirmadas ?? 0;
+
                             return (
-                              <div className="space-y-1 text-[14px]">
-                                {inv && (
-                                  <div
-                                    className="flex items-center gap-1 text-gray-700"
-                                    title={inv.descripcion}
-                                  >
-                                    <Zap className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
-                                    <span className="font-medium">
-                                      {inv.cantidad}x
+                              <div className="space-y-1.5">
+                                {oc && (
+                                  <div className="flex flex-wrap gap-1">
+                                    <span className="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-[13px] font-medium text-gray-700">
+                                      {totalOfertas} {totalOfertas === 1 ? "oferta" : "ofertas"}
                                     </span>
-                                    <span className="truncate">
-                                      {inv.descripcion}
-                                    </span>
-                                  </div>
-                                )}
-                                {bat && (
-                                  <div
-                                    className="flex items-center gap-1 text-gray-700"
-                                    title={bat.descripcion}
-                                  >
-                                    <Battery className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                                    <span className="font-medium">
-                                      {bat.cantidad}x
-                                    </span>
-                                    <span className="truncate">
-                                      {bat.descripcion}
+                                    <span
+                                      className={`inline-flex items-center rounded px-2 py-0.5 text-[13px] font-medium ${
+                                        totalConfirmadas > 0
+                                          ? "bg-emerald-100 text-emerald-700"
+                                          : "bg-amber-100 text-amber-700"
+                                      }`}
+                                    >
+                                      {totalConfirmadas} confirmada{totalConfirmadas === 1 ? "" : "s"}
                                     </span>
                                   </div>
                                 )}
-                                {pan && (
-                                  <div
-                                    className="flex items-center gap-1 text-gray-700"
-                                    title={pan.descripcion}
-                                  >
-                                    <Sun className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
-                                    <span className="font-medium">
-                                      {pan.cantidad}x
-                                    </span>
-                                    <span className="truncate">
-                                      {pan.descripcion}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="space-y-1 text-[14px]">
+                                  {inv && (
+                                    <div className="flex items-center gap-1 text-gray-700" title={inv.descripcion}>
+                                      <Zap className="h-3.5 w-3.5 text-orange-500 flex-shrink-0" />
+                                      <span className="font-medium">{inv.cantidad}x</span>
+                                      <span className="truncate">{inv.descripcion}</span>
+                                    </div>
+                                  )}
+                                  {bat && (
+                                    <div className="flex items-center gap-1 text-gray-700" title={bat.descripcion}>
+                                      <Battery className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                                      <span className="font-medium">{bat.cantidad}x</span>
+                                      <span className="truncate">{bat.descripcion}</span>
+                                    </div>
+                                  )}
+                                  {pan && (
+                                    <div className="flex items-center gap-1 text-gray-700" title={pan.descripcion}>
+                                      <Sun className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                                      <span className="font-medium">{pan.cantidad}x</span>
+                                      <span className="truncate">{pan.descripcion}</span>
+                                    </div>
+                                  )}
+                                  {sinComponentes && oc && (
+                                    <div className="text-gray-400 text-[13px]">Sin componentes principales</div>
+                                  )}
+                                </div>
                                 {faltaInfo}
                               </div>
                             );
                           })()}
                         </td>
                         <td className="py-4 px-2 align-top">
-                          <div className="flex items-center justify-end gap-1 flex-nowrap">
+                          <div className="flex items-center justify-end gap-1 flex-wrap">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -5164,7 +5174,7 @@ export function ClientsTable({
           }
         }}
       >
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Ofertas personalizadas del cliente</DialogTitle>
             <DialogDescription>
@@ -5313,7 +5323,7 @@ export function ClientsTable({
           }
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               Reportes de {selectedClient?.nombre || selectedClient?.numero}
@@ -5400,7 +5410,7 @@ export function ClientsTable({
           if (!open) closeOfertaFlowDialog();
         }}
       >
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-4xl max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle>Asignar oferta</DialogTitle>
             <DialogDescription>
@@ -5829,7 +5839,7 @@ export function ClientsTable({
           setShowEquipoEntregadoDialog(true);
         }}
       >
-        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Equipo entregado</DialogTitle>
             <DialogDescription>

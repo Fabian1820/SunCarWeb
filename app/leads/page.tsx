@@ -53,6 +53,7 @@ import type {
 } from "@/lib/api-types";
 import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
+import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 
 export default function LeadsPage() {
@@ -344,42 +345,35 @@ export default function LeadsPage() {
 
   const buildLeadsExportData = (leadsToExport: Lead[]) => {
     return leadsToExport.map((lead, index) => {
-      // Formatear ofertas SIN saltos de línea - el wrap natural de Excel lo hará
       let ofertaTexto = "";
 
-      if (lead.ofertas && lead.ofertas.length > 0) {
+      const oc = lead.oferta_confeccion;
+      if (oc && oc.items?.length) {
+        const { inv: itemInv, bat: itemBat, pan: itemPan } = extraerComponentesDeOfertaConfeccion(oc);
+        const productos: string[] = [];
+        if (itemInv) productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
+        if (itemBat) productos.push(`${itemBat.cantidad}x ${itemBat.descripcion}`);
+        if (itemPan) productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
+        ofertaTexto = productos.length > 0 ? productos.join(" • ") : "";
+      } else if (lead.ofertas && lead.ofertas.length > 0) {
         const ofertasFormateadas = lead.ofertas
           .map((oferta) => {
             const productos: string[] = [];
-
-            // Inversor
             if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-              const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
-              productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
+              productos.push(`${oferta.inversor_cantidad}x ${oferta.inversor_nombre || oferta.inversor_codigo}`);
             }
-
-            // Batería
             if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-              const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
-              productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
+              productos.push(`${oferta.bateria_cantidad}x ${oferta.bateria_nombre || oferta.bateria_codigo}`);
             }
-
-            // Paneles
             if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-              const nombre = oferta.panel_nombre || oferta.panel_codigo;
-              productos.push(`${oferta.panel_cantidad}x ${nombre}`);
+              productos.push(`${oferta.panel_cantidad}x ${oferta.panel_nombre || oferta.panel_codigo}`);
             }
-
-            // Elementos personalizados de la oferta
             if (oferta.elementos_personalizados) {
               productos.push(oferta.elementos_personalizados);
             }
-
-            // Agregar • al inicio de cada producto
             return productos.length > 0 ? "• " + productos.join(" • ") : "";
           })
           .filter(Boolean);
-
         ofertaTexto = ofertasFormateadas.join(" • ") || "";
       }
 
@@ -493,9 +487,9 @@ export default function LeadsPage() {
 
         {/* Search and Filters */}
         <Card className="mb-8 border-l-4 border-l-green-600">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             {/* Primera fila: Búsqueda y botón limpiar */}
-            <div className="flex gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input

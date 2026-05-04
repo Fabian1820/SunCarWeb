@@ -29,6 +29,7 @@ import type {
 } from "@/lib/api-types";
 import type { ExportOptions } from "@/lib/export-service";
 import { downloadFile } from "@/lib/utils/download-file";
+import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 import { EditClientDialog } from "@/components/feats/cliente/edit-client-dialog";
 
 type ClientesFilters = {
@@ -57,6 +58,9 @@ const TIEMPO_RANGES: Record<string, (dias: number) => boolean> = {
 };
 
 const getTotalConfirmadasCliente = (client: Cliente): number => {
+  if (typeof client.oferta_confeccion?.total_confirmadas === "number") {
+    return client.oferta_confeccion.total_confirmadas;
+  }
   const raw = client as Cliente & Record<string, unknown>;
   const resumen = raw.ofertas_confeccion_resumen;
   if (Array.isArray(resumen)) {
@@ -71,6 +75,11 @@ const getTotalConfirmadasCliente = (client: Cliente): number => {
     return client.ofertas.filter((o: any) => o?.aprobada === true).length;
   }
   return 0;
+};
+
+const getTieneOfertasCliente = (client: Cliente): boolean => {
+  if ((client.oferta_confeccion?.total_ofertas ?? 0) > 0) return true;
+  return Array.isArray(client.ofertas) && client.ofertas.length > 0;
 };
 
 const getDiasDesdeCreacionCliente = (client: Cliente): number | null => {
@@ -207,8 +216,7 @@ const matchesClientLocalFilters = (
     if ((client.municipio || "").trim() !== filters.municipio) return false;
   }
   if (filters.ofertas) {
-    const tieneOfertas =
-      Array.isArray(client.ofertas) && client.ofertas.length > 0;
+    const tieneOfertas = getTieneOfertasCliente(client);
     if (filters.ofertas === "con_ofertas" && !tieneOfertas) return false;
     if (filters.ofertas === "sin_ofertas" && tieneOfertas) return false;
     const totalConfirmadas = getTotalConfirmadasCliente(client);
@@ -819,34 +827,33 @@ export default function ClientesPage() {
     const exportData = clientesToExport.map((client, index) => {
       let ofertaTexto = "";
 
-      if (client.ofertas && client.ofertas.length > 0) {
+      const oc = client.oferta_confeccion;
+      if (oc && oc.items?.length) {
+        const { inv: itemInv, bat: itemBat, pan: itemPan } = extraerComponentesDeOfertaConfeccion(oc);
+        const productos: string[] = [];
+        if (itemInv) productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
+        if (itemBat) productos.push(`${itemBat.cantidad}x ${itemBat.descripcion}`);
+        if (itemPan) productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
+        ofertaTexto = productos.length > 0 ? productos.join(" • ") : "";
+      } else if (client.ofertas && client.ofertas.length > 0) {
         const ofertasFormateadas = client.ofertas
           .map((oferta: OfertaEmbebida) => {
             const productos: string[] = [];
-
             if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-              const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
-              productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
+              productos.push(`${oferta.inversor_cantidad}x ${oferta.inversor_nombre || oferta.inversor_codigo}`);
             }
-
             if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-              const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
-              productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
+              productos.push(`${oferta.bateria_cantidad}x ${oferta.bateria_nombre || oferta.bateria_codigo}`);
             }
-
             if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-              const nombre = oferta.panel_nombre || oferta.panel_codigo;
-              productos.push(`${oferta.panel_cantidad}x ${nombre}`);
+              productos.push(`${oferta.panel_cantidad}x ${oferta.panel_nombre || oferta.panel_codigo}`);
             }
-
             if (oferta.elementos_personalizados) {
               productos.push(oferta.elementos_personalizados);
             }
-
             return productos.length > 0 ? "• " + productos.join(" • ") : "";
           })
           .filter(Boolean);
-
         ofertaTexto = ofertasFormateadas.join(" • ") || "";
       }
 

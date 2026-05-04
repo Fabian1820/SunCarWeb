@@ -43,6 +43,7 @@ export interface ItemOfertaConfeccionResumen {
   material_codigo: string | null;
   descripcion: string;
   cantidad: number;
+  seccion?: string;
 }
 
 export interface OfertaConfeccionResumen {
