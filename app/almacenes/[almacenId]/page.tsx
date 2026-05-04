@@ -444,22 +444,30 @@ export default function AlmacenDetallePage() {
         return String(value);
       };
 
-      // Fetch all matching records ignoring pagination
-      const allResult = await InventarioService.getStock({
+      // Fetch all matching records in batches of 200 (backend max limit)
+      const EXPORT_BATCH = 200;
+      const filters = {
         almacen_id: almacenId,
-        skip: 0,
-        limit: stockTotal > 0 ? stockTotal : 9999,
         q: stockSearch || undefined,
         categoria: stockCategoriaFilter !== "all" ? stockCategoriaFilter : undefined,
         marca_id: stockMarcaFilter !== "all" ? stockMarcaFilter : undefined,
         potencia_kw: stockPotenciaFilter !== "all" ? stockPotenciaFilter : undefined,
         cantidad_filter: stockCantidadFilter !== "all" ? stockCantidadFilter : undefined,
-      });
-      const allStock = allResult.data;
+      };
+      const firstBatch = await InventarioService.getStock({ ...filters, skip: 0, limit: EXPORT_BATCH });
+      const total = firstBatch.total;
+      const allStock = [...firstBatch.data];
+      if (total > EXPORT_BATCH) {
+        const remaining = Math.ceil((total - EXPORT_BATCH) / EXPORT_BATCH);
+        for (let i = 1; i <= remaining; i++) {
+          const batch = await InventarioService.getStock({ ...filters, skip: i * EXPORT_BATCH, limit: EXPORT_BATCH });
+          allStock.push(...batch.data);
+        }
+      }
 
       await exportToExcel({
         title: "Suncar SRL - Stock de Almacén",
-        subtitle: `${almacen.nombre} | Registros: ${allResult.total}`,
+        subtitle: `${almacen.nombre} | Registros: ${total}`,
         filename: generateFilename(`stock_${String(almacen.nombre || almacen.id || "almacen").trim().replace(/\s+/g, "_").toLowerCase()}`),
         columns: [
           { header: "Almacén", key: "almacen_nombre", width: 24 },
