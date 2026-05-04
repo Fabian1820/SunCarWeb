@@ -2,6 +2,70 @@
 
 ---
 
+## 📅 4 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Centro de Control (mapa períodos), nuevo módulo Asignaciones a Empleados, clientes/leads/facturas, solicitudes de materiales y ventas, almacenes**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `19addb6` | Ruben/Claude | feat: módulo completo Asignaciones a Empleados (CRUD medios básicos y herramientas) |
+| `cfdb27c` | Ruben/Claude | feat: tipos y métodos de servicio para periodo/municipio en centro-control |
+| `706b081` | Ruben/Claude | fix: mapa de períodos en Centro Control — 4 modos, click handlers y reactividad geoKey |
+| `a583f6a` | yany1509 | "ajustes en cliente" — clientes, leads, facturas, nuevo util oferta-confeccion-items (410 cambios en 9 archivos) |
+| `0a1dab7` | Fabian1820 | "stock ok" — rework de diálogos solicitudes-materiales y solicitudes-ventas (296 cambios) |
+| `99e02ec` | Fabian1820 | "export stock all ok" — exportación de stock en almacén |
+| `e70ffa4` | Fabian1820 | "vhj" — ajustes en página de almacén |
+| `38a1969` | Fabian1820 | "mbj" — ajuste en create-solicitud-material-dialog |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Commit `a583f6a` (yany1509) — scope real muy amplio para "ajustes en cliente"**
+   - Toca 9 archivos: `clients-table.tsx` (196 cambios), `facturas-section.tsx` (54 cambios), `asignar-oferta-generica-dialog.tsx` (24 cambios), `clientes/page.tsx`, `leads/page.tsx`, `leads-table.tsx`, `cliente-types.ts`, `lead-types.ts`, y **nuevo archivo** `lib/utils/oferta-confeccion-items.ts` (47 líneas).
+   - Total: 259 adiciones / 151 eliminaciones. Cambio masivo con mensaje que no describe el alcance real.
+   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica. Revisar el nuevo utilitario `oferta-confeccion-items.ts` para confirmar que no duplica lógica ni rompe contratos de tipos existentes.
+
+2. **Commit `0a1dab7` (Fabian1820) — "stock ok" reescribe dos diálogos críticos**
+   - `create-solicitud-material-dialog.tsx`: 84 adiciones / 64 eliminaciones.
+   - `upsert-solicitud-venta-dialog.tsx`: 79 adiciones / 69 eliminaciones.
+   - Ambos son flujos clave del negocio. Sin descripción del cambio, el riesgo no es auditable sin leer el diff completo.
+   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end, incluyendo selección de stock, cantidades y submit.
+
+#### 🟡 Riesgos medios
+
+3. **Nuevo módulo Asignaciones a Empleados**
+   - Módulo CRUD completo nuevo con comboboxes buscables, modales con tabs, y catálogos de medios básicos y herramientas.
+   - Riesgos habituales de módulos nuevos: estados vacíos en comboboxes, validaciones de campos requeridos, endpoints del backend que deben existir en producción.
+   - **Acción recomendada:** Verificar que los endpoints de catálogos (medios básicos, herramientas) y asignaciones están disponibles y desplegados en el backend antes de mostrar el módulo a usuarios.
+
+4. **Fix `periodoRange` usa `.start/.end` en lugar de índices de array**
+   - Corrección necesaria, pero implica que antes se accedía con índices (`[0]`, `[1]`). Si algún consumidor de `periodoRange` fuera del componente central no fue actualizado, fallará silenciosamente devolviendo `undefined` como fecha.
+   - **Consideración:** Buscar en el codebase si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo.
+
+5. **Secuencia de commits iterativos en almacén page (Fabian1820)**
+   - `e70ffa4` ("vhj", 22 cambios) y `99e02ec` ("export stock all ok", 20 cambios) modificaron `app/almacenes/[almacenId]/page.tsx` en commits seguidos. El patrón sugiere desarrollo sin pruebas intermedias.
+   - **Acción recomendada:** Verificar la funcionalidad de exportación de stock y la página de almacén completa en staging.
+
+6. **Nuevo `lib/utils/oferta-confeccion-items.ts` creado por yany1509**
+   - Utilitario de 47 líneas relacionado con ítems de oferta confección, introducido sin mensaje descriptivo.
+   - **Consideración:** Confirmar que no duplica utilidades existentes y que sus tipos son compatibles con los del módulo de confección.
+
+#### 🟢 Mejoras positivas
+
+7. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos**
+   - `maxByMode` ahora incluye `trabajos_diarios`, `clientes_trabajados`, `instalaciones_terminadas` y `averias_solucionadas_periodo`. La densidad de colores escala correctamente por modo.
+
+8. **Click handlers en todos los modos de período**
+   - Cada municipio en el mapa llama a `getPeriodoMunicipioDetalle` con las fechas correctas de `periodoRange`. Mejora la interactividad del dashboard.
+
+9. **Módulo Asignaciones a Empleados con comboboxes buscables y modales con tabs**
+   - Funcionalidad nueva completa, bien estructurada para gestión de activos asignados por trabajador.
+
+---
+
 ## 📅 3 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -36,39 +100,27 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 #### 🔴 Riesgos altos
 
 1. **Commit `14ecc37` de yany1509: mensaje engañoso + cambio masivo**
-   - El mensaje dice _"ajustes en solicitudes y trabajos diarios"_ pero los archivos modificados son exclusivamente del módulo de clientes: `app/clientes/page.tsx`, `create-client-dialog.tsx`, `edit-client-dialog.tsx`, `clients-table.tsx`.
-   - **Magnitud real:** 832 adiciones, 1476 eliminaciones (2308 líneas totales). `create-client-dialog.tsx` perdió 767 líneas y `edit-client-dialog.tsx` perdió 546 — ambos son prácticamente reescritos completos.
-   - Riesgo: los flujos de creación y edición de clientes pueden estar rotos o cambiar comportamiento en producción sin que el historial indique claramente qué fue lo que cambió.
-   - **Acción urgente:** Probar en staging la creación y edición de clientes end-to-end, incluyendo validaciones, campos opcionales/obligatorios y guardado.
+   - El mensaje dice _"ajustes en solicitudes y trabajos diarios"_ pero los archivos modificados son exclusivamente del módulo de clientes.
+   - **Magnitud real:** 832 adiciones, 1476 eliminaciones (2308 líneas totales).
+   - **Acción urgente:** Probar en staging la creación y edición de clientes end-to-end.
 
-2. **Commit `c4f92e5` de yany1509 sobre `confeccion-ofertas-view` — colisión con los fixes de Claude**
-   - Este commit modifica los mismos archivos que acaban de ser corregidos por los tres fixes de margen_comercial (`confeccion-ofertas-view.tsx`, `ofertas-confeccionadas-view.tsx`). Si yany1509 trabajó sobre una base anterior a los fixes, puede haber reintroducido la lógica del bug de stale values.
-   - **Acción recomendada:** Revisar el diff de este commit cuidadosamente para confirmar que no revierte ni interfiere con `estadoInicial = null` (edit mode) ni con el uso de `margenPorMaterialCalculado`.
+2. **Commit `c4f92e5` de yany1509 — colisión con los fixes de Claude**
+   - Modifica los mismos archivos recién corregidos (`confeccion-ofertas-view.tsx`, `ofertas-confeccionadas-view.tsx`). Puede haber reintroducido el bug de stale values.
+   - **Acción recomendada:** Confirmar que no revierte `estadoInicial = null` ni el uso de `margenPorMaterialCalculado`.
 
 #### 🟡 Riesgos medios
 
-3. **Triple capa de protección contra valores stale en el diálogo de edición**
-   - La solución funciona, pero su complejidad indica que el problema estaba arraigado en la arquitectura de estado. Riesgos residuales:
-     - `editarDialogKey` fuerza remount completo del árbol de componentes: puede causar parpadeo visible o pérdida de foco en conexiones lentas.
-     - `cache: 'no-store'` en `fetchOfertaCompleta` agrega un round-trip de red cada vez que se abre el diálogo de edición — latencia perceptible si el endpoint es lento.
-   - **Consideración:** Monitorear el tiempo de respuesta del endpoint de carga de oferta completa; si supera ~800ms, añadir un skeleton/loader visible.
+3. **Triple capa de protección contra valores stale**
+   - `editarDialogKey` fuerza remount completo: puede causar parpadeo en conexiones lentas.
+   - `cache: 'no-store'` agrega un round-trip de red en cada apertura del diálogo de edición.
 
-4. **`PersonalMessageOverlay` añadido a `app/layout.tsx`**
-   - Este componente nuevo (87 líneas) se monta en el layout raíz, es decir, está presente en **todas las páginas** de la app.
-   - Si tiene un error de render o una llamada a API que falla, puede romper el layout completo.
-   - **Acción recomendada:** Verificar que el componente tiene manejo de errores (`try/catch` o ErrorBoundary) y que no bloquea el render si su fuente de datos no responde.
-
-5. **`margenPorMaterialCalculado` como fuente única en save**
-   - Correcto cambiar de estado asíncrono a `useMemo`, pero si las dependencias del `useMemo` no están completas en el array de deps, puede guardar un valor obsoleto.
-   - **Consideración:** Revisar el array de dependencias del `useMemo` que calcula `margenPorMaterialCalculado`.
+4. **`PersonalMessageOverlay` en `app/layout.tsx` (todas las páginas)**
+   - Un error de render puede romper el layout completo. Verificar manejo de errores.
 
 #### 🟢 Mejoras positivas
 
-6. **Resolución definitiva del bug de stale state en edición de ofertas**
-   - Tres commits dedicados a eliminar una sola fuente de bug persistente. El patrón `key`-para-remount es idiomático en React y correcto para este caso.
-
-7. **Refactor del módulo de clientes**
-   - La reducción neta de ~644 líneas sugiere simplificación real del código (eliminación de lógica duplicada o componentes sobrediseñados). Si las pruebas pasan, es una mejora de mantenibilidad.
+5. **Resolución definitiva del bug de stale state en edición de ofertas.**
+6. **Refactor del módulo de clientes: reducción neta de ~644 líneas.**
 
 ---
 
@@ -80,9 +132,8 @@ Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit auto
 
 #### Consideraciones del día
 
-- El cambio de tipo de retorno de `getStock` (April 30) merece prueba en todos sus consumidores hoy en staging: `vales-salida`, `solicitudes-materiales`, `solicitudes-ventas`, `use-inventario`, `export-vale-salida-service`.
-- Los nuevos endpoints del Centro de Control (`/periodo-stats`, `/analisis-regional`, `/clientes-por-mes`) deben estar verificados en producción antes de cualquier release.
-- No hay riesgos nuevos que reportar hoy.
+- El cambio de tipo de retorno de `getStock` (April 30) merece prueba en todos sus consumidores hoy en staging.
+- Los nuevos endpoints del Centro de Control deben estar verificados en producción antes de cualquier release.
 
 ---
 
@@ -111,47 +162,26 @@ Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit auto
 #### 🔴 Riesgos altos
 
 1. **Cambio del tipo de retorno de `getStock` de array plano a `{data, total, skip, limit}`**
-   - El commit dice que se actualizaron todos los callers (`vales-salida`, `solicitudes-materiales`, `solicitudes-ventas`, `use-inventario`, `export-vale-salida-service`), pero si alguno se pasó por alto, fallará intentando `.map()` sobre un objeto.
-   - **Acción recomendada:** Probar explícitamente cada módulo que consume `getStock` (especialmente exportaciones y vales de salida) para confirmar que recibe el campo `data` correctamente.
+   - Si algún caller se pasó por alto, fallará intentando `.map()` sobre un objeto.
+   - **Acción recomendada:** Probar cada módulo que consume `getStock` explícitamente.
 
-2. **Dos commits más de Fabian1820 sin descripción (`hgvhj`, `vhjvhjvhjv`)**
-   - No es posible saber el alcance de estos cambios sin leer el diff. Si introducen un bug, el historial no da pistas.
-   - **Acción urgente:** Revisar manualmente esos diffs. Patrón recurrente — se recomienda establecer un hook de pre-commit que rechace mensajes de menos de 10 caracteres.
+2. **Dos commits de Fabian1820 sin descripción (`hgvhj`, `vhjvhjvhjv`)**
+   - **Acción urgente:** Revisar manualmente esos diffs. Considerar hook de pre-commit.
 
 #### 🟡 Riesgos medios
 
-3. **Centro de Control conectado a nuevos endpoints del backend**
-   - Los panels de Brigadas, PeriodoStats, AnalisisRegional y ClientesStats ahora llaman a endpoints dedicados (`/periodo-stats`, `/analisis-regional`, `/clientes-por-mes`, `/brigadas`). Si alguno de estos no existe en el backend en producción o devuelve un schema distinto al esperado, el panel correspondiente fallará.
-   - **Acción recomendada:** Verificar que todos los endpoints existen y están desplegados antes de pasar a producción.
-
-4. **Heatmap con `Map<string, number>` de conteos del backend**
-   - Los nombres de municipio que llegan en `municipios_por_modo` deben coincidir exactamente (mayúsculas, acentos) con los nombres de las features del GeoJSON. Una discrepancia hace que el municipio aparezca sin color en el mapa sin lanzar ningún error.
-   - **Consideración:** Añadir un log de advertencia cuando un nombre del backend no encuentre feature en el GeoJSON.
-
-5. **`ESTADO_OFERTA_LABELS` en exportaciones de ofertas (yany1509)**
-   - Si una oferta tiene un valor de `estado` que no está mapeado en `ESTADO_OFERTA_LABELS`, el campo aparecerá como `undefined` en la exportación PDF/Excel.
-   - **Acción recomendada:** Añadir un fallback (`?? estado`) para que los estados no mapeados muestren el valor raw en lugar de `undefined`.
-
-6. **Overlay de errores 422 asume un formato de payload específico**
-   - FastAPI devuelve 422 con `{detail: [{loc, msg, type}]}`, pero si algún endpoint del backend lanza un 422 personalizado con otro formato, el overlay puede mostrar datos crudos o quedar vacío.
-   - **Consideración:** Validar que el parser del overlay maneja tanto el formato estándar de FastAPI como variantes custom.
-
-7. **Carga on-demand de tabs en almacenes — primer activación**
-   - Los tabs Stock, Recepciones e Historial cargan al primer click. Si la conexión es lenta, el usuario verá el tab vacío brevemente. Confirmar que el indicador de carga (lottie) aparece correctamente dentro del tab antes de que lleguen los datos.
+3. **Centro de Control conectado a nuevos endpoints** — verificar que todos están desplegados en producción.
+4. **Heatmap con nombres de municipio del backend** — deben coincidir exactamente con el GeoJSON.
+5. **`ESTADO_OFERTA_LABELS` sin fallback** — estados no mapeados aparecerán como `undefined`.
+6. **Overlay de errores 422 asume formato FastAPI** — formatos custom pueden fallar.
+7. **Tabs on-demand en almacenes** — confirmar que el lottie loader aparece correctamente.
 
 #### 🟢 Mejoras positivas
 
-8. **Paginación server-side (40/página) + imágenes lazy en tabla de stock**
-   - Reduce drásticamente el tiempo de carga inicial del módulo de almacenes.
-
-9. **Centro de Control: eliminación de llamada de 428KB a `/visitas/`**
-   - Se reutiliza `controlData.visitasRealizadas` del dashboard para el modo semana (default), y solo se llama a la API cuando el usuario cambia el período. Gran mejora.
-
-10. **Overlay global de errores 422**
-    - Centraliza el manejo de errores de validación sin tocar hooks ni páginas individuales. Solución no intrusiva.
-
-11. **Ver factura solar carros (yany1509)**
-    - Nueva funcionalidad disponible en el módulo de carros.
+8. Paginación server-side + imágenes lazy en stock.
+9. Eliminación de llamada de 428KB a `/visitas/` en Centro de Control.
+10. Overlay global de errores 422 no intrusivo.
+11. Ver factura solar carros.
 
 ---
 
@@ -180,42 +210,20 @@ Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit auto
 
 #### 🔴 Riesgos altos
 
-1. **8 commits con mensajes completamente sin descripción** (Fabian1820)
-   - Commits: `mnvhjvjh`, `gyjgjghj`, `hgbjh`, `gfuyguy`, `hvjhv`, `bkjbjk`, `fefew`, `fdvfdvb`
-   - Son imposibles de auditar sin leer el diff completo. Si uno de estos introduce un bug en producción, encontrarlo será muy costoso.
-   - **Acción urgente:** Establecer regla de mensajes descriptivos. Considerar un hook de pre-commit que rechace mensajes de menos de 10 caracteres sin estructura.
-
-2. **Carga on-demand de `equiposParaCard` vía `/equipos-batch`**
-   - Si el endpoint `/equipos-batch` no existe aún en el backend o tiene un schema diferente, los cards de detalle fallarán silenciosamente al abrirse.
-   - **Acción recomendada:** Verificar que el endpoint `/equipos-batch` está en producción y acepta los parámetros esperados.
-
-3. **`ofertasItemsCompleto` carga lazy al abrir `AnalisisRegional`**
-   - Si el endpoint `/ofertas-items` es lento o falla, el indicador de carga puede quedarse infinito si no hay manejo de error.
-   - **Consideración:** Verificar que hay timeout y estado de error visible al usuario.
+1. **8 commits con mensajes completamente sin descripción** (Fabian1820) — imposibles de auditar. Establecer hook de pre-commit.
+2. **Carga on-demand de `equiposParaCard` vía `/equipos-batch`** — verificar que el endpoint existe en producción.
+3. **`ofertasItemsCompleto` carga lazy** — verificar timeout y estado de error visible.
 
 #### 🟡 Riesgos medios
 
-4. **Centro de Control: caché de 45s en endpoint consolidado**
-   - Si los datos de negocio cambian frecuentemente, el dashboard puede mostrar datos desactualizados hasta 45 segundos.
-   - **Consideración:** Evaluar si 45s es aceptable para el contexto de negocio, o si se necesita invalidación manual o WebSocket.
-
-5. **Fix `total_pagado`/`precio_pagado` en descuentos de ventas**
-   - Cambio en cómo se calculan los descuentos por ítem. Si hay registros históricos que usaban el campo anterior, los reportes de períodos pasados pueden quedar inconsistentes.
-   - **Acción recomendada:** Verificar que el campo `total_pagado`/`precio_pagado` existe en todos los registros de ventas, incluyendo los más antiguos.
-
-6. **`DotLottieReact` con `ssr:false`**
-   - La importación dinámica evita el fallo del WASM en SSR. Correcto.
-   - Riesgo menor: en conexiones lentas habrá un flash sin animación antes de que cargue el componente dinámico.
+4. **Caché de 45s en Centro de Control** — evaluar si es aceptable para el negocio.
+5. **Fix `total_pagado`/`precio_pagado`** — verificar registros históricos de ventas.
+6. **`DotLottieReact` con `ssr:false`** — flash sin animación en conexiones lentas.
 
 #### 🟢 Mejoras positivas
 
-7. **Paginación backend en módulo de confección**
-   - Muy necesario si el volumen de ofertas es alto. Reduce carga inicial significativamente.
-
-8. **Centro de Control: 1 request en lugar de 15+**
-   - Mejora de rendimiento notable, especialmente en conexiones lentas.
-
-9. **Eliminación de espera de 20s en equipos de clientes**
-   - Carga on-demand es la solución correcta para datos pesados que no siempre se necesitan.
+7. Paginación backend en módulo de confección.
+8. Centro de Control: 1 request en lugar de 15+.
+9. Eliminación de espera de 20s en equipos de clientes.
 
 ---
