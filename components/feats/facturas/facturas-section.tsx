@@ -67,6 +67,7 @@ import { ValeSalidaService } from "@/lib/services/feats/vales-salida/vale-salida
 import { ClienteService } from "@/lib/services/feats/customer/cliente-service";
 import { DevolucionValeService } from "@/lib/api-services";
 import type { Cliente, ValeSalida } from "@/lib/api-types";
+import type { Material } from "@/lib/material-types";
 import { Checkbox } from "@/components/shared/molecule/checkbox";
 import { Label } from "@/components/shared/atom/label";
 import { Input } from "@/components/shared/molecule/input";
@@ -243,7 +244,7 @@ const applyInstaladoraDiscount = (
   return Math.round(price * ((100 - discountPct) / 100) * 100) / 100;
 };
 
-const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
+const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida, currentMaterials?: Material[]): Vale => ({
   id: valeSalida.id,
   id_vale_salida: valeSalida.id,
   fecha: valeSalida.fecha_creacion || new Date().toISOString(),
@@ -253,11 +254,25 @@ const mapValeSalidaToFacturaVale = (valeSalida: ValeSalida): Vale => ({
       material.codigo ||
       material.material?.codigo ||
       "";
-    const basePrice = Number(material.material?.precio || 0);
+    const materialId = (material.material_id || "").toString();
+    // Use current catalog price if available, fall back to embedded price
+    let basePrice = Number(material.material?.precio || 0);
+    if (currentMaterials && currentMaterials.length > 0) {
+      const found =
+        currentMaterials.find(
+          (m) =>
+            (String(m.id) === materialId ||
+              String((m as any).producto_id) === materialId) &&
+            (codigo ? String(m.codigo) === codigo : true),
+        ) || currentMaterials.find((m) => codigo && String(m.codigo) === codigo);
+      if (found?.precio !== undefined) {
+        basePrice = Number(found.precio);
+      }
+    }
     const categoria = material.material?.categoria;
     const discountPct = resolveInstaladoraDiscount(codigo, categoria);
     return {
-      material_id: (material.material_id || "").toString(),
+      material_id: materialId,
       codigo,
       descripcion:
         material.material_descripcion ||
@@ -354,6 +369,23 @@ export function FacturasSection() {
     cargarFacturasConsolidadas,
   } = useFacturas({ tipoFactura: "instaladora" });
   const { materials, loading: loadingMaterials } = useMaterials();
+
+  // Returns the current catalog price for a vale material item, falling back to the embedded price
+  const getCurrentMaterialPrecio = useCallback(
+    (item: { material_id?: string; material_codigo?: string; codigo?: string; material?: { precio?: number } }): number => {
+      const materialId = (item.material_id || "").toString();
+      const codigo = item.material_codigo || item.codigo || item.material?.codigo || "";
+      const found =
+        materials.find(
+          (m) =>
+            (String(m.id) === materialId || String((m as any).producto_id) === materialId) &&
+            (codigo ? String(m.codigo) === codigo : true),
+        ) || materials.find((m) => codigo && String(m.codigo) === codigo);
+      return found?.precio !== undefined ? Number(found.precio) : Number(item.material?.precio || 0);
+    },
+    [materials],
+  );
+
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -865,7 +897,7 @@ export function FacturasSection() {
       // Convertir cada vale de salida al formato de Vale de factura
       for (const valeSalida of vales) {
         const valeAjustado = await ajustarValeConDevoluciones(valeSalida);
-        const valeParaFactura = mapValeSalidaToFacturaVale(valeAjustado);
+        const valeParaFactura = mapValeSalidaToFacturaVale(valeAjustado, materials);
 
         await agregarVale(facturaForVale.id, valeParaFactura);
       }
@@ -1297,12 +1329,12 @@ export function FacturasSection() {
     return valesNoFacturadosFiltrados.reduce((sum, vale) => {
       const totalVale = (vale.materiales || []).reduce(
         (s, item) =>
-          s + Number(item.material?.precio ?? 0) * Number(item.cantidad || 0),
+          s + getCurrentMaterialPrecio(item) * Number(item.cantidad || 0),
         0,
       );
       return sum + totalVale;
     }, 0);
-  }, [valesNoFacturadosFiltrados]);
+  }, [valesNoFacturadosFiltrados, getCurrentMaterialPrecio]);
 
   const valesNoFacturadosSeleccionadosLista = useMemo(
     () =>
@@ -1499,7 +1531,7 @@ export function FacturasSection() {
         const valeAjustado = await ajustarValeConDevoluciones(vale);
         await agregarVale(
           selectedFacturaDestinoId,
-          mapValeSalidaToFacturaVale(valeAjustado),
+          mapValeSalidaToFacturaVale(valeAjustado, materials),
         );
       }
       toast({
@@ -2056,7 +2088,7 @@ export function FacturasSection() {
                 {valesNoFacturadosFiltrados.map((vale) => {
                   const valeOriginal = valesNoFacturadosOriginales[vale.id] || vale;
                   const total = vale.materiales.reduce((sum, material) => {
-                    const precio = material.material?.precio || 0;
+                    const precio = getCurrentMaterialPrecio(material);
                     const cantidad = material.cantidad || 0;
                     return sum + precio * cantidad;
                   }, 0);
@@ -2214,7 +2246,7 @@ export function FacturasSection() {
                                     </p>
                                     <p className="text-xs text-gray-500">
                                       {formatCurrency(
-                                        (material.material?.precio || 0) *
+                                        getCurrentMaterialPrecio(material) *
                                           facturableCantidad,
                                       )}
                                     </p>
@@ -2669,7 +2701,7 @@ export function FacturasSection() {
                 ) : (
                   valesDisponibles.map((vale) => {
                     const total = vale.materiales.reduce((sum, material) => {
-                      const precio = material.material?.precio || 0;
+                      const precio = getCurrentMaterialPrecio(material);
                       const cantidad = material.cantidad || 0;
                       return sum + precio * cantidad;
                     }, 0);
@@ -2808,7 +2840,7 @@ export function FacturasSection() {
                                     </p>
                                     <p className="text-xs text-gray-500">
                                       {formatCurrency(
-                                        (material.material?.precio || 0) *
+                                        getCurrentMaterialPrecio(material) *
                                           material.cantidad,
                                       )}
                                     </p>

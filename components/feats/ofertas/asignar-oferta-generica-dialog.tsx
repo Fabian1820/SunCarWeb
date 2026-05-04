@@ -106,6 +106,25 @@ export function AsignarOfertaGenericaDialog({
     }).format(price)
   }
 
+  const estadoBadge = (estado: string) => {
+    const map: Record<string, { label: string; className: string }> = {
+      en_revision:          { label: "En revisión",  className: "bg-gray-100 text-gray-600" },
+      aprobada_para_enviar: { label: "Aprobada",     className: "bg-blue-100 text-blue-700" },
+      enviada_a_cliente:    { label: "Enviada",      className: "bg-indigo-100 text-indigo-700" },
+      confirmada_por_cliente:{ label: "Confirmada",  className: "bg-green-100 text-green-700" },
+      reservada:            { label: "Reservada",    className: "bg-yellow-100 text-yellow-700" },
+      rechazada:            { label: "Rechazada",    className: "bg-red-100 text-red-600" },
+      cancelada:            { label: "Cancelada",    className: "bg-red-100 text-red-600" },
+      agotada:              { label: "Agotada",      className: "bg-orange-100 text-orange-600" },
+    }
+    const cfg = map[estado] ?? { label: estado, className: "bg-gray-100 text-gray-600" }
+    return (
+      <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${cfg.className}`}>
+        {cfg.label}
+      </span>
+    )
+  }
+
   // Función para obtener el material con mayor cantidad por categoría
   const getCategoryMaxItems = (oferta: OfertaConfeccion) => {
     const maxItems = {
@@ -283,11 +302,12 @@ export function AsignarOfertaGenericaDialog({
 
                           {/* Contenido principal */}
                           <div className="flex-1 min-w-0">
-                            {/* Nombre + Precio + Margen en una línea */}
-                            <div className="flex items-center gap-2 mb-1.5">
+                            {/* Nombre + Estado + Precio + Margen en una línea */}
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                               <h3 className="font-semibold text-sm text-gray-900 truncate flex-1">
                                 {oferta.nombre}
                               </h3>
+                              {estadoBadge(oferta.estado)}
                               <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <span className="text-sm font-bold text-orange-600">
                                   {formatPrice(oferta.precio_final, oferta.moneda_pago)}

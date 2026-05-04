@@ -2,6 +2,7 @@ import type {
   ElementoPersonalizado,
   OfertaEmbebida,
   OfertaAsignacion,
+  OfertaConfeccionResumen,
 } from "../leads/lead-types";
 import type { Averia } from "../averias/averia-types";
 
@@ -46,6 +47,7 @@ export interface Cliente {
   prioridad?: "Alta" | "Media" | "Baja";
   motivo_visita?: string; // Campo temporal para crear visita automática cuando estado = "Pendiente de visita"
   tipo_persona?: string;
+  oferta_confeccion?: OfertaConfeccionResumen | null;
 }
 
 export interface ClienteResponse {

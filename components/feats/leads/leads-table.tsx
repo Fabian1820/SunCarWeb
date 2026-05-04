@@ -76,6 +76,7 @@ import { seleccionarOfertaConfirmada, normalizeOfertaConfeccion } from "@/hooks/
 import { apiRequest } from "@/lib/api-config";
 import { useToast } from "@/hooks/use-toast";
 import type { Lead, LeadConversionRequest, LeadFoto } from "@/lib/api-types";
+import { extraerComponentesDeOfertaConfeccion } from "@/lib/utils/oferta-confeccion-items";
 
 const CODIGO_BATERIA_ESPECIAL_NOMBRE = "FLS48100SCG01";
 
@@ -2585,7 +2586,9 @@ export function LeadsTable({
                         ) ?? [];
                         const oc = lead.oferta_confeccion;
 
-                        if (embebidas.length > 0) {
+                        if (oc && oc.items?.length) {
+                          ({ inv, bat, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                        } else if (embebidas.length > 0) {
                           const oferta = embebidas[0];
                           if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
                             inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
@@ -2599,14 +2602,6 @@ export function LeadsTable({
                           if (oferta.elementos_personalizados) {
                             elementoPersonalizado = oferta.elementos_personalizados;
                           }
-                        } else if (oc && oc.items?.length) {
-                          const cp = oc.componentes_principales ?? {};
-                          const itemInv = oc.items.find((it) => cp.inversor_seleccionado ? it.material_codigo === cp.inversor_seleccionado : it.descripcion?.toLowerCase().includes("inversor"));
-                          const itemBat = oc.items.find((it) => cp.bateria_seleccionada ? it.material_codigo === cp.bateria_seleccionada : it.descripcion?.toLowerCase().includes("bater"));
-                          const itemPan = oc.items.find((it) => cp.panel_seleccionado ? it.material_codigo === cp.panel_seleccionado : it.descripcion?.toLowerCase().includes("panel"));
-                          if (itemInv) inv = { cantidad: itemInv.cantidad, descripcion: itemInv.descripcion };
-                          if (itemBat) bat = { cantidad: itemBat.cantidad, descripcion: itemBat.descripcion };
-                          if (itemPan) pan = { cantidad: itemPan.cantidad, descripcion: itemPan.descripcion };
                         }
 
                         const sinComponentes = !inv && !bat && !pan && !elementoPersonalizado;
