@@ -106,7 +106,6 @@ export default function SolicitudesVentasPage() {
   const [pagoDialogOpen, setPagoDialogOpen]           = useState(false);
   const [facturaDialogOpen, setFacturaDialogOpen]     = useState(false);
   const [stripePagosOpen, setStripePagosOpen]         = useState(false);
-  const [stripeSolicitudFiltro, setStripeSolicitudFiltro] = useState<string | undefined>(undefined);
 
   const [selectedSolicitud, setSelectedSolicitud]     = useState<SolicitudVenta | null>(null);
   const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVentaSummary | null>(null);
@@ -514,7 +513,7 @@ export default function SolicitudesVentasPage() {
                   variant="outline"
                   size="sm"
                   className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
-                  onClick={() => { setStripeSolicitudFiltro(undefined); setStripePagosOpen(true); }}
+                  onClick={() => setStripePagosOpen(true)}
                 >
                   <CreditCard className="h-4 w-4" />
                   Cobros Stripe
@@ -627,10 +626,7 @@ export default function SolicitudesVentasPage() {
         solicitudCompleta={solicitudParaPagarCompleta}
         facturaAsociadaNumero={facturaAsociadaNumero}
         bloquearConfiguracionPago={Boolean((solicitudParaPagar?.total_pagado ?? 0) > 0)}
-        onVerStripe={solicitudParaPagar ? () => {
-          setStripeSolicitudFiltro(solicitudParaPagar.id);
-          setStripePagosOpen(true);
-        } : undefined}
+        onVerStripe={() => setStripePagosOpen(true)}
         onSubmit={handleRegistrarPago}
       />
 
@@ -651,8 +647,7 @@ export default function SolicitudesVentasPage() {
 
       <StripePagosSolicitudesModal
         open={stripePagosOpen}
-        onOpenChange={(v) => { setStripePagosOpen(v); if (!v) setStripeSolicitudFiltro(undefined); }}
-        solicitudId={stripeSolicitudFiltro}
+        onOpenChange={setStripePagosOpen}
       />
 
       <Toaster />

@@ -65,8 +65,6 @@ interface StripePagosResponse {
 interface StripePagosSolicitudesModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  /** Si se pasa, filtra solo los pagos de esa solicitud */
-  solicitudId?: string
 }
 
 type RecargoMode = "con_5" | "sin_5"
@@ -153,7 +151,6 @@ const getCoverageDetails = (pago: StripePagoListado, mode: RecargoMode) => {
 export function StripePagosSolicitudesModal({
   open,
   onOpenChange,
-  solicitudId,
 }: StripePagosSolicitudesModalProps) {
   const [loading, setLoading] = useState(false)
   const [pagos, setPagos] = useState<StripePagoListado[]>([])
@@ -192,16 +189,13 @@ export function StripePagosSolicitudesModal({
       }
 
       const allPagos = data.data || []
-      const filteredPagos = allPagos.filter((pago) =>
-        solicitudId ? pago.solicitud_venta_id === solicitudId : !!pago.solicitud_venta_id
-      )
-      setPagos(filteredPagos)
+      setPagos(allPagos.filter((pago) => !!pago.solicitud_venta_id))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar pagos de Stripe")
     } finally {
       setLoading(false)
     }
-  }, [fechaDesde, fechaHasta, solicitudId])
+  }, [fechaDesde, fechaHasta])
 
   // Cuando abre: aplicar rango por defecto y cargar
   useEffect(() => {
@@ -230,12 +224,10 @@ export function StripePagosSolicitudesModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CreditCard className="h-5 w-5 text-indigo-600" />
-            {solicitudId ? "Cobros Stripe — Solicitud" : "Pagos Stripe - Solicitudes de Ventas"}
+            Pagos Stripe - Solicitudes de Ventas
           </DialogTitle>
           <DialogDescription>
-            {solicitudId
-              ? "Pagos Stripe registrados para esta solicitud de venta."
-              : "Visualiza los pagos realizados a través de enlaces de Stripe generados desde solicitudes de ventas."}
+            Visualiza los pagos realizados a través de enlaces de Stripe generados desde solicitudes de ventas.
           </DialogDescription>
         </DialogHeader>
 
