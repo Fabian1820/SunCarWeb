@@ -188,8 +188,7 @@ export function StripePagosSolicitudesModal({
         throw new Error(data.message || "Error al cargar pagos")
       }
 
-      const allPagos = data.data || []
-      setPagos(allPagos.filter((pago) => !!pago.solicitud_venta_id))
+      setPagos(data.data || [])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar pagos de Stripe")
     } finally {
