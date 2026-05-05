@@ -30,7 +30,8 @@ export function GenerarLinkPagoSolicitudButton({
   size = "default",
   showIcon = true,
 }: GenerarLinkPagoSolicitudButtonProps) {
-  const STRIPE_FEE_PERCENT = 0.05
+  const STRIPE_RATE = 0.0325
+  const STRIPE_FIXED = 0.30
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string>("")
@@ -49,7 +50,7 @@ export function GenerarLinkPagoSolicitudButton({
   const precioBase = precioManual ? parseFloat(precioManual) : 0
   const isValidPrice = precioBase > 0
   const precioConRecargo = isValidPrice
-    ? Math.round(precioBase * (1 + STRIPE_FEE_PERCENT) * 100) / 100
+    ? Math.round(((precioBase + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
     : 0
 
   const handleOpenDialog = () => {
@@ -154,7 +155,7 @@ export function GenerarLinkPagoSolicitudButton({
           <DialogHeader>
             <DialogTitle>Generar Link de Pago - Stripe</DialogTitle>
             <DialogDescription>
-              Ingrese el monto a cobrar. Puede agregar 5% de comisión por uso de la pasarela de pago.
+              Ingrese el monto a cobrar. Puede agregar la comisión real de Stripe (3.25% + $0.30).
             </DialogDescription>
           </DialogHeader>
 
@@ -183,7 +184,7 @@ export function GenerarLinkPagoSolicitudButton({
                 onCheckedChange={(checked) => setIncluirComision(checked as boolean)}
               />
               <Label htmlFor="incluir-comision" className="text-sm cursor-pointer">
-                Agregar 5% de comisión de Stripe ({formatCurrency(precioBase * STRIPE_FEE_PERCENT)})
+                Agregar comisión de Stripe 3.25% + $0.30 ({formatCurrency(precioConRecargo - precioBase)})
               </Label>
             </div>
 

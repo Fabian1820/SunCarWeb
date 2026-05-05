@@ -3,7 +3,8 @@ import Stripe from 'stripe'
 
 const STRIPE_API_VERSION = '2024-12-18.acacia'
 
-const STRIPE_FEE_PERCENT = 0.05
+const STRIPE_RATE = 0.0325
+const STRIPE_FIXED = 0.30
 
 interface GenerarLinkRequest {
   precio: number
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
       apiVersion: STRIPE_API_VERSION,
     })
 
-    const precioConRecargo = Math.round(precio * (1 + STRIPE_FEE_PERCENT) * 100) / 100
+    const precioConRecargo = Math.round(((precio + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
 
     // Crear Payment Link en Stripe
     const paymentMethodTypes =

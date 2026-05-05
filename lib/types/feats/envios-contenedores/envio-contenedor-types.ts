@@ -25,6 +25,7 @@ export interface EnvioContenedorMaterial {
   cantidad: number;
   precio_unitario_cif: number;
   porciento_extra: number;
+  costo_calc?: number;
   precio_venta_calc?: number;
   precio_instaladora_calc?: number;
   porciento_rebajable_venta: number;
@@ -69,10 +70,18 @@ export interface StockMaterialEnvio {
   cantidad_stock_actual: number;
 }
 
+export interface MaterialDatosBulk {
+  precio: number;
+  precio_instaladora: number;
+  costo: number;
+  stock_total: number;
+}
+
 export interface AplicarPreciosMaterialPayload {
   material_id: string;
   precio_unitario_cif: number;
   porciento_extra: number;
+  costo_calc?: number;
   precio_venta_calc?: number;
   precio_instaladora_calc?: number;
   porciento_rebajable_venta: number;

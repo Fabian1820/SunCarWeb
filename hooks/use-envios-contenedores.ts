@@ -4,6 +4,7 @@ import type {
   EnvioContenedor,
   EnvioContenedorCreateData,
   EstadoEnvioContenedor,
+  TipoEnvioContenedor,
 } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
 
 interface UseEnviosContenedoresReturn {
@@ -11,13 +12,19 @@ interface UseEnviosContenedoresReturn {
   filteredEnvios: EnvioContenedor[];
   loading: boolean;
   creating: boolean;
+  updating: boolean;
   error: string | null;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
   estadoFilter: "todos" | EstadoEnvioContenedor;
   setEstadoFilter: (value: "todos" | EstadoEnvioContenedor) => void;
+  tipoFilter: "todos" | TipoEnvioContenedor;
+  setTipoFilter: (value: "todos" | TipoEnvioContenedor) => void;
+  pagadoFilter: "todos" | "pagado" | "pendiente";
+  setPagadoFilter: (value: "todos" | "pagado" | "pendiente") => void;
   loadEnvios: () => Promise<void>;
   createEnvio: (data: EnvioContenedorCreateData) => Promise<EnvioContenedor>;
+  updateEnvio: (id: string, data: Partial<EnvioContenedorCreateData>) => Promise<EnvioContenedor>;
   deleteEnvio: (id: string) => Promise<void>;
   clearError: () => void;
 }
@@ -26,9 +33,12 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
   const [envios, setEnvios] = useState<EnvioContenedor[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [estadoFilter, setEstadoFilter] = useState<"todos" | EstadoEnvioContenedor>("todos");
+  const [tipoFilter, setTipoFilter] = useState<"todos" | TipoEnvioContenedor>("todos");
+  const [pagadoFilter, setPagadoFilter] = useState<"todos" | "pagado" | "pendiente">("todos");
 
   const loadEnvios = useCallback(async () => {
     setLoading(true);
@@ -70,6 +80,22 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
     }
   }, []);
 
+  const updateEnvio = useCallback(async (id: string, data: Partial<EnvioContenedorCreateData>) => {
+    setUpdating(true);
+    setError(null);
+    try {
+      const updated = await EnvioContenedorService.updateEnvio(id, data);
+      setEnvios((prev) => prev.map((e) => (e.id === id ? updated : e)));
+      return updated;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "No se pudo actualizar el envío";
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setUpdating(false);
+    }
+  }, []);
+
   const deleteEnvio = useCallback(async (id: string) => {
     setError(null);
     try {
@@ -86,20 +112,23 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
     const term = searchTerm.trim().toLowerCase();
     return envios.filter((envio) => {
       if (estadoFilter !== "todos" && envio.estado !== estadoFilter) return false;
+      if (tipoFilter !== "todos" && envio.tipo_envio !== tipoFilter) return false;
+      if (pagadoFilter === "pagado" && !envio.pagado) return false;
+      if (pagadoFilter === "pendiente" && envio.pagado) return false;
       if (!term) return true;
       const index = [
         envio.nombre,
         envio.descripcion,
         envio.fecha_envio,
         envio.fecha_llegada_aproximada,
-        ...envio.materiales.map((item) => item.material_nombre),
-        ...envio.materiales.map((item) => item.material_codigo),
+        ...envio.materiales.map((m) => m.material_nombre),
+        ...envio.materiales.map((m) => m.material_codigo),
       ]
         .join(" ")
         .toLowerCase();
       return index.includes(term);
     });
-  }, [envios, searchTerm, estadoFilter]);
+  }, [envios, searchTerm, estadoFilter, tipoFilter, pagadoFilter]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -108,13 +137,19 @@ export function useEnviosContenedores(): UseEnviosContenedoresReturn {
     filteredEnvios,
     loading,
     creating,
+    updating,
     error,
     searchTerm,
     setSearchTerm,
     estadoFilter,
     setEstadoFilter,
+    tipoFilter,
+    setTipoFilter,
+    pagadoFilter,
+    setPagadoFilter,
     loadEnvios,
     createEnvio,
+    updateEnvio,
     deleteEnvio,
     clearError,
   };

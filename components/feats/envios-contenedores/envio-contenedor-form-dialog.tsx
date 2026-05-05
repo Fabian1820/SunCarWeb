@@ -19,9 +19,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { Loader2, Package, Plus, Trash2 } from "lucide-react";
+import { Loader2, Package, Pencil, Plane, Plus, Ship, Truck, X } from "lucide-react";
 import type { Material } from "@/lib/material-types";
-import type { EnvioContenedorCreateData } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+import type {
+  EnvioContenedor,
+  EnvioContenedorCreateData,
+  EstadoEnvioContenedor,
+  TipoEnvioContenedor,
+} from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+
+// ─── types ───────────────────────────────────────────────────────────────────
 
 interface MaterialSeleccionado {
   material_id: string;
@@ -30,21 +37,65 @@ interface MaterialSeleccionado {
   cantidad: number;
 }
 
-interface EnvioContenedorFormDialogProps {
+export interface EnvioContenedorFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (data: EnvioContenedorCreateData) => Promise<void>;
   materials: Material[];
   isLoading?: boolean;
+  initialData?: EnvioContenedor;
 }
 
-const getTodayISO = () => new Date().toISOString().slice(0, 10);
+// ─── constants ───────────────────────────────────────────────────────────────
 
-const getEstimatedArrivalDefault = () => {
-  const value = new Date();
-  value.setDate(value.getDate() + 30);
-  return value.toISOString().slice(0, 10);
+const getTodayISO = () => new Date().toISOString().slice(0, 10);
+const getDefaultArrival = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().slice(0, 10);
 };
+
+const TIPO_OPTIONS: {
+  value: TipoEnvioContenedor;
+  label: string;
+  sublabel: string;
+  icon: React.ReactNode;
+  activeClass: string;
+  iconBg: string;
+}[] = [
+  {
+    value: "maritimo",
+    label: "Marítimo",
+    sublabel: "Transporte en barco",
+    icon: <Ship className="h-6 w-6" />,
+    activeClass: "border-cyan-400 bg-cyan-50 ring-2 ring-cyan-200",
+    iconBg: "bg-cyan-100 text-cyan-600",
+  },
+  {
+    value: "aereo",
+    label: "Aéreo",
+    sublabel: "Transporte en avión",
+    icon: <Plane className="h-6 w-6" />,
+    activeClass: "border-sky-400 bg-sky-50 ring-2 ring-sky-200",
+    iconBg: "bg-sky-100 text-sky-600",
+  },
+  {
+    value: "otro",
+    label: "Otro",
+    sublabel: "Terrestre u otro medio",
+    icon: <Truck className="h-6 w-6" />,
+    activeClass: "border-gray-400 bg-gray-100 ring-2 ring-gray-200",
+    iconBg: "bg-gray-100 text-gray-500",
+  },
+];
+
+const ESTADO_OPTIONS: { value: EstadoEnvioContenedor; label: string }[] = [
+  { value: "despachado", label: "Despachado" },
+  { value: "recibido",   label: "Recibido" },
+  { value: "cancelado",  label: "Cancelado" },
+];
+
+// ─── component ───────────────────────────────────────────────────────────────
 
 export function EnvioContenedorFormDialog({
   open,
@@ -52,322 +103,409 @@ export function EnvioContenedorFormDialog({
   onSubmit,
   materials,
   isLoading = false,
+  initialData,
 }: EnvioContenedorFormDialogProps) {
-  const [nombre, setNombre] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [fechaEnvio, setFechaEnvio] = useState(getTodayISO());
-  const [fechaLlegadaAprox, setFechaLlegadaAprox] = useState(
-    getEstimatedArrivalDefault(),
-  );
-  const [estado, setEstado] = useState<"despachado" | "recibido" | "cancelado">(
-    "despachado",
-  );
-  const [selectedMaterialId, setSelectedMaterialId] = useState("");
-  const [cantidadMaterial, setCantidadMaterial] = useState("1");
-  const [materiales, setMateriales] = useState<MaterialSeleccionado[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const isEditMode = Boolean(initialData);
+
+  const [nombre,       setNombre]       = useState("");
+  const [descripcion,  setDescripcion]  = useState("");
+  const [fechaEnvio,   setFechaEnvio]   = useState(getTodayISO());
+  const [fechaLlegada, setFechaLlegada] = useState(getDefaultArrival());
+  const [estado,       setEstado]       = useState<EstadoEnvioContenedor>("despachado");
+  const [tipoEnvio,    setTipoEnvio]    = useState<TipoEnvioContenedor | "">("");
+  const [pagado,       setPagado]       = useState(false);
+  const [matList,      setMatList]      = useState<MaterialSeleccionado[]>([]);
+  const [selMatId,     setSelMatId]     = useState("");
+  const [selCantidad,  setSelCantidad]  = useState("1");
+  const [error,        setError]        = useState<string | null>(null);
+  const [submitting,   setSubmitting]   = useState(false);
 
   useEffect(() => {
     if (!open) return;
-
-    setNombre("");
-    setDescripcion("");
-    setFechaEnvio(getTodayISO());
-    setFechaLlegadaAprox(getEstimatedArrivalDefault());
-    setEstado("despachado");
-    setSelectedMaterialId("");
-    setCantidadMaterial("1");
-    setMateriales([]);
-    setError(null);
-  }, [open]);
+    if (initialData) {
+      setNombre(initialData.nombre);
+      setDescripcion(initialData.descripcion ?? "");
+      setFechaEnvio(initialData.fecha_envio?.slice(0, 10) ?? getTodayISO());
+      setFechaLlegada(initialData.fecha_llegada_aproximada?.slice(0, 10) ?? getDefaultArrival());
+      setEstado(initialData.estado);
+      setTipoEnvio(initialData.tipo_envio ?? "");
+      setPagado(initialData.pagado);
+      setMatList(
+        initialData.materiales.map((m) => ({
+          material_id: m.material_id,
+          material_codigo: m.material_codigo,
+          material_nombre: m.material_nombre,
+          cantidad: m.cantidad,
+        })),
+      );
+    } else {
+      setNombre(""); setDescripcion(""); setFechaEnvio(getTodayISO());
+      setFechaLlegada(getDefaultArrival()); setEstado("despachado");
+      setTipoEnvio(""); setPagado(false); setMatList([]);
+    }
+    setSelMatId(""); setSelCantidad("1"); setError(null);
+  }, [open, initialData]);
 
   const materialOptions = useMemo(
-    () =>
-      materials.map((material) => ({
-        value: material.id,
-        label: `${material.codigo} - ${material.nombre || material.descripcion}`,
-      })),
+    () => materials.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nombre || m.descripcion}` })),
     [materials],
   );
 
   const addMaterial = () => {
     setError(null);
-
-    if (!selectedMaterialId) {
-      setError("Debe seleccionar un material.");
-      return;
-    }
-
-    const cantidad = Number(cantidadMaterial);
-    if (!Number.isFinite(cantidad) || cantidad <= 0) {
-      setError("La cantidad debe ser mayor que 0.");
-      return;
-    }
-
-    const material = materials.find((item) => item.id === selectedMaterialId);
-    if (!material) {
-      setError("El material seleccionado no es válido.");
-      return;
-    }
-
-    setMateriales((prev) => {
-      const existing = prev.find((item) => item.material_id === material.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.material_id === material.id
-            ? { ...item, cantidad: item.cantidad + cantidad }
-            : item,
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          material_id: material.id,
-          material_codigo: material.codigo,
-          material_nombre: material.nombre || material.descripcion,
-          cantidad,
-        },
-      ];
+    if (!selMatId) { setError("Selecciona un material."); return; }
+    const cant = Number(selCantidad);
+    if (!Number.isFinite(cant) || cant <= 0) { setError("La cantidad debe ser mayor que 0."); return; }
+    const mat = materials.find((m) => m.id === selMatId);
+    if (!mat) { setError("Material no válido."); return; }
+    setMatList((prev) => {
+      const exists = prev.find((x) => x.material_id === mat.id);
+      if (exists) return prev.map((x) => x.material_id === mat.id ? { ...x, cantidad: x.cantidad + cant } : x);
+      return [...prev, { material_id: mat.id, material_codigo: mat.codigo, material_nombre: mat.nombre || mat.descripcion, cantidad: cant }];
     });
-
-    setSelectedMaterialId("");
-    setCantidadMaterial("1");
+    setSelMatId(""); setSelCantidad("1");
   };
 
-  const removeMaterial = (materialId: string) => {
-    setMateriales((prev) => prev.filter((item) => item.material_id !== materialId));
-  };
+  const removeMat = (id: string) => setMatList((p) => p.filter((x) => x.material_id !== id));
 
-  const updateCantidad = (materialId: string, value: string) => {
-    const cantidad = Number(value);
-    if (!Number.isFinite(cantidad) || cantidad <= 0) return;
-
-    setMateriales((prev) =>
-      prev.map((item) =>
-        item.material_id === materialId ? { ...item, cantidad } : item,
-      ),
-    );
+  const updateCant = (id: string, val: string) => {
+    const n = Number(val);
+    if (!Number.isFinite(n) || n <= 0) return;
+    setMatList((p) => p.map((x) => x.material_id === id ? { ...x, cantidad: n } : x));
   };
 
   const handleSubmit = async () => {
     setError(null);
-
-    if (!nombre.trim()) {
-      setError("El nombre del contenedor es obligatorio.");
-      return;
-    }
-
-    if (!fechaEnvio || !fechaLlegadaAprox) {
-      setError("Debe indicar ambas fechas.");
-      return;
-    }
-
-    if (new Date(fechaLlegadaAprox) < new Date(fechaEnvio)) {
-      setError("La llegada aproximada no puede ser anterior al envío.");
-      return;
-    }
-
-    if (materiales.length === 0) {
-      setError("Debe agregar al menos un material.");
-      return;
-    }
-
+    if (!nombre.trim()) { setError("El nombre es obligatorio."); return; }
+    if (!fechaEnvio || !fechaLlegada) { setError("Indica ambas fechas."); return; }
+    if (new Date(fechaLlegada) < new Date(fechaEnvio)) { setError("La llegada no puede ser anterior al envío."); return; }
+    if (matList.length === 0) { setError("Agrega al menos un material."); return; }
     setSubmitting(true);
     try {
       await onSubmit({
         nombre: nombre.trim(),
         descripcion: descripcion.trim(),
         fecha_envio: fechaEnvio,
-        fecha_llegada_aproximada: fechaLlegadaAprox,
+        fecha_llegada_aproximada: fechaLlegada,
         estado,
-        materiales,
+        tipo_envio: (tipoEnvio as TipoEnvioContenedor) || undefined,
+        pagado,
+        materiales: matList.map((m) => ({
+          material_id: m.material_id,
+          material_codigo: m.material_codigo,
+          material_nombre: m.material_nombre,
+          cantidad: m.cantidad,
+          precio_unitario_cif: 0,
+          porciento_extra: 0,
+          porciento_rebajable_venta: 0,
+        })),
       });
       onOpenChange(false);
-    } catch (submitError) {
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "No se pudo registrar el envío",
-      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo guardar el envío.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const disabledSubmit = isLoading || submitting;
+  const busy = isLoading || submitting;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Registrar Envío de Contenedor</DialogTitle>
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
+
+        {/* Header */}
+        <DialogHeader className="px-6 py-4 border-b border-gray-100 bg-gray-50 rounded-t-lg shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-cyan-100 shrink-0">
+              {isEditMode
+                ? <Pencil className="h-4 w-4 text-cyan-700" />
+                : <Ship className="h-4 w-4 text-cyan-700" />
+              }
+            </div>
+            <div>
+              <DialogTitle className="text-base font-semibold text-gray-900">
+                {isEditMode ? "Editar envío de contenedor" : "Nuevo envío de contenedor"}
+              </DialogTitle>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {isEditMode
+                  ? "Modifica los datos del envío seleccionado."
+                  : "Registra un nuevo envío en el sistema."}
+              </p>
+            </div>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-5 py-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="nombre-contenedor">Nombre del contenedor</Label>
-              <Input
-                id="nombre-contenedor"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej: Contenedor Solar Abril 2026"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="estado-envio">Estado</Label>
-              <Select
-                value={estado}
-                onValueChange={(value) =>
-                  setEstado(value as "despachado" | "recibido" | "cancelado")
-                }
-              >
-                <SelectTrigger id="estado-envio">
-                  <SelectValue placeholder="Seleccionar estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="despachado">Despachado</SelectItem>
-                  <SelectItem value="recibido">Recibido</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        <div className="px-6 py-5 space-y-7">
 
-          <div className="space-y-2">
-            <Label htmlFor="descripcion-envio">Descripción (opcional)</Label>
-            <Textarea
-              id="descripcion-envio"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-              placeholder="Notas del envío, naviera, observaciones, etc."
-              rows={3}
-            />
-          </div>
+          {/* ── Información general ── */}
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Información general
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2 space-y-1.5">
+                <Label htmlFor="fc-nombre" className="text-sm font-medium text-gray-700">
+                  Nombre del contenedor <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="fc-nombre"
+                  value={nombre}
+                  onChange={(e) => setNombre(e.target.value)}
+                  placeholder="Ej: Contenedor Solar Mayo 2026"
+                  className="h-9"
+                />
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="fecha-envio">Fecha de envío</Label>
-              <Input
-                id="fecha-envio"
-                type="date"
-                value={fechaEnvio}
-                onChange={(e) => setFechaEnvio(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="fecha-llegada">Fecha aproximada de llegada</Label>
-              <Input
-                id="fecha-llegada"
-                type="date"
-                value={fechaLlegadaAprox}
-                onChange={(e) => setFechaLlegadaAprox(e.target.value)}
-              />
-            </div>
-          </div>
+              <div className="md:col-span-2 space-y-2">
+                <Label className="text-sm font-medium text-gray-700">Tipo de envío</Label>
+                <div className="grid grid-cols-3 gap-3">
+                  {TIPO_OPTIONS.map((t) => {
+                    const isSelected = tipoEnvio === t.value;
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => setTipoEnvio(isSelected ? "" : t.value)}
+                        className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 px-4 py-4 text-center transition-all duration-150 hover:shadow-sm focus:outline-none ${
+                          isSelected
+                            ? t.activeClass
+                            : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                        }`}
+                      >
+                        {/* Dot indicador */}
+                        <span className={`absolute top-2.5 right-2.5 h-2 w-2 rounded-full transition-all ${
+                          isSelected ? "bg-current opacity-100" : "opacity-0"
+                        } ${
+                          t.value === "maritimo" ? "text-cyan-500" :
+                          t.value === "aereo"    ? "text-sky-500"  : "text-gray-400"
+                        }`} />
 
-          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-gray-900">
-              <Package className="h-4 w-4 text-orange-600" />
+                        {/* Icono */}
+                        <span className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
+                          isSelected ? t.iconBg : "bg-gray-100 text-gray-400"
+                        }`}>
+                          {t.icon}
+                        </span>
+
+                        {/* Texto */}
+                        <div>
+                          <p className={`text-sm font-semibold leading-tight ${
+                            isSelected ? "text-gray-900" : "text-gray-600"
+                          }`}>
+                            {t.label}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">{t.sublabel}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Estado</Label>
+                <Select value={estado} onValueChange={(v) => setEstado(v as EstadoEnvioContenedor)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ESTADO_OPTIONS.map((e) => (
+                      <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="md:col-span-2 space-y-1.5">
+                <Label htmlFor="fc-desc" className="text-sm font-medium text-gray-700">
+                  Descripción / Observaciones
+                </Label>
+                <Textarea
+                  id="fc-desc"
+                  value={descripcion}
+                  onChange={(e) => setDescripcion(e.target.value)}
+                  placeholder="Naviera, número de contenedor, observaciones..."
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Fechas y pago ── */}
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Fechas y pago
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-fecha-envio" className="text-sm font-medium text-gray-700">
+                  Fecha de envío <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="fc-fecha-envio"
+                  type="date"
+                  value={fechaEnvio}
+                  onChange={(e) => setFechaEnvio(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-fecha-llegada" className="text-sm font-medium text-gray-700">
+                  Llegada aproximada <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="fc-fecha-llegada"
+                  type="date"
+                  value={fechaLlegada}
+                  onChange={(e) => setFechaLlegada(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Estado de pago</Label>
+                <button
+                  type="button"
+                  onClick={() => setPagado((v) => !v)}
+                  className={`w-full h-9 rounded-md border text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    pagado
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100"
+                      : "bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100"
+                  }`}
+                >
+                  <span className={`h-2 w-2 rounded-full ${pagado ? "bg-emerald-500" : "bg-amber-400"}`} />
+                  {pagado ? "Pagado" : "Pendiente de pago"}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Materiales ── */}
+          <section>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <Package className="h-3.5 w-3.5" />
               Materiales del contenedor
-            </div>
+              <span className="text-red-400 font-normal normal-case">(mínimo 1)</span>
+            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_auto] gap-3 items-end">
-              <div className="space-y-2">
-                <Label>Material</Label>
+            {/* Row agregar */}
+            <div className="flex gap-2 items-end mb-3">
+              <div className="flex-1 space-y-1">
+                <Label className="text-xs text-gray-500">Material</Label>
                 <SearchableSelect
                   options={materialOptions}
-                  value={selectedMaterialId}
-                  onValueChange={setSelectedMaterialId}
-                  placeholder="Buscar material..."
-                  searchPlaceholder="Escriba código o nombre..."
+                  value={selMatId}
+                  onValueChange={setSelMatId}
+                  placeholder="Buscar por código o nombre..."
+                  searchPlaceholder="Escriba para filtrar..."
                   disablePortal
                 />
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="cantidad-material">Cantidad</Label>
+              <div className="w-24 space-y-1">
+                <Label className="text-xs text-gray-500">Cantidad</Label>
                 <Input
-                  id="cantidad-material"
                   type="number"
                   min="1"
-                  value={cantidadMaterial}
-                  onChange={(e) => setCantidadMaterial(e.target.value)}
+                  value={selCantidad}
+                  onChange={(e) => setSelCantidad(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addMaterial()}
+                  className="h-9"
                 />
               </div>
-
-              <Button type="button" onClick={addMaterial} className="md:mb-0.5">
-                <Plus className="h-4 w-4 mr-2" />
+              <Button
+                type="button"
+                onClick={addMaterial}
+                className="h-9 px-4 bg-cyan-600 hover:bg-cyan-700 text-white gap-1.5 shrink-0"
+              >
+                <Plus className="h-4 w-4" />
                 Agregar
               </Button>
             </div>
 
-            {materiales.length === 0 ? (
-              <p className="text-sm text-gray-500">
-                Todavía no se agregaron materiales.
-              </p>
+            {matList.length === 0 ? (
+              <div className="border border-dashed border-gray-200 rounded-lg py-8 text-center">
+                <Package className="h-8 w-8 text-gray-200 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Aún no hay materiales agregados</p>
+              </div>
             ) : (
-              <div className="space-y-2">
-                {materiales.map((item) => (
-                  <div
-                    key={item.material_id}
-                    className="flex items-center gap-3 p-3 border rounded-md bg-gray-50"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {item.material_codigo} - {item.material_nombre}
-                      </p>
-                    </div>
-
-                    <Input
-                      type="number"
-                      min="1"
-                      className="w-24"
-                      value={item.cantidad}
-                      onChange={(e) => updateCantidad(item.material_id, e.target.value)}
-                    />
-
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => removeMaterial(item.material_id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Código</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Material</th>
+                      <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Uds.</th>
+                      <th className="w-10" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {matList.map((item) => (
+                      <tr key={item.material_id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
+                        <td className="py-2 px-3 font-mono text-xs text-gray-400">{item.material_codigo}</td>
+                        <td className="py-2 px-3 text-gray-800 font-medium">{item.material_nombre}</td>
+                        <td className="py-2 px-3">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.cantidad}
+                            onChange={(e) => updateCant(item.material_id, e.target.value)}
+                            className="h-7 text-center w-full text-sm"
+                          />
+                        </td>
+                        <td className="py-2 px-2 text-center">
+                          <button
+                            type="button"
+                            onClick={() => removeMat(item.material_id)}
+                            className="text-gray-300 hover:text-red-500 transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-gray-50 border-t border-gray-200">
+                      <td colSpan={2} className="py-2 px-3 text-xs text-gray-400">
+                        {matList.length} referencia{matList.length !== 1 ? "s" : ""}
+                      </td>
+                      <td className="py-2 px-3 text-center text-xs font-semibold text-gray-600">
+                        {matList.reduce((s, m) => s + m.cantidad, 0)} uds. total
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
               </div>
             )}
-          </div>
+          </section>
 
+          {/* Error */}
           {error && (
-            <p className="text-sm text-red-600 font-medium">{error}</p>
+            <div className="flex items-center gap-2 p-3 rounded-md bg-red-50 border border-red-200">
+              <span className="text-red-500 shrink-0">⚠</span>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
           )}
+        </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={disabledSubmit}
-            >
-              Cancelar
-            </Button>
-            <Button type="button" onClick={handleSubmit} disabled={disabledSubmit}>
-              {disabledSubmit ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                "Registrar envío"
-              )}
-            </Button>
-          </div>
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 rounded-b-lg flex justify-end gap-2 shrink-0">
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy} className="px-5">
+            Cancelar
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={busy}
+            className="px-5 bg-cyan-600 hover:bg-cyan-700 text-white gap-2"
+          >
+            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isEditMode ? "Guardar cambios" : "Registrar envío"}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
