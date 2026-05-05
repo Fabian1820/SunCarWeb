@@ -28,6 +28,10 @@ import {
   Plus,
   Trash2,
   Calendar,
+  Link,
+  Copy,
+  Check,
+  Loader2,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 
@@ -44,7 +48,8 @@ interface RegistrarPagoVentaDialogProps {
     moneda: "USD" | "CUP" | "EUR";
     tasa_cambio?: number;
     descuento_porcentaje: number;
-    metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe";
+    metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+    stripe_link?: string;
     desglose_billetes?: Record<string, number>;
     recibido_por: string;
     notas?: string;
@@ -83,7 +88,7 @@ export function RegistrarPagoVentaDialog({
   const [tasaCambio, setTasaCambio] = useState("");
   const [descuento, setDescuento] = useState("0");
   const [metodoPago, setMetodoPago] = useState<
-    "efectivo" | "transferencia_bancaria" | "stripe"
+    "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion"
   >("efectivo");
   const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, string>>({});
   const [notas, setNotas] = useState("");
@@ -92,6 +97,11 @@ export function RegistrarPagoVentaDialog({
   const [pagosProgramados, setPagosProgramados] = useState<PagoProgramadoForm[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [stripeMontoLink, setStripeMontoLink] = useState("");
+  const [stripeLink, setStripeLink] = useState<string | null>(null);
+  const [stripeGenerando, setStripeGenerando] = useState(false);
+  const [stripeError, setStripeError] = useState<string | null>(null);
+  const [copiado, setCopiado] = useState(false);
 
   if (!solicitud) return null;
 
@@ -166,6 +176,11 @@ export function RegistrarPagoVentaDialog({
     setEsAPlazos(false);
     setPagosProgramados([]);
     setError(null);
+    setStripeMontoLink("");
+    setStripeLink(null);
+    setStripeGenerando(false);
+    setStripeError(null);
+    setCopiado(false);
   };
 
   const denominaciones =
@@ -243,6 +258,7 @@ export function RegistrarPagoVentaDialog({
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
+        stripe_link: stripeLink || undefined,
         recibido_por: user?.nombre ?? "",
         notas: notas || undefined,
         es_a_plazos: bloquearConfiguracionPago
@@ -264,6 +280,35 @@ export function RegistrarPagoVentaDialog({
       setError(e instanceof Error ? e.message : "Error al registrar el pago");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGenerarStripeLink = async () => {
+    const montoStripe = Number(stripeMontoLink);
+    if (!montoStripe || montoStripe <= 0) {
+      setStripeError("Indica un monto válido para el link");
+      return;
+    }
+    setStripeGenerando(true);
+    setStripeError(null);
+    setStripeLink(null);
+    try {
+      const res = await fetch("/api/stripe/generar-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          precio: montoStripe,
+          descripcion: `Pago solicitud ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()} — ${solicitud.cliente_venta_nombre || "Cliente"}`,
+          moneda: moneda === "CUP" ? "USD" : moneda,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.url) throw new Error(data.message || "No se pudo generar el link");
+      setStripeLink(data.url);
+    } catch (e) {
+      setStripeError(e instanceof Error ? e.message : "Error al generar el link");
+    } finally {
+      setStripeGenerando(false);
     }
   };
 
@@ -403,9 +448,15 @@ export function RegistrarPagoVentaDialog({
             </Label>
             <Select
               value={metodoPago}
-              onValueChange={(v: string) =>
-                setMetodoPago(v as "efectivo" | "transferencia_bancaria" | "stripe")
-              }
+              onValueChange={(v: string) => {
+                const m = v as "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+                setMetodoPago(m);
+                if (m === "stripe") {
+                  setStripeMontoLink(pendiente != null ? pendiente.toFixed(2) : "");
+                  setStripeLink(null);
+                  setStripeError(null);
+                }
+              }}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -414,9 +465,65 @@ export function RegistrarPagoVentaDialog({
                 <SelectItem value="efectivo">Efectivo</SelectItem>
                 <SelectItem value="transferencia_bancaria">Transferencia bancaria</SelectItem>
                 <SelectItem value="stripe">Stripe</SelectItem>
+                <SelectItem value="financiacion">Financiación</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {metodoPago === "stripe" && (
+            <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
+              <Label className="flex items-center gap-1.5 text-violet-800">
+                <Link className="h-3.5 w-3.5" />
+                Link de pago Stripe
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={stripeMontoLink}
+                  onChange={(e) => { setStripeMontoLink(e.target.value); setStripeLink(null); }}
+                  placeholder="0.00"
+                  className="flex-1 bg-white"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-violet-600 hover:bg-violet-700 text-white gap-1.5 shrink-0"
+                  onClick={handleGenerarStripeLink}
+                  disabled={stripeGenerando}
+                >
+                  {stripeGenerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
+                  {stripeGenerando ? "Generando..." : "Generar link"}
+                </Button>
+              </div>
+              <p className="text-xs text-violet-600">
+                Monto para el link de cobro. Incluye comisión Stripe (5%). Editable si no va a pagar todo de una vez.
+              </p>
+              {stripeError && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{stripeError}</p>
+              )}
+              {stripeLink && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2 rounded border border-violet-200 bg-white px-2 py-1.5">
+                    <span className="text-xs text-gray-700 flex-1 truncate">{stripeLink}</span>
+                    <button
+                      type="button"
+                      onClick={() => { navigator.clipboard.writeText(stripeLink); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}
+                      className="text-violet-600 hover:text-violet-800 shrink-0"
+                      title="Copiar link"
+                    >
+                      {copiado ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                    </button>
+                    <a href={stripeLink} target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:text-violet-800 shrink-0" title="Abrir link">
+                      <Link className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                  <p className="text-xs text-green-700 font-medium">✓ Link generado y guardado</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {metodoPago === "efectivo" && (
             <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">

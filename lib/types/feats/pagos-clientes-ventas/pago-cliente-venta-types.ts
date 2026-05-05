@@ -17,7 +17,7 @@ export interface PagoVenta {
   tasa_cambio?: number | null;
   monto_usd?: number | null;
   descuento_porcentaje?: number | null;
-  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | string;
+  metodo_pago?: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion" | string;
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[] | null;
   pagos_programados?: PagoProgramado[] | null;
@@ -34,7 +34,8 @@ export interface PagoVentaCreateData {
   moneda: "USD" | "CUP" | "EUR";
   tasa_cambio?: number;
   descuento_porcentaje?: number;
-  metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe";
+  metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
+  stripe_link?: string;
   desglose_billetes?: Record<string, number>;
   recibido_por: string;
   notas?: string;

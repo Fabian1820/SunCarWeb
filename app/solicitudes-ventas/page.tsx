@@ -365,15 +365,6 @@ export default function SolicitudesVentasPage() {
           activeTab === "solicitudes" ? (
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setStripePagosOpen(true)}
-                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-              >
-                <CreditCard className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Pagos Stripe</span>
-              </Button>
-              <Button
                 size="icon"
                 className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
                 onClick={() => setIsCreateDialogOpen(true)}
