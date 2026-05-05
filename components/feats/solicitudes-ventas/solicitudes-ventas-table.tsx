@@ -57,6 +57,29 @@ export function SolicitudesVentasTable({
     return match ? parseInt(match[1], 10) : 0;
   };
 
+  const renderMaterialesLineas = (resumen?: string, count?: number) => {
+    if (!resumen) {
+      return <span className="text-gray-400 text-xs">—</span>;
+    }
+    // Si el resumen contiene comas o saltos, dividir por líneas
+    const partes = resumen.split(/,\s*|\n/).map((p) => p.trim()).filter(Boolean);
+    if (partes.length > 1) {
+      return (
+        <div className="flex flex-col gap-0.5">
+          {partes.map((p, i) => (
+            <span key={i} className="text-xs text-gray-600 leading-5">{p}</span>
+          ))}
+        </div>
+      );
+    }
+    // Si es solo "N items", mostrar badge
+    return (
+      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+        {count ?? resumen}
+      </Badge>
+    );
+  };
+
   if (solicitudes.length === 0) {
     return (
       <div className="text-center py-12">
@@ -75,15 +98,15 @@ export function SolicitudesVentasTable({
     <div className="overflow-x-auto">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Codigo</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Estado</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Cliente venta</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Almacen</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Creador</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Materiales</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Fecha</th>
-            <th className="text-left py-3 px-4 font-semibold text-gray-900">Acciones</th>
+          <tr className="bg-gray-50 border-b border-gray-200">
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Codigo</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Estado</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Cliente venta</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Almacen</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Creador</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Materiales</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Fecha</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -140,13 +163,8 @@ export function SolicitudesVentasTable({
                     <span>{solicitud.creador_nombre || "-"}</span>
                   </div>
                 </td>
-                <td className="py-4 px-4">
-                  <Badge
-                    variant="outline"
-                    className="bg-blue-50 text-blue-700 border-blue-200"
-                  >
-                    {cantidadMateriales} items
-                  </Badge>
+                <td className="py-4 px-4 min-w-[160px]">
+                  {renderMaterialesLineas(solicitud.materiales_resumen, cantidadMateriales)}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">

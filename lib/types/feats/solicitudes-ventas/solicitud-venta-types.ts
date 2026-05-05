@@ -24,6 +24,10 @@ export interface MaterialVentaInfo {
 export interface SolicitudVentaMaterialItemDetalle {
   material_id: string;
   cantidad: number;
+  /** Precio unitario del material en la solicitud */
+  precio?: number;
+  /** precio × cantidad calculado por el backend */
+  subtotal?: number;
   material_codigo?: string;
   material_descripcion?: string;
   um?: string;
@@ -65,6 +69,12 @@ export interface SolicitudVenta {
   trabajador_id?: string;
   trabajador?: SolicitudVentaTrabajadorInfo;
   materiales: SolicitudVentaMaterialItemDetalle[];
+  pagada_totalmente?: boolean;
+  precio_total?: number | null;
+  total_pagado?: number | null;
+  saldo_pendiente?: number | null;
+  descuento_porcentaje?: number | null;
+  pagos_ids?: string[];
   fecha_creacion?: string;
   fecha_actualizacion?: string;
 }
@@ -96,6 +106,7 @@ export interface SolicitudVentaListParams {
   trabajador_id?: string;
   q?: string; // Búsqueda de texto libre (antes era 'codigo')
   estado?: "nueva" | "usada" | "anulada" | string;
+  pagada_totalmente?: boolean;
 }
 
 export interface SolicitudVentaListResponse {

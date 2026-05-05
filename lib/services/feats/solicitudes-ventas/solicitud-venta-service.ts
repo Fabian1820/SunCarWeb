@@ -215,6 +215,8 @@ export class SolicitudVentaService {
     }
     if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.estado) search.append("estado", params.estado);
+    if (params.pagada_totalmente !== undefined)
+      search.append("pagada_totalmente", String(params.pagada_totalmente));
 
     const endpoint = search.toString()
       ? `${BASE_ENDPOINT}/summary?${search.toString()}`
@@ -251,6 +253,8 @@ export class SolicitudVentaService {
     }
     if (params.q) search.append("q", params.q); // Búsqueda de texto libre
     if (params.estado) search.append("estado", params.estado);
+    if (params.pagada_totalmente !== undefined)
+      search.append("pagada_totalmente", String(params.pagada_totalmente));
 
     const endpoint = search.toString()
       ? `${BASE_ENDPOINT}/?${search.toString()}`
