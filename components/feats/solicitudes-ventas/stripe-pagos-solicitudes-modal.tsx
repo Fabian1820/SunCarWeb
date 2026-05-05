@@ -179,11 +179,8 @@ export function StripePagosSolicitudesModal({
       const params = new URLSearchParams()
       if (fechaDesde) params.append("fecha_desde", fechaDesde)
       if (fechaHasta) params.append("fecha_hasta", fechaHasta)
-      params.append("tipo", "solicitud_venta")
 
-      const response = await apiRequest(`/stripe/pagos?${params.toString()}`, {
-        method: "GET",
-      })
+      const response = await fetch(`/api/stripe/listar-pagos?${params.toString()}`)
 
       const data: StripePagosResponse = await response.json()
 
@@ -191,7 +188,11 @@ export function StripePagosSolicitudesModal({
         throw new Error(data.message || "Error al cargar pagos")
       }
 
-      setPagos(data.data || [])
+      const allPagos = data.data || []
+      const filteredPagos = allPagos.filter(
+        (pago) => pago.solicitud_venta_id
+      )
+      setPagos(filteredPagos)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar pagos de Stripe")
     } finally {
