@@ -33,6 +33,7 @@ import {
   Check,
   Loader2,
   FileText,
+  ExternalLink,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
@@ -44,6 +45,7 @@ interface RegistrarPagoVentaDialogProps {
   solicitudCompleta?: SolicitudVenta | null;
   facturaAsociadaNumero?: string | null;
   bloquearConfiguracionPago?: boolean;
+  onVerStripe?: () => void;
   onSubmit: (data: {
     solicitud_venta_id: string;
     monto: number;
@@ -81,6 +83,7 @@ export function RegistrarPagoVentaDialog({
   solicitudCompleta = null,
   facturaAsociadaNumero = null,
   bloquearConfiguracionPago = false,
+  onVerStripe,
   onSubmit,
 }: RegistrarPagoVentaDialogProps) {
   const { user } = useAuth();
@@ -365,13 +368,27 @@ export function RegistrarPagoVentaDialog({
             <DollarSign className="h-5 w-5 text-green-600" />
             Registrar Pago
           </DialogTitle>
-          <DialogDescription>
-            Solicitud{" "}
-            <span className="font-medium text-gray-800">
-              {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
-            </span>{" "}
-            — {solicitud.cliente_venta_nombre || "Sin nombre"}
-          </DialogDescription>
+          <div className="flex items-center justify-between gap-2">
+            <DialogDescription>
+              Solicitud{" "}
+              <span className="font-medium text-gray-800">
+                {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
+              </span>{" "}
+              — {solicitud.cliente_venta_nombre || "Sin nombre"}
+            </DialogDescription>
+            {onVerStripe && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="shrink-0 gap-1.5 border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-xs"
+                onClick={onVerStripe}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Ver Stripe
+              </Button>
+            )}
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">

@@ -145,7 +145,6 @@ export function SolicitudesPendientesPagoTable({
                   Pendiente
                 </TableHead>
                 {onPagar && <TableHead />}
-                {onVerStripe && <TableHead />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -205,19 +204,6 @@ export function SolicitudesPendientesPagoTable({
                             Pagar
                           </Button>
                         )}
-                      </TableCell>
-                    )}
-                    {onVerStripe && (
-                      <TableCell>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 whitespace-nowrap"
-                          onClick={() => onVerStripe(s)}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Stripe
-                        </Button>
                       </TableCell>
                     )}
                   </TableRow>

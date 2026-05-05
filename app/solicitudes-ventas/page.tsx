@@ -627,6 +627,10 @@ export default function SolicitudesVentasPage() {
         solicitudCompleta={solicitudParaPagarCompleta}
         facturaAsociadaNumero={facturaAsociadaNumero}
         bloquearConfiguracionPago={Boolean((solicitudParaPagar?.total_pagado ?? 0) > 0)}
+        onVerStripe={solicitudParaPagar ? () => {
+          setStripeSolicitudFiltro(solicitudParaPagar.id);
+          setStripePagosOpen(true);
+        } : undefined}
         onSubmit={handleRegistrarPago}
       />
 
