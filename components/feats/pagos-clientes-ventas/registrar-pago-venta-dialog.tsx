@@ -347,8 +347,9 @@ export function RegistrarPagoVentaDialog({
         }),
       });
       const data = await res.json();
-      if (!data.success || !data.url) throw new Error(data.message || "No se pudo generar el link");
-      setStripeLink(data.url);
+      const url = data.url || data.payment_link;
+      if (!data.success || !url) throw new Error(data.message || "No se pudo generar el link");
+      setStripeLink(url);
     } catch (e) {
       setStripeError(e instanceof Error ? e.message : "Error al generar el link");
     } finally {
@@ -571,43 +572,38 @@ export function RegistrarPagoVentaDialog({
               {/* Link generado */}
               {stripeLink && (
                 <div className="space-y-2 pt-1">
-                  <p className="text-xs font-semibold text-green-700 flex items-center gap-1">
-                    <Check className="h-3.5 w-3.5" /> Link generado
-                  </p>
-                  <div className="rounded-md border border-violet-300 bg-white p-2 space-y-2">
-                    <p className="text-xs text-gray-700 break-all select-all">{stripeLink}</p>
-                    <div className="flex gap-2">
+                  <p className="text-xs font-semibold text-green-700">✓ Link generado</p>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={stripeLink}
+                      className="flex-1 bg-white text-xs"
+                      onFocus={(e) => e.target.select()}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0 gap-1 border-violet-300 text-violet-700 hover:bg-violet-50"
+                      onClick={() => {
+                        navigator.clipboard.writeText(stripeLink);
+                        setCopiado(true);
+                        setTimeout(() => setCopiado(false), 2500);
+                      }}
+                    >
+                      {copiado ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copiado ? "Copiado" : "Copiar"}
+                    </Button>
+                    <a href={stripeLink} target="_blank" rel="noopener noreferrer">
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
-                        className="flex-1 gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
-                        onClick={() => {
-                          navigator.clipboard.writeText(stripeLink);
-                          setCopiado(true);
-                          setTimeout(() => setCopiado(false), 2500);
-                        }}
+                        className="shrink-0 border-violet-300 text-violet-700 hover:bg-violet-50"
                       >
-                        {copiado
-                          ? <><Check className="h-3.5 w-3.5 text-green-600" /> Copiado</>
-                          : <><Copy className="h-3.5 w-3.5" /> Copiar link</>}
+                        <Link className="h-3.5 w-3.5" />
                       </Button>
-                      <a
-                        href={stripeLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1"
-                      >
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="w-full gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
-                        >
-                          <Link className="h-3.5 w-3.5" /> Abrir
-                        </Button>
-                      </a>
-                    </div>
+                    </a>
                   </div>
                 </div>
               )}
