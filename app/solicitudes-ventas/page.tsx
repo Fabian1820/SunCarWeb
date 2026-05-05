@@ -28,6 +28,7 @@ import { TodosPagosVentasTable } from "@/components/feats/pagos-clientes-ventas/
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
 import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
+import { StripePagosSolicitudesModal } from "@/components/feats/solicitudes-ventas/stripe-pagos-solicitudes-modal";
 import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
@@ -103,6 +104,7 @@ export default function SolicitudesVentasPage() {
   const [isAnularDialogOpen, setIsAnularDialogOpen]   = useState(false);
   const [pagoDialogOpen, setPagoDialogOpen]           = useState(false);
   const [facturaDialogOpen, setFacturaDialogOpen]     = useState(false);
+  const [stripePagosOpen, setStripePagosOpen]         = useState(false);
 
   const [selectedSolicitud, setSelectedSolicitud]     = useState<SolicitudVenta | null>(null);
   const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVentaSummary | null>(null);
@@ -361,17 +363,28 @@ export default function SolicitudesVentasPage() {
         className="bg-white shadow-sm border-b border-orange-100"
         actions={
           activeTab === "solicitudes" ? (
-            <Button
-              size="icon"
-              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
-              onClick={() => setIsCreateDialogOpen(true)}
-              aria-label="Nueva solicitud de venta"
-              title="Nueva solicitud"
-            >
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Nueva Solicitud</span>
-              <span className="sr-only">Nueva solicitud</span>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setStripePagosOpen(true)}
+                className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              >
+                <CreditCard className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Pagos Stripe</span>
+              </Button>
+              <Button
+                size="icon"
+                className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
+                onClick={() => setIsCreateDialogOpen(true)}
+                aria-label="Nueva solicitud de venta"
+                title="Nueva solicitud"
+              >
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Nueva Solicitud</span>
+                <span className="sr-only">Nueva solicitud</span>
+              </Button>
+            </div>
           ) : activeTab === "facturas-emitidas" ? (
             <Button
               className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white gap-2 touch-manipulation"
@@ -597,6 +610,11 @@ export default function SolicitudesVentasPage() {
           if (!open) setFacturaDetalle(null);
         }}
         factura={facturaDetalle}
+      />
+
+      <StripePagosSolicitudesModal
+        open={stripePagosOpen}
+        onOpenChange={setStripePagosOpen}
       />
 
       <Toaster />

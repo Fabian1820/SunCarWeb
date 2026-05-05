@@ -204,6 +204,50 @@ export type ModoMunicipio =
   | "visitas"
   | "ventas"
 
+// ── Periodo: heatmap por municipio ──────────────────────────────────────────
+
+export interface PeriodoMunicipioCount { municipio: string; count: number }
+
+export interface PeriodoMunicipios {
+  instalaciones_terminadas: PeriodoMunicipioCount[]
+  averias_solucionadas: PeriodoMunicipioCount[]
+  trabajos_diarios: PeriodoMunicipioCount[]
+  clientes_trabajados: PeriodoMunicipioCount[]
+}
+
+export interface PeriodoMunicipioTrabajo {
+  cliente_numero?: string
+  cliente_nombre?: string
+  cliente_telefono?: string
+  cliente_direccion?: string
+  fecha_trabajo?: string
+  tipo_trabajo?: string
+  fin_comentario?: string
+  instalacion_terminada?: boolean
+  cierre_diario_confirmado?: boolean
+}
+
+export interface PeriodoMunicipioAveriaCliente {
+  id?: string
+  numero?: string
+  nombre?: string
+  telefono?: string
+  direccion?: string
+  averias?: Array<{ estado?: string; descripcion?: string; fecha_solucion?: string; fecha_resolucion?: string }>
+}
+
+export interface PeriodoMunicipioDetalle {
+  trabajos?: PeriodoMunicipioTrabajo[]
+  clientes?: PeriodoMunicipioAveriaCliente[]
+  cliente_numeros?: string[]
+}
+
+export type ModoPeriodoMunicipio =
+  | "trabajos_diarios"
+  | "instalaciones_terminadas"
+  | "averias_solucionadas_periodo"
+  | "clientes_trabajados"
+
 // ── Equipos batch ────────────────────────────────────────────────────────────
 
 export interface CentroControlOfertaSlim {
@@ -271,5 +315,22 @@ export class CentroControlService {
   /** On-demand: conteo de clientes agrupado por año/mes para ClientesStatsPanel */
   static async getClientesPorMes(): Promise<ClientesPorMesItem[]> {
     return apiRequest<ClientesPorMesItem[]>(`/centro-control/clientes-por-mes`)
+  }
+
+  /** Counts por municipio para modos de periodo (heatmap del mapa) */
+  static async getPeriodoMunicipios(fechaDesde: string, fechaHasta: string): Promise<PeriodoMunicipios> {
+    const params = new URLSearchParams({ fecha_desde: fechaDesde, fecha_hasta: fechaHasta })
+    return apiRequest<PeriodoMunicipios>(`/centro-control/periodo-municipios?${params}`)
+  }
+
+  /** Detalle on-demand al hacer click en municipio para modos de periodo */
+  static async getPeriodoMunicipioDetalle(
+    mode: ModoPeriodoMunicipio,
+    municipio: string,
+    fechaDesde: string,
+    fechaHasta: string,
+  ): Promise<PeriodoMunicipioDetalle> {
+    const params = new URLSearchParams({ mode, municipio, fecha_desde: fechaDesde, fecha_hasta: fechaHasta })
+    return apiRequest<PeriodoMunicipioDetalle>(`/centro-control/periodo-municipio-detalle?${params}`)
   }
 }

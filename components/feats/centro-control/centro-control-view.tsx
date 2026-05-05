@@ -20,7 +20,7 @@ import type { MunicipioDetallado } from "@/lib/types/feats/resultados/resultados
 import type { Cliente } from "@/lib/api-types"
 import type { Lead } from "@/lib/types/feats/leads/lead-types"
 import type { Brigada } from "@/lib/types/feats/brigade/brigade-types"
-import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim, PeriodoStats, AnalisisRegionalData, ClientesPorMesItem } from "@/lib/services/feats/centro-control/centro-control-service"
+import type { ClienteSlim, LeadSlim, ClienteVentaSlim, SolicitudVentaSlim, PeriodoStats, AnalisisRegionalData, ClientesPorMesItem, PeriodoMunicipios, PeriodoMunicipioTrabajo, PeriodoMunicipioAveriaCliente, ModoPeriodoMunicipio } from "@/lib/services/feats/centro-control/centro-control-service"
 import "leaflet/dist/leaflet.css"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1981,9 +1981,12 @@ export default function CentroControlView() {
   // Brigadas on-demand
   const [brigadas, setBrigadas] = useState<Brigada[]>([])
   const [brigadasLoading, setBrigadasLoading] = useState(false)
-  // Periodo stats on-demand (para periodos distintos a "semana")
+  // Periodo stats on-demand
   const [periodoApiStats, setPeriodoApiStats] = useState<PeriodoStats | null>(null)
   const [periodoApiLoading, setPeriodoApiLoading] = useState(false)
+  // Periodo municipios on-demand (heatmap por municipio para modos de periodo)
+  const emptyPeriodoMunicipios: PeriodoMunicipios = { instalaciones_terminadas: [], averias_solucionadas: [], trabajos_diarios: [], clientes_trabajados: [] }
+  const [periodoMunicipios, setPeriodoMunicipios] = useState<PeriodoMunicipios>(emptyPeriodoMunicipios)
   // Análisis regional on-demand
   const [analisisRegionalData, setAnalisisRegionalData] = useState<AnalisisRegionalData | null>(null)
   const [analisisRegionalLoading, setAnalisisRegionalLoading] = useState(false)
@@ -2113,22 +2116,27 @@ export default function CentroControlView() {
       .finally(() => setBrigadasLoading(false))
   }, [showBrigadas, brigadas.length, brigadasLoading])
 
-  // ── Carga on-demand de periodo-stats (solo para periodos distintos a "semana") ─
+  // ── Carga on-demand de periodo-stats y periodo-municipios ──────────────────
   useEffect(() => {
-    // "semana" ya está cubierto por el dashboard — no hacer llamada extra
-    if (periodoTipo === "semana") { setPeriodoApiStats(null); return }
-    // Calcular rango inline para evitar forward reference con periodoRange (declarado más abajo)
     const range = getPeriodRange(periodoTipo, periodoFecha, periodoDesde, periodoHasta)
-    if (!range) { setPeriodoApiStats(null); return }
+    if (!range) { setPeriodoApiStats(null); setPeriodoMunicipios(emptyPeriodoMunicipios); return }
     const startStr = toISODate(range.start)
     const endStr   = toISODate(range.end)
     let cancelled = false
     setPeriodoApiLoading(true)
-    CentroControlService.getPeriodoStats(startStr, endStr)
-      .then(data => { if (!cancelled) setPeriodoApiStats(data) })
-      .catch(() => { if (!cancelled) setPeriodoApiStats(null) })
+    Promise.all([
+      CentroControlService.getPeriodoStats(startStr, endStr),
+      CentroControlService.getPeriodoMunicipios(startStr, endStr),
+    ])
+      .then(([stats, munis]) => {
+        if (cancelled) return
+        setPeriodoApiStats(stats)
+        setPeriodoMunicipios(munis)
+      })
+      .catch(() => { if (!cancelled) { setPeriodoApiStats(null); setPeriodoMunicipios(emptyPeriodoMunicipios) } })
       .finally(() => { if (!cancelled) setPeriodoApiLoading(false) })
     return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodoTipo, periodoFecha, periodoDesde, periodoHasta])
 
   // ── Carga on-demand de analisis-regional al abrir el panel ─────────────────
@@ -2380,11 +2388,38 @@ export default function CentroControlView() {
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
   )
 
-  // ── Mapas de periodo — vacíos por ahora (deferred: se calcularán en el backend con /periodo-stats) ──
-  const trabajosDiariosMap = useMemo(() => new Map<string, TrabajoDiarioRow[]>(), [])
-  const clientesTrabajadosMap = useMemo(() => new Map<string, Set<string>>(), [])
-  const instalacionesTerminadasMap = useMemo(() => new Map<string, TrabajoDiarioRow[]>(), [])
-  const averiasSolucionadasPeriodoMap = useMemo(() => new Map<string, Cliente[]>(), [])
+  // ── Mapas de periodo — construidos desde periodoMunicipios ─────────────────
+  const trabajosDiariosMap = useMemo(() => {
+    const m = new Map<string, number>()
+    periodoMunicipios.trabajos_diarios.forEach(({ municipio, count }) => {
+      const k = normalizeText(municipio); if (k) m.set(k, count)
+    })
+    return m
+  }, [periodoMunicipios.trabajos_diarios])
+
+  const clientesTrabajadosMap = useMemo(() => {
+    const m = new Map<string, number>()
+    periodoMunicipios.clientes_trabajados.forEach(({ municipio, count }) => {
+      const k = normalizeText(municipio); if (k) m.set(k, count)
+    })
+    return m
+  }, [periodoMunicipios.clientes_trabajados])
+
+  const instalacionesTerminadasMap = useMemo(() => {
+    const m = new Map<string, number>()
+    periodoMunicipios.instalaciones_terminadas.forEach(({ municipio, count }) => {
+      const k = normalizeText(municipio); if (k) m.set(k, count)
+    })
+    return m
+  }, [periodoMunicipios.instalaciones_terminadas])
+
+  const averiasSolucionadasPeriodoMap = useMemo(() => {
+    const m = new Map<string, number>()
+    periodoMunicipios.averias_solucionadas.forEach(({ municipio, count }) => {
+      const k = normalizeText(municipio); if (k) m.set(k, count)
+    })
+    return m
+  }, [periodoMunicipios.averias_solucionadas])
 
   const maxByMode = useMemo(() => {
     if (viewMode === "pendientes_instalacion") return Math.max(...Array.from(pendientesInstMap.values()), 1)
@@ -2392,63 +2427,42 @@ export default function CentroControlView() {
     if (viewMode === "averias") return Math.max(...Array.from(averiasMap.values()), 1)
     if (viewMode === "visitas") return Math.max(...Array.from(visitasMap.values()), 1)
     if (viewMode === "ventas") return Math.max(...Array.from(ventasMap.values()), 1)
+    if (viewMode === "trabajos_diarios") return Math.max(...Array.from(trabajosDiariosMap.values()), 1)
+    if (viewMode === "clientes_trabajados") return Math.max(...Array.from(clientesTrabajadosMap.values()), 1)
+    if (viewMode === "instalaciones_terminadas") return Math.max(...Array.from(instalacionesTerminadasMap.values()), 1)
+    if (viewMode === "averias_solucionadas_periodo") return Math.max(...Array.from(averiasSolucionadasPeriodoMap.values()), 1)
     return maxClientes
-  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, maxClientes])
+  }, [viewMode, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, maxClientes])
 
   const periodoLabel = useMemo(
     () => formatPeriodoLabel(periodoTipo, periodoFecha, periodoDesde, periodoHasta),
     [periodoTipo, periodoFecha, periodoDesde, periodoHasta],
   )
 
-  // periodoStats: para "semana" usa datos del dashboard; otros periodos usa la API /periodo-stats
   const periodoStats = useMemo(() => {
     const zero = { instalacionesComenzadas: 0, instalacionesTerminadas: 0, nuevosClientes: 0, nuevosLeads: 0, averiasSolucionadas: 0, ofertasCreadas: 0, ofertasConfirmadas: 0, ofertasCanceladas: 0, reservas: 0, trabajosDiarios: 0, clientesTrabajados: 0, nuevosClientesVentas: 0, solicitudesDespachadas: 0, materialesVendidosUnidades: 0 }
-    if (!periodoRange) return zero
-    if (periodoTipo === "semana" && controlData) {
-      return {
-        ...zero,
-        instalacionesComenzadas: controlData.instalacionesComenzadas,
-        instalacionesTerminadas: controlData.instalacionesTerminadas,
-        nuevosClientes: controlData.nuevosClientes,
-        nuevosLeads: controlData.nuevosLeads,
-        averiasSolucionadas: controlData.averiasSolucionadas,
-      }
+    if (!periodoRange || !periodoApiStats) return zero
+    return {
+      instalacionesComenzadas:    periodoApiStats.instalaciones_comenzadas,
+      instalacionesTerminadas:    periodoApiStats.instalaciones_terminadas,
+      nuevosClientes:             periodoApiStats.nuevos_clientes,
+      nuevosLeads:                periodoApiStats.nuevos_leads,
+      averiasSolucionadas:        periodoApiStats.averias_solucionadas,
+      ofertasCreadas:             periodoApiStats.ofertas_creadas,
+      ofertasConfirmadas:         periodoApiStats.ofertas_confirmadas,
+      ofertasCanceladas:          periodoApiStats.ofertas_canceladas,
+      reservas:                   periodoApiStats.reservas,
+      trabajosDiarios:            periodoApiStats.trabajos_diarios,
+      clientesTrabajados:         periodoApiStats.clientes_trabajados,
+      nuevosClientesVentas:       periodoApiStats.nuevos_clientes_ventas,
+      solicitudesDespachadas:     periodoApiStats.solicitudes_despachadas,
+      materialesVendidosUnidades: periodoApiStats.materiales_vendidos_unidades,
     }
-    // Para otros periodos — usa datos de la API /periodo-stats
-    if (periodoApiStats) {
-      return {
-        instalacionesComenzadas:      periodoApiStats.instalaciones_comenzadas,
-        instalacionesTerminadas:      periodoApiStats.instalaciones_terminadas,
-        nuevosClientes:               periodoApiStats.nuevos_clientes,
-        nuevosLeads:                  periodoApiStats.nuevos_leads,
-        averiasSolucionadas:          periodoApiStats.averias_solucionadas,
-        ofertasCreadas:               periodoApiStats.ofertas_creadas,
-        ofertasConfirmadas:           periodoApiStats.ofertas_confirmadas,
-        ofertasCanceladas:            periodoApiStats.ofertas_canceladas,
-        reservas:                     periodoApiStats.reservas,
-        trabajosDiarios:              periodoApiStats.trabajos_diarios,
-        clientesTrabajados:           periodoApiStats.clientes_trabajados,
-        nuevosClientesVentas:         periodoApiStats.nuevos_clientes_ventas,
-        solicitudesDespachadas:       periodoApiStats.solicitudes_despachadas,
-        materialesVendidosUnidades:   periodoApiStats.materiales_vendidos_unidades,
-      }
-    }
-    return zero
-  }, [periodoTipo, periodoRange, controlData, periodoApiStats])
+  }, [periodoRange, periodoApiStats])
 
-  // Visitas realizadas: usa datos ya calculados (dashboard para semana, periodo-stats para el resto)
   useEffect(() => {
-    if (!periodoRange) { setVisitasRealizadasPeriodo(0); return }
-    if (periodoTipo === "semana") {
-      // "semana" ya viene del dashboard — evitar llamada extra
-      setVisitasRealizadasPeriodo(controlData?.visitasRealizadas ?? 0)
-    } else if (periodoApiStats) {
-      // Los otros periodos vienen de /periodo-stats — ya calculado en paralelo
-      setVisitasRealizadasPeriodo(periodoApiStats.visitas_realizadas)
-    } else {
-      setVisitasRealizadasPeriodo(0)
-    }
-  }, [periodoRange, periodoTipo, controlData?.visitasRealizadas, periodoApiStats])
+    setVisitasRealizadasPeriodo(periodoApiStats?.visitas_realizadas ?? 0)
+  }, [periodoApiStats])
 
   // ── Map styles ──────────────────────────────────────────────────────────────
   const getFeatureStyle = useCallback((feature?: Feature): PathOptions => {
@@ -2468,10 +2482,10 @@ export default function CentroControlView() {
     else if (viewMode === "averias") count = averiasMap.get(key) ?? 0
     else if (viewMode === "visitas") count = visitasMap.get(key) ?? 0
     else if (viewMode === "ventas") count = ventasMap.get(key) ?? 0
-    else if (viewMode === "trabajos_diarios") count = trabajosDiariosMap.get(key)?.length ?? 0
-    else if (viewMode === "clientes_trabajados") count = clientesTrabajadosMap.get(key)?.size ?? 0
-    else if (viewMode === "instalaciones_terminadas") count = instalacionesTerminadasMap.get(key)?.length ?? 0
-    else if (viewMode === "averias_solucionadas_periodo") count = averiasSolucionadasPeriodoMap.get(key)?.length ?? 0
+    else if (viewMode === "trabajos_diarios") count = trabajosDiariosMap.get(key) ?? 0
+    else if (viewMode === "clientes_trabajados") count = clientesTrabajadosMap.get(key) ?? 0
+    else if (viewMode === "instalaciones_terminadas") count = instalacionesTerminadasMap.get(key) ?? 0
+    else if (viewMode === "averias_solucionadas_periodo") count = averiasSolucionadasPeriodoMap.get(key) ?? 0
 
     if (!isInsideFilter) {
       return { color: "#0b1220", weight: 0.5, fillColor: "#020617", fillOpacity: 0.15 }
@@ -2507,10 +2521,10 @@ export default function CentroControlView() {
     else if (viewMode === "averias") { modeCount = averiasMap.get(key) ?? 0; modeLabel = "con avería" }
     else if (viewMode === "visitas") { modeCount = visitasMap.get(key) ?? 0; modeLabel = "visita pendiente" }
     else if (viewMode === "ventas") { modeCount = ventasMap.get(key) ?? 0; modeLabel = "cliente ventas" }
-    else if (viewMode === "trabajos_diarios") { modeCount = trabajosDiariosMap.get(key)?.length ?? 0; modeLabel = "trabajo" }
-    else if (viewMode === "clientes_trabajados") { modeCount = clientesTrabajadosMap.get(key)?.size ?? 0; modeLabel = "cliente trabajado" }
-    else if (viewMode === "instalaciones_terminadas") { modeCount = instalacionesTerminadasMap.get(key)?.length ?? 0; modeLabel = "instalación terminada" }
-    else if (viewMode === "averias_solucionadas_periodo") { modeCount = averiasSolucionadasPeriodoMap.get(key)?.length ?? 0; modeLabel = "avería solucionada" }
+    else if (viewMode === "trabajos_diarios") { modeCount = trabajosDiariosMap.get(key) ?? 0; modeLabel = "trabajo" }
+    else if (viewMode === "clientes_trabajados") { modeCount = clientesTrabajadosMap.get(key) ?? 0; modeLabel = "cliente trabajado" }
+    else if (viewMode === "instalaciones_terminadas") { modeCount = instalacionesTerminadasMap.get(key) ?? 0; modeLabel = "instalación terminada" }
+    else if (viewMode === "averias_solucionadas_periodo") { modeCount = averiasSolucionadasPeriodoMap.get(key) ?? 0; modeLabel = "avería solucionada" }
 
     const featureProvinciaKey = municipioToProvinciaMap.get(key) ?? ""
     const shouldShowMunicipioLabels = selectedProvinciaKeys.size > 0
@@ -2585,15 +2599,42 @@ export default function CentroControlView() {
               .then(data => setSelectedItem({ mode: "ventas", municipio: shapeName, clientesVenta: data.clientes_venta, solicitudesUsadas: data.solicitudes_usadas }))
               .catch(() => {})
               .finally(() => setMunicipioDetailLoading(false))
+          } else if (viewMode === "trabajos_diarios") {
+            if (!(trabajosDiariosMap.get(key) ?? 0) || !periodoRange) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getPeriodoMunicipioDetalle("trabajos_diarios", shapeName, toISODate(periodoRange.start), toISODate(periodoRange.end))
+              .then(data => setSelectedItem({ mode: "trabajos_diarios", municipio: shapeName, trabajos: (data.trabajos ?? []) as TrabajoDiarioRow[] }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
+          } else if (viewMode === "clientes_trabajados") {
+            if (!(clientesTrabajadosMap.get(key) ?? 0) || !periodoRange) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getPeriodoMunicipioDetalle("clientes_trabajados", shapeName, toISODate(periodoRange.start), toISODate(periodoRange.end))
+              .then(data => setSelectedItem({ mode: "clientes_trabajados", municipio: shapeName, clienteNumeros: data.cliente_numeros ?? [] }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
+          } else if (viewMode === "instalaciones_terminadas") {
+            if (!(instalacionesTerminadasMap.get(key) ?? 0) || !periodoRange) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getPeriodoMunicipioDetalle("instalaciones_terminadas", shapeName, toISODate(periodoRange.start), toISODate(periodoRange.end))
+              .then(data => setSelectedItem({ mode: "instalaciones_terminadas", municipio: shapeName, trabajos: (data.trabajos ?? []) as TrabajoDiarioRow[] }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
+          } else if (viewMode === "averias_solucionadas_periodo") {
+            if (!(averiasSolucionadasPeriodoMap.get(key) ?? 0) || !periodoRange) return
+            setMunicipioDetailLoading(true)
+            CentroControlService.getPeriodoMunicipioDetalle("averias_solucionadas_periodo", shapeName, toISODate(periodoRange.start), toISODate(periodoRange.end))
+              .then(data => setSelectedItem({ mode: "averias_solucionadas_periodo", municipio: shapeName, clientes: (data.clientes ?? []) as Cliente[] }))
+              .catch(() => {})
+              .finally(() => setMunicipioDetailLoading(false))
           }
-          // Modos de periodo (trabajos_diarios, etc.) — deferred, Maps vacíos
         },
       })
     }
-  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys, setMunicipioDetailLoading, setSelectedItem])
+  }, [viewMode, municipioMap, pendientesInstMap, enProcesoMap, averiasMap, visitasMap, ventasMap, trabajosDiariosMap, clientesTrabajadosMap, instalacionesTerminadasMap, averiasSolucionadasPeriodoMap, periodoRange, getFeatureStyle, municipioToProvinciaMap, selectedMunicipioKey, selectedProvinciaKey, selectedProvinciaKeys, setMunicipioDetailLoading, setSelectedItem])
 
 
-  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
+  const geoKey = `${viewMode}-${municipioMap.size}-${pendientesInstMap.size}-${enProcesoMap.size}-${averiasMap.size}-${visitasMap.size}-${ventasMap.size}-${trabajosDiariosMap.size}-${clientesTrabajadosMap.size}-${instalacionesTerminadasMap.size}-${averiasSolucionadasPeriodoMap.size}-${Array.from(selectedProvinciaKeys).join(",")}-${selectedMunicipioKey}`
 
   // ─── Render ─────────────────────────────────────────────────────────────────
   return (
