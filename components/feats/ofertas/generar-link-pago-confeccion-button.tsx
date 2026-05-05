@@ -65,7 +65,8 @@ interface StripeLinkStatusSummary {
   invoiceNumber: string | null;
 }
 
-const STRIPE_FEE_PERCENT = 0.05;
+const STRIPE_RATE = 0.0325;
+const STRIPE_FIXED = 0.30;
 
 const redondearDosDecimales = (valor: number) =>
   Math.round((valor + Number.EPSILON) * 100) / 100;
@@ -163,12 +164,13 @@ export function GenerarLinkPagoConfeccionButton({
       } else if (referenciaManual === "antes_impuesto") {
         baseSinRecargo = montoManualNumerico;
       } else {
-        baseSinRecargo = montoManualNumerico / (1 + STRIPE_FEE_PERCENT);
+        // El usuario ingresa el total final → despejar la base
+        baseSinRecargo = montoManualNumerico * (1 - STRIPE_RATE) - STRIPE_FIXED;
       }
     }
 
-    const recargoStripe = baseSinRecargo * STRIPE_FEE_PERCENT;
-    const totalConRecargo = baseSinRecargo + recargoStripe;
+    const totalConRecargo = (baseSinRecargo + STRIPE_FIXED) / (1 - STRIPE_RATE);
+    const recargoStripe = totalConRecargo - baseSinRecargo;
     const porcentajeEquivalente =
       precioOferta > 0 ? (baseSinRecargo / precioOferta) * 100 : 0;
 
@@ -209,7 +211,7 @@ export function GenerarLinkPagoConfeccionButton({
       nombreOferta,
       formaCobro,
       `Base sin recargo: ${formatCurrency(calculo.baseSinRecargo, moneda)}`,
-      `Recargo Stripe (5%): ${formatCurrency(calculo.recargoStripe, moneda)}`,
+      `Comisión Stripe (3.25% + $0.30): ${formatCurrency(calculo.recargoStripe, moneda)}`,
       `Total a pagar: ${formatCurrency(calculo.totalConRecargo, moneda)}`,
     ].join("\n");
   }, [
@@ -469,8 +471,8 @@ export function GenerarLinkPagoConfeccionButton({
           <DialogHeader>
             <DialogTitle>Generar Link de Pago</DialogTitle>
             <DialogDescription>
-              Define cuánto vas a cobrar. El sistema aplica automáticamente el 5%
-              de Stripe y te muestra el total final en tiempo real.
+              Define cuánto vas a cobrar. El sistema aplica automáticamente la
+              comisión real de Stripe (3.25% + $0.30) en tiempo real.
             </DialogDescription>
           </DialogHeader>
 
@@ -587,10 +589,10 @@ export function GenerarLinkPagoConfeccionButton({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="antes_impuesto">
-                        Monto antes del 5% de Stripe
+                        Monto antes de la comisión de Stripe
                       </SelectItem>
                       <SelectItem value="despues_impuesto">
-                        Monto final exacto (incluye el 5%)
+                        Monto final exacto (incluye la comisión)
                       </SelectItem>
                     </SelectContent>
                   </Select>
@@ -610,7 +612,7 @@ export function GenerarLinkPagoConfeccionButton({
                 </span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600">Recargo Stripe (5%)</span>
+                <span className="text-slate-600">Comisión Stripe (3.25% + $0.30)</span>
                 <span className="font-semibold text-slate-900">
                   {formatCurrency(calculo.recargoStripe, moneda)}
                 </span>
@@ -767,7 +769,7 @@ export function GenerarLinkPagoConfeccionButton({
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-600">Recargo Stripe (5%)</span>
+                  <span className="text-slate-600">Comisión Stripe (3.25% + $0.30)</span>
                   <span className="font-semibold text-slate-900">
                     {formatCurrency(
                       resumenGenerado.recargoStripe,

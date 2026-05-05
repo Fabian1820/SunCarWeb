@@ -27,7 +27,8 @@ export function GenerarLinkPagoOfertaButton({
   size = "default",
   showIcon = true,
 }: GenerarLinkPagoOfertaButtonProps) {
-  const STRIPE_FEE_PERCENT = 0.05
+  const STRIPE_RATE = 0.0325
+  const STRIPE_FIXED = 0.30
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string>("")
@@ -41,7 +42,7 @@ export function GenerarLinkPagoOfertaButton({
   const hasPrice = typeof precioBase === "number" && precioBase > 0
   const isDisabled = !hasPrice || loading
   const precioConRecargo = hasPrice
-    ? Math.round(precioBase * (1 + STRIPE_FEE_PERCENT) * 100) / 100
+    ? Math.round(((precioBase + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
     : 0
 
   const formatearDescripcion = (): string => {
@@ -141,7 +142,7 @@ export function GenerarLinkPagoOfertaButton({
         title={
           !hasPrice
             ? "La oferta debe tener un precio valido"
-            : "Generar link de pago con Stripe (incluye 5% de gastos)"
+            : "Generar link de pago con Stripe (incluye comisión real Stripe)"
         }
       >
         {loading ? (
@@ -151,7 +152,7 @@ export function GenerarLinkPagoOfertaButton({
         )}
         {size !== "icon" && (
           <span className={showIcon ? "ml-2" : ""}>
-            {loading ? "Generando..." : "Generar Link de Pago (+5% Stripe)"}
+            {loading ? "Generando..." : "Generar Link de Pago (+Stripe)"}
           </span>
         )}
       </Button>
@@ -197,7 +198,7 @@ export function GenerarLinkPagoOfertaButton({
                 <strong>Precio base:</strong> ${precioBase.toFixed(2)} USD
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Total con 5% Stripe:</strong> ${precioConRecargo.toFixed(2)} USD
+                <strong>Total con comisión Stripe:</strong> ${precioConRecargo.toFixed(2)} USD
               </p>
             </div>
           </div>

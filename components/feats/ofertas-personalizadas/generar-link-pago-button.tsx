@@ -27,7 +27,8 @@ export function GenerarLinkPagoButton({
   size = 'default',
   showIcon = true,
 }: GenerarLinkPagoButtonProps) {
-  const STRIPE_FEE_PERCENT = 0.05
+  const STRIPE_RATE = 0.0325
+  const STRIPE_FIXED = 0.30
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string>('')
@@ -41,7 +42,7 @@ export function GenerarLinkPagoButton({
   const hasPrice = oferta.precio !== undefined && oferta.precio !== null && oferta.precio > 0
   const isDisabled = isPagada || !hasPrice || loading
   const precioConRecargo = hasPrice
-    ? Math.round(oferta.precio! * (1 + STRIPE_FEE_PERCENT) * 100) / 100
+    ? Math.round(((oferta.precio! + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
     : 0
 
   const formatCurrency = (amount: number, currencyCode: 'USD' | 'EUR') => {
@@ -217,7 +218,7 @@ export function GenerarLinkPagoButton({
               ? 'La oferta ya está pagada'
               : !hasPrice
               ? 'La oferta debe tener un precio válido'
-              : 'Generar link de pago con Stripe (incluye 5% de gastos)'
+              : 'Generar link de pago con Stripe (incluye comisión real Stripe)'
           }
         >
           {loading ? (
@@ -227,7 +228,7 @@ export function GenerarLinkPagoButton({
           )}
           {size !== 'icon' && (
             <span className={showIcon ? 'ml-2' : ''}>
-              {loading ? 'Generando...' : 'Generar Link de Pago (+5% Stripe)'}
+              {loading ? 'Generando...' : 'Generar Link de Pago (+Stripe)'}
             </span>
           )}
         </Button>
@@ -282,7 +283,7 @@ export function GenerarLinkPagoButton({
                 {typeof oferta.precio === 'number' ? formatCurrency(oferta.precio, currency) : 'N/A'}
               </p>
               <p className="text-sm text-gray-600">
-                <strong>Total con 5% Stripe:</strong> {formatCurrency(precioConRecargo, currency)}
+                <strong>Total con comisión Stripe:</strong> {formatCurrency(precioConRecargo, currency)}
               </p>
             </div>
           </div>
