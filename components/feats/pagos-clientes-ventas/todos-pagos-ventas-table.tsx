@@ -24,7 +24,6 @@ import {
   Search,
   RefreshCw,
   AlertCircle,
-  CalendarClock,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -41,6 +40,7 @@ type AgrupacionId = "ninguna" | "solicitud" | "cliente" | "fecha";
 const METODO_LABELS: Record<string, string> = {
   efectivo: "Efectivo",
   transferencia_bancaria: "Transferencia",
+  stripe: "Stripe",
 };
 
 const MONEDA_COLORS: Record<string, string> = {
@@ -56,6 +56,86 @@ export function TodosPagosVentasTable({
   onRefresh,
 }: TodosPagosVentasTableProps) {
   const [search, setSearch] = useState("");
+  const [planesAbiertos, setPlanesAbiertos] = useState<Set<string>>(new Set());
+  const getPagoKey = (p: PagoVenta, index: number): string =>
+    [
+      p.id || "no-id",
+      p.solicitud_venta_id || "no-sol",
+      p.fecha || "no-fecha",
+      String(p.monto ?? "no-monto"),
+      p.moneda || "no-moneda",
+      String(index),
+    ].join("|");
+  const getSolicitudId = (p: PagoVenta): string =>
+    typeof p.solicitud_venta_id === "string" ? p.solicitud_venta_id : "";
+  const getSolicitudCode = (p: PagoVenta): string => {
+    if (p.solicitud_codigo) return String(p.solicitud_codigo);
+    const id = getSolicitudId(p);
+    return id ? id.slice(-6).toUpperCase() : "—";
+  };
+  const getMonto = (p: PagoVenta): number => {
+    const n = Number(p.monto);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const getMoneda = (p: PagoVenta): string =>
+    typeof p.moneda === "string" && p.moneda.trim() ? p.moneda : "USD";
+  const getPendiente = (p: PagoVenta): number | null => {
+    const n = Number(p.monto_pendiente_despues_pago);
+    return Number.isFinite(n) ? n : null;
+  };
+  const getPlanPagos = (p: PagoVenta): PagoVenta["plan_pagos"] =>
+    p.plan_pagos ?? p.pagos_programados ?? null;
+  const getMaterialesTexto = (p: PagoVenta): string => {
+    if (Array.isArray(p.materiales)) {
+      return p.materiales
+        .map((m) => {
+          if (typeof m === "string") return m;
+          if (m && typeof m === "object") {
+            const row = m as {
+              nombre?: string;
+              descripcion?: string;
+              material_descripcion?: string;
+              cantidad?: number;
+            };
+            const nombre =
+              row.nombre || row.descripcion || row.material_descripcion || "";
+            const cantidad =
+              typeof row.cantidad === "number" && row.cantidad > 0
+                ? `${row.cantidad}x `
+                : "";
+            return `${cantidad}${nombre}`.trim();
+          }
+          return "";
+        })
+        .filter(Boolean)
+        .join(", ");
+    }
+    if (typeof p.materiales === "string") return p.materiales;
+    return "—";
+  };
+  const getMetodoPago = (p: PagoVenta): string => {
+    const metodoPlano = typeof p.metodo_pago === "string" ? p.metodo_pago : "";
+    const metodoEnPago =
+      (p as unknown as { pago?: { metodo_pago?: string } })?.pago?.metodo_pago ||
+      "";
+    const raw = metodoPlano || metodoEnPago;
+    return METODO_LABELS[raw] ?? raw ?? "—";
+  };
+  const getDesgloseBilletes = (p: PagoVenta): Record<string, number> | null => {
+    const value =
+      (p as unknown as { desglose_billetes?: Record<string, number> })
+        ?.desglose_billetes ??
+      (p as unknown as { pago?: { desglose_billetes?: Record<string, number> } })
+        ?.pago?.desglose_billetes;
+    if (!value || typeof value !== "object") return null;
+    const entries = Object.entries(value).filter(
+      ([, cantidad]) => Number(cantidad) > 0,
+    );
+    if (entries.length === 0) return null;
+    const normalized: Record<string, number> = {};
+    for (const [k, v] of entries) normalized[k] = Number(v);
+    return normalized;
+  };
   const [agrupacion, setAgrupacion] = useState<AgrupacionId>("ninguna");
   const [gruposAbiertos, setGruposAbiertos] = useState<Set<string>>(
     new Set(),
@@ -83,7 +163,10 @@ export function TodosPagosVentasTable({
         if (!search.trim()) return true;
         const term = search.toLowerCase();
         return (
-          p.solicitud_venta_id.toLowerCase().includes(term) ||
+          getSolicitudId(p).toLowerCase().includes(term) ||
+          (p.solicitud_codigo || "").toLowerCase().includes(term) ||
+          (p.factura_numero || "").toLowerCase().includes(term) ||
+          (p.cliente_nombre || "").toLowerCase().includes(term) ||
           (p.recibido_por || "").toLowerCase().includes(term) ||
           (p.notas || "").toLowerCase().includes(term)
         );
@@ -98,11 +181,11 @@ export function TodosPagosVentasTable({
     for (const p of filtered) {
       let key = "";
       if (agrupacion === "solicitud")
-        key = p.solicitud_venta_id.slice(-6).toUpperCase();
+        key = getSolicitudCode(p);
       else if (agrupacion === "cliente")
-        key = p.recibido_por || "Sin cliente";
+        key = p.cliente_nombre || "Sin cliente";
       else if (agrupacion === "fecha")
-        key = formatDate(p.fecha);
+        key = formatDate(p.fecha || "");
       const list = map.get(key) ?? [];
       list.push(p);
       map.set(key, list);
@@ -118,67 +201,101 @@ export function TodosPagosVentasTable({
     });
   };
 
-  const totalUSD = filtered.reduce((sum, p) => sum + (p.monto_usd ?? p.monto), 0);
+  const togglePlan = (key: string) => {
+    setPlanesAbiertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
-  const PagoRow = ({ p }: { p: PagoVenta }) => (
-    <TableRow className="hover:bg-gray-50">
-      <TableCell className="font-mono text-xs">
-        {p.solicitud_venta_id.slice(-6).toUpperCase()}
-      </TableCell>
-      <TableCell className="text-sm">{formatDate(p.fecha)}</TableCell>
-      <TableCell className="text-right font-medium text-sm text-green-700">
-        {formatCurrency(p.monto, p.moneda)}
-      </TableCell>
-      <TableCell>
-        <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-            MONEDA_COLORS[p.moneda] ?? "bg-gray-100 text-gray-700"
-          }`}
-        >
-          {p.moneda}
-        </span>
-      </TableCell>
-      <TableCell className="text-sm">
-        {METODO_LABELS[p.metodo_pago] ?? p.metodo_pago}
-      </TableCell>
-      <TableCell className="text-sm">
-        {p.descuento_porcentaje && p.descuento_porcentaje > 0 ? (
-          <span className="text-orange-600">{p.descuento_porcentaje}%</span>
-        ) : (
-          <span className="text-gray-400">—</span>
-        )}
-      </TableCell>
-      <TableCell>
-        {p.es_a_plazos ? (
-          <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
-            <CalendarClock className="h-3 w-3" />
-            {p.pagos_programados?.length
-              ? `${p.pagos_programados.length} plazo${p.pagos_programados.length !== 1 ? "s" : ""}`
-              : "Sí"}
-          </span>
-        ) : (
-          <span className="text-gray-400 text-xs">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-sm">{p.recibido_por || "—"}</TableCell>
-      <TableCell className="text-sm text-gray-500 max-w-[140px] truncate">
-        {p.notas || "—"}
-      </TableCell>
-    </TableRow>
-  );
+  const totalUSD = filtered.reduce((sum, p) => sum + getMonto(p), 0);
+
+  const PagoRow = ({ p, rowKey }: { p: PagoVenta; rowKey: string }) => {
+    const moneda = getMoneda(p);
+    const pendiente = getPendiente(p);
+    const plan = getPlanPagos(p);
+    const tienePlazos = Boolean(p.es_a_plazos);
+    const planAbierto = planesAbiertos.has(rowKey);
+
+    return (
+      <TableRow className="hover:bg-gray-50">
+        <TableCell className="text-sm whitespace-nowrap">{formatDate(p.fecha || "")}</TableCell>
+        <TableCell className="font-mono text-xs">{getSolicitudCode(p)}</TableCell>
+        <TableCell className="text-sm">{p.factura_numero || "—"}</TableCell>
+        <TableCell className="text-sm">{p.cliente_nombre || "—"}</TableCell>
+        <TableCell className="text-xs text-gray-600 min-w-[220px]">{getMaterialesTexto(p)}</TableCell>
+        <TableCell className="text-sm min-w-[220px]">
+          <div className="font-medium text-gray-900">{getMetodoPago(p)}</div>
+          {p.descuento_porcentaje && p.descuento_porcentaje > 0 && (
+            <div className="text-xs text-orange-600">
+              Descuento: {p.descuento_porcentaje}%
+            </div>
+          )}
+          {(() => {
+            const desglose = getDesgloseBilletes(p);
+            if (!desglose) return null;
+            return (
+              <div className="text-xs text-gray-600">
+                Billetes:{" "}
+                {Object.entries(desglose)
+                  .map(([den, cant]) => `${cant}x${den}`)
+                  .join(", ")}
+              </div>
+            );
+          })()}
+          {p.notas && <div className="text-xs text-gray-500">Nota: {p.notas}</div>}
+        </TableCell>
+        <TableCell className="text-sm min-w-[170px]">
+          <div className="font-semibold text-green-700">{formatCurrency(getMonto(p), moneda)}</div>
+          <div className="text-xs text-gray-600">Moneda: {moneda}</div>
+          <div className="text-xs text-red-600">
+            Pendiente: {pendiente != null ? formatCurrency(pendiente, moneda) : "—"}
+          </div>
+        </TableCell>
+        <TableCell className="text-sm min-w-[210px]">
+          {!tienePlazos ? (
+            <span className="text-gray-400 text-xs">No</span>
+          ) : (
+            <div className="space-y-1">
+              <button
+                type="button"
+                onClick={() => togglePlan(rowKey)}
+                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-blue-100 text-blue-700"
+              >
+                {planAbierto ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                Sí
+              </button>
+              {planAbierto && Array.isArray(plan) && plan.length > 0 && (
+                <div className="rounded border bg-blue-50 p-2 space-y-1">
+                  {plan.map((pp, idx) => (
+                    <div key={`${rowKey}-plan-${idx}`} className="text-xs text-blue-900">
+                      {idx + 1}. {formatDate(pp.fecha)} - {formatCurrency(Number(pp.monto) || 0, moneda)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </TableCell>
+        <TableCell className="text-sm">{p.recibido_por || "—"}</TableCell>
+      </TableRow>
+    );
+  };
 
   const TableHead_ = () => (
     <TableHeader>
       <TableRow className="bg-gray-50">
-        <TableHead className="font-semibold">Solicitud</TableHead>
         <TableHead className="font-semibold">Fecha</TableHead>
-        <TableHead className="font-semibold text-right">Monto</TableHead>
-        <TableHead className="font-semibold">Moneda</TableHead>
-        <TableHead className="font-semibold">Método</TableHead>
-        <TableHead className="font-semibold">Descuento</TableHead>
-        <TableHead className="font-semibold">Plazos</TableHead>
+        <TableHead className="font-semibold">Código solicitud</TableHead>
+        <TableHead className="font-semibold">Nº factura</TableHead>
+        <TableHead className="font-semibold">Cliente</TableHead>
+        <TableHead className="font-semibold">Materiales</TableHead>
+        <TableHead className="font-semibold">Pago (detalle)</TableHead>
+        <TableHead className="font-semibold">Monto / Moneda / Pendiente</TableHead>
+        <TableHead className="font-semibold">Pagos a plazos</TableHead>
         <TableHead className="font-semibold">Recibido por</TableHead>
-        <TableHead className="font-semibold">Notas</TableHead>
       </TableRow>
     </TableHeader>
   );
@@ -256,8 +373,8 @@ export function TodosPagosVentasTable({
           <Table>
             <TableHead_ />
             <TableBody>
-              {filtered.map((p) => (
-                <PagoRow key={p.id} p={p} />
+              {filtered.map((p, index) => (
+                <PagoRow key={getPagoKey(p, index)} p={p} rowKey={getPagoKey(p, index)} />
               ))}
             </TableBody>
           </Table>
@@ -301,8 +418,8 @@ export function TodosPagosVentasTable({
                     <Table>
                       <TableHead_ />
                       <TableBody>
-                        {items.map((p) => (
-                          <PagoRow key={p.id} p={p} />
+                        {items.map((p, index) => (
+                          <PagoRow key={getPagoKey(p, index)} p={p} rowKey={getPagoKey(p, index)} />
                         ))}
                       </TableBody>
                     </Table>

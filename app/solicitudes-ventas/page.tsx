@@ -24,22 +24,29 @@ import { UpsertSolicitudVentaDialog } from "@/components/feats/solicitudes-venta
 import { AnularSolicitudDialog } from "@/components/shared/molecule/anular-solicitud-dialog";
 import { SolicitudesPendientesPagoTable } from "@/components/feats/pagos-clientes-ventas/solicitudes-pendientes-pago-table";
 import { FacturasVentasTable } from "@/components/feats/pagos-clientes-ventas/facturas-ventas-table";
+import { TodosPagosVentasTable } from "@/components/feats/pagos-clientes-ventas/todos-pagos-ventas-table";
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
+import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
 import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
   SolicitudVentaUpdateData,
   SolicitudVentaSummary,
 } from "@/lib/api-types";
-import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import type {
+  FacturaClienteVenta,
+  FacturaVentaResumen,
+} from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 import { SolicitudVentaService } from "@/lib/api-services";
 import {
   generarConduceLegal,
   generarCertificadoGarantia,
   generarAmbos,
 } from "@/lib/services/feats/solicitudes-ventas/export-solicitud-venta-word-service";
+import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
+import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 
 type TabId = "solicitudes" | "pendientes-pago" | "pagos-realizados" | "facturas-emitidas";
 
@@ -73,16 +80,16 @@ export default function SolicitudesVentasPage() {
   // ── Hook de pagos ──────────────────────────────────────────────────────────
   const {
     solicitudesPendientes,
-    todasSolicitudes,
+    todosPagos,
     facturas,
     loadingSolicitudes,
-    loadingTodasSolicitudes,
+    loadingPagos,
     loadingFacturas,
     errorSolicitudes,
-    errorTodasSolicitudes,
+    errorPagos,
     errorFacturas,
     fetchSolicitudesPendientes,
-    fetchTodasSolicitudes,
+    fetchTodosPagos,
     fetchFacturas,
     registrarPago,
     crearFactura,
@@ -98,15 +105,18 @@ export default function SolicitudesVentasPage() {
   const [facturaDialogOpen, setFacturaDialogOpen]     = useState(false);
 
   const [selectedSolicitud, setSelectedSolicitud]     = useState<SolicitudVenta | null>(null);
-  const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVenta | null>(null);
+  const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVentaSummary | null>(null);
+  const [solicitudParaPagarCompleta, setSolicitudParaPagarCompleta] = useState<SolicitudVenta | null>(null);
+  const [facturaAsociadaNumero, setFacturaAsociadaNumero] = useState<string | null>(null);
   const [solicitudToAnular, setSolicitudToAnular]     = useState<SolicitudVenta | null>(null);
+  const [facturaDetalle, setFacturaDetalle]           = useState<FacturaVentaResumen | null>(null);
   const [anularLoading, setAnularLoading]             = useState(false);
 
   // ── Carga lazy por pestaña ─────────────────────────────────────────────────
   const handleTabChange = (tab: TabId) => {
     setActiveTab(tab);
     if (tab === "pendientes-pago"   && solicitudesPendientes.length === 0) fetchSolicitudesPendientes();
-    if (tab === "pagos-realizados"  && todasSolicitudes.length === 0)      fetchTodasSolicitudes();
+    if (tab === "pagos-realizados"  && todosPagos.length === 0)            fetchTodosPagos();
     if (tab === "facturas-emitidas" && facturas.length === 0)              fetchFacturas();
   };
 
@@ -237,29 +247,48 @@ export default function SolicitudesVentasPage() {
   };
 
   // ── Handlers pagos ─────────────────────────────────────────────────────────
-  const handlePagar = (solicitud: SolicitudVenta) => {
+  const handlePagar = async (solicitud: SolicitudVentaSummary) => {
+    const pendiente = Number(solicitud.monto_pendiente ?? NaN);
+    if (Number.isFinite(pendiente) && pendiente <= 0) {
+      toast({
+        title: "Sin pendiente",
+        description: "Esta solicitud no tiene monto pendiente para pagar.",
+      });
+      return;
+    }
     setSolicitudParaPagar(solicitud);
+    setFacturaAsociadaNumero(null);
+    try {
+      const completa = await SolicitudVentaService.getSolicitudById(solicitud.id);
+      setSolicitudParaPagarCompleta(completa);
+    } catch {
+      setSolicitudParaPagarCompleta(null);
+    }
+    try {
+      const allFacturas = await FacturaClienteVentaService.getFacturas();
+      const numero = allFacturas.find((f) => {
+        const byId = f.solicitud_venta_id && f.solicitud_venta_id === solicitud.id;
+        const byCodigo =
+          Array.isArray(f.codigos_solicitudes) &&
+          Boolean(solicitud.codigo) &&
+          f.codigos_solicitudes.includes(solicitud.codigo as string);
+        return byId || byCodigo;
+      })?.numero_factura;
+      setFacturaAsociadaNumero(numero || null);
+    } catch {
+      setFacturaAsociadaNumero(null);
+    }
     setPagoDialogOpen(true);
   };
 
-  const handleRegistrarPago = async (data: Parameters<typeof registrarPago>[0] & {
-    factura?: { numero_factura: string; fecha_emision: string };
-  }) => {
-    const { factura, ...pagoData } = data;
-    await registrarPago(pagoData);
-    if (factura) {
-      await crearFactura({
-        solicitud_venta_id: pagoData.solicitud_venta_id,
-        numero_factura: factura.numero_factura,
-        emitida_por: pagoData.recibido_por,
-        fecha_emision: factura.fecha_emision,
-        cliente_nombre: solicitudParaPagar?.cliente_venta?.nombre,
-        cliente_numero: solicitudParaPagar?.cliente_venta?.numero,
-      });
-      toast({ title: "Pago y factura registrados", description: `Pago registrado. Factura ${factura.numero_factura} emitida.` });
-    } else {
-      toast({ title: "Pago registrado", description: "El pago se registró correctamente." });
-    }
+  const handleRegistrarPago = async (data: Parameters<typeof registrarPago>[0]) => {
+    await registrarPago(data);
+    toast({
+      title: "Pago registrado",
+      description: facturaAsociadaNumero
+        ? `Pago agregado a la factura ${facturaAsociadaNumero}.`
+        : "El pago se registró correctamente.",
+    });
   };
 
   const handleEmitirFactura = () => {
@@ -277,10 +306,48 @@ export default function SolicitudesVentasPage() {
   const handleEliminarFactura = async (factura: FacturaClienteVenta) => {
     if (!confirm(`¿Eliminar la factura ${factura.numero_factura}? Esta acción no se puede deshacer.`)) return;
     try {
-      await eliminarFactura(factura.id);
+      const facturaId = factura.id || factura.factura_id;
+      if (!facturaId) {
+        throw new Error("La factura no tiene ID para eliminar.");
+      }
+      await eliminarFactura(facturaId);
       toast({ title: "Factura eliminada", description: `Factura ${factura.numero_factura} eliminada.` });
     } catch (e) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo eliminar la factura", variant: "destructive" });
+    }
+  };
+
+  const handleVerDetalleFactura = async (factura: FacturaClienteVenta) => {
+    try {
+      const facturaId = factura.id || factura.factura_id;
+      if (!facturaId) throw new Error("Factura sin ID.");
+      const resumen = await FacturaClienteVentaService.getFacturaResumen(facturaId);
+      setFacturaDetalle(resumen);
+    } catch (e) {
+      toast({
+        title: "Error al cargar detalles",
+        description: e instanceof Error ? e.message : "No se pudo cargar el resumen de factura",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportarFactura = async (factura: FacturaClienteVenta) => {
+    try {
+      const facturaId = factura.id || factura.factura_id;
+      if (!facturaId) throw new Error("Factura sin ID.");
+      const resumen = await FacturaClienteVentaService.getFacturaResumen(facturaId);
+      await ExportFacturaVentaConsolidadaService.exportarPDF(resumen);
+      toast({
+        title: "Factura exportada",
+        description: `Se exportó ${factura.numero_factura}`,
+      });
+    } catch (e) {
+      toast({
+        title: "Error al exportar",
+        description: e instanceof Error ? e.message : "No se pudo exportar la factura",
+        variant: "destructive",
+      });
     }
   };
 
@@ -433,13 +500,14 @@ export default function SolicitudesVentasPage() {
               <CardDescription>Solicitudes con pago completado</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <SolicitudesPendientesPagoTable
-                solicitudes={todasSolicitudes}
-                loading={loadingTodasSolicitudes}
-                error={errorTodasSolicitudes}
-                onRefresh={fetchTodasSolicitudes}
-                variant="embedded"
-              />
+              <div className="px-6 py-4">
+                <TodosPagosVentasTable
+                  pagos={todosPagos}
+                  loading={loadingPagos}
+                  error={errorPagos}
+                  onRefresh={fetchTodosPagos}
+                />
+              </div>
             </CardContent>
           </Card>
         )}
@@ -460,6 +528,8 @@ export default function SolicitudesVentasPage() {
                 loading={loadingFacturas}
                 error={errorFacturas}
                 onRefresh={fetchFacturas}
+                onVerDetalles={handleVerDetalleFactura}
+                onExportar={(f) => { void handleExportarFactura(f); }}
                 onEliminar={handleEliminarFactura}
                 variant="embedded"
               />
@@ -500,8 +570,17 @@ export default function SolicitudesVentasPage() {
       {/* ── Dialogs pagos ── */}
       <RegistrarPagoVentaDialog
         open={pagoDialogOpen}
-        onOpenChange={setPagoDialogOpen}
+        onOpenChange={(open) => {
+          setPagoDialogOpen(open);
+          if (!open) {
+            setSolicitudParaPagarCompleta(null);
+            setFacturaAsociadaNumero(null);
+          }
+        }}
         solicitud={solicitudParaPagar}
+        solicitudCompleta={solicitudParaPagarCompleta}
+        facturaAsociadaNumero={facturaAsociadaNumero}
+        bloquearConfiguracionPago={Boolean((solicitudParaPagar?.total_pagado ?? 0) > 0)}
         onSubmit={handleRegistrarPago}
       />
 
@@ -510,6 +589,14 @@ export default function SolicitudesVentasPage() {
         onOpenChange={setFacturaDialogOpen}
         solicitud={solicitudParaPagar}
         onSubmit={handleCrearFactura}
+      />
+
+      <FacturaVentaDetailDialog
+        open={Boolean(facturaDetalle)}
+        onOpenChange={(open) => {
+          if (!open) setFacturaDetalle(null);
+        }}
+        factura={facturaDetalle}
       />
 
       <Toaster />

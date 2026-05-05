@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -18,9 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import type { SolicitudVenta } from "@/lib/api-types";
+import type { SolicitudVentaSummary } from "@/lib/api-types";
 import type { PagoProgramado } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 import { useAuth } from "@/contexts/auth-context";
 import {
   DollarSign,
@@ -29,26 +28,29 @@ import {
   Plus,
   Trash2,
   Calendar,
-  FileText,
 } from "lucide-react";
+import type { SolicitudVenta } from "@/lib/api-types";
 
 interface RegistrarPagoVentaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  solicitud: SolicitudVenta | null;
+  solicitud: SolicitudVentaSummary | null;
+  solicitudCompleta?: SolicitudVenta | null;
+  facturaAsociadaNumero?: string | null;
+  bloquearConfiguracionPago?: boolean;
   onSubmit: (data: {
     solicitud_venta_id: string;
     monto: number;
     moneda: "USD" | "CUP" | "EUR";
     tasa_cambio?: number;
     descuento_porcentaje: number;
-    metodo_pago: "efectivo" | "transferencia_bancaria";
+    metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe";
+    desglose_billetes?: Record<string, number>;
     recibido_por: string;
     notas?: string;
-    es_a_plazos: boolean;
-    pagos_programados?: PagoProgramado[];
+    es_a_plazos?: boolean;
+    plan_pagos?: PagoProgramado[];
     fecha: string;
-    factura?: { numero_factura: string; fecha_emision: string };
   }) => Promise<void>;
 }
 
@@ -60,11 +62,17 @@ interface PagoProgramadoForm {
 }
 
 let nextId = 1;
+const DENOMINACIONES_CUP = ["1000", "500", "200", "100", "50", "20", "10", "5", "1"];
+const DENOMINACIONES_USD = ["100", "50", "20", "10", "5", "2", "1"];
+const DENOMINACIONES_EUR = ["500", "200", "100", "50", "20", "10", "5"];
 
 export function RegistrarPagoVentaDialog({
   open,
   onOpenChange,
   solicitud,
+  solicitudCompleta = null,
+  facturaAsociadaNumero = null,
+  bloquearConfiguracionPago = false,
   onSubmit,
 }: RegistrarPagoVentaDialogProps) {
   const { user } = useAuth();
@@ -75,73 +83,48 @@ export function RegistrarPagoVentaDialog({
   const [tasaCambio, setTasaCambio] = useState("");
   const [descuento, setDescuento] = useState("0");
   const [metodoPago, setMetodoPago] = useState<
-    "efectivo" | "transferencia_bancaria"
+    "efectivo" | "transferencia_bancaria" | "stripe"
   >("efectivo");
+  const [desgloseBilletes, setDesgloseBilletes] = useState<Record<string, string>>({});
   const [notas, setNotas] = useState("");
   const [fecha, setFecha] = useState(today);
   const [esAPlazos, setEsAPlazos] = useState(false);
   const [pagosProgramados, setPagosProgramados] = useState<PagoProgramadoForm[]>([]);
-  const [generarFactura, setGenerarFactura] = useState(false);
-  const [numeroFactura, setNumeroFactura] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Generar número sugerido cuando se activa el check de factura
-  useEffect(() => {
-    if (!generarFactura || numeroFactura) return;
-    const dateStr = today.replace(/-/g, ""); // YYYYMMDD
-    FacturaClienteVentaService.getFacturas()
-      .then((facturas) => {
-        // Buscar el mayor consecutivo del día actual
-        const hoyPrefix = `SV-${dateStr}-`;
-        let maxConsec = 0;
-        for (const f of facturas) {
-          if (f.numero_factura.startsWith(hoyPrefix)) {
-            const parts = f.numero_factura.split("-");
-            const consec = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(consec) && consec > maxConsec) maxConsec = consec;
-          }
-        }
-        // Si no hay del día de hoy, buscar el mayor global para el consecutivo
-        if (maxConsec === 0 && facturas.length > 0) {
-          for (const f of facturas) {
-            const parts = f.numero_factura.split("-");
-            const consec = parseInt(parts[parts.length - 1], 10);
-            if (!isNaN(consec) && consec > maxConsec) maxConsec = consec;
-          }
-        }
-        const siguiente = String(maxConsec + 1).padStart(4, "0");
-        setNumeroFactura(`SV-${dateStr}-${siguiente}`);
-      })
-      .catch(() => {
-        const siguiente = "0001";
-        setNumeroFactura(`SV-${dateStr}-${siguiente}`);
-      });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [generarFactura]);
-
   if (!solicitud) return null;
 
-  const getPrecioMateriales = () => {
-    if (solicitud.precio_total != null) return Number(solicitud.precio_total);
-    return (solicitud.materiales ?? []).reduce((sum, m) => {
-      if (m.subtotal != null) return sum + Number(m.subtotal);
-      const precio = m.precio ?? m.material?.precio ?? 0;
-      return sum + precio * m.cantidad;
-    }, 0);
-  };
+  // Precio base de la solicitud (read-only)
+  const precioMateriales = solicitud.precio_total != null ? Number(solicitud.precio_total) : null;
+  // Descuento introducido en el formulario (para este pago)
+  const descuentoPersistido = Number(
+    solicitudCompleta?.descuento_porcentaje ?? solicitud.descuento_porcentaje ?? 0,
+  );
+  const descuentoNum = bloquearConfiguracionPago
+    ? Math.min(100, Math.max(0, descuentoPersistido))
+    : Math.min(100, Math.max(0, Number(descuento) || 0));
+  const montoDescuento = precioMateriales != null ? precioMateriales * (descuentoNum / 100) : null;
+  const totalConDescuento = precioMateriales != null ? precioMateriales - (montoDescuento ?? 0) : null;
+  // Total ya pagado acumulado (de la solicitud)
+  const totalPagado = solicitud.total_pagado != null ? Number(solicitud.total_pagado) : null;
+  // Pendiente calculado
+  const pendiente = totalConDescuento != null && totalPagado != null
+    ? Math.max(0, totalConDescuento - totalPagado)
+    : totalConDescuento ?? null;
 
-  const precioMateriales = getPrecioMateriales();
-  const descuentoNum = Math.min(10, Math.max(0, Number(descuento) || 0));
-  const precioConDescuento = precioMateriales * (1 - descuentoNum / 100);
-  const totalPagado = Number(solicitud.total_pagado ?? 0);
-  const pendienteConDescuento = Math.max(0, precioConDescuento - totalPagado);
-  const montoCubreTodo = Number(monto) >= pendienteConDescuento && pendienteConDescuento > 0;
+  const montoCubreTodo = pendiente != null && Number(monto) > 0 && Number(monto) >= pendiente;
 
   const totalProgramado = pagosProgramados.reduce(
     (sum, p) => sum + (Number(p.monto) || 0),
     0,
   );
+  const montoNum = Number(monto);
+  const excedePendiente =
+    pendiente != null &&
+    Number.isFinite(montoNum) &&
+    montoNum > 0 &&
+    montoNum > pendiente;
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("en-US", {
@@ -177,13 +160,39 @@ export function RegistrarPagoVentaDialog({
     setTasaCambio("");
     setDescuento("0");
     setMetodoPago("efectivo");
+    setDesgloseBilletes({});
     setNotas("");
     setFecha(today);
     setEsAPlazos(false);
     setPagosProgramados([]);
-    setGenerarFactura(false);
-    setNumeroFactura("");
     setError(null);
+  };
+
+  const denominaciones =
+    moneda === "USD"
+      ? DENOMINACIONES_USD
+      : moneda === "EUR"
+        ? DENOMINACIONES_EUR
+        : DENOMINACIONES_CUP;
+
+  const setCantidadDenominacion = (denominacion: string, value: string) => {
+    setDesgloseBilletes((prev) => ({
+      ...prev,
+      [denominacion]: value,
+    }));
+  };
+
+  const buildDesgloseBilletes = (): Record<string, number> | undefined => {
+    const result: Record<string, number> = {};
+    for (const d of denominaciones) {
+      const raw = desgloseBilletes[d];
+      if (!raw || raw.trim() === "") continue;
+      const cantidad = Number(raw);
+      if (Number.isFinite(cantidad) && cantidad > 0) {
+        result[d] = Math.floor(cantidad);
+      }
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
   };
 
   const handleClose = () => {
@@ -197,11 +206,15 @@ export function RegistrarPagoVentaDialog({
       setError("El monto debe ser mayor a 0");
       return;
     }
+    if (pendiente != null && montoNum > pendiente) {
+      setError(`El monto no puede superar el saldo pendiente (${formatCurrency(pendiente)})`);
+      return;
+    }
     if (!fecha) {
       setError("Debe indicar la fecha del pago");
       return;
     }
-    if (esAPlazos) {
+    if (!bloquearConfiguracionPago && esAPlazos) {
       if (pagosProgramados.length === 0) {
         setError("Agrega al menos un pago programado o desmarca la opción de plazos");
         return;
@@ -217,10 +230,6 @@ export function RegistrarPagoVentaDialog({
         }
       }
     }
-    if (generarFactura && !numeroFactura.trim()) {
-      setError("Indica el número de factura");
-      return;
-    }
     setError(null);
     setLoading(true);
     try {
@@ -229,12 +238,19 @@ export function RegistrarPagoVentaDialog({
         monto: montoNum,
         moneda,
         tasa_cambio: tasaCambio ? Number(tasaCambio) : undefined,
-        descuento_porcentaje: descuentoNum,
+        // El backend solo permite descuento en el primer pago.
+        descuento_porcentaje: bloquearConfiguracionPago ? undefined : descuentoNum,
         metodo_pago: metodoPago,
+        desglose_billetes:
+          metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
         recibido_por: user?.nombre ?? "",
         notas: notas || undefined,
-        es_a_plazos: esAPlazos && !montoCubreTodo,
-        pagos_programados: esAPlazos && !montoCubreTodo
+        es_a_plazos: bloquearConfiguracionPago
+          ? solicitudCompleta?.es_a_plazos || undefined
+          : esAPlazos && !montoCubreTodo ? true : undefined,
+        plan_pagos: bloquearConfiguracionPago
+          ? solicitudCompleta?.plan_pagos || undefined
+          : esAPlazos && !montoCubreTodo
           ? pagosProgramados.map((p) => ({
               fecha: p.fecha,
               monto: Number(p.monto),
@@ -242,9 +258,6 @@ export function RegistrarPagoVentaDialog({
             }))
           : undefined,
         fecha,
-        factura: generarFactura
-          ? { numero_factura: numeroFactura.trim(), fecha_emision: fecha }
-          : undefined,
       });
       handleClose();
     } catch (e) {
@@ -267,63 +280,71 @@ export function RegistrarPagoVentaDialog({
             <span className="font-medium text-gray-800">
               {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
             </span>{" "}
-            — {solicitud.cliente_venta?.nombre || "Sin nombre"}
+            — {solicitud.cliente_venta_nombre || "Sin nombre"}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
           {/* Resumen de precios */}
-          <div className="rounded-lg bg-gray-50 border p-3 text-sm space-y-1">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Precio materiales:</span>
-              <span className="font-medium">{formatCurrency(precioMateriales)}</span>
+          {precioMateriales != null && (
+            <div className="rounded-lg bg-gray-50 border p-3 text-sm space-y-1">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Precio materiales:</span>
+                <span className="font-medium">{formatCurrency(precioMateriales)}</span>
+              </div>
+              {descuentoNum > 0 && montoDescuento != null && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Descuento ({descuentoNum}%):</span>
+                  <span className="font-medium text-orange-600">-{formatCurrency(montoDescuento)}</span>
+                </div>
+              )}
+              {totalConDescuento != null && (
+                <div className="flex justify-between border-t pt-1 font-semibold">
+                  <span>Total:</span>
+                  <span className="text-blue-700">{formatCurrency(totalConDescuento)}</span>
+                </div>
+              )}
+              {totalPagado != null && (
+                <div className="flex justify-between text-green-700">
+                  <span>Ya pagado:</span>
+                  <span className="font-medium">{formatCurrency(totalPagado)}</span>
+                </div>
+              )}
+              {pendiente != null && (
+                <div className="flex justify-between text-red-600 font-semibold">
+                  <span>Pendiente:</span>
+                  <span>{formatCurrency(pendiente)}</span>
+                </div>
+              )}
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Descuento ({descuentoNum}%):</span>
-              <span className="font-medium text-orange-600">
-                -{formatCurrency(precioMateriales * (descuentoNum / 100))}
-              </span>
-            </div>
-            <div className="flex justify-between border-t pt-1 font-semibold">
-              <span>Total con descuento:</span>
-              <span className="text-blue-700">{formatCurrency(precioConDescuento)}</span>
-            </div>
-            <div className="flex justify-between text-green-700">
-              <span>Ya pagado:</span>
-              <span>{formatCurrency(totalPagado)}</span>
-            </div>
-            <div className="flex justify-between text-red-600 font-semibold">
-              <span>Saldo pendiente:</span>
-              <span>{formatCurrency(pendienteConDescuento)}</span>
-            </div>
-          </div>
+          )}
 
-          {/* Descuento */}
-          <div className="space-y-1">
-            <Label className="flex items-center gap-1">
-              <Percent className="h-3.5 w-3.5" />
-              Descuento (máx. 10%)
-            </Label>
-            <div className="relative">
-              <Input
-                type="number"
-                min="0"
-                max="10"
-                step="0.5"
-                value={descuento}
-                onChange={(e) =>
-                  setDescuento(
-                    String(Math.min(10, Math.max(0, Number(e.target.value)))),
-                  )
-                }
-                className="pr-8"
-                placeholder="0"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
-                %
-              </span>
+          {!bloquearConfiguracionPago ? (
+            <div className="space-y-1">
+              <Label className="flex items-center gap-1">
+                <Percent className="h-3.5 w-3.5" />
+                Descuento
+              </Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={descuento}
+                  onChange={(e) => setDescuento(String(Math.min(100, Math.max(0, Number(e.target.value)))))}
+                  className="pr-8"
+                  placeholder="0"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-lg border bg-gray-50 p-3 text-sm">
+              <span className="text-gray-600">Descuento aplicado en solicitud:</span>{" "}
+              <span className="font-semibold">{descuentoNum}%</span>
+            </div>
+          )}
 
           {/* Monto */}
           <div className="space-y-1">
@@ -354,6 +375,11 @@ export function RegistrarPagoVentaDialog({
                 </SelectContent>
               </Select>
             </div>
+            {excedePendiente && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                El monto no puede superar el saldo pendiente ({formatCurrency(pendiente)}).
+              </p>
+            )}
           </div>
 
           {moneda !== "USD" && (
@@ -378,7 +404,7 @@ export function RegistrarPagoVentaDialog({
             <Select
               value={metodoPago}
               onValueChange={(v: string) =>
-                setMetodoPago(v as "efectivo" | "transferencia_bancaria")
+                setMetodoPago(v as "efectivo" | "transferencia_bancaria" | "stripe")
               }
             >
               <SelectTrigger>
@@ -387,9 +413,34 @@ export function RegistrarPagoVentaDialog({
               <SelectContent>
                 <SelectItem value="efectivo">Efectivo</SelectItem>
                 <SelectItem value="transferencia_bancaria">Transferencia bancaria</SelectItem>
+                <SelectItem value="stripe">Stripe</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {metodoPago === "efectivo" && (
+            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+              <Label className="text-sm font-medium">
+                Desglose de billetes ({moneda}) (opcional)
+              </Label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {denominaciones.map((d) => (
+                  <div key={d} className="space-y-1">
+                    <Label className="text-xs text-gray-700">{d}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={desgloseBilletes[d] ?? ""}
+                      onChange={(e) => setCantidadDenominacion(d, e.target.value)}
+                      placeholder="0"
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Fecha */}
           <div className="space-y-1">
@@ -424,7 +475,7 @@ export function RegistrarPagoVentaDialog({
           </div>
 
           {/* Toggle pago a plazos — se oculta si el monto cubre el total pendiente */}
-          {!montoCubreTodo && <div
+          {!bloquearConfiguracionPago && !montoCubreTodo && <div
             className={`rounded-lg border p-3 transition-colors ${
               esAPlazos ? "border-blue-300 bg-blue-50" : "border-gray-200 bg-gray-50"
             }`}
@@ -545,56 +596,12 @@ export function RegistrarPagoVentaDialog({
             )}
           </div>}
 
-          {/* Generar factura */}
-          <div
-            className={`rounded-lg border p-3 transition-colors ${
-              generarFactura ? "border-indigo-300 bg-indigo-50" : "border-gray-200 bg-gray-50"
-            }`}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                setGenerarFactura((v) => !v);
-                if (generarFactura) setNumeroFactura("");
-              }}
-              className="flex items-center gap-3 w-full text-left"
-            >
-              <div
-                className={`relative w-10 h-5 rounded-full transition-colors ${
-                  generarFactura ? "bg-indigo-500" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    generarFactura ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-indigo-600" />
-                <span className="font-medium text-sm text-gray-800">
-                  Generar factura
-                </span>
-              </div>
-            </button>
-
-            {generarFactura && (
-              <div className="mt-3 space-y-1">
-                <Label className="text-xs">
-                  Número de factura <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  value={numeroFactura}
-                  onChange={(e) => setNumeroFactura(e.target.value)}
-                  placeholder="SV-YYYYMMDD-0001"
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500">
-                  Sugerido a partir de la última factura creada. Puedes editarlo.
-                </p>
-              </div>
-            )}
-          </div>
+          {facturaAsociadaNumero && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
+              Este pago se agregará a la factura{" "}
+              <span className="font-semibold">{facturaAsociadaNumero}</span>.
+            </div>
+          )}
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">

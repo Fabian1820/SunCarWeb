@@ -9,6 +9,7 @@ import type {
   SolicitudVentaListParams,
   SolicitudVentaMaterialItem,
   SolicitudVentaUpdateData,
+  SolicitudVentaPlanPagosData,
   SolicitudVentaSummary,
   SolicitudVentaSummaryResponse,
 } from "../../../api-types";
@@ -408,6 +409,22 @@ export class SolicitudVentaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
+    return (raw?.data ?? raw) as SolicitudVenta;
+  }
+
+  static async setPlanPagos(
+    id: string,
+    data: SolicitudVentaPlanPagosData,
+  ): Promise<SolicitudVenta> {
+    const raw = await apiRequest<any>(
+      `${buildDetailEndpoint(id)}/plan-pagos`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
     return (raw?.data ?? raw) as SolicitudVenta;
   }
 }

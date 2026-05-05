@@ -152,6 +152,8 @@ export type {
   SolicitudVentaSummaryResponse,
   SolicitudVentaAlmacenInfo,
   SolicitudVentaTrabajadorInfo,
+  SolicitudVentaPlanPagosData,
+  SolicitudVentaSummaryMaterial,
   MaterialVentaInfo,
   MaterialVentaWeb,
 } from "./types/feats/solicitudes-ventas/solicitud-venta-types";

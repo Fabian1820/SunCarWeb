@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table";
 import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { Search, RefreshCw, AlertCircle, Trash2 } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown } from "lucide-react";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -21,6 +21,8 @@ interface FacturasVentasTableProps {
   error: string | null;
   onRefresh: () => void;
   onEliminar?: (factura: FacturaClienteVenta) => void;
+  onVerDetalles?: (factura: FacturaClienteVenta) => void;
+  onExportar?: (factura: FacturaClienteVenta) => void;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
 }
@@ -31,9 +33,34 @@ export function FacturasVentasTable({
   error,
   onRefresh,
   onEliminar,
+  onVerDetalles,
+  onExportar,
   variant = "default",
 }: FacturasVentasTableProps) {
   const [search, setSearch] = useState("");
+  const getFacturaId = (f: FacturaClienteVenta): string =>
+    f.id || f.factura_id || f.numero_factura;
+  const getSolicitudId = (f: FacturaClienteVenta): string =>
+    typeof f.solicitud_venta_id === "string" ? f.solicitud_venta_id : "";
+  const getSolicitudCode = (f: FacturaClienteVenta): string => {
+    const id = getSolicitudId(f);
+    return id ? id.slice(-6).toUpperCase() : "—";
+  };
+  const getSolicitudesDisplay = (f: FacturaClienteVenta): string => {
+    if (Array.isArray(f.codigos_solicitudes) && f.codigos_solicitudes.length > 0) {
+      return f.codigos_solicitudes.join(", ");
+    }
+    return getSolicitudCode(f);
+  };
+  const formatCurrency = (v?: number) => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return "—";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    }).format(n);
+  };
 
   const formatDate = (d: string) => {
     if (!d) return "—";
@@ -50,10 +77,12 @@ export function FacturasVentasTable({
     const term = search.toLowerCase();
     return (
       f.numero_factura.toLowerCase().includes(term) ||
+      (f.cliente || "").toLowerCase().includes(term) ||
       (f.cliente_nombre || "").toLowerCase().includes(term) ||
       (f.cliente_numero || "").toLowerCase().includes(term) ||
       (f.emitida_por || "").toLowerCase().includes(term) ||
-      f.solicitud_venta_id.toLowerCase().includes(term)
+      getSolicitudId(f).toLowerCase().includes(term) ||
+      getSolicitudesDisplay(f).toLowerCase().includes(term)
     );
   });
 
@@ -102,25 +131,28 @@ export function FacturasVentasTable({
             <TableHeader>
               <TableRow className="bg-gray-50">
                 <TableHead className="font-semibold">Nº Factura</TableHead>
-                <TableHead className="font-semibold">Solicitud</TableHead>
+                <TableHead className="font-semibold">Solicitudes</TableHead>
                 <TableHead className="font-semibold">Cliente</TableHead>
                 <TableHead className="font-semibold">Fecha emisión</TableHead>
                 <TableHead className="font-semibold">Emitida por</TableHead>
-                <TableHead className="font-semibold">Creada en</TableHead>
-                {onEliminar && <TableHead />}
+                <TableHead className="font-semibold text-right">Total</TableHead>
+                <TableHead className="font-semibold text-right">Descuento</TableHead>
+                <TableHead className="font-semibold text-right">Pagado</TableHead>
+                <TableHead className="font-semibold text-right">Pendiente</TableHead>
+                {(onVerDetalles || onExportar || onEliminar) && <TableHead className="font-semibold">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.map((f) => (
-                <TableRow key={f.id} className="hover:bg-gray-50">
+                <TableRow key={getFacturaId(f)} className="hover:bg-gray-50">
                   <TableCell className="font-medium text-blue-700 text-sm">
                     {f.numero_factura}
                   </TableCell>
                   <TableCell className="font-mono text-xs text-gray-600">
-                    {f.solicitud_venta_id.slice(-6).toUpperCase()}
+                    {getSolicitudesDisplay(f)}
                   </TableCell>
                   <TableCell className="text-sm">
-                    <div>{f.cliente_nombre || "—"}</div>
+                    <div>{f.cliente || f.cliente_nombre || "—"}</div>
                     {f.cliente_numero && (
                       <div className="text-xs text-gray-500">
                         #{f.cliente_numero}
@@ -131,20 +163,47 @@ export function FacturasVentasTable({
                     {formatDate(f.fecha_emision)}
                   </TableCell>
                   <TableCell className="text-sm">{f.emitida_por}</TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {formatDate(f.fecha_creacion)}
-                  </TableCell>
-                  {onEliminar && (
+                  <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
+                  <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
+                  <TableCell className="text-sm text-right text-green-700">{formatCurrency(f.total_pagado)}</TableCell>
+                  <TableCell className="text-sm text-right text-red-600">{formatCurrency(f.monto_pendiente)}</TableCell>
+                  {(onVerDetalles || onExportar || onEliminar) && (
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => onEliminar(f)}
-                        title="Eliminar factura"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        {onVerDetalles && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                            onClick={() => onVerDetalles(f)}
+                            title="Ver detalles"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onExportar && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"
+                            onClick={() => onExportar(f)}
+                            title="Exportar PDF"
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onEliminar && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => onEliminar(f)}
+                            title="Eliminar factura"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>

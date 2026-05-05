@@ -6,12 +6,11 @@ import type {
   SolicitudVentaCreateData,
   SolicitudVentaListParams,
   SolicitudVentaUpdateData,
-  SolicitudVentaSummary,
 } from "@/lib/api-types";
 
 interface UseSolicitudesVentasReturn {
-  solicitudes: SolicitudVentaSummary[];
-  filteredSolicitudes: SolicitudVentaSummary[];
+  solicitudes: SolicitudVenta[];
+  filteredSolicitudes: SolicitudVenta[];
   loading: boolean;
   isSearching: boolean; // Nueva bandera para indicar búsqueda en progreso
   error: string | null;
@@ -40,7 +39,7 @@ interface UseSolicitudesVentasReturn {
 }
 
 export function useSolicitudesVentas(): UseSolicitudesVentasReturn {
-  const [solicitudes, setSolicitudes] = useState<SolicitudVentaSummary[]>([]);
+  const [solicitudes, setSolicitudes] = useState<SolicitudVenta[]>([]);
   const [total, setTotal] = useState(0);
   const [skip, setSkip] = useState(0); // Contador de registros cargados
   const [hasMore, setHasMore] = useState(true); // Hay más registros por cargar

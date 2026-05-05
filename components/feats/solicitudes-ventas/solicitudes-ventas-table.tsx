@@ -19,17 +19,17 @@ import {
   Ban,
   FileDown,
 } from "lucide-react";
-import type { SolicitudVentaSummary } from "@/lib/api-types";
+import type { SolicitudVenta } from "@/lib/api-types";
 
 export type ExportTipo = "conduce" | "garantia" | "ambos";
 
 interface SolicitudesVentasTableProps {
-  solicitudes: SolicitudVentaSummary[];
-  onView?: (solicitud: SolicitudVentaSummary) => void;
-  onEdit?: (solicitud: SolicitudVentaSummary) => void;
-  onAnular?: (solicitud: SolicitudVentaSummary) => void;
-  onReabrir?: (solicitud: SolicitudVentaSummary) => void;
-  onExportar?: (solicitud: SolicitudVentaSummary, tipo: ExportTipo) => void;
+  solicitudes: SolicitudVenta[];
+  onView?: (solicitud: SolicitudVenta) => void;
+  onEdit?: (solicitud: SolicitudVenta) => void;
+  onAnular?: (solicitud: SolicitudVenta) => void;
+  onReabrir?: (solicitud: SolicitudVenta) => void;
+  onExportar?: (solicitud: SolicitudVenta, tipo: ExportTipo) => void;
 }
 
 export function SolicitudesVentasTable({
@@ -51,33 +51,22 @@ export function SolicitudesVentasTable({
     });
   };
 
-  const parseMaterialesCount = (resumen?: string): number => {
-    if (!resumen) return 0;
-    const match = resumen.match(/^(\d+)/);
-    return match ? parseInt(match[1], 10) : 0;
-  };
-
-  const renderMaterialesLineas = (resumen?: string, count?: number) => {
-    if (!resumen) {
-      return <span className="text-gray-400 text-xs">—</span>;
-    }
-    // Si el resumen contiene comas o saltos, dividir por líneas
-    const partes = resumen.split(/,\s*|\n/).map((p) => p.trim()).filter(Boolean);
-    if (partes.length > 1) {
+  const renderMateriales = (solicitud: SolicitudVenta) => {
+    if (solicitud.materiales?.length) {
       return (
         <div className="flex flex-col gap-0.5">
-          {partes.map((p, i) => (
-            <span key={i} className="text-xs text-gray-600 leading-5">{p}</span>
-          ))}
+          {solicitud.materiales.map((m, i) => {
+            const nombre = m.material_descripcion || m.descripcion || m.material_id;
+            return (
+              <span key={i} className="text-xs text-gray-600 leading-5">
+                <span className="font-medium text-gray-800">{m.cantidad}x</span> {nombre}
+              </span>
+            );
+          })}
         </div>
       );
     }
-    // Si es solo "N items", mostrar badge
-    return (
-      <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-        {count ?? resumen}
-      </Badge>
-    );
+    return <span className="text-gray-400 text-xs">—</span>;
   };
 
   if (solicitudes.length === 0) {
@@ -115,9 +104,6 @@ export function SolicitudesVentasTable({
             const isUsada = estado === "usada";
             const isAnulada = estado === "anulada";
             const isNueva = estado === "nueva";
-            const cantidadMateriales = parseMaterialesCount(
-              solicitud.materiales_resumen,
-            );
 
             return (
               <tr
@@ -148,23 +134,23 @@ export function SolicitudesVentasTable({
                 </td>
                 <td className="py-4 px-4">
                   <p className="font-medium text-gray-900">
-                    {solicitud.cliente_venta_nombre || "-"}
+                    {solicitud.cliente_venta?.nombre || "-"}
                   </p>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>{solicitud.almacen_nombre || "-"}</span>
+                    <span>{solicitud.almacen?.nombre || "-"}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>{solicitud.creador_nombre || "-"}</span>
+                    <span>{solicitud.trabajador?.nombre || "-"}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4 min-w-[160px]">
-                  {renderMaterialesLineas(solicitud.materiales_resumen, cantidadMateriales)}
+                  {renderMateriales(solicitud)}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">

@@ -11,14 +11,14 @@ import {
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
-import type { SolicitudVenta } from "@/lib/api-types";
+import type { SolicitudVentaSummary } from "@/lib/api-types";
 import type { FacturaClienteVentaCreateData } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 import { FileText } from "lucide-react";
 
 interface CrearFacturaVentaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  solicitud: SolicitudVenta | null;
+  solicitud: SolicitudVentaSummary | null;
   onSubmit: (data: FacturaClienteVentaCreateData) => Promise<void>;
 }
 
@@ -58,10 +58,17 @@ export function CrearFacturaVentaDialog({
       setError("El campo 'Emitida por' es obligatorio");
       return;
     }
+    if (!solicitud.cliente_venta_id) {
+      setError("La solicitud no tiene cliente_venta_id.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
       await onSubmit({
+        fecha: fechaEmision,
+        cliente_venta_id: solicitud.cliente_venta_id,
+        solicitudes: [{ solicitud_venta_id: solicitud.id }],
         numero_factura: numeroFactura.trim(),
         solicitud_venta_id: solicitud.id,
         fecha_emision: fechaEmision,
@@ -88,7 +95,7 @@ export function CrearFacturaVentaDialog({
             <span className="font-medium text-gray-800">
               {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
             </span>{" "}
-            — {solicitud.cliente_venta?.nombre || "Sin nombre"}
+            — {solicitud.cliente_venta_nombre || "Sin nombre"}
           </DialogDescription>
         </DialogHeader>
 

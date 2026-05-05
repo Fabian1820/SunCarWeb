@@ -10,7 +10,7 @@ import { SolicitudesPendientesPagoTable } from "@/components/feats/pagos-cliente
 import { FacturasVentasTable } from "@/components/feats/pagos-clientes-ventas/facturas-ventas-table";
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
-import type { SolicitudVenta } from "@/lib/api-types";
+import type { SolicitudVentaSummary } from "@/lib/api-types";
 import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 import {
   ArrowLeft,
@@ -56,7 +56,7 @@ export default function PagosClientesVentasPage() {
   const [pagoDialogOpen, setPagoDialogOpen] = useState(false);
   const [facturaDialogOpen, setFacturaDialogOpen] = useState(false);
   const [selectedSolicitud, setSelectedSolicitud] =
-    useState<SolicitudVenta | null>(null);
+    useState<SolicitudVentaSummary | null>(null);
 
   useEffect(() => {
     fetchSolicitudesPendientes();
@@ -68,12 +68,12 @@ export default function PagosClientesVentasPage() {
     if (tab === "facturas-emitidas" && facturas.length === 0) fetchFacturas();
   };
 
-  const handlePagar = (solicitud: SolicitudVenta) => {
+  const handlePagar = (solicitud: SolicitudVentaSummary) => {
     setSelectedSolicitud(solicitud);
     setPagoDialogOpen(true);
   };
 
-  const handleEmitirFactura = (solicitud: SolicitudVenta) => {
+  const handleEmitirFactura = (solicitud: SolicitudVentaSummary) => {
     setSelectedSolicitud(solicitud);
     setFacturaDialogOpen(true);
   };

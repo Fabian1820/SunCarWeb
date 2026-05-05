@@ -3,6 +3,7 @@
   ClienteVentaCreateData,
   ClienteVentaUpdateData,
 } from "../clientes-ventas/cliente-venta-types";
+import type { PagoProgramado } from "../pagos-clientes-ventas/pago-cliente-venta-types";
 
 export interface SolicitudVentaMaterialItem {
   material_id: string;
@@ -75,6 +76,8 @@ export interface SolicitudVenta {
   saldo_pendiente?: number | null;
   descuento_porcentaje?: number | null;
   pagos_ids?: string[];
+  es_a_plazos?: boolean;
+  plan_pagos?: PagoProgramado[];
   fecha_creacion?: string;
   fecha_actualizacion?: string;
 }
@@ -91,6 +94,13 @@ export interface SolicitudVentaUpdateData {
   cliente_venta?: ClienteVentaUpdateData;
   almacen_id?: string;
   materiales?: SolicitudVentaMaterialItem[];
+  es_a_plazos?: boolean;
+  plan_pagos?: PagoProgramado[];
+}
+
+export interface SolicitudVentaPlanPagosData {
+  es_a_plazos: boolean;
+  plan_pagos: PagoProgramado[];
 }
 
 export interface SolicitudVentaAnularData {
@@ -133,14 +143,38 @@ export interface MaterialVentaWeb {
 // Summary Types (Optimized for Table Views)
 // ========================================
 
+export interface SolicitudVentaSummaryMaterial {
+  material_id: string;
+  material_codigo?: string | null;
+  material_descripcion?: string | null;
+  um?: string | null;
+  cantidad: number;
+  precio?: number;
+  subtotal?: number;
+}
+
 export interface SolicitudVentaSummary {
   id: string;
   codigo?: string;
   estado?: "nueva" | "usada" | "anulada" | string;
-  cliente_venta_nombre?: string;
+  cliente_venta_id?: string | null;
+  cliente_venta_nombre?: string | null;
   almacen_nombre?: string;
   creador_nombre?: string;
-  materiales_resumen?: string; // e.g., "4 materiales"
+  /** Cadena legible de materiales — e.g. "4 materiales" (campo legacy) */
+  materiales_resumen?: string;
+  /** Array completo de materiales con precios (nuevo backend) */
+  materiales?: SolicitudVentaSummaryMaterial[];
+  /** Suma de precio × cantidad */
+  precio_total?: number | null;
+  /** precio_total × (1 - descuento/100) */
+  precio_neto?: number | null;
+  /** Acumulado pagado */
+  total_pagado?: number | null;
+  /** Lo que queda por pagar */
+  monto_pendiente?: number | null;
+  pagada_totalmente?: boolean;
+  descuento_porcentaje?: number | null;
   fecha_creacion?: string;
 }
 

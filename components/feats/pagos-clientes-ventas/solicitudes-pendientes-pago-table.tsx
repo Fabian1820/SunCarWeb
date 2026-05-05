@@ -12,15 +12,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/shared/molecule/table";
-import type { SolicitudVenta } from "@/lib/api-types";
+import type { SolicitudVentaSummary } from "@/lib/api-types";
 import { Search, CreditCard, RefreshCw, AlertCircle } from "lucide-react";
 
 interface SolicitudesPendientesPagoTableProps {
-  solicitudes: SolicitudVenta[];
+  solicitudes: SolicitudVentaSummary[];
   loading: boolean;
   error: string | null;
   onRefresh: () => void;
-  onPagar?: (solicitud: SolicitudVenta) => void;
+  onPagar?: (solicitud: SolicitudVentaSummary) => void;
   /** Si false, muestra también las anuladas (por defecto true = las oculta) */
   ocultarAnuladas?: boolean;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
@@ -45,24 +45,18 @@ export function SolicitudesPendientesPagoTable({
       minimumFractionDigits: 2,
     }).format(v);
 
-  const getMaterialesLineas = (s: SolicitudVenta) => {
+  const getMaterialesLineas = (s: SolicitudVentaSummary) => {
     if (!s.materiales?.length) return null;
     return s.materiales.map((m, i) => {
-      const nombre =
-        m.material?.nombre ||
-        m.material?.descripcion ||
-        m.material_descripcion ||
-        m.descripcion ||
-        m.material_id;
-      const precioUnit = m.precio ?? m.material?.precio;
+      const nombre = m.material_descripcion || m.material_codigo || m.material_id;
       return (
         <div key={i} className="flex items-baseline justify-between gap-2 leading-5">
           <span className="text-xs text-gray-600">
             <span className="font-medium text-gray-800">{m.cantidad}x</span> {nombre}
           </span>
-          {precioUnit != null && (
+          {m.subtotal != null && (
             <span className="text-xs text-gray-500 whitespace-nowrap">
-              ${Number(m.subtotal ?? precioUnit * m.cantidad).toFixed(2)}
+              ${Number(m.subtotal).toFixed(2)}
             </span>
           )}
         </div>
@@ -70,26 +64,14 @@ export function SolicitudesPendientesPagoTable({
     });
   };
 
-  const getPrecioMateriales = (s: SolicitudVenta) => {
-    if (s.precio_total != null) return Number(s.precio_total);
-    return (s.materiales ?? []).reduce((sum, m) => {
-      if (m.subtotal != null) return sum + Number(m.subtotal);
-      const precio = m.precio ?? m.material?.precio ?? 0;
-      return sum + precio * m.cantidad;
-    }, 0);
-  };
 
   const filtered = solicitudes.filter((s) => {
     if (ocultarAnuladas && s.estado === "anulada") return false;
     if (!search.trim()) return true;
     const term = search.toLowerCase();
-    const clienteNombre = s.cliente_venta?.nombre || "";
-    const clienteNumero = s.cliente_venta?.numero || s.cliente_venta_id || "";
     return (
       (s.codigo || "").toLowerCase().includes(term) ||
-      clienteNombre.toLowerCase().includes(term) ||
-      clienteNumero.toLowerCase().includes(term) ||
-      (s.almacen?.nombre || "").toLowerCase().includes(term)
+      (s.cliente_venta_nombre || "").toLowerCase().includes(term)
     );
   });
 
@@ -165,17 +147,11 @@ export function SolicitudesPendientesPagoTable({
             </TableHeader>
             <TableBody>
               {filtered.map((s) => {
-                const precioMateriales = getPrecioMateriales(s);
-                const descuento = Number(s.descuento_porcentaje ?? 0);
-                const total =
-                  s.precio_total != null
-                    ? Number(s.precio_total)
-                    : precioMateriales * (1 - descuento / 100);
-                const pagado = Number(s.total_pagado ?? 0);
-                const pendiente =
-                  s.saldo_pendiente != null
-                    ? Number(s.saldo_pendiente)
-                    : Math.max(0, total - pagado);
+                const precioTotal = s.precio_total != null ? Number(s.precio_total) : null;
+                const descuento = s.descuento_porcentaje != null ? Number(s.descuento_porcentaje) : null;
+                const pagado = s.total_pagado != null ? Number(s.total_pagado) : null;
+                const pendiente = s.monto_pendiente != null ? Number(s.monto_pendiente) : null;
+                const canPagar = pendiente != null && Number.isFinite(pendiente) && pendiente > 0;
 
                 return (
                   <TableRow key={s.id} className="hover:bg-gray-50">
@@ -184,39 +160,32 @@ export function SolicitudesPendientesPagoTable({
                     </TableCell>
                     <TableCell>
                       <div className="font-medium text-sm">
-                        {s.cliente_venta?.nombre || "Sin nombre"}
+                        {s.cliente_venta_nombre || "Sin nombre"}
                       </div>
-                      {s.cliente_venta?.telefono && (
-                        <div className="text-xs text-gray-500">
-                          {s.cliente_venta.telefono}
-                        </div>
-                      )}
                     </TableCell>
                     <TableCell className="min-w-[160px]">
                       {getMaterialesLineas(s) ?? <span className="text-gray-400 text-xs">—</span>}
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                      {formatCurrency(precioMateriales)}
+                      {precioTotal != null ? formatCurrency(precioTotal) : <span className="text-gray-400">—</span>}
                     </TableCell>
                     <TableCell className="text-right text-sm">
-                      {descuento > 0 ? (
-                        <span className="text-orange-600">{descuento}%</span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
+                      {descuento != null && descuento > 0
+                        ? <span className="text-orange-600">{descuento}%</span>
+                        : <span className="text-gray-400">—</span>}
                     </TableCell>
                     <TableCell className="text-right font-medium text-sm text-blue-700">
-                      {formatCurrency(total)}
+                      {precioTotal != null ? formatCurrency(precioTotal) : <span className="text-gray-400">—</span>}
                     </TableCell>
                     <TableCell className="text-right text-sm text-green-700">
-                      {formatCurrency(pagado)}
+                      {pagado != null ? formatCurrency(pagado) : <span className="text-gray-400">—</span>}
                     </TableCell>
                     <TableCell className="text-right text-sm font-semibold text-red-600">
-                      {formatCurrency(pendiente)}
+                      {pendiente != null ? formatCurrency(pendiente) : <span className="text-gray-400">—</span>}
                     </TableCell>
                     {onPagar && (
                       <TableCell>
-                        {pendiente > 0 ? (
+                        {canPagar ? (
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white gap-1"
@@ -225,10 +194,12 @@ export function SolicitudesPendientesPagoTable({
                             <CreditCard className="h-3.5 w-3.5" />
                             Pagar
                           </Button>
-                        ) : (
+                        ) : pendiente === 0 ? (
                           <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
                             Pagado
                           </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">Sin pendiente</span>
                         )}
                       </TableCell>
                     )}
