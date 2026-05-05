@@ -20,7 +20,6 @@ import {
   FileDown,
 } from "lucide-react";
 import type { SolicitudVentaSummary } from "@/lib/api-types";
-import { GenerarLinkPagoSolicitudButton } from "./generar-link-pago-solicitud-button";
 
 export type ExportTipo = "conduce" | "garantia" | "ambos";
 
@@ -241,12 +240,6 @@ export function SolicitudesVentasTable({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     )}
-                    <GenerarLinkPagoSolicitudButton
-                      solicitud={solicitud}
-                      variant="outline"
-                      size="sm"
-                      showIcon={true}
-                    />
                   </div>
                 </td>
               </tr>

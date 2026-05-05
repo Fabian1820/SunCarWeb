@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/shared/molecule/dialog";
 import { Badge } from "@/components/shared/atom/badge";
+import { Button } from "@/components/shared/atom/button";
 import {
   ClipboardList,
   Package,
@@ -14,8 +15,10 @@ import {
   Warehouse,
   Ban,
   RotateCcw,
+  CreditCard,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
+import { GenerarLinkPagoSolicitudButton } from "./generar-link-pago-solicitud-button";
 
 interface SolicitudVentaDetailDialogProps {
   open: boolean;
@@ -53,16 +56,24 @@ export function SolicitudVentaDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <ClipboardList className="h-5 w-5 text-indigo-600" />
-            Detalle de solicitud de venta
-            <Badge
-              variant="outline"
-              className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200 font-mono"
-            >
-              {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
-            </Badge>
-          </DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-indigo-600" />
+              Detalle de solicitud de venta
+              <Badge
+                variant="outline"
+                className="ml-2 bg-indigo-50 text-indigo-700 border-indigo-200 font-mono"
+              >
+                {solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}
+              </Badge>
+            </DialogTitle>
+            <GenerarLinkPagoSolicitudButton
+              solicitud={solicitud}
+              variant="default"
+              size="sm"
+              showIcon={true}
+            />
+          </div>
         </DialogHeader>
 
         <div className="space-y-5 py-1">
