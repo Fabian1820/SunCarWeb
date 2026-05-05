@@ -403,6 +403,15 @@ export default function SolicitudesVentasPage() {
                 <span className="sr-only">Nueva solicitud</span>
               </Button>
             </div>
+          ) : activeTab === "pendientes-pago" ? (
+            <Button
+              variant="outline"
+              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 touch-manipulation"
+              onClick={() => setStripePagosOpen(true)}
+            >
+              <CreditCard className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Cobros Stripe</span>
+            </Button>
           ) : activeTab === "facturas-emitidas" ? (
             <Button
               className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white gap-2 touch-manipulation"
