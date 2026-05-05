@@ -2,6 +2,86 @@
 
 ---
 
+## 📅 5 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Integración Stripe en solicitudes-ventas, corrección fórmula comisión Stripe, campo costo_nuevo en ficha de envío-contenedores, facturas/pagos clientes**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `cb579f7` | Ruben/Claude | feat(solicitudes-ventas): agregar generación de links de pago Stripe + panel de pagos |
+| `5d077ba` | Ruben/Claude | fix(solicitudes-ventas): corregir endpoint `/api/stripe/listar-pagos` |
+| `5290742` | Ruben/Claude | feat(solicitudes-ventas): mover botón generar link al modal de detalle |
+| `ac5aa75` | Ruben/Claude | fix(stripe): reemplazar comisión fija 5% por fórmula real 3.25% + $0.30 en 5 archivos |
+| `fc3fb2d` | Ruben/Claude | feat(envio-contenedores): campo `costo_nuevo` editable en ficha de costo |
+| `57ec947` | yany1509 | "facturas de ventas y pagos" — cambios sin descripción |
+| `babf805` | yany1509 | "ajustes en solicitudes ventas" |
+| `512bc86` | yany1509 | "Merge: Combine payment management tabs with Stripe modal integration" |
+| `ff6dab0` | yany1509 | "terminada" |
+| `312a84d` / `3931374` / `64de30f` | yany1509 | "ajustes" x3 |
+| `b34ac82` / `575030f` | yany1509 | "listo" / "listoooo" |
+| `289d36b` | yany1509/Claude | Agregar botón Cobros Stripe en pestaña pendientes-pago |
+| `5b21cba` | yany1509/Claude | Cobros Stripe en pendientes: botón header + botón por fila + modal filtrado |
+| `9255eb4` | yany1509/Claude | Mover botón Ver Stripe al interior del modal de pago |
+| `9c718f9` | yany1509/Claude | Fix carga pagos Stripe: agregar `solicitudId` a deps de `useCallback` |
+| `1777296` | yany1509/Claude | Mostrar todos los pagos Stripe sin filtrar por solicitud |
+| `0c0489e` | yany1509/Claude | Fix: quitar filtro `solicitud_venta_id` que ocultaba todos los pagos |
+| `f808c2d` | yany1509/Claude | Usar `StripePagosModal` igual que facturación/pagos clientes |
+| `033c271` | yany1509 | Ignorar directorio `.claude` del repo (.gitignore) |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Fórmula de comisión Stripe cambiada en 5 archivos simultáneamente**
+   - De `precio * 1.05` (5% fijo) a `(neto + 0.30) / (1 - 0.0325)` (3.25% + $0.30).
+   - Archivos afectados: `generar-link` (route), `ofertas`, `ofertas-personalizadas`, `confeccion`, `solicitudes-ventas`.
+   - Si alguno de los 5 quedó sin actualizar o con la lógica antigua, habrá inconsistencia de precios cobrados entre módulos.
+   - La fórmula inversa puede generar errores de redondeo de centavos acumulados en transacciones altas.
+   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos y comparar lo que llega neto vs. lo esperado.
+
+2. **Ciclo de 4 fixes consecutivos en el modal Stripe de solicitudes-ventas en menos de 10 minutos**
+   - `9c718f9` → `1777296` → `0c0489e` → `f808c2d` (20:46–20:56). Patrón de debug en producción.
+   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal (¿filtra por solicitud o muestra todos?) no quedó clara en los mensajes.
+   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos? Si es por solicitud, el filtrado debe implementarse correctamente en el backend, no en el frontend.
+
+3. **7 commits con mensajes vagos de yany1509** ("terminada", "ajustes" ×3, "listo", "listoooo", "ajustes en solicitudes ventas")
+   - Cambios sin auditoría posible. Se desconoce el alcance real de las modificaciones.
+   - **Acción recomendada:** Revisar los diffs de estos commits manualmente antes de considerar estable la rama.
+
+#### 🟡 Riesgos medios
+
+4. **`StripePagosModal` sin filtrado por `solicitud_venta_id`**
+   - Se quitó el filtro que "ocultaba todos los pagos". Ahora el modal muestra todos los pagos Stripe del sistema.
+   - En la pestaña de pendientes-pago, hay un "botón por fila" que supuestamente abre el modal filtrado por solicitud (`solicitudId` como prop). Si ese filtrado no está activo en la versión final, el usuario verá pagos de otras solicitudes mezclados.
+   - **Consideración:** Verificar que `StripePagosModal` recibe y aplica correctamente `solicitudId` cuando se abre desde una fila específica.
+
+5. **Campo `costo_nuevo` propagado automáticamente a precios de catálogo**
+   - `costo_nuevo = CIF × (1 + (%Envío + Δ) / 100)`. Precios venta e instaladora se derivan de él.
+   - Si `Δ` se persiste con un valor incorrecto o se aplica sobre datos ya procesados (double-apply), todos los precios del catálogo afectado quedarán mal.
+   - **Acción recomendada:** Verificar que "Guardar" en la ficha de costo aplica la fórmula una sola vez y que no hay efecto acumulativo al abrir y guardar repetidamente.
+
+6. **Merge commit `ab23452` entre commits de funcionalidad activa**
+   - Merge de `main` realizado mientras se estaban subiendo cambios en cadena. Puede haber mezclado versiones inconsistentes del modal.
+   - **Consideración:** Revisar que el estado final de los archivos de solicitudes-ventas coincide con la última versión esperada.
+
+#### 🟢 Mejoras positivas
+
+7. **Integración completa de Stripe en solicitudes-ventas**
+   - Generación de links de pago con precio manual, panel de pagos, y consistencia con el flujo de cobros clientes.
+
+8. **Fórmula de comisión más precisa (3.25% + $0.30)**
+   - La fórmula inversa garantiza que el monto neto recibido sea exactamente el precio base configurado, eliminando el error de la estimación fija del 5%.
+
+9. **Botón "Ver Stripe" dentro del modal de pago**
+   - Mejor UX: el acceso a los cobros Stripe está contextualizado dentro del flujo de pago.
+
+10. **`.claude` agregado al `.gitignore`**
+    - Evita que archivos internos de sesión de Claude Code se suban accidentalmente al repo.
+
+---
+
 ## 📅 4 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
