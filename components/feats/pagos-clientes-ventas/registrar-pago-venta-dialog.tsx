@@ -448,9 +448,8 @@ export function RegistrarPagoVentaDialog({
                 value={monto}
                 onChange={(e) => {
                   setMonto(e.target.value);
-                  if (metodoPago === "stripe") {
+                  if (metodoPago === "stripe" && !stripeLink) {
                     setStripeMontoLink(e.target.value);
-                    setStripeLink(null);
                   }
                 }}
                 placeholder="0.00"
