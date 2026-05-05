@@ -72,6 +72,7 @@ export default function SolicitudesVentasPage() {
     setSearchTerm,
     loadMore,
     hasMore,
+    loadSolicitudes,
     createSolicitud,
     updateSolicitud,
     anularSolicitud,
@@ -283,12 +284,38 @@ export default function SolicitudesVentasPage() {
     setPagoDialogOpen(true);
   };
 
-  const handleRegistrarPago = async (data: Parameters<typeof registrarPago>[0]) => {
-    await registrarPago(data);
+  const handleRegistrarPago = async (
+    data: Parameters<typeof registrarPago>[0] & {
+      factura?: { numero_factura: string; fecha_emision: string };
+    },
+  ) => {
+    const { factura, ...pagoData } = data;
+    await registrarPago(pagoData);
+    let facturaCreada: FacturaClienteVenta | null = null;
+    if (factura && !facturaAsociadaNumero) {
+      try {
+        facturaCreada = await crearFactura({
+          fecha: pagoData.fecha,
+          cliente_venta_id: solicitudParaPagar?.cliente_venta_id || "",
+          solicitudes: [{ solicitud_venta_id: pagoData.solicitud_venta_id }],
+          numero_factura: factura.numero_factura,
+          fecha_emision: factura.fecha_emision,
+        });
+      } catch (e) {
+        toast({
+          title: "Pago registrado, pero no se pudo crear la factura",
+          description: e instanceof Error ? e.message : "Error al crear la factura",
+          variant: "destructive",
+        });
+      }
+    }
+    void loadSolicitudes();
     toast({
       title: "Pago registrado",
       description: facturaAsociadaNumero
         ? `Pago agregado a la factura ${facturaAsociadaNumero}.`
+        : facturaCreada
+        ? `Pago registrado. Factura ${facturaCreada.numero_factura ?? factura?.numero_factura ?? ""} creada.`
         : "El pago se registró correctamente.",
     });
   };

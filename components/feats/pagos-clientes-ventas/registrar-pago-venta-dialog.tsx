@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -32,8 +32,10 @@ import {
   Copy,
   Check,
   Loader2,
+  FileText,
 } from "lucide-react";
 import type { SolicitudVenta } from "@/lib/api-types";
+import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 
 interface RegistrarPagoVentaDialogProps {
   open: boolean;
@@ -47,7 +49,7 @@ interface RegistrarPagoVentaDialogProps {
     monto: number;
     moneda: "USD" | "CUP" | "EUR";
     tasa_cambio?: number;
-    descuento_porcentaje: number;
+    descuento_porcentaje?: number;
     metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
     stripe_link?: string;
     desglose_billetes?: Record<string, number>;
@@ -56,6 +58,7 @@ interface RegistrarPagoVentaDialogProps {
     es_a_plazos?: boolean;
     plan_pagos?: PagoProgramado[];
     fecha: string;
+    factura?: { numero_factura: string; fecha_emision: string };
   }) => Promise<void>;
 }
 
@@ -102,6 +105,31 @@ export function RegistrarPagoVentaDialog({
   const [stripeGenerando, setStripeGenerando] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [generarFactura, setGenerarFactura] = useState(false);
+  const [numeroFactura, setNumeroFactura] = useState("");
+
+  // Sugerir número de factura cuando se activa el toggle
+  useEffect(() => {
+    if (!generarFactura) return;
+    const sugerirNumero = async () => {
+      const hoy = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
+      const prefijo = `SV-${hoy}-`;
+      try {
+        const facturas = await FacturaClienteVentaService.getFacturas();
+        // Buscar facturas de hoy con formato SV-YYYYMMDD-XXXX
+        const consecs = facturas
+          .map((f) => f.numero_factura || "")
+          .filter((n) => n.startsWith(prefijo))
+          .map((n) => Number(n.slice(prefijo.length)))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        const siguiente = consecs.length > 0 ? Math.max(...consecs) + 1 : 1;
+        setNumeroFactura(`${prefijo}${String(siguiente).padStart(4, "0")}`);
+      } catch {
+        setNumeroFactura(`${prefijo}0001`);
+      }
+    };
+    void sugerirNumero();
+  }, [generarFactura]);
 
   if (!solicitud) return null;
 
@@ -181,6 +209,8 @@ export function RegistrarPagoVentaDialog({
     setStripeGenerando(false);
     setStripeError(null);
     setCopiado(false);
+    setGenerarFactura(false);
+    setNumeroFactura("");
   };
 
   const denominaciones =
@@ -244,6 +274,16 @@ export function RegistrarPagoVentaDialog({
           return;
         }
       }
+      // Validar que pago inicial + plazos no excedan el total a pagar
+      if (pendiente != null) {
+        const totalPlazo = pagosProgramados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
+        if (montoNum + totalPlazo > pendiente) {
+          setError(
+            `La suma del pago inicial (${formatCurrency(montoNum)}) más los plazos (${formatCurrency(totalPlazo)}) no puede superar el pendiente (${formatCurrency(pendiente)})`,
+          );
+          return;
+        }
+      }
     }
     setError(null);
     setLoading(true);
@@ -274,6 +314,10 @@ export function RegistrarPagoVentaDialog({
             }))
           : undefined,
         fecha,
+        factura:
+          !facturaAsociadaNumero && generarFactura && numeroFactura.trim()
+            ? { numero_factura: numeroFactura.trim(), fecha_emision: fecha }
+            : undefined,
       });
       handleClose();
     } catch (e) {
@@ -402,7 +446,13 @@ export function RegistrarPagoVentaDialog({
                 min="0"
                 step="0.01"
                 value={monto}
-                onChange={(e) => setMonto(e.target.value)}
+                onChange={(e) => {
+                  setMonto(e.target.value);
+                  if (metodoPago === "stripe") {
+                    setStripeMontoLink(e.target.value);
+                    setStripeLink(null);
+                  }
+                }}
                 placeholder="0.00"
                 className="flex-1"
               />
@@ -452,7 +502,8 @@ export function RegistrarPagoVentaDialog({
                 const m = v as "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
                 setMetodoPago(m);
                 if (m === "stripe") {
-                  setStripeMontoLink(pendiente != null ? pendiente.toFixed(2) : "");
+                  const montoActual = Number(monto);
+                  setStripeMontoLink(montoActual > 0 ? montoActual.toFixed(2) : pendiente != null ? pendiente.toFixed(2) : "");
                   setStripeLink(null);
                   setStripeError(null);
                 }
@@ -703,10 +754,59 @@ export function RegistrarPagoVentaDialog({
             )}
           </div>}
 
-          {facturaAsociadaNumero && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm">
-              Este pago se agregará a la factura{" "}
-              <span className="font-semibold">{facturaAsociadaNumero}</span>.
+          {/* Factura */}
+          {facturaAsociadaNumero ? (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm flex items-center gap-2">
+              <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
+              <span>
+                Este pago se agregará a la factura{" "}
+                <span className="font-semibold">{facturaAsociadaNumero}</span>.
+              </span>
+            </div>
+          ) : (
+            <div
+              className={`rounded-lg border p-3 transition-colors ${
+                generarFactura ? "border-indigo-300 bg-indigo-50" : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setGenerarFactura((v) => !v)}
+                className="flex items-center gap-3 w-full text-left"
+              >
+                <div
+                  className={`relative w-10 h-5 rounded-full transition-colors ${
+                    generarFactura ? "bg-indigo-500" : "bg-gray-300"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                      generarFactura ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-indigo-600" />
+                  <span className="font-medium text-sm text-gray-800">
+                    Generar factura con este pago
+                  </span>
+                </div>
+              </button>
+
+              {generarFactura && (
+                <div className="mt-3 space-y-1">
+                  <Label className="text-xs text-indigo-800">Número de factura</Label>
+                  <Input
+                    value={numeroFactura}
+                    onChange={(e) => setNumeroFactura(e.target.value)}
+                    placeholder="SV-20250505-0001"
+                    className="bg-white"
+                  />
+                  <p className="text-xs text-indigo-600">
+                    Se creará una factura asociada a esta solicitud con este número.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
