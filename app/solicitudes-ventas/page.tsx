@@ -106,6 +106,7 @@ export default function SolicitudesVentasPage() {
   const [pagoDialogOpen, setPagoDialogOpen]           = useState(false);
   const [facturaDialogOpen, setFacturaDialogOpen]     = useState(false);
   const [stripePagosOpen, setStripePagosOpen]         = useState(false);
+  const [stripeSolicitudFiltro, setStripeSolicitudFiltro] = useState<string | undefined>(undefined);
 
   const [selectedSolicitud, setSelectedSolicitud]     = useState<SolicitudVenta | null>(null);
   const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVentaSummary | null>(null);
@@ -403,15 +404,6 @@ export default function SolicitudesVentasPage() {
                 <span className="sr-only">Nueva solicitud</span>
               </Button>
             </div>
-          ) : activeTab === "pendientes-pago" ? (
-            <Button
-              variant="outline"
-              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50 touch-manipulation"
-              onClick={() => setStripePagosOpen(true)}
-            >
-              <CreditCard className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Cobros Stripe</span>
-            </Button>
           ) : activeTab === "facturas-emitidas" ? (
             <Button
               className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white gap-2 touch-manipulation"
@@ -510,11 +502,24 @@ export default function SolicitudesVentasPage() {
         {activeTab === "pendientes-pago" && (
           <Card className="border-l-4 border-l-indigo-600 overflow-hidden">
             <CardHeader className="pb-0">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <CreditCard className="h-5 w-5 text-indigo-600" />
-                Pendientes de Pago
-              </CardTitle>
-              <CardDescription>Solicitudes con saldo pendiente de cobro</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CreditCard className="h-5 w-5 text-indigo-600" />
+                    Pendientes de Pago
+                  </CardTitle>
+                  <CardDescription>Solicitudes con saldo pendiente de cobro</CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+                  onClick={() => { setStripeSolicitudFiltro(undefined); setStripePagosOpen(true); }}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Cobros Stripe
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <SolicitudesPendientesPagoTable
@@ -523,6 +528,7 @@ export default function SolicitudesVentasPage() {
                 error={errorSolicitudes}
                 onRefresh={fetchSolicitudesPendientes}
                 onPagar={handlePagar}
+                onVerStripe={(s) => { setStripeSolicitudFiltro(s.id); setStripePagosOpen(true); }}
                 variant="embedded"
               />
             </CardContent>
@@ -641,7 +647,8 @@ export default function SolicitudesVentasPage() {
 
       <StripePagosSolicitudesModal
         open={stripePagosOpen}
-        onOpenChange={setStripePagosOpen}
+        onOpenChange={(v) => { setStripePagosOpen(v); if (!v) setStripeSolicitudFiltro(undefined); }}
+        solicitudId={stripeSolicitudFiltro}
       />
 
       <Toaster />

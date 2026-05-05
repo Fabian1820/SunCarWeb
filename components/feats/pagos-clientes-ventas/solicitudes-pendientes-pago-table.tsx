@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table";
 import type { SolicitudVentaSummary } from "@/lib/api-types";
-import { Search, CreditCard, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, CreditCard, RefreshCw, AlertCircle, ExternalLink } from "lucide-react";
 
 interface SolicitudesPendientesPagoTableProps {
   solicitudes: SolicitudVentaSummary[];
@@ -21,6 +21,7 @@ interface SolicitudesPendientesPagoTableProps {
   error: string | null;
   onRefresh: () => void;
   onPagar?: (solicitud: SolicitudVentaSummary) => void;
+  onVerStripe?: (solicitud: SolicitudVentaSummary) => void;
   /** Si false, muestra también las anuladas (por defecto true = las oculta) */
   ocultarAnuladas?: boolean;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
@@ -33,6 +34,7 @@ export function SolicitudesPendientesPagoTable({
   error,
   onRefresh,
   onPagar,
+  onVerStripe,
   ocultarAnuladas = true,
   variant = "default",
 }: SolicitudesPendientesPagoTableProps) {
@@ -143,6 +145,7 @@ export function SolicitudesPendientesPagoTable({
                   Pendiente
                 </TableHead>
                 {onPagar && <TableHead />}
+                {onVerStripe && <TableHead />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -202,6 +205,19 @@ export function SolicitudesPendientesPagoTable({
                             Pagar
                           </Button>
                         )}
+                      </TableCell>
+                    )}
+                    {onVerStripe && (
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50 whitespace-nowrap"
+                          onClick={() => onVerStripe(s)}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Stripe
+                        </Button>
                       </TableCell>
                     )}
                   </TableRow>
