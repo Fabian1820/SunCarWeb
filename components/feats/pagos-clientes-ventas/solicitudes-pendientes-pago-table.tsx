@@ -151,7 +151,10 @@ export function SolicitudesPendientesPagoTable({
                 const descuento = s.descuento_porcentaje != null ? Number(s.descuento_porcentaje) : null;
                 const pagado = s.total_pagado != null ? Number(s.total_pagado) : null;
                 const pendiente = s.monto_pendiente != null ? Number(s.monto_pendiente) : null;
-                const canPagar = pendiente != null && Number.isFinite(pendiente) && pendiente > 0;
+
+                const tienePagos = pagado != null && Number.isFinite(pagado) && pagado > 0;
+                const tienePendiente = pendiente != null && Number.isFinite(pendiente) && pendiente > 0;
+                const isPagada = !tienePendiente && tienePagos;
 
                 return (
                   <TableRow key={s.id} className="hover:bg-gray-50">
@@ -185,7 +188,11 @@ export function SolicitudesPendientesPagoTable({
                     </TableCell>
                     {onPagar && (
                       <TableCell>
-                        {canPagar ? (
+                        {isPagada ? (
+                          <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
+                            Pagada
+                          </span>
+                        ) : (
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white gap-1"
@@ -194,12 +201,6 @@ export function SolicitudesPendientesPagoTable({
                             <CreditCard className="h-3.5 w-3.5" />
                             Pagar
                           </Button>
-                        ) : pendiente === 0 ? (
-                          <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full">
-                            Pagado
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">Sin pendiente</span>
                         )}
                       </TableCell>
                     )}
