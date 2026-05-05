@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Search, ShoppingCart } from "lucide-react";
+import { Plus, Search, ShoppingCart, CreditCard } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -21,6 +21,7 @@ import { SolicitudesVentasTable } from "@/components/feats/solicitudes-ventas/so
 import { SolicitudVentaDetailDialog } from "@/components/feats/solicitudes-ventas/solicitud-venta-detail-dialog";
 import { UpsertSolicitudVentaDialog } from "@/components/feats/solicitudes-ventas/upsert-solicitud-venta-dialog";
 import { AnularSolicitudDialog } from "@/components/shared/molecule/anular-solicitud-dialog";
+import { StripePagosSolicitudesModal } from "@/components/feats/solicitudes-ventas/stripe-pagos-solicitudes-modal";
 import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
@@ -54,6 +55,7 @@ export default function SolicitudesVentasPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false);
   const [isAnularDialogOpen, setIsAnularDialogOpen] = useState(false);
+  const [stripePagosOpen, setStripePagosOpen] = useState(false);
 
   const [selectedSolicitud, setSelectedSolicitud] =
     useState<SolicitudVenta | null>(null);
@@ -339,17 +341,28 @@ export default function SolicitudesVentasPage() {
         badge={{ text: "Ventas", className: "bg-indigo-100 text-indigo-800" }}
         className="bg-white shadow-sm border-b border-orange-100"
         actions={
-          <Button
-            size="icon"
-            className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
-            onClick={() => setIsCreateDialogOpen(true)}
-            aria-label="Nueva solicitud de venta"
-            title="Nueva solicitud"
-          >
-            <Plus className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Nueva Solicitud</span>
-            <span className="sr-only">Nueva solicitud</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setStripePagosOpen(true)}
+              className="border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+            >
+              <CreditCard className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Pagos Stripe</span>
+            </Button>
+            <Button
+              size="icon"
+              className="h-9 w-9 sm:h-auto sm:w-auto sm:px-4 sm:py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-semibold shadow-md touch-manipulation"
+              onClick={() => setIsCreateDialogOpen(true)}
+              aria-label="Nueva solicitud de venta"
+              title="Nueva solicitud"
+            >
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Nueva Solicitud</span>
+              <span className="sr-only">Nueva solicitud</span>
+            </Button>
+          </div>
         }
       />
 
@@ -462,6 +475,11 @@ export default function SolicitudesVentasPage() {
         solicitudTipo="venta"
         onConfirm={handleConfirmAnularSolicitud}
         isLoading={anularLoading}
+      />
+
+      <StripePagosSolicitudesModal
+        open={stripePagosOpen}
+        onOpenChange={setStripePagosOpen}
       />
 
       <Toaster />
