@@ -448,6 +448,7 @@ export function RegistrarPagoVentaDialog({
                 value={monto}
                 onChange={(e) => {
                   setMonto(e.target.value);
+                  // Sincronizar con el campo del link solo si aún no se generó
                   if (metodoPago === "stripe" && !stripeLink) {
                     setStripeMontoLink(e.target.value);
                   }
@@ -522,17 +523,24 @@ export function RegistrarPagoVentaDialog({
 
           {metodoPago === "stripe" && (
             <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50 p-3">
-              <Label className="flex items-center gap-1.5 text-violet-800">
+              <Label className="flex items-center gap-1.5 text-violet-800 font-semibold">
                 <Link className="h-3.5 w-3.5" />
                 Link de pago Stripe
               </Label>
+
+              {/* Monto + botón generar */}
               <div className="flex gap-2">
                 <Input
                   type="number"
                   min="0"
                   step="0.01"
                   value={stripeMontoLink}
-                  onChange={(e) => { setStripeMontoLink(e.target.value); setStripeLink(null); }}
+                  onChange={(e) => {
+                    setStripeMontoLink(e.target.value);
+                    // Solo limpiar el link si el usuario cambió el monto manualmente
+                    setStripeLink(null);
+                    setCopiado(false);
+                  }}
                   placeholder="0.00"
                   className="flex-1 bg-white"
                 />
@@ -543,33 +551,64 @@ export function RegistrarPagoVentaDialog({
                   onClick={handleGenerarStripeLink}
                   disabled={stripeGenerando}
                 >
-                  {stripeGenerando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link className="h-3.5 w-3.5" />}
-                  {stripeGenerando ? "Generando..." : "Generar link"}
+                  {stripeGenerando
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <Link className="h-3.5 w-3.5" />}
+                  {stripeGenerando ? "Generando..." : stripeLink ? "Regenerar" : "Generar link"}
                 </Button>
               </div>
+
               <p className="text-xs text-violet-600">
-                Monto para el link de cobro. Incluye comisión Stripe (5%). Editable si no va a pagar todo de una vez.
+                Monto para el link de cobro. Editable si no va a pagar todo de una vez.
               </p>
+
               {stripeError && (
-                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">{stripeError}</p>
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                  {stripeError}
+                </p>
               )}
+
+              {/* Link generado */}
               {stripeLink && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2 rounded border border-violet-200 bg-white px-2 py-1.5">
-                    <span className="text-xs text-gray-700 flex-1 truncate">{stripeLink}</span>
-                    <button
-                      type="button"
-                      onClick={() => { navigator.clipboard.writeText(stripeLink); setCopiado(true); setTimeout(() => setCopiado(false), 2000); }}
-                      className="text-violet-600 hover:text-violet-800 shrink-0"
-                      title="Copiar link"
-                    >
-                      {copiado ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                    </button>
-                    <a href={stripeLink} target="_blank" rel="noopener noreferrer" className="text-violet-600 hover:text-violet-800 shrink-0" title="Abrir link">
-                      <Link className="h-3.5 w-3.5" />
-                    </a>
+                <div className="space-y-2 pt-1">
+                  <p className="text-xs font-semibold text-green-700 flex items-center gap-1">
+                    <Check className="h-3.5 w-3.5" /> Link generado
+                  </p>
+                  <div className="rounded-md border border-violet-300 bg-white p-2 space-y-2">
+                    <p className="text-xs text-gray-700 break-all select-all">{stripeLink}</p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+                        onClick={() => {
+                          navigator.clipboard.writeText(stripeLink);
+                          setCopiado(true);
+                          setTimeout(() => setCopiado(false), 2500);
+                        }}
+                      >
+                        {copiado
+                          ? <><Check className="h-3.5 w-3.5 text-green-600" /> Copiado</>
+                          : <><Copy className="h-3.5 w-3.5" /> Copiar link</>}
+                      </Button>
+                      <a
+                        href={stripeLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1"
+                      >
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="w-full gap-1.5 border-violet-300 text-violet-700 hover:bg-violet-50"
+                        >
+                          <Link className="h-3.5 w-3.5" /> Abrir
+                        </Button>
+                      </a>
+                    </div>
                   </div>
-                  <p className="text-xs text-green-700 font-medium">✓ Link generado y guardado</p>
                 </div>
               )}
             </div>
