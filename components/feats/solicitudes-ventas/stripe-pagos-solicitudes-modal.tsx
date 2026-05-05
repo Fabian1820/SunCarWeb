@@ -201,14 +201,21 @@ export function StripePagosSolicitudesModal({
     } finally {
       setLoading(false)
     }
-  }, [fechaDesde, fechaHasta])
+  }, [fechaDesde, fechaHasta, solicitudId])
 
+  // Cuando abre: aplicar rango por defecto y cargar
   useEffect(() => {
     if (open) {
       applyQuickRange("month")
+    }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cargar cuando cambian fechas o solicitudId (fetchPagos encapsula todo)
+  useEffect(() => {
+    if (open) {
       fetchPagos()
     }
-  }, [open, applyQuickRange, fetchPagos])
+  }, [open, fetchPagos])
 
   const totalPagos = useMemo(() => pagos.length, [pagos])
 
