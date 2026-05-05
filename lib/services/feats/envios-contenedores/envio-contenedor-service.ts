@@ -7,6 +7,7 @@ import type {
   EnvioContenedorCreateData,
   EnvioContenedorMaterial,
   EstadoEnvioContenedor,
+  MaterialDatosBulk,
   StockMaterialEnvio,
   TipoEnvioContenedor,
 } from "../../../types/feats/envios-contenedores/envio-contenedor-types";
@@ -55,6 +56,7 @@ const mapMaterial = (raw: any): EnvioContenedorMaterial => ({
   cantidad: Number(raw?.cantidad ?? 0),
   precio_unitario_cif: Number(raw?.precio_unitario_cif ?? 0),
   porciento_extra: Number(raw?.porciento_extra ?? 0),
+  costo_calc: raw?.costo_calc != null ? Number(raw.costo_calc) : undefined,
   precio_venta_calc: raw?.precio_venta_calc != null ? Number(raw.precio_venta_calc) : undefined,
   precio_instaladora_calc: raw?.precio_instaladora_calc != null ? Number(raw.precio_instaladora_calc) : undefined,
   porciento_rebajable_venta: Number(raw?.porciento_rebajable_venta ?? 0),
@@ -156,6 +158,33 @@ export class EnvioContenedorService {
         : [];
     } catch {
       return [];
+    }
+  }
+
+  static async getMaterialesDatosBulk(
+    materialIds: string[],
+  ): Promise<Record<string, MaterialDatosBulk>> {
+    if (materialIds.length === 0) return {};
+    try {
+      const raw = await apiRequest<any>("/productos/materiales/bulk-datos", {
+        method: "POST",
+        body: JSON.stringify({ material_ids: materialIds }),
+      });
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+      const payload = raw?.data ?? {};
+      const result: Record<string, MaterialDatosBulk> = {};
+      for (const [mid, item] of Object.entries(payload as Record<string, any>)) {
+        result[mid] = {
+          precio: Number(item?.precio ?? 0),
+          precio_instaladora: Number(item?.precio_instaladora ?? 0),
+          costo: Number(item?.costo ?? 0),
+          stock_total: Number(item?.stock_total ?? 0),
+        };
+      }
+      return result;
+    } catch {
+      return {};
     }
   }
 
