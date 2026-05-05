@@ -28,7 +28,7 @@ import { TodosPagosVentasTable } from "@/components/feats/pagos-clientes-ventas/
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
 import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
-import { StripePagosSolicitudesModal } from "@/components/feats/solicitudes-ventas/stripe-pagos-solicitudes-modal";
+import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
@@ -645,7 +645,7 @@ export default function SolicitudesVentasPage() {
         factura={facturaDetalle}
       />
 
-      <StripePagosSolicitudesModal
+      <StripePagosModal
         open={stripePagosOpen}
         onOpenChange={setStripePagosOpen}
       />
