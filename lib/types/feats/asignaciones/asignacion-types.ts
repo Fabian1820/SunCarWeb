@@ -55,7 +55,7 @@ export interface AsignacionUpdateData {
 export type TipoInstalacion = 'almacen' | 'tienda' | 'sede'
 
 export interface Instalacion {
-  _id: string
+  id: string
   nombre: string
   codigo?: string
 }
@@ -72,7 +72,7 @@ export interface AsignacionInstalacion {
 }
 
 export interface InstalacionConAsignaciones {
-  _id: string
+  id: string
   nombre: string
   codigo?: string
   asignaciones: AsignacionInstalacion[]
