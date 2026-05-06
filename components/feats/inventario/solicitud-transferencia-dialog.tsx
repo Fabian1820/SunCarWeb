@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/shared/atom/button"
 import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
@@ -73,6 +73,24 @@ export function SolicitudTransferenciaDialog({
   const [materialResults, setMaterialResults] = useState<Material[]>([])
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false)
 
+  // Stock real por material_id obtenido directamente del API
+  const [stockReal, setStockReal] = useState<Map<string, number>>(new Map())
+  const [fetchingStockIds, setFetchingStockIds] = useState<Set<string>>(new Set())
+
+  const fetchStockMaterial = useCallback(async (materialId: string, almacenId: string) => {
+    if (!materialId || !almacenId) return
+    setFetchingStockIds(prev => new Set(prev).add(materialId))
+    try {
+      const result = await InventarioService.getStock({ almacen_id: almacenId, material_id: materialId, limit: 1 })
+      const cantidad = result.data.reduce((sum, item) => sum + (item.cantidad ?? 0), 0)
+      setStockReal(prev => new Map(prev).set(materialId, cantidad))
+    } catch {
+      setStockReal(prev => new Map(prev).set(materialId, 0))
+    } finally {
+      setFetchingStockIds(prev => { const s = new Set(prev); s.delete(materialId); return s })
+    }
+  }, [])
+
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
@@ -84,28 +102,23 @@ export function SolicitudTransferenciaDialog({
       setMaterialSearch("")
       setMaterialResults([])
       setShowMaterialDropdown(false)
+      setStockReal(new Map())
+      setFetchingStockIds(new Set())
     }
   }, [open, currentAlmacenId])
 
-  // Stock del almacén origen indexado por material_id y material_codigo
-  const stockPorMaterial = useMemo(() => {
-    const mapById = new Map<string, number>()
-    const mapByCodigo = new Map<string, number>()
-    for (const item of stock) {
-      if (item.almacen_id === origenId) {
-        if (item.material_id) {
-          mapById.set(item.material_id, (mapById.get(item.material_id) || 0) + item.cantidad)
-        }
-        if (item.material_codigo) {
-          mapByCodigo.set(item.material_codigo, (mapByCodigo.get(item.material_codigo) || 0) + item.cantidad)
-        }
-      }
+  // Re-fetch stock para todos los items cuando cambia el almacén origen
+  useEffect(() => {
+    if (!origenId || items.length === 0) return
+    setStockReal(new Map())
+    for (const item of items) {
+      if (item.material_id) fetchStockMaterial(item.material_id, origenId)
     }
-    return { byId: mapById, byCodigo: mapByCodigo }
-  }, [stock, origenId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origenId])
 
-  const getStockDisponible = (materialId: string, materialCodigo: string) => {
-    return stockPorMaterial.byId.get(materialId) || stockPorMaterial.byCodigo.get(materialCodigo) || 0
+  const getStockDisponible = (materialId: string) => {
+    return stockReal.get(materialId) ?? 0
   }
 
   // Material search with debounce
@@ -153,6 +166,8 @@ export function SolicitudTransferenciaDialog({
     ])
     setMaterialSearch("")
     setShowMaterialDropdown(false)
+
+    if (origenId) fetchStockMaterial(id, origenId)
   }
 
   const handleRemoveMaterial = (index: number) => {
@@ -195,7 +210,7 @@ export function SolicitudTransferenciaDialog({
         setError(`"${item.nombre || item.material_codigo}": la cantidad debe ser mayor a 0`)
         return false
       }
-      const disponible = getStockDisponible(item.material_id, item.material_codigo)
+      const disponible = getStockDisponible(item.material_id)
       if (item.cantidad > disponible) {
         setError(
           `"${item.nombre || item.material_codigo}": solo hay ${disponible} disponibles en el almacén origen`,
@@ -327,8 +342,9 @@ export function SolicitudTransferenciaDialog({
                   </thead>
                   <tbody>
                     {items.map((mat, idx) => {
-                      const disponible = getStockDisponible(mat.material_id, mat.material_codigo)
-                      const excede = mat.cantidad > disponible
+                      const disponible = getStockDisponible(mat.material_id)
+                      const loadingStock = fetchingStockIds.has(mat.material_id)
+                      const excede = !loadingStock && mat.cantidad > disponible
                       return (
                         <tr
                           key={idx}
@@ -363,22 +379,26 @@ export function SolicitudTransferenciaDialog({
                             </div>
                           </td>
                           <td className="py-2 px-3">
-                            <Badge
-                              variant="outline"
-                              className={
-                                excede
-                                  ? "bg-red-100 text-red-700 border-red-300"
-                                  : "bg-blue-50 text-blue-700 border-blue-200"
-                              }
-                            >
-                              {disponible}
-                            </Badge>
+                            {loadingStock ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className={
+                                  excede
+                                    ? "bg-red-100 text-red-700 border-red-300"
+                                    : "bg-blue-50 text-blue-700 border-blue-200"
+                                }
+                              >
+                                {disponible}
+                              </Badge>
+                            )}
                           </td>
                           <td className="py-2 px-3">
                             <Input
                               type="number"
                               min="1"
-                              max={disponible}
+                              max={loadingStock ? undefined : disponible}
                               step="1"
                               value={mat.cantidad === 0 ? "" : mat.cantidad}
                               onChange={(e) =>
@@ -386,6 +406,7 @@ export function SolicitudTransferenciaDialog({
                               }
                               className={`h-8 w-24 ${excede ? "border-red-400" : ""}`}
                               placeholder="0"
+                              disabled={loadingStock}
                             />
                           </td>
                           <td className="py-2 px-3">
@@ -485,7 +506,7 @@ export function SolicitudTransferenciaDialog({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting || items.length === 0}
+              disabled={isSubmitting || items.length === 0 || fetchingStockIds.size > 0}
               className="bg-amber-600 hover:bg-amber-700"
             >
               {isSubmitting ? (
