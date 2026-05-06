@@ -18,7 +18,6 @@ import {
   Warehouse,
   Ban,
   FileDown,
-  DollarSign,
 } from "lucide-react";
 import type { SolicitudVenta, SolicitudVentaSummary } from "@/lib/api-types";
 
@@ -33,7 +32,6 @@ interface SolicitudesVentasTableProps {
   onAnular?: (solicitud: SolicitudRow) => void;
   onReabrir?: (solicitud: SolicitudRow) => void;
   onExportar?: (solicitud: SolicitudRow, tipo: ExportTipo) => void;
-  onActualizarPrecios?: (solicitud: SolicitudRow) => void;
 }
 
 const getClienteNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
@@ -52,7 +50,6 @@ export function SolicitudesVentasTable({
   onAnular,
   onReabrir,
   onExportar,
-  onActualizarPrecios,
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -184,18 +181,6 @@ export function SolicitudesVentasTable({
                       >
                         <Eye className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline text-xs">Ver</span>
-                      </Button>
-                    )}
-                    {onActualizarPrecios && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onActualizarPrecios(solicitud)}
-                        className="border-amber-400 text-amber-700 hover:bg-amber-50"
-                        title="Actualizar precios"
-                      >
-                        <DollarSign className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline text-xs">Precios</span>
                       </Button>
                     )}
                     {onEdit && isNueva && (

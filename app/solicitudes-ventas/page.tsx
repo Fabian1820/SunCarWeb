@@ -35,7 +35,6 @@ import { TodosPagosVentasTable } from "@/components/feats/pagos-clientes-ventas/
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
 import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
-import { ActualizarPreciosDialog } from "@/components/feats/solicitudes-ventas/actualizar-precios-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type {
   SolicitudVenta,
@@ -123,9 +122,7 @@ export default function SolicitudesVentasPage() {
   const [facturaAsociadaNumero, setFacturaAsociadaNumero] = useState<string | null>(null);
   const [solicitudToAnular, setSolicitudToAnular]     = useState<SolicitudVenta | null>(null);
   const [facturaDetalle, setFacturaDetalle]           = useState<FacturaVentaResumen | null>(null);
-  const [preciosDialogOpen, setPreciosDialogOpen]     = useState(false);
-  const [solicitudParaPrecios, setSolicitudParaPrecios] = useState<SolicitudVenta | SolicitudVentaSummary | null>(null);
-  const [anularLoading, setAnularLoading]             = useState(false);
+const [anularLoading, setAnularLoading]             = useState(false);
 
   // ── Filtros por pestaña ────────────────────────────────────────────────────
   const [f1Estado, setF1Estado]   = useState("");
@@ -667,7 +664,6 @@ export default function SolicitudesVentasPage() {
                     onAnular={(s) => { void handleOpenAnularSolicitud(s); }}
                     onReabrir={(s) => { void handleReabrirSolicitud(s); }}
                     onExportar={(s, tipo) => { void handleExportar(s, tipo); }}
-                    onActualizarPrecios={(s) => { setSolicitudParaPrecios(s as SolicitudVenta); setPreciosDialogOpen(true); }}
                   />
                 </div>
               )}
@@ -917,13 +913,6 @@ export default function SolicitudesVentasPage() {
       <StripePagosModal
         open={stripePagosOpen}
         onOpenChange={setStripePagosOpen}
-      />
-
-      <ActualizarPreciosDialog
-        open={preciosDialogOpen}
-        onOpenChange={setPreciosDialogOpen}
-        solicitud={solicitudParaPrecios}
-        onSuccess={() => { refreshAll(); }}
       />
 
       <Toaster />
