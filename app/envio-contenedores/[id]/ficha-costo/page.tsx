@@ -36,7 +36,6 @@ import { RouteGuard } from "@/components/auth/route-guard";
 import { EnvioContenedorService } from "@/lib/api-services";
 import type {
   AplicarPreciosMaterialPayload,
-  ArchivoEnvioContenedor,
   CostoImportacion,
   EnvioContenedor,
   MonedaCosto,
@@ -46,7 +45,6 @@ import {
   MONEDAS_COSTO,
   TIPO_ENVIO_LABELS,
 } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
-import { EnvioDocumentosPanel } from "@/components/feats/envios-contenedores/envio-documentos-panel";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -104,7 +102,6 @@ function FichaCostoContent() {
   const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [costosCollapsed, setCostosCollapsed] = useState(false);
-  const [archivos, setArchivos] = useState<ArchivoEnvioContenedor[]>([]);
 
   // ── costos de importación ──
   const [costos, setCostos] = useState<CostoImportacion[]>([]);
@@ -137,7 +134,6 @@ function FichaCostoContent() {
       setCostos(envioData.costos ?? []);
       setPorcientoInstaladora(envioData.porciento_instaladora ?? 0);
       setPorcientoVentas(envioData.porciento_ventas ?? 0);
-      setArchivos(envioData.archivos ?? []);
 
       // Obtener stock + precios actuales del catálogo en una sola llamada optimizada
       const materialIds = envioData.materiales.map((m) => m.material_id).filter(Boolean);
@@ -1216,28 +1212,6 @@ function FichaCostoContent() {
                 </table>
               </div>
             )}
-          </CardContent>
-        </Card>
-
-        {/* ── Documentos adjuntos ── */}
-        <Card className="border-l-4 border-l-orange-400">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <span className="inline-flex items-center justify-center h-6 w-6 rounded bg-orange-100">
-                <svg className="h-3.5 w-3.5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-              </span>
-              Documentos adjuntos
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EnvioDocumentosPanel
-              envioId={envioId}
-              archivos={archivos}
-              onArchivosChange={setArchivos}
-              disabled={saving}
-            />
           </CardContent>
         </Card>
       </main>

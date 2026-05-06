@@ -22,6 +22,7 @@ import {
   Container,
   MapPin,
   Package,
+  Paperclip,
   Pencil,
   Plane,
   Ship,
@@ -89,6 +90,7 @@ interface EnviosContenedoresTableProps {
   envios: EnvioContenedor[];
   onDelete?: (id: string) => void;
   onEdit?:   (envio: EnvioContenedor) => void;
+  onDocs?:   (envio: EnvioContenedor) => void;
 }
 
 // ─── component ───────────────────────────────────────────────────────────────
@@ -97,6 +99,7 @@ export function EnviosContenedoresTable({
   envios,
   onDelete,
   onEdit,
+  onDocs,
 }: EnviosContenedoresTableProps) {
   const router = useRouter();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -267,6 +270,25 @@ export function EnviosContenedoresTable({
                         <ClipboardList className="h-3.5 w-3.5" />
                         <span className="hidden xl:inline">Ficha</span>
                       </Button>
+
+                      {onDocs && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 px-2.5 gap-1.5 text-xs border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300 relative"
+                          onClick={() => onDocs(envio)}
+                          title="Documentos adjuntos"
+                        >
+                          <Paperclip className="h-3.5 w-3.5" />
+                          <span className="hidden xl:inline">Docs</span>
+                          {envio.archivos?.length > 0 && (
+                            <span className="absolute -top-1.5 -right-1.5 h-4 w-4 rounded-full bg-orange-500 text-white text-[9px] font-bold flex items-center justify-center leading-none">
+                              {envio.archivos.length > 9 ? "9+" : envio.archivos.length}
+                            </span>
+                          )}
+                        </Button>
+                      )}
 
                       {onEdit && (
                         <Button
