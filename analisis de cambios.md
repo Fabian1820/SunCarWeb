@@ -2,6 +2,98 @@
 
 ---
 
+## 📅 6 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Rendimiento (leads/materiales/trabajadores), módulo Envío Contenedores, módulo Recursos (ex-Asignaciones), análisis de stock en almacenes, fixes varios**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `1d4d779` | Fabián1820 | *(sin descripción: "hjghjgj")* |
+| `7e7661a` | Ruben/Claude | fix(duplicar-oferta): cargar oferta completa con items al duplicar |
+| `dfac8b4` | Ruben/Claude | feat(envio-contenedores): nuevos campos (BL, buque, sello, tipo, rutas, partes), adjuntos S3 |
+| `0a743ac` | Fabián1820 | "materiales nuevos campos de precios ok" (47 adiciones) |
+| `2dded82` | Ruben/Claude | refactor(envio-contenedores): mover adjuntos de ficha-costo a página principal |
+| `93ff56a` | Fabián1820 | "fix solicitudes de ventas" (sin descripción detallada) |
+| `9abf385` | Fabián1820 | *(sin descripción: "mnbjk")* |
+| `2e8c41f` | Fabián1820 | *(sin descripción: "bhjvjvh")* |
+| `ee9543a` | Ruben/Claude | perf(leads): endpoint `/leads/comerciales` en lugar de descarga 10-25 MB |
+| `84c5afa` | Ruben/Claude | perf(leads): dropdown comercial desde `/trabajadores/comerciales` |
+| `933c7f6` | Ruben/Claude | perf(materiales): búsqueda backend on-demand en 3 diálogos |
+| `42f0bf6` | Ruben/Claude | perf(trabajadores): eliminar `getAllTrabajadores()` de diálogos, búsqueda backend |
+| `b256499` | Fabián1820/Claude | feat(asignaciones): renombrar a Recursos, mover a RR.HH, tab instalaciones, CRUD asignaciones-instalaciones |
+| `6496910` | Ruben/Claude | feat(almacenes): modal análisis de stock mínimo con semáforo crítico/alerta/ok |
+| `4caf94e` | Ruben/Claude | fix(almacenes): validar respuesta de backend (500) en modal de análisis de stock |
+| `fa40341` | Fabián1820/Claude | fix(traspasos): obtener stock real por material desde API (almacen_id vacío daba 0) |
+| `1725db0` | yany1509 | "ventas" (sin descripción) |
+| `29287c2` | Fabián1820/Claude | fix(asignaciones): corregir carga de trabajadores, instalaciones y materiales |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Backend 500 en endpoint de análisis de stock (almacenes)**
+   - `feat` a las 17:58, `fix` a las 18:07 (9 min después). El fix valida que el backend devuelve error 500 y muestra mensaje descriptivo en lugar de crashear.
+   - **El backend sigue fallando con 500.** El fix solo protege el frontend. El endpoint de historial de movimientos para calcular stock mínimo en LlegoBackend no está funcionando o no existe.
+   - **Acción urgente:** Verificar en LlegoBackend si el endpoint existe y corregir el error del servidor.
+
+2. **Módulo Recursos: fix extenso 3.5 horas después del feat**
+   - `b256499` (17:40) lanza el módulo; `29287c2` (21:09) lo repara con cambios significativos:
+     - `_id → id` en tipo `Instalacion` e `InstalacionConAsignaciones`
+     - Normalización de respuestas `/asignaciones-trabajadores/` con fallback CI/ci
+     - Cambio de servicio para almacenes/tiendas/sedes (InventarioService, SedeService)
+     - Endpoint catálogo materiales cambiado a `/productos/admin/materiales?categoria=`
+     - `extractArray` robusto para `{ data: [] }` vs array directo
+   - Indica que el módulo se testó en staging con múltiples fallos de integración.
+   - **Acción recomendada:** Verificar el flujo completo del módulo Recursos: asignación por trabajador y por instalación, selección de almacén/tienda/sede, carga de catálogo de materiales y medios básicos.
+
+3. **fix(traspasos): normalización rota de `almacen_id` en stock paginado**
+   - La lista paginada (max 40 items) devuelve `almacen_id` vacío tras normalización, causando que el filtro nunca coincida y muestre stock 0 para todos los materiales.
+   - **El mismo patrón de normalización puede estar roto en otros módulos** que consumen stock paginado.
+   - **Acción recomendada:** Buscar en el codebase otros lugares que filtren por `almacen_id` sobre datos paginados y verificar que reciben el valor correcto.
+
+4. **4 commits sin descripción** ("hjghjgj", "mnbjk", "bhjvjvh" de Fabián1820 + "ventas" de yany1509) — cambios no auditables.
+
+#### 🟡 Riesgos medios
+
+5. **Adjuntos S3 en envío-contenedores: nuevos endpoints en backend**
+   - `uploadArchivos`, `getArchivos`, `deleteArchivo` son métodos nuevos en el servicio.
+   - Si los endpoints `/envio-contenedores/{id}/archivos` no están deployados en LlegoBackend, el panel de documentos fallará con 404 o 500.
+   - **Acción recomendada:** Confirmar que los endpoints S3 están desplegados antes de probar en producción.
+
+6. **Nuevos campos en envío-contenedores no guardados si el backend no los acepta**
+   - BL, buque, referencia, sello, tipo contenedor (20DV/40DV/40HC), puertos, país, proveedor, cliente, transitaria son campos nuevos en el formulario.
+   - Si el modelo del backend no incluye estos campos, se descartarán silenciosamente al guardar.
+   - **Acción recomendada:** Verificar el schema del modelo `EnvioContenedor` en LlegoBackend.
+
+7. **Refactor adjuntos: documentos movidos de ficha-costo a página principal**
+   - El componente `EnvioDocumentosPanel` fue eliminado de la ficha de costo y reemplazado por un botón "Docs" en la tabla de la página principal.
+   - Si hay datos de adjuntos existentes en producción, hay que confirmar que se siguen mostrando correctamente desde la nueva ubicación.
+
+8. **"materiales nuevos campos de precios ok" (0a743ac, +47/-11)**
+   - 47 adiciones sin descripción. Posiblemente añade campos de precios al formulario/tabla de materiales.
+   - Si los campos son requeridos y no tienen defaults, puede romper el guardado de materiales existentes que no tengan esos valores.
+
+9. **Búsqueda per-row en `completar-visita` con estado individual por fila**
+   - Estado `matRowSearch/Results/Open/Loading` por fila puede generar muchas requests concurrentes en visitas con múltiples ítems.
+   - Verificar que el debounce es suficiente para evitar saturar el endpoint de búsqueda.
+
+#### 🟢 Mejoras positivas
+
+10. **Eliminación de cargas masivas de datos**
+    - `/leads/comerciales` reemplaza descarga de 10-25 MB de todos los leads para obtener ~20 comerciales.
+    - `getAllMaterials()` reemplazado por búsqueda on-demand en 3 diálogos clave.
+    - `getAllTrabajadores()` eliminado de 2 diálogos.
+
+11. **fix(duplicar-oferta): bug bloqueante resuelto**
+    - La oferta se buscaba en la lista general (sin items), dejando el formulario vacío y el botón de guardar bloqueado. Ahora carga el detalle completo con items.
+
+12. **Análisis de stock mínimo con semáforo visual**
+    - Modal configurable por lead time y nivel de servicio (90/95/98/99%) con estado crítico/alerta/ok por producto.
+
+---
+
 ## 📅 5 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
