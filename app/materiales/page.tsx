@@ -614,6 +614,23 @@ export default function MaterialesPage() {
         }
       });
 
+      // Fetch all filtered materials (respecting current filters, no pagination limit)
+      const { MaterialService } = await import("@/lib/services/feats/materials/material-service");
+      const currentFilters = paginated.filters;
+      const totalFiltered = paginated.meta.total || 10000;
+      const exportParams: Parameters<typeof MaterialService.getCatalogoAdmin>[0] = {
+        page: 1,
+        limit: totalFiltered,
+        sort: "categoria,nombre",
+      };
+      if (currentFilters.q.trim()) exportParams.q = currentFilters.q.trim();
+      if (currentFilters.categoria !== "all") exportParams.categoria = currentFilters.categoria;
+      if (currentFilters.marca_id !== "all") exportParams.marca_id = currentFilters.marca_id;
+      if (currentFilters.precio_zero) exportParams.precio_zero = true;
+
+      const exportResult = await MaterialService.getCatalogoAdmin(exportParams);
+      const materialsToExport = exportResult.data;
+
       const normalizeValue = (value: unknown): string | number => {
         if (typeof value === "number") return value;
         if (typeof value === "boolean") return value ? "Sí" : "No";
@@ -632,7 +649,7 @@ export default function MaterialesPage() {
 
       await exportToExcel({
         title: "Suncar SRL - Catálogo Completo de Materiales",
-        subtitle: `Total de materiales: ${materials.length}`,
+        subtitle: `Total de materiales: ${materialsToExport.length}`,
         filename: generateFilename("materiales_completos"),
         columns: [
           { header: "Código", key: "codigo", width: 18 },
@@ -661,7 +678,7 @@ export default function MaterialesPage() {
             width: 18,
           },
         ],
-        data: materials.map((material) => ({
+        data: materialsToExport.map((material) => ({
           codigo: normalizeValue(material.codigo),
           categoria: normalizeValue(material.categoria),
           nombre: normalizeValue(material.nombre),
