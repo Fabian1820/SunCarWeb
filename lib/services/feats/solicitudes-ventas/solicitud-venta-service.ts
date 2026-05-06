@@ -15,12 +15,8 @@ import type {
 } from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/solicitudes-ventas";
-// El backend tiene el endpoint de edición (PATCH/PUT) en una ruta distinta
-const BASE_UPDATE_ENDPOINT = "/solicitudes-ventas";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
-const buildUpdateEndpoint = (id: string) =>
-  `${BASE_UPDATE_ENDPOINT}/${encodeURIComponent(id)}`;
 const buildAnularEndpoint = (id: string) =>
   `${buildDetailEndpoint(id)}/anular`;
 const buildReabrirEndpoint = (id: string) =>
@@ -354,7 +350,7 @@ export class SolicitudVentaService {
         : undefined,
     };
 
-    const raw = await apiRequest<any>(buildUpdateEndpoint(id), {
+    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
       method: "PUT",
       body: JSON.stringify(payload),
     });
@@ -391,7 +387,7 @@ export class SolicitudVentaService {
         : undefined,
     };
 
-    const raw = await apiRequest<any>(buildUpdateEndpoint(id), {
+    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
