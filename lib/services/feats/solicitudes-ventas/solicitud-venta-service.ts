@@ -379,9 +379,12 @@ export class SolicitudVentaService {
         : undefined,
     };
 
+    const bodyStr = JSON.stringify(payload);
+    console.log("🔧 PATCH solicitud payload:", bodyStr);
+
     const raw = await apiRequest<any>(buildDetailEndpoint(id), {
       method: "PATCH",
-      body: JSON.stringify(payload),
+      body: bodyStr,
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);

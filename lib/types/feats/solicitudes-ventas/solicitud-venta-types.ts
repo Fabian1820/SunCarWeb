@@ -96,6 +96,7 @@ export interface SolicitudVentaUpdateData {
   materiales?: SolicitudVentaMaterialItem[];
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[];
+  descuento_porcentaje?: number;
 }
 
 export interface SolicitudVentaPlanPagosData {

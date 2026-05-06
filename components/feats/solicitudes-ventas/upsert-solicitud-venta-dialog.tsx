@@ -243,7 +243,7 @@ export function UpsertSolicitudVentaDialog({
 
     const initialRows: MaterialRow[] = (solicitud?.materiales || []).map(
       (item) => ({
-        material_id: item.material_id,
+        material_id: item.material_id || item.material?.id || "",
         cantidad: item.cantidad,
         codigo:
           item.material?.codigo || item.material_codigo || item.codigo || "",
@@ -349,7 +349,7 @@ export function UpsertSolicitudVentaDialog({
   const validMaterials = useMemo(
     () =>
       materialRows.filter(
-        (item) => item.material_id.trim().length > 0 && item.cantidad > 0,
+        (item) => (item.material_id ?? "").trim().length > 0 && item.cantidad > 0,
       ),
     [materialRows],
   );
