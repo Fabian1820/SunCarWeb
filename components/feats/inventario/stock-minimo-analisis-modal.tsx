@@ -297,6 +297,12 @@ export function StockMinimoAnalisisModal({
         lead_time_dias: Number(leadTime),
         nivel_servicio: nivelServicio,
       });
+      // Validar que la respuesta tenga la estructura esperada
+      if (!result || !result.resumen || !Array.isArray(result.productos)) {
+        const detail = (result as any)?.detail || (result as any)?.message || "";
+        setError(`Error del servidor${detail ? ": " + detail : ". Intenta de nuevo."}`);
+        return;
+      }
       setData(result);
       setHasCargado(true);
     } catch (e) {
