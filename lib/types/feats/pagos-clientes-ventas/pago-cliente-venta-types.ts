@@ -33,7 +33,6 @@ export interface PagoVentaCreateData {
   monto: number;
   moneda: "USD" | "CUP" | "EUR";
   tasa_cambio?: number;
-  descuento_porcentaje?: number;
   metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
@@ -88,11 +87,12 @@ export interface FacturaClienteVenta {
 }
 
 export interface FacturaClienteVentaCreateData {
-  // Backend actual (requerido)
+  // Requerido por el backend (422 si falta)
+  numero: string;
   fecha: string;
   cliente_venta_id: string;
   solicitudes: Array<{ solicitud_venta_id: string }>;
-  // Campos legacy/opcionales para compatibilidad
+  // Campos opcionales / legacy para compatibilidad
   numero_factura?: string;
   solicitud_venta_id?: string;
   fecha_emision?: string;
@@ -108,9 +108,13 @@ export interface FacturaVentaResumenSolicitud {
     cantidad?: number;
     precio?: number;
     subtotal?: number;
+    precio_con_descuento?: number;
+    descuento_porcentaje?: number;
+    descuento_monto?: number;
   }> | string[];
-  precio_materiales?: number;
-  descuento_porcentaje?: number;
+  precio_materiales?: number;       // precio bruto (sin descuento)
+  descuento_porcentaje?: number;    // opcional
+  descuento_monto?: number;         // monto $ descontado en esta solicitud
   monto_a_pagar?: number;
 }
 

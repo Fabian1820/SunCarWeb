@@ -8,6 +8,8 @@ import type { PagoProgramado } from "../pagos-clientes-ventas/pago-cliente-venta
 export interface SolicitudVentaMaterialItem {
   material_id: string;
   cantidad: number;
+  precio?: number;
+  descuento_porcentaje?: number;
 }
 
 export interface MaterialVentaInfo {
@@ -27,7 +29,9 @@ export interface SolicitudVentaMaterialItemDetalle {
   cantidad: number;
   /** Precio unitario del material en la solicitud */
   precio?: number;
-  /** precio × cantidad calculado por el backend */
+  descuento_porcentaje?: number;
+  precio_con_descuento?: number;
+  /** precio_con_descuento × cantidad calculado por el backend */
   subtotal?: number;
   material_codigo?: string;
   material_descripcion?: string;
@@ -96,7 +100,6 @@ export interface SolicitudVentaUpdateData {
   materiales?: SolicitudVentaMaterialItem[];
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[];
-  descuento_porcentaje?: number;
 }
 
 export interface SolicitudVentaPlanPagosData {
@@ -151,6 +154,8 @@ export interface SolicitudVentaSummaryMaterial {
   um?: string | null;
   cantidad: number;
   precio?: number;
+  descuento_porcentaje?: number;
+  precio_con_descuento?: number;
   subtotal?: number;
 }
 
@@ -166,9 +171,9 @@ export interface SolicitudVentaSummary {
   materiales_resumen?: string;
   /** Array completo de materiales con precios (nuevo backend) */
   materiales?: SolicitudVentaSummaryMaterial[];
-  /** Suma de precio × cantidad */
+  /** Suma de subtotales de materiales (ya con descuentos por material aplicados) */
   precio_total?: number | null;
-  /** precio_total × (1 - descuento/100) */
+  /** Igual a precio_total en el nuevo modelo (descuentos ya aplicados en materiales) */
   precio_neto?: number | null;
   /** Acumulado pagado */
   total_pagado?: number | null;

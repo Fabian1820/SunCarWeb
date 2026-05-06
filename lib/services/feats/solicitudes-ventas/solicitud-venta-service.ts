@@ -64,18 +64,28 @@ const extractApiError = (response: any): string | null => {
 const normalizeMaterialesPayload = (
   materiales: SolicitudVentaMaterialItem[],
 ): SolicitudVentaMaterialItem[] => {
-  const merged = new Map<string, number>();
+  // Merge duplicados sumando cantidades; conservar precio y descuento del primer ítem encontrado
+  const merged = new Map<string, { cantidad: number; precio?: number; descuento_porcentaje?: number }>();
 
   for (const item of materiales) {
     const materialId = asString(item.material_id);
     const cantidad = asNumber(item.cantidad) ?? 0;
     if (!materialId || cantidad <= 0) continue;
-    merged.set(materialId, (merged.get(materialId) ?? 0) + cantidad);
+    const existing = merged.get(materialId);
+    merged.set(materialId, {
+      cantidad: (existing?.cantidad ?? 0) + cantidad,
+      precio: existing?.precio ?? (item.precio != null ? item.precio : undefined),
+      descuento_porcentaje: existing?.descuento_porcentaje ?? (item.descuento_porcentaje ?? undefined),
+    });
   }
 
-  return Array.from(merged.entries()).map(([material_id, cantidad]) => ({
+  return Array.from(merged.entries()).map(([material_id, { cantidad, precio, descuento_porcentaje }]) => ({
     material_id,
     cantidad,
+    ...(precio != null ? { precio } : {}),
+    ...(descuento_porcentaje != null && descuento_porcentaje > 0
+      ? { descuento_porcentaje }
+      : {}),
   }));
 };
 
@@ -231,15 +241,26 @@ export class SolicitudVentaService {
       ? `${BASE_ENDPOINT}/summary?${search.toString()}`
       : `${BASE_ENDPOINT}/summary`;
 
-    const raw = await apiRequest<SolicitudVentaSummaryResponse>(endpoint);
+    const raw = await apiRequest<any>(endpoint);
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
     // El total está en raw.total, NO en raw.data.total
-    const data = Array.isArray(raw.data)
+    const rawData: any[] = Array.isArray(raw.data)
       ? raw.data
       : raw.data?.solicitudes || raw.solicitudes || [];
     const total = raw.total || 0;
+
+    // Normalizar nombres de campo que el backend puede devolver de distintas formas
+    const data: SolicitudVentaSummary[] = rawData.map((s: any) => ({
+      ...s,
+      almacen_nombre:
+        s.almacen_nombre ?? s.nombre_almacen ?? s.almacen?.nombre ?? undefined,
+      creador_nombre:
+        s.creador_nombre ?? s.nombre_creador ?? s.trabajador_nombre ?? s.trabajador?.nombre ?? undefined,
+      cliente_venta_nombre:
+        s.cliente_venta_nombre ?? s.nombre_cliente ?? s.cliente_venta?.nombre ?? undefined,
+    }));
 
     return { data, total };
   }
@@ -417,6 +438,24 @@ export class SolicitudVentaService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
 
+    return (raw?.data ?? raw) as SolicitudVenta;
+  }
+
+  static async patchSolicitudPrecios(
+    id: string,
+    materiales: Array<{
+      material_id: string;
+      cantidad: number;
+      precio?: number;
+      descuento_porcentaje?: number;
+    }>,
+  ): Promise<SolicitudVenta> {
+    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
+      method: "PATCH",
+      body: JSON.stringify({ materiales }),
+    });
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
     return (raw?.data ?? raw) as SolicitudVenta;
   }
 

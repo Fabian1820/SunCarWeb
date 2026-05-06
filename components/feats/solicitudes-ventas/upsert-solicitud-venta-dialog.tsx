@@ -54,6 +54,10 @@ import type {
 interface MaterialRow {
   material_id: string;
   cantidad: number;
+  precio: number;
+  descuento_porcentaje: number;
+  descuento_tipo: "%" | "$";
+  descuento_display: string;
   codigo: string;
   nombre: string;
   descripcion?: string;
@@ -245,6 +249,10 @@ export function UpsertSolicitudVentaDialog({
       (item) => ({
         material_id: item.material_id || item.material?.id || "",
         cantidad: item.cantidad,
+        precio: item.precio ?? item.material?.precio ?? 0,
+        descuento_porcentaje: item.descuento_porcentaje ?? 0,
+        descuento_tipo: "%",
+        descuento_display: String(item.descuento_porcentaje ?? 0),
         codigo:
           item.material?.codigo || item.material_codigo || item.codigo || "",
         nombre:
@@ -354,11 +362,17 @@ export function UpsertSolicitudVentaDialog({
     [materialRows],
   );
 
+  const hasDiscountError = useMemo(
+    () => materialRows.some((m) => m.descuento_porcentaje > 5),
+    [materialRows],
+  );
+
   const canSubmit = useMemo(() => {
     if (!selectedClienteVenta?.id) return false;
     if (!selectedAlmacenId.trim()) return false;
     if (validMaterials.length === 0) return false;
     if (submitting || isLoading || loadingData) return false;
+    if (hasDiscountError) return false;
     return true;
   }, [
     selectedClienteVenta,
@@ -367,6 +381,7 @@ export function UpsertSolicitudVentaDialog({
     submitting,
     isLoading,
     loadingData,
+    hasDiscountError,
   ]);
 
   const handleSelectCliente = (cliente: ClienteVenta) => {
@@ -466,6 +481,10 @@ export function UpsertSolicitudVentaDialog({
             {
               material_id: material.id,
               cantidad: 1,
+              precio: material.precio ?? 0,
+              descuento_porcentaje: 0,
+              descuento_tipo: "%",
+              descuento_display: "0",
               codigo: material.codigo,
               nombre: material.nombre,
               descripcion: material.descripcion,
@@ -493,6 +512,36 @@ export function UpsertSolicitudVentaDialog({
           ? { ...item, cantidad, ...calculateStockAlertV(cantidad, item.stock_actual, item.alerta_stock) }
           : item,
       ),
+    );
+  };
+
+  const handleDescuentoChange = (index: number, value: string) => {
+    setMaterialRows((prev) =>
+      prev.map((item, rowIndex) => {
+        if (rowIndex !== index) return item;
+        const raw = Number(value);
+        const descuento_porcentaje =
+          Number.isFinite(raw) && raw >= 0
+            ? item.descuento_tipo === "$"
+              ? item.precio > 0 ? (raw / item.precio) * 100 : 0
+              : raw
+            : item.descuento_porcentaje;
+        return { ...item, descuento_display: value, descuento_porcentaje };
+      }),
+    );
+  };
+
+  const handleDescuentoTipoChange = (index: number, tipo: "%" | "$") => {
+    setMaterialRows((prev) =>
+      prev.map((item, rowIndex) => {
+        if (rowIndex !== index) return item;
+        // Recalcular display para el nuevo modo
+        const display =
+          tipo === "$"
+            ? (item.precio * item.descuento_porcentaje / 100).toFixed(2)
+            : String(item.descuento_porcentaje);
+        return { ...item, descuento_tipo: tipo, descuento_display: display };
+      }),
     );
   };
 
@@ -610,6 +659,10 @@ export function UpsertSolicitudVentaDialog({
         return {
           material_id: m.material_id,
           cantidad: Math.max(1, m.cantidad_reservada - (m.cantidad_consumida ?? 0)),
+          precio: cat?.precio ?? 0,
+          descuento_porcentaje: 0,
+          descuento_tipo: "%" as const,
+          descuento_display: "0",
           codigo: m.codigo ?? cat?.codigo ?? "",
           nombre: m.nombre ?? cat?.nombre ?? m.material_id,
           descripcion: m.descripcion ?? cat?.descripcion,
@@ -645,6 +698,7 @@ export function UpsertSolicitudVentaDialog({
       materiales: validMaterials.map((material) => ({
         material_id: material.material_id,
         cantidad: material.cantidad,
+        ...(material.descuento_porcentaje > 0 && { descuento_porcentaje: material.descuento_porcentaje }),
       })),
     };
 
@@ -1020,88 +1074,131 @@ export function UpsertSolicitudVentaDialog({
             )}
 
             {materialRows.length > 0 ? (
-              <div className="border rounded-md overflow-hidden">
-                <table className="w-full text-sm">
+              <div className="border rounded-md overflow-x-auto">
+                <table className="text-sm" style={{ minWidth: "640px" }}>
                   <thead>
                     <tr className="bg-gray-50 border-b">
-                      <th className="text-left py-2 px-3 font-medium text-gray-700">
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-44">
                         Material
                       </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-24">
-                        UM
+                      <th className="text-center py-2 px-3 font-medium text-gray-700 w-20">
+                        Cant.
                       </th>
-                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-28">
-                        Cantidad
+                      <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
+                        P. Unit.
+                      </th>
+                      <th className="text-left py-2 px-3 font-medium text-gray-700 w-44">
+                        Descuento
+                      </th>
+                      <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
+                        P. Total
                       </th>
                       <th className="w-10" />
                     </tr>
                   </thead>
                   <tbody>
-                    {materialRows.map((material, index) => (
+                    {materialRows.map((material, index) => {
+                      const precioUnit = material.precio;
+                      const descPct = material.descuento_porcentaje;
+                      const precioConDesc = precioUnit * (1 - descPct / 100);
+                      const precioTotal = precioConDesc * material.cantidad;
+
+                      return (
                       <tr
                         key={`${material.material_id}-${index}`}
                         className={`border-b last:border-b-0 ${material.alerta_stock ? "bg-red-50/60" : ""}`}
                       >
-                        <td className="py-2 px-3">
+                        {/* Nombre — ancho fijo con truncate */}
+                        <td className="py-2 px-3 w-44">
                           <div className="flex items-center gap-2">
                             {material.foto ? (
                               <img
                                 src={material.foto}
                                 alt={material.nombre}
-                                className="h-8 w-8 rounded object-cover border border-gray-200"
-                                onError={(event) => {
-                                  (
-                                    event.target as HTMLImageElement
-                                  ).style.display = "none";
-                                }}
+                                className="h-7 w-7 flex-shrink-0 rounded object-cover border border-gray-200"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                               />
                             ) : (
-                              <div className="h-8 w-8 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
-                                <Package className="h-4 w-4 text-gray-400" />
+                              <div className="h-7 w-7 flex-shrink-0 rounded bg-gray-100 border border-gray-200 flex items-center justify-center">
+                                <Package className="h-3.5 w-3.5 text-gray-400" />
                               </div>
                             )}
-                            <div className="min-w-0">
-                              <p className="font-medium text-gray-900 leading-tight truncate">
+                            <div className="min-w-0 w-28">
+                              <p className="font-medium text-gray-900 leading-tight truncate text-xs" title={material.nombre}>
                                 {material.nombre}
                               </p>
-                              <p className="text-xs text-gray-500 truncate">
-                                {material.codigo}
+                              <p className="text-xs text-gray-400 truncate">
+                                {material.codigo}{material.um ? ` · ${material.um}` : ""}
                               </p>
                               {material.alerta_stock ? (
-                                <>
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs bg-red-50 text-red-700 border-red-200 mt-0.5"
-                                  >
-                                    <AlertTriangle className="h-3 w-3 mr-1" />
-                                    Stock insuficiente
-                                  </Badge>
-                                  <p className="text-xs text-red-600 mt-0.5">
-                                    Stock: {material.stock_actual ?? 0} {material.um || ""} | Faltante: {material.faltante}
-                                  </p>
-                                </>
+                                <p className="text-xs text-red-600 mt-0.5">
+                                  Stock: {material.stock_actual ?? 0} | Falta: {material.faltante}
+                                </p>
                               ) : selectedAlmacenId && material.stock_actual !== null ? (
-                                <p className="text-xs text-gray-500 mt-0.5">
-                                  Stock disponible: {material.stock_actual} {material.um || ""}
+                                <p className="text-xs text-gray-400 mt-0.5">
+                                  Stock: {material.stock_actual}
                                 </p>
                               ) : null}
                             </div>
                           </div>
                         </td>
-                        <td className="py-2 px-3 text-gray-600">
-                          {material.um || "-"}
-                        </td>
-                        <td className="py-2 px-3">
+                        {/* Cantidad */}
+                        <td className="py-2 px-3 w-20">
                           <Input
                             type="number"
                             min="0"
                             step="1"
                             value={material.cantidad}
-                            onChange={(event) =>
-                              handleCantidadChange(index, event.target.value)
-                            }
-                            className="h-8 w-24"
+                            onChange={(e) => handleCantidadChange(index, e.target.value)}
+                            className="h-8 w-16 text-center"
                           />
+                        </td>
+                        {/* Precio unitario */}
+                        <td className="py-2 px-3 text-right text-gray-700 w-24">
+                          {precioUnit > 0
+                            ? `$${precioUnit.toFixed(2)}`
+                            : <span className="text-gray-400">—</span>}
+                        </td>
+                        {/* Descuento con toggle % / $ */}
+                        <td className="py-2 px-3 w-44">
+                          <div className="flex items-center gap-1">
+                            <div className="flex rounded border border-gray-200 overflow-hidden text-xs shrink-0">
+                              <button
+                                type="button"
+                                onClick={() => handleDescuentoTipoChange(index, "%")}
+                                className={`px-2 py-1 transition-colors ${material.descuento_tipo === "%" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                              >%</button>
+                              <button
+                                type="button"
+                                onClick={() => handleDescuentoTipoChange(index, "$")}
+                                disabled={precioUnit <= 0}
+                                className={`px-2 py-1 transition-colors ${material.descuento_tipo === "$" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"} disabled:opacity-40`}
+                              >$</button>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <Input
+                                type="number"
+                                min="0"
+                                step={material.descuento_tipo === "$" ? "0.01" : "0.5"}
+                                value={material.descuento_display}
+                                onChange={(e) => handleDescuentoChange(index, e.target.value)}
+                                className={`h-8 text-right w-full ${descPct > 5 ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                              />
+                              {descPct > 0 && (
+                                <p className={`text-xs mt-0.5 text-right leading-tight ${descPct > 5 ? "text-red-600 font-semibold" : "text-orange-500"}`}>
+                                  {material.descuento_tipo === "$"
+                                    ? `= ${descPct.toFixed(1)}%${descPct > 5 ? " · máx. 5%" : ""}`
+                                    : `= $${(precioUnit * descPct / 100).toFixed(2)}${descPct > 5 ? " · máx. 5%" : ""}`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        {/* Precio total */}
+                        <td className="py-2 px-3 text-right font-medium text-gray-800 w-24">
+                          {precioUnit > 0
+                            ? <span className={descPct > 0 ? "text-green-700" : ""}>${precioTotal.toFixed(2)}</span>
+                            : <span className="text-gray-400">—</span>}
                         </td>
                         <td className="py-2 px-3">
                           <button
@@ -1112,8 +1209,29 @@ export function UpsertSolicitudVentaDialog({
                           </button>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
+                  {validMaterials.length > 0 && (() => {
+                    const totalGeneral = validMaterials.reduce((sum, m) => {
+                      const pu = m.precio;
+                      const pcd = pu * (1 - m.descuento_porcentaje / 100);
+                      return sum + pcd * m.cantidad;
+                    }, 0);
+                    return (
+                      <tfoot>
+                        <tr className="border-t bg-gray-50">
+                          <td colSpan={4} className="py-2 px-3 text-right text-sm font-semibold text-gray-700">
+                            Total a pagar
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-gray-900">
+                            ${totalGeneral.toFixed(2)}
+                          </td>
+                          <td />
+                        </tr>
+                      </tfoot>
+                    );
+                  })()}
                 </table>
               </div>
             ) : (

@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table";
 import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt } from "lucide-react";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -23,6 +23,7 @@ interface FacturasVentasTableProps {
   onEliminar?: (factura: FacturaClienteVenta) => void;
   onVerDetalles?: (factura: FacturaClienteVenta) => void;
   onExportar?: (factura: FacturaClienteVenta) => void;
+  onTicket?: (factura: FacturaClienteVenta) => void;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
 }
@@ -35,6 +36,7 @@ export function FacturasVentasTable({
   onEliminar,
   onVerDetalles,
   onExportar,
+  onTicket,
   variant = "default",
 }: FacturasVentasTableProps) {
   const [search, setSearch] = useState("");
@@ -139,7 +141,7 @@ export function FacturasVentasTable({
                 <TableHead className="font-semibold text-right">Descuento</TableHead>
                 <TableHead className="font-semibold text-right">Pagado</TableHead>
                 <TableHead className="font-semibold text-right">Pendiente</TableHead>
-                {(onVerDetalles || onExportar || onEliminar) && <TableHead className="font-semibold">Acciones</TableHead>}
+                {(onVerDetalles || onExportar || onTicket || onEliminar) && <TableHead className="font-semibold">Acciones</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -167,7 +169,7 @@ export function FacturasVentasTable({
                   <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
                   <TableCell className="text-sm text-right text-green-700">{formatCurrency(f.total_pagado)}</TableCell>
                   <TableCell className="text-sm text-right text-red-600">{formatCurrency(f.monto_pendiente)}</TableCell>
-                  {(onVerDetalles || onExportar || onEliminar) && (
+                  {(onVerDetalles || onExportar || onTicket || onEliminar) && (
                     <TableCell>
                       <div className="flex items-center gap-1">
                         {onVerDetalles && (
@@ -190,6 +192,17 @@ export function FacturasVentasTable({
                             title="Exportar PDF"
                           >
                             <FileDown className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {onTicket && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-violet-600 hover:text-violet-800 hover:bg-violet-50"
+                            onClick={() => onTicket(f)}
+                            title="Exportar ticket 80mm"
+                          >
+                            <Receipt className="h-4 w-4" />
                           </Button>
                         )}
                         {onEliminar && (

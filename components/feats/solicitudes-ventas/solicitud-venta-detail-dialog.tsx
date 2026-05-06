@@ -111,7 +111,7 @@ export function SolicitudVentaDetailDialog({
                 <User className="h-4 w-4 text-gray-400" />
                 Trabajador: {solicitud.trabajador?.nombre || "-"}
               </p>
-              <p className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 flex items-center gap-1.5">
                 Estado:{" "}
                 <Badge
                   variant="outline"
@@ -125,7 +125,7 @@ export function SolicitudVentaDetailDialog({
                 >
                   {isUsada ? "Usada" : isAnulada ? "Anulada" : "Nueva"}
                 </Badge>
-              </p>
+              </div>
               <p className="text-sm text-gray-600">
                 Creada: {formatDate(solicitud.fecha_creacion)}
               </p>
@@ -211,52 +211,78 @@ export function SolicitudVentaDetailDialog({
                 {solicitud.materiales?.length || 0} items
               </Badge>
             </h3>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
+            <div className="border rounded-lg overflow-x-auto">
+              <table className="text-sm" style={{ minWidth: "580px" }}>
                 <thead>
                   <tr className="bg-gray-50 border-b">
-                    <th className="text-left py-2 px-3 font-medium text-gray-700">
-                      Material
-                    </th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-24">
-                      Codigo
-                    </th>
-                    <th className="text-left py-2 px-3 font-medium text-gray-700 w-20">
-                      UM
-                    </th>
-                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
-                      Cantidad
-                    </th>
+                    <th className="text-left py-2 px-3 font-medium text-gray-700">Material</th>
+                    <th className="text-center py-2 px-3 font-medium text-gray-700 w-16">Cant.</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">P. Unit.</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">Desc.</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">P. c/desc.</th>
+                    <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">Subtotal</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(solicitud.materiales || []).map((material, index) => (
-                    <tr
-                      key={index}
-                      className="border-b last:border-b-0 hover:bg-gray-50"
-                    >
-                      <td className="py-2 px-3 text-gray-900 font-medium">
-                        {material.material?.nombre ||
-                          material.material?.descripcion ||
-                          material.material_descripcion ||
-                          material.descripcion ||
-                          "-"}
-                      </td>
-                      <td className="py-2 px-3 text-gray-600 font-mono text-xs">
-                        {material.material?.codigo ||
-                          material.material_codigo ||
-                          material.codigo ||
-                          "-"}
-                      </td>
-                      <td className="py-2 px-3 text-gray-600">
-                        {material.material?.um || material.um || "-"}
-                      </td>
-                      <td className="py-2 px-3 text-right text-gray-900 font-semibold">
-                        {material.cantidad}
-                      </td>
-                    </tr>
-                  ))}
+                  {(solicitud.materiales || []).map((material, index) => {
+                    const nombre =
+                      material.material?.nombre ||
+                      material.material?.descripcion ||
+                      material.material_descripcion ||
+                      material.descripcion || "-";
+                    const codigo =
+                      material.material?.codigo ||
+                      material.material_codigo ||
+                      material.codigo || "";
+                    const um = material.material?.um || material.um || "";
+                    const tieneDescuento = (material.descuento_porcentaje ?? 0) > 0;
+
+                    return (
+                      <tr key={index} className="border-b last:border-b-0 hover:bg-gray-50">
+                        <td className="py-2 px-3">
+                          <p className="font-medium text-gray-900 truncate max-w-[180px]" title={nombre}>{nombre}</p>
+                          <p className="text-xs text-gray-400">{[codigo, um].filter(Boolean).join(" · ")}</p>
+                        </td>
+                        <td className="py-2 px-3 text-center text-gray-900 font-semibold">{material.cantidad}</td>
+                        <td className="py-2 px-3 text-right text-gray-700">
+                          {material.precio != null ? `$${material.precio.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          {tieneDescuento ? (
+                            <span className="text-orange-600">
+                              {material.descuento_porcentaje}%
+                              {material.precio != null && (
+                                <span className="text-xs text-gray-400 ml-1">
+                                  (${(material.precio * (material.descuento_porcentaje ?? 0) / 100).toFixed(2)})
+                                </span>
+                              )}
+                            </span>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-2 px-3 text-right text-gray-700">
+                          {material.precio_con_descuento != null
+                            ? `$${material.precio_con_descuento.toFixed(2)}`
+                            : material.precio != null
+                            ? `$${material.precio.toFixed(2)}`
+                            : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-2 px-3 text-right font-semibold text-gray-900">
+                          {material.subtotal != null
+                            ? `$${material.subtotal.toFixed(2)}`
+                            : <span className="text-gray-400">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
+                {(solicitud.precio_total ?? 0) > 0 && (
+                  <tfoot>
+                    <tr className="bg-gray-50 border-t">
+                      <td colSpan={5} className="py-2 px-3 text-right text-sm font-semibold text-gray-700">Total</td>
+                      <td className="py-2 px-3 text-right font-bold text-gray-900">${(solicitud.precio_total ?? 0).toFixed(2)}</td>
+                    </tr>
+                  </tfoot>
+                )}
               </table>
             </div>
           </div>

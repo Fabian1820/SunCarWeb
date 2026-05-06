@@ -101,10 +101,19 @@ export function FacturaVentaDetailDialog({
                         };
                         const cantidad = Number(row.cantidad || 0);
                         const precio = Number(row.precio || 0);
-                        const subtotal = Number(row.subtotal || cantidad * precio || 0);
+                        const descPct = Number((row as { descuento_porcentaje?: number }).descuento_porcentaje ?? 0);
+                        const precioConDesc = (row as { precio_con_descuento?: number }).precio_con_descuento;
+                        const subtotal = precioConDesc != null
+                          ? Number(precioConDesc) * cantidad
+                          : Number(row.subtotal || (descPct > 0 ? precio * (1 - descPct / 100) * cantidad : precio * cantidad) || 0);
                         return (
                           <tr key={`sol-${sidx}-mat-${midx}`} className="border-t">
-                            <td className="p-2">{row.material_descripcion || row.descripcion || row.nombre || "Material"}</td>
+                            <td className="p-2">
+                              {row.material_descripcion || row.descripcion || row.nombre || "Material"}
+                              {descPct > 0 && (
+                                <span className="ml-1 text-xs text-orange-600">(-{descPct.toFixed(1)}%)</span>
+                              )}
+                            </td>
                             <td className="p-2 text-right">{cantidad}</td>
                             <td className="p-2 text-right">{money(precio)}</td>
                             <td className="p-2 text-right">{money(subtotal)}</td>

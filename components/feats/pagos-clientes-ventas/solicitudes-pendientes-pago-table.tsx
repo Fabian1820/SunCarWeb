@@ -130,12 +130,6 @@ export function SolicitudesPendientesPagoTable({
                 <TableHead className="font-semibold">Cliente</TableHead>
                 <TableHead className="font-semibold">Materiales</TableHead>
                 <TableHead className="font-semibold text-right">
-                  Precio materiales
-                </TableHead>
-                <TableHead className="font-semibold text-right">
-                  Descuento
-                </TableHead>
-                <TableHead className="font-semibold text-right">
                   Total
                 </TableHead>
                 <TableHead className="font-semibold text-right">
@@ -150,7 +144,6 @@ export function SolicitudesPendientesPagoTable({
             <TableBody>
               {filtered.map((s) => {
                 const precioTotal = s.precio_total != null ? Number(s.precio_total) : null;
-                const descuento = s.descuento_porcentaje != null ? Number(s.descuento_porcentaje) : null;
                 const pagado = s.total_pagado != null ? Number(s.total_pagado) : null;
                 const pendiente = s.monto_pendiente != null ? Number(s.monto_pendiente) : null;
 
@@ -170,14 +163,6 @@ export function SolicitudesPendientesPagoTable({
                     </TableCell>
                     <TableCell className="min-w-[160px]">
                       {getMaterialesLineas(s) ?? <span className="text-gray-400 text-xs">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {precioTotal != null ? formatCurrency(precioTotal) : <span className="text-gray-400">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {descuento != null && descuento > 0
-                        ? <span className="text-orange-600">{descuento}%</span>
-                        : <span className="text-gray-400">—</span>}
                     </TableCell>
                     <TableCell className="text-right font-medium text-sm text-blue-700">
                       {precioTotal != null ? formatCurrency(precioTotal) : <span className="text-gray-400">—</span>}

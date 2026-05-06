@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +13,7 @@ import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import type { SolicitudVentaSummary } from "@/lib/api-types";
 import type { FacturaClienteVentaCreateData } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
+import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 import { FileText } from "lucide-react";
 
 interface CrearFacturaVentaDialogProps {
@@ -34,6 +35,14 @@ export function CrearFacturaVentaDialog({
   const [emitidaPor, setEmitidaPor] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Auto-fetch del número sugerido al abrir el dialog
+  useEffect(() => {
+    if (!open) return;
+    FacturaClienteVentaService.getSiguienteNumero()
+      .then((n) => { if (n) setNumeroFactura(n); })
+      .catch(() => {});
+  }, [open]);
 
   if (!solicitud) return null;
 
@@ -66,6 +75,7 @@ export function CrearFacturaVentaDialog({
     setLoading(true);
     try {
       await onSubmit({
+        numero: numeroFactura.trim(),
         fecha: fechaEmision,
         cliente_venta_id: solicitud.cliente_venta_id,
         solicitudes: [{ solicitud_venta_id: solicitud.id }],

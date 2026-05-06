@@ -18,19 +18,32 @@ import {
   Warehouse,
   Ban,
   FileDown,
+  DollarSign,
 } from "lucide-react";
-import type { SolicitudVenta } from "@/lib/api-types";
+import type { SolicitudVenta, SolicitudVentaSummary } from "@/lib/api-types";
 
 export type ExportTipo = "conduce" | "garantia" | "ambos";
 
+type SolicitudRow = SolicitudVenta | SolicitudVentaSummary;
+
 interface SolicitudesVentasTableProps {
-  solicitudes: SolicitudVenta[];
-  onView?: (solicitud: SolicitudVenta) => void;
-  onEdit?: (solicitud: SolicitudVenta) => void;
-  onAnular?: (solicitud: SolicitudVenta) => void;
-  onReabrir?: (solicitud: SolicitudVenta) => void;
-  onExportar?: (solicitud: SolicitudVenta, tipo: ExportTipo) => void;
+  solicitudes: SolicitudRow[];
+  onView?: (solicitud: SolicitudRow) => void;
+  onEdit?: (solicitud: SolicitudRow) => void;
+  onAnular?: (solicitud: SolicitudRow) => void;
+  onReabrir?: (solicitud: SolicitudRow) => void;
+  onExportar?: (solicitud: SolicitudRow, tipo: ExportTipo) => void;
+  onActualizarPrecios?: (solicitud: SolicitudRow) => void;
 }
+
+const getClienteNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
+  (s as SolicitudVenta).cliente_venta?.nombre ?? (s as SolicitudVentaSummary).cliente_venta_nombre ?? "-";
+
+const getAlmacenNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
+  (s as SolicitudVenta).almacen?.nombre ?? (s as SolicitudVentaSummary).almacen_nombre ?? "-";
+
+const getCreadorNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
+  (s as SolicitudVenta).trabajador?.nombre ?? (s as SolicitudVentaSummary).creador_nombre ?? "-";
 
 export function SolicitudesVentasTable({
   solicitudes,
@@ -39,6 +52,7 @@ export function SolicitudesVentasTable({
   onAnular,
   onReabrir,
   onExportar,
+  onActualizarPrecios,
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -51,12 +65,12 @@ export function SolicitudesVentasTable({
     });
   };
 
-  const renderMateriales = (solicitud: SolicitudVenta) => {
+  const renderMateriales = (solicitud: SolicitudRow) => {
     if (solicitud.materiales?.length) {
       return (
         <div className="flex flex-col gap-0.5">
           {solicitud.materiales.map((m, i) => {
-            const nombre = m.material_descripcion || m.descripcion || m.material_id;
+            const nombre = m.material_descripcion ?? ("descripcion" in m ? m.descripcion : undefined) ?? m.material_id;
             return (
               <span key={i} className="text-xs text-gray-600 leading-5">
                 <span className="font-medium text-gray-800">{m.cantidad}x</span> {nombre}
@@ -134,19 +148,19 @@ export function SolicitudesVentasTable({
                 </td>
                 <td className="py-4 px-4">
                   <p className="font-medium text-gray-900">
-                    {solicitud.cliente_venta?.nombre || "-"}
+                    {getClienteNombre(solicitud)}
                   </p>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">
                     <Warehouse className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>{solicitud.almacen?.nombre || "-"}</span>
+                    <span>{getAlmacenNombre(solicitud)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">
                     <User className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                    <span>{solicitud.trabajador?.nombre || "-"}</span>
+                    <span>{getCreadorNombre(solicitud)}</span>
                   </div>
                 </td>
                 <td className="py-4 px-4 min-w-[160px]">
@@ -170,6 +184,18 @@ export function SolicitudesVentasTable({
                       >
                         <Eye className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline text-xs">Ver</span>
+                      </Button>
+                    )}
+                    {onActualizarPrecios && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onActualizarPrecios(solicitud)}
+                        className="border-amber-400 text-amber-700 hover:bg-amber-50"
+                        title="Actualizar precios"
+                      >
+                        <DollarSign className="h-4 w-4 sm:mr-1" />
+                        <span className="hidden sm:inline text-xs">Precios</span>
                       </Button>
                     )}
                     {onEdit && isNueva && (

@@ -6,8 +6,6 @@ const EMPRESA = {
   nombre: "SunCar",
   nombreLargo: "Empresa Solar Carros",
   direccion: "Calle 24 #109 e/ 1ra y 3ra, Playa, La Habana",
-  telefono: "+53 5 282 6474",
-  email: "info@suncarsrl.com",
 };
 
 const fmt = (v?: number) => {
@@ -50,20 +48,54 @@ const line = (doc: jsPDF, y: number, ml: number, mr: number) => {
   doc.line(ml, y, mr, y);
 };
 
-const extractMateriales = (factura: FacturaVentaResumen) => {
-  const rows: [string, string, string, string][] = [];
+type MatRow = [string, string, string, string, string] | [string, string, string, string];
+
+const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasDiscount: boolean } => {
+  const rows: MatRow[] = [];
+  let hasDiscount = false;
+
   for (const s of factura.solicitudes_vinculadas ?? []) {
     for (const m of Array.isArray(s.materiales) ? s.materiales : []) {
-      if (typeof m === "string") { rows.push([m, "—", "—", "—"]); continue; }
+      if (typeof m === "string") {
+        rows.push([m, "—", "—", "—", "—"]);
+        continue;
+      }
       if (!m || typeof m !== "object") continue;
-      const r = m as { material_descripcion?: string; descripcion?: string; nombre?: string; cantidad?: number; precio?: number; subtotal?: number };
+      const r = m as {
+        material_descripcion?: string;
+        descripcion?: string;
+        nombre?: string;
+        cantidad?: number;
+        precio?: number;
+        subtotal?: number;
+        precio_con_descuento?: number;
+        descuento_porcentaje?: number;
+        descuento_monto?: number;
+      };
       const cant = Number(r.cantidad ?? 0);
       const precio = Number(r.precio ?? 0);
-      const sub = Number(r.subtotal ?? cant * precio);
-      rows.push([r.material_descripcion || r.descripcion || r.nombre || "Material", String(cant), fmt(precio), fmt(sub)]);
+      const descPct = Number(r.descuento_porcentaje ?? 0);
+      // Usar precio_con_descuento * cant si viene del backend, luego subtotal, luego calcular
+      const sub =
+        r.precio_con_descuento != null
+          ? Number(r.precio_con_descuento) * cant
+          : r.subtotal != null
+          ? Number(r.subtotal)
+          : descPct > 0
+          ? precio * (1 - descPct / 100) * cant
+          : precio * cant;
+      const descLabel = descPct > 0 ? `${descPct.toFixed(1)}%` : "";
+      if (descPct > 0) hasDiscount = true;
+      rows.push([
+        r.material_descripcion || r.descripcion || r.nombre || "Material",
+        String(cant),
+        fmt(precio),
+        descLabel,
+        fmt(sub),
+      ]);
     }
   }
-  return rows;
+  return { rows, hasDiscount };
 };
 
 export class ExportFacturaVentaConsolidadaService {
@@ -78,31 +110,31 @@ export class ExportFacturaVentaConsolidadaService {
     doc.setFillColor(255, 255, 255);
     doc.rect(0, 0, W, 297, "F");
 
-    let y = 0;
+    // ── Franja de cabecera ─────────────────────────────────────────────────────
+    const HEADER_H = 38;
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, W, HEADER_H, "F");
 
-    // ── Franja de cabecera con color ───────────────────────────────────────────
-    doc.setFillColor(30, 41, 59);           // slate-800
-    doc.rect(0, 0, W, 34, "F");
+    // Logo (más grande)
+    const LOGO_SIZE = 22;
+    const LOGO_Y = (HEADER_H - LOGO_SIZE) / 2;
+    if (logo) doc.addImage(logo, "PNG", ml, LOGO_Y, LOGO_SIZE, LOGO_SIZE);
+    const nx = logo ? ml + LOGO_SIZE + 6 : ml;
 
-    // Logo
-    if (logo) doc.addImage(logo, "PNG", ml, 5, 12, 12);
-    const nx = logo ? ml + 15 : ml;
-
-    // Nombre empresa
+    // Nombre empresa grande
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
+    doc.setFontSize(15);
     doc.setTextColor(255, 255, 255);
-    doc.text(EMPRESA.nombre, nx, 12);
+    doc.text(EMPRESA.nombre, nx, LOGO_Y + 9);
 
-    // Datos empresa en blanco semitransparente
+    // Nombre largo y dirección (sin teléfono ni email)
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
-    doc.text(EMPRESA.nombreLargo, nx, 17);
-    doc.text(EMPRESA.direccion, nx, 21.5);
-    doc.text(EMPRESA.email + "  ·  " + EMPRESA.telefono, nx, 26);
+    doc.text(EMPRESA.nombreLargo, nx, LOGO_Y + 15);
+    doc.text(EMPRESA.direccion, nx, LOGO_Y + 20.5);
 
-    y = 42;
+    let y = HEADER_H + 8;
 
     // ── FACTURA / NÚMERO ───────────────────────────────────────────────────────
     doc.setFont("helvetica", "normal");
@@ -145,7 +177,7 @@ export class ExportFacturaVentaConsolidadaService {
     y += 6;
 
     // ── Materiales ─────────────────────────────────────────────────────────────
-    const materiales = extractMateriales(factura);
+    const { rows: materiales, hasDiscount } = extractMateriales(factura);
     if (materiales.length > 0) {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
@@ -153,35 +185,70 @@ export class ExportFacturaVentaConsolidadaService {
       doc.text("MATERIALES", ml, y);
       y += 3;
 
-      autoTable(doc, {
-        startY: y,
-        head: [["Descripción", "Cant.", "Precio", "Subtotal"]],
-        body: materiales,
-        margin: { left: ml, right: ml },
-        theme: "plain",
-        styles: {
-          fontSize: 8.5,
-          textColor: [17, 24, 39],
-          cellPadding: { top: 2.5, bottom: 2.5, left: 1, right: 1 },
-          lineColor: [243, 244, 246],
-          lineWidth: 0.2,
-        },
-        headStyles: {
-          fontSize: 7.5,
-          fontStyle: "bold",
-          textColor: [107, 114, 128],
-          fillColor: false as unknown as [number, number, number],
-          lineColor: [229, 231, 235],
-          lineWidth: { bottom: 0.35 } as unknown as number,
-        },
-        alternateRowStyles: { fillColor: [249, 250, 251] },
-        columnStyles: {
-          0: { cellWidth: "auto" },
-          1: { cellWidth: 13, halign: "center" },
-          2: { cellWidth: 26, halign: "right" },
-          3: { cellWidth: 26, halign: "right", fontStyle: "bold" },
-        },
-      });
+      if (hasDiscount) {
+        autoTable(doc, {
+          startY: y,
+          head: [["Descripción", "Cant.", "Precio", "Desc.", "Subtotal"]],
+          body: materiales as string[][],
+          margin: { left: ml, right: ml },
+          theme: "plain",
+          styles: {
+            fontSize: 8.5,
+            textColor: [17, 24, 39],
+            cellPadding: { top: 2.5, bottom: 2.5, left: 1, right: 1 },
+            lineColor: [243, 244, 246],
+            lineWidth: 0.2,
+          },
+          headStyles: {
+            fontSize: 7.5,
+            fontStyle: "bold",
+            textColor: [107, 114, 128],
+            fillColor: false as unknown as [number, number, number],
+            lineColor: [229, 231, 235],
+            lineWidth: { bottom: 0.35 } as unknown as number,
+          },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          columnStyles: {
+            0: { cellWidth: "auto" },
+            1: { cellWidth: 12, halign: "center" },
+            2: { cellWidth: 24, halign: "right" },
+            3: { cellWidth: 16, halign: "right", textColor: [194, 65, 12] },
+            4: { cellWidth: 24, halign: "right", fontStyle: "bold" },
+          },
+        });
+      } else {
+        // Sin columna de descuento
+        const rowsSimple = materiales.map(r => [r[0], r[1], r[2], r[4]]);
+        autoTable(doc, {
+          startY: y,
+          head: [["Descripción", "Cant.", "Precio", "Subtotal"]],
+          body: rowsSimple,
+          margin: { left: ml, right: ml },
+          theme: "plain",
+          styles: {
+            fontSize: 8.5,
+            textColor: [17, 24, 39],
+            cellPadding: { top: 2.5, bottom: 2.5, left: 1, right: 1 },
+            lineColor: [243, 244, 246],
+            lineWidth: 0.2,
+          },
+          headStyles: {
+            fontSize: 7.5,
+            fontStyle: "bold",
+            textColor: [107, 114, 128],
+            fillColor: false as unknown as [number, number, number],
+            lineColor: [229, 231, 235],
+            lineWidth: { bottom: 0.35 } as unknown as number,
+          },
+          alternateRowStyles: { fillColor: [249, 250, 251] },
+          columnStyles: {
+            0: { cellWidth: "auto" },
+            1: { cellWidth: 13, halign: "center" },
+            2: { cellWidth: 26, halign: "right" },
+            3: { cellWidth: 26, halign: "right", fontStyle: "bold" },
+          },
+        });
+      }
       y = ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y) + 5;
     }
 
@@ -214,7 +281,7 @@ export class ExportFacturaVentaConsolidadaService {
     line(doc, y, ml, mr);
     y += 5;
 
-    const totalRow = (label: string, value: string, bold = false, color: [number,number,number] = [17,24,39]) => {
+    const totalRow = (label: string, value: string, bold = false, color: [number, number, number] = [17, 24, 39]) => {
       doc.setFont("helvetica", bold ? "bold" : "normal");
       doc.setFontSize(bold ? 9.5 : 8.5);
       doc.setTextColor(107, 114, 128);

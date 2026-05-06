@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, Search, ShoppingCart, CreditCard, List, FileText } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -12,6 +12,13 @@ import {
 } from "@/components/shared/molecule/card";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/shared/atom/select";
 import { Toaster } from "@/components/shared/molecule/toaster";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { PageLoader } from "@/components/shared/atom/page-loader";
@@ -28,6 +35,7 @@ import { TodosPagosVentasTable } from "@/components/feats/pagos-clientes-ventas/
 import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-ventas/registrar-pago-venta-dialog";
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
 import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
+import { ActualizarPreciosDialog } from "@/components/feats/solicitudes-ventas/actualizar-precios-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
 import type {
   SolicitudVenta,
@@ -46,8 +54,10 @@ import {
   generarAmbos,
 } from "@/lib/services/feats/solicitudes-ventas/export-solicitud-venta-word-service";
 import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service";
+import { TicketFacturaVentaService } from "@/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
+import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
 type TabId = "solicitudes" | "pendientes-pago" | "pagos-realizados" | "facturas-emitidas";
 
@@ -113,7 +123,103 @@ export default function SolicitudesVentasPage() {
   const [facturaAsociadaNumero, setFacturaAsociadaNumero] = useState<string | null>(null);
   const [solicitudToAnular, setSolicitudToAnular]     = useState<SolicitudVenta | null>(null);
   const [facturaDetalle, setFacturaDetalle]           = useState<FacturaVentaResumen | null>(null);
+  const [preciosDialogOpen, setPreciosDialogOpen]     = useState(false);
+  const [solicitudParaPrecios, setSolicitudParaPrecios] = useState<SolicitudVenta | SolicitudVentaSummary | null>(null);
   const [anularLoading, setAnularLoading]             = useState(false);
+
+  // ── Filtros por pestaña ────────────────────────────────────────────────────
+  const [f1Estado, setF1Estado]   = useState("");
+  const [f1Mes, setF1Mes]         = useState("");
+  const [f1Desde, setF1Desde]     = useState("");
+  const [f1Hasta, setF1Hasta]     = useState("");
+
+  const [f2EstadoPago, setF2EstadoPago] = useState("");
+  const [f2Mes, setF2Mes]               = useState("");
+  const [f2Desde, setF2Desde]           = useState("");
+  const [f2Hasta, setF2Hasta]           = useState("");
+
+  const [f3Metodo, setF3Metodo] = useState("");
+  const [f3Mes, setF3Mes]       = useState("");
+  const [f3Desde, setF3Desde]   = useState("");
+  const [f3Hasta, setF3Hasta]   = useState("");
+
+  const [f4Estado, setF4Estado] = useState("");
+  const [f4Mes, setF4Mes]       = useState("");
+  const [f4Desde, setF4Desde]   = useState("");
+  const [f4Hasta, setF4Hasta]   = useState("");
+
+  const monthOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    const now = new Date();
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleDateString("es-ES", { month: "long", year: "numeric" });
+      opts.push({ value, label: label.charAt(0).toUpperCase() + label.slice(1) });
+    }
+    return opts;
+  }, []);
+
+  const matchFecha = (
+    fechaStr: string | undefined | null,
+    mes: string,
+    desde: string,
+    hasta: string,
+  ) => {
+    if (!fechaStr) return !mes && !desde && !hasta;
+    const d = fechaStr.slice(0, 10);
+    if (mes && !d.startsWith(mes)) return false;
+    if (desde && d < desde) return false;
+    if (hasta && d > hasta) return false;
+    return true;
+  };
+
+  const solicitudesDisplay = useMemo(() =>
+    filteredSolicitudes.filter((s) => {
+      if (f1Estado && s.estado?.toLowerCase() !== f1Estado) return false;
+      return matchFecha(s.fecha_creacion, f1Mes, f1Desde, f1Hasta);
+    }),
+    [filteredSolicitudes, f1Estado, f1Mes, f1Desde, f1Hasta],
+  );
+
+  const pendientesDisplay = useMemo(() =>
+    solicitudesPendientes.filter((s) => {
+      if (f2EstadoPago === "sin-pago" && Number(s.total_pagado ?? 0) > 0) return false;
+      if (f2EstadoPago === "parcial"  && Number(s.total_pagado ?? 0) <= 0) return false;
+      return matchFecha(s.fecha_creacion, f2Mes, f2Desde, f2Hasta);
+    }),
+    [solicitudesPendientes, f2EstadoPago, f2Mes, f2Desde, f2Hasta],
+  );
+
+  const pagosDisplay = useMemo(() =>
+    todosPagos.filter((p) => {
+      if (f3Metodo && p.metodo_pago !== f3Metodo) return false;
+      return matchFecha(p.fecha || p.fecha_creacion, f3Mes, f3Desde, f3Hasta);
+    }),
+    [todosPagos, f3Metodo, f3Mes, f3Desde, f3Hasta],
+  );
+
+  const facturasDisplay = useMemo(() =>
+    facturas.filter((f) => {
+      if (f4Estado === "pagada"   && (f.monto_pendiente ?? 0) > 0)  return false;
+      if (f4Estado === "pendiente"&& (f.total_pagado   ?? 0) > 0)  return false;
+      if (f4Estado === "parcial") {
+        const pend = f.monto_pendiente ?? 0;
+        const paid = f.total_pagado   ?? 0;
+        if (pend <= 0 || paid <= 0) return false;
+      }
+      return matchFecha(f.fecha_emision || f.fecha_creacion, f4Mes, f4Desde, f4Hasta);
+    }),
+    [facturas, f4Estado, f4Mes, f4Desde, f4Hasta],
+  );
+
+  // ── Refresca todas las pestañas en paralelo ────────────────────────────────
+  const refreshAll = () => {
+    void loadSolicitudes();
+    void fetchSolicitudesPendientes();
+    void fetchTodosPagos();
+    void fetchFacturas();
+  };
 
   // ── Carga lazy por pestaña ─────────────────────────────────────────────────
   const handleTabChange = (tab: TabId) => {
@@ -145,6 +251,7 @@ export default function SolicitudesVentasPage() {
     try {
       await createSolicitud({ cliente_venta_id: clienteVentaId, almacen_id: data.almacen_id, materiales: data.materiales });
       toast({ title: "Exito", description: "Solicitud de venta creada correctamente" });
+      refreshAll();
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo crear la solicitud de venta", variant: "destructive" });
       throw error;
@@ -162,6 +269,7 @@ export default function SolicitudesVentasPage() {
       await updateSolicitud(selectedSolicitud.id, data);
       toast({ title: "Exito", description: "Solicitud de venta actualizada correctamente" });
       setSelectedSolicitud(null);
+      refreshAll();
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo actualizar la solicitud", variant: "destructive" });
       throw error;
@@ -206,6 +314,7 @@ export default function SolicitudesVentasPage() {
       toast({ title: "Exito", description: `Solicitud ${getSolicitudCodigo(response)} anulada correctamente.` });
       setIsAnularDialogOpen(false);
       setSolicitudToAnular(null);
+      refreshAll();
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo anular la solicitud de venta", variant: "destructive" });
     } finally {
@@ -221,6 +330,7 @@ export default function SolicitudesVentasPage() {
     try {
       const nueva = await reabrirSolicitud(solicitud.id);
       toast({ title: "Exito", description: `Se creo la nueva solicitud ${getSolicitudCodigo(nueva)} a partir de ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()}.` });
+      refreshAll();
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudo reabrir solicitud de venta", variant: "destructive" });
     }
@@ -275,7 +385,10 @@ export default function SolicitudesVentasPage() {
           Array.isArray(f.codigos_solicitudes) &&
           Boolean(solicitud.codigo) &&
           f.codigos_solicitudes.includes(solicitud.codigo as string);
-        return byId || byCodigo;
+        const bySolicitudesArray =
+          Array.isArray(f.solicitudes) &&
+          f.solicitudes.some((s) => s.solicitud_venta_id === solicitud.id);
+        return byId || byCodigo || bySolicitudesArray;
       })?.numero_factura;
       setFacturaAsociadaNumero(numero || null);
     } catch {
@@ -286,7 +399,7 @@ export default function SolicitudesVentasPage() {
 
   const handleRegistrarPago = async (
     data: Parameters<typeof registrarPago>[0] & {
-      factura?: { numero_factura: string; fecha_emision: string };
+      factura?: { numero: string; numero_factura: string; fecha_emision: string };
     },
   ) => {
     const { factura, ...pagoData } = data;
@@ -295,6 +408,7 @@ export default function SolicitudesVentasPage() {
     if (factura && !facturaAsociadaNumero) {
       try {
         facturaCreada = await crearFactura({
+          numero: factura.numero,
           fecha: pagoData.fecha,
           cliente_venta_id: solicitudParaPagar?.cliente_venta_id || "",
           solicitudes: [{ solicitud_venta_id: pagoData.solicitud_venta_id }],
@@ -309,7 +423,7 @@ export default function SolicitudesVentasPage() {
         });
       }
     }
-    void loadSolicitudes();
+    refreshAll();
     toast({
       title: "Pago registrado",
       description: facturaAsociadaNumero
@@ -330,6 +444,7 @@ export default function SolicitudesVentasPage() {
   const handleCrearFactura = async (data: Parameters<typeof crearFactura>[0]) => {
     await crearFactura(data);
     toast({ title: "Factura emitida", description: "La factura se creó correctamente." });
+    refreshAll();
   };
 
   const handleEliminarFactura = async (factura: FacturaClienteVenta) => {
@@ -341,6 +456,7 @@ export default function SolicitudesVentasPage() {
       }
       await eliminarFactura(facturaId);
       toast({ title: "Factura eliminada", description: `Factura ${factura.numero_factura} eliminada.` });
+      refreshAll();
     } catch (e) {
       toast({ title: "Error", description: e instanceof Error ? e.message : "No se pudo eliminar la factura", variant: "destructive" });
     }
@@ -361,20 +477,68 @@ export default function SolicitudesVentasPage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const buildResumenFallback = (f: FacturaClienteVenta): FacturaVentaResumen => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let mats: any[] = [];
+    if (Array.isArray(f.materiales)) {
+      mats = f.materiales.map((m) =>
+        typeof m === "string" ? { material_descripcion: m } : m,
+      );
+    } else if (typeof f.materiales === "string" && f.materiales) {
+      mats = [{ material_descripcion: f.materiales }];
+    }
+    const codigos = Array.isArray(f.codigos_solicitudes) ? f.codigos_solicitudes : [];
+    return {
+      numero_factura: f.numero_factura,
+      fecha: f.fecha_emision,
+      cliente: f.cliente || f.cliente_nombre,
+      emitida_por: f.emitida_por,
+      solicitudes_vinculadas: [{ codigo_solicitud: codigos[0], materiales: mats }],
+      pagos: f.pagos,
+      total_precio_materiales: (Number(f.total_a_pagar) || 0) + (Number(f.descuento) || 0),
+      total_descuento_monto: f.descuento,
+      total_a_pagar: f.total_a_pagar,
+      total_pagado: f.total_pagado,
+      monto_pendiente: f.monto_pendiente,
+    };
+  };
+
+  const resolveResumen = async (factura: FacturaClienteVenta): Promise<FacturaVentaResumen> => {
+    const facturaId = factura.id || factura.factura_id;
+    if (facturaId) {
+      try {
+        return await FacturaClienteVentaService.getFacturaResumen(facturaId);
+      } catch {
+        // backend Pydantic error u otro — usar datos locales
+      }
+    }
+    return buildResumenFallback(factura);
+  };
+
   const handleExportarFactura = async (factura: FacturaClienteVenta) => {
     try {
-      const facturaId = factura.id || factura.factura_id;
-      if (!facturaId) throw new Error("Factura sin ID.");
-      const resumen = await FacturaClienteVentaService.getFacturaResumen(facturaId);
+      const resumen = await resolveResumen(factura);
       await ExportFacturaVentaConsolidadaService.exportarPDF(resumen);
-      toast({
-        title: "Factura exportada",
-        description: `Se exportó ${factura.numero_factura}`,
-      });
+      toast({ title: "Factura exportada", description: `Se exportó ${factura.numero_factura}` });
     } catch (e) {
       toast({
         title: "Error al exportar",
         description: e instanceof Error ? e.message : "No se pudo exportar la factura",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportarTicket = async (factura: FacturaClienteVenta) => {
+    try {
+      const resumen = await resolveResumen(factura);
+      TicketFacturaVentaService.exportarTicket(resumen);
+      toast({ title: "Ticket exportado", description: `Ticket ${factura.numero_factura}` });
+    } catch (e) {
+      toast({
+        title: "Error al exportar ticket",
+        description: e instanceof Error ? e.message : "No se pudo generar el ticket",
         variant: "destructive",
       });
     }
@@ -450,34 +614,60 @@ export default function SolicitudesVentasPage() {
                 Solicitudes de Venta
               </CardTitle>
               <CardDescription>
-                {filteredSolicitudes.length} solicitud{filteredSolicitudes.length !== 1 ? "es" : ""}
+                {solicitudesDisplay.length} solicitud{solicitudesDisplay.length !== 1 ? "es" : ""}
+                {solicitudesDisplay.length !== filteredSolicitudes.length && ` (de ${filteredSolicitudes.length})`}
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="flex items-center gap-3 px-6 py-4">
-                <div className="relative flex-1">
+              <div className="flex flex-wrap items-center gap-2 px-6 py-4 border-b bg-gray-50/60">
+                <div className="relative flex-1 min-w-[180px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     placeholder="Buscar por código, cliente, almacén o trabajador..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
+                    className="pl-9 h-8"
                   />
                 </div>
+                <Select value={f1Mes} onValueChange={(v) => setF1Mes(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los meses</SelectItem>
+                    {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={f1Desde} onChange={(e) => setF1Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f1Hasta} onChange={(e) => setF1Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Select value={f1Estado} onValueChange={(v) => setF1Estado(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="nueva">Nueva</SelectItem>
+                    <SelectItem value="usada">Usada</SelectItem>
+                    <SelectItem value="anulada">Anulada</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f1Estado || f1Mes || f1Desde || f1Hasta) && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                    onClick={() => { setF1Estado(""); setF1Mes(""); setF1Desde(""); setF1Hasta(""); }}>
+                    <FilterX className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
-              {filteredSolicitudes.length === 0 ? (
+              {solicitudesDisplay.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm px-6 pb-6">
-                  {searchTerm ? "No se encontraron solicitudes con ese criterio" : "No hay solicitudes"}
+                  {searchTerm || f1Estado || f1Mes || f1Desde || f1Hasta ? "No se encontraron solicitudes con ese criterio" : "No hay solicitudes"}
                 </div>
               ) : (
                 <div className="border-t overflow-x-auto">
                   <SolicitudesVentasTable
-                    solicitudes={filteredSolicitudes}
+                    solicitudes={solicitudesDisplay}
                     onView={(s) => { void handleViewSolicitud(s); }}
                     onEdit={(s) => { void handleEditSolicitud(s); }}
                     onAnular={(s) => { void handleOpenAnularSolicitud(s); }}
                     onReabrir={(s) => { void handleReabrirSolicitud(s); }}
                     onExportar={(s, tipo) => { void handleExportar(s, tipo); }}
+                    onActualizarPrecios={(s) => { setSolicitudParaPrecios(s as SolicitudVenta); setPreciosDialogOpen(true); }}
                   />
                 </div>
               )}
@@ -521,13 +711,38 @@ export default function SolicitudesVentasPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-gray-50/60">
+                <Select value={f2Mes} onValueChange={(v) => setF2Mes(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los meses</SelectItem>
+                    {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={f2Desde} onChange={(e) => setF2Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f2Hasta} onChange={(e) => setF2Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Select value={f2EstadoPago} onValueChange={(v) => setF2EstadoPago(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Estado pago" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="sin-pago">Sin pago aún</SelectItem>
+                    <SelectItem value="parcial">Con pago parcial</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f2EstadoPago || f2Mes || f2Desde || f2Hasta) && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                    onClick={() => { setF2EstadoPago(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); }}>
+                    <FilterX className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               <SolicitudesPendientesPagoTable
-                solicitudes={solicitudesPendientes}
+                solicitudes={pendientesDisplay}
                 loading={loadingSolicitudes}
                 error={errorSolicitudes}
                 onRefresh={fetchSolicitudesPendientes}
                 onPagar={handlePagar}
-                onVerStripe={(s) => { setStripeSolicitudFiltro(s.id); setStripePagosOpen(true); }}
+                onVerStripe={(s) => { setStripePagosOpen(true); }}
                 variant="embedded"
               />
             </CardContent>
@@ -545,9 +760,36 @@ export default function SolicitudesVentasPage() {
               <CardDescription>Solicitudes con pago completado</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-gray-50/60">
+                <Select value={f3Mes} onValueChange={(v) => setF3Mes(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los meses</SelectItem>
+                    {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={f3Desde} onChange={(e) => setF3Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f3Hasta} onChange={(e) => setF3Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Select value={f3Metodo} onValueChange={(v) => setF3Metodo(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Método pago" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="efectivo">Efectivo</SelectItem>
+                    <SelectItem value="transferencia_bancaria">Transferencia</SelectItem>
+                    <SelectItem value="stripe">Stripe</SelectItem>
+                    <SelectItem value="financiacion">Financiación</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f3Metodo || f3Mes || f3Desde || f3Hasta) && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                    onClick={() => { setF3Metodo(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); }}>
+                    <FilterX className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               <div className="px-6 py-4">
                 <TodosPagosVentasTable
-                  pagos={todosPagos}
+                  pagos={pagosDisplay}
                   loading={loadingPagos}
                   error={errorPagos}
                   onRefresh={fetchTodosPagos}
@@ -568,13 +810,40 @@ export default function SolicitudesVentasPage() {
               <CardDescription>Facturas generadas para solicitudes de venta</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
+              <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-gray-50/60">
+                <Select value={f4Mes} onValueChange={(v) => setF4Mes(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los meses</SelectItem>
+                    {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="date" value={f4Desde} onChange={(e) => setF4Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f4Hasta} onChange={(e) => setF4Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Select value={f4Estado} onValueChange={(v) => setF4Estado(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Estado" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="pagada">Pagada</SelectItem>
+                    <SelectItem value="parcial">Pago parcial</SelectItem>
+                    <SelectItem value="pendiente">Sin pago</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(f4Estado || f4Mes || f4Desde || f4Hasta) && (
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
+                    onClick={() => { setF4Estado(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); }}>
+                    <FilterX className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
               <FacturasVentasTable
-                facturas={facturas}
+                facturas={facturasDisplay}
                 loading={loadingFacturas}
                 error={errorFacturas}
                 onRefresh={fetchFacturas}
                 onVerDetalles={handleVerDetalleFactura}
                 onExportar={(f) => { void handleExportarFactura(f); }}
+                onTicket={(f) => { void handleExportarTicket(f); }}
                 onEliminar={handleEliminarFactura}
                 variant="embedded"
               />
@@ -648,6 +917,13 @@ export default function SolicitudesVentasPage() {
       <StripePagosModal
         open={stripePagosOpen}
         onOpenChange={setStripePagosOpen}
+      />
+
+      <ActualizarPreciosDialog
+        open={preciosDialogOpen}
+        onOpenChange={setPreciosDialogOpen}
+        solicitud={solicitudParaPrecios}
+        onSuccess={() => { refreshAll(); }}
       />
 
       <Toaster />

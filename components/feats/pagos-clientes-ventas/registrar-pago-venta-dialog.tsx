@@ -23,7 +23,6 @@ import type { PagoProgramado } from "@/lib/types/feats/pagos-clientes-ventas/pag
 import { useAuth } from "@/contexts/auth-context";
 import {
   DollarSign,
-  Percent,
   CalendarClock,
   Plus,
   Trash2,
@@ -51,7 +50,6 @@ interface RegistrarPagoVentaDialogProps {
     monto: number;
     moneda: "USD" | "CUP" | "EUR";
     tasa_cambio?: number;
-    descuento_porcentaje?: number;
     metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
     stripe_link?: string;
     desglose_billetes?: Record<string, number>;
@@ -60,7 +58,7 @@ interface RegistrarPagoVentaDialogProps {
     es_a_plazos?: boolean;
     plan_pagos?: PagoProgramado[];
     fecha: string;
-    factura?: { numero_factura: string; fecha_emision: string };
+    factura?: { numero: string; numero_factura: string; fecha_emision: string };
   }) => Promise<void>;
 }
 
@@ -92,7 +90,6 @@ export function RegistrarPagoVentaDialog({
   const [monto, setMonto] = useState("");
   const [moneda, setMoneda] = useState<"USD" | "CUP" | "EUR">("USD");
   const [tasaCambio, setTasaCambio] = useState("");
-  const [descuento, setDescuento] = useState("0");
   const [metodoPago, setMetodoPago] = useState<
     "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion"
   >("efectivo");
@@ -111,48 +108,40 @@ export function RegistrarPagoVentaDialog({
   const [generarFactura, setGenerarFactura] = useState(false);
   const [numeroFactura, setNumeroFactura] = useState("");
 
+  // Pre-rellenar monto con el pendiente al abrir
+  useEffect(() => {
+    if (!open || !solicitud) return;
+    const pendienteInicial = solicitud.monto_pendiente != null
+      ? Number(solicitud.monto_pendiente)
+      : solicitud.precio_total != null
+      ? Math.max(0, Number(solicitud.precio_total) - Number(solicitud.total_pagado ?? 0))
+      : null;
+    if (pendienteInicial != null && pendienteInicial > 0) {
+      setMonto(pendienteInicial.toFixed(2));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   // Sugerir número de factura cuando se activa el toggle
   useEffect(() => {
     if (!generarFactura) return;
-    const sugerirNumero = async () => {
-      const hoy = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
-      const prefijo = `SV-${hoy}-`;
-      try {
-        const facturas = await FacturaClienteVentaService.getFacturas();
-        // Buscar facturas de hoy con formato SV-YYYYMMDD-XXXX
-        const consecs = facturas
-          .map((f) => f.numero_factura || "")
-          .filter((n) => n.startsWith(prefijo))
-          .map((n) => Number(n.slice(prefijo.length)))
-          .filter((n) => Number.isFinite(n) && n > 0);
-        const siguiente = consecs.length > 0 ? Math.max(...consecs) + 1 : 1;
-        setNumeroFactura(`${prefijo}${String(siguiente).padStart(4, "0")}`);
-      } catch {
-        setNumeroFactura(`${prefijo}0001`);
-      }
-    };
-    void sugerirNumero();
+    FacturaClienteVentaService.getSiguienteNumero()
+      .then((n) => { if (n) setNumeroFactura(n); })
+      .catch(() => {});
   }, [generarFactura]);
 
   if (!solicitud) return null;
 
-  // Precio base de la solicitud (read-only)
-  const precioMateriales = solicitud.precio_total != null ? Number(solicitud.precio_total) : null;
-  // Descuento introducido en el formulario (para este pago)
-  const descuentoPersistido = Number(
-    solicitudCompleta?.descuento_porcentaje ?? solicitud.descuento_porcentaje ?? 0,
-  );
-  const descuentoNum = bloquearConfiguracionPago
-    ? Math.min(100, Math.max(0, descuentoPersistido))
-    : Math.min(100, Math.max(0, Number(descuento) || 0));
-  const montoDescuento = precioMateriales != null ? precioMateriales * (descuentoNum / 100) : null;
-  const totalConDescuento = precioMateriales != null ? precioMateriales - (montoDescuento ?? 0) : null;
+  // precio_total ya incluye los descuentos por material aplicados en el backend
+  const precioTotal = solicitud.precio_total != null ? Number(solicitud.precio_total) : null;
   // Total ya pagado acumulado (de la solicitud)
   const totalPagado = solicitud.total_pagado != null ? Number(solicitud.total_pagado) : null;
-  // Pendiente calculado
-  const pendiente = totalConDescuento != null && totalPagado != null
-    ? Math.max(0, totalConDescuento - totalPagado)
-    : totalConDescuento ?? null;
+  // Pendiente: viene del backend o se calcula
+  const pendiente = solicitud.monto_pendiente != null
+    ? Number(solicitud.monto_pendiente)
+    : precioTotal != null && totalPagado != null
+    ? Math.max(0, precioTotal - totalPagado)
+    : precioTotal ?? null;
 
   const montoCubreTodo = pendiente != null && Number(monto) > 0 && Number(monto) >= pendiente;
 
@@ -199,7 +188,6 @@ export function RegistrarPagoVentaDialog({
     setMonto("");
     setMoneda("USD");
     setTasaCambio("");
-    setDescuento("0");
     setMetodoPago("efectivo");
     setDesgloseBilletes({});
     setNotas("");
@@ -288,6 +276,36 @@ export function RegistrarPagoVentaDialog({
         }
       }
     }
+    if (metodoPago === "efectivo") {
+      const desglose = buildDesgloseBilletes();
+      if (desglose && Object.keys(desglose).length > 0) {
+        const totalBilletes = Object.entries(desglose).reduce(
+          (sum, [den, cant]) => sum + Number(den) * cant,
+          0,
+        );
+        if (Math.abs(totalBilletes - montoNum) > 0.01) {
+          setError(
+            `La suma de billetes (${totalBilletes.toFixed(2)}) no coincide con el monto a pagar (${montoNum.toFixed(2)})`,
+          );
+          return;
+        }
+      }
+    }
+    if (metodoPago === "efectivo") {
+      const desglose = buildDesgloseBilletes();
+      if (desglose && Object.keys(desglose).length > 0) {
+        const totalBilletes = Object.entries(desglose).reduce(
+          (sum, [den, cant]) => sum + Number(den) * cant,
+          0,
+        );
+        if (Math.abs(totalBilletes - montoNum) > 0.01) {
+          setError(
+            `La suma de billetes (${totalBilletes.toFixed(2)}) no coincide con el monto a pagar (${montoNum.toFixed(2)})`,
+          );
+          return;
+        }
+      }
+    }
     setError(null);
     setLoading(true);
     try {
@@ -296,8 +314,6 @@ export function RegistrarPagoVentaDialog({
         monto: montoNum,
         moneda,
         tasa_cambio: tasaCambio ? Number(tasaCambio) : undefined,
-        // El backend solo permite descuento en el primer pago.
-        descuento_porcentaje: bloquearConfiguracionPago ? undefined : descuentoNum,
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
@@ -319,7 +335,7 @@ export function RegistrarPagoVentaDialog({
         fecha,
         factura:
           !facturaAsociadaNumero && generarFactura && numeroFactura.trim()
-            ? { numero_factura: numeroFactura.trim(), fecha_emision: fecha }
+            ? { numero: numeroFactura.trim(), numero_factura: numeroFactura.trim(), fecha_emision: fecha }
             : undefined,
       });
       handleClose();
@@ -393,25 +409,13 @@ export function RegistrarPagoVentaDialog({
 
         <div className="space-y-4 pt-2">
           {/* Resumen de precios */}
-          {precioMateriales != null && (
+          {precioTotal != null && (
             <div className="rounded-lg bg-gray-50 border p-3 text-sm space-y-1">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Precio materiales:</span>
-                <span className="font-medium">{formatCurrency(precioMateriales)}</span>
+              <div className="flex justify-between border-b pb-1 font-semibold">
+                <span>Total a pagar:</span>
+                <span className="text-blue-700">{formatCurrency(precioTotal)}</span>
               </div>
-              {descuentoNum > 0 && montoDescuento != null && (
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Descuento ({descuentoNum}%):</span>
-                  <span className="font-medium text-orange-600">-{formatCurrency(montoDescuento)}</span>
-                </div>
-              )}
-              {totalConDescuento != null && (
-                <div className="flex justify-between border-t pt-1 font-semibold">
-                  <span>Total:</span>
-                  <span className="text-blue-700">{formatCurrency(totalConDescuento)}</span>
-                </div>
-              )}
-              {totalPagado != null && (
+              {totalPagado != null && totalPagado > 0 && (
                 <div className="flex justify-between text-green-700">
                   <span>Ya pagado:</span>
                   <span className="font-medium">{formatCurrency(totalPagado)}</span>
@@ -423,33 +427,6 @@ export function RegistrarPagoVentaDialog({
                   <span>{formatCurrency(pendiente)}</span>
                 </div>
               )}
-            </div>
-          )}
-
-          {!bloquearConfiguracionPago ? (
-            <div className="space-y-1">
-              <Label className="flex items-center gap-1">
-                <Percent className="h-3.5 w-3.5" />
-                Descuento
-              </Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.5"
-                  value={descuento}
-                  onChange={(e) => setDescuento(String(Math.min(100, Math.max(0, Number(e.target.value)))))}
-                  className="pr-8"
-                  placeholder="0"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">%</span>
-              </div>
-            </div>
-          ) : (
-            <div className="rounded-lg border bg-gray-50 p-3 text-sm">
-              <span className="text-gray-600">Descuento aplicado en solicitud:</span>{" "}
-              <span className="font-semibold">{descuentoNum}%</span>
             </div>
           )}
 
@@ -627,29 +604,44 @@ export function RegistrarPagoVentaDialog({
             </div>
           )}
 
-          {metodoPago === "efectivo" && (
-            <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-              <Label className="text-sm font-medium">
-                Desglose de billetes ({moneda}) (opcional)
-              </Label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {denominaciones.map((d) => (
-                  <div key={d} className="space-y-1">
-                    <Label className="text-xs text-gray-700">{d}</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={desgloseBilletes[d] ?? ""}
-                      onChange={(e) => setCantidadDenominacion(d, e.target.value)}
-                      placeholder="0"
-                      className="h-8 text-sm"
-                    />
+          {metodoPago === "efectivo" && (() => {
+            const totalBilletes = denominaciones.reduce((sum, d) => {
+              const cant = Number(desgloseBilletes[d] ?? 0);
+              return sum + Number(d) * cant;
+            }, 0);
+            const montoNum2 = Number(monto);
+            const hayDesglose = denominaciones.some(d => Number(desgloseBilletes[d] ?? 0) > 0);
+            const coincide = !hayDesglose || Math.abs(totalBilletes - montoNum2) <= 0.01;
+            return (
+              <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+                <Label className="text-sm font-medium">
+                  Desglose de billetes ({moneda}) (opcional)
+                </Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {denominaciones.map((d) => (
+                    <div key={d} className="space-y-1">
+                      <Label className="text-xs text-gray-700">{d}</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={desgloseBilletes[d] ?? ""}
+                        onChange={(e) => setCantidadDenominacion(d, e.target.value)}
+                        placeholder="0"
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {hayDesglose && (
+                  <div className={`flex items-center justify-between text-xs px-1 pt-1 font-medium ${coincide ? "text-emerald-700" : "text-red-600"}`}>
+                    <span>Total billetes: {totalBilletes.toFixed(2)}</span>
+                    <span>{coincide ? "✓ Coincide" : `✗ Diferencia: ${(totalBilletes - montoNum2).toFixed(2)}`}</span>
                   </div>
-                ))}
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Fecha */}
           <div className="space-y-1">
