@@ -15,8 +15,12 @@ import type {
 } from "../../../api-types";
 
 const BASE_ENDPOINT = "/operaciones/solicitudes-ventas";
+// El backend tiene el endpoint de edición (PATCH/PUT) en una ruta distinta
+const BASE_UPDATE_ENDPOINT = "/solicitudes-ventas";
 const buildDetailEndpoint = (id: string) =>
   `${BASE_ENDPOINT}/${encodeURIComponent(id)}`;
+const buildUpdateEndpoint = (id: string) =>
+  `${BASE_UPDATE_ENDPOINT}/${encodeURIComponent(id)}`;
 const buildAnularEndpoint = (id: string) =>
   `${buildDetailEndpoint(id)}/anular`;
 const buildReabrirEndpoint = (id: string) =>
@@ -45,6 +49,14 @@ const extractApiError = (response: any): string | null => {
       response?.message ||
       response?.detail ||
       "La operacion no pudo completarse"
+    );
+  }
+  // apiRequest devuelve el objeto con _httpStatus cuando el backend responde con error HTTP
+  if (response._httpStatus && response._httpStatus >= 400) {
+    return (
+      response?.detail ||
+      response?.message ||
+      `Error ${response._httpStatus}`
     );
   }
   if (response?.error?.message && !response?.id) {
@@ -342,7 +354,7 @@ export class SolicitudVentaService {
         : undefined,
     };
 
-    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
+    const raw = await apiRequest<any>(buildUpdateEndpoint(id), {
       method: "PUT",
       body: JSON.stringify(payload),
     });
@@ -379,12 +391,9 @@ export class SolicitudVentaService {
         : undefined,
     };
 
-    const bodyStr = JSON.stringify(payload);
-    console.log("🔧 PATCH solicitud payload:", bodyStr);
-
-    const raw = await apiRequest<any>(buildDetailEndpoint(id), {
+    const raw = await apiRequest<any>(buildUpdateEndpoint(id), {
       method: "PATCH",
-      body: bodyStr,
+      body: JSON.stringify(payload),
     });
     const error = extractApiError(raw);
     if (error) throw new Error(error);
