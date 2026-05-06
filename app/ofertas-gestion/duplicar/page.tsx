@@ -7,15 +7,16 @@ import { ModuleHeader } from "@/components/shared/organism/module-header"
 import { ConfeccionOfertasView } from "@/components/feats/ofertas/confeccion-ofertas-view"
 import { Button } from "@/components/shared/atom/button"
 import { Loader } from "@/components/shared/atom/loader"
-import { useOfertasConfeccion } from "@/hooks/use-ofertas-confeccion"
+import { normalizeOfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
 import type { OfertaConfeccion } from "@/hooks/use-ofertas-confeccion"
+import { apiRequest } from "@/lib/api-config"
 
 export default function DuplicarOfertaPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const ofertaId = searchParams.get('id')
-  const { ofertas, loading } = useOfertasConfeccion()
   const [ofertaParaDuplicar, setOfertaParaDuplicar] = useState<OfertaConfeccion | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!ofertaId) {
@@ -23,15 +24,28 @@ export default function DuplicarOfertaPage() {
       return
     }
 
-    if (!loading && ofertas.length > 0) {
-      const oferta = ofertas.find(o => o.id === ofertaId)
-      if (oferta) {
-        setOfertaParaDuplicar(oferta)
-      } else {
+    const cargarOfertaCompleta = async () => {
+      try {
+        setLoading(true)
+        const response = await apiRequest<any>(`/ofertas/confeccion/${ofertaId}`, {
+          method: "GET",
+          cache: "no-store",
+        })
+        const raw = response?.data ?? response
+        if (!raw) {
+          router.push('/ofertas-gestion/ver-ofertas-confeccionadas')
+          return
+        }
+        setOfertaParaDuplicar(normalizeOfertaConfeccion(raw))
+      } catch {
         router.push('/ofertas-gestion/ver-ofertas-confeccionadas')
+      } finally {
+        setLoading(false)
       }
     }
-  }, [ofertaId, ofertas, loading, router])
+
+    cargarOfertaCompleta()
+  }, [ofertaId, router])
 
   const handleGuardarExito = () => {
     router.push('/ofertas-gestion/ver-ofertas-confeccionadas?refresh=true')
