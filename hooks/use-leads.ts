@@ -447,7 +447,7 @@ export function useLeads(): UseLeadsReturn {
     comercialesLoadingRef.inFlight = true;
     try {
       const response = await apiRequest<{ success: boolean; data: string[] }>(
-        "/leads/comerciales",
+        "/trabajadores/comerciales",
         { method: "GET" },
       );
       const comerciales = Array.isArray(response?.data) ? response.data : [];
