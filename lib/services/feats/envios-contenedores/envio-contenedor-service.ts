@@ -3,12 +3,14 @@
 import { apiRequest } from "../../../api-config";
 import type {
   AplicarPreciosMaterialPayload,
+  ArchivoEnvioContenedor,
   EnvioContenedor,
   EnvioContenedorCreateData,
   EnvioContenedorMaterial,
   EstadoEnvioContenedor,
   MaterialDatosBulk,
   StockMaterialEnvio,
+  TipoContenedor,
   TipoEnvioContenedor,
 } from "../../../types/feats/envios-contenedores/envio-contenedor-types";
 
@@ -49,6 +51,21 @@ const normalizeTipo = (raw: any): TipoEnvioContenedor | undefined => {
   return undefined;
 };
 
+const normalizeTipoContenedor = (raw: any): TipoContenedor | undefined => {
+  if (raw === "20DV" || raw === "40DV" || raw === "40HC") return raw;
+  return undefined;
+};
+
+const mapArchivo = (raw: any): ArchivoEnvioContenedor => ({
+  id: String(raw?.id ?? ""),
+  url: String(raw?.url ?? ""),
+  tipo: (["imagen", "video", "audio", "documento"].includes(raw?.tipo) ? raw.tipo : "documento") as ArchivoEnvioContenedor["tipo"],
+  nombre: String(raw?.nombre ?? ""),
+  tamano: Number(raw?.tamano ?? 0),
+  mime_type: String(raw?.mime_type ?? ""),
+  created_at: String(raw?.created_at ?? ""),
+});
+
 const mapMaterial = (raw: any): EnvioContenedorMaterial => ({
   material_id: String(raw?.material_id ?? raw?.id ?? ""),
   material_codigo: String(raw?.material_codigo ?? raw?.codigo ?? ""),
@@ -66,6 +83,21 @@ const mapEnvio = (raw: any): EnvioContenedor => ({
   id: String(raw?.id ?? raw?._id ?? ""),
   nombre: String(raw?.nombre ?? ""),
   descripcion: typeof raw?.descripcion === "string" ? raw.descripcion : "",
+  // Documental
+  bl: raw?.bl ?? undefined,
+  referencia_buque: raw?.referencia_buque ?? undefined,
+  sello: raw?.sello ?? undefined,
+  // Transporte
+  buque: raw?.buque ?? undefined,
+  tipo_contenedor: normalizeTipoContenedor(raw?.tipo_contenedor),
+  puerto_origen: raw?.puerto_origen ?? undefined,
+  pais_origen: raw?.pais_origen ?? undefined,
+  puerto_destino: raw?.puerto_destino ?? undefined,
+  // Partes
+  proveedor: raw?.proveedor ?? undefined,
+  cliente: raw?.cliente ?? undefined,
+  transitaria: raw?.transitaria ?? undefined,
+  // Fechas
   fecha_envio: String(raw?.fecha_envio ?? ""),
   fecha_llegada_aproximada: String(raw?.fecha_llegada_aproximada ?? ""),
   estado: normalizeEstado(raw?.estado),
@@ -81,6 +113,7 @@ const mapEnvio = (raw: any): EnvioContenedor => ({
   porciento_instaladora: Number(raw?.porciento_instaladora ?? 0),
   porciento_ventas: Number(raw?.porciento_ventas ?? 0),
   materiales: Array.isArray(raw?.materiales) ? raw.materiales.map(mapMaterial) : [],
+  archivos: Array.isArray(raw?.archivos) ? raw.archivos.map(mapArchivo) : [],
   created_at: typeof raw?.created_at === "string" ? raw.created_at : undefined,
   updated_at: typeof raw?.updated_at === "string" ? raw.updated_at : undefined,
 });
@@ -202,5 +235,41 @@ export class EnvioContenedorService {
     const error = extractApiError(raw);
     if (error) throw new Error(error);
     return mapEnvio(unwrapPayload(raw));
+  }
+
+  // ─── Archivos adjuntos ───────────────────────────────────────────────────
+
+  static async uploadArchivos(envioId: string, files: File[]): Promise<ArchivoEnvioContenedor[]> {
+    const formData = new FormData();
+    files.forEach((f) => formData.append("archivos", f));
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/archivos`,
+      { method: "POST", body: formData },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
+    const list = raw?.archivos ?? [];
+    return Array.isArray(list) ? list.map(mapArchivo) : [];
+  }
+
+  static async getArchivos(envioId: string): Promise<ArchivoEnvioContenedor[]> {
+    try {
+      const raw = await apiRequest<any>(`${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/archivos`);
+      const error = extractApiError(raw);
+      if (error) throw new Error(error);
+      const list = raw?.data ?? [];
+      return Array.isArray(list) ? list.map(mapArchivo) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  static async deleteArchivo(envioId: string, archivoId: string): Promise<void> {
+    const raw = await apiRequest<any>(
+      `${BASE_ENDPOINT}/${encodeURIComponent(envioId)}/archivos/${encodeURIComponent(archivoId)}`,
+      { method: "DELETE" },
+    );
+    const error = extractApiError(raw);
+    if (error) throw new Error(error);
   }
 }
