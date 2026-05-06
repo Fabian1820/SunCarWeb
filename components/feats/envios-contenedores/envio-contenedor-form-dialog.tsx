@@ -19,13 +19,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/shared/atom/select";
-import { Loader2, Package, Pencil, Plane, Plus, Ship, Truck, X } from "lucide-react";
+import {
+  AnchorIcon,
+  Building2,
+  CalendarDays,
+  ClipboardList,
+  Container,
+  Loader2,
+  MapPin,
+  Package,
+  Pencil,
+  Plane,
+  Plus,
+  Ship,
+  Truck,
+  X,
+} from "lucide-react";
 import type { Material } from "@/lib/material-types";
 import type {
   EnvioContenedor,
   EnvioContenedorCreateData,
   EstadoEnvioContenedor,
+  TipoContenedor,
   TipoEnvioContenedor,
+} from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+import {
+  TIPO_CONTENEDOR_LABELS,
+  TIPOS_CONTENEDOR,
 } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
 
 // ─── types ───────────────────────────────────────────────────────────────────
@@ -46,7 +66,7 @@ export interface EnvioContenedorFormDialogProps {
   initialData?: EnvioContenedor;
 }
 
-// ─── constants ───────────────────────────────────────────────────────────────
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 const getTodayISO = () => new Date().toISOString().slice(0, 10);
 const getDefaultArrival = () => {
@@ -54,6 +74,15 @@ const getDefaultArrival = () => {
   d.setDate(d.getDate() + 30);
   return d.toISOString().slice(0, 10);
 };
+
+const calcDiasNavegacion = (fechaEnvio: string, fechaLlegada: string): number | null => {
+  if (!fechaEnvio || !fechaLlegada) return null;
+  const diff = new Date(fechaLlegada).getTime() - new Date(fechaEnvio).getTime();
+  if (isNaN(diff) || diff < 0) return null;
+  return Math.round(diff / 86_400_000);
+};
+
+// ─── constants ───────────────────────────────────────────────────────────────
 
 const TIPO_OPTIONS: {
   value: TipoEnvioContenedor;
@@ -95,6 +124,17 @@ const ESTADO_OPTIONS: { value: EstadoEnvioContenedor; label: string }[] = [
   { value: "cancelado",  label: "Cancelado" },
 ];
 
+// ─── section header helper ────────────────────────────────────────────────────
+
+function SectionHeader({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+      {icon}
+      {label}
+    </p>
+  );
+}
+
 // ─── component ───────────────────────────────────────────────────────────────
 
 export function EnvioContenedorFormDialog({
@@ -107,28 +147,64 @@ export function EnvioContenedorFormDialog({
 }: EnvioContenedorFormDialogProps) {
   const isEditMode = Boolean(initialData);
 
+  // General
   const [nombre,       setNombre]       = useState("");
   const [descripcion,  setDescripcion]  = useState("");
-  const [fechaEnvio,   setFechaEnvio]   = useState(getTodayISO());
-  const [fechaLlegada, setFechaLlegada] = useState(getDefaultArrival());
   const [estado,       setEstado]       = useState<EstadoEnvioContenedor>("despachado");
   const [tipoEnvio,    setTipoEnvio]    = useState<TipoEnvioContenedor | "">("");
+
+  // Identificación documental
+  const [bl,               setBl]              = useState("");
+  const [referenciaBuque,  setReferenciaBuque] = useState("");
+  const [sello,            setSello]           = useState("");
+
+  // Transporte
+  const [buque,           setBuque]           = useState("");
+  const [tipoContenedor,  setTipoContenedor]  = useState<TipoContenedor | "">("");
+  const [puertoOrigen,    setPuertoOrigen]    = useState("");
+  const [paisOrigen,      setPaisOrigen]      = useState("");
+  const [puertoDestino,   setPuertoDestino]   = useState("Mariel");
+
+  // Partes involucradas
+  const [proveedor,   setProveedor]   = useState("");
+  const [cliente,     setCliente]     = useState("");
+  const [transitaria, setTransitaria] = useState("");
+
+  // Fechas y pago
+  const [fechaEnvio,   setFechaEnvio]   = useState(getTodayISO());
+  const [fechaLlegada, setFechaLlegada] = useState(getDefaultArrival());
   const [pagado,       setPagado]       = useState(false);
-  const [matList,      setMatList]      = useState<MaterialSeleccionado[]>([]);
-  const [selMatId,     setSelMatId]     = useState("");
-  const [selCantidad,  setSelCantidad]  = useState("1");
-  const [error,        setError]        = useState<string | null>(null);
-  const [submitting,   setSubmitting]   = useState(false);
+
+  // Materiales
+  const [matList,     setMatList]     = useState<MaterialSeleccionado[]>([]);
+  const [selMatId,    setSelMatId]    = useState("");
+  const [selCantidad, setSelCantidad] = useState("1");
+
+  const [error,      setError]      = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const diasNavegacion = calcDiasNavegacion(fechaEnvio, fechaLlegada);
 
   useEffect(() => {
     if (!open) return;
     if (initialData) {
       setNombre(initialData.nombre);
       setDescripcion(initialData.descripcion ?? "");
-      setFechaEnvio(initialData.fecha_envio?.slice(0, 10) ?? getTodayISO());
-      setFechaLlegada(initialData.fecha_llegada_aproximada?.slice(0, 10) ?? getDefaultArrival());
       setEstado(initialData.estado);
       setTipoEnvio(initialData.tipo_envio ?? "");
+      setBl(initialData.bl ?? "");
+      setReferenciaBuque(initialData.referencia_buque ?? "");
+      setSello(initialData.sello ?? "");
+      setBuque(initialData.buque ?? "");
+      setTipoContenedor(initialData.tipo_contenedor ?? "");
+      setPuertoOrigen(initialData.puerto_origen ?? "");
+      setPaisOrigen(initialData.pais_origen ?? "");
+      setPuertoDestino(initialData.puerto_destino ?? "Mariel");
+      setProveedor(initialData.proveedor ?? "");
+      setCliente(initialData.cliente ?? "");
+      setTransitaria(initialData.transitaria ?? "");
+      setFechaEnvio(initialData.fecha_envio?.slice(0, 10) ?? getTodayISO());
+      setFechaLlegada(initialData.fecha_llegada_aproximada?.slice(0, 10) ?? getDefaultArrival());
       setPagado(initialData.pagado);
       setMatList(
         initialData.materiales.map((m) => ({
@@ -139,9 +215,13 @@ export function EnvioContenedorFormDialog({
         })),
       );
     } else {
-      setNombre(""); setDescripcion(""); setFechaEnvio(getTodayISO());
-      setFechaLlegada(getDefaultArrival()); setEstado("despachado");
-      setTipoEnvio(""); setPagado(false); setMatList([]);
+      setNombre(""); setDescripcion(""); setEstado("despachado"); setTipoEnvio("");
+      setBl(""); setReferenciaBuque(""); setSello("");
+      setBuque(""); setTipoContenedor(""); setPuertoOrigen(""); setPaisOrigen("");
+      setPuertoDestino("Mariel");
+      setProveedor(""); setCliente(""); setTransitaria("");
+      setFechaEnvio(getTodayISO()); setFechaLlegada(getDefaultArrival()); setPagado(false);
+      setMatList([]);
     }
     setSelMatId(""); setSelCantidad("1"); setError(null);
   }, [open, initialData]);
@@ -184,7 +264,18 @@ export function EnvioContenedorFormDialog({
     try {
       await onSubmit({
         nombre: nombre.trim(),
-        descripcion: descripcion.trim(),
+        descripcion: descripcion.trim() || undefined,
+        bl: bl.trim() || undefined,
+        referencia_buque: referenciaBuque.trim() || undefined,
+        sello: sello.trim() || undefined,
+        buque: buque.trim() || undefined,
+        tipo_contenedor: (tipoContenedor as TipoContenedor) || undefined,
+        puerto_origen: puertoOrigen.trim() || undefined,
+        pais_origen: paisOrigen.trim() || undefined,
+        puerto_destino: puertoDestino.trim() || undefined,
+        proveedor: proveedor.trim() || undefined,
+        cliente: cliente.trim() || undefined,
+        transitaria: transitaria.trim() || undefined,
         fecha_envio: fechaEnvio,
         fecha_llegada_aproximada: fechaLlegada,
         estado,
@@ -240,9 +331,7 @@ export function EnvioContenedorFormDialog({
 
           {/* ── Información general ── */}
           <section>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Información general
-            </p>
+            <SectionHeader icon={<ClipboardList className="h-3.5 w-3.5" />} label="Información general" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2 space-y-1.5">
                 <Label htmlFor="fc-nombre" className="text-sm font-medium text-gray-700">
@@ -255,52 +344,6 @@ export function EnvioContenedorFormDialog({
                   placeholder="Ej: Contenedor Solar Mayo 2026"
                   className="h-9"
                 />
-              </div>
-
-              <div className="md:col-span-2 space-y-2">
-                <Label className="text-sm font-medium text-gray-700">Tipo de envío</Label>
-                <div className="grid grid-cols-3 gap-3">
-                  {TIPO_OPTIONS.map((t) => {
-                    const isSelected = tipoEnvio === t.value;
-                    return (
-                      <button
-                        key={t.value}
-                        type="button"
-                        onClick={() => setTipoEnvio(isSelected ? "" : t.value)}
-                        className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 px-4 py-4 text-center transition-all duration-150 hover:shadow-sm focus:outline-none ${
-                          isSelected
-                            ? t.activeClass
-                            : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {/* Dot indicador */}
-                        <span className={`absolute top-2.5 right-2.5 h-2 w-2 rounded-full transition-all ${
-                          isSelected ? "bg-current opacity-100" : "opacity-0"
-                        } ${
-                          t.value === "maritimo" ? "text-cyan-500" :
-                          t.value === "aereo"    ? "text-sky-500"  : "text-gray-400"
-                        }`} />
-
-                        {/* Icono */}
-                        <span className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
-                          isSelected ? t.iconBg : "bg-gray-100 text-gray-400"
-                        }`}>
-                          {t.icon}
-                        </span>
-
-                        {/* Texto */}
-                        <div>
-                          <p className={`text-sm font-semibold leading-tight ${
-                            isSelected ? "text-gray-900" : "text-gray-600"
-                          }`}>
-                            {t.label}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">{t.sublabel}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -319,13 +362,13 @@ export function EnvioContenedorFormDialog({
 
               <div className="md:col-span-2 space-y-1.5">
                 <Label htmlFor="fc-desc" className="text-sm font-medium text-gray-700">
-                  Descripción / Observaciones
+                  Observaciones
                 </Label>
                 <Textarea
                   id="fc-desc"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
-                  placeholder="Naviera, número de contenedor, observaciones..."
+                  placeholder="Observaciones adicionales..."
                   rows={2}
                   className="resize-none"
                 />
@@ -333,12 +376,236 @@ export function EnvioContenedorFormDialog({
             </div>
           </section>
 
+          {/* ── Identificación documental ── */}
+          <section>
+            <SectionHeader icon={<ClipboardList className="h-3.5 w-3.5" />} label="Identificación documental" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-bl" className="text-sm font-medium text-gray-700">
+                  BL (Bill of Lading)
+                </Label>
+                <Input
+                  id="fc-bl"
+                  value={bl}
+                  onChange={(e) => setBl(e.target.value)}
+                  placeholder="Ej: MAEU123456789"
+                  className="h-9 font-mono"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-ref-buque" className="text-sm font-medium text-gray-700">
+                  Referencia del buque
+                </Label>
+                <Input
+                  id="fc-ref-buque"
+                  value={referenciaBuque}
+                  onChange={(e) => setReferenciaBuque(e.target.value)}
+                  placeholder="Referencia / viaje"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-sello" className="text-sm font-medium text-gray-700">
+                  Sello
+                </Label>
+                <Input
+                  id="fc-sello"
+                  value={sello}
+                  onChange={(e) => setSello(e.target.value)}
+                  placeholder="Número de sello"
+                  className="h-9 font-mono"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Tipo de envío ── */}
+          <section>
+            <SectionHeader icon={<Ship className="h-3.5 w-3.5" />} label="Tipo de envío" />
+            <div className="space-y-4">
+              {/* Selector visual de modo */}
+              <div className="grid grid-cols-3 gap-3">
+                {TIPO_OPTIONS.map((t) => {
+                  const isSelected = tipoEnvio === t.value;
+                  return (
+                    <button
+                      key={t.value}
+                      type="button"
+                      onClick={() => setTipoEnvio(isSelected ? "" : t.value)}
+                      className={`relative flex flex-col items-center gap-2.5 rounded-xl border-2 px-4 py-4 text-center transition-all duration-150 hover:shadow-sm focus:outline-none ${
+                        isSelected
+                          ? t.activeClass
+                          : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className={`absolute top-2.5 right-2.5 h-2 w-2 rounded-full transition-all ${
+                        isSelected ? "bg-current opacity-100" : "opacity-0"
+                      } ${
+                        t.value === "maritimo" ? "text-cyan-500" :
+                        t.value === "aereo"    ? "text-sky-500"  : "text-gray-400"
+                      }`} />
+                      <span className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors ${
+                        isSelected ? t.iconBg : "bg-gray-100 text-gray-400"
+                      }`}>
+                        {t.icon}
+                      </span>
+                      <div>
+                        <p className={`text-sm font-semibold leading-tight ${
+                          isSelected ? "text-gray-900" : "text-gray-600"
+                        }`}>
+                          {t.label}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">{t.sublabel}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tipo de contenedor + buque */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <Container className="h-3.5 w-3.5 text-gray-400" />
+                    Tipo de contenedor
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TIPOS_CONTENEDOR.map((tc) => {
+                      const isSelected = tipoContenedor === tc;
+                      return (
+                        <button
+                          key={tc}
+                          type="button"
+                          onClick={() => setTipoContenedor(isSelected ? "" : tc)}
+                          className={`rounded-lg border-2 py-2.5 text-center text-sm font-semibold transition-all focus:outline-none ${
+                            isSelected
+                              ? "border-cyan-400 bg-cyan-50 text-cyan-700 ring-2 ring-cyan-100"
+                              : "border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                          }`}
+                        >
+                          {tc}
+                          <span className={`block text-xs font-normal mt-0.5 ${isSelected ? "text-cyan-500" : "text-gray-400"}`}>
+                            {tc === "20DV" ? "20 pies" : tc === "40DV" ? "40 pies" : "40' HC"}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="fc-buque" className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <AnchorIcon className="h-3.5 w-3.5 text-gray-400" />
+                    Buque
+                  </Label>
+                  <Input
+                    id="fc-buque"
+                    value={buque}
+                    onChange={(e) => setBuque(e.target.value)}
+                    placeholder="Nombre del buque"
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── Ruta ── */}
+          <section>
+            <SectionHeader icon={<MapPin className="h-3.5 w-3.5" />} label="Ruta" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-pais-origen" className="text-sm font-medium text-gray-700">
+                  País de origen
+                </Label>
+                <Input
+                  id="fc-pais-origen"
+                  value={paisOrigen}
+                  onChange={(e) => setPaisOrigen(e.target.value)}
+                  placeholder="Ej: China"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-puerto-origen" className="text-sm font-medium text-gray-700">
+                  Puerto de origen
+                </Label>
+                <Input
+                  id="fc-puerto-origen"
+                  value={puertoOrigen}
+                  onChange={(e) => setPuertoOrigen(e.target.value)}
+                  placeholder="Ej: Shanghai"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-puerto-destino" className="text-sm font-medium text-gray-700">
+                  Puerto de destino
+                </Label>
+                <Input
+                  id="fc-puerto-destino"
+                  value={puertoDestino}
+                  onChange={(e) => setPuertoDestino(e.target.value)}
+                  placeholder="Mariel"
+                  className="h-9"
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Partes involucradas ── */}
+          <section>
+            <SectionHeader icon={<Building2 className="h-3.5 w-3.5" />} label="Partes involucradas" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-proveedor" className="text-sm font-medium text-gray-700">
+                  Proveedor
+                </Label>
+                <Input
+                  id="fc-proveedor"
+                  value={proveedor}
+                  onChange={(e) => setProveedor(e.target.value)}
+                  placeholder="Empresa proveedora"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-cliente" className="text-sm font-medium text-gray-700">
+                  Cliente
+                </Label>
+                <Input
+                  id="fc-cliente"
+                  value={cliente}
+                  onChange={(e) => setCliente(e.target.value)}
+                  placeholder="Empresa cliente"
+                  className="h-9"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="fc-transitaria" className="text-sm font-medium text-gray-700">
+                  Transitaria
+                </Label>
+                <Input
+                  id="fc-transitaria"
+                  value={transitaria}
+                  onChange={(e) => setTransitaria(e.target.value)}
+                  placeholder="Agencia transitaria"
+                  className="h-9"
+                />
+              </div>
+            </div>
+          </section>
+
           {/* ── Fechas y pago ── */}
           <section>
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-              Fechas y pago
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <SectionHeader icon={<CalendarDays className="h-3.5 w-3.5" />} label="Fechas y pago" />
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="fc-fecha-envio" className="text-sm font-medium text-gray-700">
                   Fecha de envío <span className="text-red-500">*</span>
@@ -363,6 +630,20 @@ export function EnvioContenedorFormDialog({
                   onChange={(e) => setFechaLlegada(e.target.value)}
                   className="h-9"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-gray-700">Días de navegación</Label>
+                <div className="h-9 rounded-md border border-gray-200 bg-gray-50 flex items-center px-3 gap-2">
+                  <Ship className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
+                  {diasNavegacion !== null ? (
+                    <span className="text-sm font-semibold text-cyan-700">
+                      {diasNavegacion} día{diasNavegacion !== 1 ? "s" : ""}
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400">—</span>
+                  )}
+                </div>
               </div>
 
               <div className="space-y-1.5">

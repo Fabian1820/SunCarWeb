@@ -6,16 +6,21 @@ import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import {
   ENVIO_CONTENEDOR_ESTADO_LABELS,
+  TIPO_CONTENEDOR_LABELS,
   TIPO_ENVIO_LABELS,
   type EnvioContenedor,
   type EstadoEnvioContenedor,
 } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
 import {
+  AnchorIcon,
   ArrowRight,
+  Building2,
   CalendarDays,
   ChevronDown,
   ChevronUp,
   ClipboardList,
+  Container,
+  MapPin,
   Package,
   Pencil,
   Plane,
@@ -38,6 +43,13 @@ const getDaysLeft = (value?: string): number | null => {
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
   return Math.ceil((d.getTime() - Date.now()) / 86_400_000);
+};
+
+const calcDiasNavegacion = (fechaEnvio?: string, fechaLlegada?: string): number | null => {
+  if (!fechaEnvio || !fechaLlegada) return null;
+  const diff = new Date(fechaLlegada).getTime() - new Date(fechaEnvio).getTime();
+  if (isNaN(diff) || diff < 0) return null;
+  return Math.round(diff / 86_400_000);
 };
 
 // ─── sub-components ───────────────────────────────────────────────────────────
@@ -143,7 +155,7 @@ export function EnviosContenedoresTable({
                     idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50/40 hover:bg-gray-50"
                   } ${isExpanded ? "border-b-0" : ""}`}
                 >
-                  {/* Nombre + tipo + descripción */}
+                  {/* Nombre + tipo + BL + contenedor */}
                   <td className="py-3.5 px-4">
                     <div className="flex items-start gap-2.5">
                       <div className="mt-0.5 shrink-0">
@@ -153,14 +165,29 @@ export function EnviosContenedoresTable({
                         <p className="font-semibold text-gray-900 leading-tight truncate">
                           {envio.nombre}
                         </p>
-                        {envio.tipo_envio && (
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {TIPO_ENVIO_LABELS[envio.tipo_envio]}
-                          </p>
-                        )}
-                        {envio.descripcion?.trim() && (
-                          <p className="text-xs text-gray-400 truncate max-w-[220px]" title={envio.descripcion}>
-                            {envio.descripcion}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          {envio.tipo_envio && (
+                            <span className="text-xs text-gray-400">
+                              {TIPO_ENVIO_LABELS[envio.tipo_envio]}
+                            </span>
+                          )}
+                          {envio.tipo_contenedor && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-cyan-50 text-cyan-700 border border-cyan-200 font-mono font-semibold">
+                              <Container className="h-3 w-3" />
+                              {envio.tipo_contenedor}
+                            </span>
+                          )}
+                          {envio.bl && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-100 text-gray-600 border border-gray-200 font-mono">
+                              BL: {envio.bl}
+                            </span>
+                          )}
+                        </div>
+                        {(envio.buque || envio.puerto_origen) && (
+                          <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
+                            {envio.buque && <><AnchorIcon className="h-3 w-3" />{envio.buque}</>}
+                            {envio.buque && envio.puerto_origen && <span>·</span>}
+                            {envio.puerto_origen && <><MapPin className="h-3 w-3" />{envio.puerto_origen}{envio.pais_origen ? `, ${envio.pais_origen}` : ""}</>}
                           </p>
                         )}
                       </div>
@@ -271,11 +298,110 @@ export function EnviosContenedoresTable({
                   </td>
                 </tr>
 
-                {/* Fila expandida: materiales */}
+                {/* Fila expandida: datos + materiales */}
                 {isExpanded && (
                   <tr className={`border-b border-gray-200 ${idx % 2 === 0 ? "bg-white" : "bg-gray-50/40"}`}>
                     <td colSpan={7} className="px-4 pb-4 pt-0">
-                      <div className="ml-9 border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                      <div className="ml-9 space-y-3">
+
+                        {/* ── Panel de datos del envío ── */}
+                        {(envio.bl || envio.sello || envio.referencia_buque || envio.buque ||
+                          envio.puerto_origen || envio.puerto_destino || envio.pais_origen ||
+                          envio.proveedor || envio.cliente || envio.transitaria) && (() => {
+                          const dias = calcDiasNavegacion(envio.fecha_envio, envio.fecha_llegada_aproximada);
+                          return (
+                            <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                              <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center gap-2">
+                                <ClipboardList className="h-3.5 w-3.5 text-gray-400" />
+                                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                                  Datos del envío
+                                </span>
+                                {dias !== null && (
+                                  <span className="ml-auto inline-flex items-center gap-1 text-xs text-cyan-700 bg-cyan-50 border border-cyan-200 rounded-full px-2 py-0.5">
+                                    <Ship className="h-3 w-3" />
+                                    {dias} día{dias !== 1 ? "s" : ""} de navegación
+                                  </span>
+                                )}
+                              </div>
+                              <div className="p-3 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-xs">
+                                {envio.bl && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">BL</p>
+                                    <p className="text-gray-800 font-mono font-semibold">{envio.bl}</p>
+                                  </div>
+                                )}
+                                {envio.referencia_buque && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Referencia buque</p>
+                                    <p className="text-gray-800">{envio.referencia_buque}</p>
+                                  </div>
+                                )}
+                                {envio.sello && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Sello</p>
+                                    <p className="text-gray-800 font-mono">{envio.sello}</p>
+                                  </div>
+                                )}
+                                {envio.buque && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Buque</p>
+                                    <p className="text-gray-800 flex items-center gap-1">
+                                      <AnchorIcon className="h-3 w-3 text-gray-400" />{envio.buque}
+                                    </p>
+                                  </div>
+                                )}
+                                {envio.tipo_contenedor && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Contenedor</p>
+                                    <p className="text-gray-800 flex items-center gap-1">
+                                      <Container className="h-3 w-3 text-gray-400" />
+                                      {envio.tipo_contenedor} — {TIPO_CONTENEDOR_LABELS[envio.tipo_contenedor]}
+                                    </p>
+                                  </div>
+                                )}
+                                {(envio.puerto_origen || envio.pais_origen) && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Origen</p>
+                                    <p className="text-gray-800">
+                                      {[envio.puerto_origen, envio.pais_origen].filter(Boolean).join(", ")}
+                                    </p>
+                                  </div>
+                                )}
+                                {envio.puerto_destino && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Destino</p>
+                                    <p className="text-gray-800 flex items-center gap-1">
+                                      <MapPin className="h-3 w-3 text-gray-400" />{envio.puerto_destino}
+                                    </p>
+                                  </div>
+                                )}
+                                {envio.proveedor && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Proveedor</p>
+                                    <p className="text-gray-800 flex items-center gap-1">
+                                      <Building2 className="h-3 w-3 text-gray-400" />{envio.proveedor}
+                                    </p>
+                                  </div>
+                                )}
+                                {envio.cliente && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Cliente</p>
+                                    <p className="text-gray-800">{envio.cliente}</p>
+                                  </div>
+                                )}
+                                {envio.transitaria && (
+                                  <div>
+                                    <p className="text-gray-400 font-medium uppercase tracking-wide text-[10px]">Transitaria</p>
+                                    <p className="text-gray-800">{envio.transitaria}</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                        {/* ── Materiales ── */}
+                        <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
                         <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center gap-2">
                           <Package className="h-3.5 w-3.5 text-gray-400" />
                           <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
@@ -345,6 +471,7 @@ export function EnviosContenedoresTable({
                             </tr>
                           </tfoot>
                         </table>
+                      </div>
                       </div>
                     </td>
                   </tr>

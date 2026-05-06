@@ -9,8 +9,29 @@ export type EstadoEnvioContenedor = (typeof ESTADOS_ENVIO_CONTENEDOR)[number];
 export const TIPOS_ENVIO_CONTENEDOR = ["maritimo", "aereo", "otro"] as const;
 export type TipoEnvioContenedor = (typeof TIPOS_ENVIO_CONTENEDOR)[number];
 
+export const TIPOS_CONTENEDOR = ["20DV", "40DV", "40HC"] as const;
+export type TipoContenedor = (typeof TIPOS_CONTENEDOR)[number];
+
+export const TIPO_CONTENEDOR_LABELS: Record<TipoContenedor, string> = {
+  "20DV": "20' DV (Dry Van)",
+  "40DV": "40' DV (Dry Van)",
+  "40HC": "40' HC (High Cube)",
+};
+
 export const MONEDAS_COSTO = ["USD", "EUR", "MLC", "CUP"] as const;
 export type MonedaCosto = (typeof MONEDAS_COSTO)[number];
+
+export type TipoArchivoEnvio = "imagen" | "video" | "audio" | "documento";
+
+export interface ArchivoEnvioContenedor {
+  id: string;
+  url: string;
+  tipo: TipoArchivoEnvio;
+  nombre: string;
+  tamano: number;
+  mime_type: string;
+  created_at: string;
+}
 
 export interface CostoImportacion {
   descripcion: string;
@@ -35,6 +56,21 @@ export interface EnvioContenedor {
   id: string;
   nombre: string;
   descripcion?: string;
+  // Identificación documental
+  bl?: string;
+  referencia_buque?: string;
+  sello?: string;
+  // Transporte
+  buque?: string;
+  tipo_contenedor?: TipoContenedor;
+  puerto_origen?: string;
+  pais_origen?: string;
+  puerto_destino?: string;
+  // Partes involucradas
+  proveedor?: string;
+  cliente?: string;
+  transitaria?: string;
+  // Fechas
   fecha_envio: string;
   fecha_llegada_aproximada: string;
   estado: EstadoEnvioContenedor;
@@ -44,6 +80,7 @@ export interface EnvioContenedor {
   porciento_instaladora: number;
   porciento_ventas: number;
   materiales: EnvioContenedorMaterial[];
+  archivos: ArchivoEnvioContenedor[];
   created_at?: string;
   updated_at?: string;
 }
@@ -51,6 +88,21 @@ export interface EnvioContenedor {
 export interface EnvioContenedorCreateData {
   nombre: string;
   descripcion?: string;
+  // Identificación documental
+  bl?: string;
+  referencia_buque?: string;
+  sello?: string;
+  // Transporte
+  buque?: string;
+  tipo_contenedor?: TipoContenedor;
+  puerto_origen?: string;
+  pais_origen?: string;
+  puerto_destino?: string;
+  // Partes involucradas
+  proveedor?: string;
+  cliente?: string;
+  transitaria?: string;
+  // Fechas
   fecha_envio: string;
   fecha_llegada_aproximada: string;
   estado: EstadoEnvioContenedor;
