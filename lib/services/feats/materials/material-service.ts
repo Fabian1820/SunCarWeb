@@ -55,6 +55,10 @@ export class MaterialService {
           : typeof raw?.material?.precio === "number"
             ? raw.material.precio
             : undefined,
+      precio_instaladora:
+        typeof raw?.precio_instaladora === "number" ? raw.precio_instaladora : undefined,
+      porciento_rebajable_venta:
+        typeof raw?.porciento_rebajable_venta === "number" ? raw.porciento_rebajable_venta : undefined,
       nombre: typeof raw?.nombre === "string" ? raw.nombre : undefined,
       marca_id: typeof raw?.marca_id === "string" ? raw.marca_id : undefined,
       foto: typeof raw?.foto === "string" ? raw.foto : undefined,
@@ -227,6 +231,8 @@ export class MaterialService {
       descripcion: string;
       um: string;
       precio?: number;
+      precio_instaladora?: number;
+      porciento_rebajable_venta?: number;
       ubicacion_en_almacen?: string | null;
       comentario?: string | null;
       nombre?: string;
@@ -342,6 +348,8 @@ export class MaterialService {
       descripcion: string;
       um: string;
       precio?: number;
+      precio_instaladora?: number;
+      porciento_rebajable_venta?: number;
       ubicacion_en_almacen?: string | null;
       comentario?: string | null;
       nombre?: string;
@@ -552,6 +560,8 @@ export class MaterialService {
       nombre: item.nombre ?? undefined,
       um: item.um || "",
       precio: typeof item.precio === "number" ? item.precio : undefined,
+      precio_instaladora: typeof item.precio_instaladora === "number" ? item.precio_instaladora : undefined,
+      porciento_rebajable_venta: typeof item.porciento_rebajable_venta === "number" ? item.porciento_rebajable_venta : undefined,
       marca_id: item.marca_id ?? undefined,
       foto: item.foto ?? undefined,
       potenciaKW: item.potenciaKW ?? undefined,

@@ -44,37 +44,6 @@ export function MaterialsTable({
   const [uploadingFicha, setUploadingFicha] = useState<string | null>(null);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
-  const getMarcaNombre = (marcaId: string | undefined): string | null => {
-    if (!marcaId || marcas.length === 0) return null;
-    const marca = marcas.find((m) => m.id === marcaId);
-    return marca?.nombre || null;
-  };
-
-  const getMarcaColor = (marcaId: string): { bg: string; text: string; border: string } => {
-    const colors = [
-      { bg: "bg-purple-50", text: "text-purple-700", border: "border-purple-200" },
-      { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" },
-      { bg: "bg-pink-50", text: "text-pink-700", border: "border-pink-200" },
-      { bg: "bg-indigo-50", text: "text-indigo-700", border: "border-indigo-200" },
-      { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200" },
-      { bg: "bg-teal-50", text: "text-teal-700", border: "border-teal-200" },
-      { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" },
-      { bg: "bg-lime-50", text: "text-lime-700", border: "border-lime-200" },
-      { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200" },
-      { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" },
-      { bg: "bg-red-50", text: "text-red-700", border: "border-red-200" },
-      { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200" },
-      { bg: "bg-fuchsia-50", text: "text-fuchsia-700", border: "border-fuchsia-200" },
-      { bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200" },
-      { bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-200" },
-    ];
-    let hash = 0;
-    for (let i = 0; i < marcaId.length; i++) {
-      hash = marcaId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-    return colors[Math.abs(hash) % colors.length];
-  };
-
   const handleQuickUploadFicha = async (material: Material, file: File) => {
     const materialKey = `${material.codigo}_${material.categoria}`;
     const allowedTypes = [
@@ -154,14 +123,13 @@ export function MaterialsTable({
             <thead>
               <tr className="border-b border-gray-200">
                 <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[180px]">Código</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[130px]">Categoría</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">Categoría</th>
                 <th className="text-left py-3 px-2 font-semibold text-gray-900">Nombre</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[60px]">UM</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Marca</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Potencia</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">Precio</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[80px]">Ficha</th>
-                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[120px]">Acciones</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[50px]">UM</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[100px]">Precio Venta</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[110px]">Precio Instaladora</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[90px]">% Rebajable</th>
+                <th className="text-left py-3 px-2 font-semibold text-gray-900 w-[140px]">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -237,39 +205,7 @@ export function MaterialsTable({
                       <span className="text-xs text-gray-600 font-medium">{material.um || "-"}</span>
                     </td>
 
-                    {/* Marca */}
-                    <td className="py-3 px-2">
-                      {material.marca_id ? (
-                        (() => {
-                          const marcaNombre = getMarcaNombre(material.marca_id);
-                          const colorClasses = getMarcaColor(material.marca_id);
-                          return marcaNombre ? (
-                            <div className="max-w-[100px]">
-                              <Badge variant="outline" className={`${colorClasses.bg} ${colorClasses.text} ${colorClasses.border} text-xs inline-block max-w-full truncate`}>
-                                {marcaNombre}
-                              </Badge>
-                            </div>
-                          ) : (
-                            <Badge variant="outline" className={`${colorClasses.bg} ${colorClasses.text} ${colorClasses.border} text-xs`}>
-                              ID: {material.marca_id.slice(0, 6)}
-                            </Badge>
-                          );
-                        })()
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Potencia */}
-                    <td className="py-3 px-2">
-                      {material.potenciaKW ? (
-                        <span className="text-sm font-medium text-gray-900 whitespace-nowrap">{material.potenciaKW} KW</span>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
-                    </td>
-
-                    {/* Precio */}
+                    {/* Precio Venta */}
                     <td className="py-3 px-2">
                       <div className="flex items-center space-x-1">
                         <DollarSign className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
@@ -279,58 +215,73 @@ export function MaterialsTable({
                       </div>
                     </td>
 
-                    {/* Ficha técnica */}
+                    {/* Precio Instaladora */}
                     <td className="py-3 px-2">
-                      {material.ficha_tecnica_url ? (
-                        <a
-                          href={material.ficha_tecnica_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-green-400 bg-green-50 text-green-700 hover:bg-green-100 transition-colors shadow-sm"
-                          title="Descargar ficha técnica"
-                        >
-                          <FileText className="h-4 w-4" />
-                        </a>
-                      ) : uploadingFicha === materialKey ? (
-                        <div className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-blue-300 bg-blue-50">
-                          <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-                        </div>
-                      ) : (
-                        <>
-                          <input
-                            ref={(el) => { fileInputRefs.current[materialKey] = el; }}
-                            type="file"
-                            accept=".pdf,.doc,.docx,.xls,.xlsx"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleQuickUploadFicha(material, file);
-                            }}
-                            className="hidden"
-                            id={`ficha-input-${material.codigo}-${index}`}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => document.getElementById(`ficha-input-${material.codigo}-${index}`)?.click()}
-                            className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-gray-300 bg-gray-50 text-gray-400 hover:border-purple-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
-                            title="Adjuntar ficha técnica"
-                          >
-                            <Upload className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
+                      <div className="flex items-center space-x-1">
+                        <DollarSign className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm font-medium text-gray-900 truncate">
+                          {material.precio_instaladora != null ? material.precio_instaladora.toFixed(2) : "N/A"}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* % Rebajable Venta */}
+                    <td className="py-3 px-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {material.porciento_rebajable_venta != null ? `${material.porciento_rebajable_venta}%` : "N/A"}
+                      </span>
                     </td>
 
                     {/* Acciones */}
                     <td className="py-3 px-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(material)}
-                        className="border-blue-300 text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
-                        title="Editar material"
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEdit(material)}
+                          className="border-blue-300 text-blue-700 hover:bg-blue-50 h-8 w-8 p-0"
+                          title="Editar material"
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        {material.ficha_tecnica_url ? (
+                          <a
+                            href={material.ficha_tecnica_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-green-400 bg-green-50 text-green-700 hover:bg-green-100 transition-colors shadow-sm"
+                            title="Descargar ficha técnica"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </a>
+                        ) : uploadingFicha === materialKey ? (
+                          <div className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-blue-300 bg-blue-50">
+                            <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                          </div>
+                        ) : (
+                          <>
+                            <input
+                              ref={(el) => { fileInputRefs.current[materialKey] = el; }}
+                              type="file"
+                              accept=".pdf,.doc,.docx,.xls,.xlsx"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleQuickUploadFicha(material, file);
+                              }}
+                              className="hidden"
+                              id={`ficha-input-${material.codigo}-${index}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => document.getElementById(`ficha-input-${material.codigo}-${index}`)?.click()}
+                              className="inline-flex items-center justify-center h-8 w-8 rounded-md border-2 border-gray-300 bg-gray-50 text-gray-400 hover:border-purple-400 hover:bg-purple-50 hover:text-purple-600 transition-colors"
+                              title="Adjuntar ficha técnica"
+                            >
+                              <Upload className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

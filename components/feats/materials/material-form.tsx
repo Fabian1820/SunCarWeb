@@ -73,6 +73,8 @@ export function MaterialForm({
     descripcion: initialData?.descripcion || "",
     um: initialData?.um || "",
     precio: initialData?.precio ?? undefined,
+    precio_instaladora: initialData?.precio_instaladora ?? undefined,
+    porciento_rebajable_venta: initialData?.porciento_rebajable_venta ?? undefined,
     comentario: initialData?.comentario ?? null,
     nombre: initialData?.nombre || "",
     marca_id: initialData?.marca_id || undefined,
@@ -141,6 +143,8 @@ export function MaterialForm({
       descripcion: initialData.descripcion || "",
       um: initialData.um || "",
       precio: initialData.precio ?? undefined,
+      precio_instaladora: initialData.precio_instaladora ?? undefined,
+      porciento_rebajable_venta: initialData.porciento_rebajable_venta ?? undefined,
       comentario: initialData.comentario ?? null,
       nombre: initialData.nombre || "",
       marca_id: initialData.marca_id || undefined,
@@ -333,6 +337,8 @@ export function MaterialForm({
           descripcion: formData.descripcion,
           um: formData.um,
           precio: formData.precio,
+          precio_instaladora: formData.precio_instaladora,
+          porciento_rebajable_venta: formData.porciento_rebajable_venta,
           comentario: formData.comentario?.trim() || null,
           nombre: formData.nombre,
           foto: finalFotoUrl || undefined,
@@ -367,6 +373,8 @@ export function MaterialForm({
             descripcion: "",
             um: "",
             precio: undefined,
+            precio_instaladora: undefined,
+            porciento_rebajable_venta: undefined,
             comentario: null,
             nombre: "",
             marca_id: undefined,
@@ -940,15 +948,15 @@ export function MaterialForm({
             )}
           </div>
 
-          {/* Precio y Unidad de Medida */}
+          {/* Precios y Unidad de Medida */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Precio */}
+            {/* Precio Venta */}
             <div>
               <Label
                 htmlFor="material-precio"
                 className="text-sm font-medium text-gray-700 mb-2 block"
               >
-                Precio
+                Precio Venta
               </Label>
               <Input
                 id="material-precio"
@@ -961,6 +969,59 @@ export function MaterialForm({
                   setFormData({
                     ...formData,
                     precio: value === "" ? undefined : parseFloat(value) || 0,
+                  });
+                }}
+                placeholder="0.00"
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
+
+            {/* Precio Instaladora */}
+            <div>
+              <Label
+                htmlFor="material-precio-instaladora"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
+                Precio Instaladora
+              </Label>
+              <Input
+                id="material-precio-instaladora"
+                type="number"
+                step="0.01"
+                min="0"
+                value={formData.precio_instaladora ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({
+                    ...formData,
+                    precio_instaladora: value === "" ? undefined : parseFloat(value) || 0,
+                  });
+                }}
+                placeholder="0.00"
+                disabled={isSubmitting || uploadingFoto}
+              />
+            </div>
+
+            {/* % Rebajable Venta */}
+            <div>
+              <Label
+                htmlFor="material-porciento-rebajable"
+                className="text-sm font-medium text-gray-700 mb-2 block"
+              >
+                % Rebajable Venta
+              </Label>
+              <Input
+                id="material-porciento-rebajable"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={formData.porciento_rebajable_venta ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({
+                    ...formData,
+                    porciento_rebajable_venta: value === "" ? undefined : parseFloat(value) || 0,
                   });
                 }}
                 placeholder="0.00"

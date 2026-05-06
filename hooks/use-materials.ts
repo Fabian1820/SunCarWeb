@@ -35,6 +35,8 @@ interface UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      precio_instaladora?: number;
+      porciento_rebajable_venta?: number;
       ubicacion_en_almacen?: string | null;
       comentario?: string | null;
       nombre?: string;
@@ -58,6 +60,8 @@ interface UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      precio_instaladora?: number;
+      porciento_rebajable_venta?: number;
       ubicacion_en_almacen?: string | null;
       comentario?: string | null;
       nombre?: string;
@@ -85,6 +89,8 @@ interface UseMaterialsReturn {
       descripcion: string;
       um: string;
       precio?: number;
+      precio_instaladora?: number;
+      porciento_rebajable_venta?: number;
       ubicacion_en_almacen?: string | null;
       comentario?: string | null;
       nombre?: string;

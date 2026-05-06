@@ -5,6 +5,8 @@ export interface BackendMaterial {
   descripcion: string;
   um: string;
   precio?: number;
+  precio_instaladora?: number;
+  porciento_rebajable_venta?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -37,6 +39,8 @@ export interface MaterialItem {
   descripcion: string;
   um: string;
   precio?: number;
+  precio_instaladora?: number;
+  porciento_rebajable_venta?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -66,6 +70,8 @@ export interface Material {
   descripcion: string;
   um: string;
   precio?: number;
+  precio_instaladora?: number;
+  porciento_rebajable_venta?: number;
   comentario?: string | null;
   foto?: string;
   nombre?: string;
@@ -89,6 +95,8 @@ export interface MaterialFormData {
   descripcion: string;
   um: string;
   precio?: number;
+  precio_instaladora?: number;
+  porciento_rebajable_venta?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -115,6 +123,8 @@ export interface CreateMaterialRequest {
   descripcion: string;
   um: string;
   precio?: number;
+  precio_instaladora?: number;
+  porciento_rebajable_venta?: number;
   comentario?: string | null;
   nombre?: string;
   marca_id?: string;
@@ -150,6 +160,8 @@ export function transformBackendToFrontend(
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        precio_instaladora: material.precio_instaladora,
+        porciento_rebajable_venta: material.porciento_rebajable_venta,
         comentario: material.comentario ?? null,
         foto: material.foto,
         nombre: material.nombre,
@@ -187,6 +199,8 @@ export function flattenMaterials(categories: MaterialCategory[]): Material[] {
         descripcion: material.descripcion,
         um: material.um,
         precio: material.precio,
+        precio_instaladora: material.precio_instaladora,
+        porciento_rebajable_venta: material.porciento_rebajable_venta,
         comentario: material.comentario ?? null,
         foto: material.foto,
         nombre: material.nombre,

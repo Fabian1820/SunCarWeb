@@ -205,6 +205,8 @@ export default function MaterialesPage() {
     const descripcion = (updatedMaterial as any).descripcion;
     const um = (updatedMaterial as any).um;
     const precio = (updatedMaterial as any).precio;
+    const precio_instaladora = (updatedMaterial as any).precio_instaladora;
+    const porciento_rebajable_venta = (updatedMaterial as any).porciento_rebajable_venta;
     const nombre = (updatedMaterial as any).nombre;
     const foto = (updatedMaterial as any).foto;
     const marca_id = (updatedMaterial as any).marca_id;
@@ -260,6 +262,8 @@ export default function MaterialesPage() {
             descripcion,
             um,
             precio: precio || 0,
+            precio_instaladora: precio_instaladora || undefined,
+            porciento_rebajable_venta: porciento_rebajable_venta || undefined,
             nombre: nombre || undefined,
             foto: foto || undefined,
             marca_id: marca_id || undefined,
@@ -302,6 +306,8 @@ export default function MaterialesPage() {
             descripcion,
             um,
             precio,
+            precio_instaladora: precio_instaladora || undefined,
+            porciento_rebajable_venta: porciento_rebajable_venta || undefined,
             nombre,
             foto,
             marca_id,
