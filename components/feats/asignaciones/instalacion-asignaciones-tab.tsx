@@ -43,14 +43,14 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
   const [dialogEntityLabel, setDialogEntityLabel] = useState("")
 
   const openAdd = (inst: InstalacionConAsignaciones) => {
-    setDialogInstalacionId(inst._id)
+    setDialogInstalacionId(inst.id)
     setDialogEntityLabel(inst.nombre)
     setEditingAsignacion(null)
     setDialogOpen(true)
   }
 
   const openEdit = (inst: InstalacionConAsignaciones, a: AsignacionInstalacion) => {
-    setDialogInstalacionId(inst._id)
+    setDialogInstalacionId(inst.id)
     setDialogEntityLabel(inst.nombre)
     setEditingAsignacion(a)
     setDialogOpen(true)
@@ -83,7 +83,7 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
   // Determinar qué instalaciones mostrar según filtros
   const instalacionesMostradas: InstalacionConAsignaciones[] = (() => {
     if (tipoSeleccionado === 'todos') return instalaciones
-    if (instalacionId) return instalaciones.filter(i => i._id === instalacionId)
+    if (instalacionId) return instalaciones.filter(i => i.id === instalacionId)
     return instalaciones
   })()
 
@@ -149,7 +149,7 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
                 >
                   <option value="">— Todos los {tipoInfo?.labelPlural} —</option>
                   {entidades.map(e => (
-                    <option key={e._id} value={e._id}>
+                    <option key={e.id} value={e.id}>
                       {e.nombre}{e.codigo ? ` (${e.codigo})` : ''}
                     </option>
                   ))}
@@ -175,7 +175,7 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
       ) : (
         <div className="space-y-4">
           {instalacionesMostradas.map(inst => (
-            <Card key={inst._id} className="border-l-4 border-l-indigo-400">
+            <Card key={inst.id} className="border-l-4 border-l-indigo-400">
               <CardHeader className="flex flex-row items-center justify-between py-3 px-4">
                 <div className="flex items-center gap-2">
                   {tipoInfo?.icon && <tipoInfo.icon className="h-4 w-4 text-indigo-500" />}
@@ -241,7 +241,7 @@ export function InstalacionAsignacionesTab({ mediosBasicos }: InstalacionAsignac
                                 <Button
                                   variant="destructive"
                                   size="sm"
-                                  onClick={() => handleDelete(inst._id, a.id)}
+                                  onClick={() => handleDelete(inst.id, a.id)}
                                   disabled={loading}
                                 >
                                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
