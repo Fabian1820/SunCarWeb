@@ -22,6 +22,7 @@ import type {
   SolicitudTransferenciaCreateData,
 } from "../../../inventario-types";
 import type { MaterialesBajoMinimoResponse } from "../../../types/feats/inventario/stock-minimo-types";
+import type { AnalisisStockMinimoResponse } from "../../../types/feats/inventario/inventario-types";
 
 const MOVIMIENTO_TIPOS: InventarioMovimientoTipo[] = [
   "entrada",
@@ -752,6 +753,19 @@ export class InventarioService {
       "/inventario/materiales-bajo-minimo"
     );
     return response;
+  }
+
+  static async getAnalisisStockMinimo(params?: {
+    almacen_id?: string;
+    lead_time_dias?: number;
+    nivel_servicio?: string;
+  }): Promise<AnalisisStockMinimoResponse> {
+    const search = new URLSearchParams();
+    if (params?.almacen_id) search.set("almacen_id", params.almacen_id);
+    if (params?.lead_time_dias) search.set("lead_time_dias", String(params.lead_time_dias));
+    if (params?.nivel_servicio) search.set("nivel_servicio", params.nivel_servicio);
+    const suffix = search.toString() ? `?${search.toString()}` : "";
+    return apiRequest<AnalisisStockMinimoResponse>(`/inventario/analisis-stock-minimo${suffix}`);
   }
 
   // ── Solicitudes de Transferencia ──
