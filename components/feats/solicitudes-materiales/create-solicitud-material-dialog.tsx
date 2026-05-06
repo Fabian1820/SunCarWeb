@@ -209,12 +209,11 @@ export function CreateSolicitudMaterialDialog({
   const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
 
-  const [allMaterials, setAllMaterials] = useState<CatalogMaterial[]>([]);
+
 
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [selectedAlmacenId, setSelectedAlmacenId] = useState("");
   const [almacenesLoading, setAlmacenesLoading] = useState(false);
-  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
   const [trabajadoresLoading, setTrabajadoresLoading] = useState(false);
   const [responsableResults, setResponsableResults] = useState<Trabajador[]>(
     [],
@@ -250,39 +249,13 @@ export function CreateSolicitudMaterialDialog({
 
     const loadData = async () => {
       setAlmacenesLoading(true);
-      setTrabajadoresLoading(true);
       try {
-        const [almacenesData, materialsData, trabajadoresData] =
-          await Promise.all([
-            InventarioService.getAlmacenes(),
-            MaterialService.getAllMaterials(),
-            TrabajadorService.getAllTrabajadores(),
-          ]);
+        const almacenesData = await InventarioService.getAlmacenes();
         setAlmacenes(Array.isArray(almacenesData) ? almacenesData : []);
-        setAllMaterials(Array.isArray(materialsData) ? materialsData : []);
-        const trabajadoresDisponibles = (Array.isArray(trabajadoresData)
-          ? trabajadoresData
-          : []
-        )
-          .filter(
-            (trabajador): trabajador is Trabajador =>
-              Boolean(trabajador?.nombre?.trim()),
-          )
-          .map((trabajador) => ({
-            ...trabajador,
-            nombre: trabajador.nombre.trim(),
-          }))
-          .sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, "es", {
-              sensitivity: "base",
-            }),
-          );
-        setTrabajadores(trabajadoresDisponibles);
       } catch (error) {
         console.error("Error loading dialog data:", error);
       } finally {
         setAlmacenesLoading(false);
-        setTrabajadoresLoading(false);
       }
     };
 
@@ -633,7 +606,7 @@ export function CreateSolicitudMaterialDialog({
     setClienteSearch(cliente.nombre || cliente.numero || "");
     setShowClienteDropdown(false);
     if (cliente.id || cliente._id) {
-      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, allMaterials, selectedAlmacenId || undefined);
+      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, [], selectedAlmacenId || undefined);
     }
   };
 
@@ -662,47 +635,52 @@ export function CreateSolicitudMaterialDialog({
       return;
     }
 
-    const handler = setTimeout(() => {
+    const handler = setTimeout(async () => {
       setMaterialSearchLoading(true);
-      const term = materialSearch.toLowerCase();
-      const filtered = allMaterials
-        .filter(
-          (m) =>
-            (m.descripcion?.toLowerCase().includes(term) ||
-              m.nombre?.toLowerCase().includes(term) ||
-              m.codigo?.toString().toLowerCase().includes(term)) &&
-            !materiales.some((row) => row.material_id === (m.id || m._id)),
-        )
-        .slice(0, 15);
-
-      setMaterialResults(filtered);
-      setShowMaterialDropdown(filtered.length > 0);
-      setMaterialSearchLoading(false);
-    }, 200);
+      try {
+        const results = await MaterialService.searchMaterialsByCode(
+          materialSearch.trim(),
+          15,
+        );
+        const filtered = results.filter(
+          (m) => !materiales.some((row) => row.material_id === m.id),
+        );
+        setMaterialResults(filtered);
+        setShowMaterialDropdown(filtered.length > 0);
+      } catch {
+        setMaterialResults([]);
+      } finally {
+        setMaterialSearchLoading(false);
+      }
+    }, 300);
 
     return () => clearTimeout(handler);
-  }, [materialSearch, allMaterials, materiales]);
+  }, [materialSearch, materiales]);
 
   useEffect(() => {
-    const term = responsableRecogida.trim().toLowerCase();
+    const term = responsableRecogida.trim();
     if (!term) {
       setResponsableResults([]);
       setShowResponsableDropdown(false);
       return;
     }
 
-    const handler = setTimeout(() => {
-      const filtered = trabajadores
-        .filter((trabajador) =>
-          trabajador.nombre.toLowerCase().includes(term),
-        )
-        .slice(0, 15);
-      setResponsableResults(filtered);
-      setShowResponsableDropdown(filtered.length > 0);
-    }, 200);
+    const handler = setTimeout(async () => {
+      setTrabajadoresLoading(true);
+      try {
+        const results = await TrabajadorService.buscarTrabajadores(term);
+        const filtered = (Array.isArray(results) ? results : []).slice(0, 15);
+        setResponsableResults(filtered as unknown as Trabajador[]);
+        setShowResponsableDropdown(filtered.length > 0);
+      } catch {
+        setResponsableResults([]);
+      } finally {
+        setTrabajadoresLoading(false);
+      }
+    }, 300);
 
     return () => clearTimeout(handler);
-  }, [responsableRecogida, trabajadores]);
+  }, [responsableRecogida]);
 
   const handleSelectResponsable = (trabajador: Trabajador) => {
     setResponsableRecogida(trabajador.nombre);
@@ -1344,9 +1322,9 @@ export function CreateSolicitudMaterialDialog({
                   </div>
                 ) : null}
               </div>
-              {!trabajadoresLoading && trabajadores.length === 0 ? (
+              {!trabajadoresLoading && responsableResults.length === 0 && responsableRecogida.trim() ? (
                 <p className="text-xs text-gray-500">
-                  No hay trabajadores disponibles.
+                  No se encontraron trabajadores.
                 </p>
               ) : null}
               <button

@@ -186,3 +186,45 @@ export interface SolicitudTransferenciaCreateData {
   motivo?: string;
   referencia?: string;
 }
+
+// ── Análisis de Stock Mínimo ──────────────────────────────────────────────────
+
+export type EstadoStock = "critico" | "alerta" | "ok";
+
+export interface ProductoAnalisisStock {
+  material_codigo: string;
+  material_id?: string | null;
+  nombre?: string | null;
+  descripcion?: string | null;
+  categoria?: string | null;
+  um?: string | null;
+  foto?: string | null;
+  cantidad_actual: number;
+  demanda_diaria_promedio: number;
+  demanda_max_dia: number;
+  std_diaria: number;
+  dias_con_movimiento: number;
+  stock_seguridad_recomendado: number;
+  stock_minimo_recomendado: number;
+  dias_restantes_estimados?: number | null;
+  estado: EstadoStock;
+  lead_time_dias: number;
+  nivel_servicio: string;
+}
+
+export interface ResumenAnalisisStock {
+  total_productos: number;
+  criticos: number;
+  alertas: number;
+  ok: number;
+  dias_dataset: number;
+  lead_time_dias: number;
+  nivel_servicio_pct: string;
+}
+
+export interface AnalisisStockMinimoResponse {
+  success: boolean;
+  message: string;
+  resumen: ResumenAnalisisStock;
+  productos: ProductoAnalisisStock[];
+}

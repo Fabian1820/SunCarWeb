@@ -118,7 +118,6 @@ export function DevolucionValeDialog({
   const [resumenMateriales, setResumenMateriales] = useState<
     DevolucionValeResumenMaterial[]
   >([]);
-  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
   const [trabajadoresLoading, setTrabajadoresLoading] = useState(false);
   const [responsableResults, setResponsableResults] = useState<Trabajador[]>(
     [],
@@ -181,41 +180,6 @@ export function DevolucionValeDialog({
     void loadResumenEHistorial();
   }, [open, loadResumenEHistorial]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const loadTrabajadores = async () => {
-      setTrabajadoresLoading(true);
-      try {
-        const trabajadoresData = await TrabajadorService.getAllTrabajadores();
-        const trabajadoresDisponibles = (Array.isArray(trabajadoresData)
-          ? trabajadoresData
-          : []
-        )
-          .filter(
-            (trabajador): trabajador is Trabajador =>
-              Boolean(trabajador?.nombre?.trim()),
-          )
-          .map((trabajador) => ({
-            ...trabajador,
-            nombre: trabajador.nombre.trim(),
-          }))
-          .sort((a, b) =>
-            a.nombre.localeCompare(b.nombre, "es", {
-              sensitivity: "base",
-            }),
-          );
-
-        setTrabajadores(trabajadoresDisponibles);
-      } catch (error) {
-        setTrabajadores([]);
-      } finally {
-        setTrabajadoresLoading(false);
-      }
-    };
-
-    void loadTrabajadores();
-  }, [open]);
 
   useEffect(() => {
     if (!open) {
@@ -234,27 +198,29 @@ export function DevolucionValeDialog({
   }, [open, valeId]);
 
   useEffect(() => {
-    const term = responsableDevolucion.trim().toLowerCase();
+    const term = responsableDevolucion.trim();
     if (!term) {
       setResponsableResults([]);
       setShowResponsableDropdown(false);
       return;
     }
 
-    const handler = setTimeout(() => {
-      const filtered = trabajadores
-        .filter((trabajador) => {
-          const nombre = trabajador.nombre?.toLowerCase() || "";
-          const ci = trabajador.CI?.toLowerCase() || "";
-          return nombre.includes(term) || ci.includes(term);
-        })
-        .slice(0, 15);
-      setResponsableResults(filtered);
-      setShowResponsableDropdown(filtered.length > 0);
-    }, 200);
+    const handler = setTimeout(async () => {
+      setTrabajadoresLoading(true);
+      try {
+        const results = await TrabajadorService.buscarTrabajadores(term);
+        const filtered = (Array.isArray(results) ? results : []).slice(0, 15);
+        setResponsableResults(filtered as unknown as Trabajador[]);
+        setShowResponsableDropdown(filtered.length > 0);
+      } catch {
+        setResponsableResults([]);
+      } finally {
+        setTrabajadoresLoading(false);
+      }
+    }, 300);
 
     return () => clearTimeout(handler);
-  }, [responsableDevolucion, trabajadores]);
+  }, [responsableDevolucion]);
 
   const handleRemoveMaterial = (materialId: string) => {
     setMaterialesForm((prev) =>
@@ -583,9 +549,9 @@ export function DevolucionValeDialog({
                         </div>
                       ) : null}
                     </div>
-                    {!trabajadoresLoading && trabajadores.length === 0 ? (
+                    {!trabajadoresLoading && responsableResults.length === 0 && responsableDevolucion.trim() ? (
                       <p className="text-xs text-gray-500">
-                        No hay trabajadores disponibles.
+                        No se encontraron trabajadores.
                       </p>
                     ) : null}
                     <button

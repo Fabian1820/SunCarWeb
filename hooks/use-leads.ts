@@ -446,21 +446,11 @@ export function useLeads(): UseLeadsReturn {
     if (allComerciales.length > 0) return;
     comercialesLoadingRef.inFlight = true;
     try {
-      const todos = await fetchAllLeadsByBaseFilters({
-        estado: "",
-        fuente: "",
-        comercial: "",
-      });
-      const comerciales = Array.from(
-        new Set(
-          todos
-            .map((lead) => lead.comercial)
-            .filter(
-              (c): c is string => typeof c === "string" && c.trim() !== "",
-            )
-            .map((c) => c.trim()),
-        ),
-      ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+      const response = await apiRequest<{ success: boolean; data: string[] }>(
+        "/trabajadores/comerciales",
+        { method: "GET" },
+      );
+      const comerciales = Array.isArray(response?.data) ? response.data : [];
       setAllComerciales(comerciales);
       if (typeof window !== "undefined") {
         try {
@@ -477,7 +467,7 @@ export function useLeads(): UseLeadsReturn {
     } finally {
       comercialesLoadingRef.inFlight = false;
     }
-  }, [allComerciales.length, comercialesLoadingRef, fetchAllLeadsByBaseFilters]);
+  }, [allComerciales.length, comercialesLoadingRef]);
 
   // Fusionar comerciales globales con los de la página actual (por si hay alguno
   // recién creado que aún no está en el cache de allComerciales).

@@ -213,8 +213,8 @@ export default function Dashboard() {
       id: "asignaciones",
       href: "/asignaciones",
       icon: Clipboard,
-      title: "Asignaciones a Empleados",
-      description: "Gestionar medios básicos asignados al personal.",
+      title: "Asignaciones de Recursos",
+      description: "Gestionar recursos asignados a trabajadores e instalaciones.",
       iconClass: "text-indigo-600",
     },
     // Módulo "Gestionar Reportes" oculto temporalmente.
@@ -394,7 +394,6 @@ export default function Dashboard() {
       moduleIds: [
         "brigadas",
         "trabajadores",
-        "asignaciones",
         "instalaciones",
         "todos-trabajos",
         "solicitudes-materiales",
@@ -424,8 +423,8 @@ export default function Dashboard() {
     {
       id: "recursos-humanos-grupo",
       title: "Recursos Humanos",
-      subtitle: "Personal, sedes y departamentos.",
-      moduleIds: ["recursos-humanos", "sedes", "departamentos"],
+      subtitle: "Personal, sedes, departamentos y asignaciones de recursos.",
+      moduleIds: ["recursos-humanos", "sedes", "departamentos", "asignaciones"],
     },
     {
       id: "area-direccion",

@@ -21,6 +21,7 @@ import {
   Loader2,
   ArrowRightLeft,
   X,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/shared/atom/button";
 import { Label } from "@/components/shared/atom/label";
@@ -67,6 +68,7 @@ import { SalidaLoteForm } from "@/components/feats/inventario/salida-lote-form";
 import { SolicitudTransferenciaDialog } from "@/components/feats/inventario/solicitud-transferencia-dialog";
 import { SolicitudesTransferenciaTable } from "@/components/feats/inventario/solicitudes-transferencia-table";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
+import { StockMinimoAnalisisModal } from "@/components/feats/inventario/stock-minimo-analisis-modal";
 
 const STOCK_LIMIT = 40;
 const MOVIMIENTOS_LIMIT = 40;
@@ -124,6 +126,7 @@ export default function AlmacenDetallePage() {
   const [isMaterialDialogOpen, setIsMaterialDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [transferTableKey, setTransferTableKey] = useState(0);
+  const [showAnalisisModal, setShowAnalisisModal] = useState(false);
 
   // ── Lote resumen ─────────────────────────────────────────────
   const [ultimoResumenLote, setUltimoResumenLote] = useState<MovimientoLoteResponse | null>(null);
@@ -331,6 +334,7 @@ export default function AlmacenDetallePage() {
       return;
     }
     if (!loadedTabs.current.has("historial")) return;
+    setMovimientosSkip(0);
     fetchMovimientos({
       skip: 0,
       busqueda: historialSearch,
@@ -835,9 +839,20 @@ export default function AlmacenDetallePage() {
                       </Button>
                     )}
                   </div>
-                  <Button variant="outline" size="icon" onClick={() => refreshMovimientos()} title="Refrescar">
-                    {loadingMovimientos ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAnalisisModal(true)}
+                      className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Análisis de stock
+                    </Button>
+                    <Button variant="outline" size="icon" onClick={() => refreshMovimientos()} title="Refrescar">
+                      {loadingMovimientos ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {loadingMovimientos && movimientos.length === 0 ? (
@@ -967,6 +982,14 @@ export default function AlmacenDetallePage() {
             />
           </DialogContent>
         </Dialog>
+
+        {/* Modal de análisis de stock mínimo */}
+        <StockMinimoAnalisisModal
+          almacenId={almacenId}
+          almacenNombre={almacen?.nombre}
+          open={showAnalisisModal}
+          onClose={() => setShowAnalisisModal(false)}
+        />
       </div>
     </RouteGuard>
   );
