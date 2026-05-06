@@ -4,21 +4,24 @@ import { useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/shared/molecule/card"
-import { ArrowLeft, Plus, Package, Users, Search, Wrench } from "lucide-react"
+import { ArrowLeft, Plus, Package, Users, Box } from "lucide-react"
 import { useAsignaciones } from "@/hooks/use-asignaciones"
 import { TrabajadorAsignacionesTable } from "@/components/feats/asignaciones/trabajador-asignaciones-table"
 import { MediosBasicosTable } from "@/components/feats/asignaciones/medios-basicos-table"
 import { MedioBasicoDialog } from "@/components/feats/asignaciones/medio-basico-dialog"
-import { HerramientaCatalogoDialog } from "@/components/feats/asignaciones/herramienta-catalogo-dialog"
+import { InstalacionAsignacionesTab } from "@/components/feats/asignaciones/instalacion-asignaciones-tab"
 import { PageLoader } from "@/components/shared/atom/page-loader"
 import { useToast } from "@/hooks/use-toast"
 import { Toaster } from "@/components/shared/molecule/toaster"
 import { RouteGuard } from "@/components/auth/route-guard"
-import { Input } from "@/components/shared/atom/input"
 import type {
   MedioBasico, MedioBasicoCreateData, MedioBasicoUpdateData,
-  HerramientaCatalogo, HerramientaCatalogoCreateData, HerramientaCatalogoUpdateData,
+  AsignacionCreateData, AsignacionUpdateData,
 } from "@/lib/types/feats/asignaciones/asignacion-types"
+import { CATEGORIAS_MATERIAL } from "@/lib/types/feats/asignaciones/asignacion-types"
+import { useMaterialesCatalogo } from "@/hooks/use-asignaciones"
+import { HerramientaCatalogoDialog } from "@/components/feats/asignaciones/herramienta-catalogo-dialog"
+import type { HerramientaCatalogo, HerramientaCatalogoCreateData, HerramientaCatalogoUpdateData } from "@/lib/types/feats/asignaciones/asignacion-types"
 
 export default function AsignacionesPage() {
   return (
@@ -28,20 +31,23 @@ export default function AsignacionesPage() {
   )
 }
 
-type Tab = "asignaciones" | "medios-basicos" | "herramientas-catalogo"
+type Tab = "trabajador" | "instalacion" | "medios-basicos" | "catalogo-materiales"
 
 function AsignacionesPageContent() {
   const {
     trabajadores, mediosBasicos, catalogoHerramientas, loading, error, clearError,
     createMedioBasico, updateMedioBasico, deleteMedioBasico,
     addAsignacion, updateAsignacion, removeAsignacion,
-    addHerramienta, updateHerramienta, removeHerramienta,
     createHerramientaCatalogo, updateHerramientaCatalogo, deleteHerramientaCatalogo,
   } = useAsignaciones()
 
   const { toast } = useToast()
-  const [activeTab, setActiveTab] = useState<Tab>("asignaciones")
-  const [search, setSearch] = useState("")
+  const [activeTab, setActiveTab] = useState<Tab>("trabajador")
+
+  // Catálogo de materiales
+  const { materiales, loading: loadingMateriales, buscar } = useMaterialesCatalogo()
+  const [categoriaFiltro, setCategoriaFiltro] = useState("")
+  const [busquedaMaterial, setBusquedaMaterial] = useState("")
 
   // Medios básicos dialog
   const [medioDialogOpen, setMedioDialogOpen] = useState(false)
@@ -49,7 +55,7 @@ function AsignacionesPageContent() {
   const openCreateMedio = () => { setEditingMedio(null); setMedioDialogOpen(true) }
   const openEditMedio = (m: MedioBasico) => { setEditingMedio(m); setMedioDialogOpen(true) }
 
-  // Herramienta catálogo dialog
+  // Catálogo herramientas/materiales dialog (reutilizamos el componente existente)
   const [herramientaDialogOpen, setHerramientaDialogOpen] = useState(false)
   const [editingHerramienta, setEditingHerramienta] = useState<HerramientaCatalogo | null>(null)
   const openCreateHerramienta = () => { setEditingHerramienta(null); setHerramientaDialogOpen(true) }
@@ -62,12 +68,11 @@ function AsignacionesPageContent() {
       if (ok) toast({ title: "Éxito", description: "Medio básico actualizado" })
       else toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" })
       return ok
-    } else {
-      const ok = await createMedioBasico(data as MedioBasicoCreateData)
-      if (ok) toast({ title: "Éxito", description: "Medio básico creado" })
-      else toast({ title: "Error", description: "No se pudo crear", variant: "destructive" })
-      return ok
     }
+    const ok = await createMedioBasico(data as MedioBasicoCreateData)
+    if (ok) toast({ title: "Éxito", description: "Medio básico creado" })
+    else toast({ title: "Error", description: "No se pudo crear", variant: "destructive" })
+    return ok
   }
 
   const handleDeleteMedio = async (id: string) => {
@@ -77,40 +82,39 @@ function AsignacionesPageContent() {
     else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
   }
 
-  // ── Handlers: Herramientas Catálogo ───────────────────────────────────────
-  const handleSaveHerramientaCatalogo = async (
+  // ── Handlers: Catálogo materiales ─────────────────────────────────────────
+  const handleSaveMaterialCatalogo = async (
     data: HerramientaCatalogoCreateData | HerramientaCatalogoUpdateData,
     id?: string
   ) => {
     if (id) {
       const ok = await updateHerramientaCatalogo(id, data as HerramientaCatalogoUpdateData)
-      if (ok) toast({ title: "Éxito", description: "Herramienta actualizada" })
+      if (ok) toast({ title: "Éxito", description: "Material actualizado" })
       else toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" })
       return ok
-    } else {
-      const ok = await createHerramientaCatalogo(data as HerramientaCatalogoCreateData)
-      if (ok) toast({ title: "Éxito", description: "Herramienta creada" })
-      else toast({ title: "Error", description: "No se pudo crear", variant: "destructive" })
-      return ok
     }
+    const ok = await createHerramientaCatalogo(data as HerramientaCatalogoCreateData)
+    if (ok) toast({ title: "Éxito", description: "Material creado" })
+    else toast({ title: "Error", description: "No se pudo crear", variant: "destructive" })
+    return ok
   }
 
-  const handleDeleteHerramientaCatalogo = async (id: string) => {
-    if (!confirm("¿Eliminar esta herramienta del catálogo?")) return
+  const handleDeleteMaterialCatalogo = async (id: string) => {
+    if (!confirm("¿Eliminar este material del catálogo?")) return
     const ok = await deleteHerramientaCatalogo(id)
-    if (ok) toast({ title: "Éxito", description: "Herramienta eliminada" })
+    if (ok) toast({ title: "Éxito", description: "Material eliminado" })
     else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
   }
 
-  // ── Handlers: Asignaciones ────────────────────────────────────────────────
-  const handleAddAsignacion = async (ci: string, data: any) => {
+  // ── Handlers: Asignaciones trabajador ────────────────────────────────────
+  const handleAddAsignacion = async (ci: string, data: AsignacionCreateData) => {
     const ok = await addAsignacion(ci, data)
     if (ok) toast({ title: "Éxito", description: "Asignación agregada" })
     else toast({ title: "Error", description: "No se pudo agregar", variant: "destructive" })
     return ok
   }
 
-  const handleUpdateAsignacion = async (ci: string, id: string, data: any) => {
+  const handleUpdateAsignacion = async (ci: string, id: string, data: AsignacionUpdateData) => {
     const ok = await updateAsignacion(ci, id, data)
     if (ok) toast({ title: "Éxito", description: "Asignación actualizada" })
     else toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" })
@@ -124,56 +128,23 @@ function AsignacionesPageContent() {
     else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
   }
 
-  // ── Handlers: Herramientas asignadas ─────────────────────────────────────
-  const handleAddHerramienta = async (ci: string, data: any) => {
-    const ok = await addHerramienta(ci, data)
-    if (ok) toast({ title: "Éxito", description: "Herramienta asignada" })
-    else toast({ title: "Error", description: "No se pudo asignar", variant: "destructive" })
-    return ok
-  }
-
-  const handleUpdateHerramienta = async (ci: string, id: string, data: any) => {
-    const ok = await updateHerramienta(ci, id, data)
-    if (ok) toast({ title: "Éxito", description: "Herramienta actualizada" })
-    else toast({ title: "Error", description: "No se pudo actualizar", variant: "destructive" })
-    return ok
-  }
-
-  const handleDeleteHerramienta = async (ci: string, id: string) => {
-    if (!confirm("¿Eliminar esta herramienta?")) return
-    const ok = await removeHerramienta(ci, id)
-    if (ok) toast({ title: "Éxito", description: "Herramienta eliminada" })
-    else toast({ title: "Error", description: "No se pudo eliminar", variant: "destructive" })
-  }
-
   if (loading && trabajadores.length === 0 && mediosBasicos.length === 0) {
-    return <PageLoader moduleName="Asignaciones" text="Cargando datos..." />
+    return <PageLoader moduleName="Asignaciones de Recursos" text="Cargando datos..." />
   }
 
-  const totalAsignaciones = trabajadores.reduce((sum, t) => sum + t.asignaciones.length, 0)
-  const totalHerramientas = trabajadores.reduce((sum, t) => sum + (t.herramientas?.length ?? 0), 0)
+  // Filtrar catálogo de materiales local (catalogoHerramientas es el catálogo local viejo)
+  const filteredCatalogo = catalogoHerramientas.filter(h => {
+    const matchCat = !categoriaFiltro || (h as any).categoria === categoriaFiltro
+    const matchQ = !busquedaMaterial || h.nombre.toLowerCase().includes(busquedaMaterial.toLowerCase())
+    return matchCat && matchQ
+  })
 
-  const q = search.toLowerCase().trim()
-  const filteredTrabajadores = q
-    ? trabajadores.filter(t =>
-        t.nombre.toLowerCase().includes(q) ||
-        t.CI.includes(q) ||
-        t.cargo.toLowerCase().includes(q)
-      )
-    : trabajadores
-  const filteredMedios = q
-    ? mediosBasicos.filter(m => m.nombre.toLowerCase().includes(q))
-    : mediosBasicos
-  const filteredHerramientas = q
-    ? catalogoHerramientas.filter(h =>
-        h.nombre.toLowerCase().includes(q) || h.codigo.toLowerCase().includes(q)
-      )
-    : catalogoHerramientas
-
-  const searchPlaceholder =
-    activeTab === "asignaciones" ? "Buscar por nombre, CI o cargo..." :
-    activeTab === "medios-basicos" ? "Buscar medio básico..." :
-    "Buscar herramienta..."
+  const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: "trabajador", label: "Asignación por trabajador", icon: Users },
+    { id: "instalacion", label: "Asignación por instalación", icon: Box },
+    { id: "medios-basicos", label: "Catálogo medios básicos", icon: Package },
+    { id: "catalogo-materiales", label: "Catálogo de materiales", icon: Package },
+  ]
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -191,8 +162,8 @@ function AsignacionesPageContent() {
                 <img src="/logo.png" alt="Logo" className="h-10 w-10 object-contain rounded-full" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Asignaciones a Empleados</h1>
-                <p className="text-sm text-gray-600">Gestión de medios básicos, herramientas y asignaciones</p>
+                <h1 className="text-xl font-bold text-gray-900">Asignaciones de Recursos</h1>
+                <p className="text-sm text-gray-600">Medios básicos y materiales asignados a trabajadores e instalaciones</p>
               </div>
             </div>
           </div>
@@ -211,76 +182,17 @@ function AsignacionesPageContent() {
           </Card>
         )}
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-          <Card className="border-l-4 border-l-orange-500">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Users className="h-8 w-8 text-orange-500" />
-              <div>
-                <p className="text-2xl font-bold">{trabajadores.length}</p>
-                <p className="text-xs text-gray-500">Trabajadores</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-blue-500">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Package className="h-8 w-8 text-blue-500" />
-              <div>
-                <p className="text-2xl font-bold">{mediosBasicos.length}</p>
-                <p className="text-xs text-gray-500">Medios básicos</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-green-500">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Package className="h-8 w-8 text-green-500" />
-              <div>
-                <p className="text-2xl font-bold">{totalAsignaciones}</p>
-                <p className="text-xs text-gray-500">Asignaciones</p>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-l-4 border-l-indigo-500">
-            <CardContent className="p-4 flex items-center gap-3">
-              <Wrench className="h-8 w-8 text-indigo-500" />
-              <div>
-                <p className="text-2xl font-bold">{totalHerramientas}</p>
-                <p className="text-xs text-gray-500">Herramientas</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Buscador */}
-        <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
         {/* Tabs */}
-        <div className="flex gap-0 mb-4 border-b border-gray-200 overflow-x-auto">
-          {(
-            [
-              { id: "asignaciones", label: "Asignaciones por trabajador", Icon: Users },
-              { id: "medios-basicos", label: "Catálogo medios básicos", Icon: Package },
-              { id: "herramientas-catalogo", label: "Catálogo herramientas", Icon: Wrench },
-            ] as const
-          ).map(({ id, label, Icon }) => (
+        <div className="flex gap-0 mb-6 border-b border-gray-200 overflow-x-auto">
+          {tabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${
                 activeTab === id
-                  ? id === "herramientas-catalogo"
-                    ? "border-indigo-500 text-indigo-600"
-                    : "border-orange-500 text-orange-600"
+                  ? "border-orange-500 text-orange-600"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
-              onClick={() => { setActiveTab(id); setSearch("") }}
+              onClick={() => setActiveTab(id)}
             >
               <Icon className="h-4 w-4" />
               {label}
@@ -288,28 +200,31 @@ function AsignacionesPageContent() {
           ))}
         </div>
 
-        {activeTab === "asignaciones" && (
+        {/* Tab: Asignación por trabajador */}
+        {activeTab === "trabajador" && (
           <Card className="border-l-4 border-l-orange-500">
             <CardHeader>
-              <CardTitle className="text-base">Trabajadores y sus asignaciones</CardTitle>
+              <CardTitle className="text-base">Trabajadores y sus recursos asignados</CardTitle>
             </CardHeader>
             <CardContent>
               <TrabajadorAsignacionesTable
-                trabajadores={filteredTrabajadores}
+                trabajadores={trabajadores}
                 mediosBasicos={mediosBasicos}
-                catalogoHerramientas={catalogoHerramientas}
                 onAddAsignacion={handleAddAsignacion}
                 onUpdateAsignacion={handleUpdateAsignacion}
                 onDeleteAsignacion={handleDeleteAsignacion}
-                onAddHerramienta={handleAddHerramienta}
-                onUpdateHerramienta={handleUpdateHerramienta}
-                onDeleteHerramienta={handleDeleteHerramienta}
                 loading={loading}
               />
             </CardContent>
           </Card>
         )}
 
+        {/* Tab: Asignación por instalación */}
+        {activeTab === "instalacion" && (
+          <InstalacionAsignacionesTab mediosBasicos={mediosBasicos} />
+        )}
+
+        {/* Tab: Catálogo medios básicos */}
         {activeTab === "medios-basicos" && (
           <Card className="border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between">
@@ -321,7 +236,7 @@ function AsignacionesPageContent() {
             </CardHeader>
             <CardContent>
               <MediosBasicosTable
-                items={filteredMedios}
+                items={mediosBasicos}
                 onEdit={openEditMedio}
                 onDelete={handleDeleteMedio}
                 loading={loading}
@@ -330,24 +245,45 @@ function AsignacionesPageContent() {
           </Card>
         )}
 
-        {activeTab === "herramientas-catalogo" && (
+        {/* Tab: Catálogo de materiales */}
+        {activeTab === "catalogo-materiales" && (
           <Card className="border-l-4 border-l-indigo-500">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Catálogo de herramientas</CardTitle>
+              <CardTitle className="text-base">Catálogo de materiales</CardTitle>
               <Button
                 size="sm"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                 onClick={openCreateHerramienta}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Nueva
+                Nuevo
               </Button>
             </CardHeader>
             <CardContent>
-              <HerramientasCatalogoTable
-                items={filteredHerramientas}
+              {/* Filtros */}
+              <div className="flex flex-wrap gap-3 mb-4">
+                <select
+                  className="text-sm border border-gray-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 min-w-[200px]"
+                  value={categoriaFiltro}
+                  onChange={e => setCategoriaFiltro(e.target.value)}
+                >
+                  <option value="">Todas las categorías</option>
+                  {CATEGORIAS_MATERIAL.map(c => (
+                    <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  className="flex-1 min-w-[180px] text-sm border border-gray-200 rounded-md px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="Buscar material..."
+                  value={busquedaMaterial}
+                  onChange={e => setBusquedaMaterial(e.target.value)}
+                />
+              </div>
+              <MaterialesCatalogoTable
+                items={filteredCatalogo}
                 onEdit={openEditHerramienta}
-                onDelete={handleDeleteHerramientaCatalogo}
+                onDelete={handleDeleteMaterialCatalogo}
                 loading={loading}
               />
             </CardContent>
@@ -367,7 +303,7 @@ function AsignacionesPageContent() {
         open={herramientaDialogOpen}
         onClose={() => setHerramientaDialogOpen(false)}
         herramienta={editingHerramienta}
-        onSave={handleSaveHerramientaCatalogo}
+        onSave={handleSaveMaterialCatalogo}
         loading={loading}
       />
 
@@ -376,8 +312,7 @@ function AsignacionesPageContent() {
   )
 }
 
-// Inline table for herramientas catalog (similar to MediosBasicosTable)
-function HerramientasCatalogoTable({
+function MaterialesCatalogoTable({
   items, onEdit, onDelete, loading,
 }: {
   items: HerramientaCatalogo[]
@@ -388,8 +323,8 @@ function HerramientasCatalogoTable({
   if (items.length === 0) {
     return (
       <div className="text-center py-12">
-        <Wrench className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-        <p className="text-gray-500 text-sm">No hay herramientas en el catálogo</p>
+        <Package className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+        <p className="text-gray-500 text-sm">No hay materiales en el catálogo</p>
       </div>
     )
   }
@@ -401,6 +336,7 @@ function HerramientasCatalogoTable({
           <tr>
             <th className="text-left px-4 py-3 font-medium text-gray-600">Nombre</th>
             <th className="text-left px-4 py-3 font-medium text-gray-600">Código</th>
+            <th className="text-left px-4 py-3 font-medium text-gray-600">Categoría</th>
             <th className="text-right px-4 py-3 font-medium text-gray-600">Precio</th>
             <th className="text-right px-4 py-3 font-medium text-gray-600">Acciones</th>
           </tr>
@@ -415,6 +351,13 @@ function HerramientasCatalogoTable({
                 )}
               </td>
               <td className="px-4 py-3 text-gray-500 font-mono text-xs">{h.codigo}</td>
+              <td className="px-4 py-3">
+                {(h as any).categoria ? (
+                  <span className="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-700">
+                    {(h as any).categoria}
+                  </span>
+                ) : <span className="text-gray-300 text-xs">—</span>}
+              </td>
               <td className="px-4 py-3 text-right">
                 {h.precio > 0 ? (
                   <span className="text-green-600 font-medium">${h.precio.toFixed(2)}</span>

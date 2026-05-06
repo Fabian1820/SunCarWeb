@@ -4,11 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { AsignacionService } from '@/lib/api-services'
 import type {
   MedioBasico,
+  MedioBasicoCreateData,
+  MedioBasicoUpdateData,
   TrabajadorConAsignaciones,
   AsignacionCreateData,
   AsignacionUpdateData,
-  MedioBasicoCreateData,
-  MedioBasicoUpdateData,
+  TipoInstalacion,
+  Instalacion,
+  InstalacionConAsignaciones,
+  AsignacionInstalacionCreateData,
+  AsignacionInstalacionUpdateData,
+  MaterialCatalogo,
   HerramientaCatalogo,
   HerramientaAsignarData,
   HerramientaUpdateData,
@@ -19,7 +25,6 @@ import type {
 export function useAsignaciones() {
   const [trabajadores, setTrabajadores] = useState<TrabajadorConAsignaciones[]>([])
   const [mediosBasicos, setMediosBasicos] = useState<MedioBasico[]>([])
-  const [catalogoHerramientas, setCatalogoHerramientas] = useState<HerramientaCatalogo[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -27,14 +32,12 @@ export function useAsignaciones() {
     setLoading(true)
     setError(null)
     try {
-      const [trabData, mediosData, herramientasData] = await Promise.all([
+      const [trabData, mediosData] = await Promise.all([
         AsignacionService.getTrabajadoresConAsignaciones(),
         AsignacionService.getMediosBasicos(),
-        AsignacionService.getCatalogoHerramientas(),
       ])
       setTrabajadores(trabData)
       setMediosBasicos(mediosData)
-      setCatalogoHerramientas(herramientasData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
@@ -104,7 +107,7 @@ export function useAsignaciones() {
     }
   }, [reloadMediosBasicos])
 
-  // ── Asignaciones ──────────────────────────────────────────────────────────
+  // ── Asignaciones trabajadores ─────────────────────────────────────────────
 
   const addAsignacion = useCallback(async (ci: string, data: AsignacionCreateData): Promise<boolean> => {
     setLoading(true)
@@ -150,7 +153,18 @@ export function useAsignaciones() {
     }
   }, [reloadTrabajadores])
 
-  // ── Herramientas ──────────────────────────────────────────────────────────
+  // ── Herramientas (legacy) ─────────────────────────────────────────────────
+
+  const [catalogoHerramientas, setCatalogoHerramientas] = useState<HerramientaCatalogo[]>([])
+
+  const reloadCatalogoHerramientas = useCallback(async () => {
+    try {
+      const data = await AsignacionService.getCatalogoHerramientas()
+      setCatalogoHerramientas(data)
+    } catch {
+      // silently ignore legacy endpoint errors
+    }
+  }, [])
 
   const addHerramienta = useCallback(async (ci: string, data: HerramientaAsignarData): Promise<boolean> => {
     setLoading(true)
@@ -196,17 +210,6 @@ export function useAsignaciones() {
     }
   }, [reloadTrabajadores])
 
-  // ── Catálogo de herramientas ──────────────────────────────────────────────
-
-  const reloadCatalogoHerramientas = useCallback(async () => {
-    try {
-      const data = await AsignacionService.getCatalogoHerramientas()
-      setCatalogoHerramientas(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al recargar catálogo')
-    }
-  }, [])
-
   const createHerramientaCatalogo = useCallback(async (data: HerramientaCatalogoCreateData): Promise<boolean> => {
     setLoading(true)
     try {
@@ -214,7 +217,7 @@ export function useAsignaciones() {
       await reloadCatalogoHerramientas()
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear herramienta')
+      setError(err instanceof Error ? err.message : 'Error al crear material')
       return false
     } finally {
       setLoading(false)
@@ -228,7 +231,7 @@ export function useAsignaciones() {
       await reloadCatalogoHerramientas()
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar herramienta')
+      setError(err instanceof Error ? err.message : 'Error al actualizar material')
       return false
     } finally {
       setLoading(false)
@@ -242,7 +245,7 @@ export function useAsignaciones() {
       await reloadCatalogoHerramientas()
       return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al eliminar herramienta')
+      setError(err instanceof Error ? err.message : 'Error al eliminar material')
       return false
     } finally {
       setLoading(false)
@@ -272,4 +275,134 @@ export function useAsignaciones() {
     deleteHerramientaCatalogo,
     reload: loadAll,
   }
+}
+
+// ── Hook para asignaciones de instalaciones ───────────────────────────────────
+
+export function useInstalacionAsignaciones(tipo: TipoInstalacion | null) {
+  const [instalaciones, setInstalaciones] = useState<InstalacionConAsignaciones[]>([])
+  const [entidades, setEntidades] = useState<Instalacion[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadEntidades = useCallback(async (t: TipoInstalacion) => {
+    try {
+      let data: Instalacion[] = []
+      if (t === 'almacen') data = await AsignacionService.getAlmacenes()
+      else if (t === 'tienda') data = await AsignacionService.getTiendas()
+      else if (t === 'sede') data = await AsignacionService.getSedes()
+      setEntidades(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar entidades')
+    }
+  }, [])
+
+  const loadInstalaciones = useCallback(async (t: TipoInstalacion) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await AsignacionService.getAsignacionesInstalaciones(t)
+      setInstalaciones(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al cargar asignaciones')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!tipo) {
+      setInstalaciones([])
+      setEntidades([])
+      return
+    }
+    loadEntidades(tipo)
+    loadInstalaciones(tipo)
+  }, [tipo, loadEntidades, loadInstalaciones])
+
+  const addAsignacion = useCallback(async (
+    id: string, data: AsignacionInstalacionCreateData
+  ): Promise<boolean> => {
+    if (!tipo) return false
+    setLoading(true)
+    try {
+      await AsignacionService.addAsignacionInstalacion(tipo, id, data)
+      await loadInstalaciones(tipo)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al agregar asignación')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [tipo, loadInstalaciones])
+
+  const updateAsignacion = useCallback(async (
+    id: string, asignacionId: string, data: AsignacionInstalacionUpdateData
+  ): Promise<boolean> => {
+    if (!tipo) return false
+    setLoading(true)
+    try {
+      await AsignacionService.updateAsignacionInstalacion(tipo, id, asignacionId, data)
+      await loadInstalaciones(tipo)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar asignación')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [tipo, loadInstalaciones])
+
+  const removeAsignacion = useCallback(async (
+    id: string, asignacionId: string
+  ): Promise<boolean> => {
+    if (!tipo) return false
+    setLoading(true)
+    try {
+      await AsignacionService.removeAsignacionInstalacion(tipo, id, asignacionId)
+      await loadInstalaciones(tipo)
+      return true
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al eliminar asignación')
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [tipo, loadInstalaciones])
+
+  return {
+    instalaciones,
+    entidades,
+    loading,
+    error,
+    clearError: () => setError(null),
+    addAsignacion,
+    updateAsignacion,
+    removeAsignacion,
+    reload: () => tipo && loadInstalaciones(tipo),
+  }
+}
+
+// ── Hook para búsqueda de materiales ─────────────────────────────────────────
+
+export function useMaterialesCatalogo() {
+  const [materiales, setMateriales] = useState<MaterialCatalogo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const buscar = useCallback(async (q: string, categoria?: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const data = await AsignacionService.getMaterialesCatalogo(q || undefined, categoria || undefined)
+      setMateriales(data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al buscar materiales')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  return { materiales, loading, error, buscar }
 }

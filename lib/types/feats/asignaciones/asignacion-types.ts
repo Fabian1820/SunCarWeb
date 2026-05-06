@@ -1,37 +1,9 @@
+// ── Medios Básicos ────────────────────────────────────────────────────────────
+
 export interface MedioBasico {
   id: string
   nombre: string
   precio?: number | null
-}
-
-export interface Asignacion {
-  id: string
-  medio_basico_id: string
-  nombre: string
-  precio?: number | null
-  cantidad: number
-  numero_serie?: string | null
-}
-
-export interface TrabajadorConAsignaciones {
-  id: string
-  CI: string
-  nombre: string
-  cargo: string
-  asignaciones: Asignacion[]
-  herramientas?: HerramientaAsignada[]
-}
-
-export interface AsignacionCreateData {
-  medio_basico_id?: string
-  nuevo_medio_basico?: { nombre: string; precio?: number }
-  cantidad: number
-  numero_serie?: string
-}
-
-export interface AsignacionUpdateData {
-  cantidad?: number
-  numero_serie?: string
 }
 
 export interface MedioBasicoCreateData {
@@ -44,7 +16,106 @@ export interface MedioBasicoUpdateData {
   precio?: number
 }
 
-// ── Herramientas ──────────────────────────────────────────────────────────────
+// ── Asignaciones trabajadores ─────────────────────────────────────────────────
+
+export interface Asignacion {
+  id: string
+  item_tipo: 'medio_basico' | 'material'
+  item_id: string
+  nombre: string
+  precio?: number | null
+  cantidad: number
+  numero_serie?: string | null
+  asignado_por?: string | null
+}
+
+export interface TrabajadorConAsignaciones {
+  id?: string
+  CI: string
+  nombre: string
+  cargo: string
+  asignaciones: Asignacion[]
+}
+
+export interface AsignacionCreateData {
+  item_tipo: 'medio_basico' | 'material'
+  item_id: string
+  cantidad: number
+  numero_serie?: string
+  asignado_por?: string
+}
+
+export interface AsignacionUpdateData {
+  cantidad?: number
+  numero_serie?: string
+}
+
+// ── Asignaciones instalaciones ────────────────────────────────────────────────
+
+export type TipoInstalacion = 'almacen' | 'tienda' | 'sede'
+
+export interface Instalacion {
+  _id: string
+  nombre: string
+  codigo?: string
+}
+
+export interface AsignacionInstalacion {
+  id: string
+  item_tipo: 'medio_basico' | 'material'
+  item_id: string
+  nombre: string
+  precio?: number | null
+  cantidad: number
+  numero_serie?: string | null
+  asignado_por?: string | null
+}
+
+export interface InstalacionConAsignaciones {
+  _id: string
+  nombre: string
+  codigo?: string
+  asignaciones: AsignacionInstalacion[]
+}
+
+export interface AsignacionInstalacionCreateData {
+  item_tipo: 'medio_basico' | 'material'
+  item_id: string
+  cantidad: number
+  numero_serie?: string
+  asignado_por?: string
+}
+
+export interface AsignacionInstalacionUpdateData {
+  cantidad?: number
+  numero_serie?: string
+}
+
+// ── Catálogo de materiales ────────────────────────────────────────────────────
+
+export interface MaterialCatalogo {
+  material_id: string
+  nombre: string
+  categoria: string
+  precio?: number | null
+}
+
+export const CATEGORIAS_MATERIAL = [
+  'herramientas',
+  'insumos',
+  'equipo de clima',
+  'activos fijos',
+  'cargador electrico',
+  'mppt',
+  'transformadores y medidores',
+  'paneles',
+  'baterias',
+  'inversores',
+] as const
+
+export type CategoriaMaterial = typeof CATEGORIAS_MATERIAL[number]
+
+// ── Herramientas (legacy, mantenido para compatibilidad) ──────────────────────
 
 export interface HerramientaCatalogo {
   producto_id: string

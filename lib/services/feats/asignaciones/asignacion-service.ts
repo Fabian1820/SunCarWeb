@@ -1,12 +1,19 @@
 import { apiRequest } from '../../../api-config'
 import type {
   MedioBasico,
+  MedioBasicoCreateData,
+  MedioBasicoUpdateData,
   TrabajadorConAsignaciones,
   Asignacion,
   AsignacionCreateData,
   AsignacionUpdateData,
-  MedioBasicoCreateData,
-  MedioBasicoUpdateData,
+  TipoInstalacion,
+  Instalacion,
+  InstalacionConAsignaciones,
+  AsignacionInstalacion,
+  AsignacionInstalacionCreateData,
+  AsignacionInstalacionUpdateData,
+  MaterialCatalogo,
   HerramientaCatalogo,
   HerramientaAsignada,
   HerramientaAsignarData,
@@ -32,34 +39,32 @@ export class AsignacionService {
   }
 
   static async updateMedioBasico(id: string, data: MedioBasicoUpdateData): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/medios-basicos/${id}`, {
+    await apiRequest(`/medios-basicos/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
-    return res.success === true
+    return true
   }
 
   static async deleteMedioBasico(id: string): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/medios-basicos/${id}`, {
-      method: 'DELETE',
-    })
-    return res.success === true
+    await apiRequest(`/medios-basicos/${id}`, { method: 'DELETE' })
+    return true
   }
 
-  // ── Asignaciones ──────────────────────────────────────────────────────────
+  // ── Asignaciones trabajadores ─────────────────────────────────────────────
 
   static async getTrabajadoresConAsignaciones(): Promise<TrabajadorConAsignaciones[]> {
-    const res = await apiRequest<{ data: TrabajadorConAsignaciones[] }>('/asignaciones/')
+    const res = await apiRequest<{ data: TrabajadorConAsignaciones[] }>('/asignaciones-trabajadores/')
     return res.data || []
   }
 
   static async getAsignacionesByCI(ci: string): Promise<Asignacion[]> {
-    const res = await apiRequest<{ data: Asignacion[] }>(`/asignaciones/${ci}`)
+    const res = await apiRequest<{ data: Asignacion[] }>(`/asignaciones-trabajadores/${ci}`)
     return res.data || []
   }
 
   static async addAsignacion(ci: string, data: AsignacionCreateData): Promise<Asignacion> {
-    const res = await apiRequest<{ data: Asignacion }>(`/asignaciones/${ci}`, {
+    const res = await apiRequest<{ data: Asignacion }>(`/asignaciones-trabajadores/${ci}`, {
       method: 'POST',
       body: JSON.stringify(data),
     })
@@ -67,21 +72,95 @@ export class AsignacionService {
   }
 
   static async updateAsignacion(ci: string, asignacionId: string, data: AsignacionUpdateData): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/asignaciones/${ci}/${asignacionId}`, {
+    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
-    return res.success === true
+    return true
   }
 
   static async removeAsignacion(ci: string, asignacionId: string): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/asignaciones/${ci}/${asignacionId}`, {
-      method: 'DELETE',
-    })
-    return res.success === true
+    await apiRequest(`/asignaciones-trabajadores/${ci}/${asignacionId}`, { method: 'DELETE' })
+    return true
   }
 
-  // ── Herramientas ──────────────────────────────────────────────────────────
+  // ── Entidades de instalación (para selectores) ────────────────────────────
+
+  static async getAlmacenes(): Promise<Instalacion[]> {
+    const res = await apiRequest<{ data: Instalacion[] } | Instalacion[]>('/almacenes/')
+    return Array.isArray(res) ? res : (res.data || [])
+  }
+
+  static async getTiendas(): Promise<Instalacion[]> {
+    const res = await apiRequest<{ data: Instalacion[] } | Instalacion[]>('/tiendas/')
+    return Array.isArray(res) ? res : (res.data || [])
+  }
+
+  static async getSedes(): Promise<Instalacion[]> {
+    const res = await apiRequest<{ data: Instalacion[] } | Instalacion[]>('/sedes/')
+    return Array.isArray(res) ? res : (res.data || [])
+  }
+
+  // ── Asignaciones instalaciones ────────────────────────────────────────────
+
+  static async getAsignacionesInstalaciones(tipo: TipoInstalacion): Promise<InstalacionConAsignaciones[]> {
+    const res = await apiRequest<{ data: InstalacionConAsignaciones[] }>(`/asignaciones-instalaciones/${tipo}`)
+    return res.data || []
+  }
+
+  static async getAsignacionInstalacion(tipo: TipoInstalacion, id: string): Promise<InstalacionConAsignaciones | null> {
+    const res = await apiRequest<{ data: InstalacionConAsignaciones }>(`/asignaciones-instalaciones/${tipo}/${id}`)
+    return res.data || null
+  }
+
+  static async addAsignacionInstalacion(
+    tipo: TipoInstalacion,
+    id: string,
+    data: AsignacionInstalacionCreateData
+  ): Promise<AsignacionInstalacion> {
+    const res = await apiRequest<{ data: AsignacionInstalacion }>(`/asignaciones-instalaciones/${tipo}/${id}`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+    return res.data!
+  }
+
+  static async updateAsignacionInstalacion(
+    tipo: TipoInstalacion,
+    id: string,
+    asignacionId: string,
+    data: AsignacionInstalacionUpdateData
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    })
+    return true
+  }
+
+  static async removeAsignacionInstalacion(
+    tipo: TipoInstalacion,
+    id: string,
+    asignacionId: string
+  ): Promise<boolean> {
+    await apiRequest(`/asignaciones-instalaciones/${tipo}/${id}/${asignacionId}`, { method: 'DELETE' })
+    return true
+  }
+
+  // ── Catálogo de materiales ────────────────────────────────────────────────
+
+  static async getMaterialesCatalogo(q?: string, categoria?: string): Promise<MaterialCatalogo[]> {
+    const params = new URLSearchParams()
+    if (q) params.set('q', q)
+    if (categoria) params.set('categoria', categoria)
+    const query = params.toString()
+    const res = await apiRequest<{ data: MaterialCatalogo[] } | MaterialCatalogo[]>(
+      `/productos/admin/materiales${query ? `?${query}` : ''}`
+    )
+    return Array.isArray(res) ? res : (res.data || [])
+  }
+
+  // ── Herramientas (legacy) ─────────────────────────────────────────────────
 
   static async getCatalogoHerramientas(): Promise<HerramientaCatalogo[]> {
     const res = await apiRequest<{ data: HerramientaCatalogo[] }>('/asignaciones/herramientas/catalogo')
@@ -102,21 +181,17 @@ export class AsignacionService {
   }
 
   static async updateHerramienta(ci: string, herramientaId: string, data: HerramientaUpdateData): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/asignaciones/${ci}/herramientas/${herramientaId}`, {
+    await apiRequest(`/asignaciones/${ci}/herramientas/${herramientaId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
-    return res.success === true
+    return true
   }
 
   static async removeHerramienta(ci: string, herramientaId: string): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/asignaciones/${ci}/herramientas/${herramientaId}`, {
-      method: 'DELETE',
-    })
-    return res.success === true
+    await apiRequest(`/asignaciones/${ci}/herramientas/${herramientaId}`, { method: 'DELETE' })
+    return true
   }
-
-  // ── Catálogo de herramientas ───────────────────────────────────────────────
 
   static async createHerramientaCatalogo(data: HerramientaCatalogoCreateData): Promise<HerramientaCatalogo> {
     const res = await apiRequest<{ data: HerramientaCatalogo }>('/asignaciones/herramientas/catalogo', {
@@ -127,17 +202,15 @@ export class AsignacionService {
   }
 
   static async updateHerramientaCatalogo(materialId: string, data: HerramientaCatalogoUpdateData): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/asignaciones/herramientas/catalogo/${materialId}`, {
+    await apiRequest(`/asignaciones/herramientas/catalogo/${materialId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     })
-    return res.success === true
+    return true
   }
 
   static async deleteHerramientaCatalogo(materialId: string): Promise<boolean> {
-    const res = await apiRequest<{ success: boolean }>(`/asignaciones/herramientas/catalogo/${materialId}`, {
-      method: 'DELETE',
-    })
-    return res.success === true
+    await apiRequest(`/asignaciones/herramientas/catalogo/${materialId}`, { method: 'DELETE' })
+    return true
   }
 }

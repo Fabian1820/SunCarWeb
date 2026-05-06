@@ -10,6 +10,8 @@ import { Label } from "@/components/shared/atom/label"
 import { Search, Check, X } from "lucide-react"
 import type { MedioBasico, Asignacion, AsignacionCreateData, AsignacionUpdateData } from "@/lib/types/feats/asignaciones/asignacion-types"
 
+// Este componente está obsoleto — usar AsignacionRecursosDialog en su lugar
+
 interface AsignacionDialogProps {
   open: boolean
   onClose: () => void
@@ -90,16 +92,10 @@ export function AsignacionDialog({
     } else {
       const q = parseInt(cantidad)
       const data: AsignacionCreateData = {
+        item_tipo: 'medio_basico',
+        item_id: medioSeleccionado?.id ?? nuevoNombre.trim(),
         cantidad: isNaN(q) || q < 1 ? 1 : q,
         numero_serie: numeroSerie.trim() || undefined,
-      }
-      if (mode === "existente") {
-        data.medio_basico_id = medioSeleccionado!.id
-      } else {
-        data.nuevo_medio_basico = {
-          nombre: nuevoNombre.trim(),
-          precio: nuevoPrecio ? parseFloat(nuevoPrecio) : undefined,
-        }
       }
       await onSave(trabajadorCI, data)
     }
