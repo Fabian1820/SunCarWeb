@@ -20,6 +20,12 @@ import { Input } from "@/components/shared/molecule/input";
 import { Card, CardContent } from "@/components/shared/molecule/card";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/shared/molecule/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -32,7 +38,10 @@ import { useMaterials } from "@/hooks/use-materials";
 import { useEnviosContenedores } from "@/hooks/use-envios-contenedores";
 import { EnvioContenedorFormDialog } from "@/components/feats/envios-contenedores/envio-contenedor-form-dialog";
 import { EnviosContenedoresTable } from "@/components/feats/envios-contenedores/envios-contenedores-table";
+import { EnvioDocumentosPanel } from "@/components/feats/envios-contenedores/envio-documentos-panel";
+import { Paperclip } from "lucide-react";
 import type {
+  ArchivoEnvioContenedor,
   EnvioContenedor,
   EnvioContenedorCreateData,
   EstadoEnvioContenedor,
@@ -79,6 +88,8 @@ function EnvioContenedoresContent() {
 
   const [createOpen,   setCreateOpen]   = useState(false);
   const [editTarget,   setEditTarget]   = useState<EnvioContenedor | null>(null);
+  const [docEnvio,     setDocEnvio]     = useState<EnvioContenedor | null>(null);
+  const [docArchivos,  setDocArchivos]  = useState<ArchivoEnvioContenedor[]>([]);
 
   // ── active filters count ──
   const activeFilters = [
@@ -106,6 +117,16 @@ function EnvioContenedoresContent() {
     await updateEnvio(editTarget.id, data);
     toast({ title: "Envío actualizado", description: "Los cambios fueron guardados." });
     setEditTarget(null);
+  };
+
+  const handleOpenDocs = (envio: EnvioContenedor) => {
+    setDocEnvio(envio);
+    setDocArchivos(envio.archivos ?? []);
+  };
+
+  const handleCloseDocs = () => {
+    setDocEnvio(null);
+    setDocArchivos([]);
   };
 
   const handleDelete = async (id: string) => {
@@ -264,6 +285,7 @@ function EnvioContenedoresContent() {
               envios={filteredEnvios}
               onDelete={handleDelete}
               onEdit={(envio) => setEditTarget(envio)}
+              onDocs={handleOpenDocs}
             />
           </CardContent>
         </Card>
@@ -287,6 +309,32 @@ function EnvioContenedoresContent() {
         isLoading={updating || loadingMaterials}
         initialData={editTarget ?? undefined}
       />
+
+      {/* ── Dialog documentos ── */}
+      <Dialog open={Boolean(docEnvio)} onOpenChange={(open) => { if (!open) handleCloseDocs(); }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader className="pb-2 border-b border-gray-100">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-orange-100 shrink-0">
+                <Paperclip className="h-4 w-4 text-orange-600" />
+              </span>
+              <div className="min-w-0">
+                <span className="text-gray-900">Documentos adjuntos</span>
+                {docEnvio && (
+                  <p className="text-xs font-normal text-gray-400 truncate mt-0.5">{docEnvio.nombre}</p>
+                )}
+              </div>
+            </DialogTitle>
+          </DialogHeader>
+          {docEnvio && (
+            <EnvioDocumentosPanel
+              envioId={docEnvio.id}
+              archivos={docArchivos}
+              onArchivosChange={setDocArchivos}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Toaster />
     </div>
