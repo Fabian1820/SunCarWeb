@@ -114,7 +114,7 @@ export function CompletarVisitaDialog({
 }: CompletarVisitaDialogProps) {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [loadingMateriales, setLoadingMateriales] = useState(false);
+
   const [tieneOferta, setTieneOferta] = useState<boolean | null>(null);
   const [verificandoOferta, setVerificandoOferta] = useState(false);
   const [ofertaAsignada, setOfertaAsignada] = useState<Record<
@@ -131,9 +131,10 @@ export function CompletarVisitaDialog({
   );
   const [evidenciaTexto, setEvidenciaTexto] = useState("");
   const [resultado, setResultado] = useState<ResultadoType>("");
-  const [materialesDisponibles, setMaterialesDisponibles] = useState<
-    Material[]
-  >([]);
+  const [matRowSearch, setMatRowSearch] = useState<string[]>([]);
+  const [matRowResults, setMatRowResults] = useState<Material[][]>([]);
+  const [matRowOpen, setMatRowOpen] = useState<boolean[]>([]);
+  const [matRowLoading, setMatRowLoading] = useState<boolean[]>([]);
   const [materialesSeleccionados, setMaterialesSeleccionados] = useState<
     MaterialSeleccionado[]
   >([]);
@@ -151,16 +152,6 @@ export function CompletarVisitaDialog({
       verificarOferta();
     }
   }, [open, pendiente]);
-
-  // Cargar materiales cuando se necesite cotizar material extra
-  useEffect(() => {
-    if (
-      resultado === "necesita_material_extra" &&
-      materialesDisponibles.length === 0
-    ) {
-      cargarMateriales();
-    }
-  }, [resultado]);
 
   const verificarOferta = async () => {
     if (!pendiente) return;
@@ -256,20 +247,21 @@ export function CompletarVisitaDialog({
     }
   };
 
-  const cargarMateriales = async () => {
-    setLoadingMateriales(true);
+  const searchMatRow = async (index: number, term: string) => {
+    if (!term.trim()) {
+      setMatRowResults((prev) => { const n = [...prev]; n[index] = []; return n; });
+      setMatRowOpen((prev) => { const n = [...prev]; n[index] = false; return n; });
+      return;
+    }
+    setMatRowLoading((prev) => { const n = [...prev]; n[index] = true; return n; });
     try {
-      const materiales = await MaterialService.getAllMaterials();
-      setMaterialesDisponibles(materiales);
-    } catch (error) {
-      console.error("Error al cargar materiales:", error);
-      toast({
-        title: "Error",
-        description: "No se pudieron cargar los materiales",
-        variant: "destructive",
-      });
+      const results = await MaterialService.searchMaterialsByCode(term.trim(), 15);
+      setMatRowResults((prev) => { const n = [...prev]; n[index] = results; return n; });
+      setMatRowOpen((prev) => { const n = [...prev]; n[index] = results.length > 0; return n; });
+    } catch {
+      setMatRowResults((prev) => { const n = [...prev]; n[index] = []; return n; });
     } finally {
-      setLoadingMateriales(false);
+      setMatRowLoading((prev) => { const n = [...prev]; n[index] = false; return n; });
     }
   };
 
@@ -289,6 +281,10 @@ export function CompletarVisitaDialog({
     setEvidenciaTexto("");
     setResultado("");
     setMaterialesSeleccionados([]);
+    setMatRowSearch([]);
+    setMatRowResults([]);
+    setMatRowOpen([]);
+    setMatRowLoading([]);
     setTieneOferta(null);
     setOfertaAsignada(null);
     setFechaVisitaCompletada(getTodayLocalDateValue());
@@ -359,46 +355,43 @@ export function CompletarVisitaDialog({
   };
 
   const agregarMaterial = () => {
-    setMaterialesSeleccionados((prev) => [
-      ...prev,
-      {
-        material_id: "",
-        codigo: "",
-        nombre: "",
-        cantidad: 1,
-      },
-    ]);
+    setMaterialesSeleccionados((prev) => [...prev, { material_id: "", codigo: "", nombre: "", cantidad: 1 }]);
+    setMatRowSearch((prev) => [...prev, ""]);
+    setMatRowResults((prev) => [...prev, []]);
+    setMatRowOpen((prev) => [...prev, false]);
+    setMatRowLoading((prev) => [...prev, false]);
   };
 
-  const actualizarMaterial = (index: number, materialId: string) => {
-    const material = materialesDisponibles.find((m) => m.id === materialId);
-    if (material && material.id) {
-      setMaterialesSeleccionados((prev) => {
-        const updated = [...prev];
-        updated[index] = {
-          ...updated[index],
-          material_id: material.id,
-          codigo: material.codigo,
-          nombre: material.nombre || material.descripcion,
-        };
-        return updated;
-      });
-    }
+  const actualizarMaterial = (index: number, material: Material) => {
+    setMaterialesSeleccionados((prev) => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        material_id: material.id || "",
+        codigo: material.codigo?.toString() || "",
+        nombre: material.nombre || material.descripcion || "",
+      };
+      return updated;
+    });
+    setMatRowSearch((prev) => { const n = [...prev]; n[index] = material.nombre || material.descripcion || ""; return n; });
+    setMatRowOpen((prev) => { const n = [...prev]; n[index] = false; return n; });
+    setMatRowResults((prev) => { const n = [...prev]; n[index] = []; return n; });
   };
 
   const actualizarCantidad = (index: number, cantidad: number) => {
     setMaterialesSeleccionados((prev) => {
       const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        cantidad: Math.max(1, cantidad),
-      };
+      updated[index] = { ...updated[index], cantidad: Math.max(1, cantidad) };
       return updated;
     });
   };
 
   const eliminarMaterial = (index: number) => {
     setMaterialesSeleccionados((prev) => prev.filter((_, i) => i !== index));
+    setMatRowSearch((prev) => prev.filter((_, i) => i !== index));
+    setMatRowResults((prev) => prev.filter((_, i) => i !== index));
+    setMatRowOpen((prev) => prev.filter((_, i) => i !== index));
+    setMatRowLoading((prev) => prev.filter((_, i) => i !== index));
   };
 
   const optimizeFile = async (file: File): Promise<File> => {
@@ -851,21 +844,10 @@ export function CompletarVisitaDialog({
           updatePayload.notas = evidenciaTexto.trim();
         }
         if (resultado === "necesita_material_extra") {
-          updatePayload.materiales_extra = materialesSeleccionados.map((m) => {
-            const materialCatalogo = materialesDisponibles.find(
-              (material) => material.id === m.material_id,
-            );
-            const nombreNormalizado =
-              m.nombre?.trim() ||
-              materialCatalogo?.nombre?.trim() ||
-              materialCatalogo?.descripcion?.trim() ||
-              m.codigo;
-
-            return {
-              ...m,
-              nombre: nombreNormalizado,
-            };
-          });
+          updatePayload.materiales_extra = materialesSeleccionados.map((m) => ({
+            ...m,
+            nombre: m.nombre?.trim() || m.codigo,
+          }));
         }
 
         await apiRequest(`/visitas/${visitaId}`, {
@@ -1341,35 +1323,42 @@ export function CompletarVisitaDialog({
                 Materiales Extra Requeridos
               </Label>
 
-              {loadingMateriales ? (
-                <div className="text-center py-4 text-gray-500">
-                  Cargando materiales...
-                </div>
-              ) : (
-                <>
+              <>
                   <div className="space-y-3">
                     {materialesSeleccionados.map((material, index) => (
                       <Card key={index} className="border">
                         <CardContent className="p-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            <div className="md:col-span-2">
+                            <div className="md:col-span-2 relative">
                               <Label className="text-sm mb-1">Material</Label>
-                              <select
-                                className="w-full border rounded px-3 py-2 text-sm"
-                                value={material.material_id}
-                                onChange={(e) =>
-                                  actualizarMaterial(index, e.target.value)
-                                }
-                              >
-                                <option value="">
-                                  Seleccionar material...
-                                </option>
-                                {materialesDisponibles.map((m) => (
-                                  <option key={m.id} value={m.id}>
-                                    {m.codigo} - {m.nombre} ({m.categoria})
-                                  </option>
-                                ))}
-                              </select>
+                              <Input
+                                placeholder="Buscar por código o nombre..."
+                                value={matRowSearch[index] ?? ""}
+                                onChange={(e) => {
+                                  const term = e.target.value;
+                                  setMatRowSearch((prev) => { const n = [...prev]; n[index] = term; return n; });
+                                  const handler = setTimeout(() => searchMatRow(index, term), 300);
+                                  return () => clearTimeout(handler);
+                                }}
+                                className="text-sm"
+                              />
+                              {matRowLoading[index] && (
+                                <p className="text-xs text-gray-400 mt-1">Buscando...</p>
+                              )}
+                              {matRowOpen[index] && (matRowResults[index] ?? []).length > 0 && (
+                                <div className="absolute z-50 w-full bg-white border rounded shadow-lg max-h-48 overflow-y-auto mt-1">
+                                  {(matRowResults[index] ?? []).map((m) => (
+                                    <button
+                                      key={m.id}
+                                      type="button"
+                                      className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                                      onClick={() => actualizarMaterial(index, m)}
+                                    >
+                                      {m.codigo} - {m.nombre || m.descripcion} ({m.categoria})
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             <div>
                               <Label className="text-sm mb-1">Cantidad</Label>
@@ -1411,7 +1400,6 @@ export function CompletarVisitaDialog({
                     + Agregar Material
                   </Button>
                 </>
-              )}
             </div>
           )}
         </div>

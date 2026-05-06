@@ -171,9 +171,6 @@ export function CreateValeSalidaDialog({
   const [serialNumberMaterialIndex, setSerialNumberMaterialIndex] = useState<number | null>(null);
   const [tempSerialNumbers, setTempSerialNumbers] = useState<string[]>([]);
 
-  const [materialCatalogMaterial, setMaterialCatalogMaterial] = useState<
-    MaterialCatalogItem[]
-  >([]);
   const [materialCatalogVenta, setMaterialCatalogVenta] = useState<
     MaterialCatalogItem[]
   >([]);
@@ -304,40 +301,27 @@ export function CreateValeSalidaDialog({
     if (!open || !selectedSolicitud) return;
 
     const isVenta = selectedSolicitud.tipo_solicitud === "venta";
-    const hasCatalogLoaded = isVenta
-      ? materialCatalogVenta.length > 0
-      : materialCatalogMaterial.length > 0;
-    if (hasCatalogLoaded) return;
+    if (!isVenta || materialCatalogVenta.length > 0) return;
 
-    const loadCatalogBySolicitudTipo = async () => {
+    const loadVentaCatalog = async () => {
       setLoadingMaterialCatalog(true);
       try {
-        if (isVenta) {
-          const ventaCatalog =
-            await SolicitudVentaService.getMaterialesVendiblesWeb();
-          const normalized = (
-            Array.isArray(ventaCatalog) ? ventaCatalog : []
-          ).map((material) => ({
-            id: material.id,
-            codigo: material.codigo,
-            nombre: material.nombre,
-            descripcion: material.descripcion,
-            um: material.um,
-            foto: material.foto,
-          }));
-          setMaterialCatalogVenta(normalized);
-          return;
-        }
-
-        const materialCatalog = await MaterialService.getAllMaterials();
-        setMaterialCatalogMaterial(
-          Array.isArray(materialCatalog) ? materialCatalog : [],
+        const ventaCatalog =
+          await SolicitudVentaService.getMaterialesVendiblesWeb();
+        setMaterialCatalogVenta(
+          (Array.isArray(ventaCatalog) ? ventaCatalog : []).map((m) => ({
+            id: m.id,
+            codigo: m.codigo,
+            nombre: m.nombre,
+            descripcion: m.descripcion,
+            um: m.um,
+            foto: m.foto,
+          })),
         );
-      } catch (error) {
+      } catch {
         toast({
           title: "Error",
-          description:
-            "No se pudo cargar el catalogo de materiales para este tipo de solicitud",
+          description: "No se pudo cargar el catálogo de materiales de venta",
           variant: "destructive",
         });
       } finally {
@@ -345,25 +329,8 @@ export function CreateValeSalidaDialog({
       }
     };
 
-    void loadCatalogBySolicitudTipo();
-  }, [
-    open,
-    selectedSolicitud,
-    materialCatalogVenta.length,
-    materialCatalogMaterial.length,
-    toast,
-  ]);
-
-  const activeMaterialCatalog = useMemo(() => {
-    if (selectedSolicitud?.tipo_solicitud === "venta") {
-      return materialCatalogVenta;
-    }
-    return materialCatalogMaterial;
-  }, [
-    selectedSolicitud?.tipo_solicitud,
-    materialCatalogVenta,
-    materialCatalogMaterial,
-  ]);
+    void loadVentaCatalog();
+  }, [open, selectedSolicitud, materialCatalogVenta.length, toast]);
 
   useEffect(() => {
     if (!materialSearch.trim()) {
@@ -372,26 +339,45 @@ export function CreateValeSalidaDialog({
       return;
     }
 
-    const handler = setTimeout(() => {
+    const isVenta = selectedSolicitud?.tipo_solicitud === "venta";
+
+    if (isVenta) {
       const term = materialSearch.toLowerCase();
-      const filtered = activeMaterialCatalog
+      const filtered = materialCatalogVenta
         .filter(
-          (material) =>
-            (material.descripcion?.toLowerCase().includes(term) ||
-              material.nombre?.toLowerCase().includes(term) ||
-              material.codigo?.toString().toLowerCase().includes(term)) &&
-            !materiales.some(
-              (row) => row.material_id === (material.id || material._id),
-            ),
+          (m) =>
+            (m.descripcion?.toLowerCase().includes(term) ||
+              m.nombre?.toLowerCase().includes(term) ||
+              m.codigo?.toString().toLowerCase().includes(term)) &&
+            !materiales.some((row) => row.material_id === (m.id || m._id)),
         )
         .slice(0, 15);
-
       setMaterialResults(filtered);
       setShowMaterialDropdown(filtered.length > 0);
-    }, 200);
+      return;
+    }
+
+    const handler = setTimeout(async () => {
+      setLoadingMaterialCatalog(true);
+      try {
+        const results = await MaterialService.searchMaterialsByCode(
+          materialSearch.trim(),
+          15,
+        );
+        const filtered = results.filter(
+          (m) => !materiales.some((row) => row.material_id === m.id),
+        );
+        setMaterialResults(filtered);
+        setShowMaterialDropdown(filtered.length > 0);
+      } catch {
+        setMaterialResults([]);
+      } finally {
+        setLoadingMaterialCatalog(false);
+      }
+    }, 300);
 
     return () => clearTimeout(handler);
-  }, [activeMaterialCatalog, materialSearch, materiales]);
+  }, [selectedSolicitud?.tipo_solicitud, materialCatalogVenta, materialSearch, materiales]);
 
   const handleSelectSolicitud = (solicitud: ValeSolicitudPendiente) => {
     setSelectedSolicitud(solicitud);

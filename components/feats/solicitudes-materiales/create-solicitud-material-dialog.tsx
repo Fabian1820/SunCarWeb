@@ -209,7 +209,7 @@ export function CreateSolicitudMaterialDialog({
   const [materialSearchLoading, setMaterialSearchLoading] = useState(false);
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
 
-  const [allMaterials, setAllMaterials] = useState<CatalogMaterial[]>([]);
+
 
   const [almacenes, setAlmacenes] = useState<Almacen[]>([]);
   const [selectedAlmacenId, setSelectedAlmacenId] = useState("");
@@ -252,14 +252,12 @@ export function CreateSolicitudMaterialDialog({
       setAlmacenesLoading(true);
       setTrabajadoresLoading(true);
       try {
-        const [almacenesData, materialsData, trabajadoresData] =
+        const [almacenesData, trabajadoresData] =
           await Promise.all([
             InventarioService.getAlmacenes(),
-            MaterialService.getAllMaterials(),
             TrabajadorService.getAllTrabajadores(),
           ]);
         setAlmacenes(Array.isArray(almacenesData) ? almacenesData : []);
-        setAllMaterials(Array.isArray(materialsData) ? materialsData : []);
         const trabajadoresDisponibles = (Array.isArray(trabajadoresData)
           ? trabajadoresData
           : []
@@ -633,7 +631,7 @@ export function CreateSolicitudMaterialDialog({
     setClienteSearch(cliente.nombre || cliente.numero || "");
     setShowClienteDropdown(false);
     if (cliente.id || cliente._id) {
-      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, allMaterials, selectedAlmacenId || undefined);
+      void loadSugeridos((cliente.id || cliente._id)!, cliente.numero, [], selectedAlmacenId || undefined);
     }
   };
 
@@ -662,26 +660,27 @@ export function CreateSolicitudMaterialDialog({
       return;
     }
 
-    const handler = setTimeout(() => {
+    const handler = setTimeout(async () => {
       setMaterialSearchLoading(true);
-      const term = materialSearch.toLowerCase();
-      const filtered = allMaterials
-        .filter(
-          (m) =>
-            (m.descripcion?.toLowerCase().includes(term) ||
-              m.nombre?.toLowerCase().includes(term) ||
-              m.codigo?.toString().toLowerCase().includes(term)) &&
-            !materiales.some((row) => row.material_id === (m.id || m._id)),
-        )
-        .slice(0, 15);
-
-      setMaterialResults(filtered);
-      setShowMaterialDropdown(filtered.length > 0);
-      setMaterialSearchLoading(false);
-    }, 200);
+      try {
+        const results = await MaterialService.searchMaterialsByCode(
+          materialSearch.trim(),
+          15,
+        );
+        const filtered = results.filter(
+          (m) => !materiales.some((row) => row.material_id === m.id),
+        );
+        setMaterialResults(filtered);
+        setShowMaterialDropdown(filtered.length > 0);
+      } catch {
+        setMaterialResults([]);
+      } finally {
+        setMaterialSearchLoading(false);
+      }
+    }, 300);
 
     return () => clearTimeout(handler);
-  }, [materialSearch, allMaterials, materiales]);
+  }, [materialSearch, materiales]);
 
   useEffect(() => {
     const term = responsableRecogida.trim().toLowerCase();
