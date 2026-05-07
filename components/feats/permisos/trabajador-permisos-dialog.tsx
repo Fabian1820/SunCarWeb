@@ -144,6 +144,7 @@ export function TrabajadorPermisosDialog({
   const TRABAJOS_TABS = [
     { key: "confirmar",       label: "Confirmar salidas",              desc: "Pestaña dentro de Operaciones" },
     { key: "registrar",       label: "Cierre diario instalaciones",    desc: "Pestaña dentro de Operaciones" },
+    { key: "averias",         label: "Averías",                        desc: "Pestaña dentro de Operaciones" },
     { key: "actualizaciones", label: "Actualizaciones",                desc: "Pestaña dentro de Operaciones" },
     { key: "entregas",        label: "Entregas sin instalar",          desc: "Pestaña dentro de Operaciones" },
     { key: "todos",           label: "Todos los trabajos",             desc: "Pestaña dentro de Operaciones" },
