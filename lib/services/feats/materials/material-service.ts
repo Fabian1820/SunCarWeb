@@ -13,7 +13,11 @@ import type {
 export class MaterialService {
   private static normalizeSearchMaterial(raw: any): Material | null {
     const codigo = String(
-      raw?.codigo ?? raw?.material_codigo ?? raw?.material?.codigo ?? "",
+      raw?.codigo ??
+        raw?.material_codigo ??
+        raw?.material?.codigo ??
+        raw?.modelo ??
+        "",
     ).trim();
     if (!codigo) return null;
 
@@ -21,6 +25,7 @@ export class MaterialService {
       raw?.descripcion ??
         raw?.material_descripcion ??
         raw?.nombre ??
+        raw?.descripcion_uso ??
         raw?.material?.descripcion ??
         raw?.material?.nombre ??
         "",
@@ -48,7 +53,7 @@ export class MaterialService {
       codigo,
       categoria: categoria || "Sin categoria",
       descripcion: descripcion || "Sin descripcion",
-      um: String(raw?.um ?? raw?.material?.um ?? ""),
+      um: String(raw?.um ?? raw?.material?.um ?? raw?.unidad ?? ""),
       precio:
         typeof raw?.precio === "number"
           ? raw.precio
@@ -59,7 +64,12 @@ export class MaterialService {
         typeof raw?.precio_instaladora === "number" ? raw.precio_instaladora : undefined,
       porciento_rebajable_venta:
         typeof raw?.porciento_rebajable_venta === "number" ? raw.porciento_rebajable_venta : undefined,
-      nombre: typeof raw?.nombre === "string" ? raw.nombre : undefined,
+      nombre:
+        typeof raw?.nombre === "string"
+          ? raw.nombre
+          : typeof raw?.modelo === "string"
+            ? raw.modelo
+            : undefined,
       marca_id: typeof raw?.marca_id === "string" ? raw.marca_id : undefined,
       foto: typeof raw?.foto === "string" ? raw.foto : undefined,
       potenciaKW:
