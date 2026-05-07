@@ -34,6 +34,21 @@ import {
 import { AveriaService } from "@/lib/api-services";
 import { useToast } from "@/hooks/use-toast";
 import { CrearAveriaDialog } from "./crear-averia-dialog";
+import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
+
+const ofertasToText = (ofertas: any[]): string => {
+  if (!ofertas?.length) return "Sin oferta";
+  return ofertas
+    .map((o: any) => {
+      const p: string[] = [];
+      if (o.inversor_codigo && o.inversor_cantidad > 0) p.push(`${o.inversor_cantidad}x ${o.inversor_nombre || o.inversor_codigo}`);
+      if (o.bateria_codigo && o.bateria_cantidad > 0) p.push(`${o.bateria_cantidad}x ${o.bateria_nombre || o.bateria_codigo}`);
+      if (o.panel_codigo && o.panel_cantidad > 0) p.push(`${o.panel_cantidad}x ${o.panel_nombre || o.panel_codigo}`);
+      if (o.elementos_personalizados) p.push(o.elementos_personalizados);
+      return p.join(" • ");
+    })
+    .join(" | ");
+};
 import type { Cliente } from "@/lib/api-types";
 import { ClienteFotosDialog } from "@/components/feats/instalaciones/cliente-fotos-dialog";
 import { exportToExcel, generateFilename } from "@/lib/export-service";
@@ -139,36 +154,6 @@ export function AveriasTable({
   };
 
   // Formatear ofertas para mostrar
-  const formatOfertas = (ofertas: any[]) => {
-    if (!ofertas || ofertas.length === 0) return "Sin oferta";
-
-    return ofertas
-      .map((oferta: any) => {
-        const productos: string[] = [];
-
-        if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-          const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
-          productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
-        }
-
-        if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-          const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
-          productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
-        }
-
-        if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-          const nombre = oferta.panel_nombre || oferta.panel_codigo;
-          productos.push(`${oferta.panel_cantidad}x ${nombre}`);
-        }
-
-        if (oferta.elementos_personalizados) {
-          productos.push(oferta.elementos_personalizados);
-        }
-
-        return productos.join(" • ");
-      })
-      .join(" | ");
-  };
 
   const handleOpenFotos = (client: Cliente) => {
     setClienteFotosSeleccionado(client);
@@ -191,7 +176,7 @@ export function AveriasTable({
               telefono: client.telefono,
               telefono_adicional: client.telefono_adicional || "",
               direccion: client.direccion,
-              oferta: formatOfertas(client.ofertas || []),
+              oferta: ofertasToText(client.ofertas || []),
               descripcion_averia: averia.descripcion,
               estado_averia: averia.estado,
               fecha_reporte: new Date(averia.fecha_reporte).toLocaleDateString(
@@ -421,9 +406,10 @@ export function AveriasTable({
 
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Oferta:</p>
-                        <p className="text-sm text-gray-700">
-                          {formatOfertas(client.ofertas || [])}
-                        </p>
+                        <OfertaCell
+                          oferta_confeccion={client.oferta_confeccion}
+                          ofertas={client.ofertas as any}
+                        />
                       </div>
 
                       <div className="pt-1">
@@ -582,9 +568,10 @@ export function AveriasTable({
                           </p>
                         </td>
                         <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">
-                            {formatOfertas(client.ofertas || [])}
-                          </p>
+                          <OfertaCell
+                            oferta_confeccion={client.oferta_confeccion}
+                            ofertas={client.ofertas as any}
+                          />
                         </td>
                         <td className="py-4 px-4">
                           <div className="space-y-2">

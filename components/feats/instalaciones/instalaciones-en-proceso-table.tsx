@@ -40,6 +40,7 @@ import { EntregaCelebrationAnimation } from "@/components/feats/instalaciones/en
 import { apiRequest } from "@/lib/api-config";
 import { extractOfertaIdsFromEntity } from "@/lib/utils/oferta-id";
 import { seleccionarOfertaConfirmada } from "@/hooks/use-ofertas-confeccion";
+import { OfertaCell } from "@/components/feats/instalaciones/oferta-cell";
 
 interface InstalacionesEnProcesoTableProps {
   clients: Cliente[];
@@ -759,36 +760,6 @@ export function InstalacionesEnProcesoTable({
   ]);
 
   // Formatear ofertas para mostrar
-  const formatOfertas = (ofertas: any[]) => {
-    if (!ofertas || ofertas.length === 0) return "Sin oferta";
-
-    return ofertas
-      .map((oferta: any) => {
-        const productos: string[] = [];
-
-        if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
-          const nombre = oferta.inversor_nombre || oferta.inversor_codigo;
-          productos.push(`${oferta.inversor_cantidad}x ${nombre}`);
-        }
-
-        if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-          const nombre = oferta.bateria_nombre || oferta.bateria_codigo;
-          productos.push(`${oferta.bateria_cantidad}x ${nombre}`);
-        }
-
-        if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
-          const nombre = oferta.panel_nombre || oferta.panel_codigo;
-          productos.push(`${oferta.panel_cantidad}x ${nombre}`);
-        }
-
-        if (oferta.elementos_personalizados) {
-          productos.push(oferta.elementos_personalizados);
-        }
-
-        return productos.join(" • ");
-      })
-      .join(" | ");
-  };
 
   // Cambiar estado a "Equipo Instalado con Éxito"
   const handleCambiarEstado = async (client: Cliente) => {
@@ -1944,9 +1915,10 @@ export function InstalacionesEnProcesoTable({
 
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Oferta:</p>
-                        <p className="text-sm text-gray-700">
-                          {formatOfertas(client.ofertas || [])}
-                        </p>
+                        <OfertaCell
+                          oferta_confeccion={client.oferta_confeccion}
+                          ofertas={client.ofertas as any}
+                        />
                       </div>
 
                       <div>
@@ -2081,9 +2053,10 @@ export function InstalacionesEnProcesoTable({
                           </p>
                         </td>
                         <td className="py-4 px-4">
-                          <p className="text-sm text-gray-700">
-                            {formatOfertas(client.ofertas || [])}
-                          </p>
+                          <OfertaCell
+                            oferta_confeccion={client.oferta_confeccion}
+                            ofertas={client.ofertas as any}
+                          />
                         </td>
                         <td className="py-4 px-4">
                           <p className="text-sm text-gray-700">

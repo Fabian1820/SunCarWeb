@@ -13,8 +13,23 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { PermisosService } from "@/lib/api-services"
 import { Modulo } from "@/lib/types/feats/permisos/permisos-types"
-import { Trash2, Plus, Loader2 } from "lucide-react"
+import { Trash2, Plus, Loader2, ChevronDown, ChevronUp } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+
+const GRUPOS_PREDEFINIDOS = [
+  {
+    grupo: "Trabajos Diarios",
+    descripcion: "Pestañas del módulo /instalaciones/trabajos-diarios",
+    modulos: [
+      { nombre: "trabajos:confirmar", label: "Confirmar salidas" },
+      { nombre: "trabajos:registrar", label: "Cierre diario instalaciones" },
+      { nombre: "trabajos:averias", label: "Averías" },
+      { nombre: "trabajos:actualizaciones", label: "Actualizaciones" },
+      { nombre: "trabajos:entregas", label: "Entregas sin instalar" },
+      { nombre: "trabajos:todos", label: "Todos los trabajos" },
+    ],
+  },
+]
 
 interface ModulosManagerDialogProps {
   open: boolean
@@ -32,6 +47,8 @@ export function ModulosManagerDialog({
   const [isLoading, setIsLoading] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [creandoGrupo, setCreandoGrupo] = useState<string | null>(null)
+  const [grupoExpandido, setGrupoExpandido] = useState<string | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -115,6 +132,40 @@ export function ModulosManagerDialog({
     }
   }
 
+  const handleCrearGrupo = async (grupoNombre: string, modulosGrupo: { nombre: string }[]) => {
+    setCreandoGrupo(grupoNombre)
+    const existentes = new Set(modulos.map((m) => m.nombre))
+    const faltantes = modulosGrupo.filter((m) => !existentes.has(m.nombre))
+
+    if (faltantes.length === 0) {
+      toast({ title: "Sin cambios", description: "Todos los módulos de este grupo ya existen." })
+      setCreandoGrupo(null)
+      return
+    }
+
+    let creados = 0
+    for (const m of faltantes) {
+      try {
+        await PermisosService.createModulo({ nombre: m.nombre })
+        creados++
+      } catch {
+        // ignorar errores individuales
+      }
+    }
+
+    toast({
+      title: creados > 0 ? "Módulos creados" : "Error",
+      description: creados > 0
+        ? `Se crearon ${creados} módulo(s) del grupo "${grupoNombre}".`
+        : "No se pudo crear ningún módulo.",
+      variant: creados > 0 ? "default" : "destructive",
+    })
+
+    await loadModulos()
+    onModulosUpdated()
+    setCreandoGrupo(null)
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -158,6 +209,79 @@ export function ModulosManagerDialog({
               )}
               <span className="ml-2">Crear</span>
             </Button>
+          </div>
+        </div>
+
+        {/* Grupos predefinidos */}
+        <div className="border rounded-lg">
+          <div className="bg-blue-50 px-4 py-2 border-b border-blue-200">
+            <h3 className="font-semibold text-sm text-blue-800">Grupos Predefinidos</h3>
+            <p className="text-xs text-blue-600 mt-0.5">Crea de golpe todos los módulos de un grupo funcional</p>
+          </div>
+          <div className="divide-y">
+            {GRUPOS_PREDEFINIDOS.map((grupo) => {
+              const existentes = new Set(modulos.map((m) => m.nombre))
+              const faltantes = grupo.modulos.filter((m) => !existentes.has(m.nombre))
+              const expanded = grupoExpandido === grupo.grupo
+              return (
+                <div key={grupo.grupo} className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-sm">{grupo.grupo}</p>
+                      <p className="text-xs text-gray-500">{grupo.descripcion}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {faltantes.length === 0
+                          ? "✅ Todos los módulos ya existen"
+                          : `${faltantes.length} de ${grupo.modulos.length} módulos pendientes de crear`}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setGrupoExpandido(expanded ? null : grupo.grupo)}
+                        className="text-xs"
+                      >
+                        {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                        <span className="ml-1">Ver</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleCrearGrupo(grupo.grupo, grupo.modulos)}
+                        disabled={creandoGrupo === grupo.grupo || faltantes.length === 0}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                      >
+                        {creandoGrupo === grupo.grupo ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Plus className="h-3 w-3" />
+                        )}
+                        <span className="ml-1">Crear grupo</span>
+                      </Button>
+                    </div>
+                  </div>
+                  {expanded && (
+                    <div className="mt-3 grid grid-cols-1 gap-1">
+                      {grupo.modulos.map((m) => {
+                        const yaExiste = existentes.has(m.nombre)
+                        return (
+                          <div
+                            key={m.nombre}
+                            className={`flex items-center justify-between px-3 py-1.5 rounded text-xs ${
+                              yaExiste ? "bg-green-50 text-green-700" : "bg-gray-50 text-gray-600"
+                            }`}
+                          >
+                            <span>{m.label}</span>
+                            <span className="font-mono text-gray-400">{m.nombre}</span>
+                            {yaExiste && <span className="text-green-500 ml-2">✓</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
