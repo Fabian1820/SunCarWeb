@@ -1362,7 +1362,7 @@ export default function PagosClientesPage() {
                     }
                   >
                     <List className="h-4 w-4 mr-2" />
-                    Anticipos Pendientes
+                    Ofertas Confirmadas
                   </Button>
                   <Button
                     variant={
@@ -1380,7 +1380,7 @@ export default function PagosClientesPage() {
                     }
                   >
                     <List className="h-4 w-4 mr-2" />
-                    Cobros Finales Pendientes
+                    Pagos Parciales
                   </Button>
                   <Button
                     variant={

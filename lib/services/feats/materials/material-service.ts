@@ -39,12 +39,16 @@ export class MaterialService {
         "Sin categoria",
     ).trim();
 
+    // El catalogo de /productos/materiales devuelve `id` = codigo y `material_id` = ObjectId real.
+    // Para que el id sirva como identificador del material en flujos posteriores
+    // (solicitudes, vales, etc.), preferimos material_id cuando viene presente.
     const id = String(
-      raw?.id ??
-        raw?._id ??
-        raw?.material_id ??
+      raw?.material_id ??
+        raw?.material?.material_id ??
         raw?.material?.id ??
         raw?.material?._id ??
+        raw?.id ??
+        raw?._id ??
         `${categoria || "material"}_${codigo}`,
     );
 

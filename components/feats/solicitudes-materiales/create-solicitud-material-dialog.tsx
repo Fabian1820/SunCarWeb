@@ -725,8 +725,9 @@ export function CreateSolicitudMaterialDialog({
   };
 
   const handleAddMaterial = (material: CatalogMaterial) => {
-    // El catálogo devuelve el código como `id`, no el ObjectId de MongoDB.
-    // Buscamos el ObjectId real en el mapa construido del stock del almacén.
+    // El stock del almacén siempre expone material_id como ObjectId real;
+    // para búsquedas de catálogo sin almacén, dependemos de que el backend
+    // entregue `material_id` (ObjectId) — ahora priorizado en normalizeSearchMaterial.
     const codigoKey = material.codigo?.toString().trim().toLowerCase() ?? "";
     const id =
       codigoToIdRef.current.get(codigoKey) ||
@@ -734,6 +735,12 @@ export function CreateSolicitudMaterialDialog({
       material._id ||
       "";
     if (!id || materiales.some((m) => m.material_id === id)) return;
+    if (!/^[a-f0-9]{24}$/i.test(id)) {
+      alert(
+        "No se pudo identificar el material. Seleccione un almacén antes de agregar materiales manuales.",
+      );
+      return;
+    }
 
     const bruto = lookupFromMap(stockMapRef.current, id, material.codigo?.toString());
     const stockActual = bruto !== null
