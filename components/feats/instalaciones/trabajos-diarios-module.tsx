@@ -12,6 +12,7 @@ import { TrabajosDiariosView } from "./trabajos-diarios-view";
 import { TrabajosDiariosRegistroView } from "./trabajos-diarios-registro-view";
 import { TrabajosDiariosTodosView } from "./trabajos-diarios-todos-view";
 import { TrabajosDiariosActualizacionesView } from "./trabajos-diarios-actualizaciones-view";
+import { TrabajosDiariosAveriasView } from "./trabajos-diarios-averias-view";
 
 const TABS = [
   {
@@ -23,6 +24,11 @@ const TABS = [
     key: "registrar",
     label: "Cierre diario instalaciones",
     permission: "trabajos:registrar",
+  },
+  {
+    key: "averias",
+    label: "Averías",
+    permission: "trabajos:averias",
   },
   {
     key: "actualizaciones",
@@ -92,6 +98,12 @@ export function TrabajosDiariosModule() {
       {visibleTabs.find((t) => t.key === "registrar") && (
         <TabsContent value="registrar" className="space-y-4">
           <TrabajosDiariosRegistroView />
+        </TabsContent>
+      )}
+
+      {visibleTabs.find((t) => t.key === "averias") && (
+        <TabsContent value="averias" className="space-y-4">
+          <TrabajosDiariosAveriasView />
         </TabsContent>
       )}
 

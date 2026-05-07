@@ -10,6 +10,7 @@ import { AlertTriangle, Search, Package } from "lucide-react"
 import { AveriaService, ClienteService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import type { Cliente } from "@/lib/api-types"
+import { AVERIA_CODIGOS } from "@/lib/constants/averia-codigos"
 
 interface CrearAveriaDialogProps {
   open: boolean
@@ -30,6 +31,7 @@ export function CrearAveriaDialog({
   // Formulario
   const [clienteSeleccionado, setClienteSeleccionado] = useState<string>("")
   const [descripcion, setDescripcion] = useState("")
+  const [codigo, setCodigo] = useState("")
   const [searchCliente, setSearchCliente] = useState("")
 
   // Filtrar clientes según búsqueda
@@ -94,6 +96,7 @@ export function CrearAveriaDialog({
       await AveriaService.agregarAveria(clienteSeleccionado, {
         descripcion: descripcion.trim(),
         estado: 'Pendiente',
+        codigo: codigo || null,
       })
 
       toast({
@@ -101,10 +104,9 @@ export function CrearAveriaDialog({
         description: "La avería se ha registrado correctamente",
       })
 
-      // Limpiar formulario
       setClienteSeleccionado("")
       setDescripcion("")
-      
+      setCodigo("")
       onSuccess()
       onOpenChange(false)
     } catch (error: any) {
@@ -121,6 +123,7 @@ export function CrearAveriaDialog({
   const handleCancel = () => {
     setClienteSeleccionado("")
     setDescripcion("")
+    setCodigo("")
     setSearchCliente("")
     onOpenChange(false)
   }
@@ -227,6 +230,25 @@ export function CrearAveriaDialog({
               )}
             </div>
           )}
+
+          {/* Código de causa */}
+          <div>
+            <Label htmlFor="codigo-causa">Código de causa</Label>
+            <select
+              id="codigo-causa"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
+              disabled={isCreating}
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Sin código —</option>
+              {AVERIA_CODIGOS.map((op) => (
+                <option key={op.codigo} value={op.codigo}>
+                  {op.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Descripción de la avería */}
           <div>
