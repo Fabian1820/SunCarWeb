@@ -68,7 +68,6 @@ export interface SolicitudMaterial {
 export interface SolicitudMaterialCreateData {
   cliente_id?: string | null;
   almacen_id: string;
-  trabajador_id?: string | null;
   responsable_recogida?: string | null;
   fecha_recogida?: string | null;
   materiales: SolicitudMaterialItem[];

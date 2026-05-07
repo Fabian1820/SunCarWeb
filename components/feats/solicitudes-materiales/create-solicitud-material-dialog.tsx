@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useAuth } from "@/contexts/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -134,6 +133,17 @@ const buildStockMap = (items: StockItem[]): Map<string, number> => {
   return map;
 };
 
+/** Mapa inverso codigo → material_id (ObjectId real de MongoDB). */
+const buildCodigoToIdMap = (items: StockItem[]): Map<string, string> => {
+  const map = new Map<string, string>();
+  for (const item of items) {
+    if (item.material_codigo && item.material_id) {
+      map.set(item.material_codigo.trim().toLowerCase(), item.material_id);
+    }
+  }
+  return map;
+};
+
 /**
  * Construye un mapa material_id → cantidad neta reservada a partir de una lista de Reservas.
  * Si se pasa un clienteId, excluye sus reservas del total (para poder aplicar el bonus aparte).
@@ -224,10 +234,7 @@ export function CreateSolicitudMaterialDialog({
   const [fechaRecogida, setFechaRecogida] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
-  const [currentTrabajadorId, setCurrentTrabajadorId] = useState<string | null>(null);
   const isEditMode = useMemo(() => Boolean(solicitud?.id), [solicitud?.id]);
-
-  const { user } = useAuth();
 
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
@@ -239,6 +246,8 @@ export function CreateSolicitudMaterialDialog({
   const totalReservaMapRef = useRef<Map<string, number>>(new Map());
   // Mapa de reservas netas del cliente seleccionado: material_id → cantidad reservada por ese cliente
   const clientReservaMapRef = useRef<Map<string, number>>(new Map());
+  // Mapa inverso codigo → ObjectId de MongoDB, construido del stock del almacén
+  const codigoToIdRef = useRef<Map<string, string>>(new Map());
 
   // Ref to access current materiales inside effects without causing loops
   const materialesRef = useRef<MaterialRow[]>([]);
@@ -355,14 +364,6 @@ export function CreateSolicitudMaterialDialog({
     setShowMaterialDropdown(false);
     setShowResponsableDropdown(false);
   }, [open, solicitud]);
-
-  // Cargar el trabajador_id del usuario actual para enviarlo al crear solicitudes
-  useEffect(() => {
-    if (!open || !user?.ci) return;
-    TrabajadorService.getTrabajadorByCI(user.ci)
-      .then((t) => setCurrentTrabajadorId(t?.id ?? null))
-      .catch(() => setCurrentTrabajadorId(null));
-  }, [open, user?.ci]);
 
   useEffect(() => {
     if (!clienteSearch.trim() || selectedCliente) {
@@ -650,13 +651,30 @@ export function CreateSolicitudMaterialDialog({
     const handler = setTimeout(async () => {
       setMaterialSearchLoading(true);
       try {
-        const results = await MaterialService.searchMaterialsByCode(
-          materialSearch.trim(),
-          15,
-        );
-        const filtered = results.filter(
-          (m) => !materiales.some((row) => row.material_id === m.id),
-        );
+        let filtered: CatalogMaterial[] = [];
+        if (selectedAlmacenId) {
+          // Buscar en el inventario del almacén: devuelve material_id como ObjectId real
+          const { data: stockItems } = await InventarioService.getStock({
+            almacen_id: selectedAlmacenId,
+            q: materialSearch.trim(),
+            limit: 15,
+          });
+          filtered = stockItems
+            .filter((s) => s.material_id && !materiales.some((row) => row.material_id === s.material_id))
+            .map((s) => ({
+              id: s.material_id,
+              _id: s.material_id,
+              codigo: s.material_codigo || s.material_id,
+              nombre: s.material_descripcion || s.material_codigo || "",
+              descripcion: s.material_descripcion || "",
+              um: s.um || "",
+              foto: (s.material as any)?.foto,
+            }));
+        } else {
+          // Sin almacén aún: búsqueda en catálogo (sin ObjectId garantizado)
+          const results = await MaterialService.searchMaterialsByCode(materialSearch.trim(), 15);
+          filtered = results.filter((m) => !materiales.some((row) => row.material_id === m.id));
+        }
         setMaterialResults(filtered);
         setShowMaterialDropdown(filtered.length > 0);
       } catch {
@@ -707,8 +725,15 @@ export function CreateSolicitudMaterialDialog({
   };
 
   const handleAddMaterial = (material: CatalogMaterial) => {
-    const id = material.id || material._id || "";
-    if (materiales.some((m) => m.material_id === id)) return;
+    // El catálogo devuelve el código como `id`, no el ObjectId de MongoDB.
+    // Buscamos el ObjectId real en el mapa construido del stock del almacén.
+    const codigoKey = material.codigo?.toString().trim().toLowerCase() ?? "";
+    const id =
+      codigoToIdRef.current.get(codigoKey) ||
+      material.id ||
+      material._id ||
+      "";
+    if (!id || materiales.some((m) => m.material_id === id)) return;
 
     const bruto = lookupFromMap(stockMapRef.current, id, material.codigo?.toString());
     const stockActual = bruto !== null
@@ -793,6 +818,7 @@ export function CreateSolicitudMaterialDialog({
         const map = buildStockMap(items);
         setStockMap(map);
         stockMapRef.current = map;
+        codigoToIdRef.current = buildCodigoToIdMap(items);
 
         // Guardar lista raw y construir mapa total
         todasReservasRef.current = todasReservas;
@@ -837,19 +863,11 @@ export function CreateSolicitudMaterialDialog({
   const handleSubmit = async () => {
     if (!selectedAlmacenId) return;
 
+    // Excluir materiales sin id, sin vínculo, entregados o con cantidad 0
     const validMaterials = materiales.filter(
-      (m) => m.material_id && !m.sinVinculo && !m.entregado,
+      (m) => m.material_id && !m.sinVinculo && !m.entregado && m.cantidad > 0,
     );
     if (validMaterials.length === 0) return;
-
-    // Validar que no haya materiales con cantidad 0
-    const materialesConCantidadCero = validMaterials.filter((m) => m.cantidad === 0);
-    if (materialesConCantidadCero.length > 0) {
-      alert(
-        `No se puede ${isEditMode ? "guardar" : "crear"} la solicitud. Hay ${materialesConCantidadCero.length} material(es) con cantidad 0. Por favor, ajuste las cantidades o elimine los materiales no necesarios.`
-      );
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -879,9 +897,6 @@ export function CreateSolicitudMaterialDialog({
         };
         if (clienteId) {
           payload.cliente_id = clienteId;
-        }
-        if (currentTrabajadorId) {
-          payload.trabajador_id = currentTrabajadorId;
         }
         if (normalizedResponsable) {
           payload.responsable_recogida = normalizedResponsable;
@@ -913,10 +928,10 @@ export function CreateSolicitudMaterialDialog({
 
   const hasSinVinculo = materiales.some((m) => m.sinVinculo);
   const validCount = materiales.filter(
-    (m) => m.material_id && !m.sinVinculo && !m.entregado,
+    (m) => m.material_id && !m.sinVinculo && !m.entregado && m.cantidad > 0,
   ).length;
   const canSubmit =
-    selectedAlmacenId && validCount > 0 && !submitting && !hasSinVinculo;
+    selectedAlmacenId && validCount > 0 && !submitting;
 
   const dialogTitle = isEditMode
     ? "Editar Solicitud de Materiales"

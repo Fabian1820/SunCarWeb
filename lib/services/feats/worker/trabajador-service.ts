@@ -50,7 +50,11 @@ export class TrabajadorService {
   }
 
   static async buscarTrabajadores(nombre: string): Promise<ApiTrabajador[]> {
-    return apiRequest<ApiTrabajador[]>(`/trabajadores/buscar?nombre=${encodeURIComponent(nombre)}`)
+    const raw = await apiRequest<any>(`/trabajadores/buscar?nombre=${encodeURIComponent(nombre)}`)
+    if (Array.isArray(raw)) return raw
+    if (Array.isArray(raw?.data)) return raw.data
+    if (Array.isArray(raw?.trabajadores)) return raw.trabajadores
+    return []
   }
 
   static async crearTrabajador(
