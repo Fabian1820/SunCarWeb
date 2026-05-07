@@ -2,6 +2,63 @@
 
 ---
 
+## 📅 7 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Buscador de materiales en solicitudes, fix material_id, renombre de tabs en facturas, averías**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `70972b0` | Ruben0304 | fix: buscador de materiales extra en solicitudes no mostraba resultados |
+| `35a8145` | yany1509 | "solicitudes" — sin descripción |
+| `308a5f1` | yany1509 | "solcitudes corregido" — vago |
+| `fb7b0d8` | Ruben0304 | refactor(facturas): renombrar tabs en cobros clientes |
+| `3fd5b73` | Ruben0304 | fix(solicitudes-materiales): usar `material_id` real al agregar manual |
+| `38559d3` | yany1509 | "averias" — sin descripción |
+| `7b12223` | yany1509 | Merge branch 'main' |
+| `d0d1a5f` | yany1509 | "averias" — sin descripción (11 min después del anterior) |
+| `3b9f8b2` | yany1509 | "jj" — sin descripción |
+
+**Contexto:** Día con dos hilos paralelos: Ruben resolvió bugs concretos y bien documentados en el flujo de solicitudes de materiales; yany1509 trabajó en "solicitudes" y "averías" con una cadena de commits vagos que incluye un merge entre dos commits de la misma área.
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Patrón doble "averias" con merge en medio (yany1509)**
+   - Commits `38559d3` ("averias", 21:05) → `7b12223` (Merge, 21:05) → `d0d1a5f` ("averias", 21:16) → `3b9f8b2` ("jj", 21:21).
+   - Cuatro commits en 16 minutos sobre la misma área con un merge intercalado. Patrón típico de debug en producción o resolución manual de conflictos sin verificación.
+   - El commit `3b9f8b2` ("jj") es el más reciente y el más opaco: no hay forma de saber qué corrige o si introduce regresiones.
+   - **Acción urgente:** Revisar el diff de `3b9f8b2` y `d0d1a5f` manualmente. Probar el módulo de averías end-to-end.
+
+2. **5 commits con mensajes sin valor descriptivo** ("solicitudes", "solcitudes corregido", "averias" ×2, "jj")
+   - El historial de auditoría de los cambios de yany1509 en este día es prácticamente inutilizable sin leer cada diff.
+   - **Acción recomendada:** Establecer convención mínima de mensajes de commit. Un hook de pre-commit que rechace mensajes de menos de 10 caracteres o sin espacio sería suficiente.
+
+#### 🟡 Riesgos medios
+
+3. **Cambio de prioridad en `normalizeSearchMaterial`: `material_id` sobre `id`**
+   - El fix de `3fd5b73` hace que `normalizeSearchMaterial` priorice `material_id` (ObjectId real) en lugar de `id` (código de catálogo). Esto afecta también a `vales-salida`, `salida-lote-form` y `completar-visita-dialog`.
+   - Si alguno de estos consumidores usa el valor devuelto como código de búsqueda textual (no como ObjectId para el backend), el comportamiento habrá cambiado silenciosamente.
+   - **Acción recomendada:** Verificar los 4 componentes afectados: que el valor normalizado se usa correctamente según el tipo de campo esperado por el backend.
+
+4. **Fix del buscador afecta a la función `normalizeSearchMaterial` compartida**
+   - El fix de `70972b0` agrega `modelo`/`descripcion_uso`/`unidad` como fallback. Si otros endpoints que NO son `/productos/materiales` usan la misma función de normalización pero devuelven campos con nombres diferentes, podrían quedar en un estado inconsistente.
+   - **Consideración:** Confirmar que los 4+ componentes que usan `normalizeSearchMaterial` todos consumen el mismo endpoint o estructura de datos.
+
+5. **Renombre de tabs en cobros clientes**
+   - Cambio cosmético de bajo riesgo. Sin embargo, si el nombre de la tab se usa como clave para persistencia de estado (localStorage, query params, etc.), usuarios con estado anterior guardado podrán ver la tab incorrecta seleccionada al volver.
+   - **Consideración:** Verificar que no hay keys de estado vinculadas al nombre antiguo de las tabs.
+
+#### 🟢 Mejoras positivas
+
+6. **Fix buscador de materiales** — `normalizeSearchMaterial` ahora mapea correctamente los campos del endpoint `/productos/materiales` (`modelo`, `descripcion_uso`, `unidad`). Antes todos los resultados retornaban `null`, inutilizando el buscador.
+
+7. **Fix `material_id` en solicitudes manuales** — elimina los errores 400 "material_id debe ser un ObjectId válido" que ocurrían al agregar materiales manualmente. Defensa adicional con validación de formato ObjectId.
+
+---
+
 ## 📅 5 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -38,47 +95,31 @@
    - De `precio * 1.05` (5% fijo) a `(neto + 0.30) / (1 - 0.0325)` (3.25% + $0.30).
    - Archivos afectados: `generar-link` (route), `ofertas`, `ofertas-personalizadas`, `confeccion`, `solicitudes-ventas`.
    - Si alguno de los 5 quedó sin actualizar o con la lógica antigua, habrá inconsistencia de precios cobrados entre módulos.
-   - La fórmula inversa puede generar errores de redondeo de centavos acumulados en transacciones altas.
-   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos y comparar lo que llega neto vs. lo esperado.
+   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos.
 
 2. **Ciclo de 4 fixes consecutivos en el modal Stripe de solicitudes-ventas en menos de 10 minutos**
    - `9c718f9` → `1777296` → `0c0489e` → `f808c2d` (20:46–20:56). Patrón de debug en producción.
-   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal (¿filtra por solicitud o muestra todos?) no quedó clara en los mensajes.
-   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos? Si es por solicitud, el filtrado debe implementarse correctamente en el backend, no en el frontend.
+   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal no quedó clara en los mensajes.
+   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos?
 
 3. **7 commits con mensajes vagos de yany1509** ("terminada", "ajustes" ×3, "listo", "listoooo", "ajustes en solicitudes ventas")
-   - Cambios sin auditoría posible. Se desconoce el alcance real de las modificaciones.
    - **Acción recomendada:** Revisar los diffs de estos commits manualmente antes de considerar estable la rama.
 
 #### 🟡 Riesgos medios
 
 4. **`StripePagosModal` sin filtrado por `solicitud_venta_id`**
    - Se quitó el filtro que "ocultaba todos los pagos". Ahora el modal muestra todos los pagos Stripe del sistema.
-   - En la pestaña de pendientes-pago, hay un "botón por fila" que supuestamente abre el modal filtrado por solicitud (`solicitudId` como prop). Si ese filtrado no está activo en la versión final, el usuario verá pagos de otras solicitudes mezclados.
-   - **Consideración:** Verificar que `StripePagosModal` recibe y aplica correctamente `solicitudId` cuando se abre desde una fila específica.
+   - Verificar que cuando se abre desde una fila específica, `solicitudId` se recibe y aplica correctamente.
 
 5. **Campo `costo_nuevo` propagado automáticamente a precios de catálogo**
-   - `costo_nuevo = CIF × (1 + (%Envío + Δ) / 100)`. Precios venta e instaladora se derivan de él.
-   - Si `Δ` se persiste con un valor incorrecto o se aplica sobre datos ya procesados (double-apply), todos los precios del catálogo afectado quedarán mal.
-   - **Acción recomendada:** Verificar que "Guardar" en la ficha de costo aplica la fórmula una sola vez y que no hay efecto acumulativo al abrir y guardar repetidamente.
-
-6. **Merge commit `ab23452` entre commits de funcionalidad activa**
-   - Merge de `main` realizado mientras se estaban subiendo cambios en cadena. Puede haber mezclado versiones inconsistentes del modal.
-   - **Consideración:** Revisar que el estado final de los archivos de solicitudes-ventas coincide con la última versión esperada.
+   - `costo_nuevo = CIF × (1 + (%Envío + Δ) / 100)`. Si se aplica sobre datos ya procesados (double-apply), todos los precios del catálogo afectado quedarán mal.
+   - **Acción recomendada:** Verificar que "Guardar" aplica la fórmula una sola vez.
 
 #### 🟢 Mejoras positivas
 
-7. **Integración completa de Stripe en solicitudes-ventas**
-   - Generación de links de pago con precio manual, panel de pagos, y consistencia con el flujo de cobros clientes.
-
-8. **Fórmula de comisión más precisa (3.25% + $0.30)**
-   - La fórmula inversa garantiza que el monto neto recibido sea exactamente el precio base configurado, eliminando el error de la estimación fija del 5%.
-
-9. **Botón "Ver Stripe" dentro del modal de pago**
-   - Mejor UX: el acceso a los cobros Stripe está contextualizado dentro del flujo de pago.
-
-10. **`.claude` agregado al `.gitignore`**
-    - Evita que archivos internos de sesión de Claude Code se suban accidentalmente al repo.
+6. Integración completa de Stripe en solicitudes-ventas.
+7. Fórmula de comisión más precisa (3.25% + $0.30).
+8. `.claude` agregado al `.gitignore`.
 
 ---
 
@@ -104,45 +145,27 @@
 #### 🔴 Riesgos altos
 
 1. **Commit `a583f6a` (yany1509) — scope real muy amplio para "ajustes en cliente"**
-   - Toca 9 archivos: `clients-table.tsx` (196 cambios), `facturas-section.tsx` (54 cambios), `asignar-oferta-generica-dialog.tsx` (24 cambios), `clientes/page.tsx`, `leads/page.tsx`, `leads-table.tsx`, `cliente-types.ts`, `lead-types.ts`, y **nuevo archivo** `lib/utils/oferta-confeccion-items.ts` (47 líneas).
+   - Toca 9 archivos: `clients-table.tsx` (196 cambios), `facturas-section.tsx` (54 cambios), y **nuevo archivo** `lib/utils/oferta-confeccion-items.ts` (47 líneas).
    - Total: 259 adiciones / 151 eliminaciones. Cambio masivo con mensaje que no describe el alcance real.
-   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica. Revisar el nuevo utilitario `oferta-confeccion-items.ts` para confirmar que no duplica lógica ni rompe contratos de tipos existentes.
+   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica.
 
 2. **Commit `0a1dab7` (Fabian1820) — "stock ok" reescribe dos diálogos críticos**
    - `create-solicitud-material-dialog.tsx`: 84 adiciones / 64 eliminaciones.
    - `upsert-solicitud-venta-dialog.tsx`: 79 adiciones / 69 eliminaciones.
-   - Ambos son flujos clave del negocio. Sin descripción del cambio, el riesgo no es auditable sin leer el diff completo.
-   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end, incluyendo selección de stock, cantidades y submit.
+   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end.
 
 #### 🟡 Riesgos medios
 
-3. **Nuevo módulo Asignaciones a Empleados**
-   - Módulo CRUD completo nuevo con comboboxes buscables, modales con tabs, y catálogos de medios básicos y herramientas.
-   - Riesgos habituales de módulos nuevos: estados vacíos en comboboxes, validaciones de campos requeridos, endpoints del backend que deben existir en producción.
-   - **Acción recomendada:** Verificar que los endpoints de catálogos (medios básicos, herramientas) y asignaciones están disponibles y desplegados en el backend antes de mostrar el módulo a usuarios.
-
-4. **Fix `periodoRange` usa `.start/.end` en lugar de índices de array**
-   - Corrección necesaria, pero implica que antes se accedía con índices (`[0]`, `[1]`). Si algún consumidor de `periodoRange` fuera del componente central no fue actualizado, fallará silenciosamente devolviendo `undefined` como fecha.
-   - **Consideración:** Buscar en el codebase si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo.
-
-5. **Secuencia de commits iterativos en almacén page (Fabian1820)**
-   - `e70ffa4` ("vhj", 22 cambios) y `99e02ec` ("export stock all ok", 20 cambios) modificaron `app/almacenes/[almacenId]/page.tsx` en commits seguidos. El patrón sugiere desarrollo sin pruebas intermedias.
-   - **Acción recomendada:** Verificar la funcionalidad de exportación de stock y la página de almacén completa en staging.
-
-6. **Nuevo `lib/utils/oferta-confeccion-items.ts` creado por yany1509**
-   - Utilitario de 47 líneas relacionado con ítems de oferta confección, introducido sin mensaje descriptivo.
-   - **Consideración:** Confirmar que no duplica utilidades existentes y que sus tipos son compatibles con los del módulo de confección.
+3. **Nuevo módulo Asignaciones a Empleados** — verificar que los endpoints de catálogos están disponibles en producción.
+4. **Fix `periodoRange` usa `.start/.end`** — buscar si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo.
+5. **Secuencia de commits iterativos en almacén page** — verificar funcionalidad de exportación de stock.
+6. **Nuevo `lib/utils/oferta-confeccion-items.ts`** — confirmar que no duplica utilidades existentes.
 
 #### 🟢 Mejoras positivas
 
-7. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos**
-   - `maxByMode` ahora incluye `trabajos_diarios`, `clientes_trabajados`, `instalaciones_terminadas` y `averias_solucionadas_periodo`. La densidad de colores escala correctamente por modo.
-
-8. **Click handlers en todos los modos de período**
-   - Cada municipio en el mapa llama a `getPeriodoMunicipioDetalle` con las fechas correctas de `periodoRange`. Mejora la interactividad del dashboard.
-
-9. **Módulo Asignaciones a Empleados con comboboxes buscables y modales con tabs**
-   - Funcionalidad nueva completa, bien estructurada para gestión de activos asignados por trabajador.
+7. Centro de Control: cobertura completa de los 4 modos del mapa de períodos.
+8. Click handlers en todos los modos de período.
+9. Módulo Asignaciones a Empleados con comboboxes buscables.
 
 ---
 
@@ -190,12 +213,8 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 
 #### 🟡 Riesgos medios
 
-3. **Triple capa de protección contra valores stale**
-   - `editarDialogKey` fuerza remount completo: puede causar parpadeo en conexiones lentas.
-   - `cache: 'no-store'` agrega un round-trip de red en cada apertura del diálogo de edición.
-
-4. **`PersonalMessageOverlay` en `app/layout.tsx` (todas las páginas)**
-   - Un error de render puede romper el layout completo. Verificar manejo de errores.
+3. **Triple capa de protección contra valores stale** — `editarDialogKey` fuerza remount completo: puede causar parpadeo en conexiones lentas.
+4. **`PersonalMessageOverlay` en `app/layout.tsx`** — un error de render puede romper el layout completo.
 
 #### 🟢 Mejoras positivas
 
@@ -241,69 +260,21 @@ Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit auto
 
 #### 🔴 Riesgos altos
 
-1. **Cambio del tipo de retorno de `getStock` de array plano a `{data, total, skip, limit}`**
-   - Si algún caller se pasó por alto, fallará intentando `.map()` sobre un objeto.
-   - **Acción recomendada:** Probar cada módulo que consume `getStock` explícitamente.
-
-2. **Dos commits de Fabian1820 sin descripción (`hgvhj`, `vhjvhjvhjv`)**
-   - **Acción urgente:** Revisar manualmente esos diffs. Considerar hook de pre-commit.
+1. **Cambio del tipo de retorno de `getStock`** — si algún caller se pasó por alto, fallará intentando `.map()` sobre un objeto.
+2. **Dos commits de Fabian1820 sin descripción** (`hgvhj`, `vhjvhjvhjv`) — revisar manualmente.
 
 #### 🟡 Riesgos medios
 
-3. **Centro de Control conectado a nuevos endpoints** — verificar que todos están desplegados en producción.
-4. **Heatmap con nombres de municipio del backend** — deben coincidir exactamente con el GeoJSON.
-5. **`ESTADO_OFERTA_LABELS` sin fallback** — estados no mapeados aparecerán como `undefined`.
-6. **Overlay de errores 422 asume formato FastAPI** — formatos custom pueden fallar.
-7. **Tabs on-demand en almacenes** — confirmar que el lottie loader aparece correctamente.
+3. Centro de Control conectado a nuevos endpoints — verificar que todos están en producción.
+4. Heatmap con nombres de municipio — deben coincidir exactamente con el GeoJSON.
+5. `ESTADO_OFERTA_LABELS` sin fallback — estados no mapeados aparecerán como `undefined`.
+6. Overlay de errores 422 asume formato FastAPI.
 
 #### 🟢 Mejoras positivas
 
-8. Paginación server-side + imágenes lazy en stock.
-9. Eliminación de llamada de 428KB a `/visitas/` en Centro de Control.
-10. Overlay global de errores 422 no intrusivo.
-11. Ver factura solar carros.
-
----
-
-## 📅 29 de Abril, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Rendimiento, módulo de confección, loader/UI, solicitudes, facturación**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `eb7acfe` | Ruben0304 | perf: equipos de clientes on-demand — elimina espera de 20s |
-| `0b80186` | Ruben0304 | perf: Centro de Control — 1 request en lugar de 15+ (caché 45s) |
-| `8510f48` | Fabian1820 | fix: usa `total_pagado`/`precio_pagado` por ítem para descuentos en ventas |
-| `cfafdf4` | Ruben0304 | fix: importa `DotLottieReact` dinámicamente con `ssr:false` en Loader y PageLoader |
-| `35bb8c8` | Ruben0304 | feat: paginación y filtros backend en módulo de ofertas de confección |
-| `f42bac1` | Ruben0304 | ajustes en loader, page-loader y ofertas confeccionadas; animación solar |
-| `3e45a68` | yany1509 | ajustes en solicitudes |
-| `d168ce0` | yany1509 | ajustes en solicitudes |
-| `707b287` | yany1509 | ajustes |
-| `e199098` | Fabian1820 | conduce y garantía |
-| `2a42154` | Fabian1820 | facturación ventas |
-| *(8 commits)* | Fabian1820 | *(mensajes sin descripción: "mnvhjvjh", "gyjgjghj", "hgbjh", "gfuyguy", "hvjhv", "bkjbjk", "fefew", "fdvfdvb")* |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **8 commits con mensajes completamente sin descripción** (Fabian1820) — imposibles de auditar. Establecer hook de pre-commit.
-2. **Carga on-demand de `equiposParaCard` vía `/equipos-batch`** — verificar que el endpoint existe en producción.
-3. **`ofertasItemsCompleto` carga lazy** — verificar timeout y estado de error visible.
-
-#### 🟡 Riesgos medios
-
-4. **Caché de 45s en Centro de Control** — evaluar si es aceptable para el negocio.
-5. **Fix `total_pagado`/`precio_pagado`** — verificar registros históricos de ventas.
-6. **`DotLottieReact` con `ssr:false`** — flash sin animación en conexiones lentas.
-
-#### 🟢 Mejoras positivas
-
-7. Paginación backend en módulo de confección.
-8. Centro de Control: 1 request en lugar de 15+.
-9. Eliminación de espera de 20s en equipos de clientes.
+7. Paginación server-side + imágenes lazy en stock.
+8. Eliminación de llamada de 428KB a `/visitas/` en Centro de Control.
+9. Overlay global de errores 422 no intrusivo.
+10. Ver factura solar carros.
 
 ---
