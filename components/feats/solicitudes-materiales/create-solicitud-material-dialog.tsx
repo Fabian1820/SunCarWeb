@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAuth } from "@/contexts/auth-context";
 import {
   Dialog,
   DialogContent,
@@ -223,7 +224,10 @@ export function CreateSolicitudMaterialDialog({
   const [fechaRecogida, setFechaRecogida] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+  const [currentTrabajadorId, setCurrentTrabajadorId] = useState<string | null>(null);
   const isEditMode = useMemo(() => Boolean(solicitud?.id), [solicitud?.id]);
+
+  const { user } = useAuth();
 
   // Stock precargado del almacén seleccionado (una sola llamada al backend)
   const [stockMap, setStockMap] = useState<Map<string, number>>(new Map());
@@ -351,6 +355,14 @@ export function CreateSolicitudMaterialDialog({
     setShowMaterialDropdown(false);
     setShowResponsableDropdown(false);
   }, [open, solicitud]);
+
+  // Cargar el trabajador_id del usuario actual para enviarlo al crear solicitudes
+  useEffect(() => {
+    if (!open || !user?.ci) return;
+    TrabajadorService.getTrabajadorByCI(user.ci)
+      .then((t) => setCurrentTrabajadorId(t?.id ?? null))
+      .catch(() => setCurrentTrabajadorId(null));
+  }, [open, user?.ci]);
 
   useEffect(() => {
     if (!clienteSearch.trim() || selectedCliente) {
@@ -867,6 +879,9 @@ export function CreateSolicitudMaterialDialog({
         };
         if (clienteId) {
           payload.cliente_id = clienteId;
+        }
+        if (currentTrabajadorId) {
+          payload.trabajador_id = currentTrabajadorId;
         }
         if (normalizedResponsable) {
           payload.responsable_recogida = normalizedResponsable;
