@@ -6,7 +6,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { DollarSign, Percent, Package, Loader2, Pencil, Hash } from "lucide-react"
+import { DollarSign, Percent, Package, Loader2, Pencil, Hash, Boxes } from "lucide-react"
 import { FichaCostoService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
@@ -28,6 +28,7 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
   const [porcRebajable, setPorcRebajable] = useState<string>("")
   const [costo, setCosto] = useState<string>("")
   const [numeroSerie, setNumeroSerie] = useState<string>("")
+  const [stockajeMinimo, setStockajeMinimo] = useState<string>("")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -37,6 +38,9 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
       setPorcRebajable(toInputValue(material.porciento_rebajable_venta))
       setCosto(toInputValue(material.costo))
       setNumeroSerie(typeof material.numero_serie === "string" ? material.numero_serie : "")
+      setStockajeMinimo(
+        typeof material.stockaje_minimo === "number" ? String(material.stockaje_minimo) : ""
+      )
     }
   }, [open, material])
 
@@ -74,7 +78,14 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
     }
 
     // Solo enviar campos modificados respecto al material original
-    const cleaned: { precio?: number; precio_instaladora?: number; porciento_rebajable_venta?: number; costo?: number; numero_serie?: string | null } = {}
+    const cleaned: {
+      precio?: number
+      precio_instaladora?: number
+      porciento_rebajable_venta?: number
+      costo?: number
+      numero_serie?: string | null
+      stockaje_minimo?: number | null
+    } = {}
     if (payload.precio !== undefined && payload.precio !== material.precio) cleaned.precio = payload.precio
     if (payload.precio_instaladora !== undefined && payload.precio_instaladora !== material.precio_instaladora)
       cleaned.precio_instaladora = payload.precio_instaladora
@@ -88,6 +99,17 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
       ? material.numero_serie
       : null
     if (nuevoSerie !== serieOriginal) cleaned.numero_serie = nuevoSerie
+
+    const trimmedStock = stockajeMinimo.trim()
+    let nuevoStock: number | null
+    if (trimmedStock === "") {
+      nuevoStock = null
+    } else {
+      const parsed = parseInt(trimmedStock, 10)
+      nuevoStock = Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+    }
+    const stockOriginal = typeof material.stockaje_minimo === "number" ? material.stockaje_minimo : null
+    if (nuevoStock !== stockOriginal) cleaned.stockaje_minimo = nuevoStock
 
     if (Object.keys(cleaned).length === 0) {
       toast({ title: "Sin cambios", description: "No hay valores modificados." })
@@ -243,6 +265,23 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
                   onChange={(e) => setNumeroSerie(e.target.value)}
                   className="pl-7 h-9 text-sm"
                   placeholder="Vacío para limpiar"
+                />
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <Label htmlFor="ep-stockaje-minimo" className="text-xs text-gray-700">Stockaje mínimo</Label>
+              <div className="relative mt-1">
+                <Boxes className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Input
+                  id="ep-stockaje-minimo"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={stockajeMinimo}
+                  onChange={(e) => setStockajeMinimo(e.target.value)}
+                  className="pl-7 h-9 text-sm"
+                  placeholder="Cantidad mínima requerida en almacenes"
                 />
               </div>
             </div>

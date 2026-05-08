@@ -31,6 +31,7 @@ import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialo
 import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
 import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
 import { EditarPreciosDialog } from "@/components/feats/fichas-costo/editar-precios-dialog"
+import { StockajesMinimosSection } from "@/components/feats/fichas-costo/stockajes-minimos-section"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import type {
@@ -119,7 +120,14 @@ function FichasCostoPageContent() {
       const codigo = String(r.codigo || "").toLowerCase()
       const categoria = (r.categoria || "").toLowerCase()
       const marca = (r.marca || "").toLowerCase()
-      return nombre.includes(q) || codigo.includes(q) || categoria.includes(q) || marca.includes(q)
+      const serie = typeof r.numero_serie === "string" ? r.numero_serie.toLowerCase() : ""
+      return (
+        nombre.includes(q) ||
+        codigo.includes(q) ||
+        categoria.includes(q) ||
+        marca.includes(q) ||
+        (!!serie && serie.includes(q))
+      )
     })
   }, [resumenOrdenado, busqueda])
 
@@ -254,6 +262,8 @@ function FichasCostoPageContent() {
           </Card>
         )}
 
+        <StockajesMinimosSection materiales={resumen} />
+
         <Card className="border-l-4 border-l-teal-600">
           <CardContent className="p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-gray-100">
@@ -268,7 +278,7 @@ function FichasCostoPageContent() {
                 <Input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar por nombre, código..."
+                  placeholder="Buscar por nombre, código, número de serie..."
                   className="pl-9 h-9 text-sm"
                 />
               </div>
@@ -299,6 +309,7 @@ function FichasCostoPageContent() {
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio Venta</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">P. Instaladora</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">% Rebajable</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Stock Mín</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Ficha</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Última ficha</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Acciones</th>
@@ -412,6 +423,12 @@ function FichasCostoPageContent() {
                           <td className="py-2.5 px-3">
                             <span className="font-medium text-gray-900 text-xs">
                               {row.porciento_rebajable_venta != null ? `${row.porciento_rebajable_venta}%` : "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <span className="font-medium text-gray-900 text-xs">
+                              {row.stockaje_minimo != null ? row.stockaje_minimo : "N/A"}
                             </span>
                           </td>
 

@@ -188,6 +188,7 @@ export class FichaCostoService {
               porciento_rebajable_venta: typeof m.porciento_rebajable_venta === 'number' ? m.porciento_rebajable_venta : undefined,
               costo: typeof m.costo === 'number' ? m.costo : undefined,
               numero_serie: typeof m.numero_serie === 'string' ? m.numero_serie : null,
+              stockaje_minimo: typeof m.stockaje_minimo === 'number' ? m.stockaje_minimo : null,
               foto: m.foto || m.imagen || (Array.isArray(m.fotos) ? m.fotos[0] : undefined),
               potenciaKW: m.potenciaKW,
             }
@@ -244,6 +245,7 @@ export class FichaCostoService {
     if (typeof payload.porciento_rebajable_venta === 'number') body.porciento_rebajable_venta = payload.porciento_rebajable_venta
     if (typeof payload.costo === 'number') body.costo = payload.costo
     if (payload.numero_serie !== undefined) body.numero_serie = payload.numero_serie
+    if (payload.stockaje_minimo !== undefined) body.stockaje_minimo = payload.stockaje_minimo
 
     if (Object.keys(body).length === 0) return true
 

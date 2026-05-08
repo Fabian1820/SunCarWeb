@@ -106,6 +106,7 @@ export interface MaterialFichaResumen {
   porciento_rebajable_venta?: number
   costo?: number
   numero_serie?: string | null
+  stockaje_minimo?: number | null
   foto?: string
   potenciaKW?: number
   ficha_activa: FichaResumen | null
@@ -118,6 +119,7 @@ export interface EditarPreciosCostoPayload {
   porciento_rebajable_venta?: number
   costo?: number
   numero_serie?: string | null
+  stockaje_minimo?: number | null
 }
 
 // Material del catálogo web (para selector)
