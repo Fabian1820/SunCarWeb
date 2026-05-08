@@ -58,6 +58,7 @@ export function UpsertClienteVentaDialog({
   const [ci, setCi] = useState("");
   const [provincia, setProvincia] = useState("");
   const [municipio, setMunicipio] = useState("");
+  const [comercial, setComercial] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [provincias, setProvincias] = useState<Provincia[]>([]);
@@ -65,6 +66,9 @@ export function UpsertClienteVentaDialog({
   const [loadingProvincias, setLoadingProvincias] = useState(false);
   const [loadingMunicipios, setLoadingMunicipios] = useState(false);
   const [selectedProvinciaCodigo, setSelectedProvinciaCodigo] = useState("");
+
+  const [comerciales, setComerciales] = useState<{ CI: string; nombre: string }[]>([]);
+  const [loadingComerciales, setLoadingComerciales] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -74,6 +78,7 @@ export function UpsertClienteVentaDialog({
     setCi(cliente?.ci || "");
     setProvincia(cliente?.provincia || "");
     setMunicipio(cliente?.municipio || "");
+    setComercial(cliente?.comercial || "");
     setSelectedProvinciaCodigo("");
   }, [open, cliente]);
 
@@ -87,6 +92,21 @@ export function UpsertClienteVentaDialog({
       })
       .catch(() => {})
       .finally(() => setLoadingProvincias(false));
+  }, [open]);
+
+  // Cargar trabajadores con cargo Comercial Ventas
+  useEffect(() => {
+    if (!open) return;
+    setLoadingComerciales(true);
+    apiRequest<{ data: { CI: string; nombre: string; cargo?: string }[] }>("/trabajadores/")
+      .then((res) => {
+        const lista = (res.data || []).filter(
+          (t) => t.cargo === "Comercial Ventas",
+        );
+        setComerciales(lista);
+      })
+      .catch(() => setComerciales([]))
+      .finally(() => setLoadingComerciales(false));
   }, [open]);
 
   // Cuando se carga la lista de provincias y hay una provincia guardada, buscar su código
@@ -138,8 +158,10 @@ export function UpsertClienteVentaDialog({
       ci: ci.trim() || undefined,
       provincia: provincia.trim() || undefined,
       municipio: municipio.trim() || undefined,
+      comercial: comercial && comercial !== "sin-asignar" ? comercial.trim() : null,
     };
 
+    console.log("🧾 [UpsertClienteVenta] payload a enviar:", JSON.stringify(payload, null, 2));
     setSubmitting(true);
     try {
       await onSubmit(payload);
@@ -260,6 +282,32 @@ export function UpsertClienteVentaDialog({
                 maxLength={40}
               />
             </div>
+          </div>
+
+          {/* Comercial */}
+          <div className="space-y-2">
+            <Label htmlFor="cliente-venta-comercial">Comercial</Label>
+            <Select
+              value={comercial}
+              onValueChange={setComercial}
+              disabled={loadingComerciales}
+            >
+              <SelectTrigger id="cliente-venta-comercial">
+                <SelectValue
+                  placeholder={
+                    loadingComerciales ? "Cargando..." : "Seleccionar comercial"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px] overflow-y-auto">
+                <SelectItem value="sin-asignar">Sin asignar</SelectItem>
+                {comerciales.map((c) => (
+                  <SelectItem key={c.CI} value={c.nombre}>
+                    {c.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex justify-end gap-3 pt-2 border-t mt-6">

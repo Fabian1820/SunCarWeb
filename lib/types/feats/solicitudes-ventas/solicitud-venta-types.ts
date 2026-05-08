@@ -141,6 +141,8 @@ export interface MaterialVentaWeb {
   precio?: number;
   habilitar_venta_web?: boolean;
   categoria?: string;
+  /** Máximo porcentaje de descuento permitido para este material (0-100) */
+  porciento_rebajable_venta?: number;
 }
 
 // ========================================

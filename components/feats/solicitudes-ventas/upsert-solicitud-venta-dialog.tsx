@@ -33,10 +33,13 @@ import {
   Warehouse,
   User,
   AlertTriangle,
+  ShoppingCart,
+  DollarSign,
 } from "lucide-react";
 import {
   ClienteVentaService,
   InventarioService,
+  OfertaVentaService,
   ReservaVentaService,
   SolicitudVentaService,
 } from "@/lib/api-services";
@@ -44,6 +47,7 @@ import type {
   Almacen,
   ClienteVenta,
   MaterialVentaWeb,
+  OfertaVenta,
   Reserva,
   SolicitudVenta,
   SolicitudVentaCreateData,
@@ -68,6 +72,8 @@ interface MaterialRow {
   stock_suficiente: boolean;
   stock_despues: number | null;
   faltante: number;
+  /** Máximo % de descuento permitido para este material. undefined = sin límite */
+  max_descuento?: number;
 }
 
 interface UpsertSolicitudVentaDialogProps {
@@ -175,6 +181,12 @@ export function UpsertSolicitudVentaDialog({
   const [reservasActivas, setReservasActivas] = useState<Reserva[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
   const [reservaAplicada, setReservaAplicada] = useState<Reserva | null>(null);
+
+  // Oferta shortcut
+  const [showOfertaPanel, setShowOfertaPanel] = useState(false);
+  const [ofertasDisponibles, setOfertasDisponibles] = useState<OfertaVenta[]>([]);
+  const [loadingOfertas, setLoadingOfertas] = useState(false);
+  const [ofertaAplicada, setOfertaAplicada] = useState<OfertaVenta | null>(null);
 
   const isEdit = Boolean(solicitud?.id);
 
@@ -363,7 +375,9 @@ export function UpsertSolicitudVentaDialog({
   );
 
   const hasDiscountError = useMemo(
-    () => materialRows.some((m) => m.descuento_porcentaje > 5),
+    () => materialRows.some(
+      (m) => m.max_descuento !== undefined && m.descuento_porcentaje > m.max_descuento,
+    ),
     [materialRows],
   );
 
@@ -495,6 +509,9 @@ export function UpsertSolicitudVentaDialog({
               stock_suficiente: stockState.stock_suficiente,
               stock_despues: stockState.stock_despues,
               faltante: stockState.faltante,
+              max_descuento: typeof material.porciento_rebajable_venta === "number"
+                ? material.porciento_rebajable_venta
+                : undefined,
             },
           ],
     );
@@ -520,13 +537,18 @@ export function UpsertSolicitudVentaDialog({
       prev.map((item, rowIndex) => {
         if (rowIndex !== index) return item;
         const raw = Number(value);
-        const descuento_porcentaje =
-          Number.isFinite(raw) && raw >= 0
-            ? item.descuento_tipo === "$"
-              ? item.precio > 0 ? (raw / item.precio) * 100 : 0
-              : raw
-            : item.descuento_porcentaje;
-        return { ...item, descuento_display: value, descuento_porcentaje };
+        if (!Number.isFinite(raw) || raw < 0) return { ...item, descuento_display: value };
+        const pct = item.descuento_tipo === "$"
+          ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
+          : raw;
+        const maxPct = item.max_descuento ?? 100;
+        const descuento_porcentaje = Math.min(pct, maxPct);
+        const displayFinal = pct > maxPct
+          ? (item.descuento_tipo === "$"
+              ? (item.precio * maxPct / 100).toFixed(2)
+              : String(maxPct))
+          : value;
+        return { ...item, descuento_display: displayFinal, descuento_porcentaje };
       }),
     );
   };
@@ -629,7 +651,29 @@ export function UpsertSolicitudVentaDialog({
         estado: "activa",
         limit: 50,
       });
-      setReservasActivas(data);
+
+      // Enriquecer nombres de clientes que vengan vacíos del backend
+      const sinNombre = data.filter((r) => !r.cliente_nombre);
+      if (sinNombre.length > 0) {
+        const uniqueIds = [...new Set(sinNombre.map((r) => r.cliente_id))];
+        const fetched = await Promise.allSettled(
+          uniqueIds.map((id) => ClienteVentaService.getClienteById(id)),
+        );
+        const nombreMap = new Map<string, string>();
+        fetched.forEach((r, i) => {
+          if (r.status === "fulfilled" && r.value?.nombre) {
+            nombreMap.set(uniqueIds[i], r.value.nombre);
+          }
+        });
+        setReservasActivas(
+          data.map((r) => ({
+            ...r,
+            cliente_nombre: r.cliente_nombre || nombreMap.get(r.cliente_id) || r.cliente_id,
+          })),
+        );
+      } else {
+        setReservasActivas(data);
+      }
     } catch {
       setReservasActivas([]);
     } finally {
@@ -637,14 +681,20 @@ export function UpsertSolicitudVentaDialog({
     }
   };
 
-  const applyReserva = (reserva: Reserva) => {
-    // Pre-fill cliente (minimal object, sufficient for the form payload)
-    const cliente: ClienteVenta = {
+  const applyReserva = async (reserva: Reserva) => {
+    // Si el nombre ya fue enriquecido en el panel úsalo; si no, fetchear ahora
+    let clienteObj: ClienteVenta = {
       id: reserva.cliente_id,
       nombre: reserva.cliente_nombre || reserva.cliente_id,
     };
-    setSelectedClienteVenta(cliente);
-    setClienteSearch(reserva.cliente_nombre || reserva.cliente_id);
+    if (!reserva.cliente_nombre) {
+      try {
+        const real = await ClienteVentaService.getClienteById(reserva.cliente_id);
+        if (real?.nombre) clienteObj = real;
+      } catch { /**/ }
+    }
+    setSelectedClienteVenta(clienteObj);
+    setClienteSearch(formatClienteLabel(clienteObj));
     setClienteSearchResults([]);
     setShowClienteDropdown(false);
 
@@ -686,7 +736,109 @@ export function UpsertSolicitudVentaDialog({
     );
 
     setReservaAplicada(reserva);
+    setOfertaAplicada(null);
     setShowReservaPanel(false);
+  };
+
+  const handleToggleOfertaPanel = async () => {
+    if (showOfertaPanel) {
+      setShowOfertaPanel(false);
+      return;
+    }
+    setShowOfertaPanel(true);
+    if (ofertasDisponibles.length > 0) return; // ya cargadas
+    setLoadingOfertas(true);
+    try {
+      const data = await OfertaVentaService.getOfertas({ limit: 100 });
+      const filtered = data.filter((o) => o.estado !== "cancelada");
+
+      // Enriquecer nombres de clientes que vengan vacíos del backend
+      const sinNombre = filtered.filter((o) => !o.cliente_nombre);
+      if (sinNombre.length > 0) {
+        const uniqueIds = [...new Set(sinNombre.map((o) => o.cliente_venta_id))];
+        const fetched = await Promise.allSettled(
+          uniqueIds.map((id) => ClienteVentaService.getClienteById(id)),
+        );
+        const nombreMap = new Map<string, string>();
+        fetched.forEach((r, i) => {
+          if (r.status === "fulfilled" && r.value?.nombre) {
+            nombreMap.set(uniqueIds[i], r.value.nombre);
+          }
+        });
+        setOfertasDisponibles(
+          filtered.map((o) => ({
+            ...o,
+            cliente_nombre: o.cliente_nombre || nombreMap.get(o.cliente_venta_id) || o.cliente_venta_id,
+          })),
+        );
+      } else {
+        setOfertasDisponibles(filtered);
+      }
+    } catch {
+      setOfertasDisponibles([]);
+    } finally {
+      setLoadingOfertas(false);
+    }
+  };
+
+  const applyOferta = async (oferta: OfertaVenta) => {
+    // Si el nombre ya fue enriquecido en el panel úsalo; si no, fetchear ahora
+    let clienteObj: ClienteVenta = {
+      id: oferta.cliente_venta_id,
+      nombre: oferta.cliente_nombre || oferta.cliente_venta_id,
+    };
+    if (!oferta.cliente_nombre) {
+      try {
+        const real = await ClienteVentaService.getClienteById(oferta.cliente_venta_id);
+        if (real?.nombre) clienteObj = real;
+      } catch { /**/ }
+    }
+    setSelectedClienteVenta(clienteObj);
+    setClienteSearch(formatClienteLabel(clienteObj));
+    setClienteSearchResults([]);
+    setShowClienteDropdown(false);
+
+    // Pre-fill almacen
+    if (oferta.almacen_id) setSelectedAlmacenId(oferta.almacen_id);
+
+    // Pre-fill materiales con precio y descuento de la oferta
+    const baseRows: MaterialRow[] = oferta.materiales
+      .filter((m) => m.material_id)
+      .map((m) => {
+        const cat = materialesVendibles.find((mv) => mv.id === m.material_id);
+        const descuento = m.descuento_porcentaje ?? 0;
+        return {
+          material_id: m.material_id,
+          cantidad: m.cantidad,
+          precio: m.precio,              // precio pactado en la oferta
+          descuento_porcentaje: descuento,
+          descuento_tipo: "%" as const,
+          descuento_display: String(descuento),
+          codigo: m.codigo ?? cat?.codigo ?? "",
+          nombre: m.descripcion ?? cat?.nombre ?? m.codigo ?? m.material_id,
+          descripcion: m.descripcion ?? cat?.descripcion,
+          um: m.um ?? cat?.um,
+          foto: m.foto_url ?? cat?.foto,
+          stock_actual: null,
+          alerta_stock: false,
+          stock_suficiente: true,
+          stock_despues: null,
+          faltante: 0,
+        };
+      });
+
+    // Aplicar stock desde el mapa ya cargado (sin llamadas extra al backend)
+    const map = stockMapRef.current;
+    setMaterialRows(
+      baseRows.map((r) => {
+        const stockActual = lookupFromMapV(map, r.material_id, r.codigo);
+        return { ...r, stock_actual: stockActual, ...calculateStockAlertV(r.cantidad, stockActual) };
+      }),
+    );
+
+    setOfertaAplicada(oferta);
+    setReservaAplicada(null);
+    setShowOfertaPanel(false);
   };
 
   const handleSubmit = async () => {
@@ -864,6 +1016,114 @@ export function UpsertSolicitudVentaDialog({
                     type="button"
                     onClick={() => setReservaAplicada(null)}
                     className="ml-3 hover:text-indigo-900 shrink-0"
+                    title="Quitar indicador"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : null}
+
+              {/* ── Panel oferta de venta ─────────────────────────── */}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+                onClick={handleToggleOfertaPanel}
+              >
+                <span className="flex items-center gap-2">
+                  <ShoppingCart className="h-4 w-4" />
+                  Cargar desde oferta de venta
+                  {ofertaAplicada && (
+                    <Badge className="bg-orange-100 text-orange-700 border-orange-200 font-normal">
+                      {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
+                    </Badge>
+                  )}
+                </span>
+                {showOfertaPanel ? (
+                  <ChevronUp className="h-4 w-4 opacity-60" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 opacity-60" />
+                )}
+              </Button>
+
+              {showOfertaPanel ? (
+                <div className="border border-orange-100 rounded-md bg-orange-50/40 overflow-hidden">
+                  {loadingOfertas ? (
+                    <div className="flex items-center gap-2 p-4 text-sm text-gray-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cargando ofertas...
+                    </div>
+                  ) : ofertasDisponibles.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center p-4">
+                      No hay ofertas de venta disponibles.
+                    </p>
+                  ) : (
+                    <div className="divide-y divide-orange-100 max-h-64 overflow-y-auto">
+                      {ofertasDisponibles.map((oferta) => {
+                        const ESTADO_COLOR: Record<string, string> = {
+                          enviada:   "bg-blue-50 text-blue-700 border-blue-200",
+                          confirmada:"bg-green-50 text-green-700 border-green-200",
+                          pagada:    "bg-emerald-50 text-emerald-700 border-emerald-200",
+                        };
+                        const ESTADO_LABEL: Record<string, string> = {
+                          enviada: "Enviada", confirmada: "Confirmada", pagada: "Pagada",
+                        };
+                        return (
+                          <button
+                            key={oferta.id}
+                            type="button"
+                            onClick={() => applyOferta(oferta)}
+                            className="w-full text-left px-4 py-3 hover:bg-orange-100/60 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-orange-800 font-mono">
+                                  {oferta.codigo || oferta.id.slice(-8).toUpperCase()}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                  <span className="flex items-center gap-1 text-xs text-gray-600">
+                                    <User className="h-3 w-3" />
+                                    {oferta.cliente_nombre || oferta.cliente_venta_id.slice(-6)}
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs text-gray-600">
+                                    <Package className="h-3 w-3" />
+                                    {oferta.materiales.length} material{oferta.materiales.length !== 1 ? "es" : ""}
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs font-medium text-gray-700">
+                                    <DollarSign className="h-3 w-3" />
+                                    {oferta.precio_total.toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                                    {oferta.moneda_pago ? ` ${oferta.moneda_pago}` : ""}
+                                  </span>
+                                </div>
+                              </div>
+                              <Badge
+                                variant="outline"
+                                className={`shrink-0 text-xs ${ESTADO_COLOR[oferta.estado] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}
+                              >
+                                {ESTADO_LABEL[oferta.estado] ?? oferta.estado}
+                              </Badge>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+
+              {ofertaAplicada ? (
+                <div className="flex items-center justify-between rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-700">
+                  <span>
+                    Materiales cargados desde oferta{" "}
+                    <span className="font-mono font-semibold">
+                      {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
+                    </span>
+                    . Precios y descuentos incluidos.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOfertaAplicada(null)}
+                    className="ml-3 hover:text-orange-900 shrink-0"
                     title="Quitar indicador"
                   >
                     <X className="h-3 w-3" />
@@ -1100,7 +1360,9 @@ export function UpsertSolicitudVentaDialog({
                     {materialRows.map((material, index) => {
                       const precioUnit = material.precio;
                       const descPct = material.descuento_porcentaje;
-                      const precioConDesc = precioUnit * (1 - descPct / 100);
+                      const maxDescPct = material.max_descuento ?? 100;
+                      const descuentoExcedido = descPct > maxDescPct;
+                      const precioConDesc = precioUnit * (1 - Math.min(descPct, maxDescPct) / 100);
                       const precioTotal = precioConDesc * material.cantidad;
 
                       return (
@@ -1182,13 +1444,23 @@ export function UpsertSolicitudVentaDialog({
                                 step={material.descuento_tipo === "$" ? "0.01" : "0.5"}
                                 value={material.descuento_display}
                                 onChange={(e) => handleDescuentoChange(index, e.target.value)}
-                                className={`h-8 text-right w-full ${descPct > 5 ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                                className={`h-8 text-right w-full ${descuentoExcedido ? "border-red-400 focus-visible:ring-red-400" : ""}`}
                               />
-                              {descPct > 0 && (
-                                <p className={`text-xs mt-0.5 text-right leading-tight ${descPct > 5 ? "text-red-600 font-semibold" : "text-orange-500"}`}>
+                              {material.max_descuento !== undefined && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-gray-400">
+                                  máx {material.max_descuento}%
+                                </p>
+                              )}
+                              {descPct > 0 && !descuentoExcedido && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-orange-500">
                                   {material.descuento_tipo === "$"
-                                    ? `= ${descPct.toFixed(1)}%${descPct > 5 ? " · máx. 5%" : ""}`
-                                    : `= $${(precioUnit * descPct / 100).toFixed(2)}${descPct > 5 ? " · máx. 5%" : ""}`}
+                                    ? `= ${descPct.toFixed(1)}%`
+                                    : `= $${(precioUnit * descPct / 100).toFixed(2)}`}
+                                </p>
+                              )}
+                              {descuentoExcedido && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-red-600 font-semibold">
+                                  máx {maxDescPct}%
                                 </p>
                               )}
                             </div>

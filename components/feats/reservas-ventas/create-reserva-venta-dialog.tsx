@@ -20,10 +20,14 @@ import {
 import { Badge } from "@/components/shared/atom/badge";
 import {
   BookmarkCheck,
+  ChevronDown,
+  ChevronUp,
+  DollarSign,
   Loader2,
   Package,
   Plus,
   Search,
+  ShoppingCart,
   Trash2,
   User,
   Warehouse,
@@ -32,12 +36,14 @@ import {
 import {
   ClienteVentaService,
   InventarioService,
+  OfertaVentaService,
   SolicitudVentaService,
 } from "@/lib/api-services";
 import type {
   Almacen,
   ClienteVenta,
   MaterialVentaWeb,
+  OfertaVenta,
   Reserva,
   ReservaCreateData,
 } from "@/lib/api-types";
@@ -90,6 +96,12 @@ export function CreateReservaVentaDialog({
   // Fecha expiración
   const [fechaExpiracion, setFechaExpiracion] = useState("");
 
+  // Oferta shortcut
+  const [showOfertaPanel, setShowOfertaPanel] = useState(false);
+  const [ofertasDisponibles, setOfertasDisponibles] = useState<OfertaVenta[]>([]);
+  const [loadingOfertas, setLoadingOfertas] = useState(false);
+  const [ofertaAplicada, setOfertaAplicada] = useState<OfertaVenta | null>(null);
+
   // Errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -121,6 +133,9 @@ export function CreateReservaVentaDialog({
       setFechaExpiracion("");
       setErrors({});
       setShowMaterialSearch(false);
+      setShowOfertaPanel(false);
+      setOfertasDisponibles([]);
+      setOfertaAplicada(null);
     }
   }, [open]);
 
@@ -189,6 +204,81 @@ export function CreateReservaVentaDialog({
           : r,
       ),
     );
+  };
+
+  const handleToggleOfertaPanel = async () => {
+    if (showOfertaPanel) { setShowOfertaPanel(false); return; }
+    setShowOfertaPanel(true);
+    if (ofertasDisponibles.length > 0) return;
+    setLoadingOfertas(true);
+    try {
+      const data = await OfertaVentaService.getOfertas({ limit: 100 });
+      const filtered = data.filter((o) => o.estado !== "cancelada");
+
+      // Enriquecer nombres de clientes vacíos
+      const sinNombre = filtered.filter((o) => !o.cliente_nombre);
+      if (sinNombre.length > 0) {
+        const uniqueIds = [...new Set(sinNombre.map((o) => o.cliente_venta_id))];
+        const fetched = await Promise.allSettled(
+          uniqueIds.map((id) => ClienteVentaService.getClienteById(id)),
+        );
+        const nombreMap = new Map<string, string>();
+        fetched.forEach((r, i) => {
+          if (r.status === "fulfilled" && r.value?.nombre) nombreMap.set(uniqueIds[i], r.value.nombre);
+        });
+        setOfertasDisponibles(
+          filtered.map((o) => ({
+            ...o,
+            cliente_nombre: o.cliente_nombre || nombreMap.get(o.cliente_venta_id) || o.cliente_venta_id,
+          })),
+        );
+      } else {
+        setOfertasDisponibles(filtered);
+      }
+    } catch {
+      setOfertasDisponibles([]);
+    } finally {
+      setLoadingOfertas(false);
+    }
+  };
+
+  const applyOferta = async (oferta: OfertaVenta) => {
+    // Resolver nombre del cliente
+    let clienteObj: ClienteVenta = {
+      id: oferta.cliente_venta_id,
+      nombre: oferta.cliente_nombre || oferta.cliente_venta_id,
+    };
+    if (!oferta.cliente_nombre) {
+      try {
+        const real = await ClienteVentaService.getClienteById(oferta.cliente_venta_id);
+        if (real?.nombre) clienteObj = real;
+      } catch { /**/ }
+    }
+    setSelectedCliente(clienteObj);
+    setClienteSearch("");
+    setClienteResults([]);
+
+    // Pre-fill almacén
+    if (oferta.almacen_id) setSelectedAlmacenId(oferta.almacen_id);
+
+    // Pre-fill materiales cruzando con el catálogo para nombre/um
+    const rows: MaterialRow[] = oferta.materiales
+      .filter((m) => m.material_id)
+      .map((m) => {
+        const cat = materialesWeb.find((mv) => mv.id === m.material_id);
+        return {
+          material_id: m.material_id,
+          cantidad_reservada: m.cantidad,
+          cantidad_consumida: 0,
+          codigo: m.codigo ?? cat?.codigo ?? "",
+          nombre: m.descripcion ?? cat?.nombre ?? m.codigo ?? m.material_id,
+          um: m.um ?? cat?.um,
+        };
+      });
+    setMaterialRows(rows);
+    setOfertaAplicada(oferta);
+    setShowOfertaPanel(false);
+    setErrors({});
   };
 
   const validate = (): boolean => {
@@ -268,6 +358,113 @@ export function CreateReservaVentaDialog({
             )}
             {errors.almacen && (
               <p className="text-xs text-red-500">{errors.almacen}</p>
+            )}
+          </div>
+
+          {/* Oferta shortcut */}
+          <div className="space-y-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-between border-orange-200 text-orange-700 hover:bg-orange-50 hover:border-orange-300"
+              onClick={handleToggleOfertaPanel}
+            >
+              <span className="flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                Cargar desde oferta de venta
+                {ofertaAplicada && (
+                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 font-normal">
+                    {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
+                  </Badge>
+                )}
+              </span>
+              {showOfertaPanel
+                ? <ChevronUp className="h-4 w-4 opacity-60" />
+                : <ChevronDown className="h-4 w-4 opacity-60" />}
+            </Button>
+
+            {showOfertaPanel && (
+              <div className="border border-orange-100 rounded-md bg-orange-50/40 overflow-hidden">
+                {loadingOfertas ? (
+                  <div className="flex items-center gap-2 p-4 text-sm text-gray-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando ofertas...
+                  </div>
+                ) : ofertasDisponibles.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center p-4">
+                    No hay ofertas de venta disponibles.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-orange-100 max-h-60 overflow-y-auto">
+                    {ofertasDisponibles.map((oferta) => {
+                      const ESTADO_COLOR: Record<string, string> = {
+                        enviada:   "bg-blue-50 text-blue-700 border-blue-200",
+                        confirmada:"bg-green-50 text-green-700 border-green-200",
+                        pagada:    "bg-emerald-50 text-emerald-700 border-emerald-200",
+                      };
+                      const ESTADO_LABEL: Record<string, string> = {
+                        enviada: "Enviada", confirmada: "Confirmada", pagada: "Pagada",
+                      };
+                      return (
+                        <button
+                          key={oferta.id}
+                          type="button"
+                          onClick={() => applyOferta(oferta)}
+                          className="w-full text-left px-4 py-3 hover:bg-orange-100/60 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-orange-800 font-mono">
+                                {oferta.codigo || oferta.id.slice(-8).toUpperCase()}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                                <span className="flex items-center gap-1 text-xs text-gray-600">
+                                  <User className="h-3 w-3" />
+                                  {oferta.cliente_nombre || oferta.cliente_venta_id.slice(-6)}
+                                </span>
+                                <span className="flex items-center gap-1 text-xs text-gray-600">
+                                  <Package className="h-3 w-3" />
+                                  {oferta.materiales.length} material{oferta.materiales.length !== 1 ? "es" : ""}
+                                </span>
+                                <span className="flex items-center gap-1 text-xs font-medium text-gray-700">
+                                  <DollarSign className="h-3 w-3" />
+                                  {oferta.precio_total.toLocaleString("es-ES", { minimumFractionDigits: 2 })}
+                                  {oferta.moneda_pago ? ` ${oferta.moneda_pago}` : ""}
+                                </span>
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={`shrink-0 text-xs ${ESTADO_COLOR[oferta.estado] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}
+                            >
+                              {ESTADO_LABEL[oferta.estado] ?? oferta.estado}
+                            </Badge>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {ofertaAplicada && (
+              <div className="flex items-center justify-between rounded-md bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-700">
+                <span>
+                  Materiales cargados desde oferta{" "}
+                  <span className="font-mono font-semibold">
+                    {ofertaAplicada.codigo || ofertaAplicada.id.slice(-8).toUpperCase()}
+                  </span>
+                  . Puedes editar antes de crear.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setOfertaAplicada(null)}
+                  className="ml-3 hover:text-orange-900 shrink-0"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
             )}
           </div>
 

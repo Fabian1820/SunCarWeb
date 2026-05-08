@@ -17,6 +17,8 @@ interface UseClientesVentasReturn {
   setFilterProvincia: (v: string) => void;
   filterMunicipio: string;
   setFilterMunicipio: (v: string) => void;
+  filterComercial: string;
+  setFilterComercial: (v: string) => void;
   loadClientes: () => Promise<void>;
   createCliente: (data: ClienteVentaCreateData) => Promise<ClienteVenta>;
   updateCliente: (
@@ -42,6 +44,7 @@ export function useClientesVentas(): UseClientesVentasReturn {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterProvincia, setFilterProvincia] = useState("");
   const [filterMunicipio, setFilterMunicipio] = useState("");
+  const [filterComercial, setFilterComercial] = useState("");
 
   const loadClientes = useCallback(async () => {
     setLoading(true);
@@ -95,8 +98,18 @@ export function useClientesVentas(): UseClientesVentasReturn {
       );
     }
 
+    if (filterComercial) {
+      if (filterComercial === "__sin_asignar__") {
+        result = result.filter((c) => !c.comercial);
+      } else {
+        result = result.filter(
+          (c) => normalizeText(c.comercial) === normalizeText(filterComercial),
+        );
+      }
+    }
+
     return result;
-  }, [clientes, searchTerm, filterProvincia, filterMunicipio]);
+  }, [clientes, searchTerm, filterProvincia, filterMunicipio, filterComercial]);
 
   const createCliente = useCallback(
     async (data: ClienteVentaCreateData): Promise<ClienteVenta> => {
@@ -183,6 +196,8 @@ export function useClientesVentas(): UseClientesVentasReturn {
     setFilterProvincia,
     filterMunicipio,
     setFilterMunicipio,
+    filterComercial,
+    setFilterComercial,
     loadClientes,
     createCliente,
     updateCliente,

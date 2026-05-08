@@ -39,5 +39,6 @@ export { TrabajosDiariosService } from "./services/feats/instalaciones/trabajos-
 export { ContabilidadService } from "./services/feats/contabilidad/contabilidad-service";
 export { TasaCambioService } from "./services/feats/tasa-cambio/tasa-cambio-service";
 export { ReservaVentaService } from "./services/feats/reservas-ventas/reserva-venta-service";
+export { OfertaVentaService } from "./services/feats/ofertas-venta/oferta-venta-service";
 export { EnvioContenedorService } from "./services/feats/envios-contenedores/envio-contenedor-service";
 export { AsignacionService } from "./services/feats/asignaciones/asignacion-service";

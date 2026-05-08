@@ -28,10 +28,14 @@ import { apiRequest } from "@/lib/api-config";
 import { useClientesVentas } from "@/hooks/use-clientes-ventas";
 import { ClientesVentasTable } from "@/components/feats/clientes-ventas/clientes-ventas-table";
 import { UpsertClienteVentaDialog } from "@/components/feats/clientes-ventas/upsert-cliente-venta-dialog";
+import { AgregarOfertaDialog } from "@/components/feats/clientes-ventas/agregar-oferta-dialog";
+import { GestionarOfertasVentaDialog } from "@/components/feats/clientes-ventas/gestionar-ofertas-venta-dialog";
+import { OfertaVentaService } from "@/lib/api-services";
 import type {
   ClienteVenta,
   ClienteVentaCreateData,
   ClienteVentaUpdateData,
+  OfertaVenta,
 } from "@/lib/api-types";
 
 interface Provincia {
@@ -47,6 +51,7 @@ interface Municipio {
 export default function ClientesVentasPage() {
   const { toast } = useToast();
   const {
+    clientes,
     filteredClientes,
     loading,
     searchTerm,
@@ -55,11 +60,20 @@ export default function ClientesVentasPage() {
     setFilterProvincia,
     filterMunicipio,
     setFilterMunicipio,
+    filterComercial,
+    setFilterComercial,
     createCliente,
     updateCliente,
     deleteCliente,
     loadClientes,
   } = useClientesVentas();
+
+  // Lista de comerciales únicos extraída de los clientes cargados
+  const comercialesUnicos = useMemo(() => {
+    const set = new Set<string>();
+    clientes.forEach((c) => { if (c.comercial) set.add(c.comercial); });
+    return Array.from(set).sort();
+  }, [clientes]);
 
   // Provincias y municipios para los filtros de la página
   const [provincias, setProvincias] = useState<Provincia[]>([]);
@@ -99,6 +113,30 @@ export default function ClientesVentasPage() {
   const [clienteToDelete, setClienteToDelete] = useState<ClienteVenta | null>(
     null,
   );
+  // ── flujo de ofertas ──────────────────────────────────────────
+  const [clienteParaOferta, setClienteParaOferta] = useState<ClienteVenta | null>(null);
+  const [clienteParaGestionar, setClienteParaGestionar] = useState<ClienteVenta | null>(null);
+  const [ofertasGestionar, setOfertasGestionar] = useState<OfertaVenta[]>([]);
+  const [loadingOfertas, setLoadingOfertas] = useState(false);
+
+  const handleAbrirOfertas = async (cliente: ClienteVenta) => {
+    setLoadingOfertas(true);
+    try {
+      const ofertas = await OfertaVentaService.getOfertasByCliente(cliente.id);
+      if (ofertas.length === 0) {
+        // Sin ofertas → abrir directamente el formulario de creación
+        setClienteParaOferta(cliente);
+      } else {
+        // Con ofertas → abrir el gestor (listado)
+        setOfertasGestionar(ofertas);
+        setClienteParaGestionar(cliente);
+      }
+    } catch {
+      toast({ title: "Error", description: "No se pudieron verificar las ofertas", variant: "destructive" });
+    } finally {
+      setLoadingOfertas(false);
+    }
+  };
 
   if (loading && filteredClientes.length === 0) {
     return (
@@ -122,6 +160,7 @@ export default function ClientesVentasPage() {
         ci: data.ci,
         provincia: data.provincia,
         municipio: data.municipio,
+        comercial: data.comercial,
       });
       toast({
         title: "Exito",
@@ -215,11 +254,11 @@ export default function ClientesVentasPage() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
+      <main className="content-with-fixed-header max-w-[96rem] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 pb-8">
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-teal-600">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="sm:col-span-4">
                 <Label
                   htmlFor="search-clientes-ventas"
                   className="text-sm font-medium text-gray-700 mb-2 block"
@@ -286,6 +325,28 @@ export default function ClientesVentasPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Comercial
+                </Label>
+                <Select
+                  value={filterComercial || "__all__"}
+                  onValueChange={(v) => setFilterComercial(v === "__all__" ? "" : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los comerciales" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                    <SelectItem value="__all__">Todos los comerciales</SelectItem>
+                    <SelectItem value="__sin_asignar__">Sin asignar</SelectItem>
+                    {comercialesUnicos.map((nombre) => (
+                      <SelectItem key={nombre} value={nombre}>
+                        {nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -309,6 +370,7 @@ export default function ClientesVentasPage() {
                 setIsEditDialogOpen(true);
               }}
               onDelete={handleAskDelete}
+              onAgregarOferta={handleAbrirOfertas}
             />
           </CardContent>
         </Card>
@@ -338,6 +400,32 @@ export default function ClientesVentasPage() {
         onConfirm={handleConfirmDelete}
         confirmText="Eliminar"
       />
+
+      {/* Crear primera oferta — cliente sin ofertas previas */}
+      {clienteParaOferta && (
+        <AgregarOfertaDialog
+          open={Boolean(clienteParaOferta)}
+          onOpenChange={(open) => { if (!open) setClienteParaOferta(null); }}
+          cliente={clienteParaOferta}
+          onCreated={loadClientes}
+        />
+      )}
+
+      {/* Gestionar ofertas existentes */}
+      {clienteParaGestionar && (
+        <GestionarOfertasVentaDialog
+          open={Boolean(clienteParaGestionar)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setClienteParaGestionar(null);
+              setOfertasGestionar([]);
+            }
+          }}
+          cliente={clienteParaGestionar}
+          ofertasIniciales={ofertasGestionar}
+          onChanged={loadClientes}
+        />
+      )}
 
       <Toaster />
     </div>
