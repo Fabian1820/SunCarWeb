@@ -4,30 +4,20 @@ import type {
   FichaCostoCreateData,
   ComparacionPrecio,
   AplicarPrecioResponse,
+  EditarPreciosCostoPayload,
   MaterialCatalogoWeb,
   MaterialFichaResumen,
 } from '../../../types/feats/fichas-costo/ficha-costo-types'
 
 export class FichaCostoService {
-  // Buscar materiales
-  static async buscarMateriales(query: string, page = 1, limit = 50): Promise<MaterialCatalogoWeb[]> {
-    const response = await apiRequest<any>(
-      `/productos/materiales?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`
-    )
-    const payload = response?.data ?? response
-    const rows: any[] = Array.isArray(payload)
-      ? payload
-      : Array.isArray(payload?.items)
-        ? payload.items
-        : Array.isArray(payload?.materiales)
-          ? payload.materiales
-          : []
+  private static _allMaterialesCache: MaterialCatalogoWeb[] | null = null
+  private static _allMaterialesPromise: Promise<MaterialCatalogoWeb[]> | null = null
 
-    return rows.map((raw: any): MaterialCatalogoWeb => ({
+  private static normalizeMaterial(raw: any): MaterialCatalogoWeb {
+    return {
       ...raw,
       material_id: raw.material_id || raw._id || raw.id || '',
       codigo: raw.codigo,
-      // El mismo orden que usa MaterialService.normalizeSearchMaterial
       nombre: raw.nombre || raw.descripcion || raw.material_descripcion || raw.material?.nombre || raw.material?.descripcion || '',
       descripcion: raw.descripcion || raw.material_descripcion || raw.nombre || raw.material?.descripcion || raw.material?.nombre || '',
       categoria: raw.categoria || raw.producto_categoria || raw.catalogo?.categoria || '',
@@ -35,7 +25,88 @@ export class FichaCostoService {
       precio: raw.precio ?? raw.material?.precio,
       foto: raw.foto || raw.imagen || raw.imagen_url || raw.foto_url || (Array.isArray(raw.fotos) ? raw.fotos[0] : undefined),
       potenciaKW: raw.potenciaKW,
-    }))
+      numero_serie: typeof raw.numero_serie === 'string' ? raw.numero_serie : null,
+    }
+  }
+
+  private static extractRows(payload: any): any[] {
+    return Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.items)
+        ? payload.items
+        : Array.isArray(payload?.materiales)
+          ? payload.materiales
+          : Array.isArray(payload?.data)
+            ? payload.data
+            : []
+  }
+
+  // Lazy-load + cachea el catálogo admin completo para poder filtrar por numero_serie
+  // en el cliente (el backend `q` no matchea numero_serie).
+  private static async getAllForSerieSearch(): Promise<MaterialCatalogoWeb[]> {
+    if (this._allMaterialesCache) return this._allMaterialesCache
+    if (this._allMaterialesPromise) return this._allMaterialesPromise
+
+    this._allMaterialesPromise = (async () => {
+      try {
+        const response = await apiRequest<any>(
+          `/productos/admin/materiales?page=1&limit=10000`
+        )
+        const payload = response?.data ?? response
+        const rows = this.extractRows(payload)
+        const result = rows.map((raw: any) => this.normalizeMaterial(raw))
+        this._allMaterialesCache = result
+        return result
+      } catch {
+        return []
+      } finally {
+        this._allMaterialesPromise = null
+      }
+    })()
+
+    return this._allMaterialesPromise
+  }
+
+  // Permite invalidar el cache (p.ej. al abrir el diálogo).
+  static invalidateMaterialesCache(): void {
+    this._allMaterialesCache = null
+  }
+
+  // Buscar materiales — combina la búsqueda del backend (`q` por nombre/marca/etc.)
+  // con un filtrado client-side por `numero_serie` sobre el catálogo cacheado.
+  static async buscarMateriales(query: string, page = 1, limit = 50): Promise<MaterialCatalogoWeb[]> {
+    const term = query.trim()
+    if (!term) return []
+
+    const backendPromise = apiRequest<any>(
+      `/productos/admin/materiales?q=${encodeURIComponent(term)}&page=${page}&limit=${limit}`
+    )
+      .then((response) => {
+        const payload = response?.data ?? response
+        return this.extractRows(payload).map((raw: any) => this.normalizeMaterial(raw))
+      })
+      .catch(() => [] as MaterialCatalogoWeb[])
+
+    const lower = term.toLowerCase()
+    const seriePromise = this.getAllForSerieSearch().then((all) =>
+      all.filter(
+        (m) =>
+          typeof m.numero_serie === 'string' &&
+          m.numero_serie.toLowerCase().includes(lower)
+      )
+    )
+
+    const [backendResults, serieResults] = await Promise.all([backendPromise, seriePromise])
+
+    const seen = new Set<string>()
+    const merged: MaterialCatalogoWeb[] = []
+    for (const m of [...backendResults, ...serieResults]) {
+      const key = String(m.material_id || m._id || m.id || m.codigo || '')
+      if (!key || seen.has(key)) continue
+      seen.add(key)
+      merged.push(m)
+    }
+    return merged
   }
 
   // Crear nueva ficha de costo
@@ -105,12 +176,19 @@ export class FichaCostoService {
             const materialId = m._id || m.id || m.material_id
             return {
               material_id: materialId,
+              producto_id: cat.id || cat._id || cat.producto_id || '',
               codigo: m.codigo,
               nombre: m.nombre || m.descripcion || '',
               descripcion: m.descripcion || m.nombre || '',
               categoria: cat.categoria || '',
               marca: m.marca || '',
-              precio: m.precio,
+              um: typeof m.um === 'string' ? m.um : '',
+              precio: typeof m.precio === 'number' ? m.precio : undefined,
+              precio_instaladora: typeof m.precio_instaladora === 'number' ? m.precio_instaladora : undefined,
+              porciento_rebajable_venta: typeof m.porciento_rebajable_venta === 'number' ? m.porciento_rebajable_venta : undefined,
+              costo: typeof m.costo === 'number' ? m.costo : undefined,
+              numero_serie: typeof m.numero_serie === 'string' ? m.numero_serie : null,
+              stockaje_minimo: typeof m.stockaje_minimo === 'number' ? m.stockaje_minimo : null,
               foto: m.foto || m.imagen || (Array.isArray(m.fotos) ? m.fotos[0] : undefined),
               potenciaKW: m.potenciaKW,
             }
@@ -148,6 +226,44 @@ export class FichaCostoService {
       body: JSON.stringify({ material_ids, porcentaje }),
     })
     return response.data || response
+  }
+
+  // Edición rápida de precios + costo desde la tabla de fichas de costo.
+  // PUT /productos/{producto_id}/materiales/{material_codigo} con exclude_unset:
+  // solo se modifican los campos enviados.
+  static async editPreciosCosto(
+    productoId: string,
+    materialCodigo: string | number,
+    payload: EditarPreciosCostoPayload
+  ): Promise<boolean> {
+    if (!productoId) throw new Error('producto_id requerido')
+    if (materialCodigo == null || materialCodigo === '') throw new Error('codigo de material requerido')
+
+    const body: Record<string, number | string | null> = {}
+    if (typeof payload.precio === 'number') body.precio = payload.precio
+    if (typeof payload.precio_instaladora === 'number') body.precio_instaladora = payload.precio_instaladora
+    if (typeof payload.porciento_rebajable_venta === 'number') body.porciento_rebajable_venta = payload.porciento_rebajable_venta
+    if (typeof payload.costo === 'number') body.costo = payload.costo
+    if (payload.numero_serie !== undefined) body.numero_serie = payload.numero_serie
+    if (payload.stockaje_minimo !== undefined) body.stockaje_minimo = payload.stockaje_minimo
+
+    if (Object.keys(body).length === 0) return true
+
+    const result = await apiRequest<any>(
+      `/productos/${encodeURIComponent(productoId)}/materiales/${encodeURIComponent(String(materialCodigo))}`,
+      {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      }
+    )
+
+    if (result && typeof result === 'object' && result.success === false) {
+      throw new Error(result.message || result.error || 'Error al actualizar material')
+    }
+    if (result && typeof result === 'object' && result.error) {
+      throw new Error(result.error)
+    }
+    return true
   }
 
   // Aplicar precio calculado al material

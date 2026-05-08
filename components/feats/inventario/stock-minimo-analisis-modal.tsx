@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import ExcelJS from "exceljs";
 import {
   Dialog,
   DialogContent,
@@ -29,12 +30,14 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  FileDown,
 } from "lucide-react";
 import { InventarioService } from "@/lib/services/feats/inventario/inventario-service";
 import type {
   AnalisisStockMinimoResponse,
   ProductoAnalisisStock,
   EstadoStock,
+  ResumenAnalisisStock,
 } from "@/lib/types/feats/inventario/inventario-types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -265,6 +268,236 @@ function ProductosTable({ productos, filtroEstado }: { productos: ProductoAnalis
   );
 }
 
+// ── Exportación Excel ─────────────────────────────────────────────────────────
+
+const COLORES = {
+  critico:    { fila: "FFFFF0F0", badge: "FFDC2626", texto: "FF991B1B" },
+  alerta:     { fila: "FFFFFBEB", badge: "FFD97706", texto: "FF92400E" },
+  ok:         { fila: "FFF0FDF4", badge: "FF16A34A", texto: "FF14532D" },
+  encabezado: "FFEA580C",
+  titulo:     "FF1E293B",
+  subtitulo:  "FF64748B",
+  borde:      "FFD1D5DB",
+};
+
+async function exportarAnalisisExcel(
+  data: AnalisisStockMinimoResponse,
+  almacenNombre: string | undefined,
+  leadTime: string,
+  nivelServicio: string,
+) {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "SunCar Admin";
+  wb.created = new Date();
+
+  const { resumen, productos } = data;
+  const fechaHora = new Date().toLocaleString("es-ES", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+  });
+
+  // ── Hoja 1: Resumen ──────────────────────────────────────────────────────
+  const wsRes = wb.addWorksheet("Resumen");
+  wsRes.getColumn(1).width = 3;
+  wsRes.getColumn(2).width = 32;
+  wsRes.getColumn(3).width = 22;
+
+  let r = 1;
+
+  const setTitulo = (row: number, texto: string) => {
+    const c = wsRes.getCell(`B${row}`);
+    c.value = texto;
+    c.font = { bold: true, size: 15, color: { argb: COLORES.titulo } };
+  };
+  const setSubtitulo = (row: number, texto: string) => {
+    const c = wsRes.getCell(`B${row}`);
+    c.value = texto;
+    c.font = { size: 11, color: { argb: COLORES.subtitulo } };
+  };
+  const setValor = (row: number, label: string, valor: string | number) => {
+    const l = wsRes.getCell(`B${row}`);
+    l.value = label;
+    l.font = { bold: true, size: 11 };
+    const v = wsRes.getCell(`C${row}`);
+    v.value = valor;
+    v.font = { size: 11 };
+    wsRes.getRow(row).height = 20;
+  };
+
+  setTitulo(r++, "SunCar SRL — Análisis de Stock Mínimo");
+  setSubtitulo(r++, almacenNombre ? `Almacén: ${almacenNombre}` : "Todos los almacenes");
+  setSubtitulo(r++, `Generado: ${fechaHora}`);
+  r++;
+
+  // Parámetros
+  wsRes.getCell(`B${r}`).value = "Parámetros del análisis";
+  wsRes.getCell(`B${r}`).font = { bold: true, size: 12, color: { argb: COLORES.encabezado } };
+  wsRes.getRow(r++).height = 22;
+  setValor(r++, "Días para reponer stock (lead time)", `${leadTime} días`);
+  setValor(r++, "Nivel de seguridad", `${nivelServicio}%`);
+  setValor(r++, "Días de historial analizados", `${resumen.dias_dataset} días`);
+  r++;
+
+  // Tarjetas resumen
+  wsRes.getCell(`B${r}`).value = "Resultado del análisis";
+  wsRes.getCell(`B${r}`).font = { bold: true, size: 12, color: { argb: COLORES.encabezado } };
+  wsRes.getRow(r++).height = 22;
+
+  const addResumenFila = (row: number, label: string, valor: number, argbFondo: string, argbTexto: string) => {
+    const cl = wsRes.getCell(`B${row}`);
+    cl.value = label;
+    cl.font = { bold: true, size: 11, color: { argb: argbTexto } };
+    cl.fill = { type: "pattern", pattern: "solid", fgColor: { argb: argbFondo } };
+    cl.border = { top: { style: "thin", color: { argb: COLORES.borde } }, bottom: { style: "thin", color: { argb: COLORES.borde } }, left: { style: "thin", color: { argb: COLORES.borde } }, right: { style: "thin", color: { argb: COLORES.borde } } };
+    const cv = wsRes.getCell(`C${row}`);
+    cv.value = valor;
+    cv.font = { bold: true, size: 14, color: { argb: argbTexto } };
+    cv.fill = { type: "pattern", pattern: "solid", fgColor: { argb: argbFondo } };
+    cv.alignment = { horizontal: "center" };
+    cv.border = cl.border;
+    wsRes.getRow(row).height = 24;
+  };
+
+  addResumenFila(r++, "🔴  Críticos — necesitan reposición urgente", resumen.criticos, COLORES.critico.fila, COLORES.critico.texto);
+  addResumenFila(r++, "🟡  En alerta — pedir pronto", resumen.alertas, COLORES.alerta.fila, COLORES.alerta.texto);
+  addResumenFila(r++, "🟢  OK — stock suficiente", resumen.ok, COLORES.ok.fila, COLORES.ok.texto);
+  r++;
+  addResumenFila(r++, "📦  Total productos analizados", resumen.total_productos, "FFF8FAFC", "FF1E293B");
+
+  // ── Hoja 2: Detalle ───────────────────────────────────────────────────────
+  const wsDet = wb.addWorksheet("Detalle por Producto");
+  wsDet.getColumn(1).width = 3;
+
+  const columnas = [
+    { header: "Estado",                 key: "estado",      width: 14 },
+    { header: "Código",                 key: "codigo",      width: 16 },
+    { header: "Producto",               key: "producto",    width: 36 },
+    { header: "Categoría",              key: "categoria",   width: 20 },
+    { header: "UM",                     key: "um",          width: 8  },
+    { header: "Stock actual",           key: "actual",      width: 14 },
+    { header: "Mínimo recomendado",     key: "minimo",      width: 20 },
+    { header: "Faltan",                 key: "faltan",      width: 12 },
+    { header: "Días restantes",         key: "dias",        width: 16 },
+    { header: "Demanda diaria (prom.)", key: "demanda",     width: 22 },
+    { header: "Stock de seguridad",     key: "seguridad",   width: 20 },
+  ];
+
+  columnas.forEach((col, i) => {
+    wsDet.getColumn(i + 2).width = col.width;
+  });
+
+  // Filas meta en hoja detalle
+  let rd = 1;
+  const setDetMeta = (row: number, texto: string, bold = false) => {
+    const c = wsDet.getCell(`B${row}`);
+    c.value = texto;
+    c.font = { bold, size: bold ? 13 : 10, color: { argb: bold ? COLORES.titulo : COLORES.subtitulo } };
+    wsDet.mergeCells(`B${row}:L${row}`);
+  };
+  setDetMeta(rd++, "SunCar SRL — Análisis de Stock Mínimo — Detalle por Producto", true);
+  setDetMeta(rd++, (almacenNombre ? `Almacén: ${almacenNombre}   ·   ` : "") + `Lead time: ${leadTime} días   ·   Nivel de servicio: ${nivelServicio}%   ·   Generado: ${fechaHora}`);
+  rd++;
+
+  // Encabezados
+  const headerRow = wsDet.getRow(rd);
+  columnas.forEach((col, i) => {
+    const c = headerRow.getCell(i + 2);
+    c.value = col.header;
+    c.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLORES.encabezado } };
+    c.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    c.border = { top: { style: "thin" }, bottom: { style: "medium" }, left: { style: "thin" }, right: { style: "thin" } };
+  });
+  headerRow.height = 28;
+  rd++;
+
+  // Ordenar: críticos → alertas → ok
+  const ordenEstado: Record<EstadoStock, number> = { critico: 0, alerta: 1, ok: 2 };
+  const ordenados = [...productos].sort((a, b) => ordenEstado[a.estado] - ordenEstado[b.estado]);
+
+  ordenados.forEach((p) => {
+    const cfg = p.estado === "critico" ? COLORES.critico : p.estado === "alerta" ? COLORES.alerta : COLORES.ok;
+    const deficit = Math.max(0, p.stock_minimo_recomendado - p.cantidad_actual);
+
+    const estadoLabel = p.estado === "critico" ? "🔴 Crítico" : p.estado === "alerta" ? "🟡 Alerta" : "🟢 OK";
+    const diasLabel = p.dias_restantes_estimados == null
+      ? "—"
+      : p.dias_restantes_estimados <= 0
+      ? "Agotado"
+      : `~${Math.floor(p.dias_restantes_estimados)} días`;
+
+    const valores = [
+      estadoLabel,
+      p.material_codigo,
+      p.nombre || p.descripcion || p.material_codigo,
+      p.categoria || "—",
+      p.um || "—",
+      p.cantidad_actual,
+      p.stock_minimo_recomendado,
+      deficit > 0 ? deficit : "—",
+      diasLabel,
+      p.demanda_diaria_promedio > 0 ? Number(p.demanda_diaria_promedio.toFixed(2)) : "—",
+      p.stock_seguridad_recomendado,
+    ];
+
+    const fila = wsDet.getRow(rd);
+    valores.forEach((val, i) => {
+      const c = fila.getCell(i + 2);
+      c.value = val as ExcelJS.CellValue;
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: cfg.fila } };
+      c.font = { size: 10, color: { argb: i === 0 ? cfg.texto : COLORES.titulo } };
+      if (i === 0) c.font = { ...c.font, bold: true };
+      c.alignment = { horizontal: i >= 5 ? "center" : "left", vertical: "middle", wrapText: i === 2 };
+      c.border = {
+        top: { style: "thin", color: { argb: COLORES.borde } },
+        bottom: { style: "thin", color: { argb: COLORES.borde } },
+        left: { style: "thin", color: { argb: COLORES.borde } },
+        right: { style: "thin", color: { argb: COLORES.borde } },
+      };
+      // Columna "Faltan" en rojo si hay déficit
+      if (i === 7 && typeof val === "number") {
+        c.font = { ...c.font, bold: true, color: { argb: COLORES.critico.texto } };
+      }
+    });
+    fila.height = 20;
+    rd++;
+  });
+
+  // Fila totales
+  const filaTotal = wsDet.getRow(rd);
+  const cTotalLabel = filaTotal.getCell(2);
+  cTotalLabel.value = "TOTALES";
+  cTotalLabel.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+  cTotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLORES.encabezado } };
+  wsDet.mergeCells(`B${rd}:E${rd}`);
+  [6, 7, 8].forEach((col, idx) => {
+    const keys: (keyof ProductoAnalisisStock)[] = ["cantidad_actual", "stock_minimo_recomendado"];
+    const c = filaTotal.getCell(col);
+    if (idx < 2) {
+      c.value = { formula: `SUM(${String.fromCharCode(65 + col)}4:${String.fromCharCode(65 + col)}${rd - 1})` } as ExcelJS.CellValue;
+    } else {
+      c.value = ""; // Faltan: no sumar
+    }
+    c.font = { bold: true, size: 10, color: { argb: "FFFFFFFF" } };
+    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: COLORES.encabezado } };
+    c.alignment = { horizontal: "center" };
+  });
+  filaTotal.height = 22;
+
+  // Descargar
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const nombreArchivo = almacenNombre
+    ? `analisis-stock-${almacenNombre.replace(/\s+/g, "-").toLowerCase()}`
+    : "analisis-stock-todos";
+  a.download = `${nombreArchivo}-${new Date().toISOString().split("T")[0]}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Modal principal ───────────────────────────────────────────────────────────
 
 interface StockMinimoAnalisisModalProps {
@@ -287,6 +520,17 @@ export function StockMinimoAnalisisModal({
   const [nivelServicio, setNivelServicio] = useState("95");
   const [filtroEstado, setFiltroEstado] = useState("todos");
   const [hasCargado, setHasCargado] = useState(false);
+  const [exportando, setExportando] = useState(false);
+
+  const handleExportarExcel = useCallback(async () => {
+    if (!data) return;
+    setExportando(true);
+    try {
+      await exportarAnalisisExcel(data, almacenNombre, leadTime, nivelServicio);
+    } finally {
+      setExportando(false);
+    }
+  }, [data, almacenNombre, leadTime, nivelServicio]);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -380,6 +624,22 @@ export function StockMinimoAnalisisModal({
               )}
               {hasCargado ? "Recalcular" : "Calcular"}
             </Button>
+
+            {data && (
+              <Button
+                size="sm"
+                onClick={handleExportarExcel}
+                disabled={exportando || loading}
+                className="h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {exportando ? (
+                  <RefreshCw className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <FileDown className="h-4 w-4 mr-1" />
+                )}
+                Exportar Excel
+              </Button>
+            )}
           </div>
         </div>
 

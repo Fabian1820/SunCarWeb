@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/shared/molecule/dialog"
-import { Checkbox } from "@/components/shared/molecule/checkbox"
 import { useToast } from "@/hooks/use-toast"
 import type { SolicitudVentaSummary } from "@/lib/api-types"
 
@@ -30,14 +29,11 @@ export function GenerarLinkPagoSolicitudButton({
   size = "default",
   showIcon = true,
 }: GenerarLinkPagoSolicitudButtonProps) {
-  const STRIPE_RATE = 0.0325
-  const STRIPE_FIXED = 0.30
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [paymentLink, setPaymentLink] = useState<string>("")
   const [copied, setCopied] = useState(false)
   const [precioManual, setPrecioManual] = useState<string>("")
-  const [incluirComision, setIncluirComision] = useState<boolean>(true)
   const { toast } = useToast()
 
   const formatCurrency = (value: number) =>
@@ -49,13 +45,9 @@ export function GenerarLinkPagoSolicitudButton({
 
   const precioBase = precioManual ? parseFloat(precioManual) : 0
   const isValidPrice = precioBase > 0
-  const precioConRecargo = isValidPrice
-    ? Math.round(((precioBase + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
-    : 0
 
   const handleOpenDialog = () => {
     setPrecioManual("")
-    setIncluirComision(true)
     setPaymentLink("")
     setDialogOpen(true)
   }
@@ -72,19 +64,16 @@ export function GenerarLinkPagoSolicitudButton({
 
     setLoading(true)
     try {
-      const montoEnviar = incluirComision ? precioConRecargo : precioBase
-
       const response = await fetch("/api/stripe/generar-link", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          precio: montoEnviar,
+          precio: precioBase,
           descripcion: `Solicitud de Venta: ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()} - Cliente: ${solicitud.cliente_venta_nombre || "Sin cliente"} - Almacén: ${solicitud.almacen_nombre || "Sin almacén"}`,
           solicitud_venta_id: solicitud.id,
-          precio_base: precioBase,
-          incluye_comision: incluirComision,
+          sin_recargo: true,
         }),
       })
 
@@ -155,7 +144,7 @@ export function GenerarLinkPagoSolicitudButton({
           <DialogHeader>
             <DialogTitle>Generar Link de Pago - Stripe</DialogTitle>
             <DialogDescription>
-              Ingrese el monto a cobrar. Puede agregar la comisión real de Stripe (3.25% + $0.30).
+              Ingrese el monto a cobrar al cliente.
             </DialogDescription>
           </DialogHeader>
 
@@ -177,23 +166,9 @@ export function GenerarLinkPagoSolicitudButton({
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="incluir-comision"
-                checked={incluirComision}
-                onCheckedChange={(checked) => setIncluirComision(checked as boolean)}
-              />
-              <Label htmlFor="incluir-comision" className="text-sm cursor-pointer">
-                Agregar comisión de Stripe 3.25% + $0.30 ({formatCurrency(precioConRecargo - precioBase)})
-              </Label>
-            </div>
-
-            <div className="bg-gray-50 p-3 rounded-md space-y-1">
+            <div className="bg-gray-50 p-3 rounded-md">
               <p className="text-sm text-gray-600">
-                <strong>Precio base:</strong> {isValidPrice ? formatCurrency(precioBase) : "$0.00"}
-              </p>
-              <p className="text-sm text-gray-600">
-                <strong>Total a cobrar:</strong> {isValidPrice ? formatCurrency(incluirComision ? precioConRecargo : precioBase) : "$0.00"}
+                <strong>Total a cobrar:</strong> {isValidPrice ? formatCurrency(precioBase) : "$0.00"}
               </p>
             </div>
 

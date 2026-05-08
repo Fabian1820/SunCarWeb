@@ -12,13 +12,15 @@ interface GenerarLinkRequest {
   oferta_id?: string
   cliente_id?: string
   lead_id?: string
+  solicitud_venta_id?: string
   moneda?: string
+  sin_recargo?: boolean
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: GenerarLinkRequest = await request.json()
-    const { precio, descripcion, oferta_id, cliente_id, lead_id, moneda } = body
+    const { precio, descripcion, oferta_id, cliente_id, lead_id, solicitud_venta_id, moneda, sin_recargo } = body
 
     // Validaciones
     if (!precio || precio <= 0) {
@@ -64,7 +66,9 @@ export async function POST(request: NextRequest) {
       apiVersion: STRIPE_API_VERSION,
     })
 
-    const precioConRecargo = Math.round(((precio + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
+    const precioFinal = sin_recargo
+      ? precio
+      : Math.round(((precio + STRIPE_FIXED) / (1 - STRIPE_RATE)) * 100) / 100
 
     // Crear Payment Link en Stripe
     const paymentMethodTypes =
@@ -79,7 +83,7 @@ export async function POST(request: NextRequest) {
               name: 'Oferta Personalizada SunCar',
               description: descripcion,
             },
-            unit_amount: Math.round(precioConRecargo * 100), // Convertir a centavos
+            unit_amount: Math.round(precioFinal * 100), // Convertir a centavos
           },
           quantity: 1,
         },
@@ -93,6 +97,7 @@ export async function POST(request: NextRequest) {
         oferta_id: oferta_id || '',
         cliente_id: cliente_id || '',
         lead_id: lead_id || '',
+        solicitud_venta_id: solicitud_venta_id || '',
         moneda: currencyCode,
         created_at: new Date().toISOString(),
       },
@@ -103,7 +108,7 @@ export async function POST(request: NextRequest) {
       message: 'Link de pago generado exitosamente',
       payment_link: paymentLink.url,
       payment_link_id: paymentLink.id,
-      precio_con_recargo: precioConRecargo,
+      precio_con_recargo: precioFinal,
     })
   } catch (error) {
     console.error('Error generando payment link:', error)

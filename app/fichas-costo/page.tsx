@@ -17,6 +17,7 @@ import {
   Eye,
   PlusCircle,
   Calculator,
+  Pencil,
 } from "lucide-react"
 import { Input } from "@/components/shared/molecule/input"
 import { useToast } from "@/hooks/use-toast"
@@ -29,7 +30,10 @@ import { ComparacionDialog } from "@/components/feats/fichas-costo/comparacion-d
 import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialog"
 import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
 import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
+import { EditarPreciosDialog } from "@/components/feats/fichas-costo/editar-precios-dialog"
+import { StockajesMinimosSection } from "@/components/feats/fichas-costo/stockajes-minimos-section"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import type {
   FichaCostoCreateData,
   MaterialFichaResumen,
@@ -78,6 +82,8 @@ function FichasCostoPageContent() {
   const [isHistorialOpen, setIsHistorialOpen] = useState(false)
   const [isCalcOpen, setIsCalcOpen] = useState(false)
   const [busqueda, setBusqueda] = useState("")
+  const [materialEditPrecios, setMaterialEditPrecios] = useState<MaterialFichaResumen | null>(null)
+  const [isEditPreciosOpen, setIsEditPreciosOpen] = useState(false)
 
   useEffect(() => {
     void loadResumen()
@@ -114,7 +120,14 @@ function FichasCostoPageContent() {
       const codigo = String(r.codigo || "").toLowerCase()
       const categoria = (r.categoria || "").toLowerCase()
       const marca = (r.marca || "").toLowerCase()
-      return nombre.includes(q) || codigo.includes(q) || categoria.includes(q) || marca.includes(q)
+      const serie = typeof r.numero_serie === "string" ? r.numero_serie.toLowerCase() : ""
+      return (
+        nombre.includes(q) ||
+        codigo.includes(q) ||
+        categoria.includes(q) ||
+        marca.includes(q) ||
+        (!!serie && serie.includes(q))
+      )
     })
   }, [resumenOrdenado, busqueda])
 
@@ -196,6 +209,16 @@ function FichasCostoPageContent() {
     setIsHistorialOpen(true)
   }
 
+  const handleOpenEditPrecios = (row: MaterialFichaResumen) => {
+    setMaterialEditPrecios(row)
+    setIsEditPreciosOpen(true)
+  }
+
+  const handleEditPreciosOpenChange = (open: boolean) => {
+    setIsEditPreciosOpen(open)
+    if (!open) setMaterialEditPrecios(null)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
@@ -227,7 +250,7 @@ function FichasCostoPageContent() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6">
+      <main className="content-with-fixed-header max-w-[98vw] 2xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6">
         {error && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-4">
@@ -238,6 +261,8 @@ function FichasCostoPageContent() {
             </CardContent>
           </Card>
         )}
+
+        <StockajesMinimosSection materiales={resumen} />
 
         <Card className="border-l-4 border-l-teal-600">
           <CardContent className="p-0">
@@ -253,7 +278,7 @@ function FichasCostoPageContent() {
                 <Input
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
-                  placeholder="Buscar por nombre, código..."
+                  placeholder="Buscar por nombre, código, número de serie..."
                   className="pl-9 h-9 text-sm"
                 />
               </div>
@@ -272,17 +297,22 @@ function FichasCostoPageContent() {
                 </p>
               </div>
             ) : (
+              <TooltipProvider delayDuration={200}>
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Código</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">Categoría</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Código</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Categoría</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Nombre</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Ficha</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Última ficha</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Acciones</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Costo</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio Venta</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">P. Instaladora</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">% Rebajable</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Stock Mín</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Ficha</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Última ficha</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -311,9 +341,30 @@ function FichasCostoPageContent() {
                                   <Package className="h-3 w-3 text-amber-700" />
                                 </div>
                               )}
-                              <span className="font-semibold text-gray-900 whitespace-nowrap text-xs">
-                                {row.codigo ?? "-"}
-                              </span>
+                              <div className="min-w-0 flex-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <p className="font-semibold text-gray-900 text-xs truncate cursor-help">
+                                      {row.codigo ?? "-"}
+                                    </p>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p className="max-w-xs break-words">{row.codigo ?? "-"}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                {row.numero_serie && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-[10px] text-gray-500 truncate cursor-help">
+                                        N/S: {row.numero_serie}
+                                      </p>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">
+                                      <p className="max-w-xs break-words">N/S: {row.numero_serie}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
                             </div>
                           </td>
 
@@ -327,10 +378,28 @@ function FichasCostoPageContent() {
                           </td>
 
                           <td className="py-2.5 px-3">
-                            <p className="font-medium text-gray-900 truncate text-sm">
-                              {row.nombre || row.descripcion || "-"}
-                            </p>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="font-medium text-gray-900 truncate text-sm cursor-help">
+                                  {row.nombre || row.descripcion || "-"}
+                                </p>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p className="max-w-xs break-words">
+                                  {row.nombre || row.descripcion || "-"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                             {row.marca && <p className="text-xs text-gray-400 truncate">{row.marca}</p>}
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-0.5">
+                              <DollarSign className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-900 text-xs">
+                                {row.costo != null ? row.costo.toFixed(2) : "N/A"}
+                              </span>
+                            </div>
                           </td>
 
                           <td className="py-2.5 px-3">
@@ -340,6 +409,27 @@ function FichasCostoPageContent() {
                                 {row.precio != null ? row.precio.toFixed(2) : "N/A"}
                               </span>
                             </div>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-0.5">
+                              <DollarSign className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-900 text-xs">
+                                {row.precio_instaladora != null ? row.precio_instaladora.toFixed(2) : "N/A"}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <span className="font-medium text-gray-900 text-xs">
+                              {row.porciento_rebajable_venta != null ? `${row.porciento_rebajable_venta}%` : "N/A"}
+                            </span>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <span className="font-medium text-gray-900 text-xs">
+                              {row.stockaje_minimo != null ? row.stockaje_minimo : "N/A"}
+                            </span>
                           </td>
 
                           <td className="py-2.5 px-3">
@@ -374,6 +464,13 @@ function FichasCostoPageContent() {
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-1">
                               <button
+                                onClick={() => handleOpenEditPrecios(row)}
+                                title="Editar costo y precios"
+                                className="inline-flex items-center justify-center rounded p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
                                 onClick={() => handleOpenCrearFicha(row)}
                                 title={row.ficha_activa ? "Crear nueva versión de ficha" : "Crear ficha de costo"}
                                 className="inline-flex items-center justify-center rounded p-1 text-teal-600 hover:text-teal-700 hover:bg-teal-50 transition-colors"
@@ -397,6 +494,7 @@ function FichasCostoPageContent() {
                   </tbody>
                 </table>
               </div>
+              </TooltipProvider>
             )}
           </CardContent>
         </Card>
@@ -483,6 +581,13 @@ function FichasCostoPageContent() {
       />
 
       <CalcPorcentajeDialog open={isCalcOpen} onOpenChange={setIsCalcOpen} materiales={resumen} />
+
+      <EditarPreciosDialog
+        open={isEditPreciosOpen}
+        onOpenChange={handleEditPreciosOpenChange}
+        material={materialEditPrecios}
+        onSaved={() => loadResumen()}
+      />
 
       <Toaster />
     </div>
