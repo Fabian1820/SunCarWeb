@@ -114,6 +114,9 @@ function FichaCostoContent() {
   const [porcientoInstaladora, setPorcientoInstaladora] = useState(0);
   const [porcientoVentas, setPorcientoVentas] = useState(0);
 
+  // ── porcentaje global sobre CIF ──
+  const [porcientoCifGlobal, setPorcientoCifGlobal] = useState(0);
+
   // ── filas de materiales ──
   const [filas, setFilas] = useState<FilaMaterial[]>([]);
 
@@ -200,8 +203,8 @@ function FichaCostoContent() {
   );
 
   const totalValorMercancias = useMemo(
-    () => filas.reduce((acc, f) => acc + f.precio_unitario_cif * f.cantidad, 0),
-    [filas],
+    () => filas.reduce((acc, f) => acc + f.precio_unitario_cif * (1 + porcientoCifGlobal / 100) * f.cantidad, 0),
+    [filas, porcientoCifGlobal],
   );
 
   const porcientoEnvioSugerido = useMemo(
@@ -215,10 +218,13 @@ function FichaCostoContent() {
       pctEnvio: number,
       pctVentas: number,
       pctInstaladora: number,
+      pctCifGlobal = 0,
     ): FilaMaterial[] => {
       return filasActuales.map((f) => {
-        // Nuevo costo = CIF × (1 + (%Envío + Δ) / 100)
-        const costoNuevo = f.precio_unitario_cif * (1 + (pctEnvio + f.porciento_extra) / 100);
+        // CIF efectivo = CIF × (1 + %CIF_global / 100)
+        const cifEfectivo = f.precio_unitario_cif * (1 + pctCifGlobal / 100);
+        // Nuevo costo = CIF_efectivo × (1 + (%Envío + Δ) / 100)
+        const costoNuevo = cifEfectivo * (1 + (pctEnvio + f.porciento_extra) / 100);
         // Precios derivados del costo
         const pvNuevo = costoNuevo * (1 + pctVentas / 100);
         const piNuevo = costoNuevo * (1 + pctInstaladora / 100);
@@ -296,7 +302,7 @@ function FichaCostoContent() {
       const updated = prev.map((f) =>
         f.material_id === material_id ? { ...f, [campo]: valor } : f,
       );
-      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora);
+      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
     });
   };
 
@@ -304,19 +310,20 @@ function FichaCostoContent() {
     setFilas((prev) => {
       const updated = prev.map((f) => {
         if (f.material_id !== material_id) return f;
-        if (f.precio_unitario_cif <= 0) return f;
-        const pctTotal = (costoNuevo / f.precio_unitario_cif - 1) * 100;
+        const cifEfectivo = f.precio_unitario_cif * (1 + porcientoCifGlobal / 100);
+        if (cifEfectivo <= 0) return f;
+        const pctTotal = (costoNuevo / cifEfectivo - 1) * 100;
         return { ...f, porciento_extra: pctTotal - porcientoEnvioSugerido };
       });
-      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora);
+      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
     });
   };
 
   const recalcularTodo = useCallback(() => {
     setFilas((prev) =>
-      calcularPrecios(prev, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora),
+      calcularPrecios(prev, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal),
     );
-  }, [calcularPrecios, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora]);
+  }, [calcularPrecios, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal]);
 
   const aplicarSugerencia = () => {
     setFilas((prev) =>
@@ -325,6 +332,7 @@ function FichaCostoContent() {
         porcientoEnvioSugerido,
         porcientoVentas,
         porcientoInstaladora,
+        porcientoCifGlobal,
       ),
     );
     toast({ title: "Porcentaje sugerido aplicado", description: "Todos los productos tienen Δ = 0." });
@@ -335,29 +343,31 @@ function FichaCostoContent() {
       const updated = prev.map((f) => {
         if (f.material_id !== material_id) return f;
         const totalStock = f.stock_actual + f.cantidad;
-        if (totalStock <= 0 || f.precio_unitario_cif <= 0 || f.costo_nuevo <= 0) return f;
+        const cifEfectivo = f.precio_unitario_cif * (1 + porcientoCifGlobal / 100);
+        if (totalStock <= 0 || cifEfectivo <= 0 || f.costo_nuevo <= 0) return f;
         // Promedio ponderado del costo actual en catálogo y el nuevo costo de este envío
         const costoNuevoPromedio =
           (f.costo_actual * f.stock_actual + f.costo_nuevo * f.cantidad) / totalStock;
-        const pctTotal = (costoNuevoPromedio / f.precio_unitario_cif - 1) * 100;
+        const pctTotal = (costoNuevoPromedio / cifEfectivo - 1) * 100;
         return { ...f, porciento_extra: pctTotal - porcientoEnvioSugerido };
       });
-      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora);
+      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
     });
   };
 
-  const prevPctRef = useRef({ porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora });
+  const prevPctRef = useRef({ porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal });
   useEffect(() => {
     const prev = prevPctRef.current;
     if (
       prev.porcientoEnvioSugerido !== porcientoEnvioSugerido ||
       prev.porcientoVentas !== porcientoVentas ||
-      prev.porcientoInstaladora !== porcientoInstaladora
+      prev.porcientoInstaladora !== porcientoInstaladora ||
+      prev.porcientoCifGlobal !== porcientoCifGlobal
     ) {
-      prevPctRef.current = { porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora };
+      prevPctRef.current = { porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal };
       recalcularTodo();
     }
-  }, [porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, recalcularTodo]);
+  }, [porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal, recalcularTodo]);
 
   // ─── guardar ficha ────────────────────────────────────────────────────────
 
@@ -745,6 +755,41 @@ function FichaCostoContent() {
               </CardTitle>
             </CardHeader>
             <CardContent className="px-4 pt-3 pb-4">
+              {/* Impuesto nacional */}
+              <div className="mb-4 p-3 rounded-lg bg-orange-50 border border-orange-200">
+                <div className="flex items-start gap-3">
+                  <div className="flex-1 space-y-1.5">
+                    <Label className="text-xs font-semibold text-orange-700">Impuesto nacional (%)</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="0.1"
+                        className="h-9 flex-1 border-orange-300 focus-visible:ring-orange-400"
+                        value={porcientoCifGlobal}
+                        onChange={(e) => setPorcientoCifGlobal(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className="text-sm font-medium text-orange-600 w-4">%</span>
+                    </div>
+                    <p className="text-xs text-orange-600 leading-tight">
+                      CIF efectivo = CIF × (1 + <span className="font-semibold">{porcientoCifGlobal}</span>%)
+                      {porcientoCifGlobal !== 0 && (
+                        <span className="ml-1 font-semibold">
+                          — todos los cálculos usan el CIF ajustado
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  {porcientoCifGlobal !== 0 && (
+                    <button
+                      onClick={() => setPorcientoCifGlobal(0)}
+                      className="mt-5 text-orange-400 hover:text-orange-600 transition-colors text-xs underline shrink-0"
+                    >
+                      Resetear
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* % Ventas */}
                 <div className="space-y-1.5">
@@ -761,7 +806,7 @@ function FichaCostoContent() {
                     <span className="text-sm font-medium text-gray-500 w-4">%</span>
                   </div>
                   <p className="text-xs text-gray-400 leading-tight">
-                    Costo = CIF × (1 + (
+                    Costo = CIF{porcientoCifGlobal !== 0 && <span className="text-orange-500">×(1+{porcientoCifGlobal}%)</span>} × (1 + (
                     <span className="text-cyan-600 font-medium">{fmt(porcientoEnvioSugerido, 1)}</span>
                     {" + Δ) / 100)"}
                     <br />
@@ -784,7 +829,7 @@ function FichaCostoContent() {
                     <span className="text-sm font-medium text-gray-500 w-4">%</span>
                   </div>
                   <p className="text-xs text-gray-400 leading-tight">
-                    Costo = CIF × (1 + (
+                    Costo = CIF{porcientoCifGlobal !== 0 && <span className="text-orange-500">×(1+{porcientoCifGlobal}%)</span>} × (1 + (
                     <span className="text-cyan-600 font-medium">{fmt(porcientoEnvioSugerido, 1)}</span>
                     {" + Δ) / 100)"}
                     <br />
@@ -794,7 +839,14 @@ function FichaCostoContent() {
               </div>
 
               {/* Resumen de porcentajes */}
-              <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className={`mt-4 grid gap-2 ${porcientoCifGlobal !== 0 ? "grid-cols-4" : "grid-cols-3"}`}>
+                {porcientoCifGlobal !== 0 && (
+                  <div className="text-center p-2 rounded-md bg-orange-50 border border-orange-200">
+                    <p className="text-xs text-orange-600 font-medium">Imp. nacional</p>
+                    <p className="text-sm font-bold text-orange-700">{porcientoCifGlobal > 0 ? "+" : ""}{porcientoCifGlobal}%</p>
+                    <p className="text-xs text-orange-500">sobre CIF</p>
+                  </div>
+                )}
                 <div className="text-center p-2 rounded-md bg-cyan-50 border border-cyan-100">
                   <p className="text-xs text-cyan-600 font-medium">% Envío</p>
                   <p className="text-sm font-bold text-cyan-700">{fmt(porcientoEnvioSugerido)}%</p>
@@ -969,6 +1021,11 @@ function FichaCostoContent() {
                                   }
                                 />
                               </div>
+                              {porcientoCifGlobal !== 0 && f.precio_unitario_cif > 0 && (
+                                <p className="text-xs text-orange-500 text-center mt-0.5 font-medium">
+                                  =${fmt(f.precio_unitario_cif * (1 + porcientoCifGlobal / 100))}
+                                </p>
+                              )}
                             </td>
 
                             {/* Δ% extra */}
@@ -1177,6 +1234,9 @@ function FichaCostoContent() {
                       </td>
                       <td className="py-3 px-2 text-center">
                         <span className="text-sm font-bold text-gray-700">${fmt(totalValorMercancias)}</span>
+                        {porcientoCifGlobal !== 0 && (
+                          <p className="text-xs text-orange-500 font-medium">CIF+{porcientoCifGlobal}%</p>
+                        )}
                       </td>
                       <td className="py-3 px-2 text-center">
                         <span className={`text-sm font-bold ${deltaColor}`}>{fmtPct(deltaGlobal)}</span>
