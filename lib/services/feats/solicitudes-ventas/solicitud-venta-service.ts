@@ -129,6 +129,7 @@ const normalizeMaterialVenta = (
     precio: asNumber(row.precio),
     habilitar_venta_web: habilitarVentaWeb,
     categoria: asString(row.categoria) || categoriaFallback,
+    porciento_rebajable_venta: asNumber(row.porciento_rebajable_venta),
   };
 };
 

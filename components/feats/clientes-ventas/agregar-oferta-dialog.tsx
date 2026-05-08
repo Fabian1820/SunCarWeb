@@ -46,6 +46,8 @@ interface LineaCarrito {
   descuento_porcentaje: number;
   descuento_tipo: "%" | "$";
   descuento_display: string;
+  /** Máximo descuento permitido para este material (0-100). undefined = sin límite */
+  max_descuento?: number;
 }
 
 const ESTADOS = [
@@ -229,14 +231,13 @@ export function AgregarOfertaDialog({
   }, [catalogo, busqueda, carrito, almacenId, stockVersion]);
 
   // ── cálculos ──────────────────────────────────────────────────
-  const MAX_PCT = 5;
-
   const { totalBruto, totalFinal } = useMemo(() => {
     let bruto = 0;
     let final = 0;
     for (const l of carrito) {
       const subtotalBruto = l.precio * l.cantidad;
-      const pct = Math.min(l.descuento_porcentaje, MAX_PCT);
+      const maxPct = l.max_descuento ?? 100;
+      const pct = Math.min(l.descuento_porcentaje, maxPct);
       const subtotalFinal = subtotalBruto * (1 - pct / 100);
       bruto += subtotalBruto;
       final += subtotalFinal;
@@ -244,7 +245,9 @@ export function AgregarOfertaDialog({
     return { totalBruto: bruto, totalFinal: final };
   }, [carrito]);
 
-  const hasDescuentoError = carrito.some((l) => l.descuento_porcentaje > MAX_PCT);
+  const hasDescuentoError = carrito.some(
+    (l) => l.max_descuento !== undefined && l.descuento_porcentaje > l.max_descuento,
+  );
 
   // ── carrito helpers ───────────────────────────────────────────
   function agregarAlCarrito(mat: MaterialVentaWeb & { stock?: number | null }) {
@@ -271,6 +274,7 @@ export function AgregarOfertaDialog({
           descuento_porcentaje: 0,
           descuento_tipo: "%",
           descuento_display: "0",
+          max_descuento: typeof mat.porciento_rebajable_venta === "number" ? mat.porciento_rebajable_venta : undefined,
         },
       ];
     });
@@ -303,13 +307,22 @@ export function AgregarOfertaDialog({
       prev.map((item) => {
         if (item.material_id !== materialId) return item;
         const raw = Number(value);
-        const descuento_porcentaje =
-          Number.isFinite(raw) && raw >= 0
-            ? item.descuento_tipo === "$"
-              ? item.precio > 0 ? (raw / item.precio) * 100 : 0
-              : raw
-            : item.descuento_porcentaje;
-        return { ...item, descuento_display: value, descuento_porcentaje };
+        if (!Number.isFinite(raw) || raw < 0) {
+          return { ...item, descuento_display: value };
+        }
+        // Convertir a % para comparar con el máximo
+        const pct = item.descuento_tipo === "$"
+          ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
+          : raw;
+        const maxPct = item.max_descuento ?? 100;
+        const descuento_porcentaje = Math.min(pct, maxPct);
+        // Si se recortó, corregir también el display
+        const displayFinal = pct > maxPct
+          ? (item.descuento_tipo === "$"
+              ? (item.precio * maxPct / 100).toFixed(2)
+              : String(maxPct))
+          : value;
+        return { ...item, descuento_display: displayFinal, descuento_porcentaje };
       }),
     );
   }
@@ -339,7 +352,7 @@ export function AgregarOfertaDialog({
         cantidad: l.cantidad,
         precio: l.precio,
         ...(l.descuento_porcentaje > 0
-          ? { descuento_porcentaje: parseFloat(Math.min(l.descuento_porcentaje, MAX_PCT).toFixed(4)) }
+          ? { descuento_porcentaje: parseFloat(Math.min(l.descuento_porcentaje, l.max_descuento ?? 100).toFixed(4)) }
           : {}),
       }));
 
@@ -565,6 +578,12 @@ export function AgregarOfertaDialog({
                               {mat.nombre ?? mat.descripcion}
                             </h3>
 
+                            {mat.codigo && (
+                              <p className="text-[10px] font-mono text-gray-400 mb-1 truncate">
+                                {mat.codigo}
+                              </p>
+                            )}
+
                             <div className="mt-auto space-y-1">
                               <div className="flex items-center justify-between gap-1">
                                 <p className="text-sm font-semibold text-orange-600">
@@ -630,7 +649,9 @@ export function AgregarOfertaDialog({
                       {carrito.map((linea) => {
                         const sinStock = linea.stock_disponible !== null && linea.cantidad > (linea.stock_disponible ?? Infinity);
                         const pct = linea.descuento_porcentaje;
-                        const precioConDesc = linea.precio * (1 - Math.min(pct, MAX_PCT) / 100);
+                        const maxPct = linea.max_descuento ?? 100;
+                        const descuentoExcedido = pct > maxPct;
+                        const precioConDesc = linea.precio * (1 - Math.min(pct, maxPct) / 100);
                         const totalLinea = precioConDesc * linea.cantidad;
                         return (
                           <tr key={linea.material_id}
@@ -683,13 +704,23 @@ export function AgregarOfertaDialog({
                                     type="number" min="0" step={linea.descuento_tipo === "$" ? "0.01" : "0.5"}
                                     value={linea.descuento_display}
                                     onChange={(e) => handleDescuentoChange(linea.material_id, e.target.value)}
-                                    className={`h-7 text-right w-full text-xs ${pct > MAX_PCT ? "border-red-400" : ""}`}
+                                    className={`h-7 text-right w-full text-xs ${descuentoExcedido ? "border-red-400" : ""}`}
                                   />
-                                  {pct > 0 && (
-                                    <p className={`text-[10px] text-right leading-tight mt-0.5 ${pct > MAX_PCT ? "text-red-600 font-semibold" : "text-orange-500"}`}>
+                                  {linea.max_descuento !== undefined && (
+                                    <p className="text-[10px] text-right leading-tight mt-0.5 text-gray-400">
+                                      máx {linea.max_descuento}%
+                                    </p>
+                                  )}
+                                  {pct > 0 && !descuentoExcedido && (
+                                    <p className="text-[10px] text-right leading-tight mt-0.5 text-orange-500">
                                       {linea.descuento_tipo === "$"
-                                        ? `= ${pct.toFixed(1)}%${pct > MAX_PCT ? " · máx 5%" : ""}`
-                                        : `= $${(linea.precio * pct / 100).toFixed(2)}${pct > MAX_PCT ? " · máx 5%" : ""}`}
+                                        ? `= ${pct.toFixed(1)}%`
+                                        : `= $${(linea.precio * pct / 100).toFixed(2)}`}
+                                    </p>
+                                  )}
+                                  {descuentoExcedido && (
+                                    <p className="text-[10px] text-right leading-tight mt-0.5 text-red-600 font-semibold">
+                                      máx {maxPct}%
                                     </p>
                                   )}
                                 </div>

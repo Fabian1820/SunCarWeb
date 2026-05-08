@@ -72,6 +72,8 @@ interface MaterialRow {
   stock_suficiente: boolean;
   stock_despues: number | null;
   faltante: number;
+  /** Máximo % de descuento permitido para este material. undefined = sin límite */
+  max_descuento?: number;
 }
 
 interface UpsertSolicitudVentaDialogProps {
@@ -373,7 +375,9 @@ export function UpsertSolicitudVentaDialog({
   );
 
   const hasDiscountError = useMemo(
-    () => materialRows.some((m) => m.descuento_porcentaje > 5),
+    () => materialRows.some(
+      (m) => m.max_descuento !== undefined && m.descuento_porcentaje > m.max_descuento,
+    ),
     [materialRows],
   );
 
@@ -505,6 +509,9 @@ export function UpsertSolicitudVentaDialog({
               stock_suficiente: stockState.stock_suficiente,
               stock_despues: stockState.stock_despues,
               faltante: stockState.faltante,
+              max_descuento: typeof material.porciento_rebajable_venta === "number"
+                ? material.porciento_rebajable_venta
+                : undefined,
             },
           ],
     );
@@ -530,13 +537,18 @@ export function UpsertSolicitudVentaDialog({
       prev.map((item, rowIndex) => {
         if (rowIndex !== index) return item;
         const raw = Number(value);
-        const descuento_porcentaje =
-          Number.isFinite(raw) && raw >= 0
-            ? item.descuento_tipo === "$"
-              ? item.precio > 0 ? (raw / item.precio) * 100 : 0
-              : raw
-            : item.descuento_porcentaje;
-        return { ...item, descuento_display: value, descuento_porcentaje };
+        if (!Number.isFinite(raw) || raw < 0) return { ...item, descuento_display: value };
+        const pct = item.descuento_tipo === "$"
+          ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
+          : raw;
+        const maxPct = item.max_descuento ?? 100;
+        const descuento_porcentaje = Math.min(pct, maxPct);
+        const displayFinal = pct > maxPct
+          ? (item.descuento_tipo === "$"
+              ? (item.precio * maxPct / 100).toFixed(2)
+              : String(maxPct))
+          : value;
+        return { ...item, descuento_display: displayFinal, descuento_porcentaje };
       }),
     );
   };
@@ -1348,7 +1360,9 @@ export function UpsertSolicitudVentaDialog({
                     {materialRows.map((material, index) => {
                       const precioUnit = material.precio;
                       const descPct = material.descuento_porcentaje;
-                      const precioConDesc = precioUnit * (1 - descPct / 100);
+                      const maxDescPct = material.max_descuento ?? 100;
+                      const descuentoExcedido = descPct > maxDescPct;
+                      const precioConDesc = precioUnit * (1 - Math.min(descPct, maxDescPct) / 100);
                       const precioTotal = precioConDesc * material.cantidad;
 
                       return (
@@ -1430,13 +1444,23 @@ export function UpsertSolicitudVentaDialog({
                                 step={material.descuento_tipo === "$" ? "0.01" : "0.5"}
                                 value={material.descuento_display}
                                 onChange={(e) => handleDescuentoChange(index, e.target.value)}
-                                className={`h-8 text-right w-full ${descPct > 5 ? "border-red-400 focus-visible:ring-red-400" : ""}`}
+                                className={`h-8 text-right w-full ${descuentoExcedido ? "border-red-400 focus-visible:ring-red-400" : ""}`}
                               />
-                              {descPct > 0 && (
-                                <p className={`text-xs mt-0.5 text-right leading-tight ${descPct > 5 ? "text-red-600 font-semibold" : "text-orange-500"}`}>
+                              {material.max_descuento !== undefined && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-gray-400">
+                                  máx {material.max_descuento}%
+                                </p>
+                              )}
+                              {descPct > 0 && !descuentoExcedido && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-orange-500">
                                   {material.descuento_tipo === "$"
-                                    ? `= ${descPct.toFixed(1)}%${descPct > 5 ? " · máx. 5%" : ""}`
-                                    : `= $${(precioUnit * descPct / 100).toFixed(2)}${descPct > 5 ? " · máx. 5%" : ""}`}
+                                    ? `= ${descPct.toFixed(1)}%`
+                                    : `= $${(precioUnit * descPct / 100).toFixed(2)}`}
+                                </p>
+                              )}
+                              {descuentoExcedido && (
+                                <p className="text-xs mt-0.5 text-right leading-tight text-red-600 font-semibold">
+                                  máx {maxDescPct}%
                                 </p>
                               )}
                             </div>
