@@ -242,7 +242,7 @@ function FichasCostoPageContent() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6">
+      <main className="content-with-fixed-header max-w-[98vw] 2xl:max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8 space-y-6">
         {error && (
           <Card className="border-red-200 bg-red-50">
             <CardContent className="p-4">
@@ -289,7 +289,7 @@ function FichasCostoPageContent() {
             ) : (
               <TooltipProvider delayDuration={200}>
               <div className="overflow-x-auto">
-                <table className="w-full table-fixed text-sm min-w-[1280px]">
+                <table className="w-full table-fixed text-sm">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Código</th>
