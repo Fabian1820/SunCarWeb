@@ -54,8 +54,6 @@ const fmt = (n: number, decimals = 2) =>
     maximumFractionDigits: decimals,
   });
 
-const fmtPct = (n: number) => `${n >= 0 ? "+" : ""}${fmt(n)}%`;
-
 // ─── tipos internos ──────────────────────────────────────────────────────────
 
 interface FilaMaterial {
@@ -63,20 +61,22 @@ interface FilaMaterial {
   material_codigo: string;
   material_nombre: string;
   cantidad: number;
-  // Precios actuales del catálogo (referencia no editable)
+  // Precios actuales del catálogo (referencia, solo lectura)
   precio_catalogo: number;
   precio_instaladora_catalogo: number;
   costo_actual: number;
-  porciento_rebajable_venta_actual: number;
   stock_actual: number;
-  // Campos editables de la ficha
+  // Campo editable
   precio_unitario_cif: number;
-  porciento_extra: number;
   porciento_rebajable_venta: number;
-  // Calculados (nuevo costo es editable; precios son derivados)
+  // Calculado automáticamente
   costo_nuevo: number;
+  // Sugerido pero editable manualmente
   precio_venta_nuevo: number;
   precio_instaladora_nuevo: number;
+  precio_venta_override: number | null;
+  precio_instaladora_override: number | null;
+  // Validación
   errorValidacion: string | null;
 }
 
@@ -99,7 +99,6 @@ function FichaCostoContent() {
   // ── estado global ──
   const [envio, setEnvio] = useState<EnvioContenedor | null>(null);
   const [loadingEnvio, setLoadingEnvio] = useState(true);
-  const [stockMap, setStockMap] = useState<Record<string, number>>({});
   const [saving, setSaving] = useState(false);
   const [costosCollapsed, setCostosCollapsed] = useState(false);
 
@@ -113,8 +112,6 @@ function FichaCostoContent() {
   // ── porcentajes globales ──
   const [porcientoInstaladora, setPorcientoInstaladora] = useState(0);
   const [porcientoVentas, setPorcientoVentas] = useState(0);
-
-  // ── porcentaje global sobre CIF ──
   const [porcientoCifGlobal, setPorcientoCifGlobal] = useState(0);
 
   // ── filas de materiales ──
@@ -138,22 +135,12 @@ function FichaCostoContent() {
       setPorcientoInstaladora(envioData.porciento_instaladora ?? 0);
       setPorcientoVentas(envioData.porciento_ventas ?? 0);
 
-      // Obtener stock + precios actuales del catálogo en una sola llamada optimizada
       const materialIds = envioData.materiales.map((m) => m.material_id).filter(Boolean);
       const datosBulk = await EnvioContenedorService.getMaterialesDatosBulk(materialIds);
-
-      const sm: Record<string, number> = {};
-      for (const [mid, datos] of Object.entries(datosBulk)) {
-        sm[mid] = datos.stock_total;
-      }
-      setStockMap(sm);
 
       const filasInit: FilaMaterial[] = envioData.materiales.map((m) => {
         const datos = datosBulk[m.material_id] ?? { precio: 0, precio_instaladora: 0, costo: 0, stock_total: 0 };
         const cifUnit = m.precio_unitario_cif ?? 0;
-        const pctExtra = m.porciento_extra ?? 0;
-        // costo_nuevo inicial: CIF × (1 + Δ/100); el % de envío se recalculará vía recalcularTodo
-        const costoNuevoInicial = m.costo_calc ?? (cifUnit > 0 ? cifUnit * (1 + pctExtra / 100) : 0);
         return {
           material_id: m.material_id,
           material_codigo: m.material_codigo,
@@ -162,14 +149,14 @@ function FichaCostoContent() {
           precio_catalogo: datos.precio,
           precio_instaladora_catalogo: datos.precio_instaladora,
           costo_actual: datos.costo,
-          porciento_rebajable_venta_actual: m.porciento_rebajable_venta ?? 0,
           stock_actual: datos.stock_total,
           precio_unitario_cif: cifUnit,
-          porciento_extra: pctExtra,
           porciento_rebajable_venta: m.porciento_rebajable_venta ?? 0,
-          costo_nuevo: costoNuevoInicial,
+          costo_nuevo: m.costo_calc ?? 0,
           precio_venta_nuevo: m.precio_venta_calc ?? 0,
           precio_instaladora_nuevo: m.precio_instaladora_calc ?? 0,
+          precio_venta_override: null,
+          precio_instaladora_override: null,
           errorValidacion: null,
         };
       });
@@ -212,6 +199,8 @@ function FichaCostoContent() {
     [totalCostosUsd, totalValorMercancias],
   );
 
+  // Calcula costo_nuevo y precios sugeridos para todas las filas.
+  // Los overrides manuales de precio se respetan y no se sobreescriben.
   const calcularPrecios = useCallback(
     (
       filasActuales: FilaMaterial[],
@@ -221,13 +210,13 @@ function FichaCostoContent() {
       pctCifGlobal = 0,
     ): FilaMaterial[] => {
       return filasActuales.map((f) => {
-        // CIF efectivo = CIF × (1 + %CIF_global / 100)
         const cifEfectivo = f.precio_unitario_cif * (1 + pctCifGlobal / 100);
-        // Nuevo costo = CIF_efectivo × (1 + (%Envío + Δ) / 100)
-        const costoNuevo = cifEfectivo * (1 + (pctEnvio + f.porciento_extra) / 100);
-        // Precios derivados del costo
-        const pvNuevo = costoNuevo * (1 + pctVentas / 100);
-        const piNuevo = costoNuevo * (1 + pctInstaladora / 100);
+        const costoNuevo = cifEfectivo * (1 + pctEnvio / 100);
+        const pvSugerido = costoNuevo * (1 + pctVentas / 100);
+        const piSugerido = costoNuevo * (1 + pctInstaladora / 100);
+
+        const pvNuevo = f.precio_venta_override !== null ? f.precio_venta_override : pvSugerido;
+        const piNuevo = f.precio_instaladora_override !== null ? f.precio_instaladora_override : piSugerido;
 
         let errorValidacion: string | null = null;
         if (f.porciento_rebajable_venta > 0 && pvNuevo > 0 && piNuevo > 0) {
@@ -243,15 +232,6 @@ function FichaCostoContent() {
     [],
   );
 
-  const deltaGlobal = useMemo(() => {
-    const totalPeso = filas.reduce((acc, f) => acc + f.precio_unitario_cif * f.cantidad, 0);
-    if (totalPeso === 0) return 0;
-    return (
-      filas.reduce((acc, f) => acc + f.porciento_extra * f.precio_unitario_cif * f.cantidad, 0) /
-      totalPeso
-    );
-  }, [filas]);
-
   const hayErroresValidacion = useMemo(() => filas.some((f) => f.errorValidacion !== null), [filas]);
 
   // ─── handlers costos ─────────────────────────────────────────────────────
@@ -259,17 +239,10 @@ function FichaCostoContent() {
   const agregarCosto = () => {
     const monto = parseFloat(nuevoCostoMonto.replace(",", "."));
     if (!nuevoCostoDesc.trim() || isNaN(monto) || monto < 0) {
-      toast({
-        title: "Error",
-        description: "Completa descripción y monto válido.",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Completa descripción y monto válido.", variant: "destructive" });
       return;
     }
-    setCostos((prev) => [
-      ...prev,
-      { descripcion: nuevoCostoDesc.trim(), monto, moneda: nuevoCostoMoneda },
-    ]);
+    setCostos((prev) => [...prev, { descripcion: nuevoCostoDesc.trim(), monto, moneda: nuevoCostoMoneda }]);
     setNuevoCostoDesc("");
     setNuevoCostoMonto("");
   };
@@ -297,24 +270,68 @@ function FichaCostoContent() {
 
   // ─── handlers filas ───────────────────────────────────────────────────────
 
-  const actualizarFila = (material_id: string, campo: keyof FilaMaterial, valor: number) => {
+  const actualizarCif = (material_id: string, valor: number) => {
+    setFilas((prev) => {
+      const updated = prev.map((f) => f.material_id === material_id ? { ...f, precio_unitario_cif: valor } : f);
+      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
+    });
+  };
+
+  const actualizarRebajable = (material_id: string, valor: number) => {
+    setFilas((prev) => {
+      const updated = prev.map((f) => f.material_id === material_id ? { ...f, porciento_rebajable_venta: valor } : f);
+      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
+    });
+  };
+
+  const setPrecioVentaManual = (material_id: string, valor: number) => {
+    setFilas((prev) =>
+      prev.map((f) => {
+        if (f.material_id !== material_id) return f;
+        const piNuevo = f.precio_instaladora_nuevo;
+        let errorValidacion: string | null = null;
+        if (f.porciento_rebajable_venta > 0 && valor > 0 && piNuevo > 0) {
+          const minimo = valor * (1 - f.porciento_rebajable_venta / 100);
+          if (minimo <= piNuevo) {
+            errorValidacion = `Con ${f.porciento_rebajable_venta}% de descuento el precio venta mínimo ($${fmt(minimo)}) quedaría ≤ precio instaladora ($${fmt(piNuevo)})`;
+          }
+        }
+        return { ...f, precio_venta_nuevo: valor, precio_venta_override: valor, errorValidacion };
+      }),
+    );
+  };
+
+  const resetPrecioVenta = (material_id: string) => {
     setFilas((prev) => {
       const updated = prev.map((f) =>
-        f.material_id === material_id ? { ...f, [campo]: valor } : f,
+        f.material_id === material_id ? { ...f, precio_venta_override: null } : f,
       );
       return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
     });
   };
 
-  const actualizarCostoNuevoDirecto = (material_id: string, costoNuevo: number) => {
-    setFilas((prev) => {
-      const updated = prev.map((f) => {
+  const setPrecioInstaladoraManual = (material_id: string, valor: number) => {
+    setFilas((prev) =>
+      prev.map((f) => {
         if (f.material_id !== material_id) return f;
-        const cifEfectivo = f.precio_unitario_cif * (1 + porcientoCifGlobal / 100);
-        if (cifEfectivo <= 0) return f;
-        const pctTotal = (costoNuevo / cifEfectivo - 1) * 100;
-        return { ...f, porciento_extra: pctTotal - porcientoEnvioSugerido };
-      });
+        const pvNuevo = f.precio_venta_nuevo;
+        let errorValidacion: string | null = null;
+        if (f.porciento_rebajable_venta > 0 && pvNuevo > 0 && valor > 0) {
+          const minimo = pvNuevo * (1 - f.porciento_rebajable_venta / 100);
+          if (minimo <= valor) {
+            errorValidacion = `Con ${f.porciento_rebajable_venta}% de descuento el precio venta mínimo ($${fmt(minimo)}) quedaría ≤ precio instaladora ($${fmt(valor)})`;
+          }
+        }
+        return { ...f, precio_instaladora_nuevo: valor, precio_instaladora_override: valor, errorValidacion };
+      }),
+    );
+  };
+
+  const resetPrecioInstaladora = (material_id: string) => {
+    setFilas((prev) => {
+      const updated = prev.map((f) =>
+        f.material_id === material_id ? { ...f, precio_instaladora_override: null } : f,
+      );
       return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
     });
   };
@@ -324,36 +341,6 @@ function FichaCostoContent() {
       calcularPrecios(prev, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal),
     );
   }, [calcularPrecios, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal]);
-
-  const aplicarSugerencia = () => {
-    setFilas((prev) =>
-      calcularPrecios(
-        prev.map((f) => ({ ...f, porciento_extra: 0 })),
-        porcientoEnvioSugerido,
-        porcientoVentas,
-        porcientoInstaladora,
-        porcientoCifGlobal,
-      ),
-    );
-    toast({ title: "Porcentaje sugerido aplicado", description: "Todos los productos tienen Δ = 0." });
-  };
-
-  const prorratearProducto = (material_id: string) => {
-    setFilas((prev) => {
-      const updated = prev.map((f) => {
-        if (f.material_id !== material_id) return f;
-        const totalStock = f.stock_actual + f.cantidad;
-        const cifEfectivo = f.precio_unitario_cif * (1 + porcientoCifGlobal / 100);
-        if (totalStock <= 0 || cifEfectivo <= 0 || f.costo_nuevo <= 0) return f;
-        // Promedio ponderado del costo actual en catálogo y el nuevo costo de este envío
-        const costoNuevoPromedio =
-          (f.costo_actual * f.stock_actual + f.costo_nuevo * f.cantidad) / totalStock;
-        const pctTotal = (costoNuevoPromedio / cifEfectivo - 1) * 100;
-        return { ...f, porciento_extra: pctTotal - porcientoEnvioSugerido };
-      });
-      return calcularPrecios(updated, porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal);
-    });
-  };
 
   const prevPctRef = useRef({ porcientoEnvioSugerido, porcientoVentas, porcientoInstaladora, porcientoCifGlobal });
   useEffect(() => {
@@ -373,11 +360,7 @@ function FichaCostoContent() {
 
   const guardarFicha = async () => {
     if (hayErroresValidacion) {
-      toast({
-        title: "Errores de validación",
-        description: "Corrige los errores en los precios antes de guardar.",
-        variant: "destructive",
-      });
+      toast({ title: "Errores de validación", description: "Corrige los errores antes de guardar.", variant: "destructive" });
       return;
     }
     setSaving(true);
@@ -391,7 +374,7 @@ function FichaCostoContent() {
       const payload: AplicarPreciosMaterialPayload[] = filas.map((f) => ({
         material_id: f.material_id,
         precio_unitario_cif: f.precio_unitario_cif,
-        porciento_extra: f.porciento_extra,
+        porciento_extra: 0,
         costo_calc: f.costo_nuevo > 0 ? f.costo_nuevo : undefined,
         precio_venta_calc: f.precio_venta_nuevo > 0 ? f.precio_venta_nuevo : undefined,
         precio_instaladora_calc: f.precio_instaladora_nuevo > 0 ? f.precio_instaladora_nuevo : undefined,
@@ -417,27 +400,6 @@ function FichaCostoContent() {
   if (loadingEnvio) return <PageLoader moduleName="Ficha de Costo" text="Cargando ficha de costo..." />;
   if (!envio) return null;
 
-  const deltaColor =
-    Math.abs(deltaGlobal) < 0.01
-      ? "text-emerald-600"
-      : deltaGlobal > 0
-        ? "text-blue-600"
-        : "text-red-600";
-
-  const deltaBorder =
-    Math.abs(deltaGlobal) < 0.01
-      ? "border-emerald-400"
-      : deltaGlobal > 0
-        ? "border-blue-400"
-        : "border-red-400";
-
-  const deltaBg =
-    Math.abs(deltaGlobal) < 0.01
-      ? "bg-emerald-50"
-      : deltaGlobal > 0
-        ? "bg-blue-50"
-        : "bg-red-50";
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ══════════════════════════════════════════════════════
@@ -446,7 +408,6 @@ function FichaCostoContent() {
       <header className="fixed top-0 inset-x-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
-            {/* Izquierda: navegación + título */}
             <div className="flex items-center gap-3 min-w-0">
               <Link href="/envio-contenedores">
                 <Button variant="ghost" size="sm" className="gap-1.5 shrink-0 text-gray-600 hover:text-gray-900">
@@ -485,28 +446,14 @@ function FichaCostoContent() {
               </div>
             </div>
 
-            {/* Derecha: acciones */}
             <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={aplicarSugerencia}
-                className="gap-1.5 text-gray-700 hidden md:flex"
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Aplicar sugerencia
-              </Button>
               <Button
                 size="sm"
                 onClick={guardarFicha}
                 disabled={saving || hayErroresValidacion}
                 className="gap-1.5 bg-cyan-600 hover:bg-cyan-700 text-white"
               >
-                {saving ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <Save className="h-3.5 w-3.5" />
-                )}
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                 <span className="hidden sm:inline">Guardar y aplicar precios</span>
                 <span className="sm:hidden">Guardar</span>
               </Button>
@@ -521,45 +468,26 @@ function FichaCostoContent() {
       <main className="pt-14 max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* ── KPI Strip ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 py-4">
-          {/* Desviación global */}
-          <div className={`rounded-lg border-l-4 ${deltaBorder} ${deltaBg} px-4 py-3`}>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Desviación global (Δ)</p>
-            <p className={`text-2xl font-bold ${deltaColor}`}>{fmtPct(deltaGlobal)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {Math.abs(deltaGlobal) < 0.01
-                ? "En punto exacto"
-                : deltaGlobal > 0
-                  ? "Por encima del sugerido"
-                  : "Por debajo del sugerido"}
-            </p>
-          </div>
-
-          {/* Total costos */}
+        <div className="grid grid-cols-3 gap-3 py-4">
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total costos</p>
             <p className="text-xl font-bold text-gray-900">${fmt(totalCostosUsd)}</p>
             <div className="flex gap-2 mt-0.5">
-              {costosTotalesMLC > 0 && (
-                <span className="text-xs text-amber-600">{fmt(costosTotalesMLC)} MLC</span>
-              )}
-              {costosTotalesCUP > 0 && (
-                <span className="text-xs text-amber-600">{fmt(costosTotalesCUP)} CUP</span>
-              )}
-              {costosTotalesMLC === 0 && costosTotalesCUP === 0 && (
-                <span className="text-xs text-gray-400">Solo USD/EUR</span>
-              )}
+              {costosTotalesMLC > 0 && <span className="text-xs text-amber-600">{fmt(costosTotalesMLC)} MLC</span>}
+              {costosTotalesCUP > 0 && <span className="text-xs text-amber-600">{fmt(costosTotalesCUP)} CUP</span>}
+              {costosTotalesMLC === 0 && costosTotalesCUP === 0 && <span className="text-xs text-gray-400">Solo USD/EUR</span>}
             </div>
           </div>
 
-          {/* Valor mercancías */}
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Valor mercancías</p>
             <p className="text-xl font-bold text-gray-900">${fmt(totalValorMercancias)}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{filas.length} producto{filas.length !== 1 ? "s" : ""}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {filas.length} producto{filas.length !== 1 ? "s" : ""}
+              {porcientoCifGlobal !== 0 && <span className="text-orange-500 ml-1">· imp. {porcientoCifGlobal}%</span>}
+            </p>
           </div>
 
-          {/* % Envío sugerido */}
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">% Envío sugerido</p>
             <p className="text-xl font-bold text-cyan-700">{fmt(porcientoEnvioSugerido)}%</p>
@@ -577,9 +505,7 @@ function FichaCostoContent() {
             <CardHeader className="pb-0 pt-4 px-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CardTitle className="text-sm font-semibold text-gray-800">
-                    Costos de importación
-                  </CardTitle>
+                  <CardTitle className="text-sm font-semibold text-gray-800">Costos de importación</CardTitle>
                   <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
                     {costos.length} ítem{costos.length !== 1 ? "s" : ""}
                   </span>
@@ -600,11 +526,7 @@ function FichaCostoContent() {
                     onClick={() => setCostosCollapsed((v) => !v)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
                   >
-                    {costosCollapsed ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronUp className="h-4 w-4" />
-                    )}
+                    {costosCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -652,9 +574,7 @@ function FichaCostoContent() {
                                 onChange={(e) =>
                                   setCostos((prev) =>
                                     prev.map((item, i) =>
-                                      i === idx
-                                        ? { ...item, monto: parseFloat(e.target.value) || 0 }
-                                        : item,
+                                      i === idx ? { ...item, monto: parseFloat(e.target.value) || 0 } : item,
                                     ),
                                   )
                                 }
@@ -678,9 +598,7 @@ function FichaCostoContent() {
                                 </SelectTrigger>
                                 <SelectContent>
                                   {MONEDAS_COSTO.map((m) => (
-                                    <SelectItem key={m} value={m} className="text-xs">
-                                      {m}
-                                    </SelectItem>
+                                    <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
@@ -689,7 +607,6 @@ function FichaCostoContent() {
                               <button
                                 onClick={() => eliminarCosto(idx)}
                                 className="text-gray-300 hover:text-red-500 transition-colors"
-                                title="Eliminar costo"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -719,18 +636,11 @@ function FichaCostoContent() {
                     onKeyDown={(e) => e.key === "Enter" && agregarCosto()}
                     min="0"
                   />
-                  <Select
-                    value={nuevoCostoMoneda}
-                    onValueChange={(val) => setNuevoCostoMoneda(val as MonedaCosto)}
-                  >
-                    <SelectTrigger className="h-8 text-xs w-20">
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={nuevoCostoMoneda} onValueChange={(val) => setNuevoCostoMoneda(val as MonedaCosto)}>
+                    <SelectTrigger className="h-8 text-xs w-20"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {MONEDAS_COSTO.map((m) => (
-                        <SelectItem key={m} value={m} className="text-xs">
-                          {m}
-                        </SelectItem>
+                        <SelectItem key={m} value={m} className="text-xs">{m}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -750,9 +660,7 @@ function FichaCostoContent() {
           {/* Panel porcentajes de margen */}
           <Card className="border border-gray-200 shadow-none">
             <CardHeader className="pb-0 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold text-gray-800">
-                Porcentajes de margen
-              </CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-800">Porcentajes de margen</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pt-3 pb-4">
               {/* Impuesto nacional */}
@@ -773,9 +681,7 @@ function FichaCostoContent() {
                     <p className="text-xs text-orange-600 leading-tight">
                       CIF efectivo = CIF × (1 + <span className="font-semibold">{porcientoCifGlobal}</span>%)
                       {porcientoCifGlobal !== 0 && (
-                        <span className="ml-1 font-semibold">
-                          — todos los cálculos usan el CIF ajustado
-                        </span>
+                        <span className="ml-1 font-semibold">— base para todos los cálculos</span>
                       )}
                     </p>
                   </div>
@@ -791,7 +697,6 @@ function FichaCostoContent() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* % Ventas */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-gray-600">% Margen Ventas</Label>
                   <div className="flex items-center gap-2">
@@ -806,15 +711,10 @@ function FichaCostoContent() {
                     <span className="text-sm font-medium text-gray-500 w-4">%</span>
                   </div>
                   <p className="text-xs text-gray-400 leading-tight">
-                    Costo = CIF{porcientoCifGlobal !== 0 && <span className="text-orange-500">×(1+{porcientoCifGlobal}%)</span>} × (1 + (
-                    <span className="text-cyan-600 font-medium">{fmt(porcientoEnvioSugerido, 1)}</span>
-                    {" + Δ) / 100)"}
-                    <br />
-                    P. ventas = Costo × (1 + <span className="font-medium">{porcientoVentas}</span>%)
+                    P. venta = Costo × (1 + <span className="font-medium">{porcientoVentas}</span>%)
                   </p>
                 </div>
 
-                {/* % Instaladora */}
                 <div className="space-y-1.5">
                   <Label className="text-xs font-medium text-gray-600">% Margen Instaladora</Label>
                   <div className="flex items-center gap-2">
@@ -829,16 +729,12 @@ function FichaCostoContent() {
                     <span className="text-sm font-medium text-gray-500 w-4">%</span>
                   </div>
                   <p className="text-xs text-gray-400 leading-tight">
-                    Costo = CIF{porcientoCifGlobal !== 0 && <span className="text-orange-500">×(1+{porcientoCifGlobal}%)</span>} × (1 + (
-                    <span className="text-cyan-600 font-medium">{fmt(porcientoEnvioSugerido, 1)}</span>
-                    {" + Δ) / 100)"}
-                    <br />
                     P. install. = Costo × (1 + <span className="font-medium">{porcientoInstaladora}</span>%)
                   </p>
                 </div>
               </div>
 
-              {/* Resumen de porcentajes */}
+              {/* Resumen */}
               <div className={`mt-4 grid gap-2 ${porcientoCifGlobal !== 0 ? "grid-cols-4" : "grid-cols-3"}`}>
                 {porcientoCifGlobal !== 0 && (
                   <div className="text-center p-2 rounded-md bg-orange-50 border border-orange-200">
@@ -868,34 +764,26 @@ function FichaCostoContent() {
         </div>
 
         {/* ══════════════════════════════════════════════════════
-            TABLA DE PRODUCTOS — ANCHO COMPLETO
+            TABLA DE PRODUCTOS
         ══════════════════════════════════════════════════════ */}
         <Card className="border border-gray-200 shadow-none mb-6">
           <CardHeader className="pb-0 pt-4 px-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <CardTitle className="text-sm font-semibold text-gray-800">
-                  Productos del envío
-                </CardTitle>
-                <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-                  {filas.length} producto{filas.length !== 1 ? "s" : ""}
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-sm font-semibold text-gray-800">Productos del envío</CardTitle>
+              <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                {filas.length} producto{filas.length !== 1 ? "s" : ""}
+              </span>
+              {hayErroresValidacion && (
+                <span className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  Hay errores de validación
                 </span>
-                {hayErroresValidacion && (
-                  <span className="text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Hay errores de validación
-                  </span>
-                )}
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={aplicarSugerencia}
-                className="md:hidden h-7 gap-1.5 text-xs"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Sugerencia
-              </Button>
+              )}
+              {filas.some((f) => f.precio_venta_override !== null || f.precio_instaladora_override !== null) && (
+                <span className="text-xs text-purple-600 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded">
+                  Precios editados manualmente
+                </span>
+              )}
             </div>
           </CardHeader>
 
@@ -906,22 +794,18 @@ function FichaCostoContent() {
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full text-sm border-collapse" style={{ minWidth: "1260px" }}>
-                  {/* ── Cabecera doble con grupos ─────────────────────────────── */}
+                <table className="w-full text-sm border-collapse" style={{ minWidth: "1100px" }}>
                   <thead>
                     {/* Fila 1: grupos */}
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th rowSpan={2} className="text-left py-2 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[16%]">
+                      <th rowSpan={2} className="text-left py-2 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[18%]">
                         Material
                       </th>
-                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[4%]">
+                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[5%]">
                         Cant.
                       </th>
-                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[8%]">
+                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[9%]">
                         CIF (USD)
-                      </th>
-                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[7%]">
-                        Δ% Extra
                       </th>
                       {/* Grupo actuales */}
                       <th colSpan={4} className="text-center py-2 px-2 font-semibold text-gray-500 text-xs uppercase tracking-wide bg-slate-50 border-l border-r border-slate-200">
@@ -934,43 +818,23 @@ function FichaCostoContent() {
                       <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[7%]">
                         % Reb.
                       </th>
-                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[8%]">
-                        Acción
-                      </th>
                     </tr>
-                    {/* Fila 2: sub-columnas de los grupos */}
+                    {/* Fila 2: sub-columnas */}
                     <tr className="border-b border-gray-200">
-                      {/* Sub-cols actuales */}
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-l border-slate-200 w-[7%]">
-                        Stock
-                      </th>
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[8%]">
-                        P. Venta
-                      </th>
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[8%]">
-                        P. Inst.
-                      </th>
-                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-r border-slate-200 w-[7%]">
-                        Costo
-                      </th>
-                      {/* Sub-cols nuevos */}
-                      <th className="text-center py-1.5 px-2 font-medium text-amber-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[9%]">
-                        Costo
-                      </th>
-                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 w-[9%]">
-                        P. Venta
-                      </th>
-                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[8%]">
-                        P. Inst.
-                      </th>
+                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-l border-slate-200 w-[6%]">Stock</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[8%]">P. Venta</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[8%]">P. Inst.</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-r border-slate-200 w-[7%]">Costo</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-amber-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[9%]">Costo</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 w-[10%]">P. Venta</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[10%]">P. Inst.</th>
                     </tr>
                   </thead>
 
                   <tbody>
                     {filas.map((f, idx) => {
-                      const pctVentaTotal = porcientoEnvioSugerido + porcientoVentas + f.porciento_extra;
-                      const pctInstTotal = porcientoEnvioSugerido + porcientoInstaladora + f.porciento_extra;
                       const hasError = !!f.errorValidacion;
+                      const cifEfectivo = f.precio_unitario_cif * (1 + porcientoCifGlobal / 100);
 
                       const pctCambioVenta =
                         f.precio_catalogo > 0
@@ -994,9 +858,7 @@ function FichaCostoContent() {
                           >
                             {/* Material */}
                             <td className="py-2.5 px-4">
-                              <p className="font-semibold text-gray-900 text-sm leading-tight">
-                                {f.material_nombre}
-                              </p>
+                              <p className="font-semibold text-gray-900 text-sm leading-tight">{f.material_nombre}</p>
                               <p className="text-xs text-gray-400 mt-0.5 font-mono">{f.material_codigo}</p>
                             </td>
 
@@ -1016,82 +878,56 @@ function FichaCostoContent() {
                                   className="h-7 text-xs text-right w-full font-medium"
                                   value={f.precio_unitario_cif || ""}
                                   placeholder="0.00"
-                                  onChange={(e) =>
-                                    actualizarFila(f.material_id, "precio_unitario_cif", parseFloat(e.target.value) || 0)
-                                  }
+                                  onChange={(e) => actualizarCif(f.material_id, parseFloat(e.target.value) || 0)}
                                 />
                               </div>
                               {porcientoCifGlobal !== 0 && f.precio_unitario_cif > 0 && (
                                 <p className="text-xs text-orange-500 text-center mt-0.5 font-medium">
-                                  =${fmt(f.precio_unitario_cif * (1 + porcientoCifGlobal / 100))}
+                                  =${fmt(cifEfectivo)}
                                 </p>
                               )}
                             </td>
 
-                            {/* Δ% extra */}
-                            <td className="py-2.5 px-2">
-                              <div className="flex flex-col items-center gap-0.5">
-                                <div className="flex items-center gap-1">
-                                  <Input
-                                    type="number"
-                                    step="0.1"
-                                    className={`h-7 text-xs text-right w-16 font-medium ${
-                                      f.porciento_extra > 0
-                                        ? "text-blue-700 border-blue-200"
-                                        : f.porciento_extra < 0
-                                          ? "text-red-600 border-red-200"
-                                          : ""
-                                    }`}
-                                    value={parseFloat(f.porciento_extra.toFixed(2))}
-                                    onChange={(e) =>
-                                      actualizarFila(f.material_id, "porciento_extra", parseFloat(e.target.value) || 0)
-                                    }
-                                  />
-                                  <span className="text-xs text-gray-400">%</span>
-                                </div>
-                                <p className="text-xs text-gray-400 whitespace-nowrap">
-                                  {fmt(pctVentaTotal, 1)}%V · {fmt(pctInstTotal, 1)}%I
-                                </p>
-                              </div>
-                            </td>
-
                             {/* ── Actuales (catálogo) ─────────────────────── */}
-                            {/* Stock actual */}
                             <td className="py-2.5 px-2 text-center bg-slate-50/60 border-l border-slate-100">
                               <p className="text-sm font-semibold text-gray-700">{fmt(f.stock_actual, 0)}</p>
                               <p className="text-xs text-gray-400">uds.</p>
                             </td>
-
-                            {/* Precio venta actual */}
                             <td className="py-2.5 px-2 text-center bg-slate-50/60">
-                              {f.precio_catalogo > 0 ? (
-                                <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_catalogo)}</p>
-                              ) : (
-                                <p className="text-xs text-gray-300">—</p>
-                              )}
+                              {f.precio_catalogo > 0
+                                ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_catalogo)}</p>
+                                : <p className="text-xs text-gray-300">—</p>}
                             </td>
-
-                            {/* Precio instaladora actual */}
                             <td className="py-2.5 px-2 text-center bg-slate-50/60">
-                              {f.precio_instaladora_catalogo > 0 ? (
-                                <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_instaladora_catalogo)}</p>
-                              ) : (
-                                <p className="text-xs text-gray-300">—</p>
-                              )}
+                              {f.precio_instaladora_catalogo > 0
+                                ? <p className="text-sm font-semibold text-gray-700">${fmt(f.precio_instaladora_catalogo)}</p>
+                                : <p className="text-xs text-gray-300">—</p>}
                             </td>
-
-                            {/* Costo actual */}
                             <td className="py-2.5 px-2 text-center bg-slate-50/60 border-r border-slate-100">
-                              {f.costo_actual > 0 ? (
-                                <p className="text-sm font-semibold text-amber-700">${fmt(f.costo_actual)}</p>
-                              ) : (
-                                <p className="text-xs text-gray-300">—</p>
-                              )}
+                              {f.costo_actual > 0
+                                ? <p className="text-sm font-semibold text-amber-700">${fmt(f.costo_actual)}</p>
+                                : <p className="text-xs text-gray-300">—</p>}
                             </td>
 
                             {/* ── Nuevos ─────────────────────────────────── */}
-                            {/* Nuevo Costo (editable) */}
-                            <td className="py-2.5 px-2 bg-cyan-50/40 border-l border-cyan-100">
+                            {/* Nuevo costo (solo lectura, derivado) */}
+                            <td className="py-2.5 px-2 text-center bg-cyan-50/40 border-l border-cyan-100">
+                              {f.costo_nuevo > 0 ? (
+                                <>
+                                  <p className="text-sm font-semibold text-amber-700">${fmt(f.costo_nuevo)}</p>
+                                  {f.costo_actual > 0 && (
+                                    <span className={`text-xs font-medium ${f.costo_nuevo >= f.costo_actual ? "text-emerald-600" : "text-red-500"}`}>
+                                      {f.costo_nuevo >= f.costo_actual ? "+" : ""}{fmt(((f.costo_nuevo - f.costo_actual) / f.costo_actual) * 100, 1)}%
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <p className="text-xs text-gray-300">—</p>
+                              )}
+                            </td>
+
+                            {/* Precio venta nuevo (editable) */}
+                            <td className="py-2.5 px-2 bg-cyan-50/40">
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-center gap-1">
                                   <span className="text-xs text-gray-400">$</span>
@@ -1099,68 +935,69 @@ function FichaCostoContent() {
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className="h-7 text-xs text-right w-20 font-semibold text-amber-700 border-amber-200"
-                                    value={parseFloat(f.costo_nuevo.toFixed(4)) || ""}
-                                    placeholder="0.00"
-                                    onChange={(e) =>
-                                      actualizarCostoNuevoDirecto(f.material_id, parseFloat(e.target.value) || 0)
-                                    }
-                                  />
-                                </div>
-                                {f.costo_actual > 0 && f.costo_nuevo > 0 && (
-                                  <span
-                                    className={`text-xs font-medium ${
-                                      f.costo_nuevo >= f.costo_actual ? "text-emerald-600" : "text-red-500"
+                                    className={`h-7 text-xs text-right w-20 font-semibold ${
+                                      hasError
+                                        ? "border-red-400 text-red-700"
+                                        : f.precio_venta_override !== null
+                                          ? "border-purple-300 text-purple-700"
+                                          : "text-cyan-900"
                                     }`}
-                                  >
-                                    {fmtPct(((f.costo_nuevo - f.costo_actual) / f.costo_actual) * 100)}
+                                    value={parseFloat(f.precio_venta_nuevo.toFixed(4)) || ""}
+                                    placeholder="0.00"
+                                    onChange={(e) => setPrecioVentaManual(f.material_id, parseFloat(e.target.value) || 0)}
+                                  />
+                                  {f.precio_venta_override !== null && (
+                                    <button
+                                      onClick={() => resetPrecioVenta(f.material_id)}
+                                      className="text-purple-400 hover:text-purple-600 transition-colors"
+                                      title="Volver al precio sugerido"
+                                    >
+                                      <RefreshCw className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                                {pctCambioVenta !== null && (
+                                  <span className={`text-xs font-medium ${pctCambioVenta >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                    {pctCambioVenta >= 0 ? "+" : ""}{fmt(pctCambioVenta, 1)}%
                                   </span>
                                 )}
                               </div>
                             </td>
 
-                            {/* Precio venta nuevo (solo lectura) */}
-                            <td className="py-2.5 px-2 text-center bg-cyan-50/40">
-                              {f.precio_venta_nuevo > 0 ? (
-                                <>
-                                  <p className={`text-sm font-semibold ${hasError ? "text-red-700" : "text-cyan-900"}`}>
-                                    ${fmt(f.precio_venta_nuevo)}
-                                  </p>
-                                  {pctCambioVenta !== null && (
-                                    <span
-                                      className={`text-xs font-medium ${
-                                        pctCambioVenta >= 0 ? "text-emerald-600" : "text-red-500"
-                                      }`}
+                            {/* Precio instaladora nuevo (editable) */}
+                            <td className="py-2.5 px-2 bg-cyan-50/40 border-r border-cyan-100">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-xs text-gray-400">$</span>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    className={`h-7 text-xs text-right w-20 font-semibold ${
+                                      f.precio_instaladora_override !== null
+                                        ? "border-purple-300 text-purple-700"
+                                        : "text-cyan-900"
+                                    }`}
+                                    value={parseFloat(f.precio_instaladora_nuevo.toFixed(4)) || ""}
+                                    placeholder="0.00"
+                                    onChange={(e) => setPrecioInstaladoraManual(f.material_id, parseFloat(e.target.value) || 0)}
+                                  />
+                                  {f.precio_instaladora_override !== null && (
+                                    <button
+                                      onClick={() => resetPrecioInstaladora(f.material_id)}
+                                      className="text-purple-400 hover:text-purple-600 transition-colors"
+                                      title="Volver al precio sugerido"
                                     >
-                                      {fmtPct(pctCambioVenta)}
-                                    </span>
+                                      <RefreshCw className="h-3 w-3" />
+                                    </button>
                                   )}
-                                </>
-                              ) : (
-                                <p className="text-xs text-gray-300">—</p>
-                              )}
-                            </td>
-
-                            {/* Precio instaladora nuevo (solo lectura) */}
-                            <td className="py-2.5 px-2 text-center bg-cyan-50/40 border-r border-cyan-100">
-                              {f.precio_instaladora_nuevo > 0 ? (
-                                <>
-                                  <p className="text-sm font-semibold text-cyan-900">
-                                    ${fmt(f.precio_instaladora_nuevo)}
-                                  </p>
-                                  {pctCambioInst !== null && (
-                                    <span
-                                      className={`text-xs font-medium ${
-                                        pctCambioInst >= 0 ? "text-emerald-600" : "text-red-500"
-                                      }`}
-                                    >
-                                      {fmtPct(pctCambioInst)}
-                                    </span>
-                                  )}
-                                </>
-                              ) : (
-                                <p className="text-xs text-gray-300">—</p>
-                              )}
+                                </div>
+                                {pctCambioInst !== null && (
+                                  <span className={`text-xs font-medium ${pctCambioInst >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                    {pctCambioInst >= 0 ? "+" : ""}{fmt(pctCambioInst, 1)}%
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* % Rebajable */}
@@ -1174,9 +1011,7 @@ function FichaCostoContent() {
                                     step="0.5"
                                     className={`h-7 text-xs text-right w-14 ${hasError ? "border-red-400" : ""}`}
                                     value={f.porciento_rebajable_venta}
-                                    onChange={(e) =>
-                                      actualizarFila(f.material_id, "porciento_rebajable_venta", parseFloat(e.target.value) || 0)
-                                    }
+                                    onChange={(e) => actualizarRebajable(f.material_id, parseFloat(e.target.value) || 0)}
                                   />
                                   <span className="text-xs text-gray-400">%</span>
                                 </div>
@@ -1187,28 +1022,12 @@ function FichaCostoContent() {
                                 )}
                               </div>
                             </td>
-
-                            {/* Acción */}
-                            <td className="py-2.5 px-2 text-center">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-7 px-2 text-xs gap-1 text-gray-600 hover:text-cyan-700 hover:border-cyan-300"
-                                disabled={f.precio_unitario_cif <= 0 || f.costo_actual <= 0 || f.costo_nuevo <= 0}
-                                title="Calcular costo promedio ponderado con stock actual"
-                                onClick={() => prorratearProducto(f.material_id)}
-                              >
-                                <RefreshCw className="h-3 w-3" />
-                                Prorratear
-                              </Button>
-                            </td>
                           </tr>
 
                           {/* Fila de error */}
                           {hasError && (
                             <tr className="bg-red-50 border-b border-red-100">
-                              <td colSpan={13} className="px-4 py-2">
+                              <td colSpan={11} className="px-4 py-2">
                                 <div className="flex items-start gap-2">
                                   <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
                                   <p className="text-xs text-red-600">{f.errorValidacion}</p>
@@ -1228,29 +1047,22 @@ function FichaCostoContent() {
                         <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Totales</p>
                       </td>
                       <td className="py-3 px-2 text-center">
-                        <span className="text-sm font-bold text-gray-700">
-                          {filas.reduce((s, f) => s + f.cantidad, 0)}
-                        </span>
+                        <span className="text-sm font-bold text-gray-700">{filas.reduce((s, f) => s + f.cantidad, 0)}</span>
                       </td>
                       <td className="py-3 px-2 text-center">
                         <span className="text-sm font-bold text-gray-700">${fmt(totalValorMercancias)}</span>
                         {porcientoCifGlobal !== 0 && (
-                          <p className="text-xs text-orange-500 font-medium">CIF+{porcientoCifGlobal}%</p>
+                          <p className="text-xs text-orange-500 font-medium">imp. {porcientoCifGlobal}%</p>
                         )}
                       </td>
-                      <td className="py-3 px-2 text-center">
-                        <span className={`text-sm font-bold ${deltaColor}`}>{fmtPct(deltaGlobal)}</span>
-                      </td>
-                      {/* actuales: stock + 3 precios */}
+                      {/* actuales */}
                       <td className="py-3 px-2 text-center bg-slate-50/60 border-l border-slate-100">
-                        <span className="text-sm font-bold text-gray-600">
-                          {fmt(filas.reduce((s, f) => s + f.stock_actual, 0), 0)}
-                        </span>
+                        <span className="text-sm font-bold text-gray-600">{fmt(filas.reduce((s, f) => s + f.stock_actual, 0), 0)}</span>
                       </td>
                       <td className="py-3 px-2 bg-slate-50/60" />
                       <td className="py-3 px-2 bg-slate-50/60" />
                       <td className="py-3 px-2 bg-slate-50/60 border-r border-slate-100" />
-                      {/* nuevos: costo, p.venta, p.instaladora */}
+                      {/* nuevos */}
                       <td className="py-3 px-2 text-center bg-cyan-50/40 border-l border-cyan-100">
                         <span className="text-sm font-bold text-amber-700">
                           ${fmt(filas.reduce((s, f) => s + f.costo_nuevo * f.cantidad, 0))}
@@ -1266,7 +1078,7 @@ function FichaCostoContent() {
                           ${fmt(filas.reduce((s, f) => s + f.precio_instaladora_nuevo * f.cantidad, 0))}
                         </span>
                       </td>
-                      <td colSpan={2} />
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
