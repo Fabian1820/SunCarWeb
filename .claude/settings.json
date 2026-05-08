@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(Get-ChildItem -Path \"d:\\\\SunCar\\\\SunCarWeb\" -Recurse -Force)",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git pull *)",
+      "Bash(git stash *)"
     ]
   }
 }

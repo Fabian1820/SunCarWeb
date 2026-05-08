@@ -175,7 +175,7 @@ export class TicketFacturaVentaService {
       totalLine("Descuento:", fmt(factura.total_descuento_monto), false, [150, 40, 0]);
     totalLine("TOTAL:", fmt(factura.total_a_pagar), true);
     if (Number(factura.total_pagado) > 0)
-      totalLine("Pagado:", fmt(factura.total_pagado), false, [21, 100, 61]);
+      totalLine("Pagado:", fmt(factura.total_pagado), true);
 
     y += 1;
     dashes(doc, y); y += 6;
