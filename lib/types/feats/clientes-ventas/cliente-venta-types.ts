@@ -7,6 +7,7 @@
   municipio?: string;
   telefono?: string;
   ci?: string;
+  comercial?: string;
   fecha_creacion?: string;
   fecha_actualizacion?: string;
   creado_por_ci?: string;
@@ -20,6 +21,7 @@ export interface ClienteVentaCreateData {
   municipio?: string;
   telefono?: string;
   ci?: string;
+  comercial?: string | null;
 }
 
 export interface ClienteVentaUpdateData {
@@ -29,6 +31,7 @@ export interface ClienteVentaUpdateData {
   municipio?: string;
   telefono?: string;
   ci?: string;
+  comercial?: string | null;
 }
 
 export interface ClienteVentaListResponse {

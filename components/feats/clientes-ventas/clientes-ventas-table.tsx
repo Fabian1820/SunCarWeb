@@ -1,8 +1,9 @@
 ﻿"use client";
 
+import React from "react";
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
-import { ChevronDown, ChevronRight, Pencil, Trash2, UserRound } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil, ShoppingCart, Trash2, UserRound } from "lucide-react";
 import type { ClienteVenta } from "@/lib/api-types";
 import { useState } from "react";
 import { ClienteValesRow } from "./cliente-vales-row";
@@ -11,12 +12,14 @@ interface ClientesVentasTableProps {
   clientes: ClienteVenta[];
   onEdit?: (cliente: ClienteVenta) => void;
   onDelete?: (cliente: ClienteVenta) => void;
+  onAgregarOferta?: (cliente: ClienteVenta) => void;
 }
 
 export function ClientesVentasTable({
   clientes,
   onEdit,
   onDelete,
+  onAgregarOferta,
 }: ClientesVentasTableProps) {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -67,6 +70,7 @@ export function ClientesVentasTable({
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Nombre</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Telefono</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">CI</th>
+            <th className="text-left py-3 px-4 font-semibold text-gray-900">Comercial</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Provincia</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Municipio</th>
             <th className="text-left py-3 px-4 font-semibold text-gray-900">Direccion</th>
@@ -78,9 +82,8 @@ export function ClientesVentasTable({
           {clientes.map((cliente) => {
             const isExpanded = expandedRows.has(cliente.id);
             return (
-              <>
+              <React.Fragment key={cliente.id}>
                 <tr
-                  key={cliente.id}
                   className="border-b border-gray-100 hover:bg-gray-50"
                 >
                   <td className="py-4 px-4">
@@ -111,6 +114,15 @@ export function ClientesVentasTable({
                   </td>
                   <td className="py-4 px-4 text-gray-700">{cliente.telefono || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.ci || "-"}</td>
+                  <td className="py-4 px-4 text-gray-700">
+                    {cliente.comercial ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                        {cliente.comercial}
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="py-4 px-4 text-gray-700">{cliente.provincia || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.municipio || "-"}</td>
                   <td className="py-4 px-4 text-gray-700">{cliente.direccion || "-"}</td>
@@ -119,6 +131,17 @@ export function ClientesVentasTable({
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-2">
+                      {onAgregarOferta && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onAgregarOferta(cliente)}
+                          className="border-teal-300 text-teal-700 hover:bg-teal-50 h-8 w-8 p-0"
+                          title="Agregar oferta"
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                        </Button>
+                      )}
                       {onEdit && (
                         <Button
                           variant="outline"
@@ -135,7 +158,7 @@ export function ClientesVentasTable({
                           variant="outline"
                           size="sm"
                           onClick={() => onDelete(cliente)}
-                          className="border-red-300 text-red-700 hover:bg-red-50"
+                          className="border-red-300 text-red-700 hover:bg-red-50 h-8 w-8 p-0"
                           title="Eliminar cliente"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -145,7 +168,7 @@ export function ClientesVentasTable({
                   </td>
                 </tr>
                 {isExpanded && <ClienteValesRow clienteVentaId={cliente.id} />}
-              </>
+              </React.Fragment>
             );
           })}
         </tbody>

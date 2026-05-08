@@ -140,6 +140,16 @@ export type {
 } from "./types/feats/clientes-ventas/cliente-venta-types";
 
 export type {
+  OfertaVenta,
+  OfertaVentaMaterialDetalle,
+  OfertaVentaCreateData,
+  OfertaVentaUpdateData,
+  OfertaVentaListParams,
+  OfertaVentaListResponse,
+  EstadoOfertaVenta,
+} from "./types/feats/ofertas-venta/oferta-venta-types";
+
+export type {
   SolicitudVenta,
   SolicitudVentaAnularData,
   SolicitudVentaCreateData,

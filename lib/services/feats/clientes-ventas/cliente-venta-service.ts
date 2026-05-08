@@ -123,6 +123,7 @@ export class ClienteVentaService {
     id: string,
     data: ClienteVentaUpdateData,
   ): Promise<ClienteVenta> {
+    console.log("📤 [patchCliente] id:", id, "body:", JSON.stringify(data));
     const raw = await apiRequest<any>(buildDetailEndpoint(id), {
       method: "PATCH",
       body: JSON.stringify(data),
