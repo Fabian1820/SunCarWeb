@@ -32,6 +32,7 @@ import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form
 import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
 import { EditarPreciosDialog } from "@/components/feats/fichas-costo/editar-precios-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/shared/molecule/tooltip"
 import type {
   FichaCostoCreateData,
   MaterialFichaResumen,
@@ -286,6 +287,7 @@ function FichasCostoPageContent() {
                 </p>
               </div>
             ) : (
+              <TooltipProvider delayDuration={200}>
               <div className="overflow-x-auto">
                 <table className="w-full table-fixed text-sm min-w-[1280px]">
                   <thead>
@@ -328,9 +330,30 @@ function FichasCostoPageContent() {
                                   <Package className="h-3 w-3 text-amber-700" />
                                 </div>
                               )}
-                              <span className="font-semibold text-gray-900 whitespace-nowrap text-xs">
-                                {row.codigo ?? "-"}
-                              </span>
+                              <div className="min-w-0 flex-1">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <p className="font-semibold text-gray-900 text-xs truncate cursor-help">
+                                      {row.codigo ?? "-"}
+                                    </p>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p className="max-w-xs break-words">{row.codigo ?? "-"}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                                {row.numero_serie && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <p className="text-[10px] text-gray-500 truncate cursor-help">
+                                        N/S: {row.numero_serie}
+                                      </p>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">
+                                      <p className="max-w-xs break-words">N/S: {row.numero_serie}</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
                             </div>
                           </td>
 
@@ -344,9 +367,18 @@ function FichasCostoPageContent() {
                           </td>
 
                           <td className="py-2.5 px-3">
-                            <p className="font-medium text-gray-900 truncate text-sm">
-                              {row.nombre || row.descripcion || "-"}
-                            </p>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <p className="font-medium text-gray-900 truncate text-sm cursor-help">
+                                  {row.nombre || row.descripcion || "-"}
+                                </p>
+                              </TooltipTrigger>
+                              <TooltipContent side="top">
+                                <p className="max-w-xs break-words">
+                                  {row.nombre || row.descripcion || "-"}
+                                </p>
+                              </TooltipContent>
+                            </Tooltip>
                             {row.marca && <p className="text-xs text-gray-400 truncate">{row.marca}</p>}
                           </td>
 
@@ -445,6 +477,7 @@ function FichasCostoPageContent() {
                   </tbody>
                 </table>
               </div>
+              </TooltipProvider>
             )}
           </CardContent>
         </Card>

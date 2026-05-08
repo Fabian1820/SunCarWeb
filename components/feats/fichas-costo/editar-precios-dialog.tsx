@@ -6,7 +6,7 @@ import { Input } from "@/components/shared/molecule/input"
 import { Label } from "@/components/shared/atom/label"
 import { Button } from "@/components/shared/atom/button"
 import { Badge } from "@/components/shared/atom/badge"
-import { DollarSign, Percent, Package, Loader2, Pencil } from "lucide-react"
+import { DollarSign, Percent, Package, Loader2, Pencil, Hash } from "lucide-react"
 import { FichaCostoService } from "@/lib/api-services"
 import { useToast } from "@/hooks/use-toast"
 import type { MaterialFichaResumen } from "@/lib/types/feats/fichas-costo/ficha-costo-types"
@@ -27,6 +27,7 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
   const [precioInstaladora, setPrecioInstaladora] = useState<string>("")
   const [porcRebajable, setPorcRebajable] = useState<string>("")
   const [costo, setCosto] = useState<string>("")
+  const [numeroSerie, setNumeroSerie] = useState<string>("")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
       setPrecioInstaladora(toInputValue(material.precio_instaladora))
       setPorcRebajable(toInputValue(material.porciento_rebajable_venta))
       setCosto(toInputValue(material.costo))
+      setNumeroSerie(typeof material.numero_serie === "string" ? material.numero_serie : "")
     }
   }, [open, material])
 
@@ -72,13 +74,20 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
     }
 
     // Solo enviar campos modificados respecto al material original
-    const cleaned: Record<string, number> = {}
+    const cleaned: { precio?: number; precio_instaladora?: number; porciento_rebajable_venta?: number; costo?: number; numero_serie?: string | null } = {}
     if (payload.precio !== undefined && payload.precio !== material.precio) cleaned.precio = payload.precio
     if (payload.precio_instaladora !== undefined && payload.precio_instaladora !== material.precio_instaladora)
       cleaned.precio_instaladora = payload.precio_instaladora
     if (payload.porciento_rebajable_venta !== undefined && payload.porciento_rebajable_venta !== material.porciento_rebajable_venta)
       cleaned.porciento_rebajable_venta = payload.porciento_rebajable_venta
     if (payload.costo !== undefined && payload.costo !== material.costo) cleaned.costo = payload.costo
+
+    const trimmedSerie = numeroSerie.trim()
+    const nuevoSerie: string | null = trimmedSerie === "" ? null : trimmedSerie
+    const serieOriginal = typeof material.numero_serie === "string" && material.numero_serie.trim() !== ""
+      ? material.numero_serie
+      : null
+    if (nuevoSerie !== serieOriginal) cleaned.numero_serie = nuevoSerie
 
     if (Object.keys(cleaned).length === 0) {
       toast({ title: "Sin cambios", description: "No hay valores modificados." })
@@ -219,6 +228,21 @@ export function EditarPreciosDialog({ open, onOpenChange, material, onSaved }: E
                   onChange={(e) => setPorcRebajable(e.target.value)}
                   className="pl-7 h-9 text-sm"
                   placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <Label htmlFor="ep-numero-serie" className="text-xs text-gray-700">Número de serie</Label>
+              <div className="relative mt-1">
+                <Hash className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <Input
+                  id="ep-numero-serie"
+                  type="text"
+                  value={numeroSerie}
+                  onChange={(e) => setNumeroSerie(e.target.value)}
+                  className="pl-7 h-9 text-sm"
+                  placeholder="Vacío para limpiar"
                 />
               </div>
             </div>

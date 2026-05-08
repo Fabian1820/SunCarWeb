@@ -105,6 +105,7 @@ export interface MaterialFichaResumen {
   precio_instaladora?: number
   porciento_rebajable_venta?: number
   costo?: number
+  numero_serie?: string | null
   foto?: string
   potenciaKW?: number
   ficha_activa: FichaResumen | null
@@ -116,6 +117,7 @@ export interface EditarPreciosCostoPayload {
   precio_instaladora?: number
   porciento_rebajable_venta?: number
   costo?: number
+  numero_serie?: string | null
 }
 
 // Material del catálogo web (para selector)
