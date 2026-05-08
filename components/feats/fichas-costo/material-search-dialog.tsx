@@ -25,6 +25,8 @@ export function MaterialSearchDialog({ open, onOpenChange, onSelect }: MaterialS
     if (!open) {
       setQuery("")
       setResults([])
+    } else {
+      FichaCostoService.invalidateMaterialesCache()
     }
   }, [open])
 
@@ -90,7 +92,7 @@ export function MaterialSearchDialog({ open, onOpenChange, onSelect }: MaterialS
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 id="material-search"
-                placeholder="Nombre, marca, categoría..."
+                placeholder="Nombre, marca, categoría, número de serie..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-10"
@@ -182,6 +184,11 @@ export function MaterialSearchDialog({ open, onOpenChange, onSelect }: MaterialS
                             <Badge className="bg-amber-50 text-amber-700 text-[10px] px-1.5 py-0 flex items-center gap-0.5">
                               <Zap className="h-2.5 w-2.5" />
                               {potencia}
+                            </Badge>
+                          )}
+                          {typeof material.numero_serie === "string" && material.numero_serie.trim() && (
+                            <Badge className="bg-purple-50 text-purple-700 text-[10px] px-1.5 py-0">
+                              N/S: {material.numero_serie}
                             </Badge>
                           )}
 

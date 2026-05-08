@@ -17,6 +17,7 @@ import {
   Eye,
   PlusCircle,
   Calculator,
+  Pencil,
 } from "lucide-react"
 import { Input } from "@/components/shared/molecule/input"
 import { useToast } from "@/hooks/use-toast"
@@ -29,6 +30,7 @@ import { ComparacionDialog } from "@/components/feats/fichas-costo/comparacion-d
 import { HistorialDialog } from "@/components/feats/fichas-costo/historial-dialog"
 import { CrearFichaForm } from "@/components/feats/fichas-costo/crear-ficha-form"
 import { CalcPorcentajeDialog } from "@/components/feats/fichas-costo/calc-porcentaje-dialog"
+import { EditarPreciosDialog } from "@/components/feats/fichas-costo/editar-precios-dialog"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/shared/molecule/dialog"
 import type {
   FichaCostoCreateData,
@@ -78,6 +80,8 @@ function FichasCostoPageContent() {
   const [isHistorialOpen, setIsHistorialOpen] = useState(false)
   const [isCalcOpen, setIsCalcOpen] = useState(false)
   const [busqueda, setBusqueda] = useState("")
+  const [materialEditPrecios, setMaterialEditPrecios] = useState<MaterialFichaResumen | null>(null)
+  const [isEditPreciosOpen, setIsEditPreciosOpen] = useState(false)
 
   useEffect(() => {
     void loadResumen()
@@ -196,6 +200,16 @@ function FichasCostoPageContent() {
     setIsHistorialOpen(true)
   }
 
+  const handleOpenEditPrecios = (row: MaterialFichaResumen) => {
+    setMaterialEditPrecios(row)
+    setIsEditPreciosOpen(true)
+  }
+
+  const handleEditPreciosOpenChange = (open: boolean) => {
+    setIsEditPreciosOpen(open)
+    if (!open) setMaterialEditPrecios(null)
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
       <ModuleHeader
@@ -273,16 +287,19 @@ function FichasCostoPageContent() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full table-fixed text-sm">
+                <table className="w-full table-fixed text-sm min-w-[1280px]">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/60">
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Código</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">Categoría</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Código</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Categoría</th>
                       <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide">Nombre</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Ficha</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[130px]">Última ficha</th>
-                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[150px]">Acciones</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">Costo</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[100px]">Precio Venta</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[110px]">P. Instaladora</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[90px]">% Rebajable</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Ficha</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[120px]">Última ficha</th>
+                      <th className="text-left py-2.5 px-3 font-semibold text-gray-600 text-xs uppercase tracking-wide w-[140px]">Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -337,9 +354,33 @@ function FichasCostoPageContent() {
                             <div className="flex items-center gap-0.5">
                               <DollarSign className="h-3 w-3 text-gray-400 flex-shrink-0" />
                               <span className="font-medium text-gray-900 text-xs">
+                                {row.costo != null ? row.costo.toFixed(2) : "N/A"}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-0.5">
+                              <DollarSign className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-900 text-xs">
                                 {row.precio != null ? row.precio.toFixed(2) : "N/A"}
                               </span>
                             </div>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <div className="flex items-center gap-0.5">
+                              <DollarSign className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                              <span className="font-medium text-gray-900 text-xs">
+                                {row.precio_instaladora != null ? row.precio_instaladora.toFixed(2) : "N/A"}
+                              </span>
+                            </div>
+                          </td>
+
+                          <td className="py-2.5 px-3">
+                            <span className="font-medium text-gray-900 text-xs">
+                              {row.porciento_rebajable_venta != null ? `${row.porciento_rebajable_venta}%` : "N/A"}
+                            </span>
                           </td>
 
                           <td className="py-2.5 px-3">
@@ -373,6 +414,13 @@ function FichasCostoPageContent() {
 
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenEditPrecios(row)}
+                                title="Editar costo y precios"
+                                className="inline-flex items-center justify-center rounded p-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50 transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
                               <button
                                 onClick={() => handleOpenCrearFicha(row)}
                                 title={row.ficha_activa ? "Crear nueva versión de ficha" : "Crear ficha de costo"}
@@ -483,6 +531,13 @@ function FichasCostoPageContent() {
       />
 
       <CalcPorcentajeDialog open={isCalcOpen} onOpenChange={setIsCalcOpen} materiales={resumen} />
+
+      <EditarPreciosDialog
+        open={isEditPreciosOpen}
+        onOpenChange={handleEditPreciosOpenChange}
+        material={materialEditPrecios}
+        onSaved={() => loadResumen()}
+      />
 
       <Toaster />
     </div>

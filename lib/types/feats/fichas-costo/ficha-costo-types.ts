@@ -94,15 +94,28 @@ export interface FichaResumen {
 // Fila del listado global: material + su ficha activa (o null)
 export interface MaterialFichaResumen {
   material_id: string
+  producto_id?: string
   codigo?: number
   nombre?: string
   descripcion?: string
   categoria?: string
   marca?: string
+  um?: string
   precio?: number
+  precio_instaladora?: number
+  porciento_rebajable_venta?: number
+  costo?: number
   foto?: string
   potenciaKW?: number
   ficha_activa: FichaResumen | null
+}
+
+// Payload para edición rápida de precios + costo desde la tabla
+export interface EditarPreciosCostoPayload {
+  precio?: number
+  precio_instaladora?: number
+  porciento_rebajable_venta?: number
+  costo?: number
 }
 
 // Material del catálogo web (para selector)
@@ -123,5 +136,6 @@ export interface MaterialCatalogoWeb {
   foto_url?: string
   fotos?: string[]
   unidad?: string
+  numero_serie?: string | null
   [key: string]: unknown
 }
