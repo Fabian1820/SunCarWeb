@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +11,6 @@ import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Label } from "@/components/shared/atom/label";
 import { Textarea } from "@/components/shared/molecule/textarea";
-import { SearchableSelect } from "@/components/shared/molecule/searchable-select";
 import {
   Select,
   SelectContent,
@@ -31,6 +30,7 @@ import {
   Pencil,
   Plane,
   Plus,
+  Search,
   Ship,
   Truck,
   X,
@@ -55,6 +55,8 @@ interface MaterialSeleccionado {
   material_codigo: string;
   material_nombre: string;
   cantidad: number;
+  foto?: string;
+  um?: string;
 }
 
 export interface EnvioContenedorFormDialogProps {
@@ -176,9 +178,10 @@ export function EnvioContenedorFormDialog({
   const [pagado,       setPagado]       = useState(false);
 
   // Materiales
-  const [matList,     setMatList]     = useState<MaterialSeleccionado[]>([]);
-  const [selMatId,    setSelMatId]    = useState("");
-  const [selCantidad, setSelCantidad] = useState("1");
+  const [matList,        setMatList]        = useState<MaterialSeleccionado[]>([]);
+  const [materialSearch, setMaterialSearch] = useState("");
+  const [materialResults, setMaterialResults] = useState<Material[]>([]);
+  const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
 
   const [error,      setError]      = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -207,12 +210,17 @@ export function EnvioContenedorFormDialog({
       setFechaLlegada(initialData.fecha_llegada_aproximada?.slice(0, 10) ?? getDefaultArrival());
       setPagado(initialData.pagado);
       setMatList(
-        initialData.materiales.map((m) => ({
-          material_id: m.material_id,
-          material_codigo: m.material_codigo,
-          material_nombre: m.material_nombre,
-          cantidad: m.cantidad,
-        })),
+        initialData.materiales.map((m) => {
+          const catalog = materials.find((x) => x.id === m.material_id);
+          return {
+            material_id: m.material_id,
+            material_codigo: m.material_codigo,
+            material_nombre: m.material_nombre,
+            cantidad: m.cantidad,
+            foto: catalog?.foto,
+            um: catalog?.um,
+          };
+        }),
       );
     } else {
       setNombre(""); setDescripcion(""); setEstado("despachado"); setTipoEnvio("");
@@ -223,27 +231,58 @@ export function EnvioContenedorFormDialog({
       setFechaEnvio(getTodayISO()); setFechaLlegada(getDefaultArrival()); setPagado(false);
       setMatList([]);
     }
-    setSelMatId(""); setSelCantidad("1"); setError(null);
-  }, [open, initialData]);
-
-  const materialOptions = useMemo(
-    () => materials.map((m) => ({ value: m.id, label: `${m.codigo} — ${m.nombre || m.descripcion}` })),
-    [materials],
-  );
-
-  const addMaterial = () => {
+    setMaterialSearch(""); setMaterialResults([]); setShowMaterialDropdown(false);
     setError(null);
-    if (!selMatId) { setError("Selecciona un material."); return; }
-    const cant = Number(selCantidad);
-    if (!Number.isFinite(cant) || cant <= 0) { setError("La cantidad debe ser mayor que 0."); return; }
-    const mat = materials.find((m) => m.id === selMatId);
-    if (!mat) { setError("Material no válido."); return; }
-    setMatList((prev) => {
-      const exists = prev.find((x) => x.material_id === mat.id);
-      if (exists) return prev.map((x) => x.material_id === mat.id ? { ...x, cantidad: x.cantidad + cant } : x);
-      return [...prev, { material_id: mat.id, material_codigo: mat.codigo, material_nombre: mat.nombre || mat.descripcion, cantidad: cant }];
-    });
-    setSelMatId(""); setSelCantidad("1");
+  }, [open, initialData, materials]);
+
+  // Búsqueda con debounce sobre el catálogo ya cargado
+  useEffect(() => {
+    const term = materialSearch.trim().toLowerCase();
+    if (!term) {
+      setMaterialResults([]);
+      setShowMaterialDropdown(false);
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      const taken = new Set(matList.map((m) => m.material_id));
+      const filtered = materials
+        .filter((m) => !taken.has(m.id))
+        .filter((m) => {
+          const codigo = m.codigo?.toString().toLowerCase() ?? "";
+          const nombre = (m.nombre ?? "").toLowerCase();
+          const descripcion = (m.descripcion ?? "").toLowerCase();
+          return (
+            codigo.includes(term) ||
+            nombre.includes(term) ||
+            descripcion.includes(term)
+          );
+        })
+        .slice(0, 15);
+      setMaterialResults(filtered);
+      setShowMaterialDropdown(filtered.length > 0);
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [materialSearch, matList, materials]);
+
+  const handleAddMaterial = (mat: Material) => {
+    setError(null);
+    if (matList.some((x) => x.material_id === mat.id)) return;
+    setMatList((prev) => [
+      ...prev,
+      {
+        material_id: mat.id,
+        material_codigo: mat.codigo,
+        material_nombre: mat.nombre || mat.descripcion,
+        cantidad: 1,
+        foto: mat.foto,
+        um: mat.um,
+      },
+    ]);
+    setMaterialSearch("");
+    setMaterialResults([]);
+    setShowMaterialDropdown(false);
   };
 
   const removeMat = (id: string) => setMatList((p) => p.filter((x) => x.material_id !== id));
@@ -672,52 +711,13 @@ export function EnvioContenedorFormDialog({
               <span className="text-red-400 font-normal normal-case">(mínimo 1)</span>
             </p>
 
-            {/* Row agregar */}
-            <div className="flex gap-2 items-end mb-3">
-              <div className="flex-1 space-y-1">
-                <Label className="text-xs text-gray-500">Material</Label>
-                <SearchableSelect
-                  options={materialOptions}
-                  value={selMatId}
-                  onValueChange={setSelMatId}
-                  placeholder="Buscar por código o nombre..."
-                  searchPlaceholder="Escriba para filtrar..."
-                  disablePortal
-                />
-              </div>
-              <div className="w-24 space-y-1">
-                <Label className="text-xs text-gray-500">Cantidad</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={selCantidad}
-                  onChange={(e) => setSelCantidad(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addMaterial()}
-                  className="h-9"
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={addMaterial}
-                className="h-9 px-4 bg-cyan-600 hover:bg-cyan-700 text-white gap-1.5 shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-                Agregar
-              </Button>
-            </div>
-
-            {matList.length === 0 ? (
-              <div className="border border-dashed border-gray-200 rounded-lg py-8 text-center">
-                <Package className="h-8 w-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400">Aún no hay materiales agregados</p>
-              </div>
-            ) : (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+            {matList.length > 0 && (
+              <div className="border border-gray-200 rounded-lg overflow-hidden mb-3">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Código</th>
                       <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Material</th>
+                      <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">UM</th>
                       <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide w-28">Uds.</th>
                       <th className="w-10" />
                     </tr>
@@ -725,8 +725,31 @@ export function EnvioContenedorFormDialog({
                   <tbody>
                     {matList.map((item) => (
                       <tr key={item.material_id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/60">
-                        <td className="py-2 px-3 font-mono text-xs text-gray-400">{item.material_codigo}</td>
-                        <td className="py-2 px-3 text-gray-800 font-medium">{item.material_nombre}</td>
+                        <td className="py-2 px-3">
+                          <div className="flex items-center gap-2">
+                            {item.foto ? (
+                              <img
+                                src={item.foto}
+                                alt={item.material_nombre}
+                                className="h-8 w-8 rounded object-cover border border-gray-200 flex-shrink-0"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="h-8 w-8 rounded border border-gray-200 bg-gray-100 flex items-center justify-center flex-shrink-0">
+                                <Package className="h-4 w-4 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-medium leading-tight text-gray-900 truncate">
+                                {item.material_nombre}
+                              </p>
+                              <p className="font-mono text-xs text-gray-400">{item.material_codigo}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-2 px-3 text-gray-500">{item.um || "—"}</td>
                         <td className="py-2 px-3">
                           <Input
                             type="number"
@@ -760,6 +783,66 @@ export function EnvioContenedorFormDialog({
                     </tr>
                   </tfoot>
                 </table>
+              </div>
+            )}
+
+            {/* Buscador de materiales */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Buscar material por código o nombre..."
+                value={materialSearch}
+                onChange={(e) => setMaterialSearch(e.target.value)}
+                onFocus={() => {
+                  if (materialResults.length > 0) setShowMaterialDropdown(true);
+                }}
+                className="pl-10"
+              />
+              {showMaterialDropdown && materialResults.length > 0 && (
+                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto">
+                  {materialResults.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-cyan-50 text-sm flex items-center gap-2 border-b border-gray-50 last:border-b-0"
+                      onClick={() => handleAddMaterial(m)}
+                    >
+                      {m.foto ? (
+                        <img
+                          src={m.foto}
+                          alt={m.nombre || m.descripcion}
+                          className="h-9 w-9 rounded object-cover border border-gray-200 flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="h-9 w-9 rounded bg-gray-100 border border-gray-200 flex items-center justify-center flex-shrink-0">
+                          <Package className="h-4 w-4 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate text-gray-900">
+                          {m.nombre || m.descripcion}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="font-mono text-gray-400">{m.codigo}</span>
+                          {m.um && (
+                            <span className="text-gray-500">UM: {m.um}</span>
+                          )}
+                        </div>
+                      </div>
+                      <Plus className="h-4 w-4 text-cyan-600 flex-shrink-0" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {matList.length === 0 && !materialSearch && (
+              <div className="border border-dashed border-gray-200 rounded-lg py-6 text-center mt-3">
+                <Package className="h-7 w-7 text-gray-200 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Aún no hay materiales agregados</p>
               </div>
             )}
           </section>
