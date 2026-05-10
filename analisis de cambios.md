@@ -2,6 +2,24 @@
 
 ---
 
+## 📅 10 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude".
+
+#### Consideraciones del día
+
+- Sin actividad nueva hoy.
+- Seguimientos activos de la semana:
+  - **Flag `sin_recargo`**: confirmar en LlegoBackend que el route de generación de link omite la comisión Stripe cuando está presente.
+  - **Fichas de costo — doble-apply de fórmula**: verificar que al abrir y guardar repetidamente una ficha existente, los precios no se inflan progresivamente.
+  - **Campo `stockaje_minimo`**: confirmar que el backend persiste el campo y que `StockajesMinimosSection` no muestra siempre 0 como mínimo.
+  - **Campo `numero_serie`**: confirmar que `FichaCostoService` incluye el campo en el payload de actualización.
+- No hay riesgos nuevos que reportar.
+
+---
+
 ## 📅 9 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -186,45 +204,5 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 - El commit `c4f92e5` de yany1509 (mayo 2) sobre `confeccion-ofertas-view` debe revisarse manualmente para confirmar que no reintroduce la lógica de valores stale corregida el mismo día.
 - El módulo de clientes (refactor masivo en `14ecc37`, 2308 líneas cambiadas) requiere prueba end-to-end en staging.
 - `PersonalMessageOverlay` montado en `layout.tsx` (todas las páginas) debe verificarse con manejo de errores adecuado antes de producción.
-
----
-
-## 📅 2 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Módulo de ofertas de confección (edición), módulo de clientes, contabilidad**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `9e42fee` | Ruben/Claude | fix: garantizar remount completo del diálogo de edición de ofertas (3 capas) |
-| `21754ed` | Ruben/Claude | fix: margen_comercial muestra valor stale al reabrir diálogo de edición |
-| `d0694e9` | Ruben/Claude | fix: usar `margenPorMaterialCalculado` (useMemo) en save de ofertas confección |
-| `8e600be` | Ruben/Claude | fix: ajuste menor en módulo de contabilidad — nuevo `PersonalMessageOverlay` |
-| `14ecc37` | yany1509 | "ajustes en solicitudes y trabajos diarios" — **en realidad: refactor masivo del módulo de clientes** |
-| `c4f92e5` | yany1509 | "ofertas" — ajustes en `confeccion-ofertas-view` y `ofertas-confeccionadas-view` |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Commit `14ecc37` de yany1509: mensaje engañoso + cambio masivo**
-   - El mensaje dice _"ajustes en solicitudes y trabajos diarios"_ pero los archivos modificados son exclusivamente del módulo de clientes.
-   - **Magnitud real:** 832 adiciones, 1476 eliminaciones (2308 líneas totales).
-   - **Acción urgente:** Probar en staging la creación y edición de clientes end-to-end.
-
-2. **Commit `c4f92e5` de yany1509 — colisión con los fixes de Claude**
-   - Modifica los mismos archivos recién corregidos. Puede haber reintroducido el bug de stale values.
-   - **Acción recomendada:** Confirmar que no revierte `estadoInicial = null` ni el uso de `margenPorMaterialCalculado`.
-
-#### 🟡 Riesgos medios
-
-3. **Triple capa de protección contra valores stale** — `editarDialogKey` puede causar parpadeo en conexiones lentas.
-4. **`PersonalMessageOverlay` en `app/layout.tsx`** — un error de render puede romper el layout completo. Verificar manejo de errores.
-
-#### 🟢 Mejoras positivas
-
-5. **Resolución definitiva del bug de stale state en edición de ofertas.**
-6. **Refactor del módulo de clientes: reducción neta de ~644 líneas.**
 
 ---
