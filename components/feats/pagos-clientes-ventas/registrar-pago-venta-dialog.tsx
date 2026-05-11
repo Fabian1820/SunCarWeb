@@ -363,6 +363,7 @@ export function RegistrarPagoVentaDialog({
           precio: montoStripe,
           descripcion: `Pago solicitud ${solicitud.codigo || solicitud.id.slice(-6).toUpperCase()} — ${solicitud.cliente_venta_nombre || "Cliente"}`,
           moneda: moneda === "CUP" ? "USD" : moneda,
+          sin_recargo: true,
         }),
       });
       const data = await res.json();
