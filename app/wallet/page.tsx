@@ -1658,162 +1658,188 @@ function WalletPageContent() {
         )}
 
         {/* Pending Transfers */}
-        {(pendingIncoming.length > 0 || pendingOutgoing.length > 0 || loadingPending) && (
-          <Card className="border-amber-300 shadow-md rounded-2xl overflow-hidden ring-1 ring-amber-100">
-            <CardHeader className="px-4 pt-4 pb-3 bg-gradient-to-r from-amber-50 to-amber-100/50">
-              <div className="flex items-center justify-between gap-2">
+        {(() => {
+          // Unificar pendientes en una sola lista (dedupe por id en caso de
+          // que un mismo pending aparezca en ambas). Ordenar por fecha desc.
+          const seen = new Set<string>();
+          const allPending = [...pendingIncoming, ...pendingOutgoing]
+            .filter((p) => {
+              if (seen.has(p.id)) return false;
+              seen.add(p.id);
+              return true;
+            })
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() -
+                new Date(a.created_at).getTime(),
+            );
+          const myCi = wallet?.user_ci;
+          const incomingCount = allPending.filter(
+            (p) => p.wallet_destino_user_ci === myCi,
+          ).length;
+
+          if (allPending.length === 0 && !loadingPending) return null;
+
+          return (
+            <Card className="border-amber-300 shadow-md rounded-2xl overflow-hidden ring-1 ring-amber-100">
+              <CardHeader className="px-4 pt-4 pb-3 bg-gradient-to-r from-amber-50 to-amber-100/50">
                 <div className="flex items-center gap-2">
                   <div className="relative">
                     <div className="rounded-full p-1.5 bg-amber-100">
                       <SendHorizontal className="h-4 w-4 text-amber-700" />
                     </div>
-                    {pendingIncoming.length > 0 && (
-                      <>
-                        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
-                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
-                        </span>
-                      </>
+                    {incomingCount > 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+                      </span>
                     )}
                   </div>
                   <div>
                     <CardTitle className="text-sm font-semibold text-amber-900 flex items-center gap-2">
                       Transferencias Pendientes
-                      {pendingIncoming.length > 0 && (
+                      {incomingCount > 0 && (
                         <Badge className="bg-rose-500 text-white border-rose-500 text-[10px] h-4 px-1.5">
-                          {pendingIncoming.length} nueva{pendingIncoming.length !== 1 ? "s" : ""}
+                          {incomingCount} para ti
                         </Badge>
                       )}
                     </CardTitle>
                     <p className="text-xs text-amber-700/70 mt-0.5">
-                      {pendingIncoming.length} para aceptar · {pendingOutgoing.length} enviadas
+                      {allPending.length} pendiente{allPending.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 space-y-4">
-              {/* Incoming - to accept */}
-              {pendingIncoming.length > 0 && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
-                    Para aceptar ({pendingIncoming.length})
-                  </p>
-                  <div className="space-y-2">
-                    {pendingIncoming.map((p) => {
-                      const isResolving = resolvingPendingId === p.id;
-                      return (
-                        <div
-                          key={p.id}
-                          className="rounded-xl border border-amber-200 bg-white p-3"
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-800 truncate">
-                                De {p.wallet_origen_user_nombre}
-                              </p>
-                              <p className="text-[11px] text-slate-400">
-                                CI: {p.wallet_origen_user_ci}
-                              </p>
-                            </div>
-                            <p className="text-base font-bold text-emerald-600 tabular-nums shrink-0">
-                              +{formatMoney(Number(p.monto), p.currency_code)}
-                            </p>
-                          </div>
-                          <p className="text-xs text-slate-600 mb-1 line-clamp-2">
-                            {p.motivo}
-                          </p>
-                          <p className="text-[10px] text-slate-400 mb-3">
-                            {formatDateTime(p.created_at)}
-                          </p>
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
-                              onClick={() => void handleRejectPending(p.id)}
-                              disabled={isResolving}
-                            >
-                              <X className="h-3.5 w-3.5 mr-1" />
-                              Rechazar
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
-                              onClick={() => void handleAcceptPending(p.id)}
-                              disabled={isResolving}
-                            >
-                              {isResolving ? (
-                                <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
-                              ) : (
-                                <ArrowDownCircle className="h-3.5 w-3.5 mr-1" />
-                              )}
-                              Aceptar
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+              </CardHeader>
+              <CardContent className="p-4 space-y-2">
+                {allPending.map((p) => {
+                  const isResolving = resolvingPendingId === p.id;
+                  const isReceiver = p.wallet_destino_user_ci === myCi;
+                  const isSender = p.wallet_origen_user_ci === myCi;
+                  // Color del monto desde la perspectiva del usuario
+                  const amountColor = isReceiver
+                    ? "text-emerald-600"
+                    : isSender
+                    ? "text-rose-600"
+                    : "text-slate-700";
+                  const sign = isReceiver ? "+" : isSender ? "-" : "";
+                  const borderColor = isReceiver
+                    ? "border-l-emerald-400"
+                    : isSender
+                    ? "border-l-rose-400"
+                    : "border-l-slate-300";
 
-              {/* Outgoing */}
-              {pendingOutgoing.length > 0 && (
-                <div>
-                  <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
-                    Enviadas - esperando aceptación ({pendingOutgoing.length})
-                  </p>
-                  <div className="space-y-2">
-                    {pendingOutgoing.map((p) => {
-                      const isResolving = resolvingPendingId === p.id;
-                      return (
-                        <div
-                          key={p.id}
-                          className="rounded-xl border border-slate-200 bg-slate-50/50 p-3"
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold text-slate-800 truncate">
-                                Para {p.wallet_destino_user_nombre}
-                              </p>
-                              <p className="text-[11px] text-slate-400">
-                                CI: {p.wallet_destino_user_ci}
-                              </p>
-                            </div>
-                            <p className="text-base font-bold text-violet-600 tabular-nums shrink-0">
-                              {formatMoney(Number(p.monto), p.currency_code)}
-                            </p>
+                  return (
+                    <div
+                      key={p.id}
+                      className={`rounded-xl border border-slate-100 border-l-4 ${borderColor} bg-white p-3`}
+                    >
+                      {/* Header: De → Para + monto */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 text-sm">
+                            <span className="text-slate-800 font-medium truncate min-w-0">
+                              {isSender ? "Tú" : p.wallet_origen_user_nombre}
+                            </span>
+                            <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="text-slate-800 font-medium truncate min-w-0">
+                              {isReceiver ? "Tú" : p.wallet_destino_user_nombre}
+                            </span>
                           </div>
-                          <p className="text-xs text-slate-600 mb-1 line-clamp-2">
-                            {p.motivo}
-                          </p>
-                          <p className="text-[10px] text-slate-400 mb-3">
+                          <p className="text-[10px] text-slate-400 mt-0.5">
                             {formatDateTime(p.created_at)}
                           </p>
+                        </div>
+                        <p className={`text-base font-bold ${amountColor} tabular-nums shrink-0`}>
+                          {sign}
+                          {formatMoney(Number(p.monto), p.currency_code)}
+                        </p>
+                      </div>
+
+                      {/* Motivo */}
+                      <p className="text-xs text-slate-600 mb-3 whitespace-pre-wrap break-words">
+                        {p.motivo}
+                      </p>
+
+                      {/* Acciones según rol */}
+                      {isReceiver ? (
+                        <div className="grid grid-cols-2 gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="w-full h-8 text-xs border-slate-300"
-                            onClick={() => void handleCancelPending(p.id)}
+                            className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                            onClick={() => void handleRejectPending(p.id)}
+                            disabled={isResolving}
+                          >
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            Rechazar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => void handleAcceptPending(p.id)}
                             disabled={isResolving}
                           >
                             {isResolving ? (
                               <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
                             ) : (
-                              <X className="h-3.5 w-3.5 mr-1" />
+                              <ArrowDownCircle className="h-3.5 w-3.5 mr-1" />
                             )}
-                            Cancelar transferencia
+                            Aceptar
                           </Button>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
+                      ) : isSender ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full h-8 text-xs border-slate-300"
+                          onClick={() => void handleCancelPending(p.id)}
+                          disabled={isResolving}
+                        >
+                          {isResolving ? (
+                            <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          ) : (
+                            <X className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          Cancelar transferencia
+                        </Button>
+                      ) : (
+                        // Admin view (no es ni emisor ni receptor)
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-slate-300"
+                            onClick={() => void handleCancelPending(p.id)}
+                            disabled={isResolving}
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                            onClick={() => void handleRejectPending(p.id)}
+                            disabled={isResolving}
+                          >
+                            Rechazar
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => void handleAcceptPending(p.id)}
+                            disabled={isResolving}
+                          >
+                            Aceptar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          );
+        })()}
 
         {/* Transactions */}
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
