@@ -110,6 +110,43 @@ export function FacturasVentasTable({
         </Badge>
       </div>
 
+      {/* Totales según filtro activo */}
+      {filtered.length > 0 && (
+        <div className={`flex flex-wrap gap-3 text-sm ${em ? "px-6 pb-2" : "pb-1"}`}>
+          <span className="text-gray-500">
+            Total facturado:{" "}
+            <strong className="text-gray-800">
+              {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0))}
+            </strong>
+          </span>
+          <span className="text-gray-300">|</span>
+          <span className="text-gray-500">
+            Cobrado:{" "}
+            <strong className="text-green-700">
+              {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_pagado || 0), 0))}
+            </strong>
+          </span>
+          <span className="text-gray-300">|</span>
+          <span className="text-gray-500">
+            Pendiente:{" "}
+            <strong className="text-red-600">
+              {formatCurrency(filtered.reduce((s, f) => s + Number(f.monto_pendiente || 0), 0))}
+            </strong>
+          </span>
+          {filtered.some((f) => Number(f.descuento) > 0) && (
+            <>
+              <span className="text-gray-300">|</span>
+              <span className="text-gray-500">
+                Descuentos:{" "}
+                <strong className="text-orange-600">
+                  {formatCurrency(filtered.reduce((s, f) => s + Number(f.descuento || 0), 0))}
+                </strong>
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
       {error && (
         <div className={`flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 ${em ? "mx-6" : ""}`}>
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -146,7 +183,7 @@ export function FacturasVentasTable({
             </TableHeader>
             <TableBody>
               {filtered.map((f) => (
-                <TableRow key={getFacturaId(f)} className="hover:bg-gray-50">
+                <TableRow key={getFacturaId(f)} className="hover:bg-gray-50 transition-colors">
                   <TableCell className="font-medium text-blue-700 text-sm">
                     {f.numero_factura}
                   </TableCell>
@@ -162,7 +199,7 @@ export function FacturasVentasTable({
                     )}
                   </TableCell>
                   <TableCell className="text-sm">
-                    {formatDate(f.fecha_emision)}
+                    {formatDate(f.fecha_emision ?? "")}
                   </TableCell>
                   <TableCell className="text-sm">{f.emitida_por}</TableCell>
                   <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
@@ -221,6 +258,27 @@ export function FacturasVentasTable({
                   )}
                 </TableRow>
               ))}
+              {/* Fila de totales */}
+              {filtered.length > 1 && (
+                <TableRow className="bg-gray-50 border-t-2 border-gray-200 font-semibold">
+                  <TableCell colSpan={5} className="text-xs text-gray-500 py-2.5">
+                    TOTAL — {filtered.length} facturas
+                  </TableCell>
+                  <TableCell className="text-right text-sm py-2.5 text-gray-800">
+                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0))}
+                  </TableCell>
+                  <TableCell className="text-right text-sm py-2.5 text-orange-600">
+                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.descuento || 0), 0))}
+                  </TableCell>
+                  <TableCell className="text-right text-sm py-2.5 text-green-700">
+                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_pagado || 0), 0))}
+                  </TableCell>
+                  <TableCell className="text-right text-sm py-2.5 text-red-600">
+                    {formatCurrency(filtered.reduce((s, f) => s + Number(f.monto_pendiente || 0), 0))}
+                  </TableCell>
+                  {(onVerDetalles || onExportar || onTicket || onEliminar) && <TableCell />}
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </div>

@@ -8,8 +8,10 @@ import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 
 export default function ObrasTerminadasPage() {
-  const { ofertasConPagos, loading, error, fetchData, getTrabajosPorCliente, getValesPorCliente } =
-    useObrasTerminadas()
+  const {
+    ofertasConPagos, loading, error, fetchData,
+    fetchDetalle, detalleCache, detalleLoading, detalleError,
+  } = useObrasTerminadas()
 
   useEffect(() => {
     fetchData()
@@ -109,8 +111,10 @@ export default function ObrasTerminadasPage() {
           <ObrasTerminadasTable
             ofertasConPagos={ofertasConPagos}
             loading={loading}
-            getTrabajosPorCliente={getTrabajosPorCliente}
-            getValesPorCliente={getValesPorCliente}
+            fetchDetalle={fetchDetalle}
+            detalleCache={detalleCache}
+            detalleLoading={detalleLoading}
+            detalleError={detalleError}
           />
         </div>
       </main>

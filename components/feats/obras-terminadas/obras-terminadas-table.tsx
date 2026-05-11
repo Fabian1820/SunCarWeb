@@ -27,7 +27,7 @@ import {
   Package,
   CalendarDays,
 } from "lucide-react"
-import type { OfertaObra } from "@/hooks/use-obras-terminadas"
+import type { OfertaObra, DetalleCliente } from "@/hooks/use-obras-terminadas"
 import type { TrabajoDiarioRegistro } from "@/lib/types/feats/instalaciones/trabajos-diarios-types"
 import type { ValeSalida } from "@/lib/types/feats/vales-salida/vale-salida-types"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
@@ -611,15 +611,19 @@ type SectionTab = "pagos" | "trabajos" | "vales"
 interface ObrasTerminadasTableProps {
   ofertasConPagos: OfertaObra[]
   loading: boolean
-  getTrabajosPorCliente: (clienteNumero?: string | null, contactoCodigo?: string | null) => TrabajoDiarioRegistro[]
-  getValesPorCliente: (clienteNumero?: string | null, contactoCodigo?: string | null) => ValeSalida[]
+  fetchDetalle: (clienteNumero: string) => Promise<void>
+  detalleCache: Record<string, DetalleCliente>
+  detalleLoading: Record<string, boolean>
+  detalleError: Record<string, string>
 }
 
 export function ObrasTerminadasTable({
   ofertasConPagos,
   loading,
-  getTrabajosPorCliente,
-  getValesPorCliente,
+  fetchDetalle,
+  detalleCache,
+  detalleLoading,
+  detalleError,
 }: ObrasTerminadasTableProps) {
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<Record<string, SectionTab>>({})
@@ -632,13 +636,17 @@ export function ObrasTerminadasTable({
   const [filtroFechaPago, setFiltroFechaPago] = useState<DateFilterState>(initialDateFilter)
   const [showFilters, setShowFilters] = useState(true)
 
-  const toggleOferta = (id: string) => {
+  const toggleOferta = (oferta: OfertaObra) => {
+    const id = oferta.oferta_id
+    const clienteNum = (oferta.cliente_numero || oferta.contacto?.codigo || "").trim()
     const next = new Set(expandedOfertas)
     if (next.has(id)) {
       next.delete(id)
     } else {
       next.add(id)
       setActiveTab((prev) => ({ ...prev, [id]: prev[id] || "pagos" }))
+      // Carga lazy del detalle solo si hay número de cliente
+      if (clienteNum) fetchDetalle(clienteNum)
     }
     setExpandedOfertas(next)
   }
@@ -860,8 +868,12 @@ export function ObrasTerminadasTable({
                 const tab = activeTab[oferta.oferta_id] || "pagos"
                 const pagado = oferta.monto_pendiente <= 0.01
 
-                const trabajosCliente = getTrabajosPorCliente(oferta.cliente_numero, oferta.contacto?.codigo)
-                const valesCliente = getValesPorCliente(oferta.cliente_numero, oferta.contacto?.codigo)
+                const clienteNum = (oferta.cliente_numero || oferta.contacto?.codigo || "").trim()
+                const detalle = detalleCache[clienteNum]
+                const isDetalleLoading = !!detalleLoading[clienteNum]
+                const detalleErr = detalleError[clienteNum]
+                const trabajosCliente = detalle?.trabajos ?? []
+                const valesCliente = detalle?.vales ?? []
 
                 return (
                   <React.Fragment key={oferta.oferta_id}>
@@ -870,7 +882,7 @@ export function ObrasTerminadasTable({
                         "cursor-pointer transition-colors",
                         isExpanded ? "bg-orange-50" : "hover:bg-orange-50/50",
                       )}
-                      onClick={() => toggleOferta(oferta.oferta_id)}
+                      onClick={() => toggleOferta(oferta)}
                     >
                       <TableCell className="py-2.5">
                         {isExpanded
@@ -939,7 +951,7 @@ export function ObrasTerminadasTable({
                                 )}
                               >
                                 <Wrench className="h-3.5 w-3.5" />
-                                Trabajos Diarios ({trabajosCliente.length})
+                                Trabajos Diarios {detalle ? `(${trabajosCliente.length})` : ""}
                               </button>
                               <button
                                 onClick={() => setActiveTab((p) => ({ ...p, [oferta.oferta_id]: "vales" }))}
@@ -949,13 +961,38 @@ export function ObrasTerminadasTable({
                                 )}
                               >
                                 <Package className="h-3.5 w-3.5" />
-                                Vales ({valesCliente.length})
+                                Vales {detalle ? `(${valesCliente.length})` : ""}
                               </button>
                             </div>
 
+                            {/* Pagos: siempre disponibles desde la carga inicial */}
                             {tab === "pagos" && <PagosPanel oferta={oferta} />}
-                            {tab === "trabajos" && <TrabajosPanel trabajos={trabajosCliente} />}
-                            {tab === "vales" && <ValesPanel vales={valesCliente} />}
+
+                            {/* Trabajos y Vales: carga lazy */}
+                            {(tab === "trabajos" || tab === "vales") && (
+                              isDetalleLoading ? (
+                                <div className="flex items-center justify-center py-10 gap-2 text-gray-500">
+                                  <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
+                                  <span className="text-sm">Cargando datos...</span>
+                                </div>
+                              ) : detalleErr ? (
+                                <div className="flex items-center gap-2 py-6 px-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+                                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                                  <span>{detalleErr}</span>
+                                  <button
+                                    onClick={() => clienteNum && fetchDetalle(clienteNum)}
+                                    className="ml-auto text-xs underline hover:no-underline"
+                                  >
+                                    Reintentar
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  {tab === "trabajos" && <TrabajosPanel trabajos={trabajosCliente} />}
+                                  {tab === "vales" && <ValesPanel vales={valesCliente} />}
+                                </>
+                              )
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
