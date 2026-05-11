@@ -15,6 +15,7 @@ export interface TrabajadorRRHH {
   tiene_contraseña?: boolean
   sede_id?: string | null
   departamento_id?: string | null
+  telefono?: string
 }
 
 export interface IngresoMensual {
@@ -42,6 +43,7 @@ export interface ActualizarTrabajadorRRHHRequest {
   is_brigadista?: boolean
   sede_id?: string | null
   departamento_id?: string | null
+  telefono?: string
 }
 
 export interface CrearTrabajadorRRHHRequest {
@@ -58,6 +60,7 @@ export interface CrearTrabajadorRRHHRequest {
   contrasena?: string
   sede_id?: string | null
   departamento_id?: string | null
+  telefono?: string
 }
 
 export interface IngresoMensualRequest {

@@ -285,6 +285,8 @@ export function useRecursosHumanos() {
           rrhhData.dias_trabajables = data.dias_trabajables;
         if (data.is_brigadista !== undefined)
           rrhhData.is_brigadista = data.is_brigadista;
+        if (data.telefono !== undefined && data.telefono !== "")
+          rrhhData.telefono = data.telefono;
 
         if (Object.keys(rrhhData).length > 0) {
           console.log("Actualizando datos de RRHH:", rrhhData);

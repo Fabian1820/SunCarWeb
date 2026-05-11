@@ -61,6 +61,7 @@ export function CrearTrabajadorForm({
     contrasena: undefined,
     sede_id: null,
     departamento_id: null,
+    telefono: "",
   })
 
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -259,6 +260,18 @@ export function CrearTrabajadorForm({
               value={formData.cargo}
               onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
               placeholder="Técnico"
+              disabled={isSubmitting}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="telefono">Teléfono</Label>
+            <Input
+              id="telefono"
+              type="tel"
+              value={formData.telefono || ""}
+              onChange={(e) => setFormData({ ...formData, telefono: e.target.value })}
+              placeholder="Ej: 53412345"
               disabled={isSubmitting}
             />
           </div>
