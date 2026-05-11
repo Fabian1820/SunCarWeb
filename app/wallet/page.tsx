@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { RouteGuard } from "@/components/auth/route-guard";
 import { ModuleHeader } from "@/components/shared/organism/module-header";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/atom/input";
@@ -308,11 +307,7 @@ function TransactionsResponsiveList({
 }
 
 export default function WalletPage() {
-  return (
-    <RouteGuard requiredModule="wallet">
-      <WalletPageContent />
-    </RouteGuard>
-  );
+  return <WalletPageContent />;
 }
 
 type ActiveAction = "ingreso" | "gasto" | "transferencia" | null;
@@ -324,6 +319,7 @@ function WalletPageContent() {
   const {
     wallet,
     wallets,
+    walletsLookup,
     transactions,
     selectedWallet,
     selectedWalletTransactions,
@@ -345,6 +341,7 @@ function WalletPageContent() {
     loadTransactions,
     createTransaction,
     loadWallets,
+    loadWalletsLookup,
     loadWalletDetail,
     createTransfer,
     loadCurrencies,
@@ -373,6 +370,7 @@ function WalletPageContent() {
   const [transferToWalletId, setTransferToWalletId] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferReason, setTransferReason] = useState("");
+  const [transferTargetSearch, setTransferTargetSearch] = useState("");
 
   // ── Estado banco (Enable Banking) - Integrado ──
   const [bankSessions, setBankSessions] = useState<Array<{
@@ -425,9 +423,28 @@ function WalletPageContent() {
     });
   }, [walletSearch, wallets]);
 
-  const transferTargets = useMemo(
-    () => wallets.filter((item) => item.id !== wallet?.id),
-    [wallets, wallet?.id],
+  // Fuente de destinos: prefer lookup (visible para todos), si está vacío
+  // cae al `wallets` ya cargado (cuando el usuario tiene ver_todos).
+  const transferTargets = useMemo(() => {
+    const source = walletsLookup.length > 0 ? walletsLookup : wallets;
+    return source.filter((item) => item.id !== wallet?.id);
+  }, [walletsLookup, wallets, wallet?.id]);
+
+  const filteredTransferTargets = useMemo(() => {
+    const q = transferTargetSearch.trim().toLowerCase();
+    if (!q) return transferTargets.slice(0, 50);
+    return transferTargets
+      .filter(
+        (item) =>
+          item.user_nombre.toLowerCase().includes(q) ||
+          item.user_ci.toLowerCase().includes(q),
+      )
+      .slice(0, 50);
+  }, [transferTargets, transferTargetSearch]);
+
+  const selectedTransferTarget = useMemo(
+    () => transferTargets.find((item) => item.id === transferToWalletId) ?? null,
+    [transferTargets, transferToWalletId],
   );
 
   const selectedCurrency = useMemo(
@@ -461,8 +478,9 @@ function WalletPageContent() {
   useEffect(() => {
     void loadWallet();
     void loadWallets({ limit: 500 });
+    void loadWalletsLookup({ limit: 1000 });
     void loadCurrencies();
-  }, [loadWallet, loadWallets, loadCurrencies]);
+  }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies]);
 
   useEffect(() => {
     if (currencies.length === 0) return;
@@ -1117,18 +1135,75 @@ function WalletPageContent() {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs font-medium text-slate-600">Hacia</Label>
-                <Select value={transferToWalletId} onValueChange={setTransferToWalletId}>
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Selecciona destinatario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {transferTargets.map((item) => (
-                      <SelectItem key={item.id} value={item.id}>
-                        {item.user_nombre} ({item.user_ci})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {selectedTransferTarget ? (
+                  <div className="flex items-center justify-between gap-2 h-9 rounded-lg border border-violet-200 bg-violet-50 px-3 text-sm">
+                    <div className="min-w-0 flex-1">
+                      <span className="font-medium text-slate-800 truncate block">
+                        {selectedTransferTarget.user_nombre}
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        CI: {selectedTransferTarget.user_ci}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTransferToWalletId("");
+                        setTransferTargetSearch("");
+                      }}
+                      className="text-slate-400 hover:text-slate-700 shrink-0"
+                      aria-label="Cambiar destinatario"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <Input
+                        value={transferTargetSearch}
+                        onChange={(e) => setTransferTargetSearch(e.target.value)}
+                        placeholder="Buscar por nombre o CI..."
+                        className="h-9 pl-9 text-sm"
+                        autoComplete="off"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto rounded-lg border border-slate-100 divide-y divide-slate-50">
+                      {filteredTransferTargets.length === 0 ? (
+                        <div className="px-3 py-4 text-center text-xs text-slate-400">
+                          {transferTargetSearch
+                            ? "Sin coincidencias"
+                            : "Escribe para buscar destinatarios"}
+                        </div>
+                      ) : (
+                        filteredTransferTargets.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setTransferToWalletId(item.id);
+                              setTransferTargetSearch("");
+                            }}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors"
+                          >
+                            <p className="font-medium text-slate-800 truncate">
+                              {item.user_nombre}
+                            </p>
+                            <p className="text-[11px] text-slate-400">
+                              CI: {item.user_ci}
+                            </p>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    {transferTargets.length > 50 && !transferTargetSearch && (
+                      <p className="text-[11px] text-slate-400">
+                        Mostrando 50 de {transferTargets.length}. Refina la búsqueda.
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -1170,7 +1245,13 @@ function WalletPageContent() {
               </div>
               <Button
                 onClick={handleTransfer}
-                disabled={transferring || loadingWallets || wallets.length < 2 || !wallet || !transferCurrencyId}
+                disabled={
+                  transferring ||
+                  !wallet ||
+                  !transferToWalletId ||
+                  !transferCurrencyId ||
+                  transferTargets.length === 0
+                }
                 className="w-full h-10 bg-violet-600 hover:bg-violet-700 font-medium"
               >
                 {transferring ? "Transfiriendo..." : "Confirmar transferencia"}

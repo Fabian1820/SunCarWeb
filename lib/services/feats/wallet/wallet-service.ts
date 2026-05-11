@@ -323,6 +323,34 @@ export class WalletService {
     return this.parseTransactionsResponse(response, filters);
   }
 
+  static async getWalletsLookup(
+    filters: WalletsFilters = {},
+  ): Promise<Array<{ id: string; user_ci: string; user_nombre: string }>> {
+    const search = new URLSearchParams();
+    if (filters.q) search.append("q", filters.q);
+    if (typeof filters.skip === "number")
+      search.append("skip", String(filters.skip));
+    if (typeof filters.limit === "number")
+      search.append("limit", String(filters.limit));
+
+    const endpoint = `/wallet/wallets/lookup${search.toString() ? `?${search.toString()}` : ""}`;
+    const response = await this.requestWalletEndpoint<
+      | Array<{ id: string; user_ci: string; user_nombre: string }>
+      | WrappedResponse<Array<{ id: string; user_ci: string; user_nombre: string }>>
+      | ApiErrorResponse
+    >(endpoint);
+
+    if (isApiErrorResponse(response)) {
+      if (isNotFoundErrorResponse(response)) return [];
+      throw new Error(
+        getApiErrorMessage(response, "No se pudieron cargar las billeteras"),
+      );
+    }
+
+    if (Array.isArray(response)) return response;
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
   static async getAllWallets(filters: WalletsFilters = {}): Promise<Wallet[]> {
     const search = new URLSearchParams();
     if (filters.q) search.append("q", filters.q);
