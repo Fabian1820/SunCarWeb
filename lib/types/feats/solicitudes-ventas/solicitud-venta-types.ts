@@ -91,6 +91,8 @@ export interface SolicitudVentaCreateData {
   cliente_venta?: ClienteVentaCreateData;
   almacen_id: string;
   materiales: SolicitudVentaMaterialItem[];
+  descuento_free?: boolean;
+  motivo_descuento_free?: string;
 }
 
 export interface SolicitudVentaUpdateData {
@@ -100,6 +102,8 @@ export interface SolicitudVentaUpdateData {
   materiales?: SolicitudVentaMaterialItem[];
   es_a_plazos?: boolean;
   plan_pagos?: PagoProgramado[];
+  descuento_free?: boolean;
+  motivo_descuento_free?: string;
 }
 
 export interface SolicitudVentaPlanPagosData {

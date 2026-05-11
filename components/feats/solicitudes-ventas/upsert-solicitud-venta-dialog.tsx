@@ -175,6 +175,8 @@ export function UpsertSolicitudVentaDialog({
   const [loadingData, setLoadingData] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [descuentoFree, setDescuentoFree] = useState(false);
+  const [motivoDescuentoFree, setMotivoDescuentoFree] = useState("");
 
   // Reserva shortcut
   const [showReservaPanel, setShowReservaPanel] = useState(false);
@@ -375,10 +377,10 @@ export function UpsertSolicitudVentaDialog({
   );
 
   const hasDiscountError = useMemo(
-    () => materialRows.some(
+    () => !descuentoFree && materialRows.some(
       (m) => m.max_descuento !== undefined && m.descuento_porcentaje > m.max_descuento,
     ),
-    [materialRows],
+    [materialRows, descuentoFree],
   );
 
   const canSubmit = useMemo(() => {
@@ -387,6 +389,7 @@ export function UpsertSolicitudVentaDialog({
     if (validMaterials.length === 0) return false;
     if (submitting || isLoading || loadingData) return false;
     if (hasDiscountError) return false;
+    if (descuentoFree && !motivoDescuentoFree.trim()) return false;
     return true;
   }, [
     selectedClienteVenta,
@@ -396,6 +399,8 @@ export function UpsertSolicitudVentaDialog({
     isLoading,
     loadingData,
     hasDiscountError,
+    descuentoFree,
+    motivoDescuentoFree,
   ]);
 
   const handleSelectCliente = (cliente: ClienteVenta) => {
@@ -541,9 +546,9 @@ export function UpsertSolicitudVentaDialog({
         const pct = item.descuento_tipo === "$"
           ? (item.precio > 0 ? (raw / item.precio) * 100 : 0)
           : raw;
-        const maxPct = item.max_descuento ?? 100;
+        const maxPct = descuentoFree ? 100 : (item.max_descuento ?? 100);
         const descuento_porcentaje = Math.min(pct, maxPct);
-        const displayFinal = pct > maxPct
+        const displayFinal = !descuentoFree && pct > maxPct
           ? (item.descuento_tipo === "$"
               ? (item.precio * maxPct / 100).toFixed(2)
               : String(maxPct))
@@ -852,6 +857,7 @@ export function UpsertSolicitudVentaDialog({
         cantidad: material.cantidad,
         ...(material.descuento_porcentaje > 0 && { descuento_porcentaje: material.descuento_porcentaje }),
       })),
+      ...(descuentoFree && { descuento_free: true, motivo_descuento_free: motivoDescuentoFree.trim() }),
     };
 
     setSubmitting(true);
@@ -1333,6 +1339,24 @@ export function UpsertSolicitudVentaDialog({
               </p>
             )}
 
+            {descuentoFree && (
+              <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
+                <label className="text-xs font-semibold text-orange-700 flex items-center gap-1">
+                  Motivo del descuento libre <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={motivoDescuentoFree}
+                  onChange={(e) => setMotivoDescuentoFree(e.target.value)}
+                  placeholder="Explica el motivo del descuento especial..."
+                  className="w-full rounded-md border border-orange-300 bg-white px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
+                />
+                {!motivoDescuentoFree.trim() && (
+                  <p className="text-xs text-orange-600">Campo obligatorio para aplicar descuento libre.</p>
+                )}
+              </div>
+            )}
+
             {materialRows.length > 0 ? (
               <div className="border rounded-md overflow-x-auto">
                 <table className="text-sm" style={{ minWidth: "640px" }}>
@@ -1348,7 +1372,21 @@ export function UpsertSolicitudVentaDialog({
                         P. Unit.
                       </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-700 w-44">
-                        Descuento
+                        <div className="flex items-center gap-2">
+                          <span>Descuento</span>
+                          <button
+                            type="button"
+                            onClick={() => { setDescuentoFree((v) => { if (v) setMotivoDescuentoFree(""); return !v; }); }}
+                            title={descuentoFree ? "Límites de descuento desactivados" : "Activar descuento libre (sin límites)"}
+                            className={`text-xs px-2 py-0.5 rounded-full font-semibold transition-colors ${
+                              descuentoFree
+                                ? "bg-orange-500 text-white"
+                                : "bg-gray-200 text-gray-500 hover:bg-orange-100 hover:text-orange-600"
+                            }`}
+                          >
+                            Free
+                          </button>
+                        </div>
                       </th>
                       <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                         P. Total
@@ -1360,8 +1398,8 @@ export function UpsertSolicitudVentaDialog({
                     {materialRows.map((material, index) => {
                       const precioUnit = material.precio;
                       const descPct = material.descuento_porcentaje;
-                      const maxDescPct = material.max_descuento ?? 100;
-                      const descuentoExcedido = descPct > maxDescPct;
+                      const maxDescPct = descuentoFree ? 100 : (material.max_descuento ?? 100);
+                      const descuentoExcedido = !descuentoFree && descPct > maxDescPct;
                       const precioConDesc = precioUnit * (1 - Math.min(descPct, maxDescPct) / 100);
                       const precioTotal = precioConDesc * material.cantidad;
 
