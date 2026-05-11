@@ -350,7 +350,7 @@ function WalletPageContent() {
 
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
-  const [monto, setMonto] = useState("");
+  const [montosPorMoneda, setMontosPorMoneda] = useState<Record<string, string>>({});
   const [motivo, setMotivo] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
 
@@ -651,34 +651,49 @@ function WalletPageContent() {
   };
 
   const handleCreateTransaction = async () => {
-    const parsedAmount = Number(monto.replace(",", "."));
     const trimmedReason = motivo.trim();
 
     if (!wallet) {
       toast({ title: "Billetera no iniciada", description: "Primero debes iniciar tu billetera.", variant: "destructive" });
       return;
     }
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      toast({ title: "Monto inválido", description: "El monto debe ser mayor que 0.", variant: "destructive" });
-      return;
-    }
     if (trimmedReason.length < 5) {
       toast({ title: "Motivo requerido", description: "Escribe un motivo con al menos 5 caracteres.", variant: "destructive" });
       return;
     }
-    if (!transactionCurrencyId) {
-      toast({ title: "Moneda requerida", description: "Selecciona la moneda del movimiento.", variant: "destructive" });
+
+    // Recolectar todos los montos por moneda > 0
+    const entries: Array<{ currency_id: string; code: string; amount: number }> = [];
+    for (const currency of currencies) {
+      const raw = (montosPorMoneda[currency.id] || "").replace(",", ".").trim();
+      if (!raw) continue;
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed <= 0) continue;
+      entries.push({ currency_id: currency.id, code: currency.codigo, amount: parsed });
+    }
+
+    if (entries.length === 0) {
+      toast({ title: "Monto requerido", description: "Ingresa al menos un monto mayor que 0.", variant: "destructive" });
       return;
     }
 
     try {
-      await createTransaction({ tipo, currency_id: transactionCurrencyId, monto: parsedAmount, motivo: trimmedReason }, currentFilters);
-      setMonto("");
+      // Crear una transacción por cada moneda con monto
+      for (const entry of entries) {
+        await createTransaction(
+          { tipo, currency_id: entry.currency_id, monto: entry.amount, motivo: trimmedReason },
+          currentFilters,
+        );
+      }
+      setMontosPorMoneda({});
       setMotivo("");
       await loadWallets({ limit: 500 });
+      const resumen = entries
+        .map((e) => formatMoney(e.amount, e.code))
+        .join(", ");
       toast({
         title: tipo === "ingreso" ? "Ingreso registrado" : "Gasto registrado",
-        description: `${formatMoney(parsedAmount, selectedCurrencyCode)} registrado correctamente.`,
+        description: `${resumen} registrado correctamente${entries.length > 1 ? ` (${entries.length} movimientos)` : ""}.`,
       });
       setActiveAction(null);
     } catch (err: unknown) {
@@ -788,6 +803,31 @@ function WalletPageContent() {
     [filteredWallets, wallet?.id, selectedCurrency],
   );
 
+  // Totales por moneda para el equipo visible
+  const teamTotalsByCurrency = useMemo(() => {
+    const totals = new Map<
+      string,
+      { code: string; name: string; amount: number }
+    >();
+    // Inicializar con todas las monedas activas (para mostrar 0 si no hay)
+    for (const c of currencies) {
+      totals.set(c.id, { code: c.codigo, name: c.nombre, amount: 0 });
+    }
+    for (const w of teamWallets) {
+      for (const b of w.balances ?? []) {
+        const key = b.currency_id;
+        const current = totals.get(key) || {
+          code: b.currency_code,
+          name: b.currency_name,
+          amount: 0,
+        };
+        current.amount += Number(b.amount || 0);
+        totals.set(key, current);
+      }
+    }
+    return Array.from(totals.values()).filter((t) => t.amount !== 0);
+  }, [teamWallets, currencies]);
+
   const handleRefresh = async () => {
     const refreshTasks: Promise<unknown>[] = [
       loadWallet(),
@@ -803,8 +843,12 @@ function WalletPageContent() {
   const handleActionToggle = (action: ActiveAction) => {
     if (activeAction === action) {
       setActiveAction(null);
+      setMontosPorMoneda({});
+      setMotivo("");
     } else {
       setActiveAction(action);
+      setMontosPorMoneda({});
+      setMotivo("");
       if (action === "ingreso") setTipo("ingreso");
       if (action === "gasto") setTipo("gasto");
     }
@@ -887,24 +931,56 @@ function WalletPageContent() {
 
             {wallet ? (
               <>
-                <p className="text-3xl sm:text-4xl font-bold tracking-tight mb-1">
-                  {viewMode === "wallet" 
-                    ? formatMoney(walletBalance, selectedCurrencyCode)
-                    : bankBalance 
-                      ? `${parseFloat(bankBalance.amount).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${bankBalance.currency}`
-                      : "Conectar banco"
-                  }
-                </p>
-                <p className="text-xs text-slate-400">
-                  {viewMode === "wallet" ? "Saldo disponible" : "Saldo bancario"}
-                </p>
+                {viewMode === "wallet" ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-400">Saldos disponibles</p>
+                    {currencies.length > 0 ? (
+                      <div className="grid grid-cols-3 gap-2">
+                        {currencies.map((currency) => {
+                          const amount = getWalletBalanceForCurrency(wallet, currency);
+                          const isActive = currency.id === selectedCurrencyId;
+                          return (
+                            <button
+                              key={currency.id}
+                              onClick={() => setSelectedCurrencyId(currency.id)}
+                              className={`text-left rounded-xl px-3 py-2 transition-all border ${
+                                isActive
+                                  ? "bg-white/15 border-white/40 shadow-sm"
+                                  : "bg-white/5 border-white/10 hover:bg-white/10"
+                              }`}
+                              title={currency.nombre}
+                            >
+                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                                {currency.codigo}
+                              </p>
+                              <p className="text-base sm:text-lg font-bold tracking-tight tabular-nums truncate">
+                                {formatMoney(amount, currency.codigo)}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-2xl font-bold tracking-tight">—</p>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-3xl sm:text-4xl font-bold tracking-tight mb-1">
+                      {bankBalance
+                        ? `${parseFloat(bankBalance.amount).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${bankBalance.currency}`
+                        : "Conectar banco"}
+                    </p>
+                    <p className="text-xs text-slate-400">Saldo bancario</p>
+                  </>
+                )}
 
                 {/* Source selector: Wallet or Bank */}
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-slate-500">Fuente:</span>
-                    <Select 
-                      value={viewMode} 
+                    <Select
+                      value={viewMode}
                       onValueChange={(value: "wallet" | "bank") => setViewMode(value)}
                     >
                       <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
@@ -916,25 +992,6 @@ function WalletPageContent() {
                       </SelectContent>
                     </Select>
                   </div>
-
-                  {/* Currency selector for wallet mode */}
-                  {viewMode === "wallet" && currencies.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500">Moneda:</span>
-                      <Select value={selectedCurrencyId} onValueChange={setSelectedCurrencyId}>
-                        <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[120px] focus:ring-0">
-                          <SelectValue placeholder="Moneda" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {currencies.map((currency) => (
-                            <SelectItem key={currency.id} value={currency.id}>
-                              {currency.codigo} · {currency.nombre}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
 
                   {/* Bank connection for bank mode */}
                   {viewMode === "bank" && (
@@ -1073,33 +1130,43 @@ function WalletPageContent() {
               </div>
             </CardHeader>
             <CardContent className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-slate-600">Moneda</Label>
-                  <Select value={transactionCurrencyId} onValueChange={setTransactionCurrencyId}>
-                    <SelectTrigger className="h-9 text-sm">
-                      <SelectValue placeholder="Moneda" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {currencies.map((currency) => (
-                        <SelectItem key={currency.id} value={currency.id}>
-                          {currency.codigo} ({currency.tipo})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium text-slate-600">Monto</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={monto}
-                    onChange={(e) => setMonto(e.target.value)}
-                    className="h-9 text-sm"
-                  />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-slate-600">
+                  Montos por moneda
+                </Label>
+                <p className="text-[11px] text-slate-400">
+                  Llena solo las monedas en las que quieres registrar el movimiento. Puedes hacer varios a la vez.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {currencies.map((currency) => (
+                    <div
+                      key={currency.id}
+                      className="rounded-xl border border-slate-200 bg-slate-50/50 p-2.5"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                          {currency.codigo}
+                        </span>
+                        <span className="text-[10px] text-slate-400 truncate ml-1">
+                          {currency.nombre}
+                        </span>
+                      </div>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={montosPorMoneda[currency.id] || ""}
+                        onChange={(e) =>
+                          setMontosPorMoneda((prev) => ({
+                            ...prev,
+                            [currency.id]: e.target.value,
+                          }))
+                        }
+                        className="h-9 text-sm tabular-nums bg-white"
+                      />
+                    </div>
+                  ))}
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -1113,7 +1180,7 @@ function WalletPageContent() {
               </div>
               <Button
                 onClick={handleCreateTransaction}
-                disabled={creatingTransaction || !transactionCurrencyId}
+                disabled={creatingTransaction}
                 className={`w-full h-10 font-medium ${
                   activeAction === "ingreso"
                     ? "bg-emerald-600 hover:bg-emerald-700"
@@ -1274,7 +1341,7 @@ function WalletPageContent() {
         {canSeeAll && viewMode === "wallet" && (
           <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="rounded-full p-1.5 bg-slate-100 shrink-0">
                     <Users className="h-4 w-4 text-slate-600" />
@@ -1290,6 +1357,30 @@ function WalletPageContent() {
                     </p>
                   </div>
                 </div>
+
+                {/* Totales por moneda - top right */}
+                {teamTotalsByCurrency.length > 0 && (
+                  <div className="flex flex-col items-end gap-1 min-w-0">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                      Total equipo
+                    </p>
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {teamTotalsByCurrency.map((t) => (
+                        <div
+                          key={t.code}
+                          className="flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1"
+                        >
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {t.code}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 tabular-nums">
+                            {formatMoney(t.amount, t.code)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="relative">
