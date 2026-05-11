@@ -54,6 +54,7 @@ interface RegistrarPagoVentaDialogProps {
     stripe_link?: string;
     desglose_billetes?: Record<string, number>;
     cambio?: number;
+    monto_comision?: number;
     recibido_por: string;
     notas?: string;
     es_a_plazos?: boolean;
@@ -108,6 +109,7 @@ export function RegistrarPagoVentaDialog({
   const [copiado, setCopiado] = useState(false);
   const [generarFactura, setGenerarFactura] = useState(true);
   const [numeroFactura, setNumeroFactura] = useState("");
+  const [montoComision, setMontoComision] = useState("");
 
   // Pre-rellenar monto con el pendiente al abrir
   useEffect(() => {
@@ -203,6 +205,7 @@ export function RegistrarPagoVentaDialog({
     setCopiado(false);
     setGenerarFactura(false);
     setNumeroFactura("");
+    setMontoComision("");
   };
 
   const denominaciones =
@@ -314,6 +317,9 @@ export function RegistrarPagoVentaDialog({
           return diferencia > 0 ? diferencia : undefined;
         })(),
         stripe_link: stripeLink || undefined,
+        monto_comision: (metodoPago === "stripe" || metodoPago === "transferencia_bancaria") && montoComision
+          ? Number(montoComision)
+          : undefined,
         recibido_por: user?.nombre ?? "",
         notas: notas || undefined,
         es_a_plazos: bloquearConfiguracionPago
@@ -493,6 +499,7 @@ export function RegistrarPagoVentaDialog({
               onValueChange={(v: string) => {
                 const m = v as "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
                 setMetodoPago(m);
+                if (m !== "stripe" && m !== "transferencia_bancaria") setMontoComision("");
                 if (m === "stripe") {
                   const montoActual = Number(monto);
                   setStripeMontoLink(montoActual > 0 ? montoActual.toFixed(2) : pendiente != null ? pendiente.toFixed(2) : "");
@@ -512,6 +519,21 @@ export function RegistrarPagoVentaDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {(metodoPago === "stripe" || metodoPago === "transferencia_bancaria") && (
+            <div className="space-y-1">
+              <Label>Monto de comisión</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={montoComision}
+                onChange={(e) => setMontoComision(e.target.value)}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-gray-500">Comisión cobrada por el medio de pago (opcional).</p>
+            </div>
+          )}
 
           {metodoPago === "stripe" && (
             <div className="space-y-3 rounded-lg border border-violet-200 bg-violet-50 p-3">

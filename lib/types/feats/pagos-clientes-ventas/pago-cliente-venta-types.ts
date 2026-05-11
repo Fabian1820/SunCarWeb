@@ -37,6 +37,7 @@ export interface PagoVentaCreateData {
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
   cambio?: number;
+  monto_comision?: number;
   recibido_por: string;
   notas?: string;
   /** Si true, persiste plan_pagos en la solicitud */
