@@ -39,11 +39,8 @@ import { PageLoader } from "@/components/shared/atom/page-loader";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
-  Building2,
   Coins,
   Eye,
-  Link2,
-  Link2Off,
   Plus,
   RefreshCcw,
   Search,
@@ -372,38 +369,7 @@ function WalletPageContent() {
   const [transferReason, setTransferReason] = useState("");
   const [transferTargetSearch, setTransferTargetSearch] = useState("");
 
-  // ── Estado banco (Enable Banking) - Integrado ──
-  const [bankSessions, setBankSessions] = useState<Array<{
-    sessionId: string;
-    bankName: string;
-    balance: { amount: string; currency: string } | null;
-    transactions: Array<{
-      id: string;
-      date: string;
-      amount: string;
-      currency: string;
-      description: string;
-      isCredit: boolean;
-    }>;
-  }>>([]);
-  const [selectedBankSessionId, setSelectedBankSessionId] = useState<string | null>(null);
-  const [bankLoading, setBankLoading] = useState(false);
-  const [availableBanks, setAvailableBanks] = useState<Array<{ name: string; country: string }>>([]);
-  const [loadingBanks, setLoadingBanks] = useState(false);
-  const [bankError, setBankError] = useState<string | null>(null);
-  
-  // ── Selector de fuente (Billetera o Banco) ──
-  const [viewMode, setViewMode] = useState<"wallet" | "bank">("wallet");
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Obtener sesión bancaria seleccionada
-  const selectedBankSession = useMemo(
-    () => bankSessions.find(s => s.sessionId === selectedBankSessionId) ?? null,
-    [bankSessions, selectedBankSessionId]
-  );
-
-  const bankBalance = selectedBankSession?.balance ?? null;
-  const bankTransactions = selectedBankSession?.transactions ?? [];
 
   const currentFilters = useMemo(
     () => ({
@@ -465,16 +431,6 @@ function WalletPageContent() {
     );
   }, [transactions, searchQuery]);
 
-  // Filtrar transacciones bancarias por búsqueda
-  const filteredBankTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return bankTransactions;
-    const query = searchQuery.toLowerCase();
-    return bankTransactions.filter(tx => 
-      tx.description.toLowerCase().includes(query) ||
-      tx.amount.includes(query)
-    );
-  }, [bankTransactions, searchQuery]);
-
   useEffect(() => {
     void loadWallet();
     void loadWallets({ limit: 500 });
@@ -504,131 +460,6 @@ function WalletPageContent() {
       setTransferToWalletId("");
     }
   }, [wallet?.id, transferToWalletId]);
-
-  useEffect(() => {
-    // Cargar sesiones bancarias guardadas
-    const savedSessions = localStorage.getItem("bank_sessions");
-    if (savedSessions) {
-      try {
-        const sessions = JSON.parse(savedSessions) as typeof bankSessions;
-        setBankSessions(sessions);
-        if (sessions.length > 0) {
-          setSelectedBankSessionId(sessions[0].sessionId);
-        }
-      } catch (err) {
-        console.error("Error cargando sesiones bancarias:", err);
-      }
-    }
-    
-    // Cargar bancos disponibles
-    const loadBanks = async () => {
-      setLoadingBanks(true);
-      try {
-        const res = await fetch("/api/bank/aspsps?country=ES");
-        const data = await res.json() as { success: boolean; aspsps?: Array<{ name: string; country: string }> };
-        if (data.success && data.aspsps) {
-          setAvailableBanks(data.aspsps);
-        }
-      } catch (err) {
-        console.error("Error cargando bancos:", err);
-      } finally {
-        setLoadingBanks(false);
-      }
-    };
-    void loadBanks();
-  }, []);
-
-  // Guardar sesiones en localStorage cuando cambien
-  useEffect(() => {
-    if (bankSessions.length > 0) {
-      localStorage.setItem("bank_sessions", JSON.stringify(bankSessions));
-    }
-  }, [bankSessions]);
-
-  // Cargar datos bancarios cuando cambia a modo banco y hay sesión
-  useEffect(() => {
-    if (viewMode === "bank" && selectedBankSessionId) {
-      const session = bankSessions.find(s => s.sessionId === selectedBankSessionId);
-      if (session && session.transactions.length === 0) {
-        void loadBankData(selectedBankSessionId, session.bankName);
-      }
-    }
-    // Limpiar búsqueda al cambiar de modo
-    setSearchQuery("");
-  }, [viewMode, selectedBankSessionId]);
-
-  const connectBank = async (bankName: string) => {
-    setBankLoading(true);
-    setBankError(null);
-    try {
-      const redirectUrl = `${window.location.origin}/bank-callback`;
-      const res = await fetch("/api/bank/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bankName, country: "ES", redirectUrl }),
-      });
-      const data = await res.json() as { success: boolean; url?: string; message?: string };
-      if (!data.success || !data.url) throw new Error(data.message ?? "Error al iniciar conexión");
-      
-      // Guardar el nombre del banco para asociarlo después
-      localStorage.setItem("pending_bank_name", bankName);
-      window.location.href = data.url;
-    } catch (err) {
-      setBankError(err instanceof Error ? err.message : "Error al conectar banco");
-      setBankLoading(false);
-    }
-  };
-
-  const loadBankData = async (sessionId: string, bankName: string) => {
-    setBankLoading(true);
-    setBankError(null);
-    try {
-      const res = await fetch(`/api/bank/data?session_id=${sessionId}`);
-      const data = await res.json() as {
-        success: boolean;
-        balance?: { amount: string; currency: string };
-        transactions?: Array<{ id: string; date: string; amount: string; currency: string; description: string; isCredit: boolean }>;
-        message?: string;
-      };
-      if (!data.success) throw new Error(data.message ?? "Error al obtener datos");
-      
-      // Actualizar o agregar sesión
-      setBankSessions(prev => {
-        const existing = prev.find(s => s.sessionId === sessionId);
-        if (existing) {
-          return prev.map(s => 
-            s.sessionId === sessionId 
-              ? { ...s, balance: data.balance ?? null, transactions: data.transactions ?? [] }
-              : s
-          );
-        } else {
-          return [...prev, {
-            sessionId,
-            bankName,
-            balance: data.balance ?? null,
-            transactions: data.transactions ?? []
-          }];
-        }
-      });
-    } catch (err) {
-      setBankError(err instanceof Error ? err.message : "Error al cargar datos bancarios");
-    } finally {
-      setBankLoading(false);
-    }
-  };
-
-  const handleDisconnectBank = (sessionId: string) => {
-    setBankSessions(prev => prev.filter(s => s.sessionId !== sessionId));
-    if (selectedBankSessionId === sessionId) {
-      const remaining = bankSessions.filter(s => s.sessionId !== sessionId);
-      setSelectedBankSessionId(remaining.length > 0 ? remaining[0].sessionId : null);
-    }
-    // Limpiar localStorage si no quedan sesiones
-    const remaining = bankSessions.filter(s => s.sessionId !== sessionId);
-    if (remaining.length === 0) {
-      localStorage.removeItem("bank_sessions");
-    }
-  };
 
   const getWalletViewBalance = (walletData?: WalletType | null) =>
     getWalletBalanceForCurrency(walletData, selectedCurrency);
@@ -938,130 +769,38 @@ function WalletPageContent() {
             </div>
 
             {wallet ? (
-              <>
-                {viewMode === "wallet" ? (
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-400">Saldos disponibles</p>
-                    {currencies.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-2">
-                        {currencies.map((currency) => {
-                          const amount = getWalletBalanceForCurrency(wallet, currency);
-                          const isActive = currency.id === selectedCurrencyId;
-                          return (
-                            <button
-                              key={currency.id}
-                              onClick={() => setSelectedCurrencyId(currency.id)}
-                              className={`text-left rounded-xl px-3 py-2 transition-all border ${
-                                isActive
-                                  ? "bg-white/15 border-white/40 shadow-sm"
-                                  : "bg-white/5 border-white/10 hover:bg-white/10"
-                              }`}
-                              title={currency.nombre}
-                            >
-                              <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
-                                {currency.codigo}
-                              </p>
-                              <p className="text-base sm:text-lg font-bold tracking-tight tabular-nums truncate">
-                                {formatMoney(amount, currency.codigo)}
-                              </p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-2xl font-bold tracking-tight">—</p>
-                    )}
+              <div className="space-y-2">
+                <p className="text-xs text-slate-400">Saldos disponibles</p>
+                {currencies.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {currencies.map((currency) => {
+                      const amount = getWalletBalanceForCurrency(wallet, currency);
+                      const isActive = currency.id === selectedCurrencyId;
+                      return (
+                        <button
+                          key={currency.id}
+                          onClick={() => setSelectedCurrencyId(currency.id)}
+                          className={`text-left rounded-xl px-3 py-2 transition-all border ${
+                            isActive
+                              ? "bg-white/15 border-white/40 shadow-sm"
+                              : "bg-white/5 border-white/10 hover:bg-white/10"
+                          }`}
+                          title={currency.nombre}
+                        >
+                          <p className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">
+                            {currency.codigo}
+                          </p>
+                          <p className="text-base sm:text-lg font-bold tracking-tight tabular-nums truncate">
+                            {formatMoney(amount, currency.codigo)}
+                          </p>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : (
-                  <>
-                    <p className="text-3xl sm:text-4xl font-bold tracking-tight mb-1">
-                      {bankBalance
-                        ? `${parseFloat(bankBalance.amount).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${bankBalance.currency}`
-                        : "Conectar banco"}
-                    </p>
-                    <p className="text-xs text-slate-400">Saldo bancario</p>
-                  </>
+                  <p className="text-2xl font-bold tracking-tight">—</p>
                 )}
-
-                {/* Source selector: Wallet or Bank */}
-                <div className="mt-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Fuente:</span>
-                    <Select
-                      value={viewMode}
-                      onValueChange={(value: "wallet" | "bank") => setViewMode(value)}
-                    >
-                      <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="wallet">💰 Mi Billetera</SelectItem>
-                        <SelectItem value="bank">🏦 Cuenta Bancaria</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Bank connection for bank mode */}
-                  {viewMode === "bank" && (
-                    <>
-                      {/* Selector de banco conectado */}
-                      {bankSessions.length > 0 && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-500">Banco:</span>
-                          <Select 
-                            value={selectedBankSessionId || ""}
-                            onValueChange={setSelectedBankSessionId}
-                          >
-                            <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
-                              <SelectValue placeholder="Seleccionar" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {bankSessions.map((session) => (
-                                <SelectItem key={session.sessionId} value={session.sessionId}>
-                                  🏦 {session.bankName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-
-                      {/* Conectar nuevo banco */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-slate-500">
-                          {bankSessions.length > 0 ? "Agregar:" : "Conectar:"}
-                        </span>
-                        <Select 
-                          disabled={loadingBanks}
-                          onValueChange={(bankName) => void connectBank(bankName)}
-                        >
-                          <SelectTrigger className="h-7 text-xs bg-white/10 border-white/20 text-white w-auto min-w-[140px] focus:ring-0">
-                            <SelectValue placeholder={loadingBanks ? "Cargando..." : "Nuevo banco"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableBanks.map((bank) => (
-                              <SelectItem key={bank.name} value={bank.name}>
-                                {bank.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-
-                  {/* Bank disconnect button */}
-                  {viewMode === "bank" && selectedBankSessionId && (
-                    <button
-                      onClick={() => handleDisconnectBank(selectedBankSessionId)}
-                      className="text-xs text-white/70 hover:text-white flex items-center gap-1"
-                    >
-                      <Link2Off className="h-3 w-3" />
-                      Desconectar este banco
-                    </button>
-                  )}
-                </div>
-              </>
+              </div>
             ) : (
               <div className="mt-2">
                 <p className="text-sm text-slate-400 mb-3">No tienes billetera creada aún.</p>
@@ -1077,8 +816,8 @@ function WalletPageContent() {
           </div>
         </div>
 
-        {/* Quick Action Buttons - Solo en modo wallet */}
-        {wallet && viewMode === "wallet" && (
+        {/* Quick Action Buttons */}
+        {wallet && (
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => handleActionToggle("ingreso")}
@@ -1346,7 +1085,7 @@ function WalletPageContent() {
         )}
 
         {/* Team Wallets - solo si tiene permiso de ver todos */}
-        {canSeeAll && viewMode === "wallet" && (
+        {canSeeAll && (
           <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
               <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -1553,38 +1292,12 @@ function WalletPageContent() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold text-slate-800">
-                  {viewMode === "wallet"
-                    ? canSeeAll
-                      ? "Historial de Transacciones"
-                      : "Mi Historial"
-                    : "Transacciones Bancarias"}
+                  {canSeeAll ? "Historial de Transacciones" : "Mi Historial"}
                 </CardTitle>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {viewMode === "wallet" 
-                    ? `${totalTransactions} registros` 
-                    : bankTransactions.length > 0 
-                      ? `${bankTransactions.length} transacciones`
-                      : "Sin transacciones"
-                  }
+                  {`${totalTransactions} registros`}
                 </p>
               </div>
-              {viewMode === "bank" && selectedBankSessionId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const session = bankSessions.find(s => s.sessionId === selectedBankSessionId);
-                    if (session) {
-                      void loadBankData(selectedBankSessionId, session.bankName);
-                    }
-                  }}
-                  disabled={bankLoading}
-                  className="h-7 text-xs gap-1"
-                >
-                  <RefreshCcw className={`h-3 w-3 ${bankLoading ? "animate-spin" : ""}`} />
-                  Actualizar
-                </Button>
-              )}
             </div>
 
             {/* Buscador */}
@@ -1593,128 +1306,40 @@ function WalletPageContent() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={viewMode === "wallet" ? "Buscar por motivo..." : "Buscar por descripción..."}
+                placeholder="Buscar por motivo..."
                 className="h-9 pl-9 text-sm"
               />
             </div>
 
-            {/* Filtros - Solo en modo wallet */}
-            {viewMode === "wallet" && (
-              <div className="flex gap-1.5 flex-wrap">
-                {(["todos", "ingreso", "gasto"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFiltroTipo(f)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
-                      filtroTipo === f
-                        ? f === "ingreso"
-                          ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                          : f === "gasto"
-                          ? "bg-rose-100 text-rose-700 border-rose-200"
-                          : "bg-slate-800 text-white border-slate-800"
-                        : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                    }`}
-                  >
-                    {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Filtros */}
+            <div className="flex gap-1.5 flex-wrap">
+              {(["todos", "ingreso", "gasto"] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFiltroTipo(f)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all border ${
+                    filtroTipo === f
+                      ? f === "ingreso"
+                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                        : f === "gasto"
+                        ? "bg-rose-100 text-rose-700 border-rose-200"
+                        : "bg-slate-800 text-white border-slate-800"
+                      : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
+                  }`}
+                >
+                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
+                </button>
+              ))}
+            </div>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {viewMode === "wallet" ? (
-              <>
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="mb-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
-                    <p>Transacciones: {transactions.length}</p>
-                    <p>Filtradas: {filteredWalletTransactions.length}</p>
-                    <p>Loading: {loadingTransactions ? 'Sí' : 'No'}</p>
-                    <p>Filtro: {filtroTipo}</p>
-                  </div>
-                )}
-                <TransactionsResponsiveList
-                  transactions={filteredWalletTransactions}
-                  loading={loadingTransactions}
-                  emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
-                  fallbackCurrency={selectedCurrencyCode}
-                  showWalletOwner={canSeeAll}
-                />
-              </>
-            ) : (
-              // Bank transactions view
-              <>
-                {bankLoading ? (
-                  <div className="py-10 text-center">
-                    <div className="inline-flex items-center gap-2 text-sm text-slate-400">
-                      <RefreshCcw className="h-4 w-4 animate-spin" />
-                      Cargando transacciones bancarias...
-                    </div>
-                  </div>
-                ) : bankError ? (
-                  <div className="py-10 text-center">
-                    <p className="text-sm text-rose-600">{bankError}</p>
-                  </div>
-                ) : !selectedBankSessionId ? (
-                  <div className="py-10 text-center">
-                    <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500 font-medium mb-1">No hay banco conectado</p>
-                    <p className="text-xs text-slate-400">Selecciona un banco en el selector de fuente arriba</p>
-                  </div>
-                ) : filteredBankTransactions.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Wallet className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500 font-medium mb-1">
-                      {searchQuery ? "No se encontraron transacciones" : "No hay transacciones"}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {searchQuery ? "Intenta con otro término de búsqueda" : "Haz clic en 'Actualizar' para cargar las transacciones"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredBankTransactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className={`bg-white rounded-xl border border-l-4 ${
-                          tx.isCredit ? "border-l-emerald-400" : "border-l-rose-400"
-                        } border-slate-100 p-3 shadow-sm`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge className={
-                                tx.isCredit
-                                  ? "bg-emerald-100 text-emerald-700 border-emerald-200 text-[11px]"
-                                  : "bg-rose-100 text-rose-700 border-rose-200 text-[11px]"
-                              }>
-                                {tx.isCredit ? (
-                                  <ArrowUpCircle className="h-3 w-3 mr-1" />
-                                ) : (
-                                  <ArrowDownCircle className="h-3 w-3 mr-1" />
-                                )}
-                                {tx.isCredit ? "Ingreso" : "Gasto"}
-                              </Badge>
-                              <span className="text-[11px] text-slate-400">{tx.date}</span>
-                            </div>
-                            <p className={`text-base font-bold ${
-                              tx.isCredit ? "text-emerald-600" : "text-rose-600"
-                            }`}>
-                              {tx.isCredit ? "+" : "-"}
-                              {parseFloat(tx.amount).toLocaleString('es-ES', { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                              })} {tx.currency}
-                            </p>
-                            <p className="text-xs text-slate-600 mt-1 line-clamp-2">{tx.description}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+            <TransactionsResponsiveList
+              transactions={filteredWalletTransactions}
+              loading={loadingTransactions}
+              emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
+              fallbackCurrency={selectedCurrencyCode}
+              showWalletOwner={canSeeAll}
+            />
           </CardContent>
         </Card>
       </main>
