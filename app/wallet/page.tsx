@@ -343,6 +343,14 @@ function WalletPageContent() {
     createTransfer,
     loadCurrencies,
     createCurrency,
+    pendingIncoming,
+    pendingOutgoing,
+    loadingPending,
+    resolvingPendingId,
+    loadPendingTransfers,
+    acceptPendingTransfer,
+    rejectPendingTransfer,
+    cancelPendingTransfer,
   } = useWallet();
 
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
@@ -436,7 +444,8 @@ function WalletPageContent() {
     void loadWallets({ limit: 500 });
     void loadWalletsLookup({ limit: 1000 });
     void loadCurrencies();
-  }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies]);
+    void loadPendingTransfers();
+  }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies, loadPendingTransfers]);
 
   useEffect(() => {
     if (currencies.length === 0) return;
@@ -592,7 +601,12 @@ function WalletPageContent() {
       );
       setTransferAmount("");
       setTransferReason("");
-      toast({ title: "Transferencia registrada", description: "La transferencia se registró correctamente." });
+      setTransferToWalletId("");
+      setTransferTargetSearch("");
+      toast({
+        title: "Transferencia enviada",
+        description: "Esperando que el destinatario la acepte.",
+      });
       setActiveAction(null);
     } catch (err: unknown) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo registrar la transferencia", variant: "destructive" });
@@ -667,11 +681,59 @@ function WalletPageContent() {
     return Array.from(totals.values()).filter((t) => t.amount !== 0);
   }, [allTeamWallets, currencies]);
 
+  const handleAcceptPending = async (pendingId: string) => {
+    try {
+      await acceptPendingTransfer(pendingId);
+      toast({
+        title: "Transferencia aceptada",
+        description: "Los fondos se acreditaron en tu billetera.",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "No se pudo aceptar la transferencia",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleRejectPending = async (pendingId: string) => {
+    if (!confirm("¿Rechazar esta transferencia?")) return;
+    try {
+      await rejectPendingTransfer(pendingId);
+      toast({ title: "Transferencia rechazada" });
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "No se pudo rechazar",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancelPending = async (pendingId: string) => {
+    if (!confirm("¿Cancelar esta transferencia?")) return;
+    try {
+      await cancelPendingTransfer(pendingId);
+      toast({ title: "Transferencia cancelada" });
+    } catch (err: unknown) {
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "No se pudo cancelar",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleRefresh = async () => {
     const refreshTasks: Promise<unknown>[] = [
       loadWallet(),
       loadTransactions(currentFilters),
       loadWallets({ limit: 500 }),
+      loadPendingTransfers(),
     ];
     if (selectedWallet?.id) {
       refreshTasks.push(loadWalletDetail(selectedWallet.id, { limit: 200 }));
@@ -1281,6 +1343,149 @@ function WalletPageContent() {
                     </div>
                   )}
                 </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Pending Transfers */}
+        {(pendingIncoming.length > 0 || pendingOutgoing.length > 0 || loadingPending) && (
+          <Card className="border-amber-200 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="px-4 pt-4 pb-3 bg-amber-50/50">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="rounded-full p-1.5 bg-amber-100">
+                    <SendHorizontal className="h-4 w-4 text-amber-700" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold text-amber-900">
+                      Transferencias Pendientes
+                    </CardTitle>
+                    <p className="text-xs text-amber-700/70 mt-0.5">
+                      {pendingIncoming.length} para aceptar · {pendingOutgoing.length} enviadas
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+              {/* Incoming - to accept */}
+              {pendingIncoming.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
+                    Para aceptar ({pendingIncoming.length})
+                  </p>
+                  <div className="space-y-2">
+                    {pendingIncoming.map((p) => {
+                      const isResolving = resolvingPendingId === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-xl border border-amber-200 bg-white p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-800 truncate">
+                                De {p.wallet_origen_user_nombre}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                CI: {p.wallet_origen_user_ci}
+                              </p>
+                            </div>
+                            <p className="text-base font-bold text-emerald-600 tabular-nums shrink-0">
+                              +{formatMoney(Number(p.monto), p.currency_code)}
+                            </p>
+                          </div>
+                          <p className="text-xs text-slate-600 mb-1 line-clamp-2">
+                            {p.motivo}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mb-3">
+                            {formatDateTime(p.created_at)}
+                          </p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
+                              onClick={() => void handleRejectPending(p.id)}
+                              disabled={isResolving}
+                            >
+                              <X className="h-3.5 w-3.5 mr-1" />
+                              Rechazar
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() => void handleAcceptPending(p.id)}
+                              disabled={isResolving}
+                            >
+                              {isResolving ? (
+                                <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
+                              ) : (
+                                <ArrowDownCircle className="h-3.5 w-3.5 mr-1" />
+                              )}
+                              Aceptar
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Outgoing */}
+              {pendingOutgoing.length > 0 && (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wider font-bold text-slate-500 mb-2">
+                    Enviadas - esperando aceptación ({pendingOutgoing.length})
+                  </p>
+                  <div className="space-y-2">
+                    {pendingOutgoing.map((p) => {
+                      const isResolving = resolvingPendingId === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          className="rounded-xl border border-slate-200 bg-slate-50/50 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-800 truncate">
+                                Para {p.wallet_destino_user_nombre}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                CI: {p.wallet_destino_user_ci}
+                              </p>
+                            </div>
+                            <p className="text-base font-bold text-violet-600 tabular-nums shrink-0">
+                              {formatMoney(Number(p.monto), p.currency_code)}
+                            </p>
+                          </div>
+                          <p className="text-xs text-slate-600 mb-1 line-clamp-2">
+                            {p.motivo}
+                          </p>
+                          <p className="text-[10px] text-slate-400 mb-3">
+                            {formatDateTime(p.created_at)}
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-8 text-xs border-slate-300"
+                            onClick={() => void handleCancelPending(p.id)}
+                            disabled={isResolving}
+                          >
+                            {isResolving ? (
+                              <RefreshCcw className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            ) : (
+                              <X className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            Cancelar transferencia
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

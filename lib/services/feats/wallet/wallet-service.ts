@@ -8,6 +8,7 @@ import type {
   WalletTransactionCreateData,
   WalletTransferCreateData,
   WalletTransferResult,
+  WalletPendingTransfer,
   WalletsFilters,
   WalletTransactionsFilters,
   WalletTransactionsResult,
@@ -417,9 +418,9 @@ export class WalletService {
 
   static async createTransfer(
     data: WalletTransferCreateData,
-  ): Promise<WalletTransferResult> {
+  ): Promise<WalletPendingTransfer> {
     const response = await this.requestWalletEndpoint<
-      WalletTransferResult | WrappedResponse<WalletTransferResult> | ApiErrorResponse
+      WalletPendingTransfer | WrappedResponse<WalletPendingTransfer> | ApiErrorResponse
     >("/wallet/transferencias", {
       method: "POST",
       body: JSON.stringify(data),
@@ -427,11 +428,85 @@ export class WalletService {
 
     if (isApiErrorResponse(response)) {
       throw new Error(
-        getApiErrorMessage(response, "No se pudo registrar la transferencia"),
+        getApiErrorMessage(response, "No se pudo enviar la transferencia"),
       );
     }
 
+    return pickData<WalletPendingTransfer>(response);
+  }
+
+  static async getPendingTransfers(
+    direction: "all" | "incoming" | "outgoing" = "all",
+    estado: string = "pendiente",
+    limit: number = 100,
+  ): Promise<WalletPendingTransfer[]> {
+    const search = new URLSearchParams();
+    search.append("direction", direction);
+    if (estado) search.append("estado", estado);
+    search.append("limit", String(limit));
+    const endpoint = `/wallet/transferencias/pendientes?${search.toString()}`;
+    const response = await this.requestWalletEndpoint<
+      | WalletPendingTransfer[]
+      | WrappedResponse<WalletPendingTransfer[]>
+      | ApiErrorResponse
+    >(endpoint);
+
+    if (isApiErrorResponse(response)) {
+      if (isNotFoundErrorResponse(response)) return [];
+      throw new Error(
+        getApiErrorMessage(response, "No se pudieron cargar las transferencias pendientes"),
+      );
+    }
+    if (Array.isArray(response)) return response;
+    return Array.isArray(response.data) ? response.data : [];
+  }
+
+  static async acceptPendingTransfer(
+    pendingId: string,
+  ): Promise<WalletTransferResult> {
+    const response = await this.requestWalletEndpoint<
+      WalletTransferResult | WrappedResponse<WalletTransferResult> | ApiErrorResponse
+    >(`/wallet/transferencias/pendientes/${pendingId}/aceptar`, {
+      method: "POST",
+    });
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo aceptar la transferencia"),
+      );
+    }
     return pickData<WalletTransferResult>(response);
+  }
+
+  static async rejectPendingTransfer(
+    pendingId: string,
+  ): Promise<WalletPendingTransfer> {
+    const response = await this.requestWalletEndpoint<
+      WalletPendingTransfer | WrappedResponse<WalletPendingTransfer> | ApiErrorResponse
+    >(`/wallet/transferencias/pendientes/${pendingId}/rechazar`, {
+      method: "POST",
+    });
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo rechazar la transferencia"),
+      );
+    }
+    return pickData<WalletPendingTransfer>(response);
+  }
+
+  static async cancelPendingTransfer(
+    pendingId: string,
+  ): Promise<WalletPendingTransfer> {
+    const response = await this.requestWalletEndpoint<
+      WalletPendingTransfer | WrappedResponse<WalletPendingTransfer> | ApiErrorResponse
+    >(`/wallet/transferencias/pendientes/${pendingId}/cancelar`, {
+      method: "POST",
+    });
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo cancelar la transferencia"),
+      );
+    }
+    return pickData<WalletPendingTransfer>(response);
   }
 
   static async getCurrencies(): Promise<WalletCurrency[]> {
