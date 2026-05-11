@@ -115,6 +115,35 @@ export interface WalletTransferResult {
   transaccion_destino_id?: string;
 }
 
+export type WalletPendingTransferEstado =
+  | "pendiente"
+  | "aceptada"
+  | "rechazada"
+  | "cancelada";
+
+export interface WalletPendingTransfer {
+  id: string;
+  wallet_origen_id: string;
+  wallet_origen_user_ci: string;
+  wallet_origen_user_nombre: string;
+  wallet_destino_id: string;
+  wallet_destino_user_ci: string;
+  wallet_destino_user_nombre: string;
+  currency_id: string;
+  currency_code: string;
+  currency_name: string;
+  monto: number;
+  motivo: string;
+  estado: WalletPendingTransferEstado;
+  created_at: string;
+  created_by_ci: string;
+  created_by_nombre: string;
+  referencia_externa?: string | null;
+  resolved_at?: string | null;
+  resolved_by_ci?: string | null;
+  transfer_id?: string | null;
+}
+
 export interface WalletCurrencyCreateData {
   codigo: string;
   nombre: string;

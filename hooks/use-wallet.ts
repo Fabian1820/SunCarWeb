@@ -10,6 +10,7 @@ import type {
   WalletTransaction,
   WalletTransactionCreateData,
   WalletTransactionsFilters,
+  WalletPendingTransfer,
 } from "@/lib/types/feats/wallet/wallet-types";
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
@@ -26,6 +27,10 @@ export function useWallet() {
     Array<{ id: string; user_ci: string; user_nombre: string }>
   >([]);
   const [loadingWalletsLookup, setLoadingWalletsLookup] = useState(false);
+  const [pendingIncoming, setPendingIncoming] = useState<WalletPendingTransfer[]>([]);
+  const [pendingOutgoing, setPendingOutgoing] = useState<WalletPendingTransfer[]>([]);
+  const [loadingPending, setLoadingPending] = useState(false);
+  const [resolvingPendingId, setResolvingPendingId] = useState<string | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [selectedWalletTransactions, setSelectedWalletTransactions] = useState<
     WalletTransaction[]
@@ -197,6 +202,68 @@ export function useWallet() {
     [],
   );
 
+  const loadPendingTransfers = useCallback(async () => {
+    setLoadingPending(true);
+    try {
+      const [incoming, outgoing] = await Promise.all([
+        WalletService.getPendingTransfers("incoming"),
+        WalletService.getPendingTransfers("outgoing"),
+      ]);
+      setPendingIncoming(incoming);
+      setPendingOutgoing(outgoing);
+    } catch (err: unknown) {
+      console.error("[useWallet] Error loading pending transfers:", err);
+    } finally {
+      setLoadingPending(false);
+    }
+  }, []);
+
+  const acceptPendingTransfer = useCallback(
+    async (pendingId: string) => {
+      setResolvingPendingId(pendingId);
+      try {
+        const result = await WalletService.acceptPendingTransfer(pendingId);
+        await Promise.all([
+          loadWallet(),
+          loadWallets(),
+          loadPendingTransfers(),
+        ]);
+        return result;
+      } finally {
+        setResolvingPendingId(null);
+      }
+    },
+    [loadPendingTransfers],
+  );
+
+  const rejectPendingTransfer = useCallback(
+    async (pendingId: string) => {
+      setResolvingPendingId(pendingId);
+      try {
+        const result = await WalletService.rejectPendingTransfer(pendingId);
+        await loadPendingTransfers();
+        return result;
+      } finally {
+        setResolvingPendingId(null);
+      }
+    },
+    [loadPendingTransfers],
+  );
+
+  const cancelPendingTransfer = useCallback(
+    async (pendingId: string) => {
+      setResolvingPendingId(pendingId);
+      try {
+        const result = await WalletService.cancelPendingTransfer(pendingId);
+        await loadPendingTransfers();
+        return result;
+      } finally {
+        setResolvingPendingId(null);
+      }
+    },
+    [loadPendingTransfers],
+  );
+
   const createTransfer = useCallback(
     async (
       data: WalletTransferCreateData,
@@ -205,12 +272,13 @@ export function useWallet() {
         selectedWalletId?: string | null;
         selectedWalletFilters?: WalletTransactionsFilters;
       } = {},
-    ): Promise<WalletTransferResult> => {
+    ): Promise<WalletPendingTransfer> => {
       setTransferring(true);
       setError(null);
 
       try {
         const result = await WalletService.createTransfer(data);
+        await loadPendingTransfers();
 
         const refreshTasks: Promise<unknown>[] = [
           loadWallet(),
@@ -238,7 +306,7 @@ export function useWallet() {
         setTransferring(false);
       }
     },
-    [loadTransactions, loadWallet, loadWalletDetail, loadWallets],
+    [loadPendingTransfers, loadTransactions, loadWallet, loadWalletDetail, loadWallets],
   );
 
   const loadCurrencies = useCallback(async () => {
@@ -310,5 +378,13 @@ export function useWallet() {
     createTransfer,
     loadCurrencies,
     createCurrency,
+    pendingIncoming,
+    pendingOutgoing,
+    loadingPending,
+    resolvingPendingId,
+    loadPendingTransfers,
+    acceptPendingTransfer,
+    rejectPendingTransfer,
+    cancelPendingTransfer,
   };
 }
