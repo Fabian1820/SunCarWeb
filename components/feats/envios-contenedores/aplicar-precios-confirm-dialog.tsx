@@ -47,6 +47,10 @@ const fmt = (n: number, decimals = 2) =>
     maximumFractionDigits: decimals,
   });
 
+// Ocultar los spin buttons del input type="number" para que no tapen el valor digitado
+const NO_SPIN =
+  "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-outer-spin-button]:m-0";
+
 const hayCambio = (anterior: number, nuevo: number) => Math.abs(anterior - nuevo) > 0.0001;
 
 export function AplicarPreciosConfirmDialog({

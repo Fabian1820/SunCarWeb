@@ -59,6 +59,10 @@ const fmt = (n: number, decimals = 2) =>
     maximumFractionDigits: decimals,
   });
 
+// Ocultar las flechas (spin buttons) del input type="number" para que no tapen el valor
+const NO_SPIN =
+  "[appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&::-webkit-outer-spin-button]:m-0";
+
 // ─── tipos internos ──────────────────────────────────────────────────────────
 
 interface FilaMaterial {
@@ -157,10 +161,14 @@ function FichaCostoContent() {
       const materialIds = envioData.materiales.map((m) => m.material_id).filter(Boolean);
       const datosBulk = await EnvioContenedorService.getMaterialesDatosBulk(materialIds);
 
+      const impuestosGuardados = envioData.porciento_cargo_envio_impuestos ?? 0;
       const filasInit: FilaMaterial[] = envioData.materiales.map((m) => {
         const datos = datosBulk[m.material_id] ?? { precio: 0, precio_instaladora: 0, costo: 0, stock_total: 0 };
         const cifUnit = m.precio_unitario_cif ?? 0;
-        const recargoGuardado = m.porciento_recargo ?? 0;
+        const recargoTotalGuardado = m.porciento_recargo ?? 0;
+        // El recargo guardado en backend es el TOTAL (recargo + impuestos).
+        // Lo descomponemos para mostrarlo separado del % impuestos global.
+        const recargoFila = Math.max(0, recargoTotalGuardado - impuestosGuardados);
         const costoGuardado = m.costo ?? 0;
         const pvSugerido = m.precio_venta_sugerido ?? 0;
         const piSugerido = m.precio_instaladora_sugerido ?? 0;
@@ -178,9 +186,9 @@ function FichaCostoContent() {
           porciento_rebajable_actual: datos.porciento_rebajable_venta ?? m.porciento_rebajable_venta ?? 0,
           precio_unitario_cif: cifUnit,
           porciento_rebajable_venta: m.porciento_rebajable_venta ?? 0,
-          porciento_recargo: recargoGuardado,
-          porciento_recargo_override: recargoGuardado > 0,
-          costo_nuevo: costoGuardado || cifUnit * (1 + recargoGuardado / 100),
+          porciento_recargo: recargoFila,
+          porciento_recargo_override: recargoTotalGuardado > 0,
+          costo_nuevo: costoGuardado || cifUnit * (1 + recargoTotalGuardado / 100),
           precio_venta_sugerido: pvSugerido,
           precio_instaladora_sugerido: piSugerido,
           precio_venta_final: pvFinal,
@@ -231,22 +239,22 @@ function FichaCostoContent() {
     [totalCostosUsd, totalValorMercancias],
   );
 
-  // Recargo por defecto = % envío sugerido + % impuestos
-  const recargoDefault = useMemo(
-    () => porcientoEnvioSugerido + porcientoImpuestos,
-    [porcientoEnvioSugerido, porcientoImpuestos],
-  );
+  // % Recargo sugerido = % envío calculado por costos / valor mercancías
+  const recargoSugerido = porcientoEnvioSugerido;
 
-  // Calcula los precios de una fila respetando overrides
+  // Calcula los precios de una fila respetando overrides.
+  // El % recargo de la fila NO incluye impuestos: se le SUMAN para los cálculos.
   const calcularFila = useCallback(
     (
       fila: FilaMaterial,
-      recargoDef: number,
+      recargoSug: number,
+      pctImpuestos: number,
       pctVentas: number,
       pctInstaladora: number,
     ): FilaMaterial => {
-      const recargo = fila.porciento_recargo_override ? fila.porciento_recargo : recargoDef;
-      const costoNuevo = fila.precio_unitario_cif * (1 + recargo / 100);
+      const recargo = fila.porciento_recargo_override ? fila.porciento_recargo : recargoSug;
+      const recargoEfectivo = recargo + pctImpuestos;
+      const costoNuevo = fila.precio_unitario_cif * (1 + recargoEfectivo / 100);
       const pvSugerido = costoNuevo * (1 + pctVentas / 100);
       const piSugerido = costoNuevo * (1 + pctInstaladora / 100);
 
@@ -276,24 +284,25 @@ function FichaCostoContent() {
   );
 
   const recalcularTodo = useCallback(() => {
-    setFilas((prev) => prev.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora)));
-  }, [calcularFila, recargoDefault, porcientoVentas, porcientoInstaladora]);
+    setFilas((prev) => prev.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora)));
+  }, [calcularFila, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora]);
 
   const hayErroresValidacion = useMemo(() => filas.some((f) => f.errorValidacion !== null), [filas]);
 
   // Recalcular cuando cambian los porcentajes globales
-  const prevPctRef = useRef({ recargoDefault, porcientoVentas, porcientoInstaladora });
+  const prevPctRef = useRef({ recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora });
   useEffect(() => {
     const prev = prevPctRef.current;
     if (
-      prev.recargoDefault !== recargoDefault ||
+      prev.recargoSugerido !== recargoSugerido ||
+      prev.porcientoImpuestos !== porcientoImpuestos ||
       prev.porcientoVentas !== porcientoVentas ||
       prev.porcientoInstaladora !== porcientoInstaladora
     ) {
-      prevPctRef.current = { recargoDefault, porcientoVentas, porcientoInstaladora };
+      prevPctRef.current = { recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora };
       recalcularTodo();
     }
-  }, [recargoDefault, porcientoVentas, porcientoInstaladora, recalcularTodo]);
+  }, [recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora, recalcularTodo]);
 
   // ─── handlers costos ─────────────────────────────────────────────────────
 
@@ -334,14 +343,14 @@ function FichaCostoContent() {
   const actualizarCif = (material_id: string, valor: number) => {
     setFilas((prev) => {
       const updated = prev.map((f) => f.material_id === material_id ? { ...f, precio_unitario_cif: valor } : f);
-      return updated.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora));
+      return updated.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora));
     });
   };
 
   const actualizarRebajable = (material_id: string, valor: number) => {
     setFilas((prev) => {
       const updated = prev.map((f) => f.material_id === material_id ? { ...f, porciento_rebajable_venta: valor } : f);
-      return updated.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora));
+      return updated.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora));
     });
   };
 
@@ -352,7 +361,7 @@ function FichaCostoContent() {
           ? { ...f, porciento_recargo: valor, porciento_recargo_override: true }
           : f,
       );
-      return updated.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora));
+      return updated.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora));
     });
   };
 
@@ -361,7 +370,7 @@ function FichaCostoContent() {
       const updated = prev.map((f) =>
         f.material_id === material_id ? { ...f, porciento_recargo_override: false } : f,
       );
-      return updated.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora));
+      return updated.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora));
     });
   };
 
@@ -387,7 +396,7 @@ function FichaCostoContent() {
       const updated = prev.map((f) =>
         f.material_id === material_id ? { ...f, precio_venta_override: false } : f,
       );
-      return updated.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora));
+      return updated.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora));
     });
   };
 
@@ -413,7 +422,7 @@ function FichaCostoContent() {
       const updated = prev.map((f) =>
         f.material_id === material_id ? { ...f, precio_instaladora_override: false } : f,
       );
-      return updated.map((f) => calcularFila(f, recargoDefault, porcientoVentas, porcientoInstaladora));
+      return updated.map((f) => calcularFila(f, recargoSugerido, porcientoImpuestos, porcientoVentas, porcientoInstaladora));
     });
   };
 
@@ -473,11 +482,12 @@ function FichaCostoContent() {
       };
       await EnvioContenedorService.updateEnvio(envioId, updatePayload);
 
-      // 2. POST aplicar-precios con valores (posiblemente editados desde el dialog)
+      // 2. POST aplicar-precios con valores (posiblemente editados desde el dialog).
+      // El backend espera `porciento_recargo` como TOTAL (recargo de la fila + impuestos globales).
       const payload: AplicarPreciosMaterialPayload[] = cambiosEditados.map((c) => ({
         material_id: c.material_id,
         precio_unitario_cif: c.precio_unitario_cif,
-        porciento_recargo: c.porciento_recargo,
+        porciento_recargo: c.porciento_recargo + porcientoImpuestos,
         costo: c.costo_nuevo,
         precio_venta_sugerido: c.precio_venta_sugerido > 0 ? c.precio_venta_sugerido : null,
         precio_instaladora_sugerido: c.precio_instaladora_sugerido > 0 ? c.precio_instaladora_sugerido : null,
@@ -614,10 +624,10 @@ function FichaCostoContent() {
           </div>
 
           <div className="rounded-lg border border-gray-200 bg-white px-4 py-3">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">% Recargo default</p>
-            <p className="text-xl font-bold text-cyan-700">{fmt(recargoDefault)}%</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">% Recargo sugerido</p>
+            <p className="text-xl font-bold text-cyan-700">{fmt(recargoSugerido, 2)}%</p>
             <p className="text-xs text-gray-400 mt-0.5">
-              Envío {fmt(porcientoEnvioSugerido, 1)}% + Imp. {fmt(porcientoImpuestos, 1)}%
+              + Imp. {fmt(porcientoImpuestos, 1)}% = {fmt(recargoSugerido + porcientoImpuestos, 2)}% total
             </p>
           </div>
         </div>
@@ -948,11 +958,8 @@ function FichaCostoContent() {
                       <th colSpan={2} className="text-center py-2 px-2 font-semibold text-cyan-700 text-xs uppercase tracking-wide bg-cyan-50 border-l border-r border-cyan-200">
                         Sugeridos
                       </th>
-                      <th colSpan={2} className="text-center py-2 px-2 font-semibold text-purple-700 text-xs uppercase tracking-wide bg-purple-50 border-l border-r border-purple-200">
-                        Finales
-                      </th>
-                      <th rowSpan={2} className="text-center py-2 px-2 font-semibold text-gray-600 text-xs uppercase tracking-wide border-b border-gray-200 w-[6%]">
-                        % Reb.
+                      <th colSpan={3} className="text-center py-2 px-2 font-semibold text-purple-700 text-xs uppercase tracking-wide bg-purple-50 border-l border-r border-purple-200">
+                        Finales (a aplicar al catálogo)
                       </th>
                     </tr>
                     {/* Fila 2: sub-columnas */}
@@ -960,10 +967,11 @@ function FichaCostoContent() {
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-l border-slate-200 w-[5%]">Stock</th>
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 w-[7%]">P. Venta</th>
                       <th className="text-center py-1.5 px-2 font-medium text-gray-500 text-xs bg-slate-50 border-r border-slate-200 w-[7%]">P. Inst.</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[8%]">P. Venta</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[8%]">P. Inst.</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-l border-purple-200 w-[9%]">P. Venta</th>
-                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-r border-purple-200 w-[9%]">P. Inst.</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-l border-cyan-200 w-[7%]">P. Venta</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-cyan-600 text-xs bg-cyan-50 border-r border-cyan-200 w-[7%]">P. Inst.</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-l border-purple-200 w-[8%]">P. Venta</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 w-[8%]">P. Inst.</th>
+                      <th className="text-center py-1.5 px-2 font-medium text-purple-600 text-xs bg-purple-50 border-r border-purple-200 w-[7%]">% Reb/ventas</th>
                     </tr>
                   </thead>
 
@@ -1010,7 +1018,7 @@ function FichaCostoContent() {
                                   type="number"
                                   min="0"
                                   step="0.01"
-                                  className="h-7 text-xs text-right w-full font-medium"
+                                  className={`h-7 text-xs text-right w-full font-medium ${NO_SPIN}`}
                                   value={f.precio_unitario_cif || ""}
                                   placeholder="0.00"
                                   onChange={(e) => actualizarCif(f.material_id, parseFloat(e.target.value) || 0)}
@@ -1018,13 +1026,13 @@ function FichaCostoContent() {
                               </div>
                             </td>
 
-                            {/* % Recargo (editable, por fila) */}
+                            {/* % Recargo (editable, por fila — NO incluye impuestos) */}
                             <td className="py-2.5 px-2 bg-amber-50/40 border-l border-amber-100">
                               <div className="flex items-center justify-center gap-1">
                                 <Input
                                   type="number"
                                   step="0.1"
-                                  className={`h-7 text-xs text-right w-16 font-medium ${
+                                  className={`h-7 text-xs text-right w-20 font-medium ${NO_SPIN} ${
                                     f.porciento_recargo_override
                                       ? "border-amber-400 text-amber-700"
                                       : "text-amber-800"
@@ -1037,12 +1045,17 @@ function FichaCostoContent() {
                                   <button
                                     onClick={() => resetRecargo(f.material_id)}
                                     className="text-amber-400 hover:text-amber-600 transition-colors"
-                                    title="Volver al recargo default"
+                                    title="Volver al recargo sugerido"
                                   >
                                     <RefreshCw className="h-3 w-3" />
                                   </button>
                                 )}
                               </div>
+                              {porcientoImpuestos !== 0 && (
+                                <p className="text-xs text-orange-500 text-center mt-0.5 font-medium whitespace-nowrap">
+                                  +{fmt(porcientoImpuestos, 1)}% imp.
+                                </p>
+                              )}
                             </td>
 
                             {/* Costo (calculado, read-only) */}
@@ -1098,7 +1111,7 @@ function FichaCostoContent() {
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className={`h-7 text-xs text-right w-20 font-semibold ${
+                                    className={`h-7 text-xs text-right w-24 font-semibold ${NO_SPIN} ${
                                       hasError
                                         ? "border-red-400 text-red-700"
                                         : f.precio_venta_override
@@ -1126,7 +1139,7 @@ function FichaCostoContent() {
                                 )}
                               </div>
                             </td>
-                            <td className="py-2.5 px-2 bg-purple-50/40 border-r border-purple-100">
+                            <td className="py-2.5 px-2 bg-purple-50/40">
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-center gap-1">
                                   <span className="text-xs text-gray-400">$</span>
@@ -1134,7 +1147,7 @@ function FichaCostoContent() {
                                     type="number"
                                     min="0"
                                     step="0.01"
-                                    className={`h-7 text-xs text-right w-20 font-semibold ${
+                                    className={`h-7 text-xs text-right w-24 font-semibold ${NO_SPIN} ${
                                       f.precio_instaladora_override
                                         ? "border-purple-400 text-purple-700"
                                         : "text-purple-900"
@@ -1161,8 +1174,8 @@ function FichaCostoContent() {
                               </div>
                             </td>
 
-                            {/* % Rebajable */}
-                            <td className="py-2.5 px-2">
+                            {/* % Rebajable / Ventas (dentro de Finales) */}
+                            <td className="py-2.5 px-2 bg-purple-50/40 border-r border-purple-100">
                               <div className="flex flex-col items-center gap-0.5">
                                 <div className="flex items-center gap-1">
                                   <Input
@@ -1170,7 +1183,7 @@ function FichaCostoContent() {
                                     min="0"
                                     max="100"
                                     step="0.5"
-                                    className={`h-7 text-xs text-right w-14 ${hasError ? "border-red-400" : ""}`}
+                                    className={`h-7 text-xs text-right w-16 ${NO_SPIN} ${hasError ? "border-red-400" : ""}`}
                                     value={f.porciento_rebajable_venta}
                                     onChange={(e) => actualizarRebajable(f.material_id, parseFloat(e.target.value) || 0)}
                                   />
@@ -1239,12 +1252,12 @@ function FichaCostoContent() {
                           ${fmt(filas.reduce((s, f) => s + f.precio_venta_final * f.cantidad, 0))}
                         </span>
                       </td>
-                      <td className="py-3 px-2 text-center bg-purple-50/40 border-r border-purple-100">
+                      <td className="py-3 px-2 text-center bg-purple-50/40">
                         <span className="text-sm font-bold text-purple-800">
                           ${fmt(filas.reduce((s, f) => s + f.precio_instaladora_final * f.cantidad, 0))}
                         </span>
                       </td>
-                      <td />
+                      <td className="py-3 px-2 bg-purple-50/40 border-r border-purple-100" />
                     </tr>
                   </tfoot>
                 </table>
