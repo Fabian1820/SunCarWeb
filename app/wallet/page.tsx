@@ -774,8 +774,18 @@ function WalletPageContent() {
   };
 
   const teamWallets = useMemo(
-    () => filteredWallets.filter((item) => item.id !== wallet?.id),
-    [filteredWallets, wallet?.id],
+    () =>
+      filteredWallets.filter((item) => {
+        if (item.id === wallet?.id) return false;
+        // Considerar "no vacía" si tiene saldo en la moneda activa
+        // o cualquier balance distinto de cero en otra moneda.
+        if (getWalletBalanceForCurrency(item, selectedCurrency) > 0) return true;
+        const anyBalance = (item.balances ?? []).some(
+          (b) => Number(b.amount || 0) !== 0,
+        );
+        return anyBalance;
+      }),
+    [filteredWallets, wallet?.id, selectedCurrency],
   );
 
   const handleRefresh = async () => {
