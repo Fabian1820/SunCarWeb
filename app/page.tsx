@@ -486,6 +486,10 @@ export default function Dashboard() {
       if (module.id === "trabajadores" && !canViewTrabajadoresCard) {
         return false;
       }
+      // Wallet es accesible para todos los usuarios autenticados
+      if (module.id === "wallet") {
+        return true;
+      }
       return hasPermission(module.permission ?? module.id);
     }),
     ...superAdminModules,

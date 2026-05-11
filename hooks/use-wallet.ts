@@ -22,6 +22,10 @@ export function useWallet() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [totalTransactions, setTotalTransactions] = useState(0);
   const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [walletsLookup, setWalletsLookup] = useState<
+    Array<{ id: string; user_ci: string; user_nombre: string }>
+  >([]);
+  const [loadingWalletsLookup, setLoadingWalletsLookup] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [selectedWalletTransactions, setSelectedWalletTransactions] = useState<
     WalletTransaction[]
@@ -115,6 +119,23 @@ export function useWallet() {
       }
     },
     [loadTransactions, loadWallet],
+  );
+
+  const loadWalletsLookup = useCallback(
+    async (filters: WalletsFilters = {}) => {
+      setLoadingWalletsLookup(true);
+      try {
+        const result = await WalletService.getWalletsLookup(filters);
+        setWalletsLookup(result);
+        return result;
+      } catch (err: unknown) {
+        console.error("[useWallet] Error loading wallets lookup:", err);
+        return [];
+      } finally {
+        setLoadingWalletsLookup(false);
+      }
+    },
+    [],
   );
 
   const loadWallets = useCallback(async (filters: WalletsFilters = {}) => {
@@ -263,6 +284,8 @@ export function useWallet() {
     transactions,
     totalTransactions,
     wallets,
+    walletsLookup,
+    loadingWalletsLookup,
     selectedWallet,
     selectedWalletTransactions,
     totalSelectedWalletTransactions,
@@ -282,6 +305,7 @@ export function useWallet() {
     loadTransactions,
     createTransaction,
     loadWallets,
+    loadWalletsLookup,
     loadWalletDetail,
     createTransfer,
     loadCurrencies,
