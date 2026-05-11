@@ -18,6 +18,7 @@ export { MarcaService } from "./services/feats/marcas/marca-service";
 export { ServicioService } from "./services/feats/servicios/servicio-service";
 export { OfertaPersonalizadaService } from "./services/feats/ofertas-personalizadas/oferta-personalizada-service";
 export { PermisosService } from "./services/feats/permisos/permisos-service";
+export { WalletPermisoService } from "./services/feats/wallet-manager/wallet-permiso-service";
 export { TrabajoPendienteService } from "./services/feats/trabajos-pendientes/trabajo-pendiente-service";
 export { CalculoEnergeticoService } from "./services/feats/calculo-energetico/calculo-energetico-service";
 export { ArticuloTiendaService } from "./services/feats/articulos-tienda/articulo-tienda-service";

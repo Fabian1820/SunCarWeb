@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
+import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import type {
   WalletCurrency,
   Wallet as WalletType,
@@ -318,6 +319,8 @@ type ActiveAction = "ingreso" | "gasto" | "transferencia" | null;
 
 function WalletPageContent() {
   const { toast } = useToast();
+  const { permiso: walletPermiso } = useMyWalletPermiso();
+  const canSeeAll = !!walletPermiso?.verTodos;
   const {
     wallet,
     wallets,
@@ -788,15 +791,17 @@ function WalletPageContent() {
               <Coins className="h-4 w-4 text-amber-500" />
               <span className="hidden sm:inline text-sm">Monedas</span>
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => setIsWalletsDialogOpen(true)}
-              className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
-              title="Ver billeteras del equipo"
-            >
-              <Users className="h-4 w-4 text-slate-500" />
-              <span className="hidden sm:inline text-sm">Equipo</span>
-            </Button>
+            {canSeeAll && (
+              <Button
+                variant="outline"
+                onClick={() => setIsWalletsDialogOpen(true)}
+                className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
+                title="Ver billeteras del equipo"
+              >
+                <Users className="h-4 w-4 text-slate-500" />
+                <span className="hidden sm:inline text-sm">Equipo</span>
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={handleRefresh}
@@ -1176,7 +1181,11 @@ function WalletPageContent() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold text-slate-800">
-                  {viewMode === "wallet" ? "Historial de Transacciones" : "Transacciones Bancarias"}
+                  {viewMode === "wallet"
+                    ? canSeeAll
+                      ? "Historial de Transacciones"
+                      : "Mi Historial"
+                    : "Transacciones Bancarias"}
                 </CardTitle>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {viewMode === "wallet" 
@@ -1257,7 +1266,7 @@ function WalletPageContent() {
                   loading={loadingTransactions}
                   emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
                   fallbackCurrency={selectedCurrencyCode}
-                  showWalletOwner
+                  showWalletOwner={canSeeAll}
                 />
               </>
             ) : (

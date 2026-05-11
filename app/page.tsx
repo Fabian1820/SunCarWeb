@@ -54,9 +54,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { UserMenu } from "@/components/auth/user-menu";
 import { BirthdayChecker } from "@/components/shared/molecule/birthday-checker";
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types";
+import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 
 export default function Dashboard() {
   const { hasPermission, user, loadModulosPermitidos } = useAuth();
+  const { permiso: myWalletPermiso } = useMyWalletPermiso();
   const [selectedForm, setSelectedForm] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isContactosDialogOpen, setIsContactosDialogOpen] = useState(false);
@@ -430,7 +432,7 @@ export default function Dashboard() {
       id: "area-direccion",
       title: "Área de Dirección",
       subtitle: "Billetera, fichas de costo y permisos.",
-      moduleIds: ["wallet", "fichas-costo", "permisos"],
+      moduleIds: ["wallet", "wallet-manager", "fichas-costo", "permisos"],
     },
     {
       id: "web",
@@ -449,6 +451,20 @@ export default function Dashboard() {
           title: "Gestión de Permisos",
           description: "Administrar módulos y permisos de trabajadores.",
           iconClass: "text-red-600",
+        },
+      ]
+    : [];
+
+  const isWalletAdmin = !!user?.is_superAdmin || !!myWalletPermiso?.esAdmin;
+  const walletAdminModules: DashboardModule[] = isWalletAdmin
+    ? [
+        {
+          id: "wallet-manager",
+          href: "/wallet-manager",
+          icon: Wallet,
+          title: "Gestión de Wallet",
+          description: "Administrar permisos de billetera de trabajadores.",
+          iconClass: "text-blue-600",
         },
       ]
     : [];
@@ -473,6 +489,7 @@ export default function Dashboard() {
       return hasPermission(module.permission ?? module.id);
     }),
     ...superAdminModules,
+    ...walletAdminModules,
   ];
 
   const availableModuleMap = new globalThis.Map(
