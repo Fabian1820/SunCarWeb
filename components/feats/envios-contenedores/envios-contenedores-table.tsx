@@ -440,7 +440,7 @@ export function EnviosContenedoresTable({
                               <th className="text-left py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Material</th>
                               <th className="text-center py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Cant.</th>
                               <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">P. CIF</th>
-                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Venta calc.</th>
+                              <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Venta final</th>
                               <th className="text-right py-2 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">P. Instaladora</th>
                             </tr>
                           </thead>
@@ -457,13 +457,13 @@ export function EnviosContenedoresTable({
                                   {m.precio_unitario_cif > 0 ? `$${m.precio_unitario_cif.toFixed(2)}` : "—"}
                                 </td>
                                 <td className="py-2 px-3 text-right">
-                                  {m.precio_venta_calc != null
-                                    ? <span className="font-semibold text-gray-800">${m.precio_venta_calc.toFixed(2)}</span>
+                                  {m.precio_venta_final != null
+                                    ? <span className="font-semibold text-gray-800">${m.precio_venta_final.toFixed(2)}</span>
                                     : <span className="text-gray-400">—</span>}
                                 </td>
                                 <td className="py-2 px-3 text-right">
-                                  {m.precio_instaladora_calc != null
-                                    ? <span className="font-semibold text-gray-800">${m.precio_instaladora_calc.toFixed(2)}</span>
+                                  {m.precio_instaladora_final != null
+                                    ? <span className="font-semibold text-gray-800">${m.precio_instaladora_final.toFixed(2)}</span>
                                     : <span className="text-gray-400">—</span>}
                                 </td>
                               </tr>
@@ -481,13 +481,13 @@ export function EnviosContenedoresTable({
                                 ${envio.materiales.reduce((s, m) => s + m.precio_unitario_cif * m.cantidad, 0).toFixed(2)}
                               </td>
                               <td className="py-2 px-3 text-right text-xs font-bold text-gray-700">
-                                {envio.materiales.every((m) => m.precio_venta_calc != null)
-                                  ? `$${envio.materiales.reduce((s, m) => s + (m.precio_venta_calc ?? 0) * m.cantidad, 0).toFixed(2)}`
+                                {envio.materiales.every((m) => m.precio_venta_final != null)
+                                  ? `$${envio.materiales.reduce((s, m) => s + (m.precio_venta_final ?? 0) * m.cantidad, 0).toFixed(2)}`
                                   : "—"}
                               </td>
                               <td className="py-2 px-3 text-right text-xs font-bold text-gray-700">
-                                {envio.materiales.every((m) => m.precio_instaladora_calc != null)
-                                  ? `$${envio.materiales.reduce((s, m) => s + (m.precio_instaladora_calc ?? 0) * m.cantidad, 0).toFixed(2)}`
+                                {envio.materiales.every((m) => m.precio_instaladora_final != null)
+                                  ? `$${envio.materiales.reduce((s, m) => s + (m.precio_instaladora_final ?? 0) * m.cantidad, 0).toFixed(2)}`
                                   : "—"}
                               </td>
                             </tr>

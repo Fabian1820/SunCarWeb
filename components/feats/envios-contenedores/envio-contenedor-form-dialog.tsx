@@ -326,7 +326,8 @@ export function EnvioContenedorFormDialog({
           material_nombre: m.material_nombre,
           cantidad: m.cantidad,
           precio_unitario_cif: 0,
-          porciento_extra: 0,
+          porciento_recargo: 0,
+          costo: 0,
           porciento_rebajable_venta: 0,
         })),
       });

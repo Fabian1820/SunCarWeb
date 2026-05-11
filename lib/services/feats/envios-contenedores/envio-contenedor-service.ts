@@ -72,10 +72,12 @@ const mapMaterial = (raw: any): EnvioContenedorMaterial => ({
   material_nombre: String(raw?.material_nombre ?? raw?.nombre ?? raw?.descripcion ?? ""),
   cantidad: Number(raw?.cantidad ?? 0),
   precio_unitario_cif: Number(raw?.precio_unitario_cif ?? 0),
-  porciento_extra: Number(raw?.porciento_extra ?? 0),
-  costo_calc: raw?.costo_calc != null ? Number(raw.costo_calc) : undefined,
-  precio_venta_calc: raw?.precio_venta_calc != null ? Number(raw.precio_venta_calc) : undefined,
-  precio_instaladora_calc: raw?.precio_instaladora_calc != null ? Number(raw.precio_instaladora_calc) : undefined,
+  porciento_recargo: Number(raw?.porciento_recargo ?? 0),
+  costo: Number(raw?.costo ?? 0),
+  precio_venta_sugerido: raw?.precio_venta_sugerido != null ? Number(raw.precio_venta_sugerido) : null,
+  precio_instaladora_sugerido: raw?.precio_instaladora_sugerido != null ? Number(raw.precio_instaladora_sugerido) : null,
+  precio_venta_final: raw?.precio_venta_final != null ? Number(raw.precio_venta_final) : null,
+  precio_instaladora_final: raw?.precio_instaladora_final != null ? Number(raw.precio_instaladora_final) : null,
   porciento_rebajable_venta: Number(raw?.porciento_rebajable_venta ?? 0),
 });
 
@@ -112,6 +114,11 @@ const mapEnvio = (raw: any): EnvioContenedor => ({
     : [],
   porciento_instaladora: Number(raw?.porciento_instaladora ?? 0),
   porciento_ventas: Number(raw?.porciento_ventas ?? 0),
+  total_costos: raw?.total_costos != null ? Number(raw.total_costos) : undefined,
+  valor_mercancia: raw?.valor_mercancia != null ? Number(raw.valor_mercancia) : undefined,
+  tasa_conversion_eur_usd: raw?.tasa_conversion_eur_usd != null ? Number(raw.tasa_conversion_eur_usd) : null,
+  porciento_cargo_envio_sugerido: raw?.porciento_cargo_envio_sugerido != null ? Number(raw.porciento_cargo_envio_sugerido) : undefined,
+  porciento_cargo_envio_impuestos: raw?.porciento_cargo_envio_impuestos != null ? Number(raw.porciento_cargo_envio_impuestos) : undefined,
   materiales: Array.isArray(raw?.materiales) ? raw.materiales.map(mapMaterial) : [],
   archivos: Array.isArray(raw?.archivos) ? raw.archivos.map(mapArchivo) : [],
   created_at: typeof raw?.created_at === "string" ? raw.created_at : undefined,
@@ -213,6 +220,7 @@ export class EnvioContenedorService {
           precio_instaladora: Number(item?.precio_instaladora ?? 0),
           costo: Number(item?.costo ?? 0),
           stock_total: Number(item?.stock_total ?? 0),
+          porciento_rebajable_venta: item?.porciento_rebajable_venta != null ? Number(item.porciento_rebajable_venta) : undefined,
         };
       }
       return result;

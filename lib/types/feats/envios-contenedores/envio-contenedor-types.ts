@@ -45,10 +45,12 @@ export interface EnvioContenedorMaterial {
   material_nombre: string;
   cantidad: number;
   precio_unitario_cif: number;
-  porciento_extra: number;
-  costo_calc?: number;
-  precio_venta_calc?: number;
-  precio_instaladora_calc?: number;
+  porciento_recargo: number;
+  costo: number;
+  precio_venta_sugerido?: number | null;
+  precio_instaladora_sugerido?: number | null;
+  precio_venta_final?: number | null;
+  precio_instaladora_final?: number | null;
   porciento_rebajable_venta: number;
 }
 
@@ -79,10 +81,31 @@ export interface EnvioContenedor {
   costos: CostoImportacion[];
   porciento_instaladora: number;
   porciento_ventas: number;
+  // Nuevos campos a nivel contenedor
+  total_costos?: number;
+  valor_mercancia?: number;
+  tasa_conversion_eur_usd?: number | null;
+  porciento_cargo_envio_sugerido?: number;
+  porciento_cargo_envio_impuestos?: number;
   materiales: EnvioContenedorMaterial[];
   archivos: ArchivoEnvioContenedor[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface EnvioContenedorMaterialCreate {
+  material_id: string;
+  material_codigo: string;
+  material_nombre: string;
+  cantidad: number;
+  precio_unitario_cif?: number;
+  porciento_recargo?: number;
+  costo?: number;
+  precio_venta_sugerido?: number | null;
+  precio_instaladora_sugerido?: number | null;
+  precio_venta_final?: number | null;
+  precio_instaladora_final?: number | null;
+  porciento_rebajable_venta?: number;
 }
 
 export interface EnvioContenedorCreateData {
@@ -111,7 +134,13 @@ export interface EnvioContenedorCreateData {
   costos?: CostoImportacion[];
   porciento_instaladora?: number;
   porciento_ventas?: number;
-  materiales: EnvioContenedorMaterial[];
+  // Nuevos campos a nivel contenedor
+  total_costos?: number;
+  valor_mercancia?: number;
+  tasa_conversion_eur_usd?: number | null;
+  porciento_cargo_envio_sugerido?: number;
+  porciento_cargo_envio_impuestos?: number;
+  materiales: EnvioContenedorMaterialCreate[];
 }
 
 export interface StockMaterialEnvio {
@@ -127,15 +156,18 @@ export interface MaterialDatosBulk {
   precio_instaladora: number;
   costo: number;
   stock_total: number;
+  porciento_rebajable_venta?: number;
 }
 
 export interface AplicarPreciosMaterialPayload {
   material_id: string;
   precio_unitario_cif: number;
-  porciento_extra: number;
-  costo_calc?: number;
-  precio_venta_calc?: number;
-  precio_instaladora_calc?: number;
+  porciento_recargo: number;
+  costo: number;
+  precio_venta_sugerido?: number | null;
+  precio_instaladora_sugerido?: number | null;
+  precio_venta_final?: number | null;
+  precio_instaladora_final?: number | null;
   porciento_rebajable_venta: number;
 }
 
