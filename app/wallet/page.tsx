@@ -38,9 +38,11 @@ import { Toaster } from "@/components/shared/molecule/toaster";
 import { PageLoader } from "@/components/shared/atom/page-loader";
 import {
   ArrowDownCircle,
+  ArrowRight,
   ArrowUpCircle,
   Coins,
   Eye,
+  Info,
   Plus,
   RefreshCcw,
   Search,
@@ -95,6 +97,36 @@ const isTransferTransaction = (transaction: WalletTransaction): boolean => {
     transaction.tipo === "transferencia_entrada" ||
     transaction.tipo === "transferencia_salida"
   );
+};
+
+type TransferParties = {
+  fromName: string;
+  fromCi: string;
+  toName: string;
+  toCi: string;
+};
+
+const getTransferParties = (
+  transaction: WalletTransaction,
+): TransferParties | null => {
+  if (!isTransferTransaction(transaction)) return null;
+  const isOutgoing =
+    transaction.tipo === "transferencia_salida" ||
+    transaction.transferencia_direccion === "salida";
+  if (isOutgoing) {
+    return {
+      fromName: transaction.wallet_user_nombre,
+      fromCi: transaction.wallet_user_ci,
+      toName: transaction.contraparte_user_nombre || "—",
+      toCi: transaction.contraparte_user_ci || "",
+    };
+  }
+  return {
+    fromName: transaction.contraparte_user_nombre || "—",
+    fromCi: transaction.contraparte_user_ci || "",
+    toName: transaction.wallet_user_nombre,
+    toCi: transaction.wallet_user_ci,
+  };
 };
 
 const getWalletBalanceForCurrency = (
@@ -152,6 +184,7 @@ type TransactionsResponsiveListProps = {
   emptyMessage: string;
   fallbackCurrency: string;
   showWalletOwner?: boolean;
+  onSelect?: (transaction: WalletTransaction) => void;
 };
 
 function TransactionsResponsiveList({
@@ -160,6 +193,7 @@ function TransactionsResponsiveList({
   emptyMessage,
   fallbackCurrency,
   showWalletOwner = true,
+  onSelect,
 }: TransactionsResponsiveListProps) {
   if (loading) {
     return (
@@ -189,8 +223,14 @@ function TransactionsResponsiveList({
           const rowCurrency = transaction.currency_code || fallbackCurrency;
           const isTransfer = isTransferTransaction(transaction);
           const isIngreso = transaction.tipo === "ingreso";
+          const isIncomingTransfer =
+            transaction.tipo === "transferencia_entrada" ||
+            transaction.transferencia_direccion === "entrada";
+          const parties = getTransferParties(transaction);
           const amountColor = isTransfer
-            ? "text-violet-600"
+            ? isIncomingTransfer
+              ? "text-emerald-600"
+              : "text-rose-600"
             : isIngreso
             ? "text-emerald-600"
             : "text-rose-600";
@@ -199,37 +239,55 @@ function TransactionsResponsiveList({
             : isIngreso
             ? "border-l-emerald-400"
             : "border-l-rose-400";
+          const sign = isTransfer
+            ? isIncomingTransfer
+              ? "+"
+              : "-"
+            : isIngreso
+            ? "+"
+            : "-";
 
           return (
-            <div
+            <button
               key={transaction.id}
-              className={`bg-white rounded-xl border border-slate-100 border-l-4 ${borderColor} p-3 shadow-sm`}
+              onClick={() => onSelect?.(transaction)}
+              className={`w-full text-left bg-white rounded-xl border border-slate-100 border-l-4 ${borderColor} p-3 shadow-sm hover:shadow-md hover:border-slate-200 transition-all`}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TransactionTypeBadge transaction={transaction} />
-                    <span className="text-[11px] text-slate-400">
-                      {formatDateTime(transaction.created_at)}
-                    </span>
-                  </div>
-                  <p className={`text-base font-bold ${amountColor}`}>
-                    {isIngreso && !isTransfer ? "+" : isTransfer ? "" : "-"}
-                    {formatMoney(transaction.monto, rowCurrency)}
-                  </p>
-                  {showWalletOwner && (
-                    <p className="text-xs text-slate-500 mt-0.5 truncate">
-                      {transaction.wallet_user_nombre} · {transaction.wallet_user_ci}
-                    </p>
-                  )}
-                  <p className="text-xs text-slate-600 mt-1 line-clamp-2">{transaction.motivo}</p>
+              <div className="flex items-start justify-between gap-2 mb-1.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <TransactionTypeBadge transaction={transaction} />
+                  <span className="text-[11px] text-slate-400 truncate">
+                    {formatDateTime(transaction.created_at)}
+                  </span>
                 </div>
+                <Info className="h-3.5 w-3.5 text-slate-300 shrink-0 mt-0.5" />
               </div>
-              <div className="mt-2 pt-2 border-t border-slate-50 grid grid-cols-2 gap-1 text-[11px] text-slate-400">
-                <span>Antes: <span className="text-slate-600 font-medium">{formatMoney(transaction.saldo_anterior, rowCurrency)}</span></span>
-                <span>Después: <span className="text-slate-600 font-medium">{formatMoney(transaction.saldo_posterior, rowCurrency)}</span></span>
-              </div>
-            </div>
+
+              <p className={`text-base font-bold ${amountColor} tabular-nums`}>
+                {sign}
+                {formatMoney(transaction.monto, rowCurrency)}
+              </p>
+
+              {parties ? (
+                <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                  <span className="text-slate-700 font-medium truncate min-w-0">
+                    {parties.fromName}
+                  </span>
+                  <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
+                  <span className="text-slate-700 font-medium truncate min-w-0">
+                    {parties.toName}
+                  </span>
+                </div>
+              ) : showWalletOwner ? (
+                <p className="text-xs text-slate-500 mt-1 truncate">
+                  {transaction.wallet_user_nombre}
+                </p>
+              ) : null}
+
+              <p className="text-xs text-slate-600 mt-1.5 line-clamp-2">
+                {transaction.motivo}
+              </p>
+            </button>
           );
         })}
       </div>
@@ -240,13 +298,11 @@ function TransactionsResponsiveList({
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
               <TableHead className="text-xs font-semibold text-slate-500">Fecha</TableHead>
-              {showWalletOwner ? <TableHead className="text-xs font-semibold text-slate-500">Usuario</TableHead> : null}
               <TableHead className="text-xs font-semibold text-slate-500">Tipo</TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500">Monto</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500">Detalle</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500 text-right">Monto</TableHead>
               <TableHead className="text-xs font-semibold text-slate-500">Motivo</TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500">Registrado por</TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500">Antes</TableHead>
-              <TableHead className="text-xs font-semibold text-slate-500">Después</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-500"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -254,44 +310,70 @@ function TransactionsResponsiveList({
               const rowCurrency = transaction.currency_code || fallbackCurrency;
               const isTransfer = isTransferTransaction(transaction);
               const isIngreso = transaction.tipo === "ingreso";
+              const isIncomingTransfer =
+                transaction.tipo === "transferencia_entrada" ||
+                transaction.transferencia_direccion === "entrada";
+              const parties = getTransferParties(transaction);
               const amountColor = isTransfer
-                ? "text-violet-600"
+                ? isIncomingTransfer
+                  ? "text-emerald-600"
+                  : "text-rose-600"
                 : isIngreso
                 ? "text-emerald-600"
                 : "text-rose-600";
+              const sign = isTransfer
+                ? isIncomingTransfer
+                  ? "+"
+                  : "-"
+                : isIngreso
+                ? "+"
+                : "-";
 
               return (
-                <TableRow key={transaction.id} className="hover:bg-slate-50/50">
-                  <TableCell className="text-xs text-slate-500">
+                <TableRow
+                  key={transaction.id}
+                  className="hover:bg-slate-50/50 cursor-pointer"
+                  onClick={() => onSelect?.(transaction)}
+                >
+                  <TableCell className="text-xs text-slate-500 whitespace-nowrap">
                     {formatDateTime(transaction.created_at)}
                   </TableCell>
-                  {showWalletOwner ? (
-                    <TableCell>
-                      <p className="text-sm font-medium text-slate-800">{transaction.wallet_user_nombre}</p>
-                      <p className="text-[11px] text-slate-400">{transaction.wallet_user_ci}</p>
-                    </TableCell>
-                  ) : null}
                   <TableCell>
                     <TransactionTypeBadge transaction={transaction} />
                   </TableCell>
-                  <TableCell className={`font-bold ${amountColor}`}>
-                    {isIngreso && !isTransfer ? "+" : isTransfer ? "" : "-"}
+                  <TableCell className="min-w-[200px]">
+                    {parties ? (
+                      <div className="flex items-center gap-1.5 text-sm">
+                        <span className="text-slate-800 font-medium truncate max-w-[140px]">
+                          {parties.fromName}
+                        </span>
+                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                        <span className="text-slate-800 font-medium truncate max-w-[140px]">
+                          {parties.toName}
+                        </span>
+                      </div>
+                    ) : showWalletOwner ? (
+                      <div>
+                        <p className="text-sm font-medium text-slate-800 truncate max-w-[200px]">
+                          {transaction.wallet_user_nombre}
+                        </p>
+                        <p className="text-[11px] text-slate-400">{transaction.wallet_user_ci}</p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell className={`font-bold tabular-nums text-right whitespace-nowrap ${amountColor}`}>
+                    {sign}
                     {formatMoney(transaction.monto, rowCurrency)}
                   </TableCell>
-                  <TableCell className="max-w-[180px]">
-                    <p className="truncate text-sm text-slate-600" title={transaction.motivo}>
+                  <TableCell className="max-w-[260px]">
+                    <p className="truncate text-sm text-slate-600">
                       {transaction.motivo}
                     </p>
                   </TableCell>
-                  <TableCell>
-                    <p className="text-sm text-slate-700">{transaction.created_by_nombre}</p>
-                    <p className="text-[11px] text-slate-400">{transaction.created_by_ci}</p>
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-500">
-                    {formatMoney(transaction.saldo_anterior, rowCurrency)}
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-500">
-                    {formatMoney(transaction.saldo_posterior, rowCurrency)}
+                  <TableCell className="w-9 text-right">
+                    <Info className="h-4 w-4 text-slate-300 inline" />
                   </TableCell>
                 </TableRow>
               );
@@ -300,6 +382,156 @@ function TransactionsResponsiveList({
         </Table>
       </div>
     </>
+  );
+}
+
+function TransactionDetailsDialog({
+  transaction,
+  open,
+  onOpenChange,
+  fallbackCurrency,
+}: {
+  transaction: WalletTransaction | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  fallbackCurrency: string;
+}) {
+  if (!transaction) return null;
+
+  const rowCurrency = transaction.currency_code || fallbackCurrency;
+  const isTransfer = isTransferTransaction(transaction);
+  const isIngreso = transaction.tipo === "ingreso";
+  const isIncomingTransfer =
+    transaction.tipo === "transferencia_entrada" ||
+    transaction.transferencia_direccion === "entrada";
+  const parties = getTransferParties(transaction);
+  const amountColor = isTransfer
+    ? isIncomingTransfer
+      ? "text-emerald-600"
+      : "text-rose-600"
+    : isIngreso
+    ? "text-emerald-600"
+    : "text-rose-600";
+  const sign = isTransfer
+    ? isIncomingTransfer
+      ? "+"
+      : "-"
+    : isIngreso
+    ? "+"
+    : "-";
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md mx-4 rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <TransactionTypeBadge transaction={transaction} />
+            Detalle de la transacción
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {/* Monto destacado */}
+          <div className="text-center py-3">
+            <p className={`text-3xl font-bold tabular-nums ${amountColor}`}>
+              {sign}
+              {formatMoney(transaction.monto, rowCurrency)}
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {formatDateTime(transaction.created_at)}
+            </p>
+          </div>
+
+          {/* De → Para o usuario */}
+          {parties ? (
+            <div className="rounded-xl border border-slate-200 p-3 space-y-2">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                Transferencia
+              </p>
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-slate-400">De</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {parties.fromName}
+                  </p>
+                  {parties.fromCi && (
+                    <p className="text-[11px] text-slate-400">CI: {parties.fromCi}</p>
+                  )}
+                </div>
+                <ArrowRight className="h-5 w-5 text-slate-400 shrink-0 mt-3" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-slate-400">Para</p>
+                  <p className="text-sm font-semibold text-slate-800 truncate">
+                    {parties.toName}
+                  </p>
+                  {parties.toCi && (
+                    <p className="text-[11px] text-slate-400">CI: {parties.toCi}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+                Billetera
+              </p>
+              <p className="text-sm font-semibold text-slate-800">
+                {transaction.wallet_user_nombre}
+              </p>
+              <p className="text-[11px] text-slate-400">CI: {transaction.wallet_user_ci}</p>
+            </div>
+          )}
+
+          {/* Motivo completo */}
+          <div className="rounded-xl border border-slate-200 p-3">
+            <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+              Motivo
+            </p>
+            <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">
+              {transaction.motivo || "—"}
+            </p>
+          </div>
+
+          {/* Saldos */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+                Saldo antes
+              </p>
+              <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                {formatMoney(transaction.saldo_anterior, rowCurrency)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 p-3">
+              <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-1">
+                Saldo después
+              </p>
+              <p className="text-sm font-semibold text-slate-700 tabular-nums">
+                {formatMoney(transaction.saldo_posterior, rowCurrency)}
+              </p>
+            </div>
+          </div>
+
+          {/* Footer info */}
+          <div className="text-[11px] text-slate-400 space-y-1 pt-2 border-t border-slate-100">
+            <p>
+              Registrado por:{" "}
+              <span className="text-slate-600">
+                {transaction.created_by_nombre} ({transaction.created_by_ci})
+              </span>
+            </p>
+            {transaction.referencia_externa && (
+              <p>
+                Ref:{" "}
+                <span className="text-slate-600 font-mono">
+                  {transaction.referencia_externa}
+                </span>
+              </p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -362,6 +594,13 @@ function WalletPageContent() {
   const [walletSearch, setWalletSearch] = useState("");
   const [expandedTeamWalletId, setExpandedTeamWalletId] = useState<string | null>(null);
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
+  const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
+  const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
+
+  const openTransactionDetail = (transaction: WalletTransaction) => {
+    setSelectedTransaction(transaction);
+    setIsTransactionDetailOpen(true);
+  };
 
   const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
   const [transactionCurrencyId, setTransactionCurrencyId] = useState("");
@@ -1336,6 +1575,7 @@ function WalletPageContent() {
                               emptyMessage="Esta billetera no tiene transacciones."
                               fallbackCurrency={selectedCurrencyCode}
                               showWalletOwner={false}
+                              onSelect={openTransactionDetail}
                             />
                           </div>
                         </>
@@ -1350,16 +1590,31 @@ function WalletPageContent() {
 
         {/* Pending Transfers */}
         {(pendingIncoming.length > 0 || pendingOutgoing.length > 0 || loadingPending) && (
-          <Card className="border-amber-200 shadow-sm rounded-2xl overflow-hidden">
-            <CardHeader className="px-4 pt-4 pb-3 bg-amber-50/50">
+          <Card className="border-amber-300 shadow-md rounded-2xl overflow-hidden ring-1 ring-amber-100">
+            <CardHeader className="px-4 pt-4 pb-3 bg-gradient-to-r from-amber-50 to-amber-100/50">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <div className="rounded-full p-1.5 bg-amber-100">
-                    <SendHorizontal className="h-4 w-4 text-amber-700" />
+                  <div className="relative">
+                    <div className="rounded-full p-1.5 bg-amber-100">
+                      <SendHorizontal className="h-4 w-4 text-amber-700" />
+                    </div>
+                    {pendingIncoming.length > 0 && (
+                      <>
+                        <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" />
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div>
-                    <CardTitle className="text-sm font-semibold text-amber-900">
+                    <CardTitle className="text-sm font-semibold text-amber-900 flex items-center gap-2">
                       Transferencias Pendientes
+                      {pendingIncoming.length > 0 && (
+                        <Badge className="bg-rose-500 text-white border-rose-500 text-[10px] h-4 px-1.5">
+                          {pendingIncoming.length} nueva{pendingIncoming.length !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
                     </CardTitle>
                     <p className="text-xs text-amber-700/70 mt-0.5">
                       {pendingIncoming.length} para aceptar · {pendingOutgoing.length} enviadas
@@ -1544,6 +1799,7 @@ function WalletPageContent() {
               emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
               fallbackCurrency={selectedCurrencyCode}
               showWalletOwner={canSeeAll}
+              onSelect={openTransactionDetail}
             />
           </CardContent>
         </Card>
@@ -1655,6 +1911,12 @@ function WalletPageContent() {
         </DialogContent>
       </Dialog>
 
+      <TransactionDetailsDialog
+        transaction={selectedTransaction}
+        open={isTransactionDetailOpen}
+        onOpenChange={setIsTransactionDetailOpen}
+        fallbackCurrency={selectedCurrencyCode}
+      />
     </div>
   );
 }
