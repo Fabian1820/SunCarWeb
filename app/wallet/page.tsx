@@ -57,6 +57,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
+import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
 import type {
   WalletCurrency,
   Wallet as WalletType,
@@ -318,6 +319,8 @@ type ActiveAction = "ingreso" | "gasto" | "transferencia" | null;
 
 function WalletPageContent() {
   const { toast } = useToast();
+  const { permiso: walletPermiso } = useMyWalletPermiso();
+  const canSeeAll = !!walletPermiso?.verTodos;
   const {
     wallet,
     wallets,
@@ -355,8 +358,7 @@ function WalletPageContent() {
   const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
 
   const [walletSearch, setWalletSearch] = useState("");
-  const [isWalletsDialogOpen, setIsWalletsDialogOpen] = useState(false);
-  const [isWalletDetailDialogOpen, setIsWalletDetailDialogOpen] = useState(false);
+  const [expandedTeamWalletId, setExpandedTeamWalletId] = useState<string | null>(null);
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
 
   const [selectedCurrencyId, setSelectedCurrencyId] = useState("");
@@ -733,14 +735,30 @@ function WalletPageContent() {
     }
   };
 
-  const handleOpenWalletDetail = async (walletId: string) => {
+  const handleToggleTeamWallet = async (walletId: string) => {
+    if (expandedTeamWalletId === walletId) {
+      setExpandedTeamWalletId(null);
+      return;
+    }
+    setExpandedTeamWalletId(walletId);
     try {
-      await loadWalletDetail(walletId, { limit: 200 });
-      setIsWalletDetailDialogOpen(true);
+      await loadWalletDetail(walletId, { limit: 100 });
     } catch (err: unknown) {
-      toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo cargar el detalle de la billetera", variant: "destructive" });
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error
+            ? err.message
+            : "No se pudo cargar el detalle de la billetera",
+        variant: "destructive",
+      });
     }
   };
+
+  const teamWallets = useMemo(
+    () => filteredWallets.filter((item) => item.id !== wallet?.id),
+    [filteredWallets, wallet?.id],
+  );
 
   const handleRefresh = async () => {
     const refreshTasks: Promise<unknown>[] = [
@@ -790,15 +808,6 @@ function WalletPageContent() {
             </Button>
             <Button
               variant="outline"
-              onClick={() => setIsWalletsDialogOpen(true)}
-              className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
-              title="Ver billeteras del equipo"
-            >
-              <Users className="h-4 w-4 text-slate-500" />
-              <span className="hidden sm:inline text-sm">Equipo</span>
-            </Button>
-            <Button
-              variant="outline"
               onClick={handleRefresh}
               disabled={loadingTransactions || creatingTransaction || transferring}
               className="gap-1.5 border-slate-200 bg-white hover:bg-slate-50"
@@ -811,7 +820,7 @@ function WalletPageContent() {
         }
       />
 
-      <main className="content-with-fixed-header max-w-2xl mx-auto px-4 py-4 sm:py-6 space-y-4">
+      <main className={`content-with-fixed-header mx-auto px-4 py-4 sm:py-6 space-y-4 ${canSeeAll ? "max-w-4xl" : "max-w-2xl"}`}>
         {error && (
           <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex items-center justify-between">
             <p className="text-sm text-rose-700">{error}</p>
@@ -1170,13 +1179,191 @@ function WalletPageContent() {
           </Card>
         )}
 
+        {/* Team Wallets - solo si tiene permiso de ver todos */}
+        {canSeeAll && viewMode === "wallet" && (
+          <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="rounded-full p-1.5 bg-slate-100 shrink-0">
+                    <Users className="h-4 w-4 text-slate-600" />
+                  </div>
+                  <div className="min-w-0">
+                    <CardTitle className="text-sm font-semibold text-slate-800">
+                      Billeteras del Equipo
+                    </CardTitle>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {loadingWallets
+                        ? "Cargando..."
+                        : `${teamWallets.length} ${teamWallets.length === 1 ? "billetera" : "billeteras"}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  value={walletSearch}
+                  onChange={(e) => setWalletSearch(e.target.value)}
+                  placeholder="Buscar trabajador por nombre o CI..."
+                  className="h-9 pl-9 text-sm"
+                />
+              </div>
+            </CardHeader>
+
+            <CardContent className="px-4 pb-4 space-y-3">
+              {loadingWallets && teamWallets.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-400">
+                  <RefreshCcw className="h-4 w-4 animate-spin mx-auto mb-2" />
+                  Cargando billeteras...
+                </div>
+              ) : teamWallets.length === 0 ? (
+                <div className="py-8 text-center text-sm text-slate-400">
+                  No se encontraron billeteras.
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {teamWallets.map((item) => {
+                      const isExpanded = expandedTeamWalletId === item.id;
+                      const balance = getWalletViewBalance(item);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => void handleToggleTeamWallet(item.id)}
+                          className={`text-left rounded-xl border p-3 transition-all ${
+                            isExpanded
+                              ? "border-slate-800 bg-slate-50 shadow-sm"
+                              : "border-slate-100 bg-white hover:border-slate-300"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className={`rounded-full p-1.5 shrink-0 ${
+                                isExpanded ? "bg-slate-800" : "bg-slate-100"
+                              }`}
+                            >
+                              <Wallet
+                                className={`h-3.5 w-3.5 ${
+                                  isExpanded ? "text-white" : "text-slate-500"
+                                }`}
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-800 truncate">
+                                {item.user_nombre}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                CI: {item.user_ci}
+                              </p>
+                              <p
+                                className={`text-base font-bold mt-1 ${
+                                  isExpanded ? "text-slate-900" : "text-slate-700"
+                                }`}
+                              >
+                                {formatMoney(balance, selectedCurrencyCode)}
+                              </p>
+                            </div>
+                            <Eye
+                              className={`h-3.5 w-3.5 mt-1 shrink-0 ${
+                                isExpanded ? "text-slate-800" : "text-slate-300"
+                              }`}
+                            />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Detalle expandido inline */}
+                  {expandedTeamWalletId && (
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/50 p-3 space-y-3">
+                      {loadingSelectedWalletDetail && !selectedWallet ? (
+                        <div className="py-6 text-center text-sm text-slate-400">
+                          <RefreshCcw className="h-4 w-4 animate-spin mx-auto mb-2" />
+                          Cargando detalle...
+                        </div>
+                      ) : selectedWallet ? (
+                        <>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-xs text-slate-400 uppercase tracking-wider">
+                                Detalle
+                              </p>
+                              <p className="text-sm font-semibold text-slate-800 truncate">
+                                {selectedWallet.user_nombre}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                CI: {selectedWallet.user_ci}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setExpandedTeamWalletId(null)}
+                              className="text-slate-400 hover:text-slate-600"
+                              aria-label="Cerrar detalle"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          {/* Balances por moneda */}
+                          {selectedWallet.balances && selectedWallet.balances.length > 0 ? (
+                            <div className="flex flex-wrap gap-1.5">
+                              {selectedWallet.balances.map((b) => (
+                                <span
+                                  key={b.currency_id}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border border-slate-200 text-xs"
+                                >
+                                  <span className="font-semibold text-slate-700">
+                                    {b.currency_code}
+                                  </span>
+                                  <span className="text-slate-600">
+                                    {formatMoney(Number(b.amount || 0), b.currency_code)}
+                                  </span>
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
+
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-xs font-semibold text-slate-600">
+                                Últimas transacciones
+                              </p>
+                              <span className="text-[11px] text-slate-400">
+                                {totalSelectedWalletTransactions} en total
+                              </span>
+                            </div>
+                            <TransactionsResponsiveList
+                              transactions={selectedWalletTransactions}
+                              loading={loadingSelectedWalletDetail}
+                              emptyMessage="Esta billetera no tiene transacciones."
+                              fallbackCurrency={selectedCurrencyCode}
+                              showWalletOwner={false}
+                            />
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Transactions */}
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-sm font-semibold text-slate-800">
-                  {viewMode === "wallet" ? "Historial de Transacciones" : "Transacciones Bancarias"}
+                  {viewMode === "wallet"
+                    ? canSeeAll
+                      ? "Historial de Transacciones"
+                      : "Mi Historial"
+                    : "Transacciones Bancarias"}
                 </CardTitle>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {viewMode === "wallet" 
@@ -1257,7 +1444,7 @@ function WalletPageContent() {
                   loading={loadingTransactions}
                   emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
                   fallbackCurrency={selectedCurrencyCode}
-                  showWalletOwner
+                  showWalletOwner={canSeeAll}
                 />
               </>
             ) : (
@@ -1444,99 +1631,6 @@ function WalletPageContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Team Wallets Dialog */}
-      <Dialog open={isWalletsDialogOpen} onOpenChange={setIsWalletsDialogOpen}>
-        <DialogContent className="max-w-lg mx-4 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-base">
-              <Users className="h-5 w-5 text-slate-500" />
-              Billeteras del Equipo
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-              <Input
-                value={walletSearch}
-                onChange={(e) => setWalletSearch(e.target.value)}
-                placeholder="Buscar por nombre o CI..."
-                className="pl-9 h-9 text-sm"
-              />
-            </div>
-
-            <div className="max-h-[55vh] overflow-auto space-y-2 pr-0.5">
-              {loadingWallets ? (
-                <div className="py-8 text-center text-sm text-slate-400">
-                  <RefreshCcw className="h-4 w-4 animate-spin mx-auto mb-2" />
-                  Cargando billeteras...
-                </div>
-              ) : filteredWallets.length === 0 ? (
-                <div className="py-8 text-center text-sm text-slate-400">No se encontraron billeteras.</div>
-              ) : (
-                filteredWallets.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between bg-white border border-slate-100 rounded-xl p-3 hover:border-slate-200 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-sm text-slate-800 truncate">{item.user_nombre}</p>
-                      <p className="text-xs text-slate-400">CI: {item.user_ci}</p>
-                      <p className="text-sm font-medium text-slate-700 mt-0.5">
-                        {formatMoney(getWalletViewBalance(item), selectedCurrencyCode)}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => void handleOpenWalletDetail(item.id)}
-                      className="ml-3 shrink-0 h-8 text-xs"
-                    >
-                      <Eye className="h-3.5 w-3.5 mr-1" />
-                      Detalle
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Wallet Detail Dialog */}
-      <Dialog open={isWalletDetailDialogOpen} onOpenChange={setIsWalletDetailDialogOpen}>
-        <DialogContent className="max-w-2xl mx-4 rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-base">Detalle de Billetera</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {selectedWallet && (
-              <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl p-4 text-white">
-                <p className="text-xs text-slate-400">Usuario</p>
-                <p className="font-semibold">{selectedWallet.user_nombre}</p>
-                <p className="text-xs text-slate-500">{selectedWallet.user_ci}</p>
-                <p className="text-2xl font-bold mt-2">
-                  {formatMoney(getWalletViewBalance(selectedWallet), selectedCurrencyCode)}
-                </p>
-              </div>
-            )}
-
-            <div>
-              <p className="text-xs text-slate-400 mb-2">
-                {totalSelectedWalletTransactions} transacciones
-              </p>
-              <TransactionsResponsiveList
-                transactions={selectedWalletTransactions}
-                loading={loadingSelectedWalletDetail}
-                emptyMessage="Esta billetera no tiene transacciones."
-                fallbackCurrency={selectedCurrencyCode}
-                showWalletOwner={false}
-              />
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -2,6 +2,93 @@
 
 ---
 
+## 📅 10 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude".
+
+#### Consideraciones del día
+
+- Sin actividad nueva hoy.
+- Seguimientos activos de la semana:
+  - **Flag `sin_recargo`**: confirmar en LlegoBackend que el route de generación de link omite la comisión Stripe cuando está presente.
+  - **Fichas de costo — doble-apply de fórmula**: verificar que al abrir y guardar repetidamente una ficha existente, los precios no se inflan progresivamente.
+  - **Campo `stockaje_minimo`**: confirmar que el backend persiste el campo y que `StockajesMinimosSection` no muestra siempre 0 como mínimo.
+  - **Campo `numero_serie`**: confirmar que `FichaCostoService` incluye el campo en el payload de actualización.
+- No hay riesgos nuevos que reportar.
+
+---
+
+## 📅 9 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Fichas de Costo (nuevas funcionalidades), Inventario (Excel), Envío de Contenedores (búsqueda), Solicitudes-Ventas (fix Stripe), Ventas/Comerciales (commits vagos)**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `6ffb2ad` | Fabian1820 | Merge branch 'main' |
+| `0838d8d` | Fabian1820 | feat(envio-contenedor): búsqueda debounced de materiales por código/nombre en `EnvioContenedorFormDialog`, reemplaza `SearchableSelect` |
+| `2fc3dc4` | yany1509 | "ventas" — cambios sin descripción |
+| `b04d962` | yany1509 | "comerciales de ventas y ofertas" — cambios sin descripción |
+| `15c43dc` | Ruben/Claude | refactor(ficha-costo): simplificar modelo de precios — elimina Δ% por producto, todos usan el mismo % envío; precios venta e instaladora editables manualmente con reset al sugerido; elimina columna Desviación, botón Prorratear y Aplicar sugerencia |
+| `b06dc7a` | Fabian1820 | feat(fichas-costo): nuevo `StockajesMinimosSection` para comparar stock vs mínimos; campo stockaje mínimo en `EditarPreciosDialog`; `FichaCostoService` actualizado |
+| `9435956` | Ruben/Claude | feat(ficha-costo): campo Impuesto nacional (%) sobre CIF — porcentaje global que incrementa CIF de todos los productos antes de calcular precios |
+| `08501d6` | Fabian1820 | refactor(fichas-costo): ajuste de layout y ancho de tabla para responsividad |
+| `c0ed0b6` | Fabian1820 | feat(fichas-costo): tooltips en códigos/nombres de materiales; campo número de serie en `EditarPreciosDialog`; `FichaCostoService` actualizado |
+| `5952a48` | Fabian1820 | feat(fichas-costo): nuevo `EditarPreciosDialog` para edición rápida de precios desde la tabla; `MaterialSearchDialog` con filtro por serie |
+| `c4a5b69` | Ruben/Claude | feat(inventario): exportar análisis de stock mínimo a Excel — .xlsx con hoja resumen y hoja detalle con filas coloreadas por estado (rojo/amarillo/verde) |
+| `653cff0` | Fabian1820 | "hvhjvhjv" — cambios sin descripción |
+| `c19c6a7` | Ruben/Claude | fix(solicitudes-ventas): eliminar comisión Stripe del link de pago — SunCar asume el costo; flag `sin_recargo` en el route para diferenciarlo del flujo de confección |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Simplificación del modelo de precios en fichas-costo puede romper fichas existentes**
+   - Se eliminó el Δ% por producto; ahora todos usan el mismo % de envío global.
+   - Las fichas guardadas que tenían Δ% individuales por producto habrán perdido esa diferenciación silenciosamente.
+   - **Acción urgente:** Verificar el comportamiento al abrir fichas existentes. Confirmar si los precios se recalculan automáticamente o conservan los valores guardados.
+
+2. **Flag `sin_recargo` en solicitudes-ventas depende del backend**
+   - El frontend añade el flag `sin_recargo` al route de generación de link de pago. Si el backend (LlegoBackend) no implementa el manejo de este flag, la comisión Stripe seguirá calculándose igual que antes, cobrando de más al cliente.
+   - **Acción urgente:** Confirmar en LlegoBackend que el route de `generar-link` detecta `sin_recargo` y omite la fórmula `(neto + 0.30) / (1 - 0.0325)` cuando está presente.
+
+3. **Commits sin descripción: "ventas" (yany1509), "comerciales de ventas y ofertas" (yany1509), "hvhjvhjv" (Fabian1820)**
+   - Cambios desconocidos en módulos activos de ventas y comerciales. Sin auditoría posible.
+   - **Acción recomendada:** Revisar los diffs manualmente antes de asumir que estas áreas son estables.
+
+#### 🟡 Riesgos medios
+
+4. **Riesgo de doble-aplicación de fórmula en fichas-costo**
+   - El nuevo flujo calcula `costo_nuevo = CIF × (1 + %envío/100) × (1 + %impuesto/100)`.
+   - Si el usuario abre una ficha ya guardada, modifica un campo y vuelve a guardar, ¿aplica la fórmula sobre el CIF original o sobre el `costo_nuevo` ya persistido?
+   - Un doble-apply inflaría progresivamente todos los precios.
+   - **Acción recomendada:** Verificar que el campo de entrada siempre es el CIF base, no el costo derivado.
+
+5. **`StockajesMinimosSection` puede mostrar comparaciones incorrectas si el campo de mínimo aún no está en el backend**
+   - El campo `stockaje_minimo` se acaba de agregar en `EditarPreciosDialog`. Si el backend no lo persiste aún, la sección de comparación siempre mostrará 0 como mínimo, haciendo que todos los ítems aparezcan en estado OK.
+   - **Consideración:** Verificar que el endpoint de guardado de precios incluye y persiste el campo `stockaje_minimo`.
+
+6. **Campo de número de serie en `EditarPreciosDialog` — integración con backend no confirmada**
+   - El campo fue añadido al formulario. Si el endpoint de guardado no lo incluye en el payload o el backend no lo mapea, el dato se pierde silenciosamente.
+   - **Acción recomendada:** Confirmar que `FichaCostoService` incluye `numero_serie` en el body del request de actualización.
+
+7. **Sequencia iterativa de commits en fichas-costo (6 commits de Fabian1820 en ~2h)**
+   - Patrón de desarrollo incremental rápido sin tests intermedios. Riesgo de regresiones entre funcionalidades del mismo módulo.
+   - **Consideración:** Probar el flujo completo de fichas-costo: búsqueda de material → edición de precios → stockaje mínimo → guardado → verificación en tabla.
+
+#### 🟢 Mejoras positivas
+
+8. **Eliminación de comisión Stripe en solicitudes-ventas** — SunCar absorbe el costo correctamente; el cliente paga exactamente el precio acordado.
+9. **Exportación a Excel del análisis de stock mínimo** — xlsx profesional con resumen y detalle coloreado por estado, útil para reportes de compras.
+10. **Búsqueda debounced en envío de contenedores** — mejora significativa de UX para catálogos con muchos materiales, evita renders excesivos.
+11. **Impuesto nacional (%) sobre CIF** — permite modelar aranceles/impuestos de importación de forma global sin tocar precio por precio.
+12. **Tooltips y número de serie en fichas-costo** — mejora la trazabilidad de materiales en el catálogo.
+
+---
+
 ## 📅 5 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -38,47 +125,29 @@
    - De `precio * 1.05` (5% fijo) a `(neto + 0.30) / (1 - 0.0325)` (3.25% + $0.30).
    - Archivos afectados: `generar-link` (route), `ofertas`, `ofertas-personalizadas`, `confeccion`, `solicitudes-ventas`.
    - Si alguno de los 5 quedó sin actualizar o con la lógica antigua, habrá inconsistencia de precios cobrados entre módulos.
-   - La fórmula inversa puede generar errores de redondeo de centavos acumulados en transacciones altas.
-   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos y comparar lo que llega neto vs. lo esperado.
+   - **Acción urgente:** Verificar en cada uno de los 5 archivos que se aplica exactamente la misma fórmula. Hacer prueba end-to-end con montos conocidos.
 
 2. **Ciclo de 4 fixes consecutivos en el modal Stripe de solicitudes-ventas en menos de 10 minutos**
    - `9c718f9` → `1777296` → `0c0489e` → `f808c2d` (20:46–20:56). Patrón de debug en producción.
-   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal (¿filtra por solicitud o muestra todos?) no quedó clara en los mensajes.
-   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos? Si es por solicitud, el filtrado debe implementarse correctamente en el backend, no en el frontend.
+   - El filtro por `solicitud_venta_id` fue añadido y luego eliminado. La lógica de alcance del modal no quedó clara.
+   - **Acción recomendada:** Confirmar el comportamiento esperado: ¿el modal de una solicitud específica debe mostrar solo sus pagos o todos?
 
 3. **7 commits con mensajes vagos de yany1509** ("terminada", "ajustes" ×3, "listo", "listoooo", "ajustes en solicitudes ventas")
-   - Cambios sin auditoría posible. Se desconoce el alcance real de las modificaciones.
    - **Acción recomendada:** Revisar los diffs de estos commits manualmente antes de considerar estable la rama.
 
 #### 🟡 Riesgos medios
 
 4. **`StripePagosModal` sin filtrado por `solicitud_venta_id`**
-   - Se quitó el filtro que "ocultaba todos los pagos". Ahora el modal muestra todos los pagos Stripe del sistema.
-   - En la pestaña de pendientes-pago, hay un "botón por fila" que supuestamente abre el modal filtrado por solicitud (`solicitudId` como prop). Si ese filtrado no está activo en la versión final, el usuario verá pagos de otras solicitudes mezclados.
-   - **Consideración:** Verificar que `StripePagosModal` recibe y aplica correctamente `solicitudId` cuando se abre desde una fila específica.
+   - Ahora el modal muestra todos los pagos Stripe del sistema. Verificar que cuando se abre desde una fila específica recibe y aplica correctamente `solicitudId`.
 
 5. **Campo `costo_nuevo` propagado automáticamente a precios de catálogo**
-   - `costo_nuevo = CIF × (1 + (%Envío + Δ) / 100)`. Precios venta e instaladora se derivan de él.
-   - Si `Δ` se persiste con un valor incorrecto o se aplica sobre datos ya procesados (double-apply), todos los precios del catálogo afectado quedarán mal.
-   - **Acción recomendada:** Verificar que "Guardar" en la ficha de costo aplica la fórmula una sola vez y que no hay efecto acumulativo al abrir y guardar repetidamente.
-
-6. **Merge commit `ab23452` entre commits de funcionalidad activa**
-   - Merge de `main` realizado mientras se estaban subiendo cambios en cadena. Puede haber mezclado versiones inconsistentes del modal.
-   - **Consideración:** Revisar que el estado final de los archivos de solicitudes-ventas coincide con la última versión esperada.
+   - Verificar que "Guardar" aplica la fórmula una sola vez y que no hay efecto acumulativo al abrir y guardar repetidamente.
 
 #### 🟢 Mejoras positivas
 
-7. **Integración completa de Stripe en solicitudes-ventas**
-   - Generación de links de pago con precio manual, panel de pagos, y consistencia con el flujo de cobros clientes.
-
-8. **Fórmula de comisión más precisa (3.25% + $0.30)**
-   - La fórmula inversa garantiza que el monto neto recibido sea exactamente el precio base configurado, eliminando el error de la estimación fija del 5%.
-
-9. **Botón "Ver Stripe" dentro del modal de pago**
-   - Mejor UX: el acceso a los cobros Stripe está contextualizado dentro del flujo de pago.
-
-10. **`.claude` agregado al `.gitignore`**
-    - Evita que archivos internos de sesión de Claude Code se suban accidentalmente al repo.
+6. **Integración completa de Stripe en solicitudes-ventas** — generación de links, panel de pagos, consistencia con flujo de cobros clientes.
+7. **Fórmula de comisión más precisa (3.25% + $0.30)** — garantiza que el monto neto recibido sea exactamente el precio base configurado.
+8. **`.claude` agregado al `.gitignore`** — evita que archivos internos de sesión se suban accidentalmente.
 
 ---
 
@@ -104,45 +173,23 @@
 #### 🔴 Riesgos altos
 
 1. **Commit `a583f6a` (yany1509) — scope real muy amplio para "ajustes en cliente"**
-   - Toca 9 archivos: `clients-table.tsx` (196 cambios), `facturas-section.tsx` (54 cambios), `asignar-oferta-generica-dialog.tsx` (24 cambios), `clientes/page.tsx`, `leads/page.tsx`, `leads-table.tsx`, `cliente-types.ts`, `lead-types.ts`, y **nuevo archivo** `lib/utils/oferta-confeccion-items.ts` (47 líneas).
-   - Total: 259 adiciones / 151 eliminaciones. Cambio masivo con mensaje que no describe el alcance real.
-   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica. Revisar el nuevo utilitario `oferta-confeccion-items.ts` para confirmar que no duplica lógica ni rompe contratos de tipos existentes.
+   - Toca 9 archivos, 259 adiciones / 151 eliminaciones. Incluye nuevo archivo `lib/utils/oferta-confeccion-items.ts`.
+   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica.
 
 2. **Commit `0a1dab7` (Fabian1820) — "stock ok" reescribe dos diálogos críticos**
-   - `create-solicitud-material-dialog.tsx`: 84 adiciones / 64 eliminaciones.
-   - `upsert-solicitud-venta-dialog.tsx`: 79 adiciones / 69 eliminaciones.
-   - Ambos son flujos clave del negocio. Sin descripción del cambio, el riesgo no es auditable sin leer el diff completo.
-   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end, incluyendo selección de stock, cantidades y submit.
+   - `create-solicitud-material-dialog.tsx` y `upsert-solicitud-venta-dialog.tsx`. Flujos clave del negocio sin descripción del cambio.
+   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end.
 
 #### 🟡 Riesgos medios
 
-3. **Nuevo módulo Asignaciones a Empleados**
-   - Módulo CRUD completo nuevo con comboboxes buscables, modales con tabs, y catálogos de medios básicos y herramientas.
-   - Riesgos habituales de módulos nuevos: estados vacíos en comboboxes, validaciones de campos requeridos, endpoints del backend que deben existir en producción.
-   - **Acción recomendada:** Verificar que los endpoints de catálogos (medios básicos, herramientas) y asignaciones están disponibles y desplegados en el backend antes de mostrar el módulo a usuarios.
-
-4. **Fix `periodoRange` usa `.start/.end` en lugar de índices de array**
-   - Corrección necesaria, pero implica que antes se accedía con índices (`[0]`, `[1]`). Si algún consumidor de `periodoRange` fuera del componente central no fue actualizado, fallará silenciosamente devolviendo `undefined` como fecha.
-   - **Consideración:** Buscar en el codebase si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo.
-
-5. **Secuencia de commits iterativos en almacén page (Fabian1820)**
-   - `e70ffa4` ("vhj", 22 cambios) y `99e02ec` ("export stock all ok", 20 cambios) modificaron `app/almacenes/[almacenId]/page.tsx` en commits seguidos. El patrón sugiere desarrollo sin pruebas intermedias.
-   - **Acción recomendada:** Verificar la funcionalidad de exportación de stock y la página de almacén completa en staging.
-
-6. **Nuevo `lib/utils/oferta-confeccion-items.ts` creado por yany1509**
-   - Utilitario de 47 líneas relacionado con ítems de oferta confección, introducido sin mensaje descriptivo.
-   - **Consideración:** Confirmar que no duplica utilidades existentes y que sus tipos son compatibles con los del módulo de confección.
+3. **Nuevo módulo Asignaciones a Empleados** — verificar que los endpoints de catálogos están disponibles en producción.
+4. **Fix `periodoRange` usa `.start/.end`** — buscar si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo del codebase.
+5. **Secuencia iterativa en almacén page** — verificar funcionalidad de exportación de stock completa en staging.
 
 #### 🟢 Mejoras positivas
 
-7. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos**
-   - `maxByMode` ahora incluye `trabajos_diarios`, `clientes_trabajados`, `instalaciones_terminadas` y `averias_solucionadas_periodo`. La densidad de colores escala correctamente por modo.
-
-8. **Click handlers en todos los modos de período**
-   - Cada municipio en el mapa llama a `getPeriodoMunicipioDetalle` con las fechas correctas de `periodoRange`. Mejora la interactividad del dashboard.
-
-9. **Módulo Asignaciones a Empleados con comboboxes buscables y modales con tabs**
-   - Funcionalidad nueva completa, bien estructurada para gestión de activos asignados por trabajador.
+6. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos** con click handlers y densidad correcta.
+7. **Módulo Asignaciones a Empleados** con comboboxes buscables y modales con tabs.
 
 ---
 
@@ -154,156 +201,8 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 
 #### Consideraciones pendientes
 
-- El commit `c4f92e5` de yany1509 (ayer) sobre `confeccion-ofertas-view` debe revisarse manualmente para confirmar que no reintroduce la lógica de valores stale corregida el mismo día.
-- El módulo de clientes (refactor masivo en `14ecc37`, 2308 líneas cambiadas) requiere prueba end-to-end en staging: creación, edición y validaciones.
+- El commit `c4f92e5` de yany1509 (mayo 2) sobre `confeccion-ofertas-view` debe revisarse manualmente para confirmar que no reintroduce la lógica de valores stale corregida el mismo día.
+- El módulo de clientes (refactor masivo en `14ecc37`, 2308 líneas cambiadas) requiere prueba end-to-end en staging.
 - `PersonalMessageOverlay` montado en `layout.tsx` (todas las páginas) debe verificarse con manejo de errores adecuado antes de producción.
-
----
-
-## 📅 2 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Módulo de ofertas de confección (edición), módulo de clientes, contabilidad**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `9e42fee` | Ruben/Claude | fix: garantizar remount completo del diálogo de edición de ofertas (3 capas) |
-| `21754ed` | Ruben/Claude | fix: margen_comercial muestra valor stale al reabrir diálogo de edición |
-| `d0694e9` | Ruben/Claude | fix: usar `margenPorMaterialCalculado` (useMemo) en save de ofertas confección |
-| `8e600be` | Ruben/Claude | fix: ajuste menor en módulo de contabilidad — nuevo `PersonalMessageOverlay` |
-| `14ecc37` | yany1509 | "ajustes en solicitudes y trabajos diarios" — **en realidad: refactor masivo del módulo de clientes** |
-| `c4f92e5` | yany1509 | "ofertas" — ajustes en `confeccion-ofertas-view` y `ofertas-confeccionadas-view` |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Commit `14ecc37` de yany1509: mensaje engañoso + cambio masivo**
-   - El mensaje dice _"ajustes en solicitudes y trabajos diarios"_ pero los archivos modificados son exclusivamente del módulo de clientes.
-   - **Magnitud real:** 832 adiciones, 1476 eliminaciones (2308 líneas totales).
-   - **Acción urgente:** Probar en staging la creación y edición de clientes end-to-end.
-
-2. **Commit `c4f92e5` de yany1509 — colisión con los fixes de Claude**
-   - Modifica los mismos archivos recién corregidos (`confeccion-ofertas-view.tsx`, `ofertas-confeccionadas-view.tsx`). Puede haber reintroducido el bug de stale values.
-   - **Acción recomendada:** Confirmar que no revierte `estadoInicial = null` ni el uso de `margenPorMaterialCalculado`.
-
-#### 🟡 Riesgos medios
-
-3. **Triple capa de protección contra valores stale**
-   - `editarDialogKey` fuerza remount completo: puede causar parpadeo en conexiones lentas.
-   - `cache: 'no-store'` agrega un round-trip de red en cada apertura del diálogo de edición.
-
-4. **`PersonalMessageOverlay` en `app/layout.tsx` (todas las páginas)**
-   - Un error de render puede romper el layout completo. Verificar manejo de errores.
-
-#### 🟢 Mejoras positivas
-
-5. **Resolución definitiva del bug de stale state en edición de ofertas.**
-6. **Refactor del módulo de clientes: reducción neta de ~644 líneas.**
-
----
-
-## 📅 1 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits de desarrollo nuevos desde el análisis de ayer. Solo el commit automático de "Analisis diario Claude".
-
-#### Consideraciones del día
-
-- El cambio de tipo de retorno de `getStock` (April 30) merece prueba en todos sus consumidores hoy en staging.
-- Los nuevos endpoints del Centro de Control deben estar verificados en producción antes de cualquier release.
-
----
-
-## 📅 30 de Abril, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Centro de Control, almacenes, manejo global de errores 422, ofertas/facturas**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `b26f898` | Ruben0304 | perf: Centro de Control — datos on-demand, mapas de conteos del backend |
-| `10d42a1` | Ruben0304 | fix: evitar llamada `/visitas/` en carga inicial del Centro de Control |
-| `997482` | yany1509 | Se añadió `estado` al tipo `ofertaData`; prefijo «hasta» en cableado AC/DC |
-| `f45193b` | Ruben0304 | feat: conectar Centro de Control con nuevos endpoints del backend |
-| `f494f54` | Fabian1820 | *(sin descripción: "hgvhj")* |
-| `e186a05` | yany1509 | agregada opción de ver factura solar carros |
-| `e72375a` | Fabian1820 | *(sin descripción: "vhjvhjvhjv")* |
-| `809c661` | Ruben0304 | Add loading lottie to filtered lists |
-| `d262ec3` | Ruben0304 | perf: carga on-demand por tab, paginación server-side e imágenes lazy en almacenes |
-| `ee1582a` | Ruben0304 | feat: manejo global de errores 422 en `apiRequest` |
-| `a7ef689` | Ruben0304 | feat: overlay global para errores de validación 422 |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Cambio del tipo de retorno de `getStock` de array plano a `{data, total, skip, limit}`**
-   - Si algún caller se pasó por alto, fallará intentando `.map()` sobre un objeto.
-   - **Acción recomendada:** Probar cada módulo que consume `getStock` explícitamente.
-
-2. **Dos commits de Fabian1820 sin descripción (`hgvhj`, `vhjvhjvhjv`)**
-   - **Acción urgente:** Revisar manualmente esos diffs. Considerar hook de pre-commit.
-
-#### 🟡 Riesgos medios
-
-3. **Centro de Control conectado a nuevos endpoints** — verificar que todos están desplegados en producción.
-4. **Heatmap con nombres de municipio del backend** — deben coincidir exactamente con el GeoJSON.
-5. **`ESTADO_OFERTA_LABELS` sin fallback** — estados no mapeados aparecerán como `undefined`.
-6. **Overlay de errores 422 asume formato FastAPI** — formatos custom pueden fallar.
-7. **Tabs on-demand en almacenes** — confirmar que el lottie loader aparece correctamente.
-
-#### 🟢 Mejoras positivas
-
-8. Paginación server-side + imágenes lazy en stock.
-9. Eliminación de llamada de 428KB a `/visitas/` en Centro de Control.
-10. Overlay global de errores 422 no intrusivo.
-11. Ver factura solar carros.
-
----
-
-## 📅 29 de Abril, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Rendimiento, módulo de confección, loader/UI, solicitudes, facturación**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `eb7acfe` | Ruben0304 | perf: equipos de clientes on-demand — elimina espera de 20s |
-| `0b80186` | Ruben0304 | perf: Centro de Control — 1 request en lugar de 15+ (caché 45s) |
-| `8510f48` | Fabian1820 | fix: usa `total_pagado`/`precio_pagado` por ítem para descuentos en ventas |
-| `cfafdf4` | Ruben0304 | fix: importa `DotLottieReact` dinámicamente con `ssr:false` en Loader y PageLoader |
-| `35bb8c8` | Ruben0304 | feat: paginación y filtros backend en módulo de ofertas de confección |
-| `f42bac1` | Ruben0304 | ajustes en loader, page-loader y ofertas confeccionadas; animación solar |
-| `3e45a68` | yany1509 | ajustes en solicitudes |
-| `d168ce0` | yany1509 | ajustes en solicitudes |
-| `707b287` | yany1509 | ajustes |
-| `e199098` | Fabian1820 | conduce y garantía |
-| `2a42154` | Fabian1820 | facturación ventas |
-| *(8 commits)* | Fabian1820 | *(mensajes sin descripción: "mnvhjvjh", "gyjgjghj", "hgbjh", "gfuyguy", "hvjhv", "bkjbjk", "fefew", "fdvfdvb")* |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **8 commits con mensajes completamente sin descripción** (Fabian1820) — imposibles de auditar. Establecer hook de pre-commit.
-2. **Carga on-demand de `equiposParaCard` vía `/equipos-batch`** — verificar que el endpoint existe en producción.
-3. **`ofertasItemsCompleto` carga lazy** — verificar timeout y estado de error visible.
-
-#### 🟡 Riesgos medios
-
-4. **Caché de 45s en Centro de Control** — evaluar si es aceptable para el negocio.
-5. **Fix `total_pagado`/`precio_pagado`** — verificar registros históricos de ventas.
-6. **`DotLottieReact` con `ssr:false`** — flash sin animación en conexiones lentas.
-
-#### 🟢 Mejoras positivas
-
-7. Paginación backend en módulo de confección.
-8. Centro de Control: 1 request en lugar de 15+.
-9. Eliminación de espera de 20s en equipos de clientes.
 
 ---
