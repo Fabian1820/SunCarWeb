@@ -13,6 +13,7 @@ import { PagoService, type PagoCreateData } from "@/lib/services/feats/pagos/pag
 import { API_BASE_URL } from "@/lib/api-config"
 import { TasaCambioService } from "@/lib/api-services"
 import type { TasaCambio } from "@/lib/types/feats/tasa-cambio/tasa-cambio-types"
+import { useAuth } from "@/contexts/auth-context"
 
 interface RegistrarPagoDialogProps {
     open: boolean
@@ -100,6 +101,7 @@ export function RegistrarPagoDialog({
     onSuccess,
     initialData = null,
 }: RegistrarPagoDialogProps) {
+    const { user } = useAuth()
     const [loading, setLoading] = useState(false)
     const [uploadingFile, setUploadingFile] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -117,8 +119,10 @@ export function RegistrarPagoDialog({
     useEffect(() => {
         if (open) {
             const base = getDefaultFormData()
+            const nombreUsuario = user?.nombre ?? ''
             setFormData({
                 ...base,
+                recibido_por: nombreUsuario,
                 ...(initialData
                     ? {
                         ...initialData,
@@ -127,6 +131,7 @@ export function RegistrarPagoDialog({
                                 ? initialData.monto.toFixed(2)
                                 : initialData.monto ?? base.monto,
                         fecha: normalizeDate(initialData.fecha),
+                        recibido_por: initialData.recibido_por ?? nombreUsuario,
                     }
                     : {}),
             })
@@ -134,7 +139,7 @@ export function RegistrarPagoDialog({
             setDesgloseBilletes({})
             setError(null)
         }
-    }, [open, initialData])
+    }, [open, initialData, user])
 
     // Cargar tasa diaria por fecha seleccionada
     useEffect(() => {
@@ -710,7 +715,7 @@ export function RegistrarPagoDialog({
                             <Select
                                 value={formData.metodo_pago}
                                 onValueChange={(value: 'efectivo' | 'transferencia_bancaria' | 'stripe') =>
-                                    setFormData({ ...formData, metodo_pago: value, comprobante_transferencia: '', recibido_por: '' })
+                                    setFormData({ ...formData, metodo_pago: value, comprobante_transferencia: '', recibido_por: user?.nombre ?? '' })
                                 }
                             >
                                 <SelectTrigger>
@@ -728,17 +733,13 @@ export function RegistrarPagoDialog({
                         {formData.metodo_pago === 'efectivo' && (
                             <>
                                 <div className="space-y-2">
-                                    <Label htmlFor="recibido_por">
-                                        Recibido por <span className="text-red-500">*</span>
-                                    </Label>
-                                    <Input
-                                        id="recibido_por"
-                                        type="text"
-                                        value={formData.recibido_por}
-                                        onChange={(e) => setFormData({ ...formData, recibido_por: e.target.value })}
-                                        placeholder="Nombre de quien recibió el pago"
-                                        required
-                                    />
+                                    <Label>Recibido por</Label>
+                                    <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                                        <span className="text-sm text-gray-700 font-medium">
+                                            {formData.recibido_por || 'Usuario no disponible'}
+                                        </span>
+                                        <span className="ml-auto text-xs text-gray-400">(usuario logueado)</span>
+                                    </div>
                                 </div>
 
                                 {/* Desglose de Billetes */}

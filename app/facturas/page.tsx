@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { Card, CardContent } from "@/components/shared/molecule/card"
-import { ArrowLeft, FileText, CreditCard, Receipt, ShoppingCart } from "lucide-react"
+import { ArrowLeft, FileText, CreditCard, Receipt, HardHat } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { SOLO_PAGOS_CLIENTES_CIS } from "@/lib/facturacion-access"
 
@@ -13,14 +13,6 @@ export default function FacturacionPage() {
         !!user?.ci && SOLO_PAGOS_CLIENTES_CIS.includes(user.ci)
 
     const submodulesAll = [
-        {
-            id: 'pagos-clientes-ventas',
-            href: '/facturas/pagos-clientes-ventas',
-            icon: ShoppingCart,
-            title: 'Pagos Clientes Ventas',
-            description: 'Gestión de pagos de solicitudes de ventas, facturas emitidas y seguimiento de cobros',
-            color: 'emerald-600',
-        },
         {
             id: 'pagos-clientes',
             href: '/facturas/pagos-clientes',
@@ -52,6 +44,14 @@ export default function FacturacionPage() {
             title: 'Facturas Solar Carros',
             description: 'Facturación Solar Carros para Instaladora y Ventas',
             color: 'sky-600',
+        },
+        {
+            id: 'obras-terminadas',
+            href: '/facturas/obras-terminadas',
+            icon: HardHat,
+            title: 'Obras Terminadas',
+            description: 'Resultados por oferta: pagos, trabajos diarios y comercial para pago por resultados',
+            color: 'orange-600',
         },
     ]
 
