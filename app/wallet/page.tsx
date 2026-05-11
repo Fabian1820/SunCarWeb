@@ -788,22 +788,30 @@ function WalletPageContent() {
     }
   };
 
-  const teamWallets = useMemo(
-    () =>
-      filteredWallets.filter((item) => {
-        if (item.id === wallet?.id) return false;
-        // Considerar "no vacía" si tiene saldo en la moneda activa
-        // o cualquier balance distinto de cero en otra moneda.
-        if (getWalletBalanceForCurrency(item, selectedCurrency) > 0) return true;
-        const anyBalance = (item.balances ?? []).some(
-          (b) => Number(b.amount || 0) !== 0,
-        );
-        return anyBalance;
-      }),
-    [filteredWallets, wallet?.id, selectedCurrency],
+  // Todas las billeteras del equipo (sin filtrar por saldo).
+  // Cuando no hay búsqueda, se muestran solo las 6 con más dinero acumulado
+  // (suma de balances en todas las monedas); con búsqueda se muestran todas.
+  const TEAM_WALLETS_TOP_LIMIT = 6;
+
+  const allTeamWallets = useMemo(
+    () => filteredWallets.filter((item) => item.id !== wallet?.id),
+    [filteredWallets, wallet?.id],
   );
 
-  // Totales por moneda para el equipo visible
+  const teamWallets = useMemo(() => {
+    const isSearching = walletSearch.trim().length > 0;
+    if (isSearching) return allTeamWallets;
+
+    const sumBalances = (w: typeof allTeamWallets[number]) =>
+      (w.balances ?? []).reduce((acc, b) => acc + Number(b.amount || 0), 0);
+
+    return [...allTeamWallets]
+      .sort((a, b) => sumBalances(b) - sumBalances(a))
+      .slice(0, TEAM_WALLETS_TOP_LIMIT);
+  }, [allTeamWallets, walletSearch]);
+
+  // Totales por moneda considerando TODAS las billeteras del equipo
+  // (no solo las visibles), para que el total sea siempre consistente.
   const teamTotalsByCurrency = useMemo(() => {
     const totals = new Map<
       string,
@@ -813,7 +821,7 @@ function WalletPageContent() {
     for (const c of currencies) {
       totals.set(c.id, { code: c.codigo, name: c.nombre, amount: 0 });
     }
-    for (const w of teamWallets) {
+    for (const w of allTeamWallets) {
       for (const b of w.balances ?? []) {
         const key = b.currency_id;
         const current = totals.get(key) || {
@@ -826,7 +834,7 @@ function WalletPageContent() {
       }
     }
     return Array.from(totals.values()).filter((t) => t.amount !== 0);
-  }, [teamWallets, currencies]);
+  }, [allTeamWallets, currencies]);
 
   const handleRefresh = async () => {
     const refreshTasks: Promise<unknown>[] = [
@@ -1353,7 +1361,11 @@ function WalletPageContent() {
                     <p className="text-xs text-slate-400 mt-0.5">
                       {loadingWallets
                         ? "Cargando..."
-                        : `${teamWallets.length} ${teamWallets.length === 1 ? "billetera" : "billeteras"}`}
+                        : walletSearch.trim()
+                          ? `${teamWallets.length} de ${allTeamWallets.length}`
+                          : allTeamWallets.length > teamWallets.length
+                            ? `Top ${teamWallets.length} de ${allTeamWallets.length} · busca para ver más`
+                            : `${teamWallets.length} ${teamWallets.length === 1 ? "billetera" : "billeteras"}`}
                     </p>
                   </div>
                 </div>
