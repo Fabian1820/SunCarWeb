@@ -183,25 +183,31 @@ export function RecursosHumanosTableFinal({
     setEditando(null)
   }
 
+  const CAMPOS_TEXTO = ['cargo', 'telefono']
+
   const guardarCampo = async (ci: string, campo: string) => {
     const key = `${ci}-${campo}`
     let valor = valores[key]
     const valorOriginal = valoresOriginales[key]
 
-    // Convertir string vacÃ­o o invÃ¡lido a 0 antes de guardar
-    if (valor === '' || valor === null || valor === undefined) {
-      valor = 0
-    } else if (typeof valor === 'string') {
-      // Intentar convertir a nÃºmero si es un string numÃ©rico
-      const numValue = parseFloat(valor)
-      if (!isNaN(numValue)) {
-        valor = numValue
+    if (CAMPOS_TEXTO.includes(campo)) {
+      // Para campos de texto: preservar string, convertir undefined a ""
+      valor = valor ?? ''
+    } else {
+      // Para campos numéricos: convertir vacío a 0
+      if (valor === '' || valor === null || valor === undefined) {
+        valor = 0
+      } else if (typeof valor === 'string') {
+        const numValue = parseFloat(valor)
+        if (!isNaN(numValue)) {
+          valor = numValue
+        }
       }
     }
 
     // Validar si realmente hubo cambios
     let valorOriginalNormalizado = valorOriginal
-    if (typeof valorOriginalNormalizado === 'string') {
+    if (!CAMPOS_TEXTO.includes(campo) && typeof valorOriginalNormalizado === 'string') {
       const numValue = parseFloat(valorOriginalNormalizado)
       if (!isNaN(numValue)) {
         valorOriginalNormalizado = numValue
@@ -290,7 +296,7 @@ export function RecursosHumanosTableFinal({
                 setValores({ ...valores, [key]: e.target.value })
               }
             }}
-            className="w-20 h-7 text-sm px-2"
+            className={`${tipo === 'text' ? 'w-28' : 'w-20'} h-7 text-sm px-2`}
             min={tipo === 'number' ? 0 : undefined}
             step={tipo === 'number' ? step : undefined}
             autoFocus
@@ -349,6 +355,7 @@ export function RecursosHumanosTableFinal({
 	            <tr className="border-b-2 border-gray-200">
 	              <th className="text-left py-3 px-3 font-semibold text-gray-900 sticky left-0 bg-white z-10 min-w-[160px]">Nombre</th>
 	              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[130px]">Cargo</th>
+              <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[120px]">Teléfono</th>
               <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[150px]">Sede</th>
               <th className="text-left py-3 px-3 font-semibold text-gray-900 min-w-[150px]">Departamento</th>
 	              <th className="text-center py-3 px-2 font-semibold text-gray-900 text-sm w-[70px]">% Fijo</th>
@@ -401,6 +408,15 @@ export function RecursosHumanosTableFinal({
                     estaResaltada ? 'bg-purple-200/60' : ''
                   }`}>
                     {isVistaHistorica ? trabajador.cargo : renderCampoEditable(trabajador, 'cargo', trabajador.cargo, 'text')}
+                  </td>
+
+                  {/* Teléfono */}
+                  <td className={`py-3 px-3 text-left transition-colors duration-150 ${
+                    estaResaltada ? 'bg-purple-200/60' : ''
+                  }`}>
+                    {isVistaHistorica ? (
+                      <span className="text-sm text-gray-700">{trabajador.telefono || '-'}</span>
+                    ) : renderCampoEditable(trabajador, 'telefono', trabajador.telefono ?? '', 'text')}
                   </td>
 
                   {/* Sede */}
@@ -600,7 +616,7 @@ export function RecursosHumanosTableFinal({
             
             {/* Fila de totales */}
             <tr className="bg-gray-100 border-t-2 border-gray-300 font-semibold">
-              <td colSpan={4} className="py-2 px-3 text-center sticky left-0 bg-gray-100 z-10">
+              <td colSpan={5} className="py-2 px-3 text-center sticky left-0 bg-gray-100 z-10">
                 <span className="text-gray-700">TOTALES</span>
               </td>
               <td className="py-2 px-2 text-center text-sm">
