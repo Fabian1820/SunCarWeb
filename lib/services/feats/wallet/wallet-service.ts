@@ -324,6 +324,24 @@ export class WalletService {
     return this.parseTransactionsResponse(response, filters);
   }
 
+  static async ensureWallet(
+    userCi: string,
+    userNombre: string,
+  ): Promise<Wallet> {
+    const response = await this.requestWalletEndpoint<
+      Wallet | WrappedResponse<Wallet> | ApiErrorResponse
+    >("/wallet/wallets/ensure", {
+      method: "POST",
+      body: JSON.stringify({ user_ci: userCi, user_nombre: userNombre }),
+    });
+    if (isApiErrorResponse(response)) {
+      throw new Error(
+        getApiErrorMessage(response, "No se pudo crear la billetera"),
+      );
+    }
+    return normalizeWallet(pickData<Wallet>(response));
+  }
+
   static async getWalletsLookup(
     filters: WalletsFilters = {},
   ): Promise<Array<{ id: string; user_ci: string; user_nombre: string }>> {

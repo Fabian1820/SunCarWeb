@@ -56,6 +56,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useWallet } from "@/hooks/use-wallet";
 import { useMyWalletPermiso } from "@/hooks/use-wallet-permisos";
+import { TrabajadorService, WalletService } from "@/lib/api-services";
+import type { Trabajador } from "@/lib/api-types";
 import type {
   WalletCurrency,
   Wallet as WalletType,
@@ -590,6 +592,9 @@ function WalletPageContent() {
   const [montosPorMoneda, setMontosPorMoneda] = useState<Record<string, string>>({});
   const [motivo, setMotivo] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
+  const [historyView, setHistoryView] = useState<"propias" | "todos">("todos");
+  const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
+  const [resolvingTransfer, setResolvingTransfer] = useState(false);
 
   const [walletSearch, setWalletSearch] = useState("");
   const [expandedTeamWalletId, setExpandedTeamWalletId] = useState<string | null>(null);
@@ -611,7 +616,7 @@ function WalletPageContent() {
     "efectivo" | "transferencia" | "digital" | "otro"
   >("efectivo");
 
-  const [transferToWalletId, setTransferToWalletId] = useState("");
+  const [transferToCi, setTransferToCi] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferReason, setTransferReason] = useState("");
   const [transferTargetSearch, setTransferTargetSearch] = useState("");
@@ -636,12 +641,38 @@ function WalletPageContent() {
     });
   }, [walletSearch, wallets]);
 
-  // Fuente de destinos: prefer lookup (visible para todos), si está vacío
-  // cae al `wallets` ya cargado (cuando el usuario tiene ver_todos).
+  // Fuente de destinos: TODOS los trabajadores. Si el trabajador ya tiene
+  // wallet usamos su id; si no, queda con id="" y al confirmar se inicializa.
   const transferTargets = useMemo(() => {
-    const source = walletsLookup.length > 0 ? walletsLookup : wallets;
-    return source.filter((item) => item.id !== wallet?.id);
-  }, [walletsLookup, wallets, wallet?.id]);
+    const walletByCi = new Map<string, { id: string; user_ci: string; user_nombre: string }>();
+    const walletsSource = walletsLookup.length > 0 ? walletsLookup : wallets;
+    for (const w of walletsSource) {
+      walletByCi.set(w.user_ci, { id: w.id, user_ci: w.user_ci, user_nombre: w.user_nombre });
+    }
+    const targets: Array<{ id: string; user_ci: string; user_nombre: string; hasWallet: boolean }> = [];
+    for (const t of trabajadores) {
+      if (!t.CI || t.CI === wallet?.user_ci) continue;
+      const existing = walletByCi.get(t.CI);
+      if (existing) {
+        targets.push({ ...existing, hasWallet: true });
+        walletByCi.delete(t.CI);
+      } else {
+        targets.push({
+          id: "",
+          user_ci: t.CI,
+          user_nombre: t.nombre,
+          hasWallet: false,
+        });
+      }
+    }
+    // Añadir wallets sin trabajador asociado (raro, pero por consistencia)
+    for (const w of walletByCi.values()) {
+      if (w.user_ci === wallet?.user_ci) continue;
+      targets.push({ ...w, hasWallet: true });
+    }
+    targets.sort((a, b) => a.user_nombre.localeCompare(b.user_nombre));
+    return targets;
+  }, [trabajadores, walletsLookup, wallets, wallet?.user_ci, wallet?.id]);
 
   const filteredTransferTargets = useMemo(() => {
     const q = transferTargetSearch.trim().toLowerCase();
@@ -656,8 +687,8 @@ function WalletPageContent() {
   }, [transferTargets, transferTargetSearch]);
 
   const selectedTransferTarget = useMemo(
-    () => transferTargets.find((item) => item.id === transferToWalletId) ?? null,
-    [transferTargets, transferToWalletId],
+    () => transferTargets.find((item) => item.user_ci === transferToCi) ?? null,
+    [transferTargets, transferToCi],
   );
 
   const selectedCurrency = useMemo(
@@ -667,16 +698,21 @@ function WalletPageContent() {
 
   const selectedCurrencyCode = selectedCurrency?.codigo || "USD";
 
-  // Filtrar transacciones de billetera por búsqueda
+  // Filtrar transacciones por vista (propias/todos) y búsqueda
   const filteredWalletTransactions = useMemo(() => {
-    if (!searchQuery.trim()) return transactions;
+    let list = transactions;
+    if (canSeeAll && historyView === "propias" && wallet?.user_ci) {
+      list = list.filter((tx) => tx.wallet_user_ci === wallet.user_ci);
+    }
+    if (!searchQuery.trim()) return list;
     const query = searchQuery.toLowerCase();
-    return transactions.filter(tx => 
+    return list.filter((tx) =>
       tx.motivo.toLowerCase().includes(query) ||
       tx.wallet_user_nombre.toLowerCase().includes(query) ||
-      tx.created_by_nombre.toLowerCase().includes(query)
+      tx.created_by_nombre.toLowerCase().includes(query) ||
+      (tx.contraparte_user_nombre || "").toLowerCase().includes(query),
     );
-  }, [transactions, searchQuery]);
+  }, [transactions, searchQuery, canSeeAll, historyView, wallet?.user_ci]);
 
   useEffect(() => {
     void loadWallet();
@@ -684,6 +720,10 @@ function WalletPageContent() {
     void loadWalletsLookup({ limit: 1000 });
     void loadCurrencies();
     void loadPendingTransfers();
+    // Cargar trabajadores para permitir transferir a cualquiera (aún sin wallet)
+    TrabajadorService.getAllTrabajadores()
+      .then((data) => setTrabajadores(data))
+      .catch((err) => console.error("[wallet] no se pudieron cargar trabajadores", err));
   }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies, loadPendingTransfers]);
 
   useEffect(() => {
@@ -704,10 +744,10 @@ function WalletPageContent() {
   }, [loadTransactions, currentFilters]);
 
   useEffect(() => {
-    if (transferToWalletId && wallet?.id && transferToWalletId === wallet.id) {
-      setTransferToWalletId("");
+    if (transferToCi && wallet?.user_ci && transferToCi === wallet.user_ci) {
+      setTransferToCi("");
     }
-  }, [wallet?.id, transferToWalletId]);
+  }, [wallet?.user_ci, transferToCi]);
 
   const getWalletViewBalance = (walletData?: WalletType | null) =>
     getWalletBalanceForCurrency(walletData, selectedCurrency);
@@ -812,11 +852,11 @@ function WalletPageContent() {
     const trimmedReason = transferReason.trim();
     const sourceWalletId = wallet?.id;
 
-    if (!sourceWalletId || !transferToWalletId) {
+    if (!sourceWalletId || !selectedTransferTarget) {
       toast({ title: "Transferencia incompleta", description: "Debes tener tu billetera iniciada y seleccionar destino.", variant: "destructive" });
       return;
     }
-    if (sourceWalletId === transferToWalletId) {
+    if (selectedTransferTarget.user_ci === wallet?.user_ci) {
       toast({ title: "Transferencia inválida", description: "El origen y destino deben ser diferentes.", variant: "destructive" });
       return;
     }
@@ -833,14 +873,26 @@ function WalletPageContent() {
       return;
     }
 
+    setResolvingTransfer(true);
     try {
+      // Si el destinatario aún no tiene billetera, la inicializamos
+      let destWalletId = selectedTransferTarget.id;
+      if (!destWalletId) {
+        const ensured = await WalletService.ensureWallet(
+          selectedTransferTarget.user_ci,
+          selectedTransferTarget.user_nombre,
+        );
+        destWalletId = ensured.id;
+        void loadWalletsLookup({ limit: 1000 });
+      }
+
       await createTransfer(
-        { wallet_origen_id: sourceWalletId, wallet_destino_id: transferToWalletId, currency_id: transferCurrencyId, monto: parsedAmount, motivo: trimmedReason },
+        { wallet_origen_id: sourceWalletId, wallet_destino_id: destWalletId, currency_id: transferCurrencyId, monto: parsedAmount, motivo: trimmedReason },
         { globalFilters: currentFilters, selectedWalletId: selectedWallet?.id ?? null, selectedWalletFilters: { limit: 200 } },
       );
       setTransferAmount("");
       setTransferReason("");
-      setTransferToWalletId("");
+      setTransferToCi("");
       setTransferTargetSearch("");
       toast({
         title: "Transferencia enviada",
@@ -849,6 +901,8 @@ function WalletPageContent() {
       setActiveAction(null);
     } catch (err: unknown) {
       toast({ title: "Error", description: err instanceof Error ? err.message : "No se pudo registrar la transferencia", variant: "destructive" });
+    } finally {
+      setResolvingTransfer(false);
     }
   };
 
@@ -894,8 +948,8 @@ function WalletPageContent() {
       .slice(0, TEAM_WALLETS_TOP_LIMIT);
   }, [allTeamWallets, walletSearch]);
 
-  // Totales por moneda considerando TODAS las billeteras del equipo
-  // (no solo las visibles), para que el total sea siempre consistente.
+  // Totales por moneda considerando TODAS las billeteras (incluyendo la propia
+  // del usuario), para que el total sea el global real.
   const teamTotalsByCurrency = useMemo(() => {
     const totals = new Map<
       string,
@@ -905,7 +959,11 @@ function WalletPageContent() {
     for (const c of currencies) {
       totals.set(c.id, { code: c.codigo, name: c.nombre, amount: 0 });
     }
-    for (const w of allTeamWallets) {
+    const allWalletsIncludingOwn = [
+      ...(wallet ? [wallet] : []),
+      ...allTeamWallets,
+    ];
+    for (const w of allWalletsIncludingOwn) {
       for (const b of w.balances ?? []) {
         const key = b.currency_id;
         const current = totals.get(key) || {
@@ -918,7 +976,7 @@ function WalletPageContent() {
       }
     }
     return Array.from(totals.values()).filter((t) => t.amount !== 0);
-  }, [allTeamWallets, currencies]);
+  }, [allTeamWallets, currencies, wallet]);
 
   const handleAcceptPending = async (pendingId: string) => {
     try {
@@ -1273,7 +1331,7 @@ function WalletPageContent() {
                     <button
                       type="button"
                       onClick={() => {
-                        setTransferToWalletId("");
+                        setTransferToCi("");
                         setTransferTargetSearch("");
                       }}
                       className="text-slate-400 hover:text-slate-700 shrink-0"
@@ -1304,20 +1362,27 @@ function WalletPageContent() {
                       ) : (
                         filteredTransferTargets.map((item) => (
                           <button
-                            key={item.id}
+                            key={item.user_ci}
                             type="button"
                             onClick={() => {
-                              setTransferToWalletId(item.id);
+                              setTransferToCi(item.user_ci);
                               setTransferTargetSearch("");
                             }}
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-violet-50 transition-colors flex items-center gap-2"
                           >
-                            <p className="font-medium text-slate-800 truncate">
-                              {item.user_nombre}
-                            </p>
-                            <p className="text-[11px] text-slate-400">
-                              CI: {item.user_ci}
-                            </p>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-slate-800 truncate">
+                                {item.user_nombre}
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                CI: {item.user_ci}
+                              </p>
+                            </div>
+                            {!item.hasWallet && (
+                              <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
+                                Sin billetera
+                              </span>
+                            )}
                           </button>
                         ))
                       )}
@@ -1372,14 +1437,18 @@ function WalletPageContent() {
                 onClick={handleTransfer}
                 disabled={
                   transferring ||
+                  resolvingTransfer ||
                   !wallet ||
-                  !transferToWalletId ||
-                  !transferCurrencyId ||
-                  transferTargets.length === 0
+                  !selectedTransferTarget ||
+                  !transferCurrencyId
                 }
                 className="w-full h-10 bg-violet-600 hover:bg-violet-700 font-medium"
               >
-                {transferring ? "Transfiriendo..." : "Confirmar transferencia"}
+                {resolvingTransfer
+                  ? "Preparando billetera..."
+                  : transferring
+                  ? "Enviando..."
+                  : "Confirmar transferencia"}
               </Button>
             </CardContent>
           </Card>
@@ -1771,6 +1840,25 @@ function WalletPageContent() {
               />
             </div>
 
+            {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
+            {canSeeAll && (
+              <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5 self-start">
+                {(["propias", "todos"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setHistoryView(v)}
+                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                      historyView === v
+                        ? "bg-white text-slate-800 shadow-sm"
+                        : "text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    {v === "propias" ? "Propias" : "Todas"}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Filtros */}
             <div className="flex gap-1.5 flex-wrap">
               {(["todos", "ingreso", "gasto"] as const).map((f) => (
@@ -1798,7 +1886,7 @@ function WalletPageContent() {
               loading={loadingTransactions}
               emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
               fallbackCurrency={selectedCurrencyCode}
-              showWalletOwner={canSeeAll}
+              showWalletOwner={canSeeAll && historyView === "todos"}
               onSelect={openTransactionDetail}
             />
           </CardContent>
