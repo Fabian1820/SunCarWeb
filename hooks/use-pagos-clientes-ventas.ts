@@ -137,7 +137,15 @@ export function usePagosClientesVentas() {
     setErrorFacturas(null);
     try {
       const data = await FacturaClienteVentaService.getFacturas();
-      setFacturas(data);
+      const sorted = [...data].sort((a, b) => {
+        const num = (f: typeof a) => {
+          const n = f.numero_factura ?? "";
+          const m = n.match(/(\d+)$/);
+          return m ? parseInt(m[1], 10) : 0;
+        };
+        return num(b) - num(a);
+      });
+      setFacturas(sorted);
     } catch (e) {
       setErrorFacturas(
         e instanceof Error ? e.message : "Error al cargar facturas",
