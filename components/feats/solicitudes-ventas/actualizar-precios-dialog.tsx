@@ -101,12 +101,12 @@ export function ActualizarPreciosDialog({
     setSaving(true);
     try {
       const materiales = rows.map((r) => ({
-        material_id:  r.material_id,
-        cantidad:     r.cantidad,
+        material_id:          r.material_id,
+        cantidad:             r.cantidad,
+        // Precio manual libre — no enviar descuento_porcentaje para que el
+        // backend no aplique restricciones de mínimo de descuento.
         ...(r.precio.trim() !== "" ? { precio: Number(r.precio) } : {}),
-        ...(r.descuento_porcentaje != null && r.descuento_porcentaje > 0
-          ? { descuento_porcentaje: r.descuento_porcentaje }
-          : {}),
+        descuento_porcentaje: 0,
       }));
 
       await SolicitudVentaService.patchSolicitud(solicitud.id, { materiales });

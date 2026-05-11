@@ -117,10 +117,9 @@ export const PagoClienteVentaService = PagoVentaService;
 
 export class FacturaClienteVentaService {
   static async getSiguienteNumero(): Promise<string> {
-    const hoy = new Date().toISOString().slice(0, 10).replace(/-/g, ""); // YYYYMMDD
-    const prefijo = `SV-${hoy}-`;
+    const anio   = new Date().getFullYear();
+    const prefijo = `FV-${anio}-`;
 
-    // Calcular consecutivo a partir de las facturas ya existentes
     const calcularLocal = async (): Promise<string> => {
       try {
         const facturas = await FacturaClienteVentaService.getFacturas();
@@ -130,19 +129,19 @@ export class FacturaClienteVentaService {
           .map((n) => Number(n.slice(prefijo.length)))
           .filter((n) => Number.isFinite(n) && n > 0);
         const siguiente = consecs.length > 0 ? Math.max(...consecs) + 1 : 1;
-        return `${prefijo}${String(siguiente).padStart(4, "0")}`;
+        return `${prefijo}${String(siguiente).padStart(6, "0")}`;
       } catch {
-        return `${prefijo}0001`;
+        return `${prefijo}000001`;
       }
     };
 
-    // Intentar el endpoint del backend primero; si devuelve el formato SV- usarlo,
-    // si no, calcular localmente.
     const backendEndpoints = [
       `${BASE_FACTURAS_OPERACIONES}/siguiente-numero`,
       `${BASE_FACTURAS}/siguiente-numero`,
       `${BASE_FACTURAS_LEGACY}/siguiente-numero`,
     ];
+    const formatoValido = (n: string) => /^FV-\d{4}-\d{6}$/.test(n);
+
     for (const endpoint of backendEndpoints) {
       try {
         const res: any = await apiRequest(endpoint);
@@ -151,7 +150,7 @@ export class FacturaClienteVentaService {
           res?.siguiente_numero ??
           res?.data?.numero ??
           res?.data?.siguiente_numero;
-        if (numero) return String(numero);
+        if (numero && formatoValido(String(numero))) return String(numero);
       } catch {
         // intentar siguiente endpoint
       }

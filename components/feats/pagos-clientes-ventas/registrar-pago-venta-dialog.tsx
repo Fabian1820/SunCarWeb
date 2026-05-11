@@ -53,6 +53,7 @@ interface RegistrarPagoVentaDialogProps {
     metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
     stripe_link?: string;
     desglose_billetes?: Record<string, number>;
+    cambio?: number;
     recibido_por: string;
     notas?: string;
     es_a_plazos?: boolean;
@@ -105,7 +106,7 @@ export function RegistrarPagoVentaDialog({
   const [stripeGenerando, setStripeGenerando] = useState(false);
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
-  const [generarFactura, setGenerarFactura] = useState(false);
+  const [generarFactura, setGenerarFactura] = useState(true);
   const [numeroFactura, setNumeroFactura] = useState("");
 
   // Pre-rellenar monto con el pendiente al abrir
@@ -283,24 +284,9 @@ export function RegistrarPagoVentaDialog({
           (sum, [den, cant]) => sum + Number(den) * cant,
           0,
         );
-        if (Math.abs(totalBilletes - montoNum) > 0.01) {
+        if (totalBilletes < montoNum - 0.01) {
           setError(
-            `La suma de billetes (${totalBilletes.toFixed(2)}) no coincide con el monto a pagar (${montoNum.toFixed(2)})`,
-          );
-          return;
-        }
-      }
-    }
-    if (metodoPago === "efectivo") {
-      const desglose = buildDesgloseBilletes();
-      if (desglose && Object.keys(desglose).length > 0) {
-        const totalBilletes = Object.entries(desglose).reduce(
-          (sum, [den, cant]) => sum + Number(den) * cant,
-          0,
-        );
-        if (Math.abs(totalBilletes - montoNum) > 0.01) {
-          setError(
-            `La suma de billetes (${totalBilletes.toFixed(2)}) no coincide con el monto a pagar (${montoNum.toFixed(2)})`,
+            `La suma de billetes (${totalBilletes.toFixed(2)}) es menor que el monto a pagar (${montoNum.toFixed(2)})`,
           );
           return;
         }
@@ -317,6 +303,16 @@ export function RegistrarPagoVentaDialog({
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,
+        cambio: (() => {
+          if (metodoPago !== "efectivo") return undefined;
+          const desglose = buildDesgloseBilletes();
+          if (!desglose || Object.keys(desglose).length === 0) return undefined;
+          const totalBilletes = Object.entries(desglose).reduce(
+            (sum, [den, cant]) => sum + Number(den) * cant, 0,
+          );
+          const diferencia = Math.round((totalBilletes - montoNum) * 100) / 100;
+          return diferencia > 0 ? diferencia : undefined;
+        })(),
         stripe_link: stripeLink || undefined,
         recibido_por: user?.nombre ?? "",
         notas: notas || undefined,
@@ -334,7 +330,7 @@ export function RegistrarPagoVentaDialog({
           : undefined,
         fecha,
         factura:
-          !facturaAsociadaNumero && generarFactura && numeroFactura.trim()
+          generarFactura && numeroFactura.trim()
             ? { numero: numeroFactura.trim(), numero_factura: numeroFactura.trim(), fecha_emision: fecha }
             : undefined,
       });
@@ -612,7 +608,8 @@ export function RegistrarPagoVentaDialog({
             }, 0);
             const montoNum2 = Number(monto);
             const hayDesglose = denominaciones.some(d => Number(desgloseBilletes[d] ?? 0) > 0);
-            const coincide = !hayDesglose || Math.abs(totalBilletes - montoNum2) <= 0.01;
+            const cambio = totalBilletes - montoNum2;
+            const valido = !hayDesglose || cambio >= -0.01;
             return (
               <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
                 <Label className="text-sm font-medium">
@@ -635,9 +632,15 @@ export function RegistrarPagoVentaDialog({
                   ))}
                 </div>
                 {hayDesglose && (
-                  <div className={`flex items-center justify-between text-xs px-1 pt-1 font-medium ${coincide ? "text-emerald-700" : "text-red-600"}`}>
+                  <div className={`flex items-center justify-between text-xs px-1 pt-1 font-medium ${valido ? (cambio > 0.01 ? "text-amber-600" : "text-emerald-700") : "text-red-600"}`}>
                     <span>Total billetes: {totalBilletes.toFixed(2)}</span>
-                    <span>{coincide ? "✓ Coincide" : `✗ Diferencia: ${(totalBilletes - montoNum2).toFixed(2)}`}</span>
+                    <span>
+                      {!valido
+                        ? `✗ Faltan: ${Math.abs(cambio).toFixed(2)}`
+                        : cambio > 0.01
+                        ? `↩ Cambio: ${cambio.toFixed(2)}`
+                        : "✓ Exacto"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -799,7 +802,7 @@ export function RegistrarPagoVentaDialog({
           </div>}
 
           {/* Factura */}
-          {facturaAsociadaNumero ? (
+          {facturaAsociadaNumero && (
             <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-sm flex items-center gap-2">
               <FileText className="h-4 w-4 text-indigo-600 shrink-0" />
               <span>
@@ -807,52 +810,52 @@ export function RegistrarPagoVentaDialog({
                 <span className="font-semibold">{facturaAsociadaNumero}</span>.
               </span>
             </div>
-          ) : (
-            <div
-              className={`rounded-lg border p-3 transition-colors ${
-                generarFactura ? "border-indigo-300 bg-indigo-50" : "border-gray-200 bg-gray-50"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => setGenerarFactura((v) => !v)}
-                className="flex items-center gap-3 w-full text-left"
-              >
-                <div
-                  className={`relative w-10 h-5 rounded-full transition-colors ${
-                    generarFactura ? "bg-indigo-500" : "bg-gray-300"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                      generarFactura ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </div>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-4 w-4 text-indigo-600" />
-                  <span className="font-medium text-sm text-gray-800">
-                    Generar factura con este pago
-                  </span>
-                </div>
-              </button>
-
-              {generarFactura && (
-                <div className="mt-3 space-y-1">
-                  <Label className="text-xs text-indigo-800">Número de factura</Label>
-                  <Input
-                    value={numeroFactura}
-                    onChange={(e) => setNumeroFactura(e.target.value)}
-                    placeholder="SV-20250505-0001"
-                    className="bg-white"
-                  />
-                  <p className="text-xs text-indigo-600">
-                    Se creará una factura asociada a esta solicitud con este número.
-                  </p>
-                </div>
-              )}
-            </div>
           )}
+
+          <div
+            className={`rounded-lg border p-3 transition-colors ${
+              generarFactura ? "border-indigo-300 bg-indigo-50" : "border-gray-200 bg-gray-50"
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setGenerarFactura((v) => !v)}
+              className="flex items-center gap-3 w-full text-left"
+            >
+              <div
+                className={`relative w-10 h-5 rounded-full transition-colors ${
+                  generarFactura ? "bg-indigo-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                    generarFactura ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-600" />
+                <span className="font-medium text-sm text-gray-800">
+                  Generar factura con este pago
+                </span>
+              </div>
+            </button>
+
+            {generarFactura && (
+              <div className="mt-3 space-y-1">
+                <Label className="text-xs text-indigo-800">Número de factura</Label>
+                <Input
+                  value={numeroFactura}
+                  onChange={(e) => setNumeroFactura(e.target.value)}
+                  placeholder="FV-2026-000001"
+                  className="bg-white"
+                />
+                <p className="text-xs text-indigo-600">
+                  Se creará una factura asociada a esta solicitud con este número.
+                </p>
+              </div>
+            )}
+          </div>
 
           {error && (
             <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">

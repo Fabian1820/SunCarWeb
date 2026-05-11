@@ -36,6 +36,7 @@ export interface PagoVentaCreateData {
   metodo_pago: "efectivo" | "transferencia_bancaria" | "stripe" | "financiacion";
   stripe_link?: string;
   desglose_billetes?: Record<string, number>;
+  cambio?: number;
   recibido_por: string;
   notas?: string;
   /** Si true, persiste plan_pagos en la solicitud */
