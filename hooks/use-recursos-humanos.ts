@@ -88,11 +88,10 @@ export function useRecursosHumanos() {
   const actualizarCampoTrabajador = useCallback(
     async (
       ci: string,
-      campo: keyof ActualizarTrabajadorRRHHRequest,
+      campo: string,
       valor: any,
     ): Promise<{ success: boolean; message: string }> => {
       try {
-        const data: ActualizarTrabajadorRRHHRequest = { [campo]: valor };
         console.log(
           `Actualizando ${campo} del trabajador ${ci}:`,
           valor,
@@ -100,7 +99,12 @@ export function useRecursosHumanos() {
           typeof valor,
         );
 
-        await RecursosHumanosService.actualizarTrabajadorRRHH(ci, data);
+        if (campo === "nombre") {
+          await TrabajadorService.actualizarTrabajador(ci, { nombre: valor });
+        } else {
+          const data: ActualizarTrabajadorRRHHRequest = { [campo]: valor };
+          await RecursosHumanosService.actualizarTrabajadorRRHH(ci, data);
+        }
 
         // Actualizar estado local inmediatamente
         setTrabajadores((prev) =>
