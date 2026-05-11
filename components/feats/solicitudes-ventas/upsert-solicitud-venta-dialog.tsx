@@ -1339,6 +1339,24 @@ export function UpsertSolicitudVentaDialog({
               </p>
             )}
 
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => { setDescuentoFree((v) => { if (v) setMotivoDescuentoFree(""); return !v; }); }}
+                title={descuentoFree ? "Desactivar descuento libre" : "Activar descuento libre (sin límites por material)"}
+                className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
+                  descuentoFree
+                    ? "bg-orange-500 text-white"
+                    : "bg-gray-200 text-gray-500 hover:bg-orange-100 hover:text-orange-600"
+                }`}
+              >
+                Descuento Free
+              </button>
+              {descuentoFree && (
+                <span className="text-xs text-orange-600 font-medium">Límites de descuento desactivados</span>
+              )}
+            </div>
+
             {descuentoFree && (
               <div className="rounded-lg border border-orange-300 bg-orange-50 p-3 space-y-1">
                 <label className="text-xs font-semibold text-orange-700 flex items-center gap-1">
@@ -1372,21 +1390,7 @@ export function UpsertSolicitudVentaDialog({
                         P. Unit.
                       </th>
                       <th className="text-left py-2 px-3 font-medium text-gray-700 w-44">
-                        <div className="flex items-center gap-2">
-                          <span>Descuento</span>
-                          <button
-                            type="button"
-                            onClick={() => { setDescuentoFree((v) => { if (v) setMotivoDescuentoFree(""); return !v; }); }}
-                            title={descuentoFree ? "Límites de descuento desactivados" : "Activar descuento libre (sin límites)"}
-                            className={`text-xs px-2 py-0.5 rounded-full font-semibold transition-colors ${
-                              descuentoFree
-                                ? "bg-orange-500 text-white"
-                                : "bg-gray-200 text-gray-500 hover:bg-orange-100 hover:text-orange-600"
-                            }`}
-                          >
-                            Free
-                          </button>
-                        </div>
+                        Descuento
                       </th>
                       <th className="text-right py-2 px-3 font-medium text-gray-700 w-24">
                         P. Total

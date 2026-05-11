@@ -18,7 +18,6 @@ import {
   Warehouse,
   Ban,
   FileDown,
-  DollarSign,
 } from "lucide-react";
 import type { SolicitudVenta, SolicitudVentaSummary } from "@/lib/api-types";
 
@@ -33,7 +32,6 @@ interface SolicitudesVentasTableProps {
   onAnular?: (solicitud: SolicitudRow) => void;
   onReabrir?: (solicitud: SolicitudRow) => void;
   onExportar?: (solicitud: SolicitudRow, tipo: ExportTipo) => void;
-  onEditarPrecios?: (solicitud: SolicitudRow) => void;
 }
 
 const getClienteNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
@@ -52,7 +50,6 @@ export function SolicitudesVentasTable({
   onAnular,
   onReabrir,
   onExportar,
-  onEditarPrecios,
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
@@ -70,7 +67,7 @@ export function SolicitudesVentasTable({
       return (
         <div className="flex flex-col gap-0.5">
           {solicitud.materiales.map((m, i) => {
-            const nombre = m.material_descripcion ?? ("descripcion" in m ? m.descripcion : undefined) ?? m.material_id;
+            const nombre = m.material_descripcion ?? m.material?.nombre ?? m.nombre ?? m.material_nombre ?? m.material_codigo ?? m.material_id;
             return (
               <span key={i} className="text-xs text-gray-600 leading-5">
                 <span className="font-medium text-gray-800">{m.cantidad}x</span> {nombre}
@@ -196,18 +193,6 @@ export function SolicitudesVentasTable({
                       >
                         <Pencil className="h-4 w-4 sm:mr-1" />
                         <span className="hidden sm:inline text-xs">Editar</span>
-                      </Button>
-                    )}
-                    {onEditarPrecios && isNueva && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEditarPrecios(solicitud)}
-                        className="border-green-300 text-green-700 hover:bg-green-50"
-                        title="Editar precios manualmente"
-                      >
-                        <DollarSign className="h-4 w-4 sm:mr-1" />
-                        <span className="hidden sm:inline text-xs">Precios</span>
                       </Button>
                     )}
                     {onAnular && isNueva && (

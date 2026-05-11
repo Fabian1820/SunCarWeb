@@ -36,7 +36,6 @@ import { RegistrarPagoVentaDialog } from "@/components/feats/pagos-clientes-vent
 import { CrearFacturaVentaDialog } from "@/components/feats/pagos-clientes-ventas/crear-factura-venta-dialog";
 import { FacturaVentaDetailDialog } from "@/components/feats/pagos-clientes-ventas/factura-venta-detail-dialog";
 import { StripePagosModal } from "@/components/feats/pagos/stripe-pagos-modal";
-import { ActualizarPreciosDialog } from "@/components/feats/solicitudes-ventas/actualizar-precios-dialog";
 import type {
   SolicitudVenta,
   SolicitudVentaCreateData,
@@ -116,8 +115,6 @@ export default function SolicitudesVentasPage() {
   const [pagoDialogOpen, setPagoDialogOpen]           = useState(false);
   const [facturaDialogOpen, setFacturaDialogOpen]     = useState(false);
   const [stripePagosOpen, setStripePagosOpen]         = useState(false);
-  const [preciosDialogOpen, setPreciosDialogOpen]     = useState(false);
-  const [solicitudParaPrecios, setSolicitudParaPrecios] = useState<SolicitudVenta | SolicitudVentaSummary | null>(null);
 
   const [selectedSolicitud, setSelectedSolicitud]     = useState<SolicitudVenta | null>(null);
   const [solicitudParaPagar, setSolicitudParaPagar]   = useState<SolicitudVentaSummary | null>(null);
@@ -667,7 +664,6 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     onAnular={(s) => { void handleOpenAnularSolicitud(s); }}
                     onReabrir={(s) => { void handleReabrirSolicitud(s); }}
                     onExportar={(s, tipo) => { void handleExportar(s, tipo); }}
-                    onEditarPrecios={(s) => { setSolicitudParaPrecios(s); setPreciosDialogOpen(true); }}
                   />
                 </div>
               )}
@@ -919,12 +915,6 @@ const [anularLoading, setAnularLoading]             = useState(false);
         onOpenChange={setStripePagosOpen}
       />
 
-      <ActualizarPreciosDialog
-        open={preciosDialogOpen}
-        onOpenChange={setPreciosDialogOpen}
-        solicitud={solicitudParaPrecios}
-        onSuccess={() => { refreshAll(); toast({ title: "Precios actualizados" }); }}
-      />
 
       <Toaster />
     </div>

@@ -155,6 +155,8 @@ export interface MaterialVentaWeb {
 
 export interface SolicitudVentaSummaryMaterial {
   material_id: string;
+  nombre?: string | null;
+  material_nombre?: string | null;
   material_codigo?: string | null;
   material_descripcion?: string | null;
   um?: string | null;
