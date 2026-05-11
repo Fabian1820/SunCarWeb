@@ -14,6 +14,7 @@ export interface PagoCreateData {
   desglose_billetes?: Record<string, number>;
   comprobante_transferencia?: string;
   recibido_por?: string;
+  recibido_por_ci?: string;
   notas?: string;
   creado_por?: string;
   diferencia?: {

@@ -375,6 +375,9 @@ export function RegistrarPagoDialog({
 
             if (formData.metodo_pago === 'efectivo') {
                 pagoData.recibido_por = formData.recibido_por
+                if (user?.ci) {
+                    pagoData.recibido_por_ci = user.ci
+                }
                 // Agregar desglose de billetes si existe
                 if (Object.keys(desgloseBilletes).length > 0) {
                     pagoData.desglose_billetes = desgloseBilletes
