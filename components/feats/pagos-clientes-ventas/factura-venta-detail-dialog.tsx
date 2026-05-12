@@ -44,7 +44,7 @@ export function FacturaVentaDetailDialog({
             <div><span className="font-semibold">Número de factura:</span> {factura.numero_factura || "—"}</div>
             <div><span className="font-semibold">Fecha:</span> {factura.fecha || "—"}</div>
             <div><span className="font-semibold">Cliente:</span> {factura.cliente || "—"}</div>
-            <div><span className="font-semibold">Emitida por:</span> {factura.emitida_por || "—"}</div>
+            <div><span className="font-semibold">Emitida por:</span> {factura.emitida_por_nombre || factura.emitida_por || "—"}</div>
             <div className="md:col-span-2">
               <span className="font-semibold">Solicitudes vinculadas:</span>{" "}
               {solicitudes.length

@@ -86,6 +86,7 @@ export interface FacturaClienteVenta {
   comercial?: string | null;
   fecha_emision?: string;
   emitida_por: string;
+  emitida_por_nombre?: string | null;
   fecha_creacion?: string;
   fecha_actualizacion?: string | null;
 }
@@ -136,6 +137,7 @@ export interface FacturaVentaResumen {
   cliente?: string;
   comercial?: string | null;
   emitida_por?: string;
+  emitida_por_nombre?: string | null;
   solicitudes_vinculadas?: FacturaVentaResumenSolicitud[];
   pagos?: FacturaVentaResumenPago[];
   total_precio_materiales?: number;

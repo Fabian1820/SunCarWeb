@@ -93,6 +93,7 @@ export function FacturasVentasTable({
       (f.cliente_numero || "").toLowerCase().includes(term) ||
       (f.comercial || "").toLowerCase().includes(term) ||
       (f.emitida_por || "").toLowerCase().includes(term) ||
+      (f.emitida_por_nombre || "").toLowerCase().includes(term) ||
       getSolicitudId(f).toLowerCase().includes(term) ||
       getSolicitudesDisplay(f).toLowerCase().includes(term)
     );
@@ -243,7 +244,7 @@ export function FacturasVentasTable({
                   <TableCell className="text-sm">
                     {formatDate(f.fecha_emision ?? "")}
                   </TableCell>
-                  <TableCell className="text-sm">{f.emitida_por}</TableCell>
+                  <TableCell className="text-sm">{f.emitida_por_nombre || f.emitida_por}</TableCell>
                   <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
                   <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
                   <TableCell className="text-sm text-right text-green-700">{formatCurrency(f.total_pagado)}</TableCell>

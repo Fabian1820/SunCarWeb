@@ -175,7 +175,7 @@ export class ExportFacturaVentaConsolidadaService {
 
     detalle("Cliente",     factura.cliente || "—");
     detalle("Fecha",       fmtDate(factura.fecha));
-    detalle("Emitida por", factura.emitida_por || "—");
+    detalle("Emitida por", factura.emitida_por_nombre || factura.emitida_por || "—");
 
     const codigos = (factura.solicitudes_vinculadas ?? [])
       .map((s) => s.codigo_solicitud).filter(Boolean).join("  ·  ");

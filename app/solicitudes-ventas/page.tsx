@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Plus, Search, ShoppingCart, CreditCard, List, FileText, FilterX } from "lucide-react";
+import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import {
   Card,
@@ -80,6 +81,7 @@ export default function SolicitudesVentasPage() {
     setSearchTerm,
     loadMore,
     hasMore,
+    total,
     loadSolicitudes,
     createSolicitud,
     updateSolicitud,
@@ -124,25 +126,29 @@ export default function SolicitudesVentasPage() {
 const [anularLoading, setAnularLoading]             = useState(false);
 
   // ── Filtros por pestaña ────────────────────────────────────────────────────
-  const [f1Estado, setF1Estado]   = useState("");
-  const [f1Mes, setF1Mes]         = useState("");
-  const [f1Desde, setF1Desde]     = useState("");
-  const [f1Hasta, setF1Hasta]     = useState("");
+  const [f1Estado, setF1Estado]       = useState("");
+  const [f1Comercial, setF1Comercial] = useState("");
+  const [f1Mes, setF1Mes]             = useState("");
+  const [f1Desde, setF1Desde]         = useState("");
+  const [f1Hasta, setF1Hasta]         = useState("");
 
   const [f2EstadoPago, setF2EstadoPago] = useState("");
+  const [f2Comercial, setF2Comercial]   = useState("");
   const [f2Mes, setF2Mes]               = useState("");
   const [f2Desde, setF2Desde]           = useState("");
   const [f2Hasta, setF2Hasta]           = useState("");
 
-  const [f3Metodo, setF3Metodo] = useState("");
-  const [f3Mes, setF3Mes]       = useState("");
-  const [f3Desde, setF3Desde]   = useState("");
-  const [f3Hasta, setF3Hasta]   = useState("");
+  const [f3Metodo, setF3Metodo]       = useState("");
+  const [f3Comercial, setF3Comercial] = useState("");
+  const [f3Mes, setF3Mes]             = useState("");
+  const [f3Desde, setF3Desde]         = useState("");
+  const [f3Hasta, setF3Hasta]         = useState("");
 
-  const [f4Estado, setF4Estado] = useState("");
-  const [f4Mes, setF4Mes]       = useState("");
-  const [f4Desde, setF4Desde]   = useState("");
-  const [f4Hasta, setF4Hasta]   = useState("");
+  const [f4Estado, setF4Estado]       = useState("");
+  const [f4Comercial, setF4Comercial] = useState("");
+  const [f4Mes, setF4Mes]             = useState("");
+  const [f4Desde, setF4Desde]         = useState("");
+  const [f4Hasta, setF4Hasta]         = useState("");
 
   const monthOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
@@ -170,29 +176,59 @@ const [anularLoading, setAnularLoading]             = useState(false);
     return true;
   };
 
+  const getComercialSolicitud = (s: typeof filteredSolicitudes[number]) =>
+    (s as { cliente_venta?: { comercial?: string | null } }).cliente_venta?.comercial
+    ?? (s as { comercial?: string | null }).comercial
+    ?? "";
+
+  const uniqueComerciales = (values: (string | null | undefined)[]): string[] =>
+    Array.from(new Set(values.map((v) => (v ?? "").trim()).filter(Boolean))).sort(
+      (a, b) => a.localeCompare(b, "es", { sensitivity: "base" }),
+    );
+
+  const comerciales1 = useMemo(
+    () => uniqueComerciales(filteredSolicitudes.map(getComercialSolicitud)),
+    [filteredSolicitudes],
+  );
+  const comerciales2 = useMemo(
+    () => uniqueComerciales(solicitudesPendientes.map((s) => s.comercial)),
+    [solicitudesPendientes],
+  );
+  const comerciales3 = useMemo(
+    () => uniqueComerciales(todosPagos.map((p) => p.comercial)),
+    [todosPagos],
+  );
+  const comerciales4 = useMemo(
+    () => uniqueComerciales(facturas.map((f) => f.comercial)),
+    [facturas],
+  );
+
   const solicitudesDisplay = useMemo(() =>
     filteredSolicitudes.filter((s) => {
       if (f1Estado && s.estado?.toLowerCase() !== f1Estado) return false;
+      if (f1Comercial && getComercialSolicitud(s) !== f1Comercial) return false;
       return matchFecha(s.fecha_creacion, f1Mes, f1Desde, f1Hasta);
     }),
-    [filteredSolicitudes, f1Estado, f1Mes, f1Desde, f1Hasta],
+    [filteredSolicitudes, f1Estado, f1Comercial, f1Mes, f1Desde, f1Hasta],
   );
 
   const pendientesDisplay = useMemo(() =>
     solicitudesPendientes.filter((s) => {
       if (f2EstadoPago === "sin-pago" && Number(s.total_pagado ?? 0) > 0) return false;
       if (f2EstadoPago === "parcial"  && Number(s.total_pagado ?? 0) <= 0) return false;
+      if (f2Comercial && (s.comercial ?? "") !== f2Comercial) return false;
       return matchFecha(s.fecha_creacion, f2Mes, f2Desde, f2Hasta);
     }),
-    [solicitudesPendientes, f2EstadoPago, f2Mes, f2Desde, f2Hasta],
+    [solicitudesPendientes, f2EstadoPago, f2Comercial, f2Mes, f2Desde, f2Hasta],
   );
 
   const pagosDisplay = useMemo(() =>
     todosPagos.filter((p) => {
       if (f3Metodo && p.metodo_pago !== f3Metodo) return false;
+      if (f3Comercial && (p.comercial ?? "") !== f3Comercial) return false;
       return matchFecha(p.fecha || p.fecha_creacion, f3Mes, f3Desde, f3Hasta);
     }),
-    [todosPagos, f3Metodo, f3Mes, f3Desde, f3Hasta],
+    [todosPagos, f3Metodo, f3Comercial, f3Mes, f3Desde, f3Hasta],
   );
 
   const facturasDisplay = useMemo(() =>
@@ -204,9 +240,10 @@ const [anularLoading, setAnularLoading]             = useState(false);
         const paid = f.total_pagado   ?? 0;
         if (pend <= 0 || paid <= 0) return false;
       }
+      if (f4Comercial && (f.comercial ?? "") !== f4Comercial) return false;
       return matchFecha(f.fecha_emision || f.fecha_creacion, f4Mes, f4Desde, f4Hasta);
     }),
-    [facturas, f4Estado, f4Mes, f4Desde, f4Hasta],
+    [facturas, f4Estado, f4Comercial, f4Mes, f4Desde, f4Hasta],
   );
 
   // ── Refresca todas las pestañas en paralelo ────────────────────────────────
@@ -490,6 +527,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
       fecha: f.fecha_emision,
       cliente: f.cliente || f.cliente_nombre,
       emitida_por: f.emitida_por,
+      emitida_por_nombre: f.emitida_por_nombre,
       solicitudes_vinculadas: [{ codigo_solicitud: codigos[0], materiales: mats }],
       pagos: f.pagos,
       total_precio_materiales: (Number(f.total_a_pagar) || 0) + (Number(f.descuento) || 0),
@@ -630,10 +668,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 <ShoppingCart className="h-5 w-5 text-indigo-600" />
                 Solicitudes de Venta
               </CardTitle>
-              <CardDescription>
-                {solicitudesDisplay.length} solicitud{solicitudesDisplay.length !== 1 ? "es" : ""}
-                {solicitudesDisplay.length !== filteredSolicitudes.length && ` (de ${filteredSolicitudes.length})`}
-              </CardDescription>
+              <CardDescription>Listado de solicitudes de venta</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-wrap items-center gap-2 px-6 py-4 border-b bg-gray-50/60">
@@ -664,16 +699,28 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="anulada">Anulada</SelectItem>
                   </SelectContent>
                 </Select>
-                {(f1Estado || f1Mes || f1Desde || f1Hasta) && (
+                <Select value={f1Comercial} onValueChange={(v) => setF1Comercial(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Comercial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los comerciales</SelectItem>
+                    {comerciales1.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(f1Estado || f1Comercial || f1Mes || f1Desde || f1Hasta) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF1Estado(""); setF1Mes(""); setF1Desde(""); setF1Hasta(""); }}>
+                    onClick={() => { setF1Estado(""); setF1Comercial(""); setF1Mes(""); setF1Desde(""); setF1Hasta(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
+                <Badge variant="secondary" className="text-xs ml-auto">
+                  {solicitudesDisplay.length} de {total} solicitudes
+                </Badge>
               </div>
               {solicitudesDisplay.length === 0 ? (
                 <div className="text-center py-12 text-gray-400 text-sm px-6 pb-6">
-                  {searchTerm || f1Estado || f1Mes || f1Desde || f1Hasta ? "No se encontraron solicitudes con ese criterio" : "No hay solicitudes"}
+                  {searchTerm || f1Estado || f1Comercial || f1Mes || f1Desde || f1Hasta ? "No se encontraron solicitudes con ese criterio" : "No hay solicitudes"}
                 </div>
               ) : (
                 <div className="border-t overflow-x-auto">
@@ -745,9 +792,18 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="parcial">Con pago parcial</SelectItem>
                   </SelectContent>
                 </Select>
-                {(f2EstadoPago || f2Mes || f2Desde || f2Hasta) && (
+                <Select value={f2Comercial} onValueChange={(v) => setF2Comercial(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Comercial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los comerciales</SelectItem>
+                    {comerciales2.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(f2EstadoPago || f2Comercial || f2Mes || f2Desde || f2Hasta) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF2EstadoPago(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); }}>
+                    onClick={() => { setF2EstadoPago(""); setF2Comercial(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -796,9 +852,18 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="financiacion">Financiación</SelectItem>
                   </SelectContent>
                 </Select>
-                {(f3Metodo || f3Mes || f3Desde || f3Hasta) && (
+                <Select value={f3Comercial} onValueChange={(v) => setF3Comercial(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Comercial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los comerciales</SelectItem>
+                    {comerciales3.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(f3Metodo || f3Comercial || f3Mes || f3Desde || f3Hasta) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF3Metodo(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); }}>
+                    onClick={() => { setF3Metodo(""); setF3Comercial(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -845,9 +910,18 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="pendiente">Sin pago</SelectItem>
                   </SelectContent>
                 </Select>
-                {(f4Estado || f4Mes || f4Desde || f4Hasta) && (
+                <Select value={f4Comercial} onValueChange={(v) => setF4Comercial(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Comercial" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los comerciales</SelectItem>
+                    {comerciales4.map((c) => (
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF4Estado(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); }}>
+                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
