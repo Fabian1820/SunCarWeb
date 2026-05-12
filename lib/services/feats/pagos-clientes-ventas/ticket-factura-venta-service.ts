@@ -1,11 +1,12 @@
 import jsPDF from "jspdf";
 import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
-// Formato 58 mm thermal (POS80 ESC/POS — driver Epson 9-Pin)
-// Área imprimible útil ≈ 52 mm; márgenes reducidos y todo en negro
-// para que el driver de matriz de puntos lo rasterice limpio.
-const PAGE_W   = 58;
-const MARGIN   = 3;
+// Formato 58 mm térmico — área imprimible real medida ≈ 50 mm.
+// El PDF se hace de 48 mm para que el driver Epson 9-Pin no tenga que
+// escalar (lo que apelmazaría el texto). Márgenes mínimos, todo en negro
+// y tipografía generosa para que se vea limpio a baja resolución.
+const PAGE_W   = 48;
+const MARGIN   = 1.5;
 const LEFT_X   = MARGIN;
 const RIGHT_X  = PAGE_W - MARGIN;
 const CENTER_X = (LEFT_X + RIGHT_X) / 2;
@@ -25,17 +26,16 @@ const fmtDate = (d?: string) => {
 };
 
 const sep = (doc: jsPDF, y: number) => {
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
-  const dash = "- ";
-  const count = Math.max(8, Math.floor(TXT_W / doc.getTextWidth(dash)));
-  doc.text(dash.repeat(count).trimEnd(), CENTER_X, y, { align: "center" });
+  const dash = "-";
+  const count = Math.max(12, Math.floor(TXT_W / doc.getTextWidth(dash)));
+  doc.text(dash.repeat(count), CENTER_X, y, { align: "center" });
 };
 
 export class TicketFacturaVentaService {
   static exportarTicket(factura: FacturaVentaResumen): void {
-    // Altura A4 — la térmica corta al final del contenido
     const doc = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -43,44 +43,56 @@ export class TicketFacturaVentaService {
     });
 
     doc.setTextColor(0, 0, 0);
-    let y = 7;
+    let y = 8;
 
     // ── Encabezado ──────────────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.text("ALMACEN DE VENTAS", CENTER_X, y, { align: "center" });
-    y += 5;
+    y += 6;
 
-    sep(doc, y); y += 3.5;
+    sep(doc, y); y += 4.5;
 
-    // ── Info factura ─────────────────────────────────────────────────────────────
-    const infoRow = (label: string, value: string) => {
+    // ── Info factura (label arriba, valor debajo si es largo) ───────────────────
+    const infoInline = (label: string, value: string) => {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
+      doc.setFontSize(9);
       doc.text(label, LEFT_X, y);
-      const labelW = doc.getTextWidth(label) + 1.2;
+      const labelW = doc.getTextWidth(label) + 1.5;
       doc.setFont("helvetica", "normal");
-      const val = doc.splitTextToSize(value, TXT_W - labelW);
-      doc.text(val, LEFT_X + labelW, y);
-      y += val.length * 3.8;
+      doc.setFontSize(9);
+      doc.text(value, LEFT_X + labelW, y);
+      y += 4.5;
     };
 
-    infoRow("Factura:", factura.numero_factura || "—");
-    infoRow("Fecha:",   fmtDate(factura.fecha));
-    if (factura.cliente) infoRow("Cliente:", factura.cliente);
+    const infoStack = (label: string, value: string) => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(label, LEFT_X, y);
+      y += 4;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const val = doc.splitTextToSize(value, TXT_W);
+      doc.text(val, LEFT_X, y);
+      y += val.length * 4.2;
+    };
+
+    infoInline("Factura:", factura.numero_factura || "—");
+    infoInline("Fecha:",   fmtDate(factura.fecha));
+    if (factura.cliente) infoStack("Cliente:", factura.cliente);
 
     const solicitudes = factura.solicitudes_vinculadas ?? [];
     const codigos = solicitudes.map((s) => s.codigo_solicitud).filter(Boolean).join(", ");
-    if (codigos) infoRow("Solicitud:", codigos);
+    if (codigos) infoStack("Solicitud:", codigos);
 
-    y += 1;
-    sep(doc, y); y += 4;
+    y += 2;
+    sep(doc, y); y += 5;
 
     // ── Materiales ──────────────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.text("PRODUCTOS", CENTER_X, y, { align: "center" });
-    y += 4.5;
+    y += 5.5;
 
     const allMats = solicitudes.flatMap((s) =>
       Array.isArray(s.materiales) ? s.materiales : [],
@@ -89,10 +101,10 @@ export class TicketFacturaVentaService {
     for (const m of allMats) {
       if (typeof m === "string") {
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         const ls = doc.splitTextToSize(m, TXT_W);
         doc.text(ls, LEFT_X, y);
-        y += ls.length * 3.6;
+        y += ls.length * 4.2 + 1.5;
         continue;
       }
       const r = m as {
@@ -122,47 +134,47 @@ export class TicketFacturaVentaService {
         r.descuento_monto ?? (descPct > 0 ? precio * (descPct / 100) * cant : 0),
       );
 
-      // Línea 1: cant x descripción (bold)
+      // Línea descripción (bold, con buen espacio entre líneas)
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8.5);
+      doc.setFontSize(9);
       const descLine  = `${cant} x ${desc}`;
       const descLines = doc.splitTextToSize(descLine, TXT_W);
       doc.text(descLines, LEFT_X, y);
-      y += descLines.length * 3.8;
+      y += descLines.length * 4.2;
 
-      // Línea 2: subtotal alineado a la derecha
+      // Subtotal alineado a la derecha — más grande para destacar
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
+      doc.setFontSize(10.5);
       doc.text(fmt(sub), RIGHT_X, y, { align: "right" });
-      y += 4;
+      y += 5;
 
-      // Descuento por material si aplica (sin color, solo texto)
+      // Descuento por material (solo si aplica)
       if (descPct > 0 || descMonto > 0) {
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
+        doc.setFontSize(8);
         const descLabel =
           descPct > 0 && descMonto > 0
-            ? `  Desc. ${descPct.toFixed(1)}% (-${fmt(descMonto)})`
+            ? `Desc ${descPct.toFixed(1)}% (-${fmt(descMonto)})`
             : descPct > 0
-            ? `  Desc. ${descPct.toFixed(1)}%`
-            : `  Desc. -${fmt(descMonto)}`;
+            ? `Desc ${descPct.toFixed(1)}%`
+            : `Desc -${fmt(descMonto)}`;
         const dl = doc.splitTextToSize(descLabel, TXT_W);
         doc.text(dl, LEFT_X, y);
-        y += dl.length * 3.4;
+        y += dl.length * 3.8;
       }
 
-      y += 1.5;
+      y += 2.5;
     }
 
-    sep(doc, y); y += 5;
+    sep(doc, y); y += 5.5;
 
     // ── Totales ─────────────────────────────────────────────────────────────────
     const totalLine = (label: string, value: string, big = false) => {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(big ? 11.5 : 9);
+      doc.setFontSize(big ? 13 : 9.5);
       doc.text(label, LEFT_X, y);
       doc.text(value, RIGHT_X, y, { align: "right" });
-      y += big ? 6 : 4.2;
+      y += big ? 7 : 5;
     };
 
     totalLine("Subtotal:", fmt(factura.total_precio_materiales));
@@ -172,16 +184,16 @@ export class TicketFacturaVentaService {
     if (Number(factura.total_pagado) > 0)
       totalLine("Pagado:", fmt(factura.total_pagado));
 
-    y += 1;
-    sep(doc, y); y += 5;
+    y += 2;
+    sep(doc, y); y += 6;
 
     // ── Pie ─────────────────────────────────────────────────────────────────────
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(9.5);
     doc.text("GRACIAS POR SU VISITA", CENTER_X, y, { align: "center" });
-    y += 3.8;
+    y += 4.5;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
+    doc.setFontSize(8);
     doc.text("THANKS FOR YOUR VISIT", CENTER_X, y, { align: "center" });
 
     doc.save(`Ticket_${factura.numero_factura || "sin_numero"}.pdf`);
