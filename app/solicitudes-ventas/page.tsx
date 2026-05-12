@@ -56,7 +56,6 @@ import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos
 import { TicketFacturaVentaService } from "@/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
 import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
-import type { FacturaVentaResumen } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
 
 type TabId = "solicitudes" | "pendientes-pago" | "pagos-realizados" | "facturas-emitidas";
 
@@ -527,6 +526,27 @@ const [anularLoading, setAnularLoading]             = useState(false);
     }
   };
 
+  const handleExportarTodasFacturas = async (lista: FacturaClienteVenta[]) => {
+    if (lista.length === 0) {
+      toast({ title: "Sin facturas", description: "No hay facturas para exportar." });
+      return;
+    }
+    try {
+      const resumenes = await Promise.all(lista.map((f) => resolveResumen(f)));
+      await ExportFacturaVentaConsolidadaService.exportarMultiplesPDF(resumenes);
+      toast({
+        title: "Exportación completada",
+        description: `Se exportaron ${resumenes.length} factura${resumenes.length === 1 ? "" : "s"} en un único PDF.`,
+      });
+    } catch (e) {
+      toast({
+        title: "Error al exportar",
+        description: e instanceof Error ? e.message : "No se pudieron exportar las facturas",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleExportarTicket = async (factura: FacturaClienteVenta) => {
     try {
       const resumen = await resolveResumen(factura);
@@ -841,6 +861,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 onExportar={(f) => { void handleExportarFactura(f); }}
                 onTicket={(f) => { void handleExportarTicket(f); }}
                 onEliminar={handleEliminarFactura}
+                onExportarTodas={handleExportarTodasFacturas}
                 variant="embedded"
               />
             </CardContent>

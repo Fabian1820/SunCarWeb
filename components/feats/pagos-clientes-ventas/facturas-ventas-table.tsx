@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/shared/molecule/table";
 import type { FacturaClienteVenta } from "@/lib/types/feats/pagos-clientes-ventas/pago-cliente-venta-types";
-import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt } from "lucide-react";
+import { Search, RefreshCw, AlertCircle, Trash2, Eye, FileDown, Receipt, Files, Loader2 } from "lucide-react";
 
 interface FacturasVentasTableProps {
   facturas: FacturaClienteVenta[];
@@ -24,6 +24,8 @@ interface FacturasVentasTableProps {
   onVerDetalles?: (factura: FacturaClienteVenta) => void;
   onExportar?: (factura: FacturaClienteVenta) => void;
   onTicket?: (factura: FacturaClienteVenta) => void;
+  /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
+  onExportarTodas?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
 }
@@ -37,9 +39,11 @@ export function FacturasVentasTable({
   onVerDetalles,
   onExportar,
   onTicket,
+  onExportarTodas,
   variant = "default",
 }: FacturasVentasTableProps) {
   const [search, setSearch] = useState("");
+  const [exportingAll, setExportingAll] = useState(false);
   const getFacturaId = (f: FacturaClienteVenta): string =>
     f.id || f.factura_id || f.numero_factura;
   const getSolicitudId = (f: FacturaClienteVenta): string =>
@@ -66,7 +70,12 @@ export function FacturasVentasTable({
 
   const formatDate = (d: string) => {
     if (!d) return "—";
-    const date = new Date(d);
+    // Parsear solo la parte YYYY-MM-DD como fecha local. Construir con `new Date(d)`
+    // interpreta una fecha sin zona horaria como UTC, lo que en zonas con offset
+    // negativo (Cuba UTC-4/-5) muestra el día anterior.
+    const [y, m, day] = d.slice(0, 10).split("-").map(Number);
+    if (!y || !m || !day) return d;
+    const date = new Date(y, m - 1, day);
     return date.toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "2-digit",
@@ -105,6 +114,33 @@ export function FacturasVentasTable({
         <Button variant="outline" size="icon" onClick={onRefresh} title="Recargar">
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
         </Button>
+        {onExportarTodas && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+            disabled={exportingAll || filtered.length === 0}
+            title="Exportar todas las facturas listadas en un único PDF"
+            onClick={async () => {
+              if (filtered.length === 0) return;
+              setExportingAll(true);
+              try {
+                await onExportarTodas(filtered);
+              } finally {
+                setExportingAll(false);
+              }
+            }}
+          >
+            {exportingAll ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Files className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">
+              {exportingAll ? "Generando..." : "Exportar todas (PDF)"}
+            </span>
+          </Button>
+        )}
         <Badge variant="secondary" className="text-xs">
           {filtered.length} facturas
         </Badge>
