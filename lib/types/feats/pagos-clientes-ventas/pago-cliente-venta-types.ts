@@ -10,6 +10,7 @@ export interface PagoVenta {
   solicitud_codigo?: string | null;
   factura_numero?: string | null;
   cliente_nombre?: string | null;
+  comercial?: string | null;
   materiales?: string[] | string | null;
   monto?: number;
   moneda?: "USD" | "CUP" | "EUR" | string;
@@ -82,6 +83,7 @@ export interface FacturaClienteVenta {
   cliente?: string;
   cliente_nombre?: string;
   cliente_numero?: string;
+  comercial?: string | null;
   fecha_emision?: string;
   emitida_por: string;
   fecha_creacion?: string;
@@ -132,6 +134,7 @@ export interface FacturaVentaResumen {
   numero_factura?: string;
   fecha?: string;
   cliente?: string;
+  comercial?: string | null;
   emitida_por?: string;
   solicitudes_vinculadas?: FacturaVentaResumenSolicitud[];
   pagos?: FacturaVentaResumenPago[];

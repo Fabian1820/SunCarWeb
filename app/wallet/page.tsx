@@ -607,6 +607,7 @@ function WalletPageContent() {
     createCurrency,
     pendingIncoming,
     pendingOutgoing,
+    pendingAll,
     loadingPending,
     resolvingPendingId,
     loadPendingTransfers,
@@ -761,12 +762,12 @@ function WalletPageContent() {
     void loadWallets({ limit: 500 });
     void loadWalletsLookup({ limit: 1000 });
     void loadCurrencies();
-    void loadPendingTransfers();
+    void loadPendingTransfers(canSeeAll);
     // Cargar trabajadores para permitir transferir a cualquiera (aún sin wallet)
     TrabajadorService.getAllTrabajadores()
       .then((data) => setTrabajadores(data))
       .catch((err) => console.error("[wallet] no se pudieron cargar trabajadores", err));
-  }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies, loadPendingTransfers]);
+  }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies, loadPendingTransfers, canSeeAll]);
 
   // Cargar contrapartes (personas con quien se ha transferido) — se refresca al cambiar vista
   useEffect(() => {
@@ -1727,10 +1728,14 @@ function WalletPageContent() {
 
         {/* Pending Transfers */}
         {(() => {
-          // Unificar pendientes en una sola lista (dedupe por id en caso de
-          // que un mismo pending aparezca en ambas). Ordenar por fecha desc.
+          // Para usuarios ver_todos: usar pendingAll (todas las del sistema).
+          // Para el resto: combinar incoming + outgoing del propio usuario.
+          const sourcePending = canSeeAll
+            ? pendingAll
+            : [...pendingIncoming, ...pendingOutgoing];
+          // Dedupe por id por si llegan repetidos y ordenar por fecha desc.
           const seen = new Set<string>();
-          const allPending = [...pendingIncoming, ...pendingOutgoing]
+          const allPending = sourcePending
             .filter((p) => {
               if (seen.has(p.id)) return false;
               seen.add(p.id);

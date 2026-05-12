@@ -47,6 +47,10 @@ import {
   TIPO_CONTENEDOR_LABELS,
   TIPOS_CONTENEDOR,
 } from "@/lib/types/feats/envios-contenedores/envio-contenedor-types";
+import {
+  QuickMaterialCreateDialog,
+  type QuickMaterialData,
+} from "./quick-material-create-dialog";
 
 // ─── types ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +70,10 @@ export interface EnvioContenedorFormDialogProps {
   materials: Material[];
   isLoading?: boolean;
   initialData?: EnvioContenedor;
+  /** Categorías existentes para el atajo "Crear material". */
+  categories?: string[];
+  /** Crea un material y lo devuelve para auto-seleccionarlo. */
+  onCreateMaterial?: (data: QuickMaterialData) => Promise<Material>;
 }
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -146,8 +154,19 @@ export function EnvioContenedorFormDialog({
   materials,
   isLoading = false,
   initialData,
+  categories = [],
+  onCreateMaterial,
 }: EnvioContenedorFormDialogProps) {
   const isEditMode = Boolean(initialData);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+
+  const unidadesDelCatalogo = (() => {
+    const set = new Set<string>();
+    materials.forEach((m) => {
+      if (m.um) set.add(m.um);
+    });
+    return Array.from(set);
+  })();
 
   // General
   const [nombre,       setNombre]       = useState("");
@@ -342,6 +361,7 @@ export function EnvioContenedorFormDialog({
   const busy = isLoading || submitting;
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0 gap-0">
 
@@ -788,17 +808,18 @@ export function EnvioContenedorFormDialog({
             )}
 
             {/* Buscador de materiales */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar material por código o nombre..."
-                value={materialSearch}
-                onChange={(e) => setMaterialSearch(e.target.value)}
-                onFocus={() => {
-                  if (materialResults.length > 0) setShowMaterialDropdown(true);
-                }}
-                className="pl-10"
-              />
+            <div className="flex gap-2 items-stretch">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar material por código o nombre..."
+                  value={materialSearch}
+                  onChange={(e) => setMaterialSearch(e.target.value)}
+                  onFocus={() => {
+                    if (materialResults.length > 0) setShowMaterialDropdown(true);
+                  }}
+                  className="pl-10"
+                />
               {showMaterialDropdown && materialResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto">
                   {materialResults.map((m) => (
@@ -838,6 +859,19 @@ export function EnvioContenedorFormDialog({
                   ))}
                 </div>
               )}
+              </div>
+              {onCreateMaterial && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setQuickCreateOpen(true)}
+                  className="shrink-0 gap-1.5 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                  title="Crear un material rápidamente"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Crear material</span>
+                </Button>
+              )}
             </div>
 
             {matList.length === 0 && !materialSearch && (
@@ -874,5 +908,19 @@ export function EnvioContenedorFormDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    {onCreateMaterial && (
+      <QuickMaterialCreateDialog
+        open={quickCreateOpen}
+        onOpenChange={setQuickCreateOpen}
+        categories={categories}
+        units={unidadesDelCatalogo}
+        onSubmit={onCreateMaterial}
+        onCreated={(material) => {
+          handleAddMaterial(material);
+        }}
+      />
+    )}
+    </>
   );
 }

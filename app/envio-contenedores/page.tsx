@@ -36,6 +36,8 @@ import { Toaster } from "@/components/shared/molecule/toaster";
 import { useToast } from "@/hooks/use-toast";
 import { useMaterials } from "@/hooks/use-materials";
 import { useEnviosContenedores } from "@/hooks/use-envios-contenedores";
+import type { Material } from "@/lib/material-types";
+import type { QuickMaterialData } from "@/components/feats/envios-contenedores/quick-material-create-dialog";
 import { EnvioContenedorFormDialog } from "@/components/feats/envios-contenedores/envio-contenedor-form-dialog";
 import { EnviosContenedoresTable } from "@/components/feats/envios-contenedores/envios-contenedores-table";
 import { EnvioDocumentosPanel } from "@/components/feats/envios-contenedores/envio-documentos-panel";
@@ -62,7 +64,14 @@ export default function EnvioContenedoresPage() {
 
 function EnvioContenedoresContent() {
   const { toast } = useToast();
-  const { materials, loading: loadingMaterials } = useMaterials();
+  const {
+    materials,
+    categories,
+    catalogs,
+    loading: loadingMaterials,
+    createProduct,
+    addMaterialToProduct,
+  } = useMaterials();
 
   const {
     envios,
@@ -127,6 +136,45 @@ function EnvioContenedoresContent() {
   const handleCloseDocs = () => {
     setDocEnvio(null);
     setDocArchivos([]);
+  };
+
+  const handleCreateMaterial = async (data: QuickMaterialData): Promise<Material> => {
+    // Resolver el producto_id por categoría; si no existe, crearla.
+    let productoId =
+      catalogs.find((c) => c.categoria === data.categoria)?.id;
+    if (!productoId) {
+      productoId = await createProduct(data.categoria, []);
+    }
+
+    const payload = {
+      codigo: data.codigo,
+      descripcion: data.descripcion,
+      um: data.um,
+      nombre: data.nombre,
+      marca_id: data.marca_id,
+      potenciaKW: data.potenciaKW,
+    };
+
+    await addMaterialToProduct(productoId, payload, data.categoria);
+
+    const nuevo: Material = {
+      id: `${productoId}_${data.codigo}`,
+      codigo: data.codigo,
+      categoria: data.categoria,
+      descripcion: data.descripcion,
+      um: data.um,
+      nombre: data.nombre,
+      marca_id: data.marca_id,
+      potenciaKW: data.potenciaKW,
+      producto_id: productoId,
+    };
+
+    toast({
+      title: "Material creado",
+      description: `${data.codigo} — ${data.descripcion}`,
+    });
+
+    return nuevo;
   };
 
   const handleDelete = async (id: string) => {
@@ -298,6 +346,8 @@ function EnvioContenedoresContent() {
         onSubmit={handleCreate}
         materials={materials}
         isLoading={creating || loadingMaterials}
+        categories={categories}
+        onCreateMaterial={handleCreateMaterial}
       />
 
       {/* ── Dialog editar ── */}
@@ -308,6 +358,8 @@ function EnvioContenedoresContent() {
         materials={materials}
         isLoading={updating || loadingMaterials}
         initialData={editTarget ?? undefined}
+        categories={categories}
+        onCreateMaterial={handleCreateMaterial}
       />
 
       {/* ── Dialog documentos ── */}

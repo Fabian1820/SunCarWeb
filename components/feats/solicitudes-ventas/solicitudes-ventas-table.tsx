@@ -37,6 +37,9 @@ interface SolicitudesVentasTableProps {
 const getClienteNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
   (s as SolicitudVenta).cliente_venta?.nombre ?? (s as SolicitudVentaSummary).cliente_venta_nombre ?? "-";
 
+const getComercial = (s: SolicitudVenta | SolicitudVentaSummary) =>
+  (s as SolicitudVenta).cliente_venta?.comercial ?? (s as SolicitudVentaSummary).comercial ?? null;
+
 const getAlmacenNombre = (s: SolicitudVenta | SolicitudVentaSummary) =>
   (s as SolicitudVenta).almacen?.nombre ?? (s as SolicitudVentaSummary).almacen_nombre ?? "-";
 
@@ -147,6 +150,11 @@ export function SolicitudesVentasTable({
                   <p className="font-medium text-gray-900">
                     {getClienteNombre(solicitud)}
                   </p>
+                  {getComercial(solicitud) && (
+                    <p className="text-xs text-gray-500 italic">
+                      Comercial: {getComercial(solicitud)}
+                    </p>
+                  )}
                 </td>
                 <td className="py-4 px-4">
                   <div className="flex items-center gap-1.5 text-sm text-gray-700">

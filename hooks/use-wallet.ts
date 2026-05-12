@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { WalletService } from "@/lib/services/feats/wallet/wallet-service";
 import type {
   WalletCurrency,
@@ -30,7 +30,11 @@ export function useWallet() {
   const [loadingWalletsLookup, setLoadingWalletsLookup] = useState(false);
   const [pendingIncoming, setPendingIncoming] = useState<WalletPendingTransfer[]>([]);
   const [pendingOutgoing, setPendingOutgoing] = useState<WalletPendingTransfer[]>([]);
+  const [pendingAll, setPendingAll] = useState<WalletPendingTransfer[]>([]);
   const [loadingPending, setLoadingPending] = useState(false);
+  // Recuerda el último modo (canSeeAll) usado para que los refreshes
+  // automáticos tras aceptar/rechazar/cancelar conserven la vista global.
+  const lastCanSeeAllRef = useRef<boolean>(false);
   const [resolvingPendingId, setResolvingPendingId] = useState<string | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<Wallet | null>(null);
   const [selectedWalletTransactions, setSelectedWalletTransactions] = useState<
@@ -205,15 +209,29 @@ export function useWallet() {
     [],
   );
 
-  const loadPendingTransfers = useCallback(async () => {
+  const loadPendingTransfers = useCallback(async (canSeeAll?: boolean) => {
+    // Si no se pasa explícitamente, usamos el último modo conocido.
+    const effective = canSeeAll ?? lastCanSeeAllRef.current;
+    lastCanSeeAllRef.current = effective;
     setLoadingPending(true);
     try {
-      const [incoming, outgoing] = await Promise.all([
-        WalletService.getPendingTransfers("incoming"),
-        WalletService.getPendingTransfers("outgoing"),
-      ]);
-      setPendingIncoming(incoming);
-      setPendingOutgoing(outgoing);
+      if (effective) {
+        // ver_todos: trae todas las pendientes del sistema en una sola llamada
+        const all = await WalletService.getPendingTransfers("all");
+        setPendingAll(all);
+        // Mantenemos incoming/outgoing derivados del set "all" para conservar
+        // los contadores de las que son para el propio usuario
+        setPendingIncoming(all);
+        setPendingOutgoing(all);
+      } else {
+        const [incoming, outgoing] = await Promise.all([
+          WalletService.getPendingTransfers("incoming"),
+          WalletService.getPendingTransfers("outgoing"),
+        ]);
+        setPendingIncoming(incoming);
+        setPendingOutgoing(outgoing);
+        setPendingAll([]);
+      }
     } catch (err: unknown) {
       console.error("[useWallet] Error loading pending transfers:", err);
     } finally {
@@ -397,6 +415,7 @@ export function useWallet() {
     createCurrency,
     pendingIncoming,
     pendingOutgoing,
+    pendingAll,
     loadingPending,
     resolvingPendingId,
     loadPendingTransfers,

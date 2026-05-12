@@ -32,6 +32,12 @@ const normalizePago = (raw: any): PagoVenta => ({
     raw.cliente_venta?.nombre ??
     raw.solicitud?.cliente_venta?.nombre ??
     null,
+  comercial:
+    raw.comercial ??
+    raw.cliente?.comercial ??
+    raw.cliente_venta?.comercial ??
+    raw.solicitud?.cliente_venta?.comercial ??
+    null,
   // El backend puede devolver el código de la solicitud de distintas formas
   solicitud_codigo:
     raw.solicitud_codigo ??

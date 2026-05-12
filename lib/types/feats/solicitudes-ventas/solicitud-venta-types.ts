@@ -173,6 +173,7 @@ export interface SolicitudVentaSummary {
   estado?: "nueva" | "usada" | "anulada" | string;
   cliente_venta_id?: string | null;
   cliente_venta_nombre?: string | null;
+  comercial?: string | null;
   almacen_nombre?: string;
   creador_nombre?: string;
   /** Cadena legible de materiales — e.g. "4 materiales" (campo legacy) */
