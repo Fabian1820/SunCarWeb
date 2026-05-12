@@ -40,7 +40,9 @@ const normalizeEstado = (raw: any): EstadoEnvioContenedor => {
   const value = String(raw || "").toLowerCase();
   if (value === "cancelado") return "cancelado";
   if (value === "recibido") return "recibido";
-  return "despachado";
+  if (value === "arribado") return "arribado";
+  if (value === "enviado") return "enviado";
+  return "solicitado";
 };
 
 const normalizeTipo = (raw: any): TipoEnvioContenedor | undefined => {

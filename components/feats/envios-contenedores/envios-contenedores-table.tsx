@@ -64,9 +64,11 @@ function TipoIcon({ tipo }: { tipo?: string }) {
 
 function EstadoBadge({ estado }: { estado: EstadoEnvioContenedor }) {
   const styles: Record<EstadoEnvioContenedor, string> = {
+    solicitado: "bg-amber-50   text-amber-700   border-amber-200",
+    enviado:    "bg-blue-50    text-blue-700    border-blue-200",
+    arribado:   "bg-indigo-50  text-indigo-700  border-indigo-200",
     recibido:   "bg-emerald-50 text-emerald-700 border-emerald-200",
-    cancelado:  "bg-red-50    text-red-700    border-red-200",
-    despachado: "bg-blue-50   text-blue-700   border-blue-200",
+    cancelado:  "bg-red-50     text-red-700     border-red-200",
   };
   return (
     <Badge variant="outline" className={`text-xs font-medium ${styles[estado]}`}>
@@ -233,7 +235,7 @@ export function EnviosContenedoresTable({
                         <ArrowRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />
                         <span className="text-xs font-medium">{formatDate(envio.fecha_llegada_aproximada)}</span>
                       </div>
-                      {envio.estado === "despachado" && (
+                      {(envio.estado === "solicitado" || envio.estado === "enviado") && (
                         <DaysLeftChip fecha={envio.fecha_llegada_aproximada} />
                       )}
                     </div>

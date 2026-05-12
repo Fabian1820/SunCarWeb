@@ -79,6 +79,8 @@ export default function ValesSalidaPage() {
     setSearchTerm,
     estadoFilter,
     setEstadoFilter,
+    tipoFilter,
+    setTipoFilter,
     loadVales,
     loadMore, // Nueva función para cargar más
     hasMore, // Flag para saber si hay más registros
@@ -471,7 +473,7 @@ export default function ValesSalidaPage() {
 
         <Card className="border-0 shadow-md mb-6 border-l-4 border-l-orange-600">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
                 <Label
                   htmlFor="search"
@@ -489,6 +491,26 @@ export default function ValesSalidaPage() {
                     className="pl-10"
                   />
                 </div>
+              </div>
+              <div>
+                <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                  Tipo
+                </Label>
+                <Select
+                  value={tipoFilter}
+                  onValueChange={(value) =>
+                    setTipoFilter(value as "todos" | "material" | "venta")
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="material">Material</SelectItem>
+                    <SelectItem value="venta">Venta</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label className="text-sm font-medium text-gray-700 mb-2 block">

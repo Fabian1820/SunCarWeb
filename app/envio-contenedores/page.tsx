@@ -262,7 +262,9 @@ function EnvioContenedoresContent() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="todos">Todos los estados</SelectItem>
-                  <SelectItem value="despachado">Despachado</SelectItem>
+                  <SelectItem value="solicitado">Solicitado</SelectItem>
+                  <SelectItem value="enviado">Enviado</SelectItem>
+                  <SelectItem value="arribado">Arribado</SelectItem>
                   <SelectItem value="recibido">Recibido</SelectItem>
                   <SelectItem value="cancelado">Cancelado</SelectItem>
                 </SelectContent>

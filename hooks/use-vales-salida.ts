@@ -16,6 +16,8 @@ interface UseValesSalidaReturn {
   setSearchTerm: (term: string) => void;
   estadoFilter: "todos" | "usado" | "anulado";
   setEstadoFilter: (estado: "todos" | "usado" | "anulado") => void;
+  tipoFilter: "todos" | "material" | "venta";
+  setTipoFilter: (tipo: "todos" | "material" | "venta") => void;
   loadVales: (almacenId?: string) => Promise<void>; // ← Agregar parámetro opcional
   loadMore: () => Promise<void>; // Nueva función para cargar más
   hasMore: boolean; // Indica si hay más registros por cargar
@@ -38,6 +40,9 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
   const [estadoFilter, setEstadoFilter] = useState<
     "todos" | "usado" | "anulado"
   >("todos");
+  const [tipoFilter, setTipoFilter] = useState<
+    "todos" | "material" | "venta"
+  >("todos");
   const [almacenId, setAlmacenId] = useState<string | undefined>(initialAlmacenId); // ← Inicializado con el valor correcto
 
   // Ref para evitar recrear loadVales en cada render
@@ -49,6 +54,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     try {
       const params: {
         estado?: string;
+        solicitud_tipo?: "material" | "venta";
         q?: string;
         almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
@@ -62,6 +68,11 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       // Si hay un término de búsqueda, agregarlo como 'q' (búsqueda de texto libre)
       if (searchTerm.trim()) {
         params.q = searchTerm.trim();
+      }
+
+      // Filtro por tipo de solicitud (material/venta)
+      if (tipoFilter !== "todos") {
+        params.solicitud_tipo = tipoFilter;
       }
 
       // Si hay un almacén especificado, agregarlo al filtro
@@ -90,7 +101,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     } finally {
       setLoading(false);
     }
-  }, [estadoFilter, searchTerm, almacenId]);
+  }, [estadoFilter, tipoFilter, searchTerm, almacenId]);
 
   // Ahora filteredVales es igual a vales ya que el filtrado lo hace el backend
   const filteredVales = vales;
@@ -103,6 +114,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     try {
       const params: {
         estado?: string;
+        solicitud_tipo?: "material" | "venta";
         q?: string;
         almacen_id?: string; // ← Agregar almacen_id
         skip?: number;
@@ -116,6 +128,11 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       // Si hay búsqueda, mantenerla
       if (searchTerm.trim()) {
         params.q = searchTerm.trim();
+      }
+
+      // Filtro por tipo de solicitud (material/venta)
+      if (tipoFilter !== "todos") {
+        params.solicitud_tipo = tipoFilter;
       }
 
       // Si hay almacén, mantenerlo
@@ -141,7 +158,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     } finally {
       setLoading(false);
     }
-  }, [loading, hasMore, skip, estadoFilter, searchTerm, almacenId, vales.length]);
+  }, [loading, hasMore, skip, estadoFilter, tipoFilter, searchTerm, almacenId, vales.length]);
 
   const createVale = useCallback(
     async (data: ValeSalidaCreateData): Promise<ValeSalida> => {
@@ -212,7 +229,7 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
       setIsSearching(false); // Limpiar indicador si se cancela
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [estadoFilter, searchTerm, almacenId]); // ← Agregar almacenId como dependencia
+  }, [estadoFilter, tipoFilter, searchTerm, almacenId]); // ← Agregar almacenId como dependencia
 
   return {
     vales,
@@ -224,6 +241,8 @@ export function useValesSalida(initialAlmacenId?: string): UseValesSalidaReturn 
     setSearchTerm,
     estadoFilter,
     setEstadoFilter,
+    tipoFilter,
+    setTipoFilter,
     loadVales,
     loadMore, // Nueva función
     hasMore, // Nuevo flag

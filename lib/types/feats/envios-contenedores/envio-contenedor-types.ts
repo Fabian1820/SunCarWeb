@@ -1,5 +1,7 @@
 export const ESTADOS_ENVIO_CONTENEDOR = [
-  "despachado",
+  "solicitado",
+  "enviado",
+  "arribado",
   "recibido",
   "cancelado",
 ] as const;
@@ -172,7 +174,9 @@ export interface AplicarPreciosMaterialPayload {
 }
 
 export const ENVIO_CONTENEDOR_ESTADO_LABELS: Record<EstadoEnvioContenedor, string> = {
-  despachado: "Despachado",
+  solicitado: "Solicitado",
+  enviado: "Enviado",
+  arribado: "Arribado",
   recibido: "Recibido",
   cancelado: "Cancelado",
 };

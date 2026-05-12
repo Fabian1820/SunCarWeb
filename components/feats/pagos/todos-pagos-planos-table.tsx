@@ -12,13 +12,12 @@ import {
 import { Badge } from "@/components/shared/atom/badge";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
-import { Loader2, FileText, Pencil, RotateCcw, Search } from "lucide-react";
+import { Loader2, FileText, RotateCcw, Search } from "lucide-react";
 import type {
   OfertaConPagos,
   Pago,
 } from "@/lib/services/feats/pagos/pago-service";
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service";
-import { EditarPagoDialog } from "./editar-pago-dialog";
 import { RegistrarDevolucionPagoDialog } from "./registrar-devolucion-pago-dialog";
 
 interface TodosPagosPlanosTableProps {
@@ -81,8 +80,6 @@ export function TodosPagosPlanosTable({
   onPagoUpdated,
   showSearch = true,
 }: TodosPagosPlanosTableProps) {
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedPago, setSelectedPago] = useState<PagoConOferta | null>(null);
   const [devolucionDialogOpen, setDevolucionDialogOpen] = useState(false);
   const [pagoParaDevolucion, setPagoParaDevolucion] =
     useState<PagoConOferta | null>(null);
@@ -294,33 +291,6 @@ export function TodosPagosPlanosTable({
         totalPagadoAnteriormente > 0 ? totalPagadoAnteriormente : undefined,
       monto_pendiente_despues_pago: pendienteDespuesPago,
     });
-  };
-
-  const handleEditarPago = (pago: PagoConOferta) => {
-    setSelectedPago(pago);
-    setEditDialogOpen(true);
-  };
-
-  const handlePagoEditSuccess = (montoPendienteActualizado?: number) => {
-    setEditDialogOpen(false);
-
-    // Si recibimos el monto pendiente actualizado, actualizar la UI inmediatamente
-    if (montoPendienteActualizado !== undefined && selectedPago) {
-      console.log(
-        "💰 Actualizando monto pendiente en UI:",
-        montoPendienteActualizado,
-      );
-      console.log("📝 Oferta afectada:", selectedPago.oferta.numero_oferta);
-
-      // Actualizar el monto pendiente en el objeto de la oferta seleccionada
-      selectedPago.oferta.monto_pendiente = montoPendienteActualizado;
-    }
-
-    setSelectedPago(null);
-    console.log("🔄 Recargando datos después de editar pago...");
-    if (onPagoUpdated) {
-      onPagoUpdated();
-    }
   };
 
   const handleOpenDevolucionDialog = (pago: PagoConOferta) => {
@@ -566,15 +536,6 @@ export function TodosPagosPlanosTable({
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleEditarPago(pago)}
-                    className="h-8 w-8 p-0"
-                    title="Editar pago"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
                     onClick={() => handleOpenDevolucionDialog(pago)}
                     className="h-8 w-8 p-0 text-amber-700 border-amber-300 hover:bg-amber-50"
                     title="Registrar devolucion"
@@ -596,17 +557,6 @@ export function TodosPagosPlanosTable({
           ))}
         </TableBody>
       </Table>
-
-      {/* Diálogo de edición de pago */}
-      {selectedPago && (
-        <EditarPagoDialog
-          open={editDialogOpen}
-          onOpenChange={setEditDialogOpen}
-          pago={selectedPago}
-          oferta={selectedPago.oferta}
-          onSuccess={handlePagoEditSuccess}
-        />
-      )}
 
       {pagoParaDevolucion && (
         <RegistrarDevolucionPagoDialog
