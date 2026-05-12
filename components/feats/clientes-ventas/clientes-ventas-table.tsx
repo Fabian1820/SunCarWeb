@@ -130,14 +130,12 @@ export function ClientesVentasTable({
                 )}
 
                 {/* comercial */}
-                {cliente.comercial && (
-                  <div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-teal-50 text-teal-700 border border-teal-200">
-                      <UserRound className="h-3 w-3" />
-                      {cliente.comercial}
-                    </span>
-                  </div>
-                )}
+                <div>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                    <UserRound className="h-3 w-3" />
+                    {cliente.comercial || "SunCar"}
+                  </span>
+                </div>
 
                 {/* ubicación */}
                 {ubicacion && (
@@ -256,13 +254,9 @@ export function ClientesVentasTable({
                     <td className="py-4 px-4 text-gray-700">{cliente.telefono || "-"}</td>
                     <td className="py-4 px-4 text-gray-700">{cliente.ci || "-"}</td>
                     <td className="py-4 px-4 text-gray-700">
-                      {cliente.comercial ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
-                          {cliente.comercial}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-teal-50 text-teal-700 border border-teal-200">
+                        {cliente.comercial || "SunCar"}
+                      </span>
                     </td>
                     <td className="py-4 px-4 text-gray-700">{cliente.provincia || "-"}</td>
                     <td className="py-4 px-4 text-gray-700">{cliente.municipio || "-"}</td>

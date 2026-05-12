@@ -300,7 +300,7 @@ export function UpsertClienteVentaDialog({
                 />
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
-                <SelectItem value="sin-asignar">Sin asignar</SelectItem>
+                <SelectItem value="sin-asignar">SunCar (predeterminado)</SelectItem>
                 {comerciales.map((c) => (
                   <SelectItem key={c.CI} value={c.nombre}>
                     {c.nombre}
