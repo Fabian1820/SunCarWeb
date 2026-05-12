@@ -2,6 +2,85 @@
 
 ---
 
+## 📅 11 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Módulo Wallet (refactor masivo), Ficha de Costo/Envíos de Contenedores, RRHH, Ventas/Comerciales (yany1509)**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `d23761a` | Ruben/Claude | feat(wallet): nuevo módulo wallet-manager y filtrado del historial por permisos |
+| `f701d49` | Ruben/Claude | feat(wallet): mostrar billeteras del equipo inline con detalle expandible |
+| `97c5378` | Ruben/Claude | feat(wallet): wallet visible para todos + buscador en transferencias |
+| `d0926bf` | Ruben/Claude | feat(pagos): enviar recibido_por_ci para depósito automático en wallet |
+| `f30cc77` | Ruben/Claude | feat(wallet): hero multi-moneda, formulario multi-moneda y totales del equipo |
+| `39f8959` | Ruben/Claude | fix(wallet): ocultar billeteras del equipo sin saldo |
+| `1f1e9dc` | Ruben/Claude | feat(wallet): mostrar top 6 billeteras del equipo, resto por buscador |
+| `0b4716d` | Ruben/Claude | refactor(wallet): eliminar selector de fuente e integración bancaria |
+| `bfab04a` | Ruben/Claude | feat(wallet): transferencias requieren aceptación del destinatario |
+| `c89603` | Ruben/Claude | feat(wallet): historial más intuitivo con detalle por transacción |
+| `350a3a6` | Ruben/Claude | refactor(wallet): unificar transferencias pendientes en una sola lista |
+| `37f3f31` | Ruben/Claude | feat(wallet): toggle Propias/Todas, totales incluyen propia, transfer a cualquier trabajador |
+| `d0eed82` | Ruben/Claude | feat(rrhh): agregar campo teléfono a trabajadores en CRUD de recursos humanos |
+| `47f5de2` | Ruben/Claude | feat(rrhh): hacer editable el nombre del trabajador en la tabla |
+| `1bc4486` | Fabian1820 | Mejoras en gestión de precios en módulo de envíos de contenedores |
+| `347aed9` | Fabian1820 | Refactorización cálculo de precios ficha de costo: separa recargo e impuesto_porcentaje |
+| `510e7e7` | yany1509 | "cobros por ofertas y nuevo modulo" — sin descripción |
+| `669e8e1` | yany1509 | "pagos ventas" — sin descripción |
+| `5914722` | yany1509 | "ventas" — sin descripción |
+| `0eba2a1` | yany1509 | "comisiones ventas" — sin descripción |
+| `e2210bc` | yany1509 | "ventas y mauricio" — sin descripción |
+| `22bfd1a` | yany1509 | "ajustes en ventas solictiudes" — sin descripción |
+| `94e2a76` | yany1509 | "orden" — sin descripción |
+| `b1c49dc` | yany1509 | "descuehto free" — sin descripción |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **El flujo de transferencias pendientes requiere múltiples endpoints nuevos de backend que podrían no existir aún**
+   - `POST /wallet/wallets/ensure` — inicializa wallet automáticamente para destinatarios sin una
+   - `POST /wallet/pending-transfers` — crea la transferencia pendiente
+   - `PUT /wallet/pending-transfers/{id}/accept`
+   - `PUT /wallet/pending-transfers/{id}/reject`
+   - `DELETE /wallet/pending-transfers/{id}` (cancelar)
+   - Si alguno no existe, el flujo de transferencias rompe silenciosamente o con 404 sin feedback claro al usuario.
+   - **Acción urgente:** Verificar que todos estos endpoints existen en LlegoBackend antes de usar en producción.
+
+2. **`recibido_por_ci` en endpoint de pagos — auto-depósito en wallet no confirmado**
+   - El commit asume que el backend detecta este campo y acredita automáticamente la billetera del trabajador con el CI correspondiente. Si el backend lo ignora, los pagos se procesan sin acreditar ninguna billetera.
+   - **Acción urgente:** Confirmar en LlegoBackend que el endpoint de pagos maneja `recibido_por_ci`.
+
+3. **8 commits vagos de yany1509 en el día** ("descuehto free", "orden", "comisiones ventas", "ajustes en ventas solictiudes", "ventas", "ventas y mauricio", "pagos ventas", "cobros por ofertas y nuevo modulo")
+   - Afectan ventas, comerciales, cobros por ofertas. Sin auditoría posible. "cobros por ofertas y nuevo modulo" sugiere un módulo nuevo sin documentación.
+   - **Acción recomendada:** Revisar diffs de estos commits manualmente antes de considerar estable el módulo de ventas.
+
+#### 🟡 Riesgos medios
+
+4. **Wallet ahora visible para todos los usuarios (sin RouteGuard)**
+   - Todo usuario autenticado puede acceder a `/wallet`. Verificar que los permisos granulares (`ver_todos`, etc.) ocultan correctamente las billeteras ajenas y que el backend valida pertenencia en cada operación.
+
+5. **Separación de `recargo` e `impuesto_porcentaje` en ficha de costo — rompe fichas existentes si el backend no actualiza su modelo**
+   - El refactor cambia los campos enviados al guardar una ficha. Si el backend espera el campo unificado anterior, los cálculos de precios en envíos de contenedores serán incorrectos.
+   - **Acción recomendada:** Verificar que el payload de guardado coincide exactamente con lo que el backend espera.
+
+6. **Toggle "Propias/Todas" en historial**
+   - Verificar que cuando está en "Todas", el endpoint retorna realmente todas las transacciones del equipo y no solo las del usuario autenticado.
+
+7. **RRHH — campos editables (nombre y teléfono) dependen del backend**
+   - Si el endpoint de actualización de trabajadores no acepta `nombre` o `telefono`, los cambios se pierden silenciosamente.
+
+#### 🟢 Mejoras positivas
+
+8. **Multi-moneda en wallet (USD, EUR, CUP)** — interfaz más clara para equipos que operan con varias divisas simultáneamente.
+9. **Transferencias con flujo de aceptación** — evita transferencias accidentales; el destinatario puede rechazar antes de que se acredite.
+10. **Wallet automático en transferencias** — `ensure` previene errores de "destinatario sin wallet" en producción.
+11. **Separación recargo/impuesto en ficha de costo** — cálculos más transparentes y auditables.
+12. **Nombre editable inline en RRHH** — mejora UX evitando abrir modal para cambios simples.
+
+---
+
 ## 📅 10 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -75,7 +154,7 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
    - El campo fue añadido al formulario. Si el endpoint de guardado no lo incluye en el payload o el backend no lo mapea, el dato se pierde silenciosamente.
    - **Acción recomendada:** Confirmar que `FichaCostoService` incluye `numero_serie` en el body del request de actualización.
 
-7. **Sequencia iterativa de commits en fichas-costo (6 commits de Fabian1820 en ~2h)**
+7. **Secuencia iterativa de commits en fichas-costo (6 commits de Fabian1820 en ~2h)**
    - Patrón de desarrollo incremental rápido sin tests intermedios. Riesgo de regresiones entre funcionalidades del mismo módulo.
    - **Consideración:** Probar el flujo completo de fichas-costo: búsqueda de material → edición de precios → stockaje mínimo → guardado → verificación en tabla.
 
@@ -190,19 +269,5 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 
 6. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos** con click handlers y densidad correcta.
 7. **Módulo Asignaciones a Empleados** con comboboxes buscables y modales con tabs.
-
----
-
-## 📅 3 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario Claude".
-
-#### Consideraciones pendientes
-
-- El commit `c4f92e5` de yany1509 (mayo 2) sobre `confeccion-ofertas-view` debe revisarse manualmente para confirmar que no reintroduce la lógica de valores stale corregida el mismo día.
-- El módulo de clientes (refactor masivo en `14ecc37`, 2308 líneas cambiadas) requiere prueba end-to-end en staging.
-- `PersonalMessageOverlay` montado en `layout.tsx` (todas las páginas) debe verificarse con manejo de errores adecuado antes de producción.
 
 ---

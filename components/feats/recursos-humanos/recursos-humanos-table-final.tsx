@@ -183,7 +183,7 @@ export function RecursosHumanosTableFinal({
     setEditando(null)
   }
 
-  const CAMPOS_TEXTO = ['cargo', 'telefono']
+  const CAMPOS_TEXTO = ['nombre', 'cargo', 'telefono']
 
   const guardarCampo = async (ci: string, campo: string) => {
     const key = `${ci}-${campo}`
@@ -389,7 +389,11 @@ export function RecursosHumanosTableFinal({
                     onMouseLeave={() => setFilaResaltada(null)}
                   >
                     <div>
-                      <p className="font-medium text-gray-900">{trabajador.nombre}</p>
+                      <div className="font-medium text-gray-900">
+                        {isVistaHistorica
+                          ? trabajador.nombre
+                          : renderCampoEditable(trabajador, 'nombre', trabajador.nombre, 'text')}
+                      </div>
                       <div className="flex items-center gap-1 mt-1">
                         {!trabajador.is_brigadista ? (
                           <AsistenciaBadge

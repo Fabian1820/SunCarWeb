@@ -16,8 +16,15 @@ const fmt = (v?: number) => {
 
 const fmtDate = (d?: string) => {
   if (!d) return "—";
-  const p = new Date(d);
-  if (isNaN(p.getTime())) return d;
+  // Parsear solo la parte YYYY-MM-DD como fecha local para evitar el desfase de un día
+  // que ocurre cuando JS interpreta "2026-05-12" como UTC en zonas con offset negativo.
+  const [y, m, day] = d.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !day) {
+    const p = new Date(d);
+    if (isNaN(p.getTime())) return d;
+    return p.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+  }
+  const p = new Date(y, m - 1, day);
   return p.toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
 };
 
@@ -99,10 +106,12 @@ const extractMateriales = (factura: FacturaVentaResumen): { rows: MatRow[]; hasD
 };
 
 export class ExportFacturaVentaConsolidadaService {
-  static async exportarPDF(factura: FacturaVentaResumen): Promise<void> {
-    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-    const logo = await resolveLogo();
-
+  // Renderiza una factura en la página actual del documento.
+  private static renderFactura(
+    doc: jsPDF,
+    factura: FacturaVentaResumen,
+    logo: string | null,
+  ): void {
     const W = 210;
     const ml = 20;
     const mr = W - ml;
@@ -317,7 +326,28 @@ export class ExportFacturaVentaConsolidadaService {
     doc.setFontSize(7);
     doc.setTextColor(209, 213, 219);
     doc.text(`${EMPRESA.nombreLargo}  ·  ${EMPRESA.direccion}`, W / 2, 291, { align: "center" });
+  }
 
+  static async exportarPDF(factura: FacturaVentaResumen): Promise<void> {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const logo = await resolveLogo();
+    this.renderFactura(doc, factura, logo);
     doc.save(`Factura_${factura.numero_factura || "sin_numero"}.pdf`);
+  }
+
+  // Exporta múltiples facturas en un solo PDF, una por página.
+  static async exportarMultiplesPDF(
+    facturas: FacturaVentaResumen[],
+    nombreArchivo?: string,
+  ): Promise<void> {
+    if (facturas.length === 0) return;
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const logo = await resolveLogo();
+    facturas.forEach((factura, idx) => {
+      if (idx > 0) doc.addPage();
+      this.renderFactura(doc, factura, logo);
+    });
+    const fecha = new Date().toISOString().slice(0, 10);
+    doc.save(nombreArchivo ?? `Facturas_${fecha}.pdf`);
   }
 }
