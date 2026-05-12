@@ -265,10 +265,14 @@ function TransactionsResponsiveList({
                 <Info className="h-3.5 w-3.5 text-slate-300 shrink-0 mt-0.5" />
               </div>
 
-              <p className={`text-base font-bold ${amountColor} tabular-nums`}>
-                {sign}
-                {formatMoney(transaction.monto, rowCurrency)}
-              </p>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <p className={`text-base font-bold ${amountColor} tabular-nums`}>
+                  {sign}{formatMoney(transaction.monto, rowCurrency)}
+                </p>
+                <span className="text-[10px] font-semibold px-1 rounded bg-slate-100 text-slate-500">
+                  {rowCurrency}
+                </span>
+              </div>
 
               {parties ? (
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs">
@@ -295,7 +299,12 @@ function TransactionsResponsiveList({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block rounded-xl border border-slate-100 overflow-hidden bg-white">
+      <div
+        className="hidden md:block overflow-x-auto"
+        style={{ transform: "scaleY(-1)" }}
+      >
+      <div style={{ transform: "scaleY(-1)" }}>
+      <div className="rounded-xl border border-slate-100 overflow-hidden bg-white">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
@@ -366,8 +375,12 @@ function TransactionsResponsiveList({
                     )}
                   </TableCell>
                   <TableCell className={`font-bold tabular-nums text-right whitespace-nowrap ${amountColor}`}>
-                    {sign}
-                    {formatMoney(transaction.monto, rowCurrency)}
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span>{sign}{formatMoney(transaction.monto, rowCurrency)}</span>
+                      <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500">
+                        {rowCurrency}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="max-w-[260px]">
                     <p className="truncate text-sm text-slate-600">
@@ -382,6 +395,8 @@ function TransactionsResponsiveList({
             })}
           </TableBody>
         </Table>
+      </div>
+      </div>
       </div>
     </>
   );
@@ -601,6 +616,7 @@ function WalletPageContent() {
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
   const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
+  const [currencyDistributionModal, setCurrencyDistributionModal] = useState<{ code: string; name: string } | null>(null);
 
   const openTransactionDetail = (transaction: WalletTransaction) => {
     setSelectedTransaction(transaction);
@@ -977,6 +993,25 @@ function WalletPageContent() {
     }
     return Array.from(totals.values()).filter((t) => t.amount !== 0);
   }, [allTeamWallets, currencies, wallet]);
+
+  const currencyDistributionList = useMemo(() => {
+    if (!currencyDistributionModal) return [];
+    const code = currencyDistributionModal.code.toUpperCase();
+    const allWalletsAll = [...(wallet ? [wallet] : []), ...allTeamWallets];
+    return allWalletsAll
+      .map((w) => {
+        const balance = w.balances?.find((b) => b.currency_code.toUpperCase() === code);
+        return {
+          id: w.id,
+          nombre: w.user_nombre,
+          ci: w.user_ci,
+          amount: Number(balance?.amount || 0),
+          isOwn: w.id === wallet?.id,
+        };
+      })
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  }, [currencyDistributionModal, wallet, allTeamWallets]);
 
   const handleAcceptPending = async (pendingId: string) => {
     try {
@@ -1487,9 +1522,11 @@ function WalletPageContent() {
                     </p>
                     <div className="flex flex-wrap justify-end gap-1.5">
                       {teamTotalsByCurrency.map((t) => (
-                        <div
+                        <button
                           key={t.code}
-                          className="flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1"
+                          onClick={() => setCurrencyDistributionModal({ code: t.code, name: t.name })}
+                          className="flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1 hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                          title={`Ver distribución de ${t.code} por billetera`}
                         >
                           <span className="text-[10px] font-bold text-slate-500">
                             {t.code}
@@ -1497,7 +1534,7 @@ function WalletPageContent() {
                           <span className="text-xs font-bold text-slate-800 tabular-nums">
                             {formatMoney(t.amount, t.code)}
                           </span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1749,10 +1786,14 @@ function WalletPageContent() {
                             {formatDateTime(p.created_at)}
                           </p>
                         </div>
-                        <p className={`text-base font-bold ${amountColor} tabular-nums shrink-0`}>
-                          {sign}
-                          {formatMoney(Number(p.monto), p.currency_code)}
-                        </p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <p className={`text-base font-bold ${amountColor} tabular-nums`}>
+                            {sign}{formatMoney(Number(p.monto), p.currency_code)}
+                          </p>
+                          <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500">
+                            {p.currency_code}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Motivo */}
@@ -1803,34 +1844,11 @@ function WalletPageContent() {
                           Cancelar transferencia
                         </Button>
                       ) : (
-                        // Admin view (no es ni emisor ni receptor)
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-slate-300"
-                            onClick={() => void handleCancelPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
-                            onClick={() => void handleRejectPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            Rechazar
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => void handleAcceptPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            Aceptar
-                          </Button>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            Pendiente de aceptación
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1918,6 +1936,80 @@ function WalletPageContent() {
           </CardContent>
         </Card>
       </main>
+
+      {/* Currency Distribution Modal */}
+      <Dialog
+        open={!!currencyDistributionModal}
+        onOpenChange={(open) => { if (!open) setCurrencyDistributionModal(null); }}
+      >
+        <DialogContent className="max-w-md mx-4 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Wallet className="h-5 w-5 text-slate-600" />
+              Distribución · {currencyDistributionModal?.code}
+              {currencyDistributionModal?.name && (
+                <span className="text-xs font-normal text-slate-400">({currencyDistributionModal.name})</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+            {currencyDistributionList.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4 text-center">
+                No hay saldos para esta moneda.
+              </p>
+            ) : (
+              currencyDistributionList.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                    item.isOwn
+                      ? "border-slate-300 bg-slate-100"
+                      : "border-slate-100 bg-slate-50"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {item.nombre}
+                      </p>
+                      {item.isOwn && (
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-300 text-slate-600 shrink-0">
+                          TÚ
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400">CI: {item.ci}</p>
+                  </div>
+                  <span
+                    className={`text-sm font-bold tabular-nums ml-3 ${
+                      idx === 0 ? "text-emerald-600" : "text-slate-700"
+                    }`}
+                  >
+                    {formatMoney(item.amount, currencyDistributionModal!.code)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+
+          {currencyDistributionList.length > 0 && (
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-xs text-slate-500">
+                {currencyDistributionList.length}{" "}
+                {currencyDistributionList.length === 1 ? "billetera" : "billeteras"}
+              </p>
+              <p className="text-sm font-bold text-slate-800 tabular-nums">
+                Total:{" "}
+                {formatMoney(
+                  currencyDistributionList.reduce((sum, item) => sum + item.amount, 0),
+                  currencyDistributionModal!.code,
+                )}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Currency Management Modal */}
       <Dialog open={isCurrencyModalOpen} onOpenChange={setIsCurrencyModalOpen}>
