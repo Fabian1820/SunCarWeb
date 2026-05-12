@@ -15,41 +15,52 @@ const BASE_FACTURAS = "/facturas-ventas";
 const BASE_FACTURAS_LEGACY = "/facturas-clientes-ventas";
 const BASE_FACTURAS_OPERACIONES = "/operaciones/facturas-ventas";
 
-const normalizePago = (raw: any): PagoVenta => ({
-  ...raw,
-  // El backend puede devolver numero_factura en lugar de factura_numero
-  factura_numero:
-    raw.factura_numero ??
-    raw.numero_factura ??
-    raw.factura?.numero_factura ??
-    raw.pago?.numero_factura ??
-    null,
-  // El backend puede devolver el nombre del cliente en distintas keys
-  cliente_nombre:
-    raw.cliente_nombre ??
-    raw.nombre_cliente ??
-    raw.cliente?.nombre ??
-    raw.cliente_venta?.nombre ??
-    raw.solicitud?.cliente_venta?.nombre ??
-    null,
-  comercial:
-    raw.comercial ??
-    raw.cliente?.comercial ??
-    raw.cliente_venta?.comercial ??
-    raw.solicitud?.cliente_venta?.comercial ??
-    null,
-  // El backend puede devolver el código de la solicitud de distintas formas
-  solicitud_codigo:
-    raw.solicitud_codigo ??
-    raw.codigo_solicitud ??
-    raw.solicitud?.codigo ??
-    null,
-  // Materiales: a veces vienen anidados en la solicitud
-  materiales:
-    raw.materiales ??
-    raw.solicitud?.materiales ??
-    null,
-});
+const normalizePago = (raw: any): PagoVenta => {
+  const pago = raw.pago ?? {};
+  return {
+    ...raw,
+    ...pago,
+    id: raw.id ?? pago.id ?? null,
+    factura_numero:
+      raw.factura_numero ??
+      raw.numero_factura ??
+      raw.factura?.numero_factura ??
+      pago.numero_factura ??
+      null,
+    cliente_nombre:
+      raw.cliente_nombre ??
+      raw.nombre_cliente ??
+      raw.cliente?.nombre ??
+      raw.cliente_venta?.nombre ??
+      raw.solicitud?.cliente_venta?.nombre ??
+      null,
+    comercial:
+      raw.comercial ??
+      raw.cliente?.comercial ??
+      raw.cliente_venta?.comercial ??
+      raw.solicitud?.cliente_venta?.comercial ??
+      null,
+    solicitud_codigo:
+      raw.solicitud_codigo ??
+      raw.codigo_solicitud ??
+      raw.solicitud?.codigo ??
+      null,
+    materiales:
+      raw.materiales ??
+      raw.solicitud?.materiales ??
+      null,
+    monto: raw.monto ?? pago.monto ?? null,
+    moneda: raw.moneda ?? pago.moneda ?? null,
+    monto_usd: raw.monto_usd ?? pago.monto_usd ?? null,
+    metodo_pago: raw.metodo_pago ?? pago.metodo_pago ?? null,
+    desglose_billetes: raw.desglose_billetes ?? pago.desglose_billetes ?? null,
+    tasa_cambio: raw.tasa_cambio ?? pago.tasa_cambio ?? null,
+    recibido_por: raw.recibido_por ?? pago.recibido_por ?? null,
+    notas: raw.notas ?? pago.notas ?? null,
+    descuento_porcentaje: raw.descuento_porcentaje ?? pago.descuento_porcentaje ?? null,
+    monto_pendiente_despues_pago: raw.monto_pendiente_despues_pago ?? pago.monto_pendiente_despues_pago ?? null,
+  };
+};
 
 export class PagoVentaService {
   static async getSolicitudesPendientes(): Promise<SolicitudVenta[]> {
@@ -104,7 +115,7 @@ export class PagoVentaService {
     const res: any = await apiRequest(`${BASE}/${encodeURIComponent(id)}`);
     if (res?.error?.message) throw new Error(res.error.message);
     if (res?.detail) throw new Error(res.detail);
-    return res;
+    return normalizePago(res?.data ?? res);
   }
 
   static async registrarPago(data: PagoVentaCreateData): Promise<PagoVenta> {

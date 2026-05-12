@@ -40,8 +40,8 @@ type ClientesFilters = {
   fechaDesde: string;
   fechaHasta: string;
   mes: string;
-  provincia: string;
-  municipio: string;
+  provincia: string[];
+  municipio: string[];
   ofertas: string;
   tiempo: string;
   skip: number;
@@ -208,12 +208,12 @@ const matchesClientLocalFilters = (
     | "tiempo"
   >,
 ): boolean => {
-  if (filters.provincia) {
-    if ((client.provincia_montaje || "").trim() !== filters.provincia)
+  if (filters.provincia.length > 0) {
+    if (!filters.provincia.includes((client.provincia_montaje || "").trim()))
       return false;
   }
-  if (filters.municipio) {
-    if ((client.municipio || "").trim() !== filters.municipio) return false;
+  if (filters.municipio.length > 0) {
+    if (!filters.municipio.includes((client.municipio || "").trim())) return false;
   }
   if (filters.ofertas) {
     const tieneOfertas = getTieneOfertasCliente(client);
@@ -296,8 +296,8 @@ export default function ClientesPage() {
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
-    provincia: "",
-    municipio: "",
+    provincia: [] as string[],
+    municipio: [] as string[],
     ofertas: "",
     tiempo: "",
     skip: 0,
@@ -322,8 +322,8 @@ export default function ClientesPage() {
           prev.fechaDesde !== newFilters.fechaDesde ||
           prev.fechaHasta !== newFilters.fechaHasta ||
           prev.mes !== newFilters.mes ||
-          prev.provincia !== newFilters.provincia ||
-          prev.municipio !== newFilters.municipio ||
+          prev.provincia.join(",") !== newFilters.provincia.join(",") ||
+          prev.municipio.join(",") !== newFilters.municipio.join(",") ||
           prev.ofertas !== newFilters.ofertas ||
           prev.tiempo !== newFilters.tiempo;
 
@@ -455,32 +455,41 @@ export default function ClientesPage() {
         const normalizedEstado = Array.from(
           new Set(filters.estado.map((value) => value.trim()).filter(Boolean)),
         );
-        // El backend soporta server-side: q, estado, fuente, comercial, provincia, municipio, fechaDesde, fechaHasta
-        // Sólo mes/ofertas/tiempo se filtran localmente (requieren fetch-all)
+        // El backend soporta server-side: q, estado, fuente, comercial, provincia (1 valor), municipio (1 valor), fechaDesde, fechaHasta
+        // Múltiples provincias/municipios y mes/ofertas/tiempo se filtran localmente
+        const multiProvincia = filters.provincia.length > 1;
+        const multiMunicipio = filters.municipio.length > 1;
         const hasLocalOnlyFilter = Boolean(
-          filters.mes || filters.ofertas || filters.tiempo,
+          filters.mes || filters.ofertas || filters.tiempo || multiProvincia || multiMunicipio,
         );
+
+        // Pasar al backend solo si hay exactamente 1 valor (compatibilidad API)
+        const serverProvincia = filters.provincia.length === 1 ? filters.provincia[0] : undefined;
+        const serverMunicipio = filters.municipio.length === 1 ? filters.municipio[0] : undefined;
 
         const baseParams = {
           q: searchValue || undefined,
           estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
           fuente: filters.fuente || undefined,
           comercial: filters.comercial || undefined,
-          provincia: filters.provincia || undefined,
-          municipio: filters.municipio || undefined,
+          provincia: serverProvincia,
+          municipio: serverMunicipio,
           fechaDesde: filters.fechaDesde || undefined,
           fechaHasta: filters.fechaHasta || undefined,
         };
 
         if (hasLocalOnlyFilter) {
           const all = await fetchAllClientsByBaseFilters(baseParams);
+          // Provincias/municipios extra (>1) se filtran localmente; si hay 1 ya lo aplicó el backend
+          const localProvincia = multiProvincia ? filters.provincia : [];
+          const localMunicipio = multiMunicipio ? filters.municipio : [];
           const filtered = all.filter((client) =>
             matchesClientLocalFilters(client, {
-              fechaDesde: "", // ya aplicado por backend
+              fechaDesde: "",
               fechaHasta: "",
               mes: filters.mes,
-              provincia: "", // ya aplicado por backend
-              municipio: "",
+              provincia: localProvincia,
+              municipio: localMunicipio,
               ofertas: filters.ofertas,
               tiempo: filters.tiempo,
             }),
@@ -529,24 +538,30 @@ export default function ClientesPage() {
       ),
     );
 
+    const exportProvincia = appliedFilters.provincia.length === 1 ? appliedFilters.provincia[0] : undefined;
+    const exportMunicipio = appliedFilters.municipio.length === 1 ? appliedFilters.municipio[0] : undefined;
+
     const result = await fetchAllClientsByBaseFilters({
       q: searchValue || undefined,
       estado: normalizedEstado.length > 0 ? normalizedEstado : undefined,
       fuente: appliedFilters.fuente || undefined,
       comercial: appliedFilters.comercial || undefined,
-      provincia: appliedFilters.provincia || undefined,
-      municipio: appliedFilters.municipio || undefined,
+      provincia: exportProvincia,
+      municipio: exportMunicipio,
       fechaDesde: appliedFilters.fechaDesde || undefined,
       fechaHasta: appliedFilters.fechaHasta || undefined,
     });
+
+    const localProvinciaExport = appliedFilters.provincia.length > 1 ? appliedFilters.provincia : [];
+    const localMunicipioExport = appliedFilters.municipio.length > 1 ? appliedFilters.municipio : [];
 
     const filtered = result.filter((client) =>
       matchesClientLocalFilters(client, {
         fechaDesde: "",
         fechaHasta: "",
         mes: appliedFilters.mes,
-        provincia: "",
-        municipio: "",
+        provincia: localProvinciaExport,
+        municipio: localMunicipioExport,
         ofertas: appliedFilters.ofertas,
         tiempo: appliedFilters.tiempo,
       }),
@@ -857,10 +872,16 @@ export default function ClientesPage() {
         ofertaTexto = ofertasFormateadas.join(" • ") || "";
       }
 
+      const fechaCreacion = parseClientDate(client.fecha_creacion) ?? parseClientDate(client.created_at);
+      const fechaFormateada = fechaCreacion
+        ? `${String(fechaCreacion.getDate()).padStart(2, "0")}/${String(fechaCreacion.getMonth() + 1).padStart(2, "0")}/${fechaCreacion.getFullYear()}`
+        : "N/A";
+
       const baseData: Record<string, string | number> = {
         numero: index + 1,
         nombre: client.nombre || "N/A",
         telefono: client.telefono || "N/A",
+        fecha_creacion: fechaFormateada,
         provincia: client.provincia_montaje || "N/A",
         municipio: client.municipio || "N/A",
         direccion: client.direccion || "N/A",
@@ -881,6 +902,7 @@ export default function ClientesPage() {
       { header: "No.", key: "numero", width: 4 },
       { header: "Nombre", key: "nombre", width: 14 },
       { header: "Teléfono", key: "telefono", width: 14 },
+      { header: "Fecha de Creación", key: "fecha_creacion", width: 14 },
       { header: "Provincia", key: "provincia", width: 12 },
       { header: "Municipio", key: "municipio", width: 12 },
       { header: "Dirección", key: "direccion", width: 38 },

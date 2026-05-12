@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/shared/atom/button";
 import { Input } from "@/components/shared/molecule/input";
 import { Badge } from "@/components/shared/atom/badge";
@@ -26,6 +26,8 @@ interface FacturasVentasTableProps {
   onTicket?: (factura: FacturaClienteVenta) => void;
   /** Exporta todas las facturas listadas (respetando filtros) en un único PDF, una por página. */
   onExportarTodas?: (facturas: FacturaClienteVenta[]) => Promise<void> | void;
+  /** Filtro externo por moneda de pago */
+  monedaFilter?: string;
   /** "embedded": sin borde propio, controles con padding lateral, tabla a todo el ancho */
   variant?: "default" | "embedded";
 }
@@ -40,6 +42,7 @@ export function FacturasVentasTable({
   onExportar,
   onTicket,
   onExportarTodas,
+  monedaFilter,
   variant = "default",
 }: FacturasVentasTableProps) {
   const [search, setSearch] = useState("");
@@ -58,14 +61,14 @@ export function FacturasVentasTable({
     }
     return getSolicitudCode(f);
   };
-  const formatCurrency = (v?: number) => {
+  const formatNum = (v?: number) => {
     const n = Number(v);
     if (!Number.isFinite(n)) return "—";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-    }).format(n);
+    return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+  const formatCurrency = (v?: number) => {
+    const s = formatNum(v);
+    return s === "—" ? s : `USD ${s}`;
   };
 
   const formatDate = (d: string) => {
@@ -83,7 +86,14 @@ export function FacturasVentasTable({
     });
   };
 
-  const filtered = facturas.filter((f) => {
+  const filtered = useMemo(() => facturas.filter((f) => {
+    if (monedaFilter) {
+      const pagos = Array.isArray(f.pagos) ? f.pagos : [];
+      const tieneMoneda = pagos.length === 0
+        ? monedaFilter === "USD"
+        : pagos.some((p) => (p.moneda || "USD") === monedaFilter);
+      if (!tieneMoneda) return false;
+    }
     if (!search.trim()) return true;
     const term = search.toLowerCase();
     return (
@@ -97,7 +107,35 @@ export function FacturasVentasTable({
       getSolicitudId(f).toLowerCase().includes(term) ||
       getSolicitudesDisplay(f).toLowerCase().includes(term)
     );
-  });
+  }), [facturas, search, monedaFilter]);
+
+  const totalesPorMoneda = useMemo(() => {
+    const map: Record<string, { facturado: number; cobrado: number; pendiente: number; descuento: number }> = {};
+    for (const f of filtered) {
+      const pagos = Array.isArray(f.pagos) ? f.pagos : [];
+      if (pagos.length === 0) {
+        const m = "USD";
+        if (!map[m]) map[m] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+        map[m].facturado += Number(f.total_a_pagar || 0);
+        map[m].pendiente += Number(f.monto_pendiente || 0);
+        map[m].descuento += Number(f.descuento || 0);
+      } else {
+        const monedas = new Set(pagos.map((p) => p.moneda || "USD"));
+        for (const moneda of monedas) {
+          if (!map[moneda]) map[moneda] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+          const pagosMoneda = pagos.filter((p) => (p.moneda || "USD") === moneda);
+          for (const p of pagosMoneda) {
+            map[moneda].cobrado += Number(p.monto || 0);
+          }
+        }
+        if (!map["USD"]) map["USD"] = { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+        map["USD"].facturado += Number(f.total_a_pagar || 0);
+        map["USD"].pendiente += Number(f.monto_pendiente || 0);
+        map["USD"].descuento += Number(f.descuento || 0);
+      }
+    }
+    return map;
+  }, [filtered]);
 
   const em = variant === "embedded";
 
@@ -149,41 +187,43 @@ export function FacturasVentasTable({
       </div>
 
       {/* Totales según filtro activo */}
-      {filtered.length > 0 && (
-        <div className={`flex flex-wrap gap-3 text-sm ${em ? "px-6 pb-2" : "pb-1"}`}>
-          <span className="text-gray-500">
-            Total facturado:{" "}
-            <strong className="text-gray-800">
-              {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_a_pagar || 0), 0))}
-            </strong>
-          </span>
-          <span className="text-gray-300">|</span>
-          <span className="text-gray-500">
-            Cobrado:{" "}
-            <strong className="text-green-700">
-              {formatCurrency(filtered.reduce((s, f) => s + Number(f.total_pagado || 0), 0))}
-            </strong>
-          </span>
-          <span className="text-gray-300">|</span>
-          <span className="text-gray-500">
-            Pendiente:{" "}
-            <strong className="text-red-600">
-              {formatCurrency(filtered.reduce((s, f) => s + Number(f.monto_pendiente || 0), 0))}
-            </strong>
-          </span>
-          {filtered.some((f) => Number(f.descuento) > 0) && (
-            <>
+      {filtered.length > 0 && (() => {
+        const usd = totalesPorMoneda["USD"] || { facturado: 0, cobrado: 0, pendiente: 0, descuento: 0 };
+        const otrasMonedas = Object.entries(totalesPorMoneda).filter(([m]) => m !== "USD").sort(([a], [b]) => a.localeCompare(b));
+        return (
+          <div className={`text-sm ${em ? "px-6 pb-2" : "pb-1"}`}>
+            <div className="flex flex-wrap gap-3 items-start">
+              <span className="text-gray-500">
+                Facturado: <strong className="text-gray-800">{formatCurrency(usd.facturado)}</strong>
+              </span>
+              <span className="text-gray-300">|</span>
+              <span className="text-gray-500 inline-flex flex-col">
+                <span>Cobrado: <strong className="text-green-700">{formatCurrency(usd.cobrado)}</strong></span>
+                {otrasMonedas.map(([moneda, t]) => t.cobrado > 0 && (
+                  <span key={moneda} className="pl-[4.2em]">
+                    <span className={`font-semibold ${moneda === "EUR" ? "text-purple-700" : "text-blue-700"}`}>{moneda}</span>{" "}
+                    <strong className={moneda === "EUR" ? "text-purple-700" : "text-blue-700"}>
+                      {t.cobrado.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </strong>
+                  </span>
+                ))}
+              </span>
               <span className="text-gray-300">|</span>
               <span className="text-gray-500">
-                Descuentos:{" "}
-                <strong className="text-orange-600">
-                  {formatCurrency(filtered.reduce((s, f) => s + Number(f.descuento || 0), 0))}
-                </strong>
+                Pendiente: <strong className="text-red-600">{formatCurrency(usd.pendiente)}</strong>
               </span>
-            </>
-          )}
-        </div>
-      )}
+              {usd.descuento > 0 && (
+                <>
+                  <span className="text-gray-300">|</span>
+                  <span className="text-gray-500">
+                    Descuentos: <strong className="text-orange-600">{formatCurrency(usd.descuento)}</strong>
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {error && (
         <div className={`flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 ${em ? "mx-6" : ""}`}>
@@ -247,7 +287,42 @@ export function FacturasVentasTable({
                   <TableCell className="text-sm">{f.emitida_por_nombre || f.emitida_por}</TableCell>
                   <TableCell className="text-sm text-right">{formatCurrency(f.total_a_pagar)}</TableCell>
                   <TableCell className="text-sm text-right text-orange-600">{formatCurrency(f.descuento)}</TableCell>
-                  <TableCell className="text-sm text-right text-green-700">{formatCurrency(f.total_pagado)}</TableCell>
+                  <TableCell className="text-sm text-right min-w-[180px]">
+                    {Array.isArray(f.pagos) && f.pagos.length > 0 ? (
+                      <div className="space-y-2">
+                        {f.pagos.map((p, i) => {
+                          const moneda = p.moneda || "USD";
+                          const monto = Number(p.monto || 0);
+                          const metodo = p.metodo_pago || "";
+                          const desglose = p.desglose_billetes;
+                          const desgloseEntries = desglose && typeof desglose === "object"
+                            ? Object.entries(desglose).filter(([, cant]) => Number(cant) > 0)
+                            : [];
+                          return (
+                            <div key={p.id || i} className={f.pagos!.length > 1 ? "pb-1.5 border-b border-gray-100 last:border-0 last:pb-0" : ""}>
+                              <span className={`font-medium ${moneda === "USD" ? "text-green-700" : moneda === "EUR" ? "text-purple-700" : "text-blue-700"}`}>
+                                {monto.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {moneda}
+                              </span>
+                              {moneda !== "USD" && p.tasa_cambio && Number(p.tasa_cambio) > 0 && (
+                                <div className="text-[10px] text-gray-400">
+                                  Tasa: {Number(p.tasa_cambio).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} → {(monto / Number(p.tasa_cambio)).toFixed(2)} USD
+                                </div>
+                              )}
+                              {metodo === "efectivo" && desgloseEntries.length > 0 && (
+                                <div className="text-[10px] text-gray-400 mt-0.5">
+                                  {desgloseEntries.map(([den, cant]) => (
+                                    <span key={den} className="mr-1.5">{cant}x{den}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span className="text-green-700">{formatCurrency(f.total_pagado)}</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-sm text-right text-red-600">{formatCurrency(f.monto_pendiente)}</TableCell>
                   {(onVerDetalles || onExportar || onTicket || onEliminar) && (
                     <TableCell>

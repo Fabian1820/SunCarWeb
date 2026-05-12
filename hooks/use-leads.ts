@@ -16,8 +16,8 @@ interface LeadFilters {
   estado: string[];
   fuente: string;
   comercial: string;
-  provincia: string;
-  municipio: string;
+  provincia: string[];
+  municipio: string[];
   ofertas: OfertasFilter;
   fechaDesde: string;
   fechaHasta: string;
@@ -43,7 +43,7 @@ interface UseLeadsReturn {
   pageSize: number;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
-  setFilters: (filters: Partial<LeadFilters>) => void;
+  setFilters: (arg: Partial<LeadFilters> | ((prev: LeadFilters) => Partial<LeadFilters>)) => void;
   setPage: (page: number) => void;
   setPageSize: (size: number) => void;
   loadLeads: (overrideFilters?: Partial<LeadFilters>) => Promise<void>;
@@ -143,8 +143,8 @@ export function useLeads(): UseLeadsReturn {
     estado: [],
     fuente: "",
     comercial: "",
-    provincia: "",
-    municipio: "",
+    provincia: [],
+    municipio: [],
     ofertas: "",
     fechaDesde: "",
     fechaHasta: "",
@@ -288,8 +288,8 @@ export function useLeads(): UseLeadsReturn {
           ? effectiveFilters.estado.filter(Boolean)
           : [];
         const hasClientFilters =
-          Boolean(effectiveFilters.provincia) ||
-          Boolean(effectiveFilters.municipio) ||
+          effectiveFilters.provincia.length > 0 ||
+          effectiveFilters.municipio.length > 0 ||
           Boolean(effectiveFilters.ofertas) ||
           estadosSeleccionados.length > 1;
 
@@ -317,15 +317,14 @@ export function useLeads(): UseLeadsReturn {
               return false;
             }
             if (
-              effectiveFilters.provincia &&
-              (lead.provincia_montaje || "").trim() !==
-                effectiveFilters.provincia
+              effectiveFilters.provincia.length > 0 &&
+              !effectiveFilters.provincia.includes((lead.provincia_montaje || "").trim())
             ) {
               return false;
             }
             if (
-              effectiveFilters.municipio &&
-              (lead.municipio || "").trim() !== effectiveFilters.municipio
+              effectiveFilters.municipio.length > 0 &&
+              !effectiveFilters.municipio.includes((lead.municipio || "").trim())
             ) {
               return false;
             }
@@ -509,36 +508,42 @@ export function useLeads(): UseLeadsReturn {
     };
   }, []);
 
-  // Cargar municipios cuando cambia la provincia seleccionada
+  // Cargar municipios para todas las provincias seleccionadas
   useEffect(() => {
     let cancelado = false;
-    if (!filters.provincia) {
+    if (filters.provincia.length === 0) {
       setMunicipiosCatalogo([]);
       return;
     }
-    const provinciaCodigo = provinciasCatalogo.find(
-      (p) => p.nombre === filters.provincia,
-    )?.codigo;
-    if (!provinciaCodigo) {
+    const codigos = filters.provincia
+      .map((nombre) => provinciasCatalogo.find((p) => p.nombre === nombre)?.codigo)
+      .filter(Boolean) as string[];
+    if (codigos.length === 0) {
       setMunicipiosCatalogo([]);
       return;
     }
     (async () => {
       try {
-        const response = await apiRequest<{
-          success: boolean;
-          data: Array<{ codigo: string; nombre: string }>;
-        }>(`/provincias/provincia/${provinciaCodigo}/municipios`, {
-          method: "GET",
-        });
-        if (cancelado) return;
-        if (response?.success && Array.isArray(response.data)) {
-          setMunicipiosCatalogo(
-            [...response.data].sort((a, b) =>
-              a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+        const resultados = await Promise.all(
+          codigos.map((codigo) =>
+            apiRequest<{ success: boolean; data: Array<{ codigo: string; nombre: string }> }>(
+              `/provincias/provincia/${codigo}/municipios`,
+              { method: "GET" },
             ),
-          );
+          ),
+        );
+        if (cancelado) return;
+        const combined = new Map<string, { codigo: string; nombre: string }>();
+        for (const r of resultados) {
+          if (r?.success && Array.isArray(r.data)) {
+            for (const m of r.data) combined.set(m.nombre, m);
+          }
         }
+        setMunicipiosCatalogo(
+          [...combined.values()].sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+          ),
+        );
       } catch (error) {
         console.error("Error cargando catálogo de municipios:", error);
         setMunicipiosCatalogo([]);
@@ -559,7 +564,30 @@ export function useLeads(): UseLeadsReturn {
     [municipiosCatalogo],
   );
 
-  const setFilters = useCallback((newFilters: Partial<LeadFilters>) => {
+  const setFilters = useCallback((arg: Partial<LeadFilters> | ((prev: LeadFilters) => Partial<LeadFilters>)) => {
+    if (typeof arg === "function") {
+      setFiltersState((prev) => {
+        const newFilters = arg(prev);
+        const shouldResetSkip =
+          newFilters.searchTerm !== undefined ||
+          newFilters.estado !== undefined ||
+          newFilters.fuente !== undefined ||
+          newFilters.comercial !== undefined ||
+          newFilters.provincia !== undefined ||
+          newFilters.municipio !== undefined ||
+          newFilters.ofertas !== undefined ||
+          newFilters.fechaDesde !== undefined ||
+          newFilters.fechaHasta !== undefined;
+        return {
+          ...prev,
+          ...newFilters,
+          skip: shouldResetSkip ? 0 : (newFilters.skip ?? prev.skip),
+        };
+      });
+      return;
+    }
+
+    const newFilters = arg;
     if (typeof newFilters.searchTerm === "string") {
       setSearchTerm(newFilters.searchTerm);
     }
@@ -586,7 +614,7 @@ export function useLeads(): UseLeadsReturn {
         newFilters.provincia !== prev.provincia &&
         newFilters.municipio === undefined
       ) {
-        next.municipio = "";
+        next.municipio = [];
       }
       return next;
     });
@@ -784,13 +812,13 @@ export function useLeads(): UseLeadsReturn {
       )
         return false;
       if (
-        filters.provincia &&
-        (lead.provincia_montaje || "").trim() !== filters.provincia
+        filters.provincia.length > 0 &&
+        !filters.provincia.includes((lead.provincia_montaje || "").trim())
       )
         return false;
       if (
-        filters.municipio &&
-        (lead.municipio || "").trim() !== filters.municipio
+        filters.municipio.length > 0 &&
+        !filters.municipio.includes((lead.municipio || "").trim())
       )
         return false;
       return matchesOfertasFilter(lead, filters.ofertas);

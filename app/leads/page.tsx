@@ -509,8 +509,8 @@ export default function LeadsPage() {
                     estado: [],
                     fuente: "",
                     comercial: "",
-                    provincia: "",
-                    municipio: "",
+                    provincia: [],
+                    municipio: [],
                     ofertas: "",
                     fechaDesde: "",
                     fechaHasta: "",
@@ -648,46 +648,106 @@ export default function LeadsPage() {
 
               {/* Filtro por Provincia */}
               <div>
-                <Select
-                  value={filters.provincia || "todas"}
-                  onValueChange={(value) =>
-                    setFilters({ provincia: value === "todas" ? "" : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todas las provincias" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todas">Todas las provincias</SelectItem>
-                    {availableProvincias.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between">
+                      <span className="truncate">
+                        {filters.provincia.length > 0
+                          ? `${filters.provincia.length} provincia${filters.provincia.length > 1 ? "s" : ""}`
+                          : "Todas las provincias"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-72">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm text-gray-700">Provincia</Label>
+                      {filters.provincia.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setFilters({ provincia: [], municipio: [] })}
+                        >
+                          Limpiar
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-2 max-h-52 overflow-y-auto">
+                      {availableProvincias.map((p) => (
+                        <label key={p} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                          <Checkbox
+                            checked={filters.provincia.includes(p)}
+                            onCheckedChange={() => {
+                              setFilters((prev) => {
+                                const next = prev.provincia.includes(p)
+                                  ? prev.provincia.filter((x) => x !== p)
+                                  : [...prev.provincia, p];
+                                return { provincia: next, municipio: [] };
+                              });
+                            }}
+                          />
+                          <span>{p}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Filtro por Municipio */}
               <div>
-                <Select
-                  value={filters.municipio || "todos"}
-                  onValueChange={(value) =>
-                    setFilters({ municipio: value === "todos" ? "" : value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Todos los municipios" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="todos">Todos los municipios</SelectItem>
-                    {availableMunicipios.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-between"
+                      disabled={filters.provincia.length === 0}
+                    >
+                      <span className="truncate">
+                        {filters.municipio.length > 0
+                          ? `${filters.municipio.length} municipio${filters.municipio.length > 1 ? "s" : ""}`
+                          : filters.provincia.length > 0
+                            ? "Todos los municipios"
+                            : "Selecciona provincia"}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-72">
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm text-gray-700">Municipio</Label>
+                      {filters.municipio.length > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setFilters({ municipio: [] })}
+                        >
+                          Limpiar
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-2 max-h-52 overflow-y-auto">
+                      {availableMunicipios.map((m) => (
+                        <label key={m} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                          <Checkbox
+                            checked={filters.municipio.includes(m)}
+                            onCheckedChange={() => {
+                              setFilters((prev) => {
+                                const next = prev.municipio.includes(m)
+                                  ? prev.municipio.filter((x) => x !== m)
+                                  : [...prev.municipio, m];
+                                return { municipio: next };
+                              });
+                            }}
+                          />
+                          <span>{m}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Filtro por Ofertas */}

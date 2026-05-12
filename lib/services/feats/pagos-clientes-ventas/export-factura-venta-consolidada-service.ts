@@ -227,7 +227,7 @@ export class ExportFacturaVentaConsolidadaService {
         });
       } else {
         // Sin columna de descuento
-        const rowsSimple = materiales.map(r => [r[0], r[1], r[2], r[4]]);
+        const rowsSimple = materiales.map(r => [r[0], r[1], r[2], r[4] ?? ""]);
         autoTable(doc, {
           startY: y,
           head: [["Descripción", "Cant.", "Precio", "Subtotal"]],
@@ -271,18 +271,100 @@ export class ExportFacturaVentaConsolidadaService {
       doc.setFontSize(7);
       doc.setTextColor(107, 114, 128);
       doc.text("PAGOS", ml, y);
-      y += 4;
+      y += 5;
 
-      for (const p of pagos) {
+      const METODO_LABELS: Record<string, string> = {
+        efectivo: "Efectivo",
+        transferencia_bancaria: "Transferencia",
+        stripe: "Stripe",
+        financiacion: "Financiación",
+      };
+
+      const pagoDetail = (label: string, value: string, indent = 0) => {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8.5);
-        doc.setTextColor(55, 65, 81);
-        doc.text(fmtDate(p.fecha), ml + 2, y);
+        doc.setTextColor(107, 114, 128);
+        doc.text(`${label}:`, ml + 4 + indent, y);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(17, 24, 39);
-        doc.text(fmt(p.monto_usd ?? p.monto), mr, y, { align: "right" });
+        doc.text(value, mr - 2, y, { align: "right" });
         y += 5;
-      }
+      };
+
+      pagos.forEach((p, idx) => {
+        if (idx > 0) { y += 2; line(doc, y, ml + 4, mr - 4); y += 4; }
+
+        if (pagos.length > 1) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7.5);
+          doc.setTextColor(79, 70, 229);
+          doc.text(`Pago ${idx + 1}  ·  ${fmtDate(p.fecha)}`, ml + 4, y);
+          y += 5;
+        }
+
+        const moneda = p.moneda || "USD";
+        const monto = Number(p.monto || 0);
+
+        pagoDetail("Monto Pagado", `${monto.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+
+        if (moneda !== "USD" && p.tasa_cambio && Number(p.tasa_cambio) > 0) {
+          const tasa = Number(p.tasa_cambio);
+          pagoDetail("Tasa de Cambio", tasa.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+          const equivUsd = monto / tasa;
+          pagoDetail("Equivalente USD", fmt(equivUsd));
+        }
+
+        // Desglose de billetes
+        const desglose = p.desglose_billetes;
+        if (desglose && typeof desglose === "object") {
+          const entries = Object.entries(desglose).filter(([, cant]) => Number(cant) > 0);
+          if (entries.length > 0) {
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8.5);
+            doc.setTextColor(107, 114, 128);
+            doc.text("Desglose de Billetes:", ml + 4, y);
+            y += 5;
+            let totalBilletes = 0;
+            for (const [denominacion, cantidad] of entries) {
+              const subtotal = Number(denominacion) * Number(cantidad);
+              totalBilletes += subtotal;
+              doc.setFont("helvetica", "normal");
+              doc.setFontSize(8);
+              doc.setTextColor(55, 65, 81);
+              doc.text(`${cantidad} x ${denominacion} ${moneda}`, ml + 10, y);
+              doc.setFont("helvetica", "bold");
+              doc.text(subtotal.toLocaleString("en-US", { minimumFractionDigits: 2 }), mr - 2, y, { align: "right" });
+              y += 4.5;
+            }
+            const cambio = totalBilletes - monto;
+            if (cambio > 0) {
+              pagoDetail("Cambio", `${cambio.toLocaleString("en-US", { minimumFractionDigits: 2 })} ${moneda}`);
+            }
+          }
+        }
+
+        if (p.metodo_pago) {
+          pagoDetail("Forma de Pago", METODO_LABELS[p.metodo_pago] || p.metodo_pago);
+        }
+        if (p.recibido_por) {
+          pagoDetail("Recibido por", p.recibido_por);
+        }
+        if (p.notas) {
+          pagoDetail("Notas", p.notas);
+        }
+        if (p.monto_pendiente_despues_pago != null && Number.isFinite(Number(p.monto_pendiente_despues_pago))) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8.5);
+          doc.setTextColor(107, 114, 128);
+          doc.text("Monto Pendiente:", ml + 4, y);
+          doc.setFont("helvetica", "bold");
+          const pendVal = Number(p.monto_pendiente_despues_pago);
+          doc.setTextColor(pendVal > 0 ? 185 : 21, pendVal > 0 ? 28 : 128, pendVal > 0 ? 28 : 61);
+          doc.text(`${pendVal.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD`, mr - 2, y, { align: "right" });
+          y += 5;
+        }
+      });
+      y += 2;
     }
 
     // ── Totales ────────────────────────────────────────────────────────────────

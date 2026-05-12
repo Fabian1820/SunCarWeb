@@ -24,6 +24,7 @@ export interface PagoVenta {
   pagos_programados?: PagoProgramado[] | null;
   recibido_por?: string | null;
   notas?: string | null;
+  desglose_billetes?: Record<string, number> | null;
   fecha?: string;
   fecha_creacion?: string;
   fecha_actualizacion?: string | null;
@@ -76,6 +77,13 @@ export interface FacturaClienteVenta {
     monto?: number;
     moneda?: string;
     monto_usd?: number;
+    tasa_cambio?: number;
+    metodo_pago?: string;
+    recibido_por?: string;
+    notas?: string;
+    desglose_billetes?: Record<string, number> | null;
+    descuento_porcentaje?: number | null;
+    monto_pendiente_despues_pago?: number | null;
     fecha?: string;
   }>;
   total_pagado?: number;
@@ -129,6 +137,13 @@ export interface FacturaVentaResumenPago {
   monto?: number;
   moneda?: string;
   monto_usd?: number;
+  tasa_cambio?: number;
+  metodo_pago?: string;
+  recibido_por?: string;
+  notas?: string;
+  desglose_billetes?: Record<string, number> | null;
+  descuento_porcentaje?: number | null;
+  monto_pendiente_despues_pago?: number | null;
 }
 
 export interface FacturaVentaResumen {

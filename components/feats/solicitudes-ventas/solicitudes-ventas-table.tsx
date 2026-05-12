@@ -56,7 +56,9 @@ export function SolicitudesVentasTable({
 }: SolicitudesVentasTableProps) {
   const formatDate = (value?: string) => {
     if (!value) return "-";
-    const parsed = new Date(value);
+    const [y, m, day] = value.slice(0, 10).split("-").map(Number);
+    if (!y || !m || !day) return "-";
+    const parsed = new Date(y, m - 1, day);
     if (Number.isNaN(parsed.getTime())) return "-";
     return parsed.toLocaleDateString("es-ES", {
       day: "2-digit",

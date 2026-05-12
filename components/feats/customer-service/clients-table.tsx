@@ -117,8 +117,8 @@ interface ClientsTableProps {
     fechaDesde: string;
     fechaHasta: string;
     mes: string;
-    provincia: string;
-    municipio: string;
+    provincia: string[];
+    municipio: string[];
     ofertas: string;
     tiempo: string;
   }) => void;
@@ -782,8 +782,8 @@ export function ClientsTable({
     fechaDesde: "",
     fechaHasta: "",
     mes: "",
-    provincia: "",
-    municipio: "",
+    provincia: [] as string[],
+    municipio: [] as string[],
     ofertas: "",
     tiempo: "",
   });
@@ -818,29 +818,40 @@ export function ClientsTable({
   }, []);
 
   useEffect(() => {
-    if (!filters.provincia) {
+    if (filters.provincia.length === 0) {
       setMunicipiosList([]);
       return;
     }
-    const provincia = provinciasList.find(
-      (p) => p.nombre === filters.provincia,
-    );
-    if (!provincia) {
+    const codigos = filters.provincia
+      .map((nombre) => provinciasList.find((p) => p.nombre === nombre)?.codigo)
+      .filter(Boolean) as string[];
+    if (codigos.length === 0) {
       setMunicipiosList([]);
       return;
     }
     let cancelado = false;
     (async () => {
       try {
-        const response = await apiRequest<{
-          success: boolean;
-          data: Array<{ codigo: string; nombre: string }>;
-        }>(`/provincias/provincia/${provincia.codigo}/municipios`, {
-          method: "GET",
-        });
-        if (!cancelado && response.success && response.data) {
-          setMunicipiosList(response.data);
+        const resultados = await Promise.all(
+          codigos.map((codigo) =>
+            apiRequest<{ success: boolean; data: Array<{ codigo: string; nombre: string }> }>(
+              `/provincias/provincia/${codigo}/municipios`,
+              { method: "GET" },
+            ),
+          ),
+        );
+        if (cancelado) return;
+        const combined = new Map<string, { codigo: string; nombre: string }>();
+        for (const r of resultados) {
+          if (r?.success && Array.isArray(r.data)) {
+            for (const m of r.data) combined.set(m.nombre, m);
+          }
         }
+        setMunicipiosList(
+          [...combined.values()].sort((a, b) =>
+            a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }),
+          ),
+        );
       } catch (error) {
         console.error("Error cargando municipios:", error);
       }
@@ -969,12 +980,12 @@ export function ClientsTable({
     });
 
     return ordered.filter((client) => {
-      if (filters.provincia) {
-        if ((client.provincia_montaje || "").trim() !== filters.provincia)
+      if (filters.provincia.length > 0) {
+        if (!filters.provincia.includes((client.provincia_montaje || "").trim()))
           return false;
       }
-      if (filters.municipio) {
-        if ((client.municipio || "").trim() !== filters.municipio) return false;
+      if (filters.municipio.length > 0) {
+        if (!filters.municipio.includes((client.municipio || "").trim())) return false;
       }
       if (filters.ofertas) {
         const tieneOfertas = getTieneOfertasCliente(client);
@@ -1293,8 +1304,8 @@ export function ClientsTable({
     filters.fechaDesde ||
     filters.fechaHasta ||
     filters.mes ||
-    filters.provincia ||
-    filters.municipio ||
+    filters.provincia.length > 0 ||
+    filters.municipio.length > 0 ||
     filters.ofertas ||
     filters.tiempo;
 
@@ -1308,8 +1319,8 @@ export function ClientsTable({
       fechaDesde: "",
       fechaHasta: "",
       mes: "",
-      provincia: "",
-      municipio: "",
+      provincia: [],
+      municipio: [],
       ofertas: "",
       tiempo: "",
     });
@@ -4490,59 +4501,115 @@ export function ClientsTable({
             </div>
 
             <div>
-              <Select
-                value={filters.provincia || "todas"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    provincia: value === "todas" ? "" : value,
-                    municipio: "",
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Todas las provincias" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  <SelectItem value="todas">Todas las provincias</SelectItem>
-                  {provinciasList.map((p) => (
-                    <SelectItem key={p.codigo} value={p.nombre}>
-                      {p.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between">
+                    <span className="truncate">
+                      {filters.provincia.length > 0
+                        ? `${filters.provincia.length} provincia${filters.provincia.length > 1 ? "s" : ""}`
+                        : "Todas las provincias"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm text-gray-700">Provincia</Label>
+                    {filters.provincia.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setFilters((prev) => ({ ...prev, provincia: [], municipio: [] }))
+                        }
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {provinciasList.map((p) => (
+                      <label
+                        key={p.codigo}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={filters.provincia.includes(p.nombre)}
+                          onCheckedChange={() => {
+                            setFilters((prev) => {
+                              const next = prev.provincia.includes(p.nombre)
+                                ? prev.provincia.filter((x) => x !== p.nombre)
+                                : [...prev.provincia, p.nombre];
+                              return { ...prev, provincia: next, municipio: [] };
+                            });
+                          }}
+                        />
+                        <span>{p.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div>
-              <Select
-                value={filters.municipio || "todos"}
-                onValueChange={(value) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    municipio: value === "todos" ? "" : value,
-                  }))
-                }
-                disabled={!filters.provincia}
-              >
-                <SelectTrigger>
-                  <SelectValue
-                    placeholder={
-                      filters.provincia
-                        ? "Todos los municipios"
-                        : "Selecciona provincia"
-                    }
-                  />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px] overflow-y-auto">
-                  <SelectItem value="todos">Todos los municipios</SelectItem>
-                  {municipiosList.map((m) => (
-                    <SelectItem key={m.codigo} value={m.nombre}>
-                      {m.nombre}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between"
+                    disabled={filters.provincia.length === 0}
+                  >
+                    <span className="truncate">
+                      {filters.municipio.length > 0
+                        ? `${filters.municipio.length} municipio${filters.municipio.length > 1 ? "s" : ""}`
+                        : filters.provincia.length > 0
+                          ? "Todos los municipios"
+                          : "Selecciona provincia"}
+                    </span>
+                    <ChevronDown className="h-4 w-4 text-gray-400 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-sm text-gray-700">Municipio</Label>
+                    {filters.municipio.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() =>
+                          setFilters((prev) => ({ ...prev, municipio: [] }))
+                        }
+                      >
+                        Limpiar
+                      </Button>
+                    )}
+                  </div>
+                  <div className="space-y-2 max-h-52 overflow-y-auto">
+                    {municipiosList.map((m) => (
+                      <label
+                        key={m.codigo}
+                        className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer"
+                      >
+                        <Checkbox
+                          checked={filters.municipio.includes(m.nombre)}
+                          onCheckedChange={() => {
+                            setFilters((prev) => {
+                              const next = prev.municipio.includes(m.nombre)
+                                ? prev.municipio.filter((x) => x !== m.nombre)
+                                : [...prev.municipio, m.nombre];
+                              return { ...prev, municipio: next };
+                            });
+                          }}
+                        />
+                        <span>{m.nombre}</span>
+                      </label>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div>
@@ -4596,8 +4663,8 @@ export function ClientsTable({
           {(filters.fechaDesde ||
             filters.fechaHasta ||
             filters.mes ||
-            filters.provincia ||
-            filters.municipio ||
+            filters.provincia.length > 0 ||
+            filters.municipio.length > 0 ||
             filters.ofertas ||
             filters.tiempo) &&
             typeof totalClients === "number" && (

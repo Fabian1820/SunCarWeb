@@ -56,7 +56,7 @@ import {
 import { ExportFacturaVentaConsolidadaService } from "@/lib/services/feats/pagos-clientes-ventas/export-factura-venta-consolidada-service";
 import { TicketFacturaVentaService } from "@/lib/services/feats/pagos-clientes-ventas/ticket-factura-venta-service";
 import type { ExportTipo } from "@/components/feats/solicitudes-ventas/solicitudes-ventas-table";
-import { FacturaClienteVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
+import { FacturaClienteVentaService, PagoVentaService } from "@/lib/services/feats/pagos-clientes-ventas/pago-cliente-venta-service";
 
 type TabId = "solicitudes" | "pendientes-pago" | "pagos-realizados" | "facturas-emitidas";
 
@@ -131,24 +131,69 @@ const [anularLoading, setAnularLoading]             = useState(false);
   const [f1Mes, setF1Mes]             = useState("");
   const [f1Desde, setF1Desde]         = useState("");
   const [f1Hasta, setF1Hasta]         = useState("");
+  const [f1Periodo, setF1Periodo]     = useState("");
 
   const [f2EstadoPago, setF2EstadoPago] = useState("");
   const [f2Comercial, setF2Comercial]   = useState("");
   const [f2Mes, setF2Mes]               = useState("");
   const [f2Desde, setF2Desde]           = useState("");
   const [f2Hasta, setF2Hasta]           = useState("");
+  const [f2Periodo, setF2Periodo]       = useState("");
 
   const [f3Metodo, setF3Metodo]       = useState("");
   const [f3Comercial, setF3Comercial] = useState("");
   const [f3Mes, setF3Mes]             = useState("");
   const [f3Desde, setF3Desde]         = useState("");
   const [f3Hasta, setF3Hasta]         = useState("");
+  const [f3Periodo, setF3Periodo]     = useState("");
+  const [f3Moneda, setF3Moneda]       = useState("");
 
   const [f4Estado, setF4Estado]       = useState("");
   const [f4Comercial, setF4Comercial] = useState("");
   const [f4Mes, setF4Mes]             = useState("");
   const [f4Desde, setF4Desde]         = useState("");
   const [f4Hasta, setF4Hasta]         = useState("");
+  const [f4Periodo, setF4Periodo]     = useState("");
+  const [f4Moneda, setF4Moneda]       = useState("");
+
+  const getPeriodoRange = (periodo: string): { desde: string; hasta: string } => {
+    const now = new Date();
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const today = fmt(now);
+    if (periodo === "hoy") return { desde: today, hasta: today };
+    if (periodo === "semana") {
+      const day = now.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - diff);
+      return { desde: fmt(monday), hasta: today };
+    }
+    if (periodo === "mes") {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { desde: fmt(first), hasta: today };
+    }
+    return { desde: "", hasta: "" };
+  };
+
+  const applyPeriodo = (
+    periodo: string,
+    setDesde: (v: string) => void,
+    setHasta: (v: string) => void,
+    setMes: (v: string) => void,
+    setPeriodo: (v: string) => void,
+  ) => {
+    if (periodo === "all") {
+      setPeriodo("");
+      setDesde("");
+      setHasta("");
+      return;
+    }
+    setPeriodo(periodo);
+    setMes("");
+    const { desde, hasta } = getPeriodoRange(periodo);
+    setDesde(desde);
+    setHasta(hasta);
+  };
 
   const monthOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [];
@@ -226,9 +271,13 @@ const [anularLoading, setAnularLoading]             = useState(false);
     todosPagos.filter((p) => {
       if (f3Metodo && p.metodo_pago !== f3Metodo) return false;
       if (f3Comercial && (p.comercial ?? "") !== f3Comercial) return false;
+      if (f3Moneda) {
+        const moneda = typeof p.moneda === "string" && p.moneda.trim() ? p.moneda : "USD";
+        if (moneda !== f3Moneda) return false;
+      }
       return matchFecha(p.fecha || p.fecha_creacion, f3Mes, f3Desde, f3Hasta);
     }),
-    [todosPagos, f3Metodo, f3Comercial, f3Mes, f3Desde, f3Hasta],
+    [todosPagos, f3Metodo, f3Comercial, f3Mes, f3Desde, f3Hasta, f3Moneda],
   );
 
   const facturasDisplay = useMemo(() =>
@@ -538,16 +587,101 @@ const [anularLoading, setAnularLoading]             = useState(false);
     };
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const mergePago = (pr: any, src: any) => ({
+    ...pr,
+    metodo_pago: pr.metodo_pago || src.metodo_pago || undefined,
+    moneda: pr.moneda || src.moneda || "USD",
+    tasa_cambio: pr.tasa_cambio ?? src.tasa_cambio ?? undefined,
+    monto_usd: pr.monto_usd ?? src.monto_usd ?? undefined,
+    recibido_por: pr.recibido_por || src.recibido_por || undefined,
+    notas: pr.notas || src.notas || undefined,
+    desglose_billetes: pr.desglose_billetes ?? src.desglose_billetes ?? null,
+    descuento_porcentaje: pr.descuento_porcentaje ?? src.descuento_porcentaje ?? null,
+    monto_pendiente_despues_pago: pr.monto_pendiente_despues_pago ?? src.monto_pendiente_despues_pago ?? null,
+  });
+
+  const enriquecerPagos = async (resumen: FacturaVentaResumen, factura: FacturaClienteVenta): Promise<FacturaVentaResumen> => {
+    const pagosResumen = Array.isArray(resumen.pagos) ? resumen.pagos : [];
+    if (pagosResumen.length === 0) return resumen;
+
+    let pagosCompletos = todosPagos;
+    if (pagosCompletos.length === 0) {
+      try {
+        pagosCompletos = await PagoVentaService.getTodosPagos();
+      } catch { /* usar lo que hay */ }
+    }
+
+    const solId = factura.solicitud_venta_id;
+    const fNum = factura.numero_factura;
+    const solIds = Array.isArray(factura.solicitudes)
+      ? factura.solicitudes.map((s) => s.solicitud_venta_id).filter(Boolean)
+      : solId ? [solId] : [];
+
+    const pagosDeEstaFactura = pagosCompletos.filter((tp) => {
+      if (solIds.length > 0 && tp.solicitud_venta_id && solIds.includes(tp.solicitud_venta_id)) return true;
+      if (fNum && tp.factura_numero === fNum) return true;
+      return false;
+    });
+
+    const facturaPagos = Array.isArray(factura.pagos) ? factura.pagos : [];
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const findSrc = (pr: any, idx: number): any => {
+      if (pr.id) {
+        const byId = pagosDeEstaFactura.find((tp) => tp.id === pr.id)
+          || pagosCompletos.find((tp) => tp.id === pr.id)
+          || facturaPagos.find((fp) => fp.id === pr.id);
+        if (byId) return byId;
+      }
+      if (pr.fecha && pr.monto) {
+        const fechaSlice = pr.fecha.slice(0, 10);
+        const montoNum = Number(pr.monto);
+        const byFecha = pagosDeEstaFactura.find((tp) => tp.fecha?.startsWith(fechaSlice) && Number(tp.monto) === montoNum)
+          || facturaPagos.find((fp) => fp.fecha?.startsWith(fechaSlice) && Number(fp.monto) === montoNum);
+        if (byFecha) return byFecha;
+      }
+      if (pagosDeEstaFactura.length === pagosResumen.length) return pagosDeEstaFactura[idx];
+      if (facturaPagos.length === pagosResumen.length) return facturaPagos[idx];
+      return null;
+    };
+
+    const pagosEnriquecidos = await Promise.all(
+      pagosResumen.map(async (pr, idx) => {
+        let src = findSrc(pr, idx);
+        const merged = src ? mergePago(pr, src) : pr;
+        const faltanCampos = !merged.metodo_pago || !merged.tasa_cambio || !merged.recibido_por;
+        const pagoId = pr.id || (src && src.id);
+        if (faltanCampos && pagoId) {
+          try {
+            const full = await PagoVentaService.getPagoById(pagoId);
+            console.log(`🔍 getPagoById(${pagoId}) tasa_cambio=`, full.tasa_cambio, "moneda=", full.moneda, "monto_usd=", full.monto_usd, "raw=", JSON.stringify(full));
+            return mergePago(merged, full);
+          } catch (e) {
+            console.warn(`⚠️ getPagoById(${pagoId}) falló:`, e);
+          }
+        }
+        console.log(`📋 Pago ${idx} final: tasa_cambio=`, merged.tasa_cambio, "moneda=", merged.moneda, "metodo=", merged.metodo_pago);
+        return merged;
+      }),
+    );
+    return { ...resumen, pagos: pagosEnriquecidos };
+  };
+
   const resolveResumen = async (factura: FacturaClienteVenta): Promise<FacturaVentaResumen> => {
     const facturaId = factura.id || factura.factura_id;
+    let resumen: FacturaVentaResumen;
     if (facturaId) {
       try {
-        return await FacturaClienteVentaService.getFacturaResumen(facturaId);
+        resumen = await FacturaClienteVentaService.getFacturaResumen(facturaId);
       } catch {
-        // backend Pydantic error u otro — usar datos locales
+        resumen = buildResumenFallback(factura);
       }
+    } else {
+      resumen = buildResumenFallback(factura);
     }
-    return buildResumenFallback(factura);
+    return enriquecerPagos(resumen, factura);
   };
 
   const handleExportarFactura = async (factura: FacturaClienteVenta) => {
@@ -681,15 +815,24 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     className="pl-9 h-8"
                   />
                 </div>
-                <Select value={f1Mes} onValueChange={(v) => setF1Mes(v === "all" ? "" : v)}>
+                <Select value={f1Periodo} onValueChange={(v) => applyPeriodo(v, setF1Desde, setF1Hasta, setF1Mes, setF1Periodo)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Período" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="semana">Esta semana</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={f1Mes} onValueChange={(v) => { setF1Mes(v === "all" ? "" : v); setF1Periodo(""); }}>
                   <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los meses</SelectItem>
                     {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input type="date" value={f1Desde} onChange={(e) => setF1Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
-                <Input type="date" value={f1Hasta} onChange={(e) => setF1Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Input type="date" value={f1Desde} onChange={(e) => { setF1Desde(e.target.value); setF1Periodo(""); }} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f1Hasta} onChange={(e) => { setF1Hasta(e.target.value); setF1Periodo(""); }} className="h-8 w-32 text-xs" title="Hasta" />
                 <Select value={f1Estado} onValueChange={(v) => setF1Estado(v === "all" ? "" : v)}>
                   <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Estado" /></SelectTrigger>
                   <SelectContent>
@@ -708,9 +851,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f1Estado || f1Comercial || f1Mes || f1Desde || f1Hasta) && (
+                {(f1Estado || f1Comercial || f1Mes || f1Desde || f1Hasta || f1Periodo) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF1Estado(""); setF1Comercial(""); setF1Mes(""); setF1Desde(""); setF1Hasta(""); }}>
+                    onClick={() => { setF1Estado(""); setF1Comercial(""); setF1Mes(""); setF1Desde(""); setF1Hasta(""); setF1Periodo(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -775,15 +918,24 @@ const [anularLoading, setAnularLoading]             = useState(false);
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-gray-50/60">
-                <Select value={f2Mes} onValueChange={(v) => setF2Mes(v === "all" ? "" : v)}>
+                <Select value={f2Periodo} onValueChange={(v) => applyPeriodo(v, setF2Desde, setF2Hasta, setF2Mes, setF2Periodo)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Período" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="semana">Esta semana</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={f2Mes} onValueChange={(v) => { setF2Mes(v === "all" ? "" : v); setF2Periodo(""); }}>
                   <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los meses</SelectItem>
                     {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input type="date" value={f2Desde} onChange={(e) => setF2Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
-                <Input type="date" value={f2Hasta} onChange={(e) => setF2Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Input type="date" value={f2Desde} onChange={(e) => { setF2Desde(e.target.value); setF2Periodo(""); }} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f2Hasta} onChange={(e) => { setF2Hasta(e.target.value); setF2Periodo(""); }} className="h-8 w-32 text-xs" title="Hasta" />
                 <Select value={f2EstadoPago} onValueChange={(v) => setF2EstadoPago(v === "all" ? "" : v)}>
                   <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Estado pago" /></SelectTrigger>
                   <SelectContent>
@@ -801,9 +953,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f2EstadoPago || f2Comercial || f2Mes || f2Desde || f2Hasta) && (
+                {(f2EstadoPago || f2Comercial || f2Mes || f2Desde || f2Hasta || f2Periodo) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF2EstadoPago(""); setF2Comercial(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); }}>
+                    onClick={() => { setF2EstadoPago(""); setF2Comercial(""); setF2Mes(""); setF2Desde(""); setF2Hasta(""); setF2Periodo(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -833,15 +985,24 @@ const [anularLoading, setAnularLoading]             = useState(false);
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-gray-50/60">
-                <Select value={f3Mes} onValueChange={(v) => setF3Mes(v === "all" ? "" : v)}>
+                <Select value={f3Periodo} onValueChange={(v) => applyPeriodo(v, setF3Desde, setF3Hasta, setF3Mes, setF3Periodo)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Período" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="semana">Esta semana</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={f3Mes} onValueChange={(v) => { setF3Mes(v === "all" ? "" : v); setF3Periodo(""); }}>
                   <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los meses</SelectItem>
                     {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input type="date" value={f3Desde} onChange={(e) => setF3Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
-                <Input type="date" value={f3Hasta} onChange={(e) => setF3Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Input type="date" value={f3Desde} onChange={(e) => { setF3Desde(e.target.value); setF3Periodo(""); }} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f3Hasta} onChange={(e) => { setF3Hasta(e.target.value); setF3Periodo(""); }} className="h-8 w-32 text-xs" title="Hasta" />
                 <Select value={f3Metodo} onValueChange={(v) => setF3Metodo(v === "all" ? "" : v)}>
                   <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Método pago" /></SelectTrigger>
                   <SelectContent>
@@ -850,6 +1011,15 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="transferencia_bancaria">Transferencia</SelectItem>
                     <SelectItem value="stripe">Stripe</SelectItem>
                     <SelectItem value="financiacion">Financiación</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={f3Moneda} onValueChange={(v) => setF3Moneda(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Moneda" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="CUP">CUP</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={f3Comercial} onValueChange={(v) => setF3Comercial(v === "all" ? "" : v)}>
@@ -861,9 +1031,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f3Metodo || f3Comercial || f3Mes || f3Desde || f3Hasta) && (
+                {(f3Metodo || f3Comercial || f3Mes || f3Desde || f3Hasta || f3Periodo || f3Moneda) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF3Metodo(""); setF3Comercial(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); }}>
+                    onClick={() => { setF3Metodo(""); setF3Comercial(""); setF3Mes(""); setF3Desde(""); setF3Hasta(""); setF3Periodo(""); setF3Moneda(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -892,15 +1062,24 @@ const [anularLoading, setAnularLoading]             = useState(false);
             </CardHeader>
             <CardContent className="p-0">
               <div className="flex flex-wrap items-center gap-2 px-6 py-3 border-b bg-gray-50/60">
-                <Select value={f4Mes} onValueChange={(v) => setF4Mes(v === "all" ? "" : v)}>
+                <Select value={f4Periodo} onValueChange={(v) => applyPeriodo(v, setF4Desde, setF4Hasta, setF4Mes, setF4Periodo)}>
+                  <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Período" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todo</SelectItem>
+                    <SelectItem value="hoy">Hoy</SelectItem>
+                    <SelectItem value="semana">Esta semana</SelectItem>
+                    <SelectItem value="mes">Este mes</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={f4Mes} onValueChange={(v) => { setF4Mes(v === "all" ? "" : v); setF4Periodo(""); }}>
                   <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="Mes" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos los meses</SelectItem>
                     {monthOptions.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input type="date" value={f4Desde} onChange={(e) => setF4Desde(e.target.value)} className="h-8 w-32 text-xs" title="Desde" />
-                <Input type="date" value={f4Hasta} onChange={(e) => setF4Hasta(e.target.value)} className="h-8 w-32 text-xs" title="Hasta" />
+                <Input type="date" value={f4Desde} onChange={(e) => { setF4Desde(e.target.value); setF4Periodo(""); }} className="h-8 w-32 text-xs" title="Desde" />
+                <Input type="date" value={f4Hasta} onChange={(e) => { setF4Hasta(e.target.value); setF4Periodo(""); }} className="h-8 w-32 text-xs" title="Hasta" />
                 <Select value={f4Estado} onValueChange={(v) => setF4Estado(v === "all" ? "" : v)}>
                   <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Estado" /></SelectTrigger>
                   <SelectContent>
@@ -908,6 +1087,15 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     <SelectItem value="pagada">Pagada</SelectItem>
                     <SelectItem value="parcial">Pago parcial</SelectItem>
                     <SelectItem value="pendiente">Sin pago</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={f4Moneda} onValueChange={(v) => setF4Moneda(v === "all" ? "" : v)}>
+                  <SelectTrigger className="h-8 w-28 text-xs"><SelectValue placeholder="Moneda" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                    <SelectItem value="CUP">CUP</SelectItem>
+                    <SelectItem value="EUR">EUR</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={f4Comercial} onValueChange={(v) => setF4Comercial(v === "all" ? "" : v)}>
@@ -919,9 +1107,9 @@ const [anularLoading, setAnularLoading]             = useState(false);
                     ))}
                   </SelectContent>
                 </Select>
-                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta) && (
+                {(f4Estado || f4Comercial || f4Mes || f4Desde || f4Hasta || f4Periodo || f4Moneda) && (
                   <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); }}>
+                    onClick={() => { setF4Estado(""); setF4Comercial(""); setF4Mes(""); setF4Desde(""); setF4Hasta(""); setF4Periodo(""); setF4Moneda(""); }}>
                     <FilterX className="h-4 w-4" />
                   </Button>
                 )}
@@ -936,6 +1124,7 @@ const [anularLoading, setAnularLoading]             = useState(false);
                 onTicket={(f) => { void handleExportarTicket(f); }}
                 onEliminar={handleEliminarFactura}
                 onExportarTodas={handleExportarTodasFacturas}
+                monedaFilter={f4Moneda}
                 variant="embedded"
               />
             </CardContent>

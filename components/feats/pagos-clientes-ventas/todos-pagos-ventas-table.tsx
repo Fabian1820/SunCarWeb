@@ -150,7 +150,10 @@ export function TodosPagosVentasTable({
 
   const formatDate = (d: string) => {
     if (!d) return "—";
-    return new Date(d).toLocaleDateString("es-ES", {
+    const [y, m, day] = d.slice(0, 10).split("-").map(Number);
+    if (!y || !m || !day) return d;
+    const date = new Date(y, m - 1, day);
+    return date.toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -211,7 +214,28 @@ export function TodosPagosVentasTable({
     });
   };
 
-  const totalUSD = filtered.reduce((sum, p) => sum + getMonto(p), 0);
+  const totalesPorMoneda = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of filtered) {
+      const moneda = getMoneda(p);
+      map[moneda] = (map[moneda] || 0) + getMonto(p);
+    }
+    return map;
+  }, [filtered]);
+
+  const totalPendienteUSD = useMemo(() => {
+    return filtered.reduce((sum, p) => {
+      const pend = getPendiente(p);
+      if (pend != null) {
+        const moneda = getMoneda(p);
+        if (moneda === "USD") return sum + pend;
+        const tasa = Number(p.tasa_cambio);
+        if (tasa > 0) return sum + pend / tasa;
+        return sum + pend;
+      }
+      return sum;
+    }, 0);
+  }, [filtered]);
 
   const PagoRow = ({ p, rowKey }: { p: PagoVenta; rowKey: string }) => {
     const moneda = getMoneda(p);
@@ -256,10 +280,17 @@ export function TodosPagosVentasTable({
           {p.notas && <div className="text-xs text-gray-500">Nota: {p.notas}</div>}
         </TableCell>
         <TableCell className="text-sm min-w-[170px]">
-          <div className="font-semibold text-green-700">{formatCurrency(getMonto(p), moneda)}</div>
-          <div className="text-xs text-gray-600">Moneda: {moneda}</div>
+          <div className="font-semibold text-green-700">
+            {getMonto(p).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {moneda}
+          </div>
+          {moneda !== "USD" && Number(p.tasa_cambio) > 0 && (
+            <div className="text-xs text-gray-500">Tasa: {Number(p.tasa_cambio).toFixed(2)}</div>
+          )}
           <div className="text-xs text-red-600">
-            Pendiente: {pendiente != null ? formatCurrency(pendiente, moneda) : "—"}
+            Pend: {pendiente != null ? formatCurrency(
+              moneda === "USD" ? pendiente : (Number(p.tasa_cambio) > 0 ? pendiente / Number(p.tasa_cambio) : pendiente),
+              "USD"
+            ) : "—"}
           </div>
         </TableCell>
         <TableCell className="text-sm min-w-[210px]">
@@ -301,7 +332,7 @@ export function TodosPagosVentasTable({
         <TableHead className="font-semibold">Cliente</TableHead>
         <TableHead className="font-semibold">Materiales</TableHead>
         <TableHead className="font-semibold">Pago (detalle)</TableHead>
-        <TableHead className="font-semibold">Monto / Moneda / Pendiente</TableHead>
+        <TableHead className="font-semibold">Monto / Pendiente (USD)</TableHead>
         <TableHead className="font-semibold">Pagos a plazos</TableHead>
         <TableHead className="font-semibold">Recibido por</TableHead>
       </TableRow>
@@ -349,12 +380,22 @@ export function TodosPagosVentasTable({
         </Badge>
 
         {filtered.length > 0 && (
-          <span className="text-xs text-gray-500 ml-auto">
-            Total:{" "}
-            <span className="font-semibold text-green-700">
-              {formatCurrency(totalUSD)}
+          <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 ml-auto">
+            {Object.entries(totalesPorMoneda).sort(([a], [b]) => a.localeCompare(b)).map(([moneda, total]) => (
+              <span key={moneda}>
+                Total {moneda}:{" "}
+                <span className={`font-semibold ${moneda === "USD" ? "text-green-700" : moneda === "EUR" ? "text-purple-700" : "text-blue-700"}`}>
+                  {total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {moneda}
+                </span>
+              </span>
+            ))}
+            <span>
+              Pend. USD:{" "}
+              <span className="font-semibold text-red-600">
+                {formatCurrency(totalPendienteUSD)}
+              </span>
             </span>
-          </span>
+          </div>
         )}
       </div>
 
@@ -393,7 +434,7 @@ export function TodosPagosVentasTable({
           {grouped.map(([key, items]) => {
             const abierto = gruposAbiertos.has(key);
             const subtotal = items.reduce(
-              (sum, p) => sum + (p.monto_usd ?? p.monto),
+              (sum, p) => sum + (p.monto_usd ?? p.monto ?? 0),
               0,
             );
             return (
