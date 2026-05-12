@@ -231,7 +231,11 @@ function TransactionsResponsiveList({
             transaction.tipo === "transferencia_entrada" ||
             transaction.transferencia_direccion === "entrada";
           const parties = getTransferParties(transaction);
-          const amountColor = isTransfer
+          // En vista global (showWalletOwner) la transferencia es neutral — no es ni ingreso ni gasto del viewer
+          const isGlobalTransfer = isTransfer && showWalletOwner;
+          const amountColor = isGlobalTransfer
+            ? "text-violet-600"
+            : isTransfer
             ? isIncomingTransfer
               ? "text-emerald-600"
               : "text-rose-600"
@@ -243,7 +247,9 @@ function TransactionsResponsiveList({
             : isIngreso
             ? "border-l-emerald-400"
             : "border-l-rose-400";
-          const sign = isTransfer
+          const sign = isGlobalTransfer
+            ? ""
+            : isTransfer
             ? isIncomingTransfer
               ? "+"
               : "-"
@@ -327,14 +333,19 @@ function TransactionsResponsiveList({
                 transaction.tipo === "transferencia_entrada" ||
                 transaction.transferencia_direccion === "entrada";
               const parties = getTransferParties(transaction);
-              const amountColor = isTransfer
+              const isGlobalTransfer = isTransfer && showWalletOwner;
+              const amountColor = isGlobalTransfer
+                ? "text-violet-600"
+                : isTransfer
                 ? isIncomingTransfer
                   ? "text-emerald-600"
                   : "text-rose-600"
                 : isIngreso
                 ? "text-emerald-600"
                 : "text-rose-600";
-              const sign = isTransfer
+              const sign = isGlobalTransfer
+                ? ""
+                : isTransfer
                 ? isIncomingTransfer
                   ? "+"
                   : "-"
