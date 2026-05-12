@@ -146,18 +146,23 @@ export function RegistrarPagoVentaDialog({
     ? Math.max(0, precioTotal - totalPagado)
     : precioTotal ?? null;
 
-  const montoCubreTodo = pendiente != null && Number(monto) > 0 && Number(monto) >= pendiente;
-
   const totalProgramado = pagosProgramados.reduce(
     (sum, p) => sum + (Number(p.monto) || 0),
     0,
   );
   const montoNum = Number(monto);
+  const tasaCambioNum = Number(tasaCambio) || 0;
+  // Convertir el monto ingresado a USD para comparar contra el saldo pendiente
+  const montoEnUSD =
+    moneda !== "USD" && tasaCambioNum > 0 ? montoNum * tasaCambioNum : montoNum;
+
+  const montoCubreTodo = pendiente != null && montoEnUSD > 0 && montoEnUSD >= pendiente;
+
   const excedePendiente =
     pendiente != null &&
     Number.isFinite(montoNum) &&
     montoNum > 0 &&
-    montoNum > pendiente;
+    montoEnUSD > pendiente;
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat("en-US", {
@@ -246,7 +251,10 @@ export function RegistrarPagoVentaDialog({
       setError("El monto debe ser mayor a 0");
       return;
     }
-    if (pendiente != null && montoNum > pendiente) {
+    const tasaNum = Number(tasaCambio) || 0;
+    const montoUSD =
+      moneda !== "USD" && tasaNum > 0 ? montoNum * tasaNum : montoNum;
+    if (pendiente != null && montoUSD > pendiente + 0.01) {
       setError(`El monto no puede superar el saldo pendiente (${formatCurrency(pendiente)})`);
       return;
     }
@@ -272,9 +280,9 @@ export function RegistrarPagoVentaDialog({
       // Validar que pago inicial + plazos no excedan el total a pagar
       if (pendiente != null) {
         const totalPlazo = pagosProgramados.reduce((sum, p) => sum + (Number(p.monto) || 0), 0);
-        if (montoNum + totalPlazo > pendiente) {
+        if (montoUSD + totalPlazo > pendiente + 0.01) {
           setError(
-            `La suma del pago inicial (${formatCurrency(montoNum)}) más los plazos (${formatCurrency(totalPlazo)}) no puede superar el pendiente (${formatCurrency(pendiente)})`,
+            `La suma del pago inicial más los plazos no puede superar el pendiente (${formatCurrency(pendiente)})`,
           );
           return;
         }
