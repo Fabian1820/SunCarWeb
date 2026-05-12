@@ -392,7 +392,7 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
                 )}
                 {pago.notas && <div><span className="text-xs text-gray-500 block">Notas</span><span className="text-xs text-gray-700 italic">{pago.notas}</span></div>}
                 <div className="pt-1">
-                  <Button variant="outline" size="sm" onClick={() => ExportComprobanteService.generarComprobantePDF({ pago, oferta: { numero_oferta: oferta.numero_oferta, nombre_completo: oferta.nombre_completo, precio_final: oferta.precio_final ?? 0 }, contacto: { nombre: oferta.contacto?.nombre || "No especificado", carnet: oferta.contacto?.carnet ?? undefined, telefono: oferta.contacto?.telefono ?? undefined }, monto_pendiente_despues_pago: pendienteDespuesPago })} className="w-full h-7 text-xs">
+                  <Button variant="outline" size="sm" onClick={() => ExportComprobanteService.generarComprobantePDF({ pago: pago as never, oferta: { numero_oferta: oferta.numero_oferta ?? "", nombre_completo: oferta.nombre_completo ?? "", precio_final: oferta.precio_final ?? 0 }, contacto: { nombre: oferta.contacto?.nombre || "No especificado", carnet: oferta.contacto?.carnet ?? undefined, telefono: oferta.contacto?.telefono ?? undefined }, monto_pendiente_despues_pago: pendienteDespuesPago })} className="w-full h-7 text-xs">
                     <FileText className="h-3 w-3 mr-1" />Comprobante
                   </Button>
                 </div>

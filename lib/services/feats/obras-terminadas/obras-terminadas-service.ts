@@ -132,7 +132,8 @@ export const ObrasTerminadasService = {
    * Un solo endpoint — toda la agregación ocurre en el backend.
    */
   async getDatos(
-    filtros: ObrasTerminadasFiltros = {}
+    filtros: ObrasTerminadasFiltros = {},
+    signal?: AbortSignal,
   ): Promise<ObrasTerminadasListResponse> {
     const params = new URLSearchParams();
     if (filtros.skip != null)          params.set("skip",           String(filtros.skip));
@@ -144,17 +145,20 @@ export const ObrasTerminadasService = {
 
     const qs = params.toString();
     const url = qs ? `${BASE}/datos?${qs}` : `${BASE}/datos`;
-    const raw = await apiRequest<ObrasTerminadasListResponse>(url, { method: "GET" });
+    const raw = await apiRequest<ObrasTerminadasListResponse>(url, { method: "GET", signal });
     return raw;
   },
 
   /**
    * Detalle lazy de un cliente: trabajos_diarios + vales_salida.
    */
-  async getClienteDetalle(clienteNumero: string): Promise<ClienteDetalleObras> {
+  async getClienteDetalle(
+    clienteNumero: string,
+    signal?: AbortSignal,
+  ): Promise<ClienteDetalleObras> {
     const raw = await apiRequest<ClienteDetalleObras>(
       `${BASE}/cliente/${encodeURIComponent(clienteNumero)}/detalle`,
-      { method: "GET" }
+      { method: "GET", signal },
     );
     return raw;
   },
