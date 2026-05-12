@@ -75,6 +75,8 @@ export interface WalletTransactionsFilters {
   limit?: number;
   fecha_desde?: string;
   fecha_hasta?: string;
+  q?: string;
+  propias?: boolean;
 }
 
 export interface WalletTransactionsResult {

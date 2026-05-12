@@ -315,6 +315,8 @@ export class WalletService {
       search.append("limit", String(filters.limit));
     if (filters.fecha_desde) search.append("fecha_desde", filters.fecha_desde);
     if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
+    if (filters.q?.trim()) search.append("q", filters.q.trim());
+    if (filters.propias) search.append("propias", "true");
 
     const endpoint = `/wallet/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await this.requestWalletEndpoint<
@@ -425,6 +427,7 @@ export class WalletService {
       search.append("limit", String(filters.limit));
     if (filters.fecha_desde) search.append("fecha_desde", filters.fecha_desde);
     if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
+    if (filters.q?.trim()) search.append("q", filters.q.trim());
 
     const endpoint = `/wallet/wallets/${walletId}/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await this.requestWalletEndpoint<

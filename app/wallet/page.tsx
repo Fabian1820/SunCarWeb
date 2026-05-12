@@ -40,6 +40,8 @@ import {
   ArrowDownCircle,
   ArrowRight,
   ArrowUpCircle,
+  ChevronLeft,
+  ChevronRight,
   Coins,
   Eye,
   Info,
@@ -602,12 +604,17 @@ function WalletPageContent() {
     cancelPendingTransfer,
   } = useWallet();
 
+  const TX_PAGE_SIZE = 50;
+
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
   const [montosPorMoneda, setMontosPorMoneda] = useState<Record<string, string>>({});
   const [motivo, setMotivo] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
   const [historyView, setHistoryView] = useState<"propias" | "todos">("todos");
+  const [txPage, setTxPage] = useState(0);
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
   const [resolvingTransfer, setResolvingTransfer] = useState(false);
 
@@ -638,13 +645,30 @@ function WalletPageContent() {
   const [transferTargetSearch, setTransferTargetSearch] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // Debounce de búsqueda: espera 400ms antes de disparar la consulta
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Reset de página cuando cambian los filtros
+  useEffect(() => {
+    setTxPage(0);
+  }, [filtroTipo, debouncedSearch, fechaDesde, fechaHasta, historyView]);
 
   const currentFilters = useMemo(
     () => ({
-      limit: 200,
+      limit: TX_PAGE_SIZE,
+      skip: txPage * TX_PAGE_SIZE,
       tipo: filtroTipo === "todos" ? undefined : filtroTipo,
+      fecha_desde: fechaDesde || undefined,
+      fecha_hasta: fechaHasta || undefined,
+      q: debouncedSearch.trim() || undefined,
+      propias: canSeeAll && historyView === "propias" ? true : undefined,
     }),
-    [filtroTipo],
+    [filtroTipo, txPage, fechaDesde, fechaHasta, debouncedSearch, historyView, canSeeAll],
   );
 
   const filteredWallets = useMemo(() => {
@@ -714,21 +738,8 @@ function WalletPageContent() {
 
   const selectedCurrencyCode = selectedCurrency?.codigo || "USD";
 
-  // Filtrar transacciones por vista (propias/todos) y búsqueda
-  const filteredWalletTransactions = useMemo(() => {
-    let list = transactions;
-    if (canSeeAll && historyView === "propias" && wallet?.user_ci) {
-      list = list.filter((tx) => tx.wallet_user_ci === wallet.user_ci);
-    }
-    if (!searchQuery.trim()) return list;
-    const query = searchQuery.toLowerCase();
-    return list.filter((tx) =>
-      tx.motivo.toLowerCase().includes(query) ||
-      tx.wallet_user_nombre.toLowerCase().includes(query) ||
-      tx.created_by_nombre.toLowerCase().includes(query) ||
-      (tx.contraparte_user_nombre || "").toLowerCase().includes(query),
-    );
-  }, [transactions, searchQuery, canSeeAll, historyView, wallet?.user_ci]);
+  // Las transacciones ya vienen filtradas y paginadas desde el servidor
+  const filteredWalletTransactions = transactions;
 
   useEffect(() => {
     void loadWallet();
@@ -1862,15 +1873,40 @@ function WalletPageContent() {
         {/* Transactions */}
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <CardTitle className="text-sm font-semibold text-slate-800">
                   {canSeeAll ? "Historial de Transacciones" : "Mi Historial"}
                 </CardTitle>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {`${totalTransactions} registros`}
+                  {loadingTransactions
+                    ? "Cargando..."
+                    : `${totalTransactions} registro${totalTransactions !== 1 ? "s" : ""}${
+                        txPage > 0 || totalTransactions > TX_PAGE_SIZE
+                          ? ` · página ${txPage + 1} de ${Math.max(1, Math.ceil(totalTransactions / TX_PAGE_SIZE))}`
+                          : ""
+                      }`}
                 </p>
               </div>
+
+              {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
+              {canSeeAll && (
+                <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                  {(["propias", "todos"] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setHistoryView(v)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                        historyView === v
+                          ? "bg-white text-slate-800 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      {v === "propias" ? "Propias" : "Todas"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Buscador */}
@@ -1879,31 +1915,46 @@ function WalletPageContent() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por motivo..."
+                placeholder="Buscar por motivo o nombre..."
                 className="h-9 pl-9 text-sm"
               />
             </div>
 
-            {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
-            {canSeeAll && (
-              <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5 self-start">
-                {(["propias", "todos"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setHistoryView(v)}
-                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                      historyView === v
-                        ? "bg-white text-slate-800 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    {v === "propias" ? "Propias" : "Todas"}
-                  </button>
-                ))}
+            {/* Filtro de fechas */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Desde
+                </label>
+                <Input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  className="h-8 text-xs"
+                />
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Hasta
+                </label>
+                <Input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+            {(fechaDesde || fechaHasta) && (
+              <button
+                onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
+                className="self-start text-[11px] text-slate-400 hover:text-slate-600 underline"
+              >
+                Limpiar fechas
+              </button>
             )}
 
-            {/* Filtros */}
+            {/* Filtros por tipo */}
             <div className="flex gap-1.5 flex-wrap">
               {(["todos", "ingreso", "gasto"] as const).map((f) => (
                 <button
@@ -1924,15 +1975,53 @@ function WalletPageContent() {
               ))}
             </div>
           </CardHeader>
-          <CardContent className="px-4 pb-4">
+          <CardContent className="px-4 pb-4 space-y-3">
             <TransactionsResponsiveList
               transactions={filteredWalletTransactions}
               loading={loadingTransactions}
-              emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
+              emptyMessage={
+                debouncedSearch || fechaDesde || fechaHasta || filtroTipo !== "todos"
+                  ? "No se encontraron transacciones con ese criterio."
+                  : "No hay transacciones registradas."
+              }
               fallbackCurrency={selectedCurrencyCode}
               showWalletOwner={canSeeAll && historyView === "todos"}
               onSelect={openTransactionDetail}
             />
+
+            {/* Paginación */}
+            {totalTransactions > TX_PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <p className="text-xs text-slate-500">
+                  {txPage * TX_PAGE_SIZE + 1}–
+                  {Math.min((txPage + 1) * TX_PAGE_SIZE, totalTransactions)}{" "}
+                  de {totalTransactions}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTxPage((p) => p - 1)}
+                    disabled={txPage === 0 || loadingTransactions}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs font-medium text-slate-600 min-w-[80px] text-center">
+                    {txPage + 1} / {Math.ceil(totalTransactions / TX_PAGE_SIZE)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTxPage((p) => p + 1)}
+                    disabled={(txPage + 1) * TX_PAGE_SIZE >= totalTransactions || loadingTransactions}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
