@@ -129,7 +129,9 @@ const TIPO_OPTIONS: {
 ];
 
 const ESTADO_OPTIONS: { value: EstadoEnvioContenedor; label: string }[] = [
-  { value: "despachado", label: "Despachado" },
+  { value: "solicitado", label: "Solicitado" },
+  { value: "enviado",    label: "Enviado" },
+  { value: "arribado",   label: "Arribado" },
   { value: "recibido",   label: "Recibido" },
   { value: "cancelado",  label: "Cancelado" },
 ];
@@ -171,7 +173,7 @@ export function EnvioContenedorFormDialog({
   // General
   const [nombre,       setNombre]       = useState("");
   const [descripcion,  setDescripcion]  = useState("");
-  const [estado,       setEstado]       = useState<EstadoEnvioContenedor>("despachado");
+  const [estado,       setEstado]       = useState<EstadoEnvioContenedor>("solicitado");
   const [tipoEnvio,    setTipoEnvio]    = useState<TipoEnvioContenedor | "">("");
 
   // Identificación documental
@@ -242,7 +244,7 @@ export function EnvioContenedorFormDialog({
         }),
       );
     } else {
-      setNombre(""); setDescripcion(""); setEstado("despachado"); setTipoEnvio("");
+      setNombre(""); setDescripcion(""); setEstado("solicitado"); setTipoEnvio("");
       setBl(""); setReferenciaBuque(""); setSello("");
       setBuque(""); setTipoContenedor(""); setPuertoOrigen(""); setPaisOrigen("");
       setPuertoDestino("Mariel");
