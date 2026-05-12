@@ -91,6 +91,7 @@ export function FacturasVentasTable({
       (f.cliente || "").toLowerCase().includes(term) ||
       (f.cliente_nombre || "").toLowerCase().includes(term) ||
       (f.cliente_numero || "").toLowerCase().includes(term) ||
+      (f.comercial || "").toLowerCase().includes(term) ||
       (f.emitida_por || "").toLowerCase().includes(term) ||
       getSolicitudId(f).toLowerCase().includes(term) ||
       getSolicitudesDisplay(f).toLowerCase().includes(term)
@@ -231,6 +232,11 @@ export function FacturasVentasTable({
                     {f.cliente_numero && (
                       <div className="text-xs text-gray-500">
                         #{f.cliente_numero}
+                      </div>
+                    )}
+                    {f.comercial && (
+                      <div className="text-xs text-gray-500 italic">
+                        Comercial: {f.comercial}
                       </div>
                     )}
                   </TableCell>
