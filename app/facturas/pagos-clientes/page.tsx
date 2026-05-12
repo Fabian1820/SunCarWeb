@@ -39,7 +39,7 @@ import {
 } from "lucide-react";
 import { usePagos } from "@/hooks/use-pagos";
 import { AnticiposPendientesTable } from "@/components/feats/pagos/anticipos-pendientes-table";
-import { TodosPagosTable } from "@/components/feats/pagos/todos-pagos-table";
+import { TodosPagosTable, calcularPendienteOferta } from "@/components/feats/pagos/todos-pagos-table";
 import { TodosPagosPlanosTable } from "@/components/feats/pagos/todos-pagos-planos-table";
 import { FacturasContabilidadTable } from "@/components/feats/facturas/facturas-contabilidad-table";
 import type { FacturaContabilidadExportContext } from "@/lib/services/feats/facturas/export-factura-contabilidad-service";
@@ -441,7 +441,7 @@ export default function PagosClientesPage() {
 
     // Fallback local si el endpoint falla/no responde.
     return filteredOfertasConPagosPorFecha.filter((oferta) => {
-      const tienePendiente = Number(oferta.monto_pendiente || 0) > 0.01;
+      const tienePendiente = calcularPendienteOferta(oferta) > 0.01;
       return estadoOfertaPendienteFilter === "con_pendiente"
         ? tienePendiente
         : !tienePendiente;
@@ -680,7 +680,7 @@ export default function PagosClientesPage() {
     );
 
     const totalPendientePorCobrar = ofertasNoCanceladas.reduce(
-        (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
+        (acc, oferta) => acc + calcularPendienteOferta(oferta),
         0,
       );
 
@@ -705,7 +705,7 @@ export default function PagosClientesPage() {
     );
 
     const totalPendientePorCobrar = ofertasNoCanceladas.reduce(
-      (acc, oferta) => acc + Number(oferta.monto_pendiente || 0),
+      (acc, oferta) => acc + calcularPendienteOferta(oferta),
       0,
     );
 
@@ -1726,7 +1726,7 @@ export default function PagosClientesPage() {
                   </div>
 
                   <p className="mt-2 text-xs font-semibold text-sky-700">
-                    Pendiente: {formatCurrency(oferta.monto_pendiente)}
+                    Pendiente: {formatCurrency(oferta.monto_pendiente ?? 0)}
                   </p>
 
                   <div className="mt-2 rounded-md border border-sky-200 bg-white px-2.5 py-2">

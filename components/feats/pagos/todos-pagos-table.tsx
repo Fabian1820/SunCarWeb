@@ -142,6 +142,20 @@ const getMontoAplicadoUsd = (pago: OfertaConPagos["pagos"][number]): number => {
   return Math.max(0, pago.monto_usd - diferencia);
 };
 
+export const calcularPendienteOferta = (oferta: OfertaConPagos): number => {
+  if (isOfertaCancelada(oferta.estado || "")) return 0;
+  const totalAplicado = oferta.pagos.reduce(
+    (sum, p) => sum + getMontoAplicadoUsd(p),
+    0,
+  );
+  const pendienteCrudo = oferta.precio_final - totalAplicado;
+  const normalizado =
+    pendienteCrudo < 0.01 && pendienteCrudo > -0.01
+      ? 0
+      : Math.max(0, pendienteCrudo);
+  return roundToCents(normalizado);
+};
+
 const getTotalDevueltoOferta = (oferta: OfertaConPagos): number => {
   if (typeof oferta.total_devuelto === "number") return oferta.total_devuelto;
   if (Array.isArray(oferta.devoluciones)) {
@@ -666,11 +680,7 @@ export function TodosPagosTable({
                           : "break-words text-orange-700"
                       }
                     >
-                      {formatCurrency(
-                        isOfertaCancelada(oferta.estado || "")
-                          ? 0
-                          : oferta.monto_pendiente,
-                      )}
+                      {formatCurrency(calcularPendienteOferta(oferta))}
                     </div>
                   </TableCell>
                   <TableCell className="text-center py-3">
