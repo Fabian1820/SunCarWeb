@@ -228,7 +228,7 @@ export function AplicarPreciosConfirmDialog({
                               type="number"
                               min="0"
                               step="0.01"
-                              className={`h-7 text-xs text-right w-20 font-semibold ${
+                              className={`h-7 text-xs text-right w-24 font-semibold ${NO_SPIN} ${
                                 cambioCosto ? "border-amber-300 text-amber-700" : ""
                               }`}
                               value={parseFloat(c.costo_nuevo.toFixed(4)) || ""}
@@ -256,7 +256,7 @@ export function AplicarPreciosConfirmDialog({
                               type="number"
                               min="0"
                               step="0.01"
-                              className={`h-7 text-xs text-right w-20 font-semibold ${
+                              className={`h-7 text-xs text-right w-24 font-semibold ${NO_SPIN} ${
                                 cambioVenta ? "border-cyan-300 text-cyan-700" : ""
                               }`}
                               value={parseFloat(c.precio_venta_nuevo.toFixed(4)) || ""}
@@ -284,7 +284,7 @@ export function AplicarPreciosConfirmDialog({
                               type="number"
                               min="0"
                               step="0.01"
-                              className={`h-7 text-xs text-right w-20 font-semibold ${
+                              className={`h-7 text-xs text-right w-24 font-semibold ${NO_SPIN} ${
                                 cambioInst ? "border-emerald-300 text-emerald-700" : ""
                               }`}
                               value={parseFloat(c.precio_instaladora_nuevo.toFixed(4)) || ""}
@@ -310,7 +310,7 @@ export function AplicarPreciosConfirmDialog({
                               min="0"
                               max="100"
                               step="0.5"
-                              className={`h-7 text-xs text-right w-14 font-semibold ${
+                              className={`h-7 text-xs text-right w-16 font-semibold ${NO_SPIN} ${
                                 cambioReb ? "border-amber-400 text-amber-700" : ""
                               }`}
                               value={c.porciento_rebajable_venta_nuevo}
