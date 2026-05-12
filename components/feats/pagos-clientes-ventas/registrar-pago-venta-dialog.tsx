@@ -152,9 +152,9 @@ export function RegistrarPagoVentaDialog({
   );
   const montoNum = Number(monto);
   const tasaCambioNum = Number(tasaCambio) || 0;
-  // Convertir el monto ingresado a USD para comparar contra el saldo pendiente
+  // tasa = CUP (o EUR) por cada 1 USD, ej: 550 significa 550 CUP = 1 USD
   const montoEnUSD =
-    moneda !== "USD" && tasaCambioNum > 0 ? montoNum * tasaCambioNum : montoNum;
+    moneda !== "USD" && tasaCambioNum > 0 ? montoNum / tasaCambioNum : montoNum;
 
   const montoCubreTodo = pendiente != null && montoEnUSD > 0 && montoEnUSD >= pendiente;
 
@@ -253,7 +253,7 @@ export function RegistrarPagoVentaDialog({
     }
     const tasaNum = Number(tasaCambio) || 0;
     const montoUSD =
-      moneda !== "USD" && tasaNum > 0 ? montoNum * tasaNum : montoNum;
+      moneda !== "USD" && tasaNum > 0 ? montoNum / tasaNum : montoNum;
     if (pendiente != null && montoUSD > pendiente + 0.01) {
       setError(`El monto no puede superar el saldo pendiente (${formatCurrency(pendiente)})`);
       return;
@@ -485,15 +485,21 @@ export function RegistrarPagoVentaDialog({
 
           {moneda !== "USD" && (
             <div className="space-y-1">
-              <Label>Tasa de cambio (a USD)</Label>
+              <Label>Tasa de cambio ({moneda} por 1 USD)</Label>
               <Input
                 type="number"
                 min="0"
-                step="0.0001"
+                step="1"
                 value={tasaCambio}
                 onChange={(e) => setTasaCambio(e.target.value)}
-                placeholder="Ej: 0.0042"
+                placeholder="Ej: 550"
               />
+              {tasaCambioNum > 0 && montoNum > 0 && (
+                <p className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                  {montoNum.toLocaleString("es-CU")} {moneda} ={" "}
+                  <span className="font-semibold">{formatCurrency(montoEnUSD)}</span>
+                </p>
+              )}
             </div>
           )}
 
