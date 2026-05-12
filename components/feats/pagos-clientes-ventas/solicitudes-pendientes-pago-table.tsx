@@ -73,7 +73,8 @@ export function SolicitudesPendientesPagoTable({
     const term = search.toLowerCase();
     return (
       (s.codigo || "").toLowerCase().includes(term) ||
-      (s.cliente_venta_nombre || "").toLowerCase().includes(term)
+      (s.cliente_venta_nombre || "").toLowerCase().includes(term) ||
+      (s.comercial || "").toLowerCase().includes(term)
     );
   });
 
@@ -160,6 +161,11 @@ export function SolicitudesPendientesPagoTable({
                       <div className="font-medium text-sm">
                         {s.cliente_venta_nombre || "Sin nombre"}
                       </div>
+                      {s.comercial && (
+                        <div className="text-xs text-gray-500 italic">
+                          Comercial: {s.comercial}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="min-w-[160px]">
                       {getMaterialesLineas(s) ?? <span className="text-gray-400 text-xs">—</span>}

@@ -167,6 +167,7 @@ export function TodosPagosVentasTable({
           (p.solicitud_codigo || "").toLowerCase().includes(term) ||
           (p.factura_numero || "").toLowerCase().includes(term) ||
           (p.cliente_nombre || "").toLowerCase().includes(term) ||
+          (p.comercial || "").toLowerCase().includes(term) ||
           (p.recibido_por || "").toLowerCase().includes(term) ||
           (p.notas || "").toLowerCase().includes(term)
         );
@@ -224,7 +225,14 @@ export function TodosPagosVentasTable({
         <TableCell className="text-sm whitespace-nowrap">{formatDate(p.fecha || "")}</TableCell>
         <TableCell className="font-mono text-xs">{getSolicitudCode(p)}</TableCell>
         <TableCell className="text-sm">{p.factura_numero || "—"}</TableCell>
-        <TableCell className="text-sm">{p.cliente_nombre || "—"}</TableCell>
+        <TableCell className="text-sm">
+          <div>{p.cliente_nombre || "—"}</div>
+          {p.comercial && (
+            <div className="text-xs text-gray-500 italic">
+              Comercial: {p.comercial}
+            </div>
+          )}
+        </TableCell>
         <TableCell className="text-xs text-gray-600 min-w-[220px]">{getMaterialesTexto(p)}</TableCell>
         <TableCell className="text-sm min-w-[220px]">
           <div className="font-medium text-gray-900">{getMetodoPago(p)}</div>

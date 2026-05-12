@@ -10,6 +10,7 @@ export interface PagoVenta {
   solicitud_codigo?: string | null;
   factura_numero?: string | null;
   cliente_nombre?: string | null;
+  comercial?: string | null;
   materiales?: string[] | string | null;
   monto?: number;
   moneda?: "USD" | "CUP" | "EUR" | string;
