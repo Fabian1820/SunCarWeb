@@ -87,22 +87,22 @@ function OfertaDisplay({ cliente }: { cliente: Cliente }) {
   ) ?? [];
 
   let inv: { cantidad: number; descripcion: string } | null = null;
-  let bat: { cantidad: number; descripcion: string } | null = null;
+  let bats: { cantidad: number; descripcion: string }[] = [];
   let pan: { cantidad: number; descripcion: string } | null = null;
 
   if (oc && oc.items?.length) {
-    ({ inv, bat, pan } = extraerComponentesDeOfertaConfeccion(oc));
+    ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
   } else if (embebidas.length > 0) {
     const oferta = embebidas[0];
     if (oferta.inversor_codigo && oferta.inversor_cantidad > 0)
       inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
     if (oferta.bateria_codigo && oferta.bateria_cantidad > 0)
-      bat = { cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo };
+      bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
     if (oferta.panel_codigo && oferta.panel_cantidad > 0)
       pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
   }
 
-  const sinComponentes = !inv && !bat && !pan;
+  const sinComponentes = !inv && bats.length === 0 && !pan;
 
   if (sinComponentes && !oc) {
     return <p className="text-xs text-slate-400">Sin oferta</p>;
@@ -137,13 +137,13 @@ function OfertaDisplay({ cliente }: { cliente: Cliente }) {
             <span className="truncate">{inv.descripcion}</span>
           </div>
         )}
-        {bat && (
-          <div className="flex items-center gap-1 text-gray-700">
+        {bats.map((bat, i) => (
+          <div key={i} className="flex items-center gap-1 text-gray-700">
             <Battery className="h-3 w-3 text-green-500 shrink-0" />
             <span className="font-medium">{bat.cantidad}x</span>
             <span className="truncate">{bat.descripcion}</span>
           </div>
-        )}
+        ))}
         {pan && (
           <div className="flex items-center gap-1 text-gray-700">
             <Sun className="h-3 w-3 text-yellow-500 shrink-0" />

@@ -4838,7 +4838,7 @@ export function ClientsTable({
                         <td className="py-4 px-2 align-top">
                           {(() => {
                             let inv: { cantidad: number; descripcion: string } | null = null;
-                            let bat: { cantidad: number; descripcion: string } | null = null;
+                            let bats: { cantidad: number; descripcion: string }[] = [];
                             let pan: { cantidad: number; descripcion: string } | null = null;
 
                             const embebidas = client.ofertas?.filter(
@@ -4847,21 +4847,21 @@ export function ClientsTable({
                             const oc = client.oferta_confeccion;
 
                             if (oc && oc.items?.length) {
-                              ({ inv, bat, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                              ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
                             } else if (embebidas.length > 0) {
                               const oferta = embebidas[0];
                               if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
                                 inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
                               }
                               if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-                                bat = { cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo };
+                                bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
                               }
                               if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
                                 pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
                               }
                             }
 
-                            const sinComponentes = !inv && !bat && !pan;
+                            const sinComponentes = !inv && bats.length === 0 && !pan;
                             const enProceso = client.estado === "Instalación en Proceso";
                             const faltaInfo = enProceso ? (
                               <div className="mt-1.5 inline-flex items-start gap-1 rounded bg-orange-50 border border-orange-200 px-1.5 py-0.5 text-[12px] text-orange-700">
@@ -4910,13 +4910,13 @@ export function ClientsTable({
                                       <span className="truncate">{inv.descripcion}</span>
                                     </div>
                                   )}
-                                  {bat && (
-                                    <div className="flex items-center gap-1 text-gray-700" title={bat.descripcion}>
+                                  {bats.map((bat, i) => (
+                                    <div key={i} className="flex items-center gap-1 text-gray-700" title={bat.descripcion}>
                                       <Battery className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
                                       <span className="font-medium">{bat.cantidad}x</span>
                                       <span className="truncate">{bat.descripcion}</span>
                                     </div>
-                                  )}
+                                  ))}
                                   {pan && (
                                     <div className="flex items-center gap-1 text-gray-700" title={pan.descripcion}>
                                       <Sun className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />

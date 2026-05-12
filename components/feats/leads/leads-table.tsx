@@ -2577,7 +2577,7 @@ export function LeadsTable({
                       {(() => {
                         type Componente = { cantidad: number; descripcion: string };
                         let inv: Componente | null = null;
-                        let bat: Componente | null = null;
+                        let bats: Componente[] = [];
                         let pan: Componente | null = null;
                         let elementoPersonalizado: string | null = null;
 
@@ -2587,14 +2587,14 @@ export function LeadsTable({
                         const oc = lead.oferta_confeccion;
 
                         if (oc && oc.items?.length) {
-                          ({ inv, bat, pan } = extraerComponentesDeOfertaConfeccion(oc));
+                          ({ inv, bats, pan } = extraerComponentesDeOfertaConfeccion(oc));
                         } else if (embebidas.length > 0) {
                           const oferta = embebidas[0];
                           if (oferta.inversor_codigo && oferta.inversor_cantidad > 0) {
                             inv = { cantidad: oferta.inversor_cantidad, descripcion: oferta.inversor_nombre || oferta.inversor_codigo };
                           }
                           if (oferta.bateria_codigo && oferta.bateria_cantidad > 0) {
-                            bat = { cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo };
+                            bats = [{ cantidad: oferta.bateria_cantidad, descripcion: oferta.bateria_nombre || oferta.bateria_codigo }];
                           }
                           if (oferta.panel_codigo && oferta.panel_cantidad > 0) {
                             pan = { cantidad: oferta.panel_cantidad, descripcion: oferta.panel_nombre || oferta.panel_codigo };
@@ -2604,7 +2604,7 @@ export function LeadsTable({
                           }
                         }
 
-                        const sinComponentes = !inv && !bat && !pan && !elementoPersonalizado;
+                        const sinComponentes = !inv && bats.length === 0 && !pan && !elementoPersonalizado;
                         if (sinComponentes && !oc) {
                           return <div className="text-base text-gray-400">Sin ofertas</div>;
                         }
@@ -2638,13 +2638,13 @@ export function LeadsTable({
                                   <span className="truncate">{inv.descripcion}</span>
                                 </div>
                               )}
-                              {bat && (
-                                <div className="flex items-center gap-1.5 text-gray-700">
+                              {bats.map((bat, i) => (
+                                <div key={i} className="flex items-center gap-1.5 text-gray-700">
                                   <Battery className="h-4 w-4 text-green-500 flex-shrink-0" />
                                   <span className="font-medium">{bat.cantidad}x</span>
                                   <span className="truncate">{bat.descripcion}</span>
                                 </div>
-                              )}
+                              ))}
                               {pan && (
                                 <div className="flex items-center gap-1.5 text-gray-700">
                                   <Sun className="h-4 w-4 text-yellow-500 flex-shrink-0" />

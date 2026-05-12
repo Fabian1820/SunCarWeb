@@ -44,6 +44,7 @@ export interface ItemOfertaConfeccionResumen {
   descripcion: string;
   cantidad: number;
   seccion?: string;
+  categoria?: string;
 }
 
 export interface OfertaConfeccionResumen {

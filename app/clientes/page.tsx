@@ -829,10 +829,10 @@ export default function ClientesPage() {
 
       const oc = client.oferta_confeccion;
       if (oc && oc.items?.length) {
-        const { inv: itemInv, bat: itemBat, pan: itemPan } = extraerComponentesDeOfertaConfeccion(oc);
+        const { inv: itemInv, bats: itemBats, pan: itemPan } = extraerComponentesDeOfertaConfeccion(oc);
         const productos: string[] = [];
         if (itemInv) productos.push(`${itemInv.cantidad}x ${itemInv.descripcion}`);
-        if (itemBat) productos.push(`${itemBat.cantidad}x ${itemBat.descripcion}`);
+        itemBats.forEach((b) => productos.push(`${b.cantidad}x ${b.descripcion}`));
         if (itemPan) productos.push(`${itemPan.cantidad}x ${itemPan.descripcion}`);
         ofertaTexto = productos.length > 0 ? productos.join(" • ") : "";
       } else if (client.ofertas && client.ofertas.length > 0) {
