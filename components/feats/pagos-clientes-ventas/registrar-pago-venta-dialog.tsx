@@ -125,6 +125,12 @@ export function RegistrarPagoVentaDialog({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // CUP → tasa por defecto 550 CUP = 1 USD; otros → limpiar campo
+  useEffect(() => {
+    if (moneda === "CUP") setTasaCambio("550");
+    else setTasaCambio("");
+  }, [moneda]);
+
   // Sugerir número de factura cuando se activa el toggle
   useEffect(() => {
     if (!generarFactura) return;
