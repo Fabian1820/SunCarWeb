@@ -310,7 +310,9 @@ export function RegistrarPagoVentaDialog({
         solicitud_venta_id: solicitud.id,
         monto: montoNum,
         moneda,
-        tasa_cambio: tasaCambio ? Number(tasaCambio) : undefined,
+        // El backend calcula monto_usd = monto * tasa_cambio, así que enviamos el recíproco
+        // (usuario ingresa "CUP por 1 USD", backend espera "USD por 1 CUP")
+        tasa_cambio: tasaCambio && moneda !== "USD" ? 1 / Number(tasaCambio) : (tasaCambio ? Number(tasaCambio) : undefined),
         metodo_pago: metodoPago,
         desglose_billetes:
           metodoPago === "efectivo" ? buildDesgloseBilletes() : undefined,

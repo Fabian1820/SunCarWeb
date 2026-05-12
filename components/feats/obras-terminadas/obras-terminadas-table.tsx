@@ -28,8 +28,7 @@ import {
   CalendarDays,
 } from "lucide-react"
 import type { OfertaObra, DetalleCliente } from "@/hooks/use-obras-terminadas"
-import type { TrabajoDiarioRegistro } from "@/lib/types/feats/instalaciones/trabajos-diarios-types"
-import type { ValeSalida } from "@/lib/types/feats/vales-salida/vale-salida-types"
+import type { PagoObra, TrabajoDiarioObra, ValeSalidaObra } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 import { cn } from "@/lib/utils"
 
@@ -69,7 +68,7 @@ const normalizeEstadoKey = (estado: string) =>
   estado
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim()
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -103,11 +102,7 @@ const ESTADO_BADGE: Record<string, string> = {
 const getEstadoCliente = (o: OfertaObra): string => {
   const raw =
     toCleanString(o.contacto?.estado) ||
-    toCleanString(o.contacto?.estado_cliente) ||
-    toCleanString(o.estado_cliente) ||
-    toCleanString(o.cliente_estado) ||
-    toCleanString(o.cliente?.estado) ||
-    toCleanString(o.lead?.estado) ||
+    toCleanString(o.estado) ||
     "Sin estado"
   return ESTADO_LABELS[normalizeEstadoKey(raw)] || raw
 }
@@ -116,40 +111,39 @@ const getEstadoBadgeClass = (estado: string) =>
   ESTADO_BADGE[normalizeEstadoKey(estado)] ||
   "bg-gray-100 text-gray-700 border-gray-300"
 
-const getMontoAplicadoUsd = (p: OfertaObra["pagos"][number]) =>
-  Math.max(0, p.monto_usd - (p.diferencia?.monto ?? 0))
+const getMontoAplicadoUsd = (p: PagoObra) =>
+  Math.max(0, (p.monto_usd ?? 0) - (p.diferencia ?? 0))
 
 const getTotalDevueltoOferta = (o: OfertaObra): number => {
   if (typeof o.total_devuelto === "number") return o.total_devuelto
   if (Array.isArray(o.devoluciones))
-    return o.devoluciones.reduce((s, d) => s + Number(d.monto_devuelto || 0), 0)
+    return o.devoluciones.reduce((s: number, d) => s + Number(d.monto_devuelto || 0), 0)
   return 0
 }
 
-const getTotalDevueltoPago = (p: OfertaObra["pagos"][number]): number => {
+const getTotalDevueltoPago = (p: PagoObra): number => {
   if (typeof p.total_devuelto === "number") return p.total_devuelto
-  if (Array.isArray(p.devoluciones))
-    return p.devoluciones.reduce((s, d) => s + Number(d.monto_devuelto || 0), 0)
   return 0
 }
 
-const ordenarPagos = (pagos: OfertaObra["pagos"]) =>
+const ordenarPagos = (pagos: PagoObra[]) =>
   [...pagos].sort((a, b) => {
-    const d = toEpochMs(a.fecha) - toEpochMs(b.fecha)
+    const d = toEpochMs(a.fecha ?? "") - toEpochMs(b.fecha ?? "")
     if (d !== 0) return d
-    const dc = toEpochMs(a.fecha_creacion) - toEpochMs(b.fecha_creacion)
+    const dc = toEpochMs(a.fecha_creacion ?? "") - toEpochMs(b.fecha_creacion ?? "")
     if (dc !== 0) return dc
-    return a.id.localeCompare(b.id)
+    return (a.id ?? "").localeCompare(b.id ?? "")
   })
 
 const getTotalesParaPago = (oferta: OfertaObra, pagoId: string) => {
-  const sorted = ordenarPagos(oferta.pagos)
+  const sorted = ordenarPagos(oferta.pagos ?? [])
+  const precioFinal = oferta.precio_final ?? 0
   const idx = sorted.findIndex((p) => p.id === pagoId)
   if (idx < 0)
-    return { totalPagadoAnteriormente: 0, pendienteDespuesPago: roundToCents(Math.max(0, oferta.precio_final)) }
+    return { totalPagadoAnteriormente: 0, pendienteDespuesPago: roundToCents(Math.max(0, precioFinal)) }
   const antes = sorted.slice(0, idx).reduce((s, p) => s + getMontoAplicadoUsd(p), 0)
   const conEste = antes + getMontoAplicadoUsd(sorted[idx])
-  const pendiente = oferta.precio_final - conEste
+  const pendiente = precioFinal - conEste
   return {
     totalPagadoAnteriormente: roundToCents(antes),
     pendienteDespuesPago: roundToCents(
@@ -222,7 +216,7 @@ const EstadoTrabajoBadge = ({ terminada }: { terminada?: boolean }) =>
     <Badge className="bg-amber-100 text-amber-800 text-[11px] font-medium">Pendiente</Badge>
   )
 
-const colorBarra = (t: TrabajoDiarioRegistro) => {
+const colorBarra = (t: TrabajoDiarioObra) => {
   const tipo = safeText(t.tipo_trabajo).toUpperCase()
   if (tipo.includes("AVERIA") || tipo.includes("AVERÍA")) return "bg-red-400"
   if (tipo.includes("NUEVA")) return "bg-orange-400"
@@ -328,37 +322,39 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
     next.has(id) ? next.delete(id) : next.add(id)
     setExpandedExcedentes(next)
   }
-  const pagosOrdenados = ordenarPagos(oferta.pagos)
+  const pagosOrdenados = ordenarPagos(oferta.pagos ?? [])
   if (!pagosOrdenados.length)
     return <p className="text-center py-4 text-sm text-gray-500">No hay pagos registrados</p>
 
   return (
     <div className="space-y-2">
       {pagosOrdenados.map((pago, index) => {
-        const { pendienteDespuesPago } = getTotalesParaPago(oferta, pago.id)
+        const pagoId = pago.id ?? String(index)
+        const { pendienteDespuesPago } = getTotalesParaPago(oferta, pagoId)
+        const metodo = pago.metodo_pago ?? ""
+        const moneda = pago.moneda ?? "USD"
         return (
-          <div key={pago.id} className="bg-white rounded border border-gray-200 p-2 shadow-sm">
+          <div key={pagoId} className="bg-white rounded border border-gray-200 p-2 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Col 1 */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-gray-500">#{index + 1}</span>
-                  <TipoPagoBadge tipo={pago.tipo_pago} />
+                  <TipoPagoBadge tipo={pago.tipo_pago ?? ""} />
                 </div>
-                <div><span className="text-xs text-gray-500 block">Fecha</span><span className="text-sm font-medium">{fmtDate(pago.fecha)}</span></div>
+                <div><span className="text-xs text-gray-500 block">Fecha</span><span className="text-sm font-medium">{fmtDate(pago.fecha ?? "")}</span></div>
                 <div>
                   <span className="text-xs text-gray-500 block">Monto</span>
-                  <span className="text-sm font-semibold text-green-700">{fmtCurrency(pago.monto)} {pago.moneda}</span>
-                  {pago.moneda !== "USD" && <p className="text-xs text-gray-500">Tasa: {pago.tasa_cambio} → {fmtCurrency(pago.monto_usd)} USD</p>}
+                  <span className="text-sm font-semibold text-green-700">{fmtCurrency(pago.monto ?? 0)} {moneda}</span>
+                  {moneda !== "USD" && <p className="text-xs text-gray-500">Tasa: {pago.tasa_cambio} → {fmtCurrency(pago.monto_usd ?? 0)} USD</p>}
                 </div>
                 <div><span className="text-xs text-gray-500 block">Devuelto</span><span className="text-sm font-semibold text-red-700">{fmtCurrency(getTotalDevueltoPago(pago))} USD</span></div>
-                {pago.diferencia && (
+                {pago.diferencia != null && pago.diferencia > 0 && (
                   <div>
-                    <button onClick={() => toggleExcedente(pago.id)} className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1">
-                      ⚠ Excedente: +{fmtCurrency(pago.diferencia.monto)}
-                      <ChevronDown className={`h-3 w-3 transition-transform ${expandedExcedentes.has(pago.id) ? "rotate-180" : ""}`} />
+                    <button onClick={() => toggleExcedente(pagoId)} className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1">
+                      ⚠ Excedente: +{fmtCurrency(pago.diferencia)}
+                      <ChevronDown className={`h-3 w-3 transition-transform ${expandedExcedentes.has(pagoId) ? "rotate-180" : ""}`} />
                     </button>
-                    {expandedExcedentes.has(pago.id) && <p className="text-xs text-gray-700 italic mt-1 pl-3">{pago.diferencia.justificacion}</p>}
                   </div>
                 )}
                 <div><span className="text-xs text-gray-500 block">Pendiente después</span><span className="text-sm font-semibold text-orange-700">{fmtCurrency(pendienteDespuesPago)} USD</span></div>
@@ -366,22 +362,22 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
               {/* Col 2 */}
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-500 block">MÉTODO</span>
-                <MetodoPagoBadge metodo={pago.metodo_pago} />
-                {pago.metodo_pago === "efectivo" && pago.recibido_por && <div><span className="text-xs text-gray-500 block">Recibido por</span><span className="text-sm">{pago.recibido_por}</span></div>}
-                {(pago.metodo_pago === "transferencia_bancaria" || pago.metodo_pago === "stripe") && pago.comprobante_transferencia && (
+                <MetodoPagoBadge metodo={metodo} />
+                {metodo === "efectivo" && pago.recibido_por && <div><span className="text-xs text-gray-500 block">Recibido por</span><span className="text-sm">{pago.recibido_por}</span></div>}
+                {(metodo === "transferencia_bancaria" || metodo === "stripe") && pago.comprobante_transferencia && (
                   <div><span className="text-xs text-gray-500 block">Comprobante</span><a href={pago.comprobante_transferencia} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Ver →</a></div>
                 )}
               </div>
               {/* Col 3 */}
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-500 block">PAGADOR</span>
-                <span className="text-sm font-medium text-gray-900 block">{pago.nombre_pagador || oferta.contacto.nombre || "No especificado"}</span>
+                <span className="text-sm font-medium text-gray-900 block">{pago.nombre_pagador || oferta.contacto?.nombre || "No especificado"}</span>
                 {!pago.pago_cliente && <Badge variant="outline" className="bg-orange-50 text-orange-700 text-xs">Tercero</Badge>}
                 {pago.carnet_pagador && <div><span className="text-xs text-gray-500 block">CI</span><span className="text-sm">{pago.carnet_pagador}</span></div>}
               </div>
               {/* Col 4 */}
               <div className="space-y-1.5">
-                {pago.metodo_pago === "efectivo" && pago.desglose_billetes && Object.keys(pago.desglose_billetes).length > 0 && (
+                {metodo === "efectivo" && pago.desglose_billetes && Object.keys(pago.desglose_billetes).length > 0 && (
                   <div>
                     <span className="text-xs font-semibold text-gray-500 block mb-1">DESGLOSE</span>
                     <div className="space-y-0.5 bg-gray-50 rounded p-1.5 border border-gray-200">
@@ -396,7 +392,7 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
                 )}
                 {pago.notas && <div><span className="text-xs text-gray-500 block">Notas</span><span className="text-xs text-gray-700 italic">{pago.notas}</span></div>}
                 <div className="pt-1">
-                  <Button variant="outline" size="sm" onClick={() => ExportComprobanteService.generarComprobantePDF({ pago, oferta: { numero_oferta: oferta.numero_oferta, nombre_completo: oferta.nombre_completo, precio_final: oferta.precio_final }, contacto: { nombre: oferta.contacto.nombre || "No especificado", carnet: oferta.contacto.carnet ?? undefined, telefono: oferta.contacto.telefono ?? undefined, direccion: oferta.contacto.direccion ?? undefined }, monto_pendiente_despues_pago: pendienteDespuesPago })} className="w-full h-7 text-xs">
+                  <Button variant="outline" size="sm" onClick={() => ExportComprobanteService.generarComprobantePDF({ pago, oferta: { numero_oferta: oferta.numero_oferta, nombre_completo: oferta.nombre_completo, precio_final: oferta.precio_final ?? 0 }, contacto: { nombre: oferta.contacto?.nombre || "No especificado", carnet: oferta.contacto?.carnet ?? undefined, telefono: oferta.contacto?.telefono ?? undefined }, monto_pendiente_despues_pago: pendienteDespuesPago })} className="w-full h-7 text-xs">
                     <FileText className="h-3 w-3 mr-1" />Comprobante
                   </Button>
                 </div>
@@ -413,13 +409,13 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
    Panel: TRABAJOS DIARIOS — estilo tabla
 ───────────────────────────────────────────── */
 
-function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioRegistro[] }) {
+function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioObra[] }) {
   if (!trabajos.length)
     return <p className="text-center py-4 text-sm text-gray-500">No hay trabajos diarios registrados para este cliente</p>
 
   const sorted = [...trabajos].sort((a, b) => {
-    const fa = safeText(a.fecha_trabajo || a.fecha || a.created_at).slice(0, 10)
-    const fb = safeText(b.fecha_trabajo || b.fecha || b.created_at).slice(0, 10)
+    const fa = safeText(a.fecha || a.created_at).slice(0, 10)
+    const fb = safeText(b.fecha || b.created_at).slice(0, 10)
     return fb.localeCompare(fa)
   })
 
@@ -436,17 +432,15 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioRegistro[] }) {
         </thead>
         <tbody>
           {sorted.map((t, idx) => {
-            const fecha = safeText(t.fecha_trabajo || t.fecha || t.created_at).slice(0, 10)
+            const fecha = safeText(t.fecha || t.created_at).slice(0, 10)
             const tipo = safeText(t.tipo_trabajo, "Sin tipo")
             const averia = tipo.toUpperCase().includes("AVERIA") || tipo.toUpperCase().includes("AVERÍA")
             const instaladores: string[] = Array.isArray(t.instaladores)
-              ? t.instaladores.filter(Boolean)
-              : Array.isArray(t.brigadistas)
-                ? t.brigadistas.map((b) => b.nombre || b.ci)
-                : []
-            const inicioComentario = safeText(t.inicio?.comentario)
-            const finComentario = safeText(t.fin?.comentario)
-            const pendiente = safeText(t.queda_pendiente)
+              ? (t.instaladores.filter(Boolean) as string[])
+              : []
+            const inicioComentario = safeText(t.inicio)
+            const finComentario = safeText(t.fin)
+            const pendiente = t.queda_pendiente ? "Queda pendiente" : ""
 
             return (
               <tr key={t.id || idx} className="align-top border-t border-slate-200 hover:bg-slate-50 transition-colors">
@@ -488,7 +482,7 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioRegistro[] }) {
                     </div>
                   )}
                 </td>
-                <td className="px-3 py-3"><EstadoTrabajoBadge terminada={t.instalacion_terminada} /></td>
+                <td className="px-3 py-3"><EstadoTrabajoBadge terminada={t.instalacion_terminada ?? undefined} /></td>
               </tr>
             )
           })}
@@ -502,7 +496,7 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioRegistro[] }) {
    Panel: VALES
 ───────────────────────────────────────────── */
 
-function ValesPanel({ vales }: { vales: ValeSalida[] }) {
+function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
   if (!vales.length)
     return <p className="text-center py-4 text-sm text-gray-500">No hay vales de salida registrados para este cliente</p>
 
@@ -529,7 +523,7 @@ function ValesPanel({ vales }: { vales: ValeSalida[] }) {
             const codigo = safeText(vale.codigo, `Vale ${idx + 1}`)
             const fecha = safeText(vale.fecha_creacion)
             const estado = safeText(vale.estado, "—")
-            const recogido = safeText(vale.recogido_por || vale.recogio_por || vale.recibido_por)
+            const recogido = safeText(vale.recogido_por)
             const materiales = vale.materiales || []
 
             return (
@@ -563,10 +557,6 @@ function ValesPanel({ vales }: { vales: ValeSalida[] }) {
                         const nombre =
                           m.material?.nombre ||
                           m.material?.descripcion ||
-                          m.descripcion ||
-                          m.codigo ||
-                          m.material_descripcion ||
-                          m.material_codigo ||
                           "Material"
                         return (
                           <div key={mi} className="flex items-center gap-2 text-xs">
@@ -637,7 +627,7 @@ export function ObrasTerminadasTable({
   const [showFilters, setShowFilters] = useState(true)
 
   const toggleOferta = (oferta: OfertaObra) => {
-    const id = oferta.oferta_id
+    const id = oferta.oferta_id ?? ""
     const clienteNum = (oferta.cliente_numero || oferta.contacto?.codigo || "").trim()
     const next = new Set(expandedOfertas)
     if (next.has(id)) {
@@ -673,7 +663,7 @@ export function ObrasTerminadasTable({
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
         const matches =
-          o.numero_oferta.toLowerCase().includes(term) ||
+          (o.numero_oferta ?? "").toLowerCase().includes(term) ||
           (o.contacto?.nombre || "").toLowerCase().includes(term) ||
           (o.contacto?.telefono || "").includes(term) ||
           (o.contacto?.carnet || "").includes(term) ||
@@ -684,12 +674,13 @@ export function ObrasTerminadasTable({
       }
 
       // Estado de pago
-      if (estadoPago === "pagado" && o.monto_pendiente > 0.01) return false
-      if (estadoPago === "pendiente" && o.monto_pendiente <= 0.01) return false
+      const montoPendiente = o.monto_pendiente ?? 0
+      if (estadoPago === "pagado" && montoPendiente > 0.01) return false
+      if (estadoPago === "pendiente" && montoPendiente <= 0.01) return false
 
       // Fecha creación cliente
       if (filtroFechaCliente.mode !== "off") {
-        if (!dateInRange(o.fecha_creacion_cliente, filtroFechaCliente.desde, filtroFechaCliente.hasta)) return false
+        if (!dateInRange(o.fecha_creacion, filtroFechaCliente.desde, filtroFechaCliente.hasta)) return false
       }
 
       // Fecha instalación
@@ -699,7 +690,7 @@ export function ObrasTerminadasTable({
 
       // Fecha de pagos (si algún pago cae en el rango)
       if (filtroFechaPago.mode !== "off") {
-        const tienePageEnRango = o.pagos.some((p) =>
+        const tienePageEnRango = (o.pagos ?? []).some((p) =>
           dateInRange(p.fecha, filtroFechaPago.desde, filtroFechaPago.hasta),
         )
         if (!tienePageEnRango) return false
@@ -825,8 +816,8 @@ export function ObrasTerminadasTable({
         Mostrando <strong>{filteredOfertas.length}</strong> de {ofertasConPagos.length} ofertas
         {filteredOfertas.length > 0 && (
           <span className="ml-3 text-blue-600 font-medium">
-            Total cobrado: {fmtCurrency(filteredOfertas.reduce((s, o) => s + o.total_pagado, 0))} ·
-            Pendiente: {fmtCurrency(filteredOfertas.reduce((s, o) => s + o.monto_pendiente, 0))}
+            Total cobrado: {fmtCurrency(filteredOfertas.reduce((s, o) => s + (o.total_pagado ?? 0), 0))} ·
+            Pendiente: {fmtCurrency(filteredOfertas.reduce((s, o) => s + (o.monto_pendiente ?? 0), 0))}
           </span>
         )}
       </div>
@@ -860,13 +851,16 @@ export function ObrasTerminadasTable({
             </TableHeader>
             <TableBody>
               {filteredOfertas.map((oferta) => {
-                const isExpanded = expandedOfertas.has(oferta.oferta_id)
+                const ofertaId = oferta.oferta_id ?? ""
+                const isExpanded = expandedOfertas.has(ofertaId)
                 const estadoCliente = getEstadoCliente(oferta)
-                const totalMat = parseNullableNumber(oferta.total_materiales ?? oferta.totalMateriales)
-                const ganancia = totalMat !== null ? oferta.precio_final - totalMat : null
+                const totalMat = parseNullableNumber(oferta.total_materiales)
+                const precioFinal = oferta.precio_final ?? 0
+                const ganancia = totalMat !== null ? precioFinal - totalMat : null
                 const totalDevuelto = getTotalDevueltoOferta(oferta)
-                const tab = activeTab[oferta.oferta_id] || "pagos"
-                const pagado = oferta.monto_pendiente <= 0.01
+                const tab = activeTab[ofertaId] || "pagos"
+                const montoPendiente = oferta.monto_pendiente ?? 0
+                const pagado = montoPendiente <= 0.01
 
                 const clienteNum = (oferta.cliente_numero || oferta.contacto?.codigo || "").trim()
                 const detalle = detalleCache[clienteNum]
@@ -876,7 +870,7 @@ export function ObrasTerminadasTable({
                 const valesCliente = detalle?.vales ?? []
 
                 return (
-                  <React.Fragment key={oferta.oferta_id}>
+                  <React.Fragment key={ofertaId || oferta.numero_oferta}>
                     <TableRow
                       className={cn(
                         "cursor-pointer transition-colors",
@@ -905,23 +899,23 @@ export function ObrasTerminadasTable({
                         {oferta.comercial_nombre || <span className="text-gray-400 text-xs">—</span>}
                       </TableCell>
                       <TableCell className="py-2.5 text-xs text-gray-600">
-                        {oferta.fecha_creacion_cliente ? fmtDate(oferta.fecha_creacion_cliente) : <span className="text-gray-400">—</span>}
+                        {oferta.fecha_creacion ? fmtDate(oferta.fecha_creacion) : <span className="text-gray-400">—</span>}
                       </TableCell>
                       <TableCell className="py-2.5 text-xs text-gray-600">
                         {oferta.fecha_instalacion_cliente ? fmtDate(oferta.fecha_instalacion_cliente) : <span className="text-gray-400">—</span>}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-sm py-2.5">{fmtCurrency(oferta.precio_final)}</TableCell>
+                      <TableCell className="text-right font-semibold text-sm py-2.5">{fmtCurrency(precioFinal)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 text-slate-700">{totalMat !== null ? fmtCurrency(totalMat) : "-"}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 text-blue-700 font-semibold">{ganancia !== null ? fmtCurrency(ganancia) : "-"}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 text-green-700 font-semibold">{fmtCurrency(oferta.total_pagado)}</TableCell>
+                      <TableCell className="text-right text-sm py-2.5 text-green-700 font-semibold">{fmtCurrency(oferta.total_pagado ?? 0)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 text-red-700 font-semibold">{fmtCurrency(totalDevuelto)}</TableCell>
                       <TableCell className="text-right text-sm py-2.5 font-semibold">
                         <span className={pagado ? "text-green-600" : "text-orange-700"}>
-                          {fmtCurrency(oferta.monto_pendiente)}
+                          {fmtCurrency(montoPendiente)}
                         </span>
                       </TableCell>
                       <TableCell className="text-center py-2.5">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">{oferta.cantidad_pagos}</Badge>
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700">{oferta.cantidad_pagos ?? 0}</Badge>
                       </TableCell>
                       <TableCell className="py-2.5 text-sm text-gray-700">{oferta.almacen_nombre || "-"}</TableCell>
                     </TableRow>
@@ -934,17 +928,17 @@ export function ObrasTerminadasTable({
                             {/* Tabs */}
                             <div className="flex gap-1 mb-3 border-b border-orange-200 pb-2">
                               <button
-                                onClick={() => setActiveTab((p) => ({ ...p, [oferta.oferta_id]: "pagos" }))}
+                                onClick={() => setActiveTab((p) => ({ ...p, [ofertaId]: "pagos" }))}
                                 className={cn(
                                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
                                   tab === "pagos" ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
                                 )}
                               >
                                 <FileText className="h-3.5 w-3.5" />
-                                Pagos ({oferta.cantidad_pagos})
+                                Pagos ({oferta.cantidad_pagos ?? 0})
                               </button>
                               <button
-                                onClick={() => setActiveTab((p) => ({ ...p, [oferta.oferta_id]: "trabajos" }))}
+                                onClick={() => setActiveTab((p) => ({ ...p, [ofertaId]: "trabajos" }))}
                                 className={cn(
                                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
                                   tab === "trabajos" ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
@@ -954,7 +948,7 @@ export function ObrasTerminadasTable({
                                 Trabajos Diarios {detalle ? `(${trabajosCliente.length})` : ""}
                               </button>
                               <button
-                                onClick={() => setActiveTab((p) => ({ ...p, [oferta.oferta_id]: "vales" }))}
+                                onClick={() => setActiveTab((p) => ({ ...p, [ofertaId]: "vales" }))}
                                 className={cn(
                                   "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
                                   tab === "vales" ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",

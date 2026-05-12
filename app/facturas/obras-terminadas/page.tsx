@@ -61,7 +61,7 @@ export default function ObrasTerminadasPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchData}
+                onClick={() => fetchData()}
                 disabled={loading}
                 className="gap-1.5"
               >
@@ -98,7 +98,7 @@ export default function ObrasTerminadasPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchData}
+              onClick={() => fetchData()}
               className="ml-auto border-red-300 text-red-700 hover:bg-red-100"
             >
               Reintentar
