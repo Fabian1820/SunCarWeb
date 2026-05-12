@@ -2,6 +2,91 @@
 
 ---
 
+## 📅 12 de Mayo, 2026
+
+### Resumen de cambios (últimas 24h)
+
+**Áreas: Wallet (UX + paginación server-side + filtros), Facturas/Tickets (formato + fix fecha), Envíos de Contenedores (estados + creación rápida de materiales), Pagos/Facturas Ventas (campo comercial), Vales de Salida (filtro tipo), Tasa de Cambio/Baterías/Pagos CUP (yany1509)**
+
+| Commit | Autor | Descripción |
+|--------|-------|-------------|
+| `f5ee1e26` | Ruben/Claude | feat(wallet): código de moneda en historial, scroll horizontal, modal distribución por billetera, badge "Pendiente de aceptación" |
+| `b9a3357b` | Ruben/Claude | feat(wallet): paginación real (50/página) + filtros server-side (fechas, búsqueda debounced, propias) |
+| `4b0a0aed` | Ruben/Claude | feat(wallet): filtro "Con persona" por contraparte_ci + chip Transferencias + fix pendientes ver_todos |
+| `2fbaa333` | Ruben/Claude | fix(wallet): transferencias globales en violeta sin signo +/- en vista todos |
+| `d9acb0cb` | Ruben/Claude | fix(wallet): usuarios con ver_todos ven todas las pendientes del sistema (direction='all') |
+| `5a1ad271` | Fabian1820 | refactor(ticket): ajustar formato a 58mm |
+| `2c3f8602` | Fabian1820 | refactor(ticket): optimizar formato a 48mm, reducir márgenes, mejorar tipografía |
+| `347f2ea1` | Claude | fix(facturas-ventas): corregir desfase de fecha UTC/local + exportar todas las facturas en un PDF (mergeado PR #1) |
+| `e02367d7` | Fabian1820 | feat(envios-contenedores): QuickMaterialCreateDialog — creación rápida de materiales desde formulario |
+| `a45053c2` | Fabian1820 | feat(envios-contenedores): estados despachado → solicitado/enviado/arribado |
+| `d6929bb9` | Fabian1820 | feat(facturas-ventas): campo 'comercial' en FacturaClienteVenta + búsqueda |
+| `8687e937` | Fabian1820 | feat(pagos-clientes-ventas): campo 'comercial' en PagoVenta y SolicitudVentaSummary |
+| `3873b9ab` | Fabian1820 | feat(clientes-ventas): valor por defecto 'SunCar' para comercial sin asignar |
+| `cc8244ef` | Fabian1820 | feat(pagos-clientes-ventas): mostrar emitida_por_nombre con fallback a emitida_por |
+| `b538cbcc` | Fabian1820 | refactor(todos-pagos-planos-table): eliminar funcionalidad de edición de pagos |
+| `343c9dbb` | Fabian1820 | feat(vales-salida): filtro por tipo (material/venta) |
+| `a3eba0a1` | yany1509 | "ajustes en exportar de facturas, nuevos filtros y campos en las tablas" |
+| `3fb6ca2c` | yany1509 | "pagos en cup intaladora" |
+| `907ba4bf` | yany1509 | "ajustes en tasa de cambio" |
+| `92cfd107` | yany1509 | "pagos en tasa de cambio" |
+| `326cf098` | yany1509 | "mostrar todas las. baterias" |
+| `36f6d0b7` | yany1509 | "ajusts" |
+| `f6f36278` | yany1509 | "ajustes" |
+| `4d229091` | yany1509 | "ajustes" |
+
+### Análisis de riesgos y consideraciones
+
+#### 🔴 Riesgos altos
+
+1. **Wallet — paginación/filtros completamente server-side; filtrado client-side eliminado**
+   - El historial ya no filtra en el frontend. Los parámetros `q`, `propias`, `from_date`, `to_date`, `contraparte_ci`, `page`, `page_size` deben ser soportados por el endpoint del backend.
+   - Si el backend no reconoce alguno de estos params, el historial puede aparecer vacío o retornar todos los registros sin filtrar.
+   - **Acción urgente:** Verificar en LlegoBackend que el endpoint de transacciones del wallet acepta y procesa estos parámetros.
+
+2. **Cambio de estados en envíos de contenedores: `despachado` → `solicitado` / `enviado` / `arribado`**
+   - Si el backend tiene validaciones de enum o constraints en BD, los registros existentes con estado `despachado` fallarán al intentar actualizarse o mostrarse.
+   - El valor por defecto del formulario fue cambiado a `solicitado`.
+   - **Acción urgente:** Verificar con el backend que los nuevos valores son aceptados y ejecutar migración para registros existentes si necesario.
+
+3. **Iteración rápida en formato de ticket (3 commits, ancho cambia 80mm → 58mm → 48mm)**
+   - Dos refactors consecutivos en menos de 15 minutos apuntan a prueba en producción. El ancho final (48mm) puede no ser compatible con todas las impresoras térmicas en uso.
+   - **Acción recomendada:** Probar impresión física con una impresora de 48mm y confirmar que el ancho es el correcto antes de considerar cerrado.
+
+4. **yany1509 — 8 commits vagos sobre tasa de cambio, baterías, pagos CUP**
+   - "pagos en tasa de cambio", "ajustes en tasa de cambio", "mostrar todas las. baterias", "pagos en cup intaladora", más 3 "ajustes" sin contexto. Afectan módulos de pagos activos.
+   - **Acción recomendada:** Revisar diffs manualmente antes de asumir estabilidad en los módulos de tasa de cambio y baterías.
+
+#### 🟡 Riesgos medios
+
+5. **Wallet — `direction='all'` en pendientes para usuarios `ver_todos`**
+   - El frontend ahora llama al endpoint con este parámetro. Si el backend no lo soporta, los usuarios con `ver_todos` verán solo sus propias pendientes (o error). Verificar en LlegoBackend.
+
+6. **Campos `comercial` en múltiples interfaces (PagoVenta, FacturaClienteVenta, SolicitudVentaSummary)**
+   - Si el backend no incluye el campo en sus responses, aparecerá como `undefined` sin error visible. Los valores se mostrarán vacíos en las tablas.
+   - El valor por defecto "SunCar" se aplica solo cuando el campo es `null`/vacío — verificar que la lógica de display es consistente con lo que retorna el backend.
+
+7. **QuickMaterialCreateDialog — creación rápida de materiales en envíos de contenedores**
+   - El hook `useMaterials` fue extendido para exponer `categories` y `createProduct`. Si el modelo de "material" no coincide exactamente con el de "producto" en el backend, se crearán entidades en el lugar incorrecto o fallará la creación.
+   - Verificar que el flujo completo: crear material → seleccionarlo en el form → guardar el envío funciona end-to-end.
+
+8. **`emitida_por_nombre` en facturas — campo nuevo con fallback**
+   - La lógica es `emitida_por_nombre || emitida_por`. Si el backend no retorna `emitida_por_nombre`, sigue funcionando. Sin riesgo de rotura pero el campo puede estar ausente hasta que el backend lo implemente.
+
+9. **Eliminación de edición de pagos en TodosPagosPlanosTable**
+   - Se eliminó el dialog de edición y su estado. Verificar que no hay otro flujo en la app que dependa de esta funcionalidad ahora eliminada.
+
+#### 🟢 Mejoras positivas
+
+10. **Fix de desfase de fecha UTC/local en facturas** — soluciona el bug real donde las fechas mostraban un día anterior al esperado (parseo `new Date("YYYY-MM-DD")` interpretado como UTC).
+11. **Exportar todas las facturas en un PDF único** respetando filtros activos — muy útil para reportes mensuales.
+12. **Paginación server-side de 50 registros/página** — mejora significativa de performance para equipos con alto volumen de transacciones.
+13. **Badge "Pendiente de aceptación"** para transferencias ajenas — evita confusión de permisos mostrando contexto en lugar de botones deshabilitados.
+14. **Filtro "Con persona" en wallet** — facilita auditoría de transacciones con un colaborador específico.
+15. **Chip "Transferencias"** en historial — permite aislar rápidamente los movimientos de tipo transferencia.
+
+---
+
 ## 📅 11 de Mayo, 2026
 
 ### Resumen de cambios (últimas 24h)
@@ -227,47 +312,5 @@ Sin commits de desarrollo nuevos. Solo el commit automático de "Analisis diario
 6. **Integración completa de Stripe en solicitudes-ventas** — generación de links, panel de pagos, consistencia con flujo de cobros clientes.
 7. **Fórmula de comisión más precisa (3.25% + $0.30)** — garantiza que el monto neto recibido sea exactamente el precio base configurado.
 8. **`.claude` agregado al `.gitignore`** — evita que archivos internos de sesión se suban accidentalmente.
-
----
-
-## 📅 4 de Mayo, 2026
-
-### Resumen de cambios (últimas 24h)
-
-**Áreas: Centro de Control (mapa períodos), nuevo módulo Asignaciones a Empleados, clientes/leads/facturas, solicitudes de materiales y ventas, almacenes**
-
-| Commit | Autor | Descripción |
-|--------|-------|-------------|
-| `19addb6` | Ruben/Claude | feat: módulo completo Asignaciones a Empleados (CRUD medios básicos y herramientas) |
-| `cfdb27c` | Ruben/Claude | feat: tipos y métodos de servicio para periodo/municipio en centro-control |
-| `706b081` | Ruben/Claude | fix: mapa de períodos en Centro Control — 4 modos, click handlers y reactividad geoKey |
-| `a583f6a` | yany1509 | "ajustes en cliente" — clientes, leads, facturas, nuevo util oferta-confeccion-items (410 cambios en 9 archivos) |
-| `0a1dab7` | Fabian1820 | "stock ok" — rework de diálogos solicitudes-materiales y solicitudes-ventas (296 cambios) |
-| `99e02ec` | Fabian1820 | "export stock all ok" — exportación de stock en almacén |
-| `e70ffa4` | Fabian1820 | "vhj" — ajustes en página de almacén |
-| `38a1969` | Fabian1820 | "mbj" — ajuste en create-solicitud-material-dialog |
-
-### Análisis de riesgos y consideraciones
-
-#### 🔴 Riesgos altos
-
-1. **Commit `a583f6a` (yany1509) — scope real muy amplio para "ajustes en cliente"**
-   - Toca 9 archivos, 259 adiciones / 151 eliminaciones. Incluye nuevo archivo `lib/utils/oferta-confeccion-items.ts`.
-   - **Acción urgente:** Probar end-to-end: listado y detalle de clientes, creación/edición de leads, sección de facturas, y asignación de oferta genérica.
-
-2. **Commit `0a1dab7` (Fabian1820) — "stock ok" reescribe dos diálogos críticos**
-   - `create-solicitud-material-dialog.tsx` y `upsert-solicitud-venta-dialog.tsx`. Flujos clave del negocio sin descripción del cambio.
-   - **Acción recomendada:** Probar la creación de solicitudes de materiales y de ventas end-to-end.
-
-#### 🟡 Riesgos medios
-
-3. **Nuevo módulo Asignaciones a Empleados** — verificar que los endpoints de catálogos están disponibles en producción.
-4. **Fix `periodoRange` usa `.start/.end`** — buscar si `periodoRange[0]` o `periodoRange[1]` aún existen en algún archivo del codebase.
-5. **Secuencia iterativa en almacén page** — verificar funcionalidad de exportación de stock completa en staging.
-
-#### 🟢 Mejoras positivas
-
-6. **Centro de Control: cobertura completa de los 4 modos del mapa de períodos** con click handlers y densidad correcta.
-7. **Módulo Asignaciones a Empleados** con comboboxes buscables y modales con tabs.
 
 ---
