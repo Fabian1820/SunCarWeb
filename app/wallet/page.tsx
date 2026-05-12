@@ -40,6 +40,8 @@ import {
   ArrowDownCircle,
   ArrowRight,
   ArrowUpCircle,
+  ChevronLeft,
+  ChevronRight,
   Coins,
   Eye,
   Info,
@@ -229,7 +231,11 @@ function TransactionsResponsiveList({
             transaction.tipo === "transferencia_entrada" ||
             transaction.transferencia_direccion === "entrada";
           const parties = getTransferParties(transaction);
-          const amountColor = isTransfer
+          // En vista global (showWalletOwner) la transferencia es neutral — no es ni ingreso ni gasto del viewer
+          const isGlobalTransfer = isTransfer && showWalletOwner;
+          const amountColor = isGlobalTransfer
+            ? "text-violet-600"
+            : isTransfer
             ? isIncomingTransfer
               ? "text-emerald-600"
               : "text-rose-600"
@@ -241,7 +247,9 @@ function TransactionsResponsiveList({
             : isIngreso
             ? "border-l-emerald-400"
             : "border-l-rose-400";
-          const sign = isTransfer
+          const sign = isGlobalTransfer
+            ? ""
+            : isTransfer
             ? isIncomingTransfer
               ? "+"
               : "-"
@@ -265,10 +273,14 @@ function TransactionsResponsiveList({
                 <Info className="h-3.5 w-3.5 text-slate-300 shrink-0 mt-0.5" />
               </div>
 
-              <p className={`text-base font-bold ${amountColor} tabular-nums`}>
-                {sign}
-                {formatMoney(transaction.monto, rowCurrency)}
-              </p>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <p className={`text-base font-bold ${amountColor} tabular-nums`}>
+                  {sign}{formatMoney(transaction.monto, rowCurrency)}
+                </p>
+                <span className="text-[10px] font-semibold px-1 rounded bg-slate-100 text-slate-500">
+                  {rowCurrency}
+                </span>
+              </div>
 
               {parties ? (
                 <div className="mt-1.5 flex items-center gap-1.5 text-xs">
@@ -295,7 +307,12 @@ function TransactionsResponsiveList({
       </div>
 
       {/* Desktop table */}
-      <div className="hidden md:block rounded-xl border border-slate-100 overflow-hidden bg-white">
+      <div
+        className="hidden md:block overflow-x-auto"
+        style={{ transform: "scaleY(-1)" }}
+      >
+      <div style={{ transform: "scaleY(-1)" }}>
+      <div className="rounded-xl border border-slate-100 overflow-hidden bg-white">
         <Table>
           <TableHeader>
             <TableRow className="bg-slate-50 hover:bg-slate-50">
@@ -316,14 +333,19 @@ function TransactionsResponsiveList({
                 transaction.tipo === "transferencia_entrada" ||
                 transaction.transferencia_direccion === "entrada";
               const parties = getTransferParties(transaction);
-              const amountColor = isTransfer
+              const isGlobalTransfer = isTransfer && showWalletOwner;
+              const amountColor = isGlobalTransfer
+                ? "text-violet-600"
+                : isTransfer
                 ? isIncomingTransfer
                   ? "text-emerald-600"
                   : "text-rose-600"
                 : isIngreso
                 ? "text-emerald-600"
                 : "text-rose-600";
-              const sign = isTransfer
+              const sign = isGlobalTransfer
+                ? ""
+                : isTransfer
                 ? isIncomingTransfer
                   ? "+"
                   : "-"
@@ -366,8 +388,12 @@ function TransactionsResponsiveList({
                     )}
                   </TableCell>
                   <TableCell className={`font-bold tabular-nums text-right whitespace-nowrap ${amountColor}`}>
-                    {sign}
-                    {formatMoney(transaction.monto, rowCurrency)}
+                    <div className="flex items-center justify-end gap-1.5">
+                      <span>{sign}{formatMoney(transaction.monto, rowCurrency)}</span>
+                      <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500">
+                        {rowCurrency}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell className="max-w-[260px]">
                     <p className="truncate text-sm text-slate-600">
@@ -382,6 +408,8 @@ function TransactionsResponsiveList({
             })}
           </TableBody>
         </Table>
+      </div>
+      </div>
       </div>
     </>
   );
@@ -585,7 +613,11 @@ function WalletPageContent() {
     acceptPendingTransfer,
     rejectPendingTransfer,
     cancelPendingTransfer,
+    counterparts,
+    loadCounterparts,
   } = useWallet();
+
+  const TX_PAGE_SIZE = 50;
 
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [tipo, setTipo] = useState<WalletTransactionType>("ingreso");
@@ -593,6 +625,9 @@ function WalletPageContent() {
   const [motivo, setMotivo] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | WalletTransactionType>("todos");
   const [historyView, setHistoryView] = useState<"propias" | "todos">("todos");
+  const [txPage, setTxPage] = useState(0);
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
   const [trabajadores, setTrabajadores] = useState<Trabajador[]>([]);
   const [resolvingTransfer, setResolvingTransfer] = useState(false);
 
@@ -601,6 +636,7 @@ function WalletPageContent() {
   const [isCurrencyModalOpen, setIsCurrencyModalOpen] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<WalletTransaction | null>(null);
   const [isTransactionDetailOpen, setIsTransactionDetailOpen] = useState(false);
+  const [currencyDistributionModal, setCurrencyDistributionModal] = useState<{ code: string; name: string } | null>(null);
 
   const openTransactionDetail = (transaction: WalletTransaction) => {
     setSelectedTransaction(transaction);
@@ -622,13 +658,32 @@ function WalletPageContent() {
   const [transferTargetSearch, setTransferTargetSearch] = useState("");
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCounterpartCi, setSelectedCounterpartCi] = useState("");
+
+  // Debounce de búsqueda: espera 400ms antes de disparar la consulta
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 400);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  // Reset de página cuando cambian los filtros
+  useEffect(() => {
+    setTxPage(0);
+  }, [filtroTipo, debouncedSearch, fechaDesde, fechaHasta, historyView, selectedCounterpartCi]);
 
   const currentFilters = useMemo(
     () => ({
-      limit: 200,
+      limit: TX_PAGE_SIZE,
+      skip: txPage * TX_PAGE_SIZE,
       tipo: filtroTipo === "todos" ? undefined : filtroTipo,
+      fecha_desde: fechaDesde || undefined,
+      fecha_hasta: fechaHasta || undefined,
+      q: debouncedSearch.trim() || undefined,
+      propias: canSeeAll && historyView === "propias" ? true : undefined,
+      contraparte_ci: selectedCounterpartCi || undefined,
     }),
-    [filtroTipo],
+    [filtroTipo, txPage, fechaDesde, fechaHasta, debouncedSearch, historyView, canSeeAll, selectedCounterpartCi],
   );
 
   const filteredWallets = useMemo(() => {
@@ -698,21 +753,8 @@ function WalletPageContent() {
 
   const selectedCurrencyCode = selectedCurrency?.codigo || "USD";
 
-  // Filtrar transacciones por vista (propias/todos) y búsqueda
-  const filteredWalletTransactions = useMemo(() => {
-    let list = transactions;
-    if (canSeeAll && historyView === "propias" && wallet?.user_ci) {
-      list = list.filter((tx) => tx.wallet_user_ci === wallet.user_ci);
-    }
-    if (!searchQuery.trim()) return list;
-    const query = searchQuery.toLowerCase();
-    return list.filter((tx) =>
-      tx.motivo.toLowerCase().includes(query) ||
-      tx.wallet_user_nombre.toLowerCase().includes(query) ||
-      tx.created_by_nombre.toLowerCase().includes(query) ||
-      (tx.contraparte_user_nombre || "").toLowerCase().includes(query),
-    );
-  }, [transactions, searchQuery, canSeeAll, historyView, wallet?.user_ci]);
+  // Las transacciones ya vienen filtradas y paginadas desde el servidor
+  const filteredWalletTransactions = transactions;
 
   useEffect(() => {
     void loadWallet();
@@ -725,6 +767,11 @@ function WalletPageContent() {
       .then((data) => setTrabajadores(data))
       .catch((err) => console.error("[wallet] no se pudieron cargar trabajadores", err));
   }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies, loadPendingTransfers]);
+
+  // Cargar contrapartes (personas con quien se ha transferido) — se refresca al cambiar vista
+  useEffect(() => {
+    void loadCounterparts(canSeeAll && historyView === "propias" ? true : !canSeeAll ? true : false);
+  }, [loadCounterparts, canSeeAll, historyView]);
 
   useEffect(() => {
     if (currencies.length === 0) return;
@@ -977,6 +1024,25 @@ function WalletPageContent() {
     }
     return Array.from(totals.values()).filter((t) => t.amount !== 0);
   }, [allTeamWallets, currencies, wallet]);
+
+  const currencyDistributionList = useMemo(() => {
+    if (!currencyDistributionModal) return [];
+    const code = currencyDistributionModal.code.toUpperCase();
+    const allWalletsAll = [...(wallet ? [wallet] : []), ...allTeamWallets];
+    return allWalletsAll
+      .map((w) => {
+        const balance = w.balances?.find((b) => b.currency_code.toUpperCase() === code);
+        return {
+          id: w.id,
+          nombre: w.user_nombre,
+          ci: w.user_ci,
+          amount: Number(balance?.amount || 0),
+          isOwn: w.id === wallet?.id,
+        };
+      })
+      .filter((item) => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+  }, [currencyDistributionModal, wallet, allTeamWallets]);
 
   const handleAcceptPending = async (pendingId: string) => {
     try {
@@ -1487,9 +1553,11 @@ function WalletPageContent() {
                     </p>
                     <div className="flex flex-wrap justify-end gap-1.5">
                       {teamTotalsByCurrency.map((t) => (
-                        <div
+                        <button
                           key={t.code}
-                          className="flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1"
+                          onClick={() => setCurrencyDistributionModal({ code: t.code, name: t.name })}
+                          className="flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-200 px-2 py-1 hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                          title={`Ver distribución de ${t.code} por billetera`}
                         >
                           <span className="text-[10px] font-bold text-slate-500">
                             {t.code}
@@ -1497,7 +1565,7 @@ function WalletPageContent() {
                           <span className="text-xs font-bold text-slate-800 tabular-nums">
                             {formatMoney(t.amount, t.code)}
                           </span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -1749,10 +1817,14 @@ function WalletPageContent() {
                             {formatDateTime(p.created_at)}
                           </p>
                         </div>
-                        <p className={`text-base font-bold ${amountColor} tabular-nums shrink-0`}>
-                          {sign}
-                          {formatMoney(Number(p.monto), p.currency_code)}
-                        </p>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <p className={`text-base font-bold ${amountColor} tabular-nums`}>
+                            {sign}{formatMoney(Number(p.monto), p.currency_code)}
+                          </p>
+                          <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-slate-100 text-slate-500">
+                            {p.currency_code}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Motivo */}
@@ -1803,34 +1875,11 @@ function WalletPageContent() {
                           Cancelar transferencia
                         </Button>
                       ) : (
-                        // Admin view (no es ni emisor ni receptor)
-                        <div className="grid grid-cols-3 gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-slate-300"
-                            onClick={() => void handleCancelPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            Cancelar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-8 text-xs border-rose-200 text-rose-700 hover:bg-rose-50"
-                            onClick={() => void handleRejectPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            Rechazar
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="h-8 text-xs bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => void handleAcceptPending(p.id)}
-                            disabled={isResolving}
-                          >
-                            Aceptar
-                          </Button>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+                            Pendiente de aceptación
+                          </span>
                         </div>
                       )}
                     </div>
@@ -1844,15 +1893,40 @@ function WalletPageContent() {
         {/* Transactions */}
         <Card className="border-slate-200 shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="px-4 pt-4 pb-3 flex flex-col gap-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <CardTitle className="text-sm font-semibold text-slate-800">
                   {canSeeAll ? "Historial de Transacciones" : "Mi Historial"}
                 </CardTitle>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {`${totalTransactions} registros`}
+                  {loadingTransactions
+                    ? "Cargando..."
+                    : `${totalTransactions} registro${totalTransactions !== 1 ? "s" : ""}${
+                        txPage > 0 || totalTransactions > TX_PAGE_SIZE
+                          ? ` · página ${txPage + 1} de ${Math.max(1, Math.ceil(totalTransactions / TX_PAGE_SIZE))}`
+                          : ""
+                      }`}
                 </p>
               </div>
+
+              {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
+              {canSeeAll && (
+                <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5">
+                  {(["propias", "todos"] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setHistoryView(v)}
+                      className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                        historyView === v
+                          ? "bg-white text-slate-800 shadow-sm"
+                          : "text-slate-500 hover:text-slate-700"
+                      }`}
+                    >
+                      {v === "propias" ? "Propias" : "Todas"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Buscador */}
@@ -1861,33 +1935,48 @@ function WalletPageContent() {
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar por motivo..."
+                placeholder="Buscar por motivo o nombre..."
                 className="h-9 pl-9 text-sm"
               />
             </div>
 
-            {/* Toggle Propias / Todos (solo cuando puede ver todas) */}
-            {canSeeAll && (
-              <div className="flex gap-0 rounded-lg border border-slate-200 bg-slate-50 p-0.5 self-start">
-                {(["propias", "todos"] as const).map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setHistoryView(v)}
-                    className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                      historyView === v
-                        ? "bg-white text-slate-800 shadow-sm"
-                        : "text-slate-500 hover:text-slate-700"
-                    }`}
-                  >
-                    {v === "propias" ? "Propias" : "Todas"}
-                  </button>
-                ))}
+            {/* Filtro de fechas */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Desde
+                </label>
+                <Input
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                  className="h-8 text-xs"
+                />
               </div>
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Hasta
+                </label>
+                <Input
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+            {(fechaDesde || fechaHasta) && (
+              <button
+                onClick={() => { setFechaDesde(""); setFechaHasta(""); }}
+                className="self-start text-[11px] text-slate-400 hover:text-slate-600 underline"
+              >
+                Limpiar fechas
+              </button>
             )}
 
-            {/* Filtros */}
+            {/* Filtros por tipo */}
             <div className="flex gap-1.5 flex-wrap">
-              {(["todos", "ingreso", "gasto"] as const).map((f) => (
+              {(["todos", "ingreso", "gasto", "transferencia"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFiltroTipo(f)}
@@ -1897,27 +1986,166 @@ function WalletPageContent() {
                         ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                         : f === "gasto"
                         ? "bg-rose-100 text-rose-700 border-rose-200"
+                        : f === "transferencia"
+                        ? "bg-violet-100 text-violet-700 border-violet-200"
                         : "bg-slate-800 text-white border-slate-800"
                       : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
+                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : f === "gasto" ? "Gastos" : "Transferencias"}
                 </button>
               ))}
             </div>
+
+            {/* Filtro por contraparte */}
+            {counterparts.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Con persona
+                </label>
+                <Select
+                  value={selectedCounterpartCi || "__all__"}
+                  onValueChange={(v) => setSelectedCounterpartCi(v === "__all__" ? "" : v)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Todas las personas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todas las personas</SelectItem>
+                    {counterparts.map((cp) => (
+                      <SelectItem key={cp.ci} value={cp.ci}>
+                        {cp.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </CardHeader>
-          <CardContent className="px-4 pb-4">
+          <CardContent className="px-4 pb-4 space-y-3">
             <TransactionsResponsiveList
               transactions={filteredWalletTransactions}
               loading={loadingTransactions}
-              emptyMessage={searchQuery ? "No se encontraron transacciones con ese criterio." : "No hay transacciones registradas."}
+              emptyMessage={
+                debouncedSearch || fechaDesde || fechaHasta || filtroTipo !== "todos" || selectedCounterpartCi
+                  ? "No se encontraron transacciones con ese criterio."
+                  : "No hay transacciones registradas."
+              }
               fallbackCurrency={selectedCurrencyCode}
               showWalletOwner={canSeeAll && historyView === "todos"}
               onSelect={openTransactionDetail}
             />
+
+            {/* Paginación */}
+            {totalTransactions > TX_PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                <p className="text-xs text-slate-500">
+                  {txPage * TX_PAGE_SIZE + 1}–
+                  {Math.min((txPage + 1) * TX_PAGE_SIZE, totalTransactions)}{" "}
+                  de {totalTransactions}
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTxPage((p) => p - 1)}
+                    disabled={txPage === 0 || loadingTransactions}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs font-medium text-slate-600 min-w-[80px] text-center">
+                    {txPage + 1} / {Math.ceil(totalTransactions / TX_PAGE_SIZE)}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTxPage((p) => p + 1)}
+                    disabled={(txPage + 1) * TX_PAGE_SIZE >= totalTransactions || loadingTransactions}
+                    className="h-8 w-8 p-0"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>
+
+      {/* Currency Distribution Modal */}
+      <Dialog
+        open={!!currencyDistributionModal}
+        onOpenChange={(open) => { if (!open) setCurrencyDistributionModal(null); }}
+      >
+        <DialogContent className="max-w-md mx-4 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Wallet className="h-5 w-5 text-slate-600" />
+              Distribución · {currencyDistributionModal?.code}
+              {currencyDistributionModal?.name && (
+                <span className="text-xs font-normal text-slate-400">({currencyDistributionModal.name})</span>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+            {currencyDistributionList.length === 0 ? (
+              <p className="text-sm text-slate-400 py-4 text-center">
+                No hay saldos para esta moneda.
+              </p>
+            ) : (
+              currencyDistributionList.map((item, idx) => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl border ${
+                    item.isOwn
+                      ? "border-slate-300 bg-slate-100"
+                      : "border-slate-100 bg-slate-50"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-semibold text-slate-800 truncate">
+                        {item.nombre}
+                      </p>
+                      {item.isOwn && (
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-300 text-slate-600 shrink-0">
+                          TÚ
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400">CI: {item.ci}</p>
+                  </div>
+                  <span
+                    className={`text-sm font-bold tabular-nums ml-3 ${
+                      idx === 0 ? "text-emerald-600" : "text-slate-700"
+                    }`}
+                  >
+                    {formatMoney(item.amount, currencyDistributionModal!.code)}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+
+          {currencyDistributionList.length > 0 && (
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-xs text-slate-500">
+                {currencyDistributionList.length}{" "}
+                {currencyDistributionList.length === 1 ? "billetera" : "billeteras"}
+              </p>
+              <p className="text-sm font-bold text-slate-800 tabular-nums">
+                Total:{" "}
+                {formatMoney(
+                  currencyDistributionList.reduce((sum, item) => sum + item.amount, 0),
+                  currencyDistributionModal!.code,
+                )}
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Currency Management Modal */}
       <Dialog open={isCurrencyModalOpen} onOpenChange={setIsCurrencyModalOpen}>

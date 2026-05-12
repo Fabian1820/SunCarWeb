@@ -273,7 +273,7 @@ export function FacturasVentasTable({
                             size="icon"
                             className="text-violet-600 hover:text-violet-800 hover:bg-violet-50"
                             onClick={() => onTicket(f)}
-                            title="Exportar ticket 80mm"
+                            title="Exportar ticket 58mm"
                           >
                             <Receipt className="h-4 w-4" />
                           </Button>

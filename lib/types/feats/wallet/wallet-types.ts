@@ -75,6 +75,14 @@ export interface WalletTransactionsFilters {
   limit?: number;
   fecha_desde?: string;
   fecha_hasta?: string;
+  q?: string;
+  propias?: boolean;
+  contraparte_ci?: string;
+}
+
+export interface WalletCounterpart {
+  ci: string;
+  nombre: string;
 }
 
 export interface WalletTransactionsResult {
