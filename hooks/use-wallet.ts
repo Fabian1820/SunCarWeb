@@ -3,6 +3,7 @@ import { WalletService } from "@/lib/services/feats/wallet/wallet-service";
 import type {
   WalletCurrency,
   WalletCurrencyCreateData,
+  WalletCounterpart,
   Wallet,
   WalletTransferCreateData,
   WalletTransferResult,
@@ -38,6 +39,8 @@ export function useWallet() {
   const [totalSelectedWalletTransactions, setTotalSelectedWalletTransactions] =
     useState(0);
   const [currencies, setCurrencies] = useState<WalletCurrency[]>([]);
+  const [counterparts, setCounterparts] = useState<WalletCounterpart[]>([]);
+  const [loadingCounterparts, setLoadingCounterparts] = useState(false);
   const [loadingWallet, setLoadingWallet] = useState(true);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
   const [loadingWallets, setLoadingWallets] = useState(false);
@@ -309,6 +312,20 @@ export function useWallet() {
     [loadPendingTransfers, loadTransactions, loadWallet, loadWalletDetail, loadWallets],
   );
 
+  const loadCounterparts = useCallback(async (propias?: boolean) => {
+    setLoadingCounterparts(true);
+    try {
+      const result = await WalletService.getDistinctCounterparts(propias);
+      setCounterparts(result);
+      return result;
+    } catch (err: unknown) {
+      console.error("[useWallet] Error loading counterparts:", err);
+      return [];
+    } finally {
+      setLoadingCounterparts(false);
+    }
+  }, []);
+
   const loadCurrencies = useCallback(async () => {
     setLoadingCurrencies(true);
     setError(null);
@@ -386,5 +403,8 @@ export function useWallet() {
     acceptPendingTransfer,
     rejectPendingTransfer,
     cancelPendingTransfer,
+    counterparts,
+    loadingCounterparts,
+    loadCounterparts,
   };
 }

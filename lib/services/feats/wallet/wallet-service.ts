@@ -3,6 +3,7 @@ import type {
   WalletBalance,
   WalletCurrency,
   WalletCurrencyCreateData,
+  WalletCounterpart,
   Wallet,
   WalletTransaction,
   WalletTransactionCreateData,
@@ -317,6 +318,7 @@ export class WalletService {
     if (filters.fecha_hasta) search.append("fecha_hasta", filters.fecha_hasta);
     if (filters.q?.trim()) search.append("q", filters.q.trim());
     if (filters.propias) search.append("propias", "true");
+    if (filters.contraparte_ci?.trim()) search.append("contraparte_ci", filters.contraparte_ci.trim());
 
     const endpoint = `/wallet/transacciones${search.toString() ? `?${search.toString()}` : ""}`;
     const response = await this.requestWalletEndpoint<
@@ -324,6 +326,22 @@ export class WalletService {
     >(endpoint);
 
     return this.parseTransactionsResponse(response, filters);
+  }
+
+  static async getDistinctCounterparts(propias?: boolean): Promise<WalletCounterpart[]> {
+    const search = new URLSearchParams();
+    if (propias) search.append("propias", "true");
+    const endpoint = `/wallet/transacciones/contrapartes${search.toString() ? `?${search.toString()}` : ""}`;
+    const response = await this.requestWalletEndpoint<
+      WalletCounterpart[] | WrappedResponse<WalletCounterpart[]> | ApiErrorResponse
+    >(endpoint);
+
+    if (isApiErrorResponse(response)) {
+      if (isNotFoundErrorResponse(response)) return [];
+      throw new Error(getApiErrorMessage(response, "No se pudieron cargar las contrapartes"));
+    }
+    if (Array.isArray(response)) return response;
+    return Array.isArray(response.data) ? response.data : [];
   }
 
   static async ensureWallet(

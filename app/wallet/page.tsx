@@ -602,6 +602,8 @@ function WalletPageContent() {
     acceptPendingTransfer,
     rejectPendingTransfer,
     cancelPendingTransfer,
+    counterparts,
+    loadCounterparts,
   } = useWallet();
 
   const TX_PAGE_SIZE = 50;
@@ -646,6 +648,7 @@ function WalletPageContent() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [selectedCounterpartCi, setSelectedCounterpartCi] = useState("");
 
   // Debounce de búsqueda: espera 400ms antes de disparar la consulta
   useEffect(() => {
@@ -656,7 +659,7 @@ function WalletPageContent() {
   // Reset de página cuando cambian los filtros
   useEffect(() => {
     setTxPage(0);
-  }, [filtroTipo, debouncedSearch, fechaDesde, fechaHasta, historyView]);
+  }, [filtroTipo, debouncedSearch, fechaDesde, fechaHasta, historyView, selectedCounterpartCi]);
 
   const currentFilters = useMemo(
     () => ({
@@ -667,8 +670,9 @@ function WalletPageContent() {
       fecha_hasta: fechaHasta || undefined,
       q: debouncedSearch.trim() || undefined,
       propias: canSeeAll && historyView === "propias" ? true : undefined,
+      contraparte_ci: selectedCounterpartCi || undefined,
     }),
-    [filtroTipo, txPage, fechaDesde, fechaHasta, debouncedSearch, historyView, canSeeAll],
+    [filtroTipo, txPage, fechaDesde, fechaHasta, debouncedSearch, historyView, canSeeAll, selectedCounterpartCi],
   );
 
   const filteredWallets = useMemo(() => {
@@ -752,6 +756,11 @@ function WalletPageContent() {
       .then((data) => setTrabajadores(data))
       .catch((err) => console.error("[wallet] no se pudieron cargar trabajadores", err));
   }, [loadWallet, loadWallets, loadWalletsLookup, loadCurrencies, loadPendingTransfers]);
+
+  // Cargar contrapartes (personas con quien se ha transferido) — se refresca al cambiar vista
+  useEffect(() => {
+    void loadCounterparts(canSeeAll && historyView === "propias" ? true : !canSeeAll ? true : false);
+  }, [loadCounterparts, canSeeAll, historyView]);
 
   useEffect(() => {
     if (currencies.length === 0) return;
@@ -1956,7 +1965,7 @@ function WalletPageContent() {
 
             {/* Filtros por tipo */}
             <div className="flex gap-1.5 flex-wrap">
-              {(["todos", "ingreso", "gasto"] as const).map((f) => (
+              {(["todos", "ingreso", "gasto", "transferencia"] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFiltroTipo(f)}
@@ -1966,21 +1975,48 @@ function WalletPageContent() {
                         ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                         : f === "gasto"
                         ? "bg-rose-100 text-rose-700 border-rose-200"
+                        : f === "transferencia"
+                        ? "bg-violet-100 text-violet-700 border-violet-200"
                         : "bg-slate-800 text-white border-slate-800"
                       : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : "Gastos"}
+                  {f === "todos" ? "Todos" : f === "ingreso" ? "Ingresos" : f === "gasto" ? "Gastos" : "Transferencias"}
                 </button>
               ))}
             </div>
+
+            {/* Filtro por contraparte */}
+            {counterparts.length > 0 && (
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase tracking-wider font-semibold text-slate-400">
+                  Con persona
+                </label>
+                <Select
+                  value={selectedCounterpartCi || "__all__"}
+                  onValueChange={(v) => setSelectedCounterpartCi(v === "__all__" ? "" : v)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Todas las personas" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todas las personas</SelectItem>
+                    {counterparts.map((cp) => (
+                      <SelectItem key={cp.ci} value={cp.ci}>
+                        {cp.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             <TransactionsResponsiveList
               transactions={filteredWalletTransactions}
               loading={loadingTransactions}
               emptyMessage={
-                debouncedSearch || fechaDesde || fechaHasta || filtroTipo !== "todos"
+                debouncedSearch || fechaDesde || fechaHasta || filtroTipo !== "todos" || selectedCounterpartCi
                   ? "No se encontraron transacciones con ese criterio."
                   : "No hay transacciones registradas."
               }

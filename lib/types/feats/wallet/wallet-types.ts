@@ -77,6 +77,12 @@ export interface WalletTransactionsFilters {
   fecha_hasta?: string;
   q?: string;
   propias?: boolean;
+  contraparte_ci?: string;
+}
+
+export interface WalletCounterpart {
+  ci: string;
+  nombre: string;
 }
 
 export interface WalletTransactionsResult {
