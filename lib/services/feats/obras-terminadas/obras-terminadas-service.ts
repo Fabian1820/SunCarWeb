@@ -1,6 +1,55 @@
 import { apiRequest } from "@/lib/api-config";
 
-/* ── Tipos ─────────────────────────────────────────────────────────── */
+/* ── Tipos: Lista principal ───────────────────────────────────────── */
+
+export interface ObraTerminada {
+  oferta_id?: string | null;
+  numero_oferta?: string | null;
+  cliente_numero?: string | null;
+  nombre_completo?: string | null;
+  estado_cliente?: string | null;
+  carnet_identidad?: string | null;
+  comercial?: string | null;
+  fecha_creacion?: string | null;
+  fecha_equipo_instalado?: string | null;
+  precio_final?: number | null;
+  total_materiales?: number | null;
+  ganancia?: number | null;
+  total_pagado?: number | null;
+  total_devuelto?: number | null;
+  monto_pendiente?: number | null;
+  cantidad_pagos?: number | null;
+  almacen_nombre?: string | null;
+}
+
+export interface ObrasTerminadasListResponse {
+  success: boolean;
+  data: ObraTerminada[];
+  total: number;
+  skip: number;
+  limit: number;
+}
+
+/* ── Tipos: Detalle de oferta ─────────────────────────────────────── */
+
+export interface EntregaMaterial {
+  fecha?: string | null;
+  cantidad?: number | null;
+  vale_salida_id?: string | null;
+}
+
+export interface MaterialOferta {
+  material_codigo?: string | null;
+  descripcion?: string | null;
+  categoria?: string | null;
+  cantidad?: number | null;
+  precio?: number | null;
+  precio_original?: number | null;
+  margen_asignado?: number | null;
+  en_servicio?: boolean | null;
+  cantidad_pendiente_por_entregar?: number | null;
+  entregas?: EntregaMaterial[] | null;
+}
 
 export interface PagoObra {
   id?: string | null;
@@ -16,59 +65,11 @@ export interface PagoObra {
   carnet_pagador?: string | null;
   recibido_por?: string | null;
   comprobante_transferencia?: string | null;
-  desglose_billetes?: Record<string, number> | null;
   notas?: string | null;
   diferencia?: number | null;
   fecha_creacion?: string | null;
   total_devuelto?: number | null;
 }
-
-export interface DevolucionObra {
-  id?: string | null;
-  pago_id?: string | null;
-  monto_devuelto?: number | null;
-  fecha?: string | null;
-  motivo_devolucion?: string | null;
-}
-
-export interface ContactoObra {
-  nombre?: string | null;
-  codigo?: string | null;
-  telefono?: string | null;
-  carnet?: string | null;
-  estado?: string | null;
-}
-
-export interface ObraTerminada {
-  oferta_id?: string | null;
-  numero_oferta?: string | null;
-  nombre_completo?: string | null;
-  cliente_numero?: string | null;
-  precio_final?: number | null;
-  total_materiales?: number | null;
-  monto_pendiente?: number | null;
-  total_pagado?: number | null;
-  total_devuelto?: number | null;
-  cantidad_pagos?: number | null;
-  almacen_nombre?: string | null;
-  fecha_instalacion_cliente?: string | null;
-  estado?: string | null;
-  comercial_nombre?: string | null;
-  fecha_creacion?: string | null;
-  contacto?: ContactoObra | null;
-  pagos?: PagoObra[] | null;
-  devoluciones?: DevolucionObra[] | null;
-}
-
-export interface ObrasTerminadasListResponse {
-  success: boolean;
-  data: ObraTerminada[];
-  total: number;
-  skip: number;
-  limit: number;
-}
-
-/* Detalle lazy */
 
 export interface MaterialUtilizado {
   nombre?: string | null;
@@ -83,7 +84,7 @@ export interface TrabajoDiarioObra {
   instaladores?: string[] | null;
   inicio?: string | null;
   fin?: string | null;
-  queda_pendiente?: boolean | null;
+  queda_pendiente?: unknown;
   problema_encontrado?: string | null;
   solucion?: string | null;
   instalacion_terminada?: boolean | null;
@@ -93,7 +94,7 @@ export interface TrabajoDiarioObra {
 export interface MaterialVale {
   cantidad?: number | null;
   numero_serie?: string | null;
-  material?: { nombre?: string | null; descripcion?: string | null } | null;
+  material?: { codigo?: string | null; nombre?: string | null; descripcion?: string | null } | null;
 }
 
 export interface ValeSalidaObra {
@@ -106,6 +107,15 @@ export interface ValeSalidaObra {
   materiales?: MaterialVale[] | null;
 }
 
+export interface OfertaDetalleObras {
+  success: boolean;
+  materiales: MaterialOferta[];
+  pagos: PagoObra[];
+  trabajos: TrabajoDiarioObra[];
+  vales: ValeSalidaObra[];
+}
+
+/** @deprecated Usa OfertaDetalleObras — se mantiene por compatibilidad con el hook */
 export interface ClienteDetalleObras {
   trabajos: TrabajoDiarioObra[];
   vales: ValeSalidaObra[];
@@ -127,10 +137,6 @@ export interface ObrasTerminadasFiltros {
 const BASE = "/obras-terminadas";
 
 export const ObrasTerminadasService = {
-  /**
-   * Lista paginada de obras terminadas con pagos, devoluciones y datos del cliente.
-   * Un solo endpoint — toda la agregación ocurre en el backend.
-   */
   async getDatos(
     filtros: ObrasTerminadasFiltros = {},
     signal?: AbortSignal,
@@ -145,21 +151,27 @@ export const ObrasTerminadasService = {
 
     const qs = params.toString();
     const url = qs ? `${BASE}/datos?${qs}` : `${BASE}/datos`;
-    const raw = await apiRequest<ObrasTerminadasListResponse>(url, { method: "GET", signal });
-    return raw;
+    return apiRequest<ObrasTerminadasListResponse>(url, { method: "GET", signal });
   },
 
-  /**
-   * Detalle lazy de un cliente: trabajos_diarios + vales_salida.
-   */
+  async getOfertaDetalle(
+    ofertaId: string,
+    signal?: AbortSignal,
+  ): Promise<OfertaDetalleObras> {
+    return apiRequest<OfertaDetalleObras>(
+      `${BASE}/oferta/${encodeURIComponent(ofertaId)}/detalle`,
+      { method: "GET", signal },
+    );
+  },
+
+  /** @deprecated Usa getOfertaDetalle */
   async getClienteDetalle(
     clienteNumero: string,
     signal?: AbortSignal,
   ): Promise<ClienteDetalleObras> {
-    const raw = await apiRequest<ClienteDetalleObras>(
+    return apiRequest<ClienteDetalleObras>(
       `${BASE}/cliente/${encodeURIComponent(clienteNumero)}/detalle`,
       { method: "GET", signal },
     );
-    return raw;
   },
 };

@@ -3,7 +3,7 @@
 import { useEffect } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
-import { ArrowLeft, RefreshCw, HardHat, AlertCircle } from "lucide-react"
+import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
 
@@ -11,6 +11,7 @@ export default function ObrasTerminadasPage() {
   const {
     ofertasConPagos, loading, error, fetchData,
     fetchDetalle, detalleCache, detalleLoading, detalleError,
+    page, total, totalPages, goToPage,
   } = useObrasTerminadas()
 
   useEffect(() => {
@@ -76,18 +77,6 @@ export default function ObrasTerminadasPage() {
       </header>
 
       <main className="content-with-fixed-header pb-10 px-4 sm:px-6 lg:px-8">
-        {/* Descripción */}
-        <div className="mb-6 bg-white rounded-lg border border-orange-100 shadow-sm p-4">
-          <p className="text-sm text-gray-600">
-            Vista consolidada de <strong>todas las ofertas con pagos</strong>.
-            Haz clic en una fila para desplegar sus{" "}
-            <strong>pagos recibidos</strong>, los{" "}
-            <strong>trabajos diarios</strong> realizados al cliente y el{" "}
-            <strong>resumen de resultados</strong> para calcular el pago al
-            comercial.
-          </p>
-        </div>
-
         {/* Error */}
         {error && (
           <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -116,6 +105,38 @@ export default function ObrasTerminadasPage() {
             detalleLoading={detalleLoading}
             detalleError={detalleError}
           />
+
+          {totalPages > 0 && (
+            <div className="mt-4 flex flex-col gap-3 border-t border-orange-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-gray-600">
+                Página <strong>{page + 1}</strong> de <strong>{totalPages}</strong> ·{" "}
+                <strong>{total}</strong> resultados
+              </p>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(page - 1)}
+                  disabled={loading || page <= 0}
+                  className="gap-1.5"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(page + 1)}
+                  disabled={loading || page >= totalPages - 1}
+                  className="gap-1.5"
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

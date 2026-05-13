@@ -17,7 +17,6 @@ import {
   ChevronDown,
   ChevronRight,
   Search,
-  FileText,
   Briefcase,
   Wrench,
   User,
@@ -26,9 +25,16 @@ import {
   X,
   Package,
   CalendarDays,
+  FileText,
+  Boxes,
 } from "lucide-react"
-import type { OfertaObra, DetalleCliente } from "@/hooks/use-obras-terminadas"
-import type { PagoObra, TrabajoDiarioObra, ValeSalidaObra } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
+import type { OfertaObra, OfertaDetalleObras } from "@/hooks/use-obras-terminadas"
+import type {
+  PagoObra,
+  MaterialOferta,
+  TrabajoDiarioObra,
+  ValeSalidaObra,
+} from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 import { cn } from "@/lib/utils"
 
@@ -40,29 +46,6 @@ const safeText = (value: unknown, fallback = ""): string => {
   const text = String(value || "").trim()
   return text || fallback
 }
-
-const toCleanString = (value: unknown): string | null => {
-  if (typeof value !== "string") return null
-  const t = value.trim()
-  return t.length > 0 ? t : null
-}
-
-const parseNullableNumber = (value: unknown): number | null => {
-  if (typeof value === "number" && Number.isFinite(value)) return value
-  if (typeof value === "string") {
-    const n = Number(value.trim().replace(",", "."))
-    return Number.isFinite(n) ? n : null
-  }
-  return null
-}
-
-const toEpochMs = (value: string): number => {
-  const t = new Date(value).getTime()
-  return Number.isFinite(t) ? t : 0
-}
-
-const roundToCents = (v: number) =>
-  Math.round((v + Number.EPSILON) * 100) / 100
 
 const normalizeEstadoKey = (estado: string) =>
   estado
@@ -99,32 +82,23 @@ const ESTADO_BADGE: Record<string, string> = {
   "sin respuesta": "bg-red-100 text-red-700 border-red-300",
 }
 
-const getEstadoCliente = (o: OfertaObra): string => {
-  const raw =
-    toCleanString(o.contacto?.estado) ||
-    toCleanString(o.estado) ||
-    "Sin estado"
-  return ESTADO_LABELS[normalizeEstadoKey(raw)] || raw
-}
+const getEstadoLabel = (raw: string): string =>
+  ESTADO_LABELS[normalizeEstadoKey(raw)] || raw
 
 const getEstadoBadgeClass = (estado: string) =>
   ESTADO_BADGE[normalizeEstadoKey(estado)] ||
   "bg-gray-100 text-gray-700 border-gray-300"
 
+const toEpochMs = (value: string): number => {
+  const t = new Date(value).getTime()
+  return Number.isFinite(t) ? t : 0
+}
+
+const roundToCents = (v: number) =>
+  Math.round((v + Number.EPSILON) * 100) / 100
+
 const getMontoAplicadoUsd = (p: PagoObra) =>
   Math.max(0, (p.monto_usd ?? 0) - (p.diferencia ?? 0))
-
-const getTotalDevueltoOferta = (o: OfertaObra): number => {
-  if (typeof o.total_devuelto === "number") return o.total_devuelto
-  if (Array.isArray(o.devoluciones))
-    return o.devoluciones.reduce((s: number, d) => s + Number(d.monto_devuelto || 0), 0)
-  return 0
-}
-
-const getTotalDevueltoPago = (p: PagoObra): number => {
-  if (typeof p.total_devuelto === "number") return p.total_devuelto
-  return 0
-}
 
 const ordenarPagos = (pagos: PagoObra[]) =>
   [...pagos].sort((a, b) => {
@@ -134,23 +108,6 @@ const ordenarPagos = (pagos: PagoObra[]) =>
     if (dc !== 0) return dc
     return (a.id ?? "").localeCompare(b.id ?? "")
   })
-
-const getTotalesParaPago = (oferta: OfertaObra, pagoId: string) => {
-  const sorted = ordenarPagos(oferta.pagos ?? [])
-  const precioFinal = oferta.precio_final ?? 0
-  const idx = sorted.findIndex((p) => p.id === pagoId)
-  if (idx < 0)
-    return { totalPagadoAnteriormente: 0, pendienteDespuesPago: roundToCents(Math.max(0, precioFinal)) }
-  const antes = sorted.slice(0, idx).reduce((s, p) => s + getMontoAplicadoUsd(p), 0)
-  const conEste = antes + getMontoAplicadoUsd(sorted[idx])
-  const pendiente = precioFinal - conEste
-  return {
-    totalPagadoAnteriormente: roundToCents(antes),
-    pendienteDespuesPago: roundToCents(
-      pendiente < 0.01 && pendiente > -0.01 ? 0 : Math.max(0, pendiente),
-    ),
-  }
-}
 
 /* ─────────────────────────────────────────────
    Date utils
@@ -312,31 +269,71 @@ function DateFilterWidget({
 }
 
 /* ─────────────────────────────────────────────
+   Panel: MATERIALES DE LA OFERTA
+───────────────────────────────────────────── */
+
+function MaterialesPanel({ materiales }: { materiales: MaterialOferta[] }) {
+  if (!materiales.length)
+    return <p className="text-center py-4 text-sm text-gray-500">No hay materiales registrados para esta oferta</p>
+
+  return (
+    <div className="rounded-md border border-slate-200">
+      <table className="w-full text-sm table-fixed">
+        <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
+          <tr>
+            <th className="w-[50%] text-left px-3 py-2.5 font-semibold">Material</th>
+            <th className="w-[12%] text-right px-3 py-2.5 font-semibold">Cant.</th>
+            <th className="w-[19%] text-right px-3 py-2.5 font-semibold">Precio</th>
+            <th className="w-[19%] text-right px-3 py-2.5 font-semibold">P. Original</th>
+          </tr>
+        </thead>
+        <tbody>
+          {materiales.map((m, idx) => (
+            <tr key={m.material_codigo || idx} className="align-top border-t border-slate-200 hover:bg-slate-50 transition-colors">
+              <td className="px-3 py-2.5">
+                <span className="block text-xs font-medium text-slate-800 break-words">{m.descripcion || m.material_codigo || "—"}</span>
+                {m.material_codigo && <p className="text-[10px] text-slate-400">{m.material_codigo}</p>}
+              </td>
+              <td className="px-3 py-2.5 text-xs text-right font-medium whitespace-nowrap">{m.cantidad ?? "—"}</td>
+              <td className="px-3 py-2.5 text-xs text-right whitespace-nowrap">{m.precio != null ? fmtCurrency(m.precio) : "—"}</td>
+              <td className="px-3 py-2.5 text-xs text-right text-slate-500 whitespace-nowrap">{m.precio_original != null ? fmtCurrency(m.precio_original) : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    Panel: PAGOS
 ───────────────────────────────────────────── */
 
-function PagosPanel({ oferta }: { oferta: OfertaObra }) {
-  const [expandedExcedentes, setExpandedExcedentes] = useState<Set<string>>(new Set())
-  const toggleExcedente = (id: string) => {
-    const next = new Set(expandedExcedentes)
-    next.has(id) ? next.delete(id) : next.add(id)
-    setExpandedExcedentes(next)
-  }
-  const pagosOrdenados = ordenarPagos(oferta.pagos ?? [])
+function PagosPanel({ pagos, oferta }: { pagos: PagoObra[]; oferta: OfertaObra }) {
+  const pagosOrdenados = ordenarPagos(pagos)
   if (!pagosOrdenados.length)
     return <p className="text-center py-4 text-sm text-gray-500">No hay pagos registrados</p>
+
+  const precioFinal = oferta.precio_final ?? 0
 
   return (
     <div className="space-y-2">
       {pagosOrdenados.map((pago, index) => {
         const pagoId = pago.id ?? String(index)
-        const { pendienteDespuesPago } = getTotalesParaPago(oferta, pagoId)
+        const sorted = pagosOrdenados
+        const idx = sorted.findIndex((p) => p.id === pagoId)
+        const antes = idx >= 0 ? sorted.slice(0, idx).reduce((s, p) => s + getMontoAplicadoUsd(p), 0) : 0
+        const conEste = idx >= 0 ? antes + getMontoAplicadoUsd(sorted[idx]) : antes
+        const pendiente = precioFinal - conEste
+        const pendienteDespuesPago = roundToCents(
+          pendiente < 0.01 && pendiente > -0.01 ? 0 : Math.max(0, pendiente),
+        )
         const metodo = pago.metodo_pago ?? ""
         const moneda = pago.moneda ?? "USD"
+
         return (
           <div key={pagoId} className="bg-white rounded border border-gray-200 p-2 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Col 1 */}
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-gray-500">#{index + 1}</span>
@@ -348,18 +345,12 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
                   <span className="text-sm font-semibold text-green-700">{fmtCurrency(pago.monto ?? 0)} {moneda}</span>
                   {moneda !== "USD" && <p className="text-xs text-gray-500">Tasa: {pago.tasa_cambio} → {fmtCurrency(pago.monto_usd ?? 0)} USD</p>}
                 </div>
-                <div><span className="text-xs text-gray-500 block">Devuelto</span><span className="text-sm font-semibold text-red-700">{fmtCurrency(getTotalDevueltoPago(pago))} USD</span></div>
+                <div><span className="text-xs text-gray-500 block">Devuelto</span><span className="text-sm font-semibold text-red-700">{fmtCurrency(pago.total_devuelto ?? 0)} USD</span></div>
                 {pago.diferencia != null && pago.diferencia > 0 && (
-                  <div>
-                    <button onClick={() => toggleExcedente(pagoId)} className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1">
-                      ⚠ Excedente: +{fmtCurrency(pago.diferencia)}
-                      <ChevronDown className={`h-3 w-3 transition-transform ${expandedExcedentes.has(pagoId) ? "rotate-180" : ""}`} />
-                    </button>
-                  </div>
+                  <div className="text-xs text-orange-600 font-medium">Excedente: +{fmtCurrency(pago.diferencia)}</div>
                 )}
                 <div><span className="text-xs text-gray-500 block">Pendiente después</span><span className="text-sm font-semibold text-orange-700">{fmtCurrency(pendienteDespuesPago)} USD</span></div>
               </div>
-              {/* Col 2 */}
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-500 block">MÉTODO</span>
                 <MetodoPagoBadge metodo={metodo} />
@@ -368,31 +359,16 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
                   <div><span className="text-xs text-gray-500 block">Comprobante</span><a href={pago.comprobante_transferencia} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">Ver →</a></div>
                 )}
               </div>
-              {/* Col 3 */}
               <div className="space-y-1.5">
                 <span className="text-xs font-semibold text-gray-500 block">PAGADOR</span>
-                <span className="text-sm font-medium text-gray-900 block">{pago.nombre_pagador || oferta.contacto?.nombre || "No especificado"}</span>
+                <span className="text-sm font-medium text-gray-900 block">{pago.nombre_pagador || oferta.nombre_completo || "No especificado"}</span>
                 {!pago.pago_cliente && <Badge variant="outline" className="bg-orange-50 text-orange-700 text-xs">Tercero</Badge>}
                 {pago.carnet_pagador && <div><span className="text-xs text-gray-500 block">CI</span><span className="text-sm">{pago.carnet_pagador}</span></div>}
               </div>
-              {/* Col 4 */}
               <div className="space-y-1.5">
-                {metodo === "efectivo" && pago.desglose_billetes && Object.keys(pago.desglose_billetes).length > 0 && (
-                  <div>
-                    <span className="text-xs font-semibold text-gray-500 block mb-1">DESGLOSE</span>
-                    <div className="space-y-0.5 bg-gray-50 rounded p-1.5 border border-gray-200">
-                      {Object.entries(pago.desglose_billetes).sort(([a], [b]) => parseFloat(b) - parseFloat(a)).map(([den, cant]) => (
-                        <div key={den} className="flex justify-between text-xs">
-                          <span className="text-gray-600">{cant}x {den}</span>
-                          <span className="font-medium">{fmtCurrency(parseFloat(den) * cant)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {pago.notas && <div><span className="text-xs text-gray-500 block">Notas</span><span className="text-xs text-gray-700 italic">{pago.notas}</span></div>}
                 <div className="pt-1">
-                  <Button variant="outline" size="sm" onClick={() => ExportComprobanteService.generarComprobantePDF({ pago: pago as never, oferta: { numero_oferta: oferta.numero_oferta ?? "", nombre_completo: oferta.nombre_completo ?? "", precio_final: oferta.precio_final ?? 0 }, contacto: { nombre: oferta.contacto?.nombre || "No especificado", carnet: oferta.contacto?.carnet ?? undefined, telefono: oferta.contacto?.telefono ?? undefined }, monto_pendiente_despues_pago: pendienteDespuesPago })} className="w-full h-7 text-xs">
+                  <Button variant="outline" size="sm" onClick={() => ExportComprobanteService.generarComprobantePDF({ pago: pago as never, oferta: { numero_oferta: oferta.numero_oferta ?? "", nombre_completo: oferta.nombre_completo ?? "", precio_final: oferta.precio_final ?? 0 }, contacto: { nombre: oferta.nombre_completo || "No especificado", carnet: oferta.carnet_identidad ?? undefined }, monto_pendiente_despues_pago: pendienteDespuesPago })} className="w-full h-7 text-xs">
                     <FileText className="h-3 w-3 mr-1" />Comprobante
                   </Button>
                 </div>
@@ -406,12 +382,12 @@ function PagosPanel({ oferta }: { oferta: OfertaObra }) {
 }
 
 /* ─────────────────────────────────────────────
-   Panel: TRABAJOS DIARIOS — estilo tabla
+   Panel: TRABAJOS DIARIOS
 ───────────────────────────────────────────── */
 
 function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioObra[] }) {
   if (!trabajos.length)
-    return <p className="text-center py-4 text-sm text-gray-500">No hay trabajos diarios registrados para este cliente</p>
+    return <p className="text-center py-4 text-sm text-gray-500">No hay trabajos diarios registrados</p>
 
   const sorted = [...trabajos].sort((a, b) => {
     const fa = safeText(a.fecha || a.created_at).slice(0, 10)
@@ -420,14 +396,14 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioObra[] }) {
   })
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200">
-      <table className="w-full min-w-[640px] text-sm">
+    <div className="rounded-md border border-slate-200">
+      <table className="w-full text-sm table-fixed">
         <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
           <tr>
-            <th className="text-left px-3 py-2.5 font-semibold w-[95px]">Fecha</th>
-            <th className="text-left px-3 py-2.5 font-semibold min-w-[130px]">Instaladores</th>
-            <th className="text-left px-3 py-2.5 font-semibold min-w-[260px]">Instalaci&oacute;n</th>
-            <th className="text-left px-3 py-2.5 font-semibold w-[110px]">Estado</th>
+            <th className="w-[18%] text-left px-3 py-2.5 font-semibold">Fecha</th>
+            <th className="w-[26%] text-left px-3 py-2.5 font-semibold">Instaladores</th>
+            <th className="w-[40%] text-left px-3 py-2.5 font-semibold">Instalación</th>
+            <th className="w-[16%] text-left px-3 py-2.5 font-semibold">Estado</th>
           </tr>
         </thead>
         <tbody>
@@ -459,12 +435,12 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioObra[] }) {
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 break-words">
                   <p className={cn("text-xs font-semibold mb-1", averia ? "text-red-700" : "text-slate-600")}>{tipo}</p>
                   {averia ? (
                     <>
                       {t.problema_encontrado && <p className="text-xs text-red-600"><span className="font-medium">Problema:</span> {t.problema_encontrado}</p>}
-                      {t.solucion && <p className="text-xs text-slate-600 mt-0.5"><span className="font-medium">Soluci&oacute;n:</span> {t.solucion}</p>}
+                      {t.solucion && <p className="text-xs text-slate-600 mt-0.5"><span className="font-medium">Solución:</span> {t.solucion}</p>}
                     </>
                   ) : (
                     <>
@@ -476,9 +452,9 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioObra[] }) {
                   {Array.isArray(t.materiales_utilizados) && t.materiales_utilizados.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {t.materiales_utilizados.slice(0, 4).map((m, mi) => (
-                        <Badge key={mi} variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500">{m.nombre} &times;{m.cantidad_utilizada}</Badge>
+                        <Badge key={mi} variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500">{m.nombre} ×{m.cantidad_utilizada}</Badge>
                       ))}
-                      {t.materiales_utilizados.length > 4 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-400">+{t.materiales_utilizados.length - 4} m&aacute;s</Badge>}
+                      {t.materiales_utilizados.length > 4 && <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-400">+{t.materiales_utilizados.length - 4} más</Badge>}
                     </div>
                   )}
                 </td>
@@ -498,7 +474,7 @@ function TrabajosPanel({ trabajos }: { trabajos: TrabajoDiarioObra[] }) {
 
 function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
   if (!vales.length)
-    return <p className="text-center py-4 text-sm text-gray-500">No hay vales de salida registrados para este cliente</p>
+    return <p className="text-center py-4 text-sm text-gray-500">No hay vales de salida registrados</p>
 
   const sorted = [...vales].sort((a, b) => {
     const fa = safeText(a.fecha_creacion).slice(0, 10)
@@ -507,15 +483,15 @@ function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
   })
 
   return (
-    <div className="overflow-x-auto rounded-md border border-slate-200">
-      <table className="w-full min-w-[600px] text-sm">
+    <div className="rounded-md border border-slate-200">
+      <table className="w-full text-sm table-fixed">
         <thead className="bg-slate-50 text-slate-600 border-b border-slate-200">
           <tr>
-            <th className="text-left px-3 py-2.5 font-semibold w-[100px]">C&oacute;digo</th>
-            <th className="text-left px-3 py-2.5 font-semibold w-[100px]">Fecha</th>
-            <th className="text-left px-3 py-2.5 font-semibold w-[100px]">Estado</th>
-            <th className="text-left px-3 py-2.5 font-semibold">Materiales</th>
-            <th className="text-left px-3 py-2.5 font-semibold w-[120px]">Recogido por</th>
+            <th className="w-[16%] text-left px-3 py-2.5 font-semibold">Código</th>
+            <th className="w-[16%] text-left px-3 py-2.5 font-semibold">Fecha</th>
+            <th className="w-[16%] text-left px-3 py-2.5 font-semibold">Estado</th>
+            <th className="w-[36%] text-left px-3 py-2.5 font-semibold">Materiales</th>
+            <th className="w-[16%] text-left px-3 py-2.5 font-semibold">Recogido por</th>
           </tr>
         </thead>
         <tbody>
@@ -528,7 +504,7 @@ function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
 
             return (
               <tr key={vale.id || idx} className="align-top border-t border-slate-200 hover:bg-slate-50 transition-colors">
-                <td className="px-3 py-3">
+                <td className="px-3 py-3 break-words">
                   <span className="text-xs font-semibold text-slate-800">{codigo}</span>
                 </td>
                 <td className="px-3 py-3 text-xs text-slate-600 whitespace-nowrap">
@@ -552,22 +528,24 @@ function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
                 </td>
                 <td className="px-3 py-3">
                   {materiales.length > 0 ? (
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       {materiales.map((m, mi) => {
-                        const nombre =
-                          m.material?.nombre ||
-                          m.material?.descripcion ||
-                          "Material"
+                        const nombre = m.material?.nombre || m.material?.descripcion || "Material"
+                        const codigo = m.material?.codigo || m.material?.descripcion || "—"
                         return (
-                          <div key={mi} className="flex items-center gap-2 text-xs">
-                            <Package className="h-3 w-3 text-slate-400 shrink-0" />
-                            <span className="text-slate-700">{nombre}</span>
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-500 ml-auto">
-                              &times;{m.cantidad}
-                            </Badge>
-                            {m.numero_serie && (
-                              <span className="text-[10px] text-slate-400">N/S: {m.numero_serie}</span>
-                            )}
+                          <div key={mi} className="rounded border border-slate-200 bg-slate-50 px-2 py-1.5">
+                            <div className="flex items-start gap-2">
+                              <Package className="mt-0.5 h-3 w-3 text-slate-400 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-slate-600 shrink-0">
+                                    ×{m.cantidad ?? 0}
+                                  </Badge>
+                                  <span className="text-xs text-slate-700 break-words leading-tight">{nombre}</span>
+                                </div>
+                                <p className="mt-0.5 text-[10px] text-slate-500 break-words">Código: {codigo}</p>
+                              </div>
+                            </div>
                           </div>
                         )
                       })}
@@ -576,7 +554,7 @@ function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
                     <span className="text-xs text-slate-400">Sin materiales</span>
                   )}
                 </td>
-                <td className="px-3 py-3 text-xs text-slate-600">
+                <td className="px-3 py-3 text-xs text-slate-600 break-words">
                   {recogido || "—"}
                 </td>
               </tr>
@@ -592,7 +570,7 @@ function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
    Tipos de pestaña expandida
 ───────────────────────────────────────────── */
 
-type SectionTab = "pagos" | "trabajos" | "vales"
+type SectionTab = "materiales" | "pagos" | "trabajos" | "vales"
 
 /* ─────────────────────────────────────────────
    Componente principal
@@ -601,8 +579,8 @@ type SectionTab = "pagos" | "trabajos" | "vales"
 interface ObrasTerminadasTableProps {
   ofertasConPagos: OfertaObra[]
   loading: boolean
-  fetchDetalle: (clienteNumero: string) => Promise<void>
-  detalleCache: Record<string, DetalleCliente>
+  fetchDetalle: (ofertaId: string) => Promise<void>
+  detalleCache: Record<string, OfertaDetalleObras>
   detalleLoading: Record<string, boolean>
   detalleError: Record<string, string>
 }
@@ -618,25 +596,27 @@ export function ObrasTerminadasTable({
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<Record<string, SectionTab>>({})
 
-  // Filtros
   const [searchTerm, setSearchTerm] = useState("")
   const [estadoPago, setEstadoPago] = useState<"todos" | "pagado" | "pendiente">("todos")
   const [filtroFechaCliente, setFiltroFechaCliente] = useState<DateFilterState>(initialDateFilter)
-  const [filtroFechaInstalacion, setFiltroFechaInstalacion] = useState<DateFilterState>(initialDateFilter)
-  const [filtroFechaPago, setFiltroFechaPago] = useState<DateFilterState>(initialDateFilter)
+  const [filtroFechaEquipo, setFiltroFechaEquipo] = useState<DateFilterState>(initialDateFilter)
   const [showFilters, setShowFilters] = useState(true)
 
-  const toggleOferta = (oferta: OfertaObra) => {
-    const id = oferta.oferta_id ?? ""
-    const clienteNum = (oferta.cliente_numero || oferta.contacto?.codigo || "").trim()
+  const getRowKey = (oferta: OfertaObra, index: number) =>
+    oferta.oferta_id ?? oferta.numero_oferta ?? `row-${index}`
+
+  const getDetalleKey = (oferta: OfertaObra) =>
+    oferta.oferta_id ?? ""
+
+  const toggleOferta = (oferta: OfertaObra, rowId: string) => {
+    const detalleId = getDetalleKey(oferta)
     const next = new Set(expandedOfertas)
-    if (next.has(id)) {
-      next.delete(id)
+    if (next.has(rowId)) {
+      next.delete(rowId)
     } else {
-      next.add(id)
-      setActiveTab((prev) => ({ ...prev, [id]: prev[id] || "pagos" }))
-      // Carga lazy del detalle solo si hay número de cliente
-      if (clienteNum) fetchDetalle(clienteNum)
+      next.add(rowId)
+      setActiveTab((prev) => ({ ...prev, [rowId]: prev[rowId] || "materiales" }))
+      if (detalleId) fetchDetalle(detalleId)
     }
     setExpandedOfertas(next)
   }
@@ -645,60 +625,45 @@ export function ObrasTerminadasTable({
     setSearchTerm("")
     setEstadoPago("todos")
     setFiltroFechaCliente(initialDateFilter())
-    setFiltroFechaInstalacion(initialDateFilter())
-    setFiltroFechaPago(initialDateFilter())
+    setFiltroFechaEquipo(initialDateFilter())
   }
 
   const activeFilterCount = [
     searchTerm.trim() !== "",
     estadoPago !== "todos",
     filtroFechaCliente.mode !== "off",
-    filtroFechaInstalacion.mode !== "off",
-    filtroFechaPago.mode !== "off",
+    filtroFechaEquipo.mode !== "off",
   ].filter(Boolean).length
 
   const filteredOfertas = useMemo(() => {
     return ofertasConPagos.filter((o) => {
-      // Búsqueda de texto
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase()
         const matches =
           (o.numero_oferta ?? "").toLowerCase().includes(term) ||
-          (o.contacto?.nombre || "").toLowerCase().includes(term) ||
-          (o.contacto?.telefono || "").includes(term) ||
-          (o.contacto?.carnet || "").includes(term) ||
+          (o.nombre_completo || "").toLowerCase().includes(term) ||
+          (o.carnet_identidad || "").includes(term) ||
           (o.almacen_nombre || "").toLowerCase().includes(term) ||
-          (o.comercial_nombre || "").toLowerCase().includes(term) ||
-          getEstadoCliente(o).toLowerCase().includes(term)
+          (o.comercial || "").toLowerCase().includes(term) ||
+          (o.cliente_numero || "").includes(term)
         if (!matches) return false
       }
 
-      // Estado de pago
       const montoPendiente = o.monto_pendiente ?? 0
       if (estadoPago === "pagado" && montoPendiente > 0.01) return false
       if (estadoPago === "pendiente" && montoPendiente <= 0.01) return false
 
-      // Fecha creación cliente
       if (filtroFechaCliente.mode !== "off") {
         if (!dateInRange(o.fecha_creacion, filtroFechaCliente.desde, filtroFechaCliente.hasta)) return false
       }
 
-      // Fecha instalación
-      if (filtroFechaInstalacion.mode !== "off") {
-        if (!dateInRange(o.fecha_instalacion_cliente, filtroFechaInstalacion.desde, filtroFechaInstalacion.hasta)) return false
-      }
-
-      // Fecha de pagos (si algún pago cae en el rango)
-      if (filtroFechaPago.mode !== "off") {
-        const tienePageEnRango = (o.pagos ?? []).some((p) =>
-          dateInRange(p.fecha, filtroFechaPago.desde, filtroFechaPago.hasta),
-        )
-        if (!tienePageEnRango) return false
+      if (filtroFechaEquipo.mode !== "off") {
+        if (!dateInRange(o.fecha_equipo_instalado, filtroFechaEquipo.desde, filtroFechaEquipo.hasta)) return false
       }
 
       return true
     })
-  }, [ofertasConPagos, searchTerm, estadoPago, filtroFechaCliente, filtroFechaInstalacion, filtroFechaPago])
+  }, [ofertasConPagos, searchTerm, estadoPago, filtroFechaCliente, filtroFechaEquipo])
 
   if (loading)
     return (
@@ -712,7 +677,7 @@ export function ObrasTerminadasTable({
     return (
       <div className="text-center py-16">
         <Briefcase className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">No hay obras con pagos registrados</p>
+        <p className="text-gray-500">No hay obras terminadas registradas</p>
       </div>
     )
 
@@ -746,9 +711,7 @@ export function ObrasTerminadasTable({
 
         {showFilters && (
           <div className="px-4 pb-4 border-t border-orange-50 pt-3 space-y-4">
-            {/* Fila 1: búsqueda + estado de pago */}
             <div className="flex flex-wrap gap-4 items-start">
-              {/* Búsqueda */}
               <div className="flex-1 min-w-[220px]">
                 <span className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-1">
                   <Search className="h-3.5 w-3.5" /> Búsqueda
@@ -764,7 +727,6 @@ export function ObrasTerminadasTable({
                 </div>
               </div>
 
-              {/* Estado de pago */}
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-gray-500">Estado del pago</span>
                 <div className="flex gap-1">
@@ -779,14 +741,13 @@ export function ObrasTerminadasTable({
                           : "border-gray-300 text-gray-600 hover:border-orange-400",
                       )}
                     >
-                      {v === "todos" ? "Todos" : v === "pagado" ? "✓ Pagado" : "⏳ Con saldo"}
+                      {v === "todos" ? "Todos" : v === "pagado" ? "Pagado" : "Con saldo"}
                     </button>
                   ))}
                 </div>
               </div>
             </div>
 
-            {/* Fila 2: filtros de fecha */}
             <div className="flex flex-wrap gap-6">
               <DateFilterWidget
                 label="Fecha creación cliente"
@@ -795,16 +756,10 @@ export function ObrasTerminadasTable({
                 onChange={setFiltroFechaCliente}
               />
               <DateFilterWidget
-                label="Fecha fin instalación"
+                label="Fecha equipo instalado"
                 icon={<CalendarDays className="h-3.5 w-3.5" />}
-                state={filtroFechaInstalacion}
-                onChange={setFiltroFechaInstalacion}
-              />
-              <DateFilterWidget
-                label="Fecha de pagos"
-                icon={<CalendarDays className="h-3.5 w-3.5" />}
-                state={filtroFechaPago}
-                onChange={setFiltroFechaPago}
+                state={filtroFechaEquipo}
+                onChange={setFiltroFechaEquipo}
               />
             </div>
           </div>
@@ -813,7 +768,7 @@ export function ObrasTerminadasTable({
 
       {/* Contador */}
       <div className="text-sm text-gray-500 px-1">
-        Mostrando <strong>{filteredOfertas.length}</strong> de {ofertasConPagos.length} ofertas
+        Mostrando <strong>{filteredOfertas.length}</strong> de {ofertasConPagos.length} obras
         {filteredOfertas.length > 0 && (
           <span className="ml-3 text-blue-600 font-medium">
             Total cobrado: {fmtCurrency(filteredOfertas.reduce((s, o) => s + (o.total_pagado ?? 0), 0))} ·
@@ -827,165 +782,134 @@ export function ObrasTerminadasTable({
           No se encontraron resultados con los filtros aplicados
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-orange-100 shadow-sm overflow-x-auto">
-          <Table>
+        <div className="bg-white rounded-lg border border-orange-100 shadow-sm">
+          <Table className="w-full table-fixed">
             <TableHeader>
               <TableRow className="bg-orange-50/50">
-                <TableHead className="w-[40px]" />
-                <TableHead className="w-[110px]">N° Oferta</TableHead>
-                <TableHead className="min-w-[150px]">Cliente</TableHead>
-                <TableHead className="w-[150px]">Estado Cliente</TableHead>
-                <TableHead className="w-[100px]">CI</TableHead>
-                <TableHead className="w-[110px]">Comercial</TableHead>
-                <TableHead className="w-[95px]">F. Creación</TableHead>
-                <TableHead className="w-[95px]">F. Instalación</TableHead>
-                <TableHead className="text-right w-[105px]">Precio Final</TableHead>
-                <TableHead className="text-right w-[100px]">Total Mat.</TableHead>
-                <TableHead className="text-right w-[95px]">Ganancia</TableHead>
-                <TableHead className="text-right w-[100px]">Cobrado</TableHead>
-                <TableHead className="text-right w-[90px]">Devuelto</TableHead>
-                <TableHead className="text-right w-[90px]">Pendiente</TableHead>
-                <TableHead className="w-[60px] text-center">Cobros</TableHead>
-                <TableHead className="w-[120px]">Almacén</TableHead>
+                <TableHead className="w-8" />
+                <TableHead className="w-[26%] text-xs">Cliente</TableHead>
+                <TableHead className="w-[14%] text-xs">Comercial</TableHead>
+                <TableHead className="w-[10%] text-xs">F. Creación</TableHead>
+                <TableHead className="w-[10%] text-xs">F. Eq. Instalado</TableHead>
+                <TableHead className="w-[10%] text-right text-xs">Precio Oferta</TableHead>
+                <TableHead className="w-[10%] text-right text-xs">Total Mat.</TableHead>
+                <TableHead className="w-[10%] text-right text-xs">Cobrado</TableHead>
+                <TableHead className="w-[10%] text-right text-xs">Devuelto</TableHead>
+                <TableHead className="w-[10%] text-right text-xs">Pendiente</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredOfertas.map((oferta) => {
-                const ofertaId = oferta.oferta_id ?? ""
-                const isExpanded = expandedOfertas.has(ofertaId)
-                const estadoCliente = getEstadoCliente(oferta)
-                const totalMat = parseNullableNumber(oferta.total_materiales)
-                const precioFinal = oferta.precio_final ?? 0
-                const ganancia = totalMat !== null ? precioFinal - totalMat : null
-                const totalDevuelto = getTotalDevueltoOferta(oferta)
-                const tab = activeTab[ofertaId] || "pagos"
+              {filteredOfertas.map((oferta, index) => {
+                const rowId = getRowKey(oferta, index)
+                const detalleId = getDetalleKey(oferta)
+                const isExpanded = expandedOfertas.has(rowId)
+                const estadoCliente = oferta.estado_cliente ? getEstadoLabel(oferta.estado_cliente) : "Sin estado"
                 const montoPendiente = oferta.monto_pendiente ?? 0
                 const pagado = montoPendiente <= 0.01
+                const tab = activeTab[rowId] || "materiales"
 
-                const clienteNum = (oferta.cliente_numero || oferta.contacto?.codigo || "").trim()
-                const detalle = detalleCache[clienteNum]
-                const isDetalleLoading = !!detalleLoading[clienteNum]
-                const detalleErr = detalleError[clienteNum]
-                const trabajosCliente = detalle?.trabajos ?? []
-                const valesCliente = detalle?.vales ?? []
+                const detalle = detalleId ? detalleCache[detalleId] : undefined
+                const isDetalleLoading = !!(detalleId ? detalleLoading[detalleId] : false)
+                const detalleErr = detalleId ? detalleError[detalleId] : undefined
 
                 return (
-                  <React.Fragment key={ofertaId || oferta.numero_oferta}>
+                  <React.Fragment key={rowId}>
                     <TableRow
                       className={cn(
                         "cursor-pointer transition-colors",
                         isExpanded ? "bg-orange-50" : "hover:bg-orange-50/50",
                       )}
-                      onClick={() => toggleOferta(oferta)}
+                      onClick={() => toggleOferta(oferta, rowId)}
                     >
                       <TableCell className="py-2.5">
                         {isExpanded
                           ? <ChevronDown className="h-4 w-4 text-gray-500" />
                           : <ChevronRight className="h-4 w-4 text-gray-500" />}
                       </TableCell>
-                      <TableCell className="font-medium text-sm py-2.5">{oferta.numero_oferta}</TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="py-2.5 align-top">
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-sm leading-tight">{oferta.contacto?.nombre || "Sin contacto"}</span>
-                          <span className="text-xs text-gray-500">{oferta.contacto?.codigo || oferta.cliente_numero || "-"}</span>
-                          {oferta.contacto?.telefono && <span className="text-xs text-gray-600">{oferta.contacto.telefono}</span>}
+                          <span className="font-semibold text-sm leading-tight truncate" title={oferta.nombre_completo || "Sin cliente"}>
+                            {oferta.nombre_completo || "Sin cliente"}
+                          </span>
+                          <span className="text-xs text-gray-500 truncate" title={oferta.numero_oferta || "-"}>
+                            {oferta.numero_oferta || "-"}
+                          </span>
+                          <div className="pt-0.5">
+                            <Badge variant="outline" className={`text-xs px-2 py-0 ${getEstadoBadgeClass(estadoCliente)}`}>
+                              {estadoCliente}
+                            </Badge>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="py-2.5">
-                        <Badge variant="outline" className={getEstadoBadgeClass(estadoCliente)}>{estadoCliente}</Badge>
+                      <TableCell className="py-2.5 text-sm text-slate-700 truncate" title={oferta.comercial || "-"}>
+                        {oferta.comercial || <span className="text-gray-400 text-xs">—</span>}
                       </TableCell>
-                      <TableCell className="py-2.5 text-sm text-gray-700">{oferta.contacto?.carnet || "-"}</TableCell>
-                      <TableCell className="py-2.5 text-sm text-slate-700">
-                        {oferta.comercial_nombre || <span className="text-gray-400 text-xs">—</span>}
-                      </TableCell>
-                      <TableCell className="py-2.5 text-xs text-gray-600">
+                      <TableCell className="py-2.5 text-sm text-gray-600 whitespace-nowrap">
                         {oferta.fecha_creacion ? fmtDate(oferta.fecha_creacion) : <span className="text-gray-400">—</span>}
                       </TableCell>
-                      <TableCell className="py-2.5 text-xs text-gray-600">
-                        {oferta.fecha_instalacion_cliente ? fmtDate(oferta.fecha_instalacion_cliente) : <span className="text-gray-400">—</span>}
+                      <TableCell className="py-2.5 text-sm text-gray-600 whitespace-nowrap">
+                        {oferta.fecha_equipo_instalado ? fmtDate(oferta.fecha_equipo_instalado) : <span className="text-gray-400">—</span>}
                       </TableCell>
-                      <TableCell className="text-right font-semibold text-sm py-2.5">{fmtCurrency(precioFinal)}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 text-slate-700">{totalMat !== null ? fmtCurrency(totalMat) : "-"}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 text-blue-700 font-semibold">{ganancia !== null ? fmtCurrency(ganancia) : "-"}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 text-green-700 font-semibold">{fmtCurrency(oferta.total_pagado ?? 0)}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 text-red-700 font-semibold">{fmtCurrency(totalDevuelto)}</TableCell>
-                      <TableCell className="text-right text-sm py-2.5 font-semibold">
+                      <TableCell className="text-right font-semibold text-sm py-2.5 whitespace-nowrap tabular-nums">{fmtCurrency(oferta.precio_final ?? 0)}</TableCell>
+                      <TableCell className="text-right text-sm py-2.5 text-slate-700 whitespace-nowrap tabular-nums">{oferta.total_materiales != null ? fmtCurrency(oferta.total_materiales) : "-"}</TableCell>
+                      <TableCell className="text-right text-sm py-2.5 text-green-700 font-semibold whitespace-nowrap tabular-nums">{fmtCurrency(oferta.total_pagado ?? 0)}</TableCell>
+                      <TableCell className="text-right text-sm py-2.5 text-red-700 font-semibold whitespace-nowrap tabular-nums">{fmtCurrency(oferta.total_devuelto ?? 0)}</TableCell>
+                      <TableCell className="text-right text-sm py-2.5 font-semibold whitespace-nowrap tabular-nums">
                         <span className={pagado ? "text-green-600" : "text-orange-700"}>
                           {fmtCurrency(montoPendiente)}
                         </span>
                       </TableCell>
-                      <TableCell className="text-center py-2.5">
-                        <Badge variant="outline" className="bg-blue-50 text-blue-700">{oferta.cantidad_pagos ?? 0}</Badge>
-                      </TableCell>
-                      <TableCell className="py-2.5 text-sm text-gray-700">{oferta.almacen_nombre || "-"}</TableCell>
                     </TableRow>
 
                     {/* Panel expandido */}
                     {isExpanded && (
                       <TableRow>
-                        <TableCell colSpan={16} className="bg-orange-50/60 p-0" onClick={(e) => e.stopPropagation()}>
+                        <TableCell colSpan={10} className="bg-orange-50/60 p-0" onClick={(e) => e.stopPropagation()}>
                           <div className="border-t border-orange-200 p-3">
-                            {/* Tabs */}
                             <div className="flex gap-1 mb-3 border-b border-orange-200 pb-2">
-                              <button
-                                onClick={() => setActiveTab((p) => ({ ...p, [ofertaId]: "pagos" }))}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
-                                  tab === "pagos" ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
-                                )}
-                              >
-                                <FileText className="h-3.5 w-3.5" />
-                                Pagos ({oferta.cantidad_pagos ?? 0})
-                              </button>
-                              <button
-                                onClick={() => setActiveTab((p) => ({ ...p, [ofertaId]: "trabajos" }))}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
-                                  tab === "trabajos" ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
-                                )}
-                              >
-                                <Wrench className="h-3.5 w-3.5" />
-                                Trabajos Diarios {detalle ? `(${trabajosCliente.length})` : ""}
-                              </button>
-                              <button
-                                onClick={() => setActiveTab((p) => ({ ...p, [ofertaId]: "vales" }))}
-                                className={cn(
-                                  "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
-                                  tab === "vales" ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
-                                )}
-                              >
-                                <Package className="h-3.5 w-3.5" />
-                                Vales {detalle ? `(${valesCliente.length})` : ""}
-                              </button>
+                              {([
+                                { key: "materiales" as const, icon: <Boxes className="h-3.5 w-3.5" />, label: "Materiales", count: detalle?.materiales?.length },
+                                { key: "pagos" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Pagos", count: detalle?.pagos?.length },
+                                { key: "trabajos" as const, icon: <Wrench className="h-3.5 w-3.5" />, label: "Trabajos Diarios", count: detalle?.trabajos?.length },
+                                { key: "vales" as const, icon: <Package className="h-3.5 w-3.5" />, label: "Vales", count: detalle?.vales?.length },
+                              ]).map((t) => (
+                                <button
+                                  key={t.key}
+                                  onClick={() => setActiveTab((p) => ({ ...p, [rowId]: t.key }))}
+                                  className={cn(
+                                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-t transition-colors",
+                                    tab === t.key ? "bg-white border border-orange-200 text-orange-700 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                                  )}
+                                >
+                                  {t.icon}
+                                  {t.label} {detalle && t.count != null ? `(${t.count})` : ""}
+                                </button>
+                              ))}
                             </div>
 
-                            {/* Pagos: siempre disponibles desde la carga inicial */}
-                            {tab === "pagos" && <PagosPanel oferta={oferta} />}
-
-                            {/* Trabajos y Vales: carga lazy */}
-                            {(tab === "trabajos" || tab === "vales") && (
-                              isDetalleLoading ? (
-                                <div className="flex items-center justify-center py-10 gap-2 text-gray-500">
-                                  <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
-                                  <span className="text-sm">Cargando datos...</span>
-                                </div>
-                              ) : detalleErr ? (
-                                <div className="flex items-center gap-2 py-6 px-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
-                                  <AlertTriangle className="h-4 w-4 shrink-0" />
-                                  <span>{detalleErr}</span>
-                                  <button
-                                    onClick={() => clienteNum && fetchDetalle(clienteNum)}
-                                    className="ml-auto text-xs underline hover:no-underline"
-                                  >
-                                    Reintentar
-                                  </button>
-                                </div>
-                              ) : (
-                                <>
-                                  {tab === "trabajos" && <TrabajosPanel trabajos={trabajosCliente} />}
-                                  {tab === "vales" && <ValesPanel vales={valesCliente} />}
-                                </>
-                              )
+                            {isDetalleLoading ? (
+                              <div className="flex items-center justify-center py-10 gap-2 text-gray-500">
+                                <Loader2 className="h-5 w-5 animate-spin text-orange-400" />
+                                <span className="text-sm">Cargando datos...</span>
+                              </div>
+                            ) : detalleErr ? (
+                              <div className="flex items-center gap-2 py-6 px-4 text-sm text-red-600 bg-red-50 rounded-md border border-red-200">
+                                <AlertTriangle className="h-4 w-4 shrink-0" />
+                                <span>{detalleErr}</span>
+                                <button
+                                  onClick={() => detalleId && fetchDetalle(detalleId)}
+                                  className="ml-auto text-xs underline hover:no-underline"
+                                >
+                                  Reintentar
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                {tab === "materiales" && <MaterialesPanel materiales={detalle?.materiales ?? []} />}
+                                {tab === "pagos" && <PagosPanel pagos={detalle?.pagos ?? []} oferta={oferta} />}
+                                {tab === "trabajos" && <TrabajosPanel trabajos={detalle?.trabajos ?? []} />}
+                                {tab === "vales" && <ValesPanel vales={detalle?.vales ?? []} />}
+                              </>
                             )}
                           </div>
                         </TableCell>
