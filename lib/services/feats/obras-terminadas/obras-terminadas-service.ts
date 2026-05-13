@@ -131,6 +131,12 @@ export interface ObrasTerminadasFiltros {
   estado_cliente?: string;
   comercial?: string;
   q?: string;
+  estado_pago?: "todos" | "pagado" | "pendiente";
+  fecha_creacion_desde?: string;
+  fecha_creacion_hasta?: string;
+  fecha_equipo_desde?: string;
+  fecha_equipo_hasta?: string;
+  instaladores?: string[];
 }
 
 /* ── Servicio ───────────────────────────────────────────────────────── */
@@ -149,6 +155,17 @@ export const ObrasTerminadasService = {
     if (filtros.estado_cliente)        params.set("estado_cliente", filtros.estado_cliente);
     if (filtros.comercial)             params.set("comercial",      filtros.comercial);
     if (filtros.q)                     params.set("q",              filtros.q);
+    if (filtros.estado_pago)           params.set("estado_pago",     filtros.estado_pago);
+    if (filtros.fecha_creacion_desde)  params.set("fecha_creacion_desde", filtros.fecha_creacion_desde);
+    if (filtros.fecha_creacion_hasta)  params.set("fecha_creacion_hasta", filtros.fecha_creacion_hasta);
+    if (filtros.fecha_equipo_desde)    params.set("fecha_equipo_desde", filtros.fecha_equipo_desde);
+    if (filtros.fecha_equipo_hasta)    params.set("fecha_equipo_hasta", filtros.fecha_equipo_hasta);
+    if (Array.isArray(filtros.instaladores)) {
+      for (const instalador of filtros.instaladores) {
+        const v = instalador.trim();
+        if (v) params.append("instaladores", v);
+      }
+    }
 
     const qs = params.toString();
     const url = qs ? `${BASE}/datos?${qs}` : `${BASE}/datos`;

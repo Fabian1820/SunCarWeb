@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect } from "react"
+import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/shared/atom/button"
 import { ArrowLeft, RefreshCw, HardHat, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import { useObrasTerminadas } from "@/hooks/use-obras-terminadas"
 import { ObrasTerminadasTable } from "@/components/feats/obras-terminadas/obras-terminadas-table"
+import type { ObrasTerminadasFiltros } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 
 export default function ObrasTerminadasPage() {
+  const [serverFiltros, setServerFiltros] = useState<ObrasTerminadasFiltros>({})
+
   const {
     ofertasConPagos, loading, error, fetchData,
     fetchDetalle, detalleCache, detalleLoading, detalleError,
@@ -15,8 +18,12 @@ export default function ObrasTerminadasPage() {
   } = useObrasTerminadas()
 
   useEffect(() => {
-    fetchData()
-  }, [fetchData])
+    fetchData(serverFiltros, 0)
+  }, [fetchData, serverFiltros])
+
+  const handleServerFiltersChange = useCallback((next: ObrasTerminadasFiltros) => {
+    setServerFiltros(next)
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50">
@@ -62,7 +69,7 @@ export default function ObrasTerminadasPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => fetchData()}
+                onClick={() => fetchData(serverFiltros, page)}
                 disabled={loading}
                 className="gap-1.5"
               >
@@ -104,6 +111,8 @@ export default function ObrasTerminadasPage() {
             detalleCache={detalleCache}
             detalleLoading={detalleLoading}
             detalleError={detalleError}
+            serverFiltros={serverFiltros}
+            onServerFiltersChange={handleServerFiltersChange}
           />
 
           {totalPages > 0 && (

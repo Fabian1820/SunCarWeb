@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useMemo } from "react"
+import React, { useEffect, useMemo, useState } from "react"
 import {
   Table,
   TableBody,
@@ -34,6 +34,7 @@ import type {
   MaterialOferta,
   TrabajoDiarioObra,
   ValeSalidaObra,
+  ObrasTerminadasFiltros,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
 import { cn } from "@/lib/utils"
@@ -124,12 +125,6 @@ const mesActualRange = (): { desde: string; hasta: string } => {
   return { desde, hasta }
 }
 
-const dateInRange = (dateStr: string | null | undefined, desde: string, hasta: string): boolean => {
-  if (!dateStr) return false
-  const d = dateStr.slice(0, 10)
-  return d >= desde && d <= hasta
-}
-
 /* ─────────────────────────────────────────────
    Formatters
 ───────────────────────────────────────────── */
@@ -191,6 +186,14 @@ interface DateFilterState { mode: DateFilterMode; desde: string; hasta: string }
 const initialDateFilter = (): DateFilterState => {
   const mes = mesActualRange()
   return { mode: "off", desde: mes.desde, hasta: todayStr() }
+}
+
+const getDateRangeParams = (state: DateFilterState) => {
+  if (state.mode === "off") return { desde: undefined, hasta: undefined }
+  return {
+    desde: state.desde || undefined,
+    hasta: state.hasta || undefined,
+  }
 }
 
 function DateFilterWidget({
@@ -583,6 +586,8 @@ interface ObrasTerminadasTableProps {
   detalleCache: Record<string, OfertaDetalleObras>
   detalleLoading: Record<string, boolean>
   detalleError: Record<string, string>
+  serverFiltros: ObrasTerminadasFiltros
+  onServerFiltersChange: (filtros: ObrasTerminadasFiltros) => void
 }
 
 export function ObrasTerminadasTable({
@@ -592,14 +597,18 @@ export function ObrasTerminadasTable({
   detalleCache,
   detalleLoading,
   detalleError,
+  serverFiltros,
+  onServerFiltersChange,
 }: ObrasTerminadasTableProps) {
   const [expandedOfertas, setExpandedOfertas] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<Record<string, SectionTab>>({})
 
-  const [searchTerm, setSearchTerm] = useState("")
+  const [searchTerm, setSearchTerm] = useState(serverFiltros.q ?? "")
+  const [comercialFilter, setComercialFilter] = useState(serverFiltros.comercial ?? "todos")
   const [estadoPago, setEstadoPago] = useState<"todos" | "pagado" | "pendiente">("todos")
   const [filtroFechaCliente, setFiltroFechaCliente] = useState<DateFilterState>(initialDateFilter)
   const [filtroFechaEquipo, setFiltroFechaEquipo] = useState<DateFilterState>(initialDateFilter)
+  const [instaladoresInput, setInstaladoresInput] = useState("")
   const [showFilters, setShowFilters] = useState(true)
 
   const getRowKey = (oferta: OfertaObra, index: number) =>
@@ -623,47 +632,56 @@ export function ObrasTerminadasTable({
 
   const clearAllFilters = () => {
     setSearchTerm("")
+    setComercialFilter("todos")
     setEstadoPago("todos")
     setFiltroFechaCliente(initialDateFilter())
     setFiltroFechaEquipo(initialDateFilter())
+    setInstaladoresInput("")
+    onServerFiltersChange({})
   }
 
   const activeFilterCount = [
     searchTerm.trim() !== "",
+    comercialFilter !== "todos",
     estadoPago !== "todos",
     filtroFechaCliente.mode !== "off",
     filtroFechaEquipo.mode !== "off",
+    instaladoresInput.trim() !== "",
   ].filter(Boolean).length
 
-  const filteredOfertas = useMemo(() => {
-    return ofertasConPagos.filter((o) => {
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase()
-        const matches =
-          (o.numero_oferta ?? "").toLowerCase().includes(term) ||
-          (o.nombre_completo || "").toLowerCase().includes(term) ||
-          (o.carnet_identidad || "").includes(term) ||
-          (o.almacen_nombre || "").toLowerCase().includes(term) ||
-          (o.comercial || "").toLowerCase().includes(term) ||
-          (o.cliente_numero || "").includes(term)
-        if (!matches) return false
-      }
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const fechaCreacion = getDateRangeParams(filtroFechaCliente)
+      const fechaEquipo = getDateRangeParams(filtroFechaEquipo)
+      const instaladores = instaladoresInput
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
 
-      const montoPendiente = o.monto_pendiente ?? 0
-      if (estadoPago === "pagado" && montoPendiente > 0.01) return false
-      if (estadoPago === "pendiente" && montoPendiente <= 0.01) return false
+      onServerFiltersChange({
+        q: searchTerm.trim() || undefined,
+        comercial: comercialFilter !== "todos" ? comercialFilter : undefined,
+        estado_pago: estadoPago,
+        fecha_creacion_desde: fechaCreacion.desde,
+        fecha_creacion_hasta: fechaCreacion.hasta,
+        fecha_equipo_desde: fechaEquipo.desde,
+        fecha_equipo_hasta: fechaEquipo.hasta,
+        instaladores: instaladores.length ? instaladores : undefined,
+      })
+    }, 250)
+    return () => clearTimeout(t)
+  }, [searchTerm, comercialFilter, estadoPago, filtroFechaCliente, filtroFechaEquipo, instaladoresInput, onServerFiltersChange])
 
-      if (filtroFechaCliente.mode !== "off") {
-        if (!dateInRange(o.fecha_creacion, filtroFechaCliente.desde, filtroFechaCliente.hasta)) return false
-      }
+  const comerciales = useMemo(() => {
+    const set = new Set<string>()
+    for (const o of ofertasConPagos) {
+      const c = (o.comercial || "").trim()
+      if (c) set.add(c)
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"))
+  }, [ofertasConPagos])
 
-      if (filtroFechaEquipo.mode !== "off") {
-        if (!dateInRange(o.fecha_equipo_instalado, filtroFechaEquipo.desde, filtroFechaEquipo.hasta)) return false
-      }
-
-      return true
-    })
-  }, [ofertasConPagos, searchTerm, estadoPago, filtroFechaCliente, filtroFechaEquipo])
+  const filteredOfertas = ofertasConPagos
 
   if (loading)
     return (
@@ -727,6 +745,20 @@ export function ObrasTerminadasTable({
                 </div>
               </div>
 
+              <div className="flex flex-col gap-1 min-w-[220px]">
+                <span className="text-xs font-semibold text-gray-500">Comercial</span>
+                <select
+                  value={comercialFilter}
+                  onChange={(e) => setComercialFilter(e.target.value)}
+                  className="h-8 rounded border border-gray-300 px-2 text-sm text-gray-700 focus:border-orange-400 focus:outline-none"
+                >
+                  <option value="todos">Todos</option>
+                  {comerciales.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-gray-500">Estado del pago</span>
                 <div className="flex gap-1">
@@ -761,6 +793,16 @@ export function ObrasTerminadasTable({
                 state={filtroFechaEquipo}
                 onChange={setFiltroFechaEquipo}
               />
+              <div className="flex flex-col gap-1 min-w-[260px]">
+                <span className="text-xs font-semibold text-gray-500">Instaladores (uno o varios)</span>
+                <Input
+                  placeholder="Ej: Juan Pérez, Pedro López"
+                  value={instaladoresInput}
+                  onChange={(e) => setInstaladoresInput(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <span className="text-[11px] text-gray-400">Sepáralos por coma</span>
+              </div>
             </div>
           </div>
         )}
