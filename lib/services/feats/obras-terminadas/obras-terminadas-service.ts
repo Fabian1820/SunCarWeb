@@ -6,6 +6,7 @@ export interface ObraTerminada {
   oferta_id?: string | null;
   numero_oferta?: string | null;
   cliente_numero?: string | null;
+  cliente_nombre?: string | null;
   nombre_completo?: string | null;
   estado_cliente?: string | null;
   carnet_identidad?: string | null;

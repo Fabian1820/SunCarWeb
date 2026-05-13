@@ -828,8 +828,8 @@ export function ObrasTerminadasTable({
                       </TableCell>
                       <TableCell className="py-2.5 align-top">
                         <div className="flex flex-col gap-0.5">
-                          <span className="font-semibold text-sm leading-tight truncate" title={oferta.nombre_completo || "Sin cliente"}>
-                            {oferta.nombre_completo || "Sin cliente"}
+                          <span className="font-semibold text-sm leading-tight truncate" title={oferta.cliente_nombre || oferta.nombre_completo || "Sin cliente"}>
+                            {oferta.cliente_nombre || oferta.nombre_completo || "Sin cliente"}
                           </span>
                           <span className="text-xs text-gray-500 truncate" title={oferta.numero_oferta || "-"}>
                             {oferta.numero_oferta || "-"}
