@@ -608,7 +608,6 @@ export function ObrasTerminadasTable({
   const [estadoPago, setEstadoPago] = useState<"todos" | "pagado" | "pendiente">("todos")
   const [filtroFechaCliente, setFiltroFechaCliente] = useState<DateFilterState>(initialDateFilter)
   const [filtroFechaEquipo, setFiltroFechaEquipo] = useState<DateFilterState>(initialDateFilter)
-  const [instaladoresInput, setInstaladoresInput] = useState("")
   const [showFilters, setShowFilters] = useState(true)
 
   const getRowKey = (oferta: OfertaObra, index: number) =>
@@ -636,7 +635,6 @@ export function ObrasTerminadasTable({
     setEstadoPago("todos")
     setFiltroFechaCliente(initialDateFilter())
     setFiltroFechaEquipo(initialDateFilter())
-    setInstaladoresInput("")
     onServerFiltersChange({})
   }
 
@@ -646,17 +644,12 @@ export function ObrasTerminadasTable({
     estadoPago !== "todos",
     filtroFechaCliente.mode !== "off",
     filtroFechaEquipo.mode !== "off",
-    instaladoresInput.trim() !== "",
   ].filter(Boolean).length
 
   useEffect(() => {
     const t = setTimeout(() => {
       const fechaCreacion = getDateRangeParams(filtroFechaCliente)
       const fechaEquipo = getDateRangeParams(filtroFechaEquipo)
-      const instaladores = instaladoresInput
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
 
       onServerFiltersChange({
         q: searchTerm.trim() || undefined,
@@ -666,11 +659,10 @@ export function ObrasTerminadasTable({
         fecha_creacion_hasta: fechaCreacion.hasta,
         fecha_equipo_desde: fechaEquipo.desde,
         fecha_equipo_hasta: fechaEquipo.hasta,
-        instaladores: instaladores.length ? instaladores : undefined,
       })
     }, 250)
     return () => clearTimeout(t)
-  }, [searchTerm, comercialFilter, estadoPago, filtroFechaCliente, filtroFechaEquipo, instaladoresInput, onServerFiltersChange])
+  }, [searchTerm, comercialFilter, estadoPago, filtroFechaCliente, filtroFechaEquipo, onServerFiltersChange])
 
   const comerciales = useMemo(() => {
     const set = new Set<string>()
@@ -793,16 +785,6 @@ export function ObrasTerminadasTable({
                 state={filtroFechaEquipo}
                 onChange={setFiltroFechaEquipo}
               />
-              <div className="flex flex-col gap-1 min-w-[260px]">
-                <span className="text-xs font-semibold text-gray-500">Instaladores (uno o varios)</span>
-                <Input
-                  placeholder="Ej: Juan Pérez, Pedro López"
-                  value={instaladoresInput}
-                  onChange={(e) => setInstaladoresInput(e.target.value)}
-                  className="h-8 text-sm"
-                />
-                <span className="text-[11px] text-gray-400">Sepáralos por coma</span>
-              </div>
             </div>
           </div>
         )}
