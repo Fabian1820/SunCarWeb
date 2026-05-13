@@ -27,6 +27,8 @@ import {
   CalendarDays,
   FileText,
   Boxes,
+  Receipt,
+  Download,
 } from "lucide-react"
 import type { OfertaObra, OfertaDetalleObras } from "@/hooks/use-obras-terminadas"
 import type {
@@ -36,7 +38,9 @@ import type {
   ValeSalidaObra,
   ObrasTerminadasFiltros,
 } from "@/lib/services/feats/obras-terminadas/obras-terminadas-service"
+import type { Factura } from "@/lib/types/feats/facturas/factura-types"
 import { ExportComprobanteService } from "@/lib/services/feats/pagos/export-comprobante-service"
+import { ExportFacturaService } from "@/lib/services/feats/facturas/export-factura-service"
 import { cn } from "@/lib/utils"
 
 /* ─────────────────────────────────────────────
@@ -570,10 +574,165 @@ function ValesPanel({ vales }: { vales: ValeSalidaObra[] }) {
 }
 
 /* ─────────────────────────────────────────────
+   Panel: FACTURAS INSTALADORA
+───────────────────────────────────────────── */
+
+function FacturasPanel({ facturas, oferta }: { facturas: Factura[]; oferta: OfertaObra }) {
+  const [exportingPdf, setExportingPdf] = React.useState<string | null>(null)
+  const [exportingXlsx, setExportingXlsx] = React.useState<string | null>(null)
+
+  if (!facturas.length)
+    return <p className="text-center py-4 text-sm text-gray-500">No hay facturas de instaladora para esta oferta</p>
+
+  const handleExportPdf = async (factura: Factura) => {
+    const id = factura.id ?? factura.numero_factura
+    setExportingPdf(id ?? null)
+    try {
+      await ExportFacturaService.exportarFacturaPDF(factura, undefined, {
+        titular: "cliente",
+        cliente: {
+          nombre: oferta.nombre_completo ?? null,
+          carnet_identidad: oferta.carnet_identidad ?? null,
+          numero: oferta.cliente_numero ?? null,
+        },
+      })
+    } finally {
+      setExportingPdf(null)
+    }
+  }
+
+  const handleExportXlsx = async (factura: Factura) => {
+    const id = factura.id ?? factura.numero_factura
+    setExportingXlsx(id ?? null)
+    try {
+      await ExportFacturaService.exportarFacturaExcel(factura, undefined, {
+        titular: "cliente",
+        cliente: {
+          nombre: oferta.nombre_completo ?? null,
+          carnet_identidad: oferta.carnet_identidad ?? null,
+          numero: oferta.cliente_numero ?? null,
+        },
+      })
+    } finally {
+      setExportingXlsx(null)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {facturas.map((factura, idx) => {
+        const id = factura.id ?? factura.numero_factura ?? String(idx)
+        const totalItems = (factura.vales ?? []).reduce(
+          (s, v) => s + (v.items ?? []).reduce((si, it) => si + (it.cantidad ?? 0) * (it.precio ?? 0), 0),
+          0,
+        )
+        const total = factura.total ?? totalItems
+        const isPdfLoading = exportingPdf === id
+        const isXlsxLoading = exportingXlsx === id
+
+        return (
+          <div key={id} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+            {/* Cabecera de la factura */}
+            <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <Receipt className="h-4 w-4 text-slate-500 shrink-0" />
+                <div>
+                  <span className="font-semibold text-sm text-slate-800">{factura.numero_factura || `Factura ${idx + 1}`}</span>
+                  <span className="ml-3 text-xs text-slate-500">{fmtDate(factura.fecha_creacion ?? "")}</span>
+                </div>
+                <div className="flex gap-1.5 ml-2">
+                  {factura.anulada ? (
+                    <Badge className="bg-red-100 text-red-700 text-[11px]">Anulada</Badge>
+                  ) : factura.pagada ? (
+                    <Badge className="bg-green-100 text-green-700 text-[11px]">Pagada</Badge>
+                  ) : (
+                    <Badge className="bg-amber-100 text-amber-700 text-[11px]">Sin pagar</Badge>
+                  )}
+                  {!factura.anulada && (
+                    <Badge className={cn("text-[11px]", factura.terminada ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700")}>
+                      {factura.terminada ? "Terminada" : "En curso"}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-slate-900">{fmtCurrency(total)}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportPdf(factura)}
+                  disabled={isPdfLoading}
+                  className="h-7 px-2 text-xs gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  {isPdfLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleExportXlsx(factura)}
+                  disabled={isXlsxLoading}
+                  className="h-7 px-2 text-xs gap-1 border-green-400 text-green-700 hover:bg-green-50"
+                >
+                  {isXlsxLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Download className="h-3 w-3" />}
+                  Excel
+                </Button>
+              </div>
+            </div>
+
+            {/* Items de la factura */}
+            {(factura.vales ?? []).length > 0 ? (
+              <table className="w-full text-sm table-fixed">
+                <thead className="bg-slate-50/70 text-slate-500 border-b border-slate-100">
+                  <tr>
+                    <th className="w-[45%] text-left px-4 py-2 text-xs font-semibold">Descripción</th>
+                    <th className="w-[12%] text-center px-3 py-2 text-xs font-semibold">Cant.</th>
+                    <th className="w-[20%] text-right px-3 py-2 text-xs font-semibold">P. Unit.</th>
+                    <th className="w-[10%] text-center px-3 py-2 text-xs font-semibold">Vale</th>
+                    <th className="w-[13%] text-right px-4 py-2 text-xs font-semibold">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(factura.vales ?? []).flatMap((vale, vi) =>
+                    (vale.items ?? []).map((item, ii) => (
+                      <tr key={`${vi}-${ii}`} className="border-t border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-2 text-xs text-slate-800 break-words">{item.descripcion || item.codigo || "—"}</td>
+                        <td className="px-3 py-2 text-xs text-center tabular-nums">{item.cantidad ?? 0}</td>
+                        <td className="px-3 py-2 text-xs text-right tabular-nums">{fmtCurrency(item.precio ?? 0)}</td>
+                        <td className="px-3 py-2 text-xs text-center text-slate-400">{vale.id_vale_salida ? vale.id_vale_salida.slice(-6).toUpperCase() : "—"}</td>
+                        <td className="px-4 py-2 text-xs text-right font-medium tabular-nums">{fmtCurrency((item.cantidad ?? 0) * (item.precio ?? 0))}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200 bg-slate-50">
+                    <td colSpan={4} className="px-4 py-2 text-xs font-bold text-slate-700 text-right">Total factura:</td>
+                    <td className="px-4 py-2 text-sm font-bold text-slate-900 text-right tabular-nums">{fmtCurrency(total)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            ) : (
+              <p className="px-4 py-3 text-xs text-slate-400">Sin ítems en esta factura</p>
+            )}
+
+            {factura.anulada && factura.motivo_anulacion && (
+              <div className="px-4 py-2 bg-red-50 border-t border-red-100 text-xs text-red-600 italic">
+                Motivo anulación: {factura.motivo_anulacion}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────
    Tipos de pestaña expandida
 ───────────────────────────────────────────── */
 
-type SectionTab = "materiales" | "pagos" | "trabajos" | "vales"
+type SectionTab = "materiales" | "pagos" | "trabajos" | "vales" | "facturas"
 
 /* ─────────────────────────────────────────────
    Componente principal
@@ -896,6 +1055,7 @@ export function ObrasTerminadasTable({
                                 { key: "pagos" as const, icon: <FileText className="h-3.5 w-3.5" />, label: "Pagos", count: detalle?.pagos?.length },
                                 { key: "trabajos" as const, icon: <Wrench className="h-3.5 w-3.5" />, label: "Trabajos Diarios", count: detalle?.trabajos?.length },
                                 { key: "vales" as const, icon: <Package className="h-3.5 w-3.5" />, label: "Vales", count: detalle?.vales?.length },
+                                { key: "facturas" as const, icon: <Receipt className="h-3.5 w-3.5" />, label: "Facturas Instaladora", count: detalle?.facturas?.length },
                               ]).map((t) => (
                                 <button
                                   key={t.key}
@@ -933,6 +1093,7 @@ export function ObrasTerminadasTable({
                                 {tab === "pagos" && <PagosPanel pagos={detalle?.pagos ?? []} oferta={oferta} />}
                                 {tab === "trabajos" && <TrabajosPanel trabajos={detalle?.trabajos ?? []} />}
                                 {tab === "vales" && <ValesPanel vales={detalle?.vales ?? []} />}
+                                {tab === "facturas" && <FacturasPanel facturas={detalle?.facturas ?? []} oferta={oferta} />}
                               </>
                             )}
                           </div>

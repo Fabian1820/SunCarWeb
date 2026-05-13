@@ -1,4 +1,7 @@
 import { apiRequest } from "@/lib/api-config";
+import type { Factura } from "@/lib/types/feats/facturas/factura-types";
+
+export type { Factura as FacturaInstaladora };
 
 /* ── Tipos: Lista principal ───────────────────────────────────────── */
 
@@ -114,6 +117,7 @@ export interface OfertaDetalleObras {
   pagos: PagoObra[];
   trabajos: TrabajoDiarioObra[];
   vales: ValeSalidaObra[];
+  facturas: Factura[];
 }
 
 /** @deprecated Usa OfertaDetalleObras — se mantiene por compatibilidad con el hook */
